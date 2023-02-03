@@ -1,0 +1,14 @@
+pipeline:
+  - reader.Reader
+  - processor.Processor
+  - fitter.Fitter
+  - processor.Processor
+  - writer.Writer
+  - fitter.Fitter
+  - writer.Writer
+
+reader.Reader:
+  fileName: data.csv
+
+writer.Writer:
+  fileName: data.out
