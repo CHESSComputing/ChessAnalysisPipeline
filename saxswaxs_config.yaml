@@ -1,0 +1,21 @@
+pipeline:
+  - reader.Reader:
+      fileName: map.yaml
+  - processor.MapProcessor:
+      title: map_title
+  - writer.NumpyWriter:
+      fileName: saxswaxs_raw.out
+  - processor.IntegrationProcessor:
+      poni_file: PIL5.poni
+      mask_file: PIL5.tif
+      radial_unit: q_A^-1
+      radial_range: [0.0, 0.21821]
+      radial_npt: 200
+  - writer.NumpyWriter:
+      fileName: saxswaxs_integrated.out
+  - processor.CorrectionProcessor:
+      correction_type: flux
+      presample_intensity: ic3
+      dwell_time_actual: sec_2
+  - writer.NumpyWriter:
+      fileName: saxswaxs_corrected.out

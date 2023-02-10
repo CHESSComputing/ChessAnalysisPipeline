@@ -46,18 +46,18 @@ def runner(opts):
         config = yaml.safe_load(file)
     print(f"config {config}")
     # config {'pipeline': ['reader.Reader', 'processor.Processor', 'fitter.Fitter', 'processor.Processor', 'writer.Writer', 'fitter.Fitter', 'writer.Writer'], 'reader.Reader': {'fileName': 'config.yaml'}}
+    pipeline_config = config.get('pipeline', [])
     objects = []
-    kwds = {}
-    for name in config.get('pipeline', []):
+    for item in pipeline_config:
         # load individual object with given name from its module
+        name = list(item.keys())[0]
         modName, clsName = name.split('.')
         module = __import__(modName)
-        obj = getattr(module, clsName)()
+        kwargs = item[name]
+        obj = getattr(module, clsName)(**kwargs)
         print(f"loaded {obj} from {name} type={type(obj)}")
         objects.append(obj)
-        if name in config:
-            kwds[name] = config[name]
-    pipeline = Pipeline(objects, kwds)
+    pipeline = Pipeline(objects)
     pipeline.execute()
 
 

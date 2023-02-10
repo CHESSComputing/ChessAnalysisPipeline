@@ -14,16 +14,13 @@ class Pipeline():
     """
     Pipeline represent generic Pipeline class
     """
-    def __init__(self, items=None, kwds=None):
+    def __init__(self, items=None):
         """
         Pipeline class constructor
         
         :param items: list of objects
-        :param kwds: list of parameters for individual objects
         """
         self.items = items
-        self.kwds = kwds
-        print("### kwds", kwds)
 
     def execute(self):
         """
@@ -33,13 +30,8 @@ class Pipeline():
         for item in self.items:
             print(f"execute {item} of name: {item.__name__}")
             if hasattr(item, 'read'):
-                fileName = None
-                for key, val in self.kwds.items():
-                    print(f"### key={key} val={val} item={item.__name__}")
-                    if item.__name__ in key and isinstance(val, dict):
-                        fileName = val.get('fileName', None)
-                print(f"### call item.read from {item} with fileName={fileName}")
-                data = item.read(fileName)
+                print(f"### call item.read from {item}")
+                data = item.read()
             if hasattr(item, 'process'):
                 print(f"### call item.process from {item} with data={data}")
                 data = item.process(data)
@@ -47,13 +39,8 @@ class Pipeline():
                 print(f"### call item.fit from {item} with data={data}")
                 data = item.fit(data)
             if hasattr(item, 'write'):
-                fileName = None
-                for key, val in self.kwds.items():
-                    print(f"### key={key} val={val} item={item.__name__}")
-                    if item.__name__ in key and isinstance(val, dict):
-                        fileName = val.get('fileName', None)
-                print(f"### call item.write from {item} with data={data} fileName={fileName}")
-                data = item.write(data, fileName)
+                print(f"### call item.write from {item} with data={data}")
+                data = item.write(data)
 
 
 class PipelineObject():
