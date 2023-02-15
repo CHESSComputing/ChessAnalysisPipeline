@@ -1,6 +1,6 @@
 pipeline:
   - reader.YAMLReader:
-      filename: saxswaxs_data/map_1d.yaml
+      filename: map_1d.yaml
   - processor.MapProcessor
   - writer.NexusWriter:
       filename: saxswaxs_maponly.nxs
