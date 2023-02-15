@@ -1,0 +1,10 @@
+name: ChessPipeline
+channels:
+  - defaults
+  - conda-forge
+  # - file://path/to/custom/msnctools/channel # path is on the CLASSE filesystem.
+dependencies:
+  - msnctools==2023.1.*
+  - xarray==2023.2.0
+  - nexusformat==0.7.8
+  - pydantic==1.10.4

@@ -1,0 +1,22 @@
+title: test_1d
+station: id3b
+sample:
+  name: sample_14_align
+spec_scans:
+- spec_file: saxswaxs_data/test_1d
+  scan_numbers:
+  - 1
+independent_dimensions:
+- label: samx
+  units: mm
+  data_type: spec_motor
+  name: samx
+presample_intensity:
+  data_type: scan_column
+  name: ic3
+dwell_time_actual:
+  data_type: scan_column
+  name: sec_2
+postsample_intensity:
+  data_type: scan_column
+  name: diode

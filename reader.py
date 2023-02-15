@@ -5,6 +5,7 @@ Description: generic Reader module
 """
 
 # system modules
+import yaml
 
 # local modules
 # from pipeline import PipelineObject
@@ -39,6 +40,9 @@ class Reader():
 class YAMLReader(Reader):
     def read(self, filename):
         print(f'read from {filename} & return data.')
+        with open(filename) as file:
+            data = yaml.safe_load(file)
+        return(data)
 
 class NexusReader(Reader):
     def read(self, filename):
