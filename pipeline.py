@@ -14,33 +14,36 @@ class Pipeline():
     """
     Pipeline represent generic Pipeline class
     """
-    def __init__(self, items=None):
+    def __init__(self, items=None, kwds=None):
         """
         Pipeline class constructor
         
         :param items: list of objects
+        :param kwds: list of method args for individual objects
         """
         self.items = items
+        self.kwds = kwds
+        print("### kwds", kwds)
 
     def execute(self):
         """
         execute API
         """
         data = None
-        for item in self.items:
+        for item, kwargs in zip(self.items, self.kwds):
             print(f"execute {item} of name: {item.__name__}")
             if hasattr(item, 'read'):
-                print(f"### call item.read from {item}")
-                data = item.read()
+                print(f"### call item.read from {item} with data={data} kwargs={kwargs}")
+                data = item.read(**kwargs)
             if hasattr(item, 'process'):
-                print(f"### call item.process from {item} with data={data}")
-                data = item.process(data)
+                print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
+                data = item.process(data, **kwargs)
             if hasattr(item, 'fit'):
-                print(f"### call item.fit from {item} with data={data}")
-                data = item.fit(data)
+                print(f"### call item.fit from {item} with data={data} kwargs={kwargs}")
+                data = item.fit(data, **kwargs)
             if hasattr(item, 'write'):
-                print(f"### call item.write from {item} with data={data}")
-                data = item.write(data)
+                print(f"### call item.write from {item} with data={data} kwargs={kwargs}")
+                data = item.write(data, **kwargs)
 
 
 class PipelineObject():
@@ -56,17 +59,17 @@ class PipelineObject():
         self.processor = processor
         self.fitter = self.fitter
 
-    def read(self, fileName):
+    def read(self, filename):
         """
         read object API
         """
-        return self.reader.read(fileName)
+        return self.reader.read(filename)
 
-    def write(self, data, fileName):
+    def write(self, data, filename):
         """
         write object API
         """
-        return self.writer.write(data, fileName)
+        return self.writer.write(data, filename)
 
     def process(self, data):
         """
