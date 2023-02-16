@@ -35,11 +35,13 @@ class Writer():
         return(data)
 
 class NexusWriter(Writer):
-    def write(self, data, filename):
+    def write(self, data, filename, force_overwrite=False):
         '''Write `data` to a NeXus file
 
         :param data: the data to write to `filename`.
         :param filename: name of the file to write to.
+        :param force_overwrite: flag to allow data in `filename` to be
+            overwritten, if it already exists. 
         :return: the original input data
         '''
         
@@ -58,7 +60,9 @@ class NexusWriter(Writer):
             print(f'{self.__name__}.write: unknown data format {type(data)}')
             raise(TypeError(f'{self.__name__}.write: unknown data format: {type(data).__name__}'))
 
-        nxstructure.save(filename)
+        mode = 'w' if force_overwrite else 'w-'
+        nxstructure.save(filename, mode=mode)
+
         return(data)
 
 
