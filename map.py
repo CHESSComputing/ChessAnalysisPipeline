@@ -1,4 +1,4 @@
-from functools import cache
+from functools import cache, lru_cache
 import os
 from typing import Literal, Optional, Union
 
@@ -105,6 +105,22 @@ class SpecScans(BaseModel):
             coordinate_index = list(map_config.coords[independent_dimension.label]).index(independent_dimension.get_value(self, scan_number, scan_step_index))
             index = (coordinate_index, *index)
         return(index)
+    def get_detector_data(self, detectors:list, scan_number:int, scan_step_index:int):
+        """
+        Return the raw data from the specified detectors at the specified scan
+        number and scan step index.
+
+        :param detectors: List of detector prefixes to get raw data for
+        :type detectors: list[str]
+        :param scan_number: Scan number to get data for
+        :type scan_number: int
+        :param scan_step_index: Scan step index to get data for
+        :type scan_step_index: int
+        :return: Data from the specified detectors for the specified scan number
+            and scan step index
+        :rtype: list[np.ndarray]
+        """
+        return(get_detector_data(tuple([detector.prefix for detector in detectors]), self.spec_file, scan_number, scan_step_index))
 @cache
 def get_available_scan_numbers(spec_file:str):
     scans = FileSpec(spec_file).scans
@@ -116,6 +132,14 @@ def get_scanparser(spec_file:str, scan_number:int):
         return(None)
     else:
         return(ScanParser(spec_file, scan_number))
+@lru_cache(maxsize=10)
+def get_detector_data(detector_prefixes:tuple, spec_file:str, scan_number:int, scan_step_index:int):
+    detector_data = []
+    scanparser = get_scanparser(spec_file, scan_number)
+    for prefix in detector_prefixes:
+        image_data = scanparser.get_detector_data(prefix, scan_step_index)
+        detector_data.append(image_data)
+    return(detector_data)
 
 class PointByPointScanData(BaseModel):
     """Class representing a source of raw scalar-valued data for which a value

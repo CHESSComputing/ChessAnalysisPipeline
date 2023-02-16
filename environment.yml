@@ -8,3 +8,4 @@ dependencies:
   - xarray==2023.2.0
   - nexusformat==0.7.8
   - pydantic==1.10.4
+  - pyfai==2023.1.0

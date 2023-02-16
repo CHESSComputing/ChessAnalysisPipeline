@@ -1,0 +1,18 @@
+tool_type: integration
+title: waxs_azimuthal
+integration_type: azimuthal
+detectors:
+- prefix: PIL9
+  poni_file: saxswaxs_data/PIL9.poni
+  mask_file: saxswaxs_data/PIL9.tif
+- prefix: PIL11
+  poni_file: saxswaxs_data/PIL11.poni
+  mask_file: saxswaxs_data/PIL11.tif
+radial_units: q_A^-1
+radial_min: 0.0
+radial_max: 3.33209
+radial_npt: 200
+azimuthal_units: chi_deg
+azimuthal_min: 100.0
+azimuthal_max: 360.0
+azimuthal_npt: 180

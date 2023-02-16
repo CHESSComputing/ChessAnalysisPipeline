@@ -14,6 +14,7 @@ import xarray as xr
 # local modules
 # from pipeline import PipelineObject
 from map import MapConfig
+from integration import IntegrationConfig
 
 class Processor():
     """
@@ -110,3 +111,107 @@ class MapProcessor(Processor):
                         data_vars[data.label][1][map_index] = data.get_value(scans, scan_number, scan_step_index)
 
         return(data_vars)
+
+
+class IntegrationProcessor(Processor):
+    '''Class representing a process that takes a map of 2D detector data and
+    generates a map of integrated data.'''
+
+    def process(self, data):
+        '''Process an integration configuration & return a map of integrated
+        data.
+
+        :param data: input map & integration configurations, as returned from
+            MultipleReader.read().
+        :type data: list[tuple[str,object]]
+        :return: map of integrated data
+        :rtype: xr.DataArray
+        '''
+
+        map_config, integration_config = self.get_configs(data)
+
+
+        integrated_data = xr.DataArray(data=self.get_data(map_config, integration_config),
+                                       coords=self.get_coords(map_config, integration_config),
+                                       attrs={'units':'Intensity (a.u)',
+                                              'map_config': dict(map_config),
+                                              'integration_config': dict(integration_config)},
+                                       name=integration_config.title)
+
+        return(integrated_data)
+
+    def get_configs(self, data):
+        '''Return valid instances of `MapConfig` and `IntegrationConfig` from the
+        input supplied by `MultipleReader`.
+
+        :param data: input data
+        :type data: list[tuple[str,object]]
+        :raises ValueError: if `data` cannot be parsed into map and integration configurations.
+        :return: valid map and integration configuration objects.
+        :rtype: tuple[MapConfig, IntegrationConfig]
+        '''
+
+        print(f'{self.__name__}: Get map and integration configurations')
+
+        map_config = False
+        integration_config = False
+        for d in data:
+            if d[0] == 'map_config':
+                map_config = MapConfig(**d[1])
+            elif d[0] == 'integration_config':
+                integration_config = IntegrationConfig(**d[1])
+
+        if map_config and integration_config:
+            integration_config.validate_for_map_config(map_config)
+            return(map_config, integration_config)
+        else:
+            raise(ValueError(f'{self.__name__}: input data cannot be parsed into map and integration configurations.'))
+
+    def get_data(self, map_config, integration_config):
+        '''Get a numpy array of integrated data for the map and integration
+        configurations provided.
+
+        :param map_config: a valid map configuraion
+        :type map_config: MapConfig
+        :param integration_confg: a valid integration configuration
+        :type integration_config: IntegrationConfig
+        :return: an array of the integrated data specified by `map_config` and `integration_config`
+        :rtype: np.ndarray
+        '''
+        
+        print(f'{self.__name__}: Get map of integrated data')
+        data = np.empty((*map_config.shape, *integration_config.integrated_data_shape))
+        
+        for scans in map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    map_index = scans.get_index(scan_number, scan_step_index, map_config)
+                    data[map_index] = integration_config.get_integrated_data(scans, scan_number, scan_step_index)
+
+        return(data)
+
+    def get_coords(self, map_config, integration_config):
+        '''Get a dictionary of coordinates for navigating the map's integrated
+        detector intensities.
+
+        :param map_config: a valid map configuraion
+        :type map_config: MapConfig
+        :param integration_confg: a valid integration configuration
+        :type integration_config: IntegrationConfig
+        :return: a dictionary of coordinate names & values over the map's
+            integrated detector data
+        :rtype: dict[str,np.ndarray]
+        '''
+
+        print(f'{self.__name__}: Get coordinates for map of integrated data')
+        coords = {}
+
+        for dim in map_config.independent_dimensions[::-1]:
+            coords[dim.label] = (dim.label, map_config.coords[dim.label], dict(dim))
+        
+        for direction,values in integration_config.integrated_data_coordinates.items():
+            #coord = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
+            coords[direction] = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
+
+        return(coords)
