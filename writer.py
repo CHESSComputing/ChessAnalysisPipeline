@@ -46,16 +46,19 @@ class NexusWriter(Writer):
         print(f'Write data to {filename}')
         
         if isinstance(data, NXobject):
-            nxstructure = datadata.save(fileanme)
+            nxstructure = data
 
         elif isinstance(data, xr.Dataset):
             nxstructure = self.get_nxdata_from_dataset(data)
 
         elif isinstance(data, xr.DataArray):
             nxstructure = self.get_nxdata_from_dataarray(data)
+        
+        else:
+            print(f'{self.__name__}.write: unknown data format {type(data)}')
+            raise(TypeError(f'{self.__name__}.write: unknown data format: {type(data).__name__}'))
 
         nxstructure.save(filename)
-
         return(data)
 
 
