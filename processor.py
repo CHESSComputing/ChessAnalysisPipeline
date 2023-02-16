@@ -134,8 +134,8 @@ class IntegrationProcessor(Processor):
         integrated_data = xr.DataArray(data=self.get_data(map_config, integration_config),
                                        coords=self.get_coords(map_config, integration_config),
                                        attrs={'units':'Intensity (a.u)',
-                                              'map_config': dict(map_config),
-                                              'integration_config': dict(integration_config)},
+                                              'map_config': map_config.dict(),
+                                              'integration_config': integration_config.dict()},
                                        name=integration_config.title)
 
         return(integrated_data)
@@ -157,10 +157,17 @@ class IntegrationProcessor(Processor):
         integration_config = False
         for d in data:
             if d[0] == 'map_config':
-                map_config = MapConfig(**d[1])
+                if isinstance(d[1], (xr.DataArray, xr.Dataset)):
+                    map_config = MapConfig(**d[1].attrs)
+                elif isinstance(d[1], dict):
+                    map_config = MapConfig(**d[1])
+                else:
+                    raise(TypeError(f'{self.__name__}: unrecognized type for map configuration parameters: {type(d[1]).__name__}'))
             elif d[0] == 'integration_config':
-                integration_config = IntegrationConfig(**d[1])
-
+                if isinstance(d[1], dict):
+                    integration_config = IntegrationConfig(**d[1])
+                else:
+                    raise(TypeError(f'{self.__name__}: unrecognized type for integration configuration parameters: {type(d[1]).__name__}'))
         if map_config and integration_config:
             integration_config.validate_for_map_config(map_config)
             return(map_config, integration_config)

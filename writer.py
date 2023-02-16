@@ -5,6 +5,7 @@ Description: generic Writer module
 """
 
 # system modules
+import json
 from nexusformat.nexus import NXdata, NXfield, NXobject
 import xarray as xr
 
@@ -97,6 +98,7 @@ class NexusWriter(Writer):
             nxdata_args['axes'] = (*nxdata_args['axes'], nxfield)
 
         nxdata = NXdata(**nxdata_args)
+        nxdata.attrs['xarray_attrs'] = json.dumps(dset.attrs)
 
         return(nxdata)
 
@@ -124,5 +126,6 @@ class NexusWriter(Writer):
             nxdata_args['axes'] = (*nxdata_args['axes'], nxfield)
 
         nxdata = NXdata(**nxdata_args)
+        nxdata.attrs['xarray_attrs'] = json.dumps(darr.attrs)
 
         return(nxdata)
