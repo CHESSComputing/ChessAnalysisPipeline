@@ -50,6 +50,7 @@ class MapProcessor(Processor):
         :param data: Map configuration parameters
         :type data: dict
         :return: Map data & metadata (SPEC only, no detector)
+        :rtype: xarray.Dataset
         '''
 
         print('MapProcessor.process: construct xr.Dataset with proper shape & metadata.')
@@ -124,14 +125,13 @@ class IntegrationProcessor(Processor):
         data.
 
         :param data: input map & integration configurations, as returned from
-            MultipleReader.read().
+            `MultipleReader.read`
         :type data: list[tuple[str,object]]
         :return: map of integrated data
         :rtype: xr.DataArray
         '''
 
         map_config, integration_config = self.get_configs(data)
-
 
         integrated_data = xr.DataArray(data=self.get_data(map_config, integration_config),
                                        coords=self.get_coords(map_config, integration_config),
