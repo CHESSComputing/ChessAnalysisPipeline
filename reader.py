@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -5,6 +6,7 @@ Description: generic Reader module
 """
 
 # system modules
+import argparse
 import json
 from nexusformat.nexus import nxload, NXfield
 import sys
@@ -109,3 +111,31 @@ class NexusReader(Reader):
 
         dset = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
         return(dset)
+
+
+class OptionParser():
+    '''User based option parser'''
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(prog='PROG')
+        self.parser.add_argument("--filename", action="store",
+            dest="filename", default="", help="Input file")
+        self.parser.add_argument("--reader", action="store",
+            dest="reader", default="Reader", help="Reader class name")
+
+def main():
+    '''Main function'''
+    optmgr  = OptionParser()
+    opts = optmgr.parser.parse_args()
+    clsName = opts.reader
+    try:
+        readerCls = getattr(sys.modules[__name__],clsName)
+    except:
+        print(f'Unsupported reader {clsName}')
+        sys.exit(1)
+
+    reader = readerCls()
+    data = reader.read(opts.filename)
+    print(f"Reader {reader} reads from {opts.filename}, data {data}")
+
+if __name__ == '__main__':
+    main()

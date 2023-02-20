@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -5,8 +6,10 @@ Description: generic Writer module
 """
 
 # system modules
+import argparse
 import json
 from nexusformat.nexus import NXdata, NXfield, NXobject
+import sys
 import xarray as xr
 
 # local modules
@@ -23,7 +26,7 @@ class Writer():
         """
         self.__name__ = self.__class__.__name__
 
-    def write(self, data):
+    def write(self, data, filename):
         """
         write API
 
@@ -129,3 +132,33 @@ class NexusWriter(Writer):
         nxdata.attrs['xarray_attrs'] = json.dumps(darr.attrs)
 
         return(nxdata)
+
+
+class OptionParser():
+    '''User based option parser'''
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(prog='PROG')
+        self.parser.add_argument("--data", action="store",
+            dest="data", default="", help="Input data")
+        self.parser.add_argument("--filename", action="store",
+            dest="filename", default="", help="Output file")
+        self.parser.add_argument("--writer", action="store",
+            dest="writer", default="Writer", help="Writer class name")
+
+def main():
+    '''Main function'''
+    optmgr  = OptionParser()
+    opts = optmgr.parser.parse_args()
+    clsName = opts.writer
+    try:
+        writerCls = getattr(sys.modules[__name__],clsName)
+    except:
+        print(f'Unsupported writer {clsName}')
+        sys.exit(1)
+
+    writer = writerCls()
+    data = writer.write(opts.data, opts.filename)
+    print(f"Writer {writer} writes to {opts.filename}, data {data}")
+
+if __name__ == '__main__':
+    main()

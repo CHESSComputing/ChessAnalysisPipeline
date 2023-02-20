@@ -8,7 +8,9 @@ Description: Processor module
 """
 
 # system modules
+import argparse
 import numpy as np
+import sys
 import xarray as xr
 
 # local modules
@@ -222,3 +224,30 @@ class IntegrationProcessor(Processor):
             coords[direction] = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
 
         return(coords)
+
+class OptionParser():
+    '''User based option parser'''
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(prog='PROG')
+        self.parser.add_argument("--data", action="store",
+            dest="data", default="", help="Input data")
+        self.parser.add_argument("--processor", action="store",
+            dest="processor", default="Processor", help="Processor class name")
+
+def main():
+    '''Main function'''
+    optmgr  = OptionParser()
+    opts = optmgr.parser.parse_args()
+    clsName = opts.processor
+    try:
+        processorCls = getattr(sys.modules[__name__],clsName)
+    except:
+        print(f'Unsupported processor {clsName}')
+        sys.exit(1)
+
+    processor = processorCls()
+    data = processor.process(opts.data)
+    print(f"Processor {processor} operates on data {data}")
+
+if __name__ == '__main__':
+    main()
