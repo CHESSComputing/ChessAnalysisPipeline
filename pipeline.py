@@ -38,9 +38,6 @@ class Pipeline():
             if hasattr(item, 'process'):
                 print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
                 data = item.process(data, **kwargs)
-            if hasattr(item, 'fit'):
-                print(f"### call item.fit from {item} with data={data} kwargs={kwargs}")
-                data = item.fit(data, **kwargs)
             if hasattr(item, 'write'):
                 print(f"### call item.write from {item} with data={data} kwargs={kwargs}")
                 data = item.write(data, **kwargs)
@@ -57,7 +54,6 @@ class PipelineObject():
         self.reader = reader
         self.writer = writer
         self.processor = processor
-        self.fitter = self.fitter
 
     def read(self, filename):
         """
@@ -77,8 +73,3 @@ class PipelineObject():
         """
         return self.processor.process(data)
 
-    def fit(self, data):
-        """
-        fit object API
-        """
-        return self.fitter.fit(data)
