@@ -46,17 +46,23 @@ class MultipleReader(Reader):
     def read(self, readers):
         '''Return resuts from multiple `Reader`s.
 
-        :param readers: a list where each item is a tuple representing (in order)
-            the name of the reader, the specific type of the `Reader`, and a
-            dictionary of arguments to pass as keywords to that `Reader`'s `read`
-            method (usually: `{"filename": "<filename>"}`).
-        :type readers: list[tuple[str,Reader,dict[str,str]]]
-        :return: The results of calling `Reader.read(**kwargs)` for each item in
-            `readers`.
-        :rtype: list[tuple(str,object)]
+        :param readers: a dictionary where the keys are specific names that are
+            used by the next item in the `Pipeline`, and the values are `Reader`
+            cconfigurations.
+        :type readers: dict[str, dict]
+        :return: The results of calling `Reader.read(**kwargs)` for each item
+            configured in `readers`.
+        :rtype: dict[str,object]
         '''
+        data = {}
+        for k,v in readers.items():
+            reader_name = list(v.keys())[0]
+            reader_class = getattr(sys.modules[__name__], reader_name)
+            reader = reader_class()
+            reader_kwargs = v[reader_name]
 
-        data = [(r[0], getattr(sys.modules[__name__],r[1])().read(**r[2])) for r in readers]
+            data[k] = reader.read(**reader_kwargs)
+
         return(data)
 
 class YAMLReader(Reader):

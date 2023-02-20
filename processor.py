@@ -126,7 +126,7 @@ class IntegrationProcessor(Processor):
 
         :param data: input map & integration configurations, as returned from
             `MultipleReader.read`
-        :type data: list[tuple[str,object]]
+        :type data: dict[typing.Literal['map_config','integration_config'],object]
         :return: map of integrated data
         :rtype: xr.DataArray
         '''
@@ -147,7 +147,7 @@ class IntegrationProcessor(Processor):
         input supplied by `MultipleReader`.
 
         :param data: input data
-        :type data: list[tuple[str,object]]
+        :type data: dict[typing.Literal['map_config','integration_config'],object]
         :raises ValueError: if `data` cannot be parsed into map and integration configurations.
         :return: valid map and integration configuration objects.
         :rtype: tuple[MapConfig, IntegrationConfig]
@@ -157,19 +157,19 @@ class IntegrationProcessor(Processor):
 
         map_config = False
         integration_config = False
-        for d in data:
-            if d[0] == 'map_config':
-                if isinstance(d[1], (xr.DataArray, xr.Dataset)):
-                    map_config = MapConfig(**d[1].attrs)
-                elif isinstance(d[1], dict):
-                    map_config = MapConfig(**d[1])
+        for k,v in data.items():
+            if k == 'map_config':
+                if isinstance(v, (xr.DataArray, xr.Dataset)):
+                    map_config = MapConfig(**v.attrs)
+                elif isinstance(v, dict):
+                    map_config = MapConfig(**v)
                 else:
-                    raise(TypeError(f'{self.__name__}: unrecognized type for map configuration parameters: {type(d[1]).__name__}'))
-            elif d[0] == 'integration_config':
-                if isinstance(d[1], dict):
-                    integration_config = IntegrationConfig(**d[1])
+                    raise(TypeError(f'{self.__name__}: unrecognized type for map configuration parameters: {type(v).__name__}'))
+            elif k == 'integration_config':
+                if isinstance(v, dict):
+                    integration_config = IntegrationConfig(**v)
                 else:
-                    raise(TypeError(f'{self.__name__}: unrecognized type for integration configuration parameters: {type(d[1]).__name__}'))
+                    raise(TypeError(f'{self.__name__}: unrecognized type for integration configuration parameters: {type(v).__name__}'))
         if map_config and integration_config:
             integration_config.validate_for_map_config(map_config)
             return(map_config, integration_config)
@@ -220,7 +220,6 @@ class IntegrationProcessor(Processor):
             coords[dim.label] = (dim.label, map_config.coords[dim.label], dict(dim))
         
         for direction,values in integration_config.integrated_data_coordinates.items():
-            #coord = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
             coords[direction] = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
 
         return(coords)

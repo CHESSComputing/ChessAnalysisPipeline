@@ -6,8 +6,12 @@ pipeline:
       filename: saxswaxs_maponly.nxs
   - reader.MultipleReader:
       readers:
-        - [ map_config, YAMLReader, {filename: map_1d.yaml}]
-        - [ integration_config, YAMLReader, {filename: integration_saxs_azimuthal.yaml}]
+        map_config:
+          NexusReader:
+            filename: saxswaxs_map.nxs
+        integration_config:
+          YAMLReader:
+            filename: integration_saxs_azimuthal.yaml
   - processor.IntegrationProcessor
   - writer.NexusWriter:
       filename: saxs_azimuthal_integrated.nxs
