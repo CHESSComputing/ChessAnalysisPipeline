@@ -9,8 +9,10 @@ Description: generic Writer module
 import argparse
 import json
 from nexusformat.nexus import NXdata, NXfield, NXobject
+import os
 import sys
 import xarray as xr
+import yaml
 
 # local modules
 # from pipeline import PipelineObject
@@ -36,6 +38,36 @@ class Writer():
         """
         with open(filename, 'a') as file:
             file.write(data)
+        return(data)
+
+class YAMLWriter(Writer):
+    def write(self, data, filename, force_overwrite=False):
+        '''If `data` is a `dict`, write it to `filename`.
+
+        :param data: the dictionary to write to `filename`.
+        :type data: dict
+        :param filename: name of the file to write to.
+        :type filename: str
+        :param force_overwrite: flag to allow data in `filename` to be
+            overwritten if it already exists.
+        :type force_overwrite: bool
+        :raises TypeError: if `data` is not a `dict`
+        :raises RuntimeError: if `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: the original input data
+        :rtype: dict
+        '''
+
+        if not isinstance(data, dict):
+            raise(TypeError(f'{self.__name__}.write: input data must be a dict.'))
+
+        if not force_overwrite:
+            if os.path.isfile(filename):
+                raise(RuntimeError(f'{self.__name__}: {filename} already exists.'))
+
+        with open(filename, 'w') as outf:
+            yaml.dump(data, outf, sort_keys=False)
+
         return(data)
 
 class NexusWriter(Writer):

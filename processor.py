@@ -224,6 +224,73 @@ class IntegrationProcessor(Processor):
 
         return(coords)
 
+
+class MCACeriaCalibrationProcessor(Processor):
+    '''Class representing the procedure to use a CeO2 scan to obtain tuned values
+    for the bragg diffraction angle and linear correction parameters for MCA
+    channel energies for an EDD experimental setup.
+    '''
+
+    def process(self, data):
+        '''Return tuned values for 2&theta and linear correction parameters for
+        the MCA channel energies.
+
+        :param data: input configuration for the raw data & tuning procedure
+        :type data: dict
+        :return: dictionary of tuned values
+        :rtype: dict[str,float]
+        '''
+
+        print(f'{self.__name__}: tune 2theta & MCA energy correction parameters')
+
+        calibrated_values = {'tth_calibrated': 7.55,
+                             'slope_calibrated': 0.99,
+                             'intercept_calibrated': 0.01}
+        data['detector'].update(calibrated_values)
+        return(data)
+
+
+class MCADataProcessor(Processor):
+    '''Class representing a process to return data from a MCA, restuctured to
+    incorporate the shape & metadata associated with a map configuration to
+    which the MCA data belongs, and linearly transformed according to the
+    results of a ceria calibration.
+    '''
+
+    def process(self, data):
+        '''Process configurations for a map and MCA detector(s), and return the
+        raw MCA data collected over the map.
+
+        :param data: input map configuration and results of ceria calibration
+        :type data: dict[typing.Literal['map_config','ceria_calibration_results'],dict]
+        :return: calibrated MCA data
+        :rtype: xarray.Dataset
+        '''
+
+        print(f'{self.__name__}: gather MCA data into a map.')
+        return(data)
+
+class StrainAnalysisProcessor(Processor):
+    '''Class representing a process to compute a map of sample strains by fitting
+    bragg peaks in 1D detector data and analyzing the difference between measured
+    peak locations and expected peak locations for the sample measured.
+    '''
+
+    def process(self, data):
+        '''Process the input map detector data & configuration for the strain
+        analysis procedure, and return a map of sample strains.
+
+        :param data: input map detector data, ceria calibration results, and
+            strain analysis configuration
+        :type data: dict[typing.Literal['map_detector_data','ceria_calibration_results','strain_analysis_config'],object]
+        :return: map of sample strains
+        :rtype: xarray.Dataset
+        '''
+
+        print(f'{self.__name__}: compute sample strain map')
+        return(data)
+
+
 class OptionParser():
     '''User based option parser'''
     def __init__(self):
