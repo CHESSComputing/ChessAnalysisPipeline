@@ -1,0 +1,30 @@
+title: test_2d
+station: id1a3
+sample:
+  name: Ti_1_A-2
+spec_scans:
+- spec_file: sin2psi_data/Ti_1_A-2/spec.log
+  scan_numbers: [1,2,16,17]
+independent_dimensions:
+- label: samx
+  units: mm
+  data_type: spec_motor
+  name: samx
+- label: samy
+  units: mm
+  data_type: spec_motor
+  name: samy
+- label: chi
+  data_type: smb_par
+  name: chi
+  units: degrees
+- label: phi
+  data_type: smb_par
+  name: phi
+  units: degrees
+presample_intensity:
+  data_type: scan_column
+  name: u3ic5
+dwell_time_actual:
+  data_type: scan_column
+  name: usbsec

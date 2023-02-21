@@ -1,0 +1,38 @@
+pipeline:
+
+  # Collect map data
+  - reader.YAMLReader:
+      filename: sin2psi_config/map.yaml
+  - processor.MapProcessor
+  - writer.NexusWriter:
+      filename: sin2psi_data/map.nxs
+      force_overwrite: true
+
+  # Integrate map detector data
+  - reader.MultipleReader:
+      readers:
+        map_config:
+          NexusReader:
+            filename: sin2psi_data/map.nxs
+        integration_config:
+          YAMLReader:
+            filename: sin2psi_config/integration.yaml
+  - processor.IntegrationProcessor
+  - writer.NexusWriter:
+      filename: sin2psi_data/integrated_detector_data.nxs
+      force_overwrite: true
+
+  # Compute sample strain map
+  - reader.MultipleReader:
+      readers:
+        map_detector_data:
+          NexusReader:
+            filename: sin2psi_data/integrated_detector_data.nxs
+        strain_analysis_config:
+          YAMLReader:
+            filename: sin2psi_config/strain_analysis_config.yaml
+  - processor.StrainAnalysisProcessor
+  - writer.YAMLWriter:
+      filename: sin2psi_data/sample_strain_data.yaml
+      force_overwrite: true
+

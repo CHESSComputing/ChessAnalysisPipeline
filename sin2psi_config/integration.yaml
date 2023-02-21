@@ -1,0 +1,15 @@
+tool_type: integration
+title: saxs_azimuthal
+integration_type: azimuthal
+detectors:
+- prefix: EIG500
+  poni_file: sin2psi_data/EIG500.poni
+  mask_file: sin2psi_data/EIG500.tif
+radial_units: q_A^-1
+radial_min: 11.5
+radial_max: 17.0
+radial_npt: 800
+azimuthal_units: chi_deg
+azimuthal_min: 173.0
+azimuthal_max: 192.0
+azimuthal_npt: 180

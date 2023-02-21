@@ -1,0 +1,6 @@
+gutter: [[0,40],[350,1000]]
+material_name: Ti
+lattice_parameters: [2.9216, 4.67]
+energy_kev: 22.7
+half_width: 0.01
+max_chi: 0.003
