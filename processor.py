@@ -282,7 +282,7 @@ class StrainAnalysisProcessor(Processor):
 
         :param data: input map detector data, ceria calibration results, and
             strain analysis configuration
-        :type data: dict[typing.Literal['map_detector_data','ceria_calibration_results','strain_analysis_config'],object]
+        :type data: dict[typing.Literal['map_detector_data','strain_analysis_config'],object]
         :return: map of sample strains
         :rtype: xarray.Dataset
         '''

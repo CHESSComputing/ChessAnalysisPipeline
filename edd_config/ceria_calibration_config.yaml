@@ -1,0 +1,33 @@
+detector:
+  name: mca1
+  max_E: 150
+  num_bins: 2048
+  angle: 90
+  tth_initial_guess: 7.0
+  slope_initial_guess: 1.0
+  intercept_initial_guess: 0.0
+energy_range:
+- 54
+- 112
+lattice_parameters:
+- 5.41153
+material_file: materials.h5
+material_name: CeO2
+raw_folder: edd_data/
+sample_name: ceria_2222-2
+scan_index: 1
+selected_peaks:
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+- 12
+- 13
+tth_max: 90.0
+tth_tol: 0.15
+max_iter: 10

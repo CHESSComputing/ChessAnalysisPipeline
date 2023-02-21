@@ -1,0 +1,38 @@
+pipeline:
+
+  # Calibrate detector
+  - reader.YAMLReader:
+      filename: edd_config/ceria_calibration_config.yaml
+  - processor.MCACeriaCalibrationProcessor
+  - writer.YAMLWriter:
+      filename: edd_data/ceria_calibrated.yaml
+      force_overwrite: true
+
+  # Gather calibrated detector data
+  - reader.MultipleReader:
+      readers:
+        map_config:
+          YAMLReader:
+            filename: edd_config/map.yaml
+        ceria_calibration_results:
+          YAMLReader:
+            filename: edd_data/ceria_calibrated.yaml
+  - processor.MCADataProcessor
+  - writer.YAMLWriter:
+      filename: edd_data/map_detector_data.yaml
+      force_overwrite: true
+
+  # Compute sample strain map
+  - reader.MultipleReader:
+      readers:
+        map_detector_data:
+          YAMLReader:
+            filename: edd_data/map_detector_data.yaml
+        strain_analysis_config:
+          YAMLReader:
+            filename: edd_config/strain_analysis_config.yaml
+  - processor.StrainAnalysisProcessor
+  - writer.YAMLWriter:
+      filename: edd_data/map_strain_data.yaml
+      force_overwrite: true
+
