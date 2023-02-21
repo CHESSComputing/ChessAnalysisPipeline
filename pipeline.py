@@ -33,7 +33,7 @@ class Pipeline():
         for item, kwargs in zip(self.items, self.kwds):
             print(f"execute {item} of name: {item.__name__}")
             if hasattr(item, 'read'):
-                print(f"### call item.read from {item} with data={data} kwargs={kwargs}")
+                print(f"### call item.read from {item} with kwargs={kwargs}")
                 data = item.read(**kwargs)
             if hasattr(item, 'process'):
                 print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
