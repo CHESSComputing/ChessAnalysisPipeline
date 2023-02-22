@@ -27,20 +27,48 @@ class Reader():
         """
         self.__name__ = self.__class__.__name__
 
-    def read(self, filename):
-        """
-        read API
+    def read(self, type_=None, schema=None, **_read_kwargs):
+        '''Read API
+
+        Wrapper to read, format, and return the data requested.
+
+        :param type_: the expected type of data read from `filename`, defualts
+            to `None`
+        :type type_: type, optional
+        :param schema: the expected schema of the data read from `filename`,
+            defaults to `None`
+        :type schema: str, otional
+        :param _read_kwargs: keyword arguments to pass to `self._read`, defaults
+            to `{}`
+        :type _read_kwargs: dict, optional
+        :return: list with one item: a dictionary containing the data read from
+            `filename`, the name of this `Reader`, and the values of `type_` and
+            `schema`.
+        :rtype: list[dict[str,object]]
+        '''
+
+        print(f'_read_kwargs: {_read_kwargs}')
+        data = [{'name': self.__name__,
+                 'data': self._read(**_read_kwargs),
+                 'type': type_,
+                 'schema': schema}]
+
+        return(data)
+
+    def _read(self, filename):
+        '''Read and return the data from requested from `filename`
 
         :param filename: Name of file to read from
         :return: specific number of bytes from a file
-        """
+        '''
+
         if not filename:
             print(f"{self.__name__} no file name is given, will skip read operation")
             return None
 
         with open(filename) as file:
             data = file.read()
-        return data
+        return(data)
 
 class MultipleReader(Reader):
     def read(self, readers):
@@ -49,24 +77,25 @@ class MultipleReader(Reader):
         :param readers: a dictionary where the keys are specific names that are
             used by the next item in the `Pipeline`, and the values are `Reader`
             cconfigurations.
-        :type readers: dict[str, dict]
+        :type readers: list[dict]
         :return: The results of calling `Reader.read(**kwargs)` for each item
             configured in `readers`.
-        :rtype: dict[str,object]
+        :rtype: list[dict[str,object]]
         '''
-        data = {}
-        for k,v in readers.items():
-            reader_name = list(v.keys())[0]
+
+        data = []
+        for reader_config in readers:
+            reader_name = list(reader_config.keys())[0]
             reader_class = getattr(sys.modules[__name__], reader_name)
             reader = reader_class()
-            reader_kwargs = v[reader_name]
+            reader_kwargs = reader_config[reader_name]
 
-            data[k] = reader.read(**reader_kwargs)
+            data.extend(reader.read(**reader_kwargs))
 
         return(data)
 
 class YAMLReader(Reader):
-    def read(self, filename):
+    def _read(self, filename):
         '''Return a dictionary from the contents of a yaml file.
 
         :param filename: name of the YAML file to read from
@@ -80,7 +109,7 @@ class YAMLReader(Reader):
         return(data)
 
 class NexusReader(Reader):
-    def read(self, filename, nxpath='/'):
+    def _read(self, filename, nxpath='/'):
         '''Return an instance of `xarray.Dataset` representing the contents of
         the default `nexusformat.nexus.NXdata` object in `filename`.
 

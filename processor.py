@@ -45,10 +45,14 @@ class MapProcessor(Processor):
     configuration.'''
 
     def process(self, data):
-        '''Process a map configuration & return an `xarray.Dataset` of the proper shape.
+        '''Process a map configuration & return an `xarray.Dataset` of the proper
+        shape. If any scalar valued datasets are included in the map
+        configuration, their values over the map will be included as `data_vars`
+        in the returned `xarray.Dataset`.
         
-        :param data: Map configuration parameters
-        :type data: dict
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MapConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
         :return: Map data & metadata (SPEC only, no detector)
         :rtype: xarray.Dataset
         '''
@@ -61,30 +65,46 @@ class MapProcessor(Processor):
 
         processed_data = xr.Dataset(data_vars=self.get_data_vars(map_config),
                                     coords=self.get_coords(map_config),
-                                    attrs=data)
+                                    attrs=map_config.dict())
 
         return(processed_data)
 
     def get_map_config(self, data):
-        '''Get an instance of `MapConfig` from an input dictionary
+        '''Get an instance of `MapConfig` from a returned value of `Reader.read`
 
-        :param data: input to `MapConfig`'s constructor
-        :type data: dict
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MapConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
         :raises Exception: If a valid `MapConfig` cannot be constructed from `data`.
         :return: a valid instance of `MapConfig` with field values taken from `data`.
-        :rtype: MapConfig'''
+        :rtype: MapConfig
+        '''
 
-        print(f'{self.__name__}: get MapConfig from dict')
-        return(MapConfig(**data))
+        print(f'{self.__name__}: get MapConfig')
+
+        map_config = False
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    if item.get('schema') == 'MapConfig':
+                        map_config = item.get('data')
+                        break
+
+        if not map_config:
+            raise(ValueError('No map configuration found'))
+
+        return(MapConfig(**map_config))
         
     def get_coords(self, map_config):
-        '''Get a dictionary of the coordinates at which the map configuration collected data.
+        '''Get a dictionary of the coordinates at which the map configuration
+        collected data.
 
         :param map_config: a valid map configuraion
+        :type map_confg: MapConfig
         :return: a dictionary of coordinate names & values over the map
         :rtype: dict[str,np.ndarray]'''
 
-        print(f'{self.__name__}: return coords dict')
+        print(f'{self.__name__}: get coords dict')
 
         coords = {}
         for dim in map_config.independent_dimensions[::-1]:
@@ -99,11 +119,11 @@ class MapProcessor(Processor):
         :return: a dictionary of data labels & their values over the map
         :rtype: dict[str,np.ndarray]'''
 
-        print(f'{self.__name__}: construct data_vars dict')
+        print(f'{self.__name__}: get data_vars dict')
         
         data_vars = {data.label: (map_config.dims, 
                                   np.empty(map_config.shape),
-                                  dict(data)) for data in map_config.all_scalar_data}
+                                  data.dict()) for data in map_config.all_scalar_data}
         
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
@@ -127,6 +147,10 @@ class IntegrationProcessor(Processor):
         :param data: input map & integration configurations, as returned from
             `MultipleReader.read`
         :type data: dict[typing.Literal['map_config','integration_config'],object]
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MapConfig'` for the `'schema'` key, and at least one item has
+            the value `'IntegrationConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
         :return: map of integrated data
         :rtype: xr.DataArray
         '''
@@ -148,33 +172,36 @@ class IntegrationProcessor(Processor):
 
         :param data: input data
         :type data: dict[typing.Literal['map_config','integration_config'],object]
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MapConfig'` for the `'schema'` key, and at least one item has
+            the value `'IntegrationConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
         :raises ValueError: if `data` cannot be parsed into map and integration configurations.
         :return: valid map and integration configuration objects.
         :rtype: tuple[MapConfig, IntegrationConfig]
         '''
 
-        print(f'{self.__name__}: Get map and integration configurations')
+        print(f'{self.__name__}: get map and integration configurations')
 
         map_config = False
         integration_config = False
-        for k,v in data.items():
-            if k == 'map_config':
-                if isinstance(v, (xr.DataArray, xr.Dataset)):
-                    map_config = MapConfig(**v.attrs)
-                elif isinstance(v, dict):
-                    map_config = MapConfig(**v)
-                else:
-                    raise(TypeError(f'{self.__name__}: unrecognized type for map configuration parameters: {type(v).__name__}'))
-            elif k == 'integration_config':
-                if isinstance(v, dict):
-                    integration_config = IntegrationConfig(**v)
-                else:
-                    raise(TypeError(f'{self.__name__}: unrecognized type for integration configuration parameters: {type(v).__name__}'))
-        if map_config and integration_config:
-            integration_config.validate_for_map_config(map_config)
-            return(map_config, integration_config)
-        else:
-            raise(ValueError(f'{self.__name__}: input data cannot be parsed into map and integration configurations.'))
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    schema = item.get('schema')
+                    if schema == 'MapConfig':
+                        map_config = item.get('data')
+                    elif schema == 'IntegrationConfig':
+                        integration_config = item.get('data')
+
+        if not map_config:
+            raise(ValueError('No map configuration found'))
+        if not integration_config:
+            raise(ValueError('No integration configuration found'))
+
+        return(MapConfig(**map_config), IntegrationConfig(**integration_config))
+
+
 
     def get_data(self, map_config, integration_config):
         '''Get a numpy array of integrated data for the map and integration
@@ -217,7 +244,7 @@ class IntegrationProcessor(Processor):
         coords = {}
 
         for dim in map_config.independent_dimensions[::-1]:
-            coords[dim.label] = (dim.label, map_config.coords[dim.label], dict(dim))
+            coords[dim.label] = (dim.label, map_config.coords[dim.label], dim.dict())
         
         for direction,values in integration_config.integrated_data_coordinates.items():
             coords[direction] = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
@@ -243,11 +270,41 @@ class MCACeriaCalibrationProcessor(Processor):
 
         print(f'{self.__name__}: tune 2theta & MCA energy correction parameters')
 
+        calibration_config = self.get_config(data)
+
         calibrated_values = {'tth_calibrated': 7.55,
                              'slope_calibrated': 0.99,
                              'intercept_calibrated': 0.01}
-        data['detector'].update(calibrated_values)
-        return(data)
+        calibration_config['detector'].update(calibrated_values)
+        return(calibration_config)
+
+    def get_config(self, data):
+        '''Get an instance of the configuration object needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MCACeriaCalibrationConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If a valid config object cannot be constructed from `data`.
+        :return: a valid instance of a configuration object with field values
+            taken from `data`.
+        :rtype: MCACeriaCalibrationConfig
+        '''
+
+        print(f'{self.__name__}: get MCACeriaCalibrationConfig')
+
+        calibration_config = False
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    if item.get('schema') == 'MCACeriaCalibrationConfig':
+                        calibration_config = item.get('data')
+                        break
+
+        if not calibration_config:
+            raise(ValueError('No MCA ceria calibration configuration found in input data'))
+
+        return(calibration_config)
 
 
 class MCADataProcessor(Processor):
@@ -268,7 +325,45 @@ class MCADataProcessor(Processor):
         '''
 
         print(f'{self.__name__}: gather MCA data into a map.')
+
+        map_config, calibration_config = self.get_configs(data)
+
         return(data)
+
+    def get_configs(self, data):
+        '''Get instances of the configuration objects needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'MapConfig'` for the `'schema'` key, and at least one item has
+            the value `'MCACeriaCalibrationConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If valid config objects cannot be constructed from `data`.
+        :return: valid instances of the configuration objects with field values
+            taken from `data`.
+        :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
+        '''
+
+        print(f'{self.__name__}: get MCACeriaCalibrationConfig')
+
+        map_config = False
+        calibration_config = False
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    schema = item.get('schema')
+                    if schema == 'MapConfig':
+                        map_config = item.get('data')
+                    elif schema == 'MCACeriaCalibrationConfig':
+                        calibration_config = item.get('data')
+
+        if not map_config:
+            raise(ValueError('No map configuration found in input data'))
+        if not calibration_config:
+            raise(ValueError('No MCA ceria calibration configuration found in input data'))
+
+        return(MapConfig(**map_config), calibration_config)
+
 
 class StrainAnalysisProcessor(Processor):
     '''Class representing a process to compute a map of sample strains by fitting
@@ -280,15 +375,46 @@ class StrainAnalysisProcessor(Processor):
         '''Process the input map detector data & configuration for the strain
         analysis procedure, and return a map of sample strains.
 
-        :param data: input map detector data, ceria calibration results, and
-            strain analysis configuration
-        :type data: dict[typing.Literal['map_detector_data','strain_analysis_config'],object]
+        :param data: results of `MutlipleReader.read` containing input map
+            detector data and strain analysis configuration
+        :type data: dict[list[str,object]]
         :return: map of sample strains
         :rtype: xarray.Dataset
         '''
 
         print(f'{self.__name__}: compute sample strain map')
+
+        strain_analysis_config = self.get_config(data)
+
         return(data)
+
+    def get_config(self, data):
+        '''Get instances of the configuration objects needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item has the
+            value `'StrainAnalysisConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If valid config objects cannot be constructed from `data`.
+        :return: valid instances of the configuration objects with field values
+            taken from `data`.
+        :rtype: StrainAnalysisConfig
+        '''
+
+        print(f'{self.__name__}: get StrainAnalysisConfig')
+
+        strain_analysis_config = False
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    schema = item.get('schema')
+                    if item.get('schema') == 'StrainAnalysisConfig':
+                        strain_analysis_config = item.get('data')
+
+        if not strain_analysis_config:
+            raise(ValueError('No strain analysis configuration found in input data'))
+
+        return(strain_analysis_config)
 
 
 class OptionParser():

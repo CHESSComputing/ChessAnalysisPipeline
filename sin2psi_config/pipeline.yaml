@@ -3,6 +3,7 @@ pipeline:
   # Collect map data
   - reader.YAMLReader:
       filename: sin2psi_config/map.yaml
+      schema: MapConfig
   - processor.MapProcessor
   - writer.NexusWriter:
       filename: sin2psi_data/map.nxs
@@ -11,12 +12,12 @@ pipeline:
   # Integrate map detector data
   - reader.MultipleReader:
       readers:
-        map_config:
-          NexusReader:
-            filename: sin2psi_data/map.nxs
-        integration_config:
-          YAMLReader:
+        - YAMLReader:
+            filename: sin2psi_config/map.yaml
+            schema: MapConfig
+        - YAMLReader:
             filename: sin2psi_config/integration.yaml
+            schema: IntegrationConfig
   - processor.IntegrationProcessor
   - writer.NexusWriter:
       filename: sin2psi_data/integrated_detector_data.nxs
@@ -25,12 +26,11 @@ pipeline:
   # Compute sample strain map
   - reader.MultipleReader:
       readers:
-        map_detector_data:
-          NexusReader:
+        - NexusReader:
             filename: sin2psi_data/integrated_detector_data.nxs
-        strain_analysis_config:
-          YAMLReader:
+        - YAMLReader:
             filename: sin2psi_config/strain_analysis_config.yaml
+            schema: StrainAnalysisConfig
   - processor.StrainAnalysisProcessor
   - writer.YAMLWriter:
       filename: sin2psi_data/sample_strain_data.yaml
