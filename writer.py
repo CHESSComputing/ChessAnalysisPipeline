@@ -58,8 +58,8 @@ class YAMLWriter(Writer):
         :rtype: dict
         '''
 
-        if not isinstance(data, dict):
-            raise(TypeError(f'{self.__name__}.write: input data must be a dict.'))
+        if not isinstance(data, (dict, list)):
+            raise(TypeError(f'{self.__name__}.write: input data must be a dict or list.'))
 
         if not force_overwrite:
             if os.path.isfile(filename):
