@@ -100,7 +100,7 @@ class MapProcessor(Processor):
         collected data.
 
         :param map_config: a valid map configuraion
-        :type map_confg: MapConfig
+        :type map_config: MapConfig
         :return: a dictionary of coordinate names & values over the map
         :rtype: dict[str,np.ndarray]'''
 
@@ -115,7 +115,7 @@ class MapProcessor(Processor):
     def get_data_vars(self, map_config):
         '''Get a dictionary of the scalar-valued data specified in `map_config`.
 
-        :param map_confg: a valid map configuration
+        :param map_config: a valid map configuration
         :return: a dictionary of data labels & their values over the map
         :rtype: dict[str,np.ndarray]'''
 
@@ -144,9 +144,6 @@ class IntegrationProcessor(Processor):
         '''Process an integration configuration & return a map of integrated
         data.
 
-        :param data: input map & integration configurations, as returned from
-            `MultipleReader.read`
-        :type data: dict[typing.Literal['map_config','integration_config'],object]
         :param data: Result of `Reader.read` where at least one item has the
             value `'MapConfig'` for the `'schema'` key, and at least one item has
             the value `'IntegrationConfig'` for the `'schema'` key.
@@ -170,8 +167,6 @@ class IntegrationProcessor(Processor):
         '''Return valid instances of `MapConfig` and `IntegrationConfig` from the
         input supplied by `MultipleReader`.
 
-        :param data: input data
-        :type data: dict[typing.Literal['map_config','integration_config'],object]
         :param data: Result of `Reader.read` where at least one item has the
             value `'MapConfig'` for the `'schema'` key, and at least one item has
             the value `'IntegrationConfig'` for the `'schema'` key.
