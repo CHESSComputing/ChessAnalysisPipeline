@@ -63,7 +63,7 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         '''
 
-        print('MapProcessor.process: get map config, make nxentry, and return.')
+        print(f'{self.__name__}: get MapConfig from input, return an NXentry')
 
         map_config = self.get_map_config(data)
         nxentry = self.get_nxentry(map_config)
@@ -80,8 +80,6 @@ class MapProcessor(Processor):
         :return: a valid instance of `MapConfig` with field values taken from `data`.
         :rtype: MapConfig
         '''
-
-        print(f'{self.__name__}: get MapConfig')
 
         map_config = False
         if isinstance(data, list):
@@ -104,8 +102,6 @@ class MapProcessor(Processor):
         :return: the map's data and metadata contained in a NeXus structure
         :rtype: nexusformat.nexus.NXentry
         '''
-
-        print(f'{self.__name__}: Construct NXentry')
 
         nxentry = NXentry(name=map_config.title)
 
@@ -177,7 +173,7 @@ class IntegrationProcessor(Processor):
         :return: integrated data and process metadata
         :rtype: nexusformat.nexus.NXprocess
         '''
-        print(f'{self.__name__}.process: get map and integration configs, make nxprocess, and return.')
+        print(f'{self.__name__}: get MapConfig and IntegrationConfig from input, return an NXprocess')
 
         map_config, integration_config = self.get_configs(data)
         nxprocess = self.get_nxprocess(map_config, integration_config)
@@ -196,8 +192,6 @@ class IntegrationProcessor(Processor):
         :return: valid map and integration configuration objects.
         :rtype: tuple[MapConfig, IntegrationConfig]
         '''
-
-        print(f'{self.__name__}: get map and integration configurations')
 
         map_config = False
         integration_config = False
@@ -308,7 +302,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: dict[str,float]
         '''
 
-        print(f'{self.__name__}: tune 2theta & MCA energy correction parameters')
+        print(f'{self.__name__}: get MCACeriaCalibrationConfig from input, return calibrated values')
 
         calibration_config = self.get_config(data)
 
@@ -330,8 +324,6 @@ class MCACeriaCalibrationProcessor(Processor):
             taken from `data`.
         :rtype: MCACeriaCalibrationConfig
         '''
-
-        print(f'{self.__name__}: get MCACeriaCalibrationConfig')
 
         calibration_config = False
         if isinstance(data, list):
@@ -364,7 +356,7 @@ class MCADataProcessor(Processor):
         :rtype: xarray.Dataset
         '''
 
-        print(f'{self.__name__}: gather MCA data into a map.')
+        print(f'{self.__name__}: get MapConfig and MCACeriaCalibrationConfig from input, return map of calibrated MCA data')
 
         map_config, calibration_config = self.get_configs(data)
 
@@ -383,8 +375,6 @@ class MCADataProcessor(Processor):
             taken from `data`.
         :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
         '''
-
-        print(f'{self.__name__}: get MCACeriaCalibrationConfig')
 
         map_config = False
         calibration_config = False
@@ -422,7 +412,7 @@ class StrainAnalysisProcessor(Processor):
         :rtype: xarray.Dataset
         '''
 
-        print(f'{self.__name__}: compute sample strain map')
+        print(f'{self.__name__}: get StrainAnalysisConfig from input, return map of strains')
 
         strain_analysis_config = self.get_config(data)
 
@@ -440,8 +430,6 @@ class StrainAnalysisProcessor(Processor):
             taken from `data`.
         :rtype: StrainAnalysisConfig
         '''
-
-        print(f'{self.__name__}: get StrainAnalysisConfig')
 
         strain_analysis_config = False
         if isinstance(data, list):

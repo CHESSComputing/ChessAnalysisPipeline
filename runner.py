@@ -40,12 +40,11 @@ def runner(opts):
 
     :param opts: opts is an instance of argparse.Namespace which contains all input parameters
     """
-    print("opts", opts, type(opts))
     config = {}
     with open(opts.config) as file:
         config = yaml.safe_load(file)
-    print(f"config {config}")
-    # config {'pipeline': ['reader.Reader', 'processor.Processor', 'fitter.Fitter', 'processor.Processor', 'writer.Writer', 'fitter.Fitter', 'writer.Writer'], 'reader.Reader': {'fileName': 'config.yaml'}}
+    if opts.verbose:
+        print(f'config:\n{yaml.dump(config)}')
     pipeline_config = config.get('pipeline', [])
     objects = []
     kwds = []
@@ -60,11 +59,12 @@ def runner(opts):
         modName, clsName = name.split('.')
         module = __import__(modName)
         obj = getattr(module, clsName)()
-        print(f"loaded {obj} from {name} type={type(obj)}")
+        if opts.verbose:
+            print(f"loaded {obj}")
         objects.append(obj)
         kwds.append(kwargs)
     pipeline = Pipeline(objects, kwds)
-    pipeline.execute()
+    pipeline.execute(verbose=opts.verbose)
 
 
 if __name__ == '__main__':

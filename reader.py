@@ -47,7 +47,6 @@ class Reader():
         :rtype: list[dict[str,object]]
         '''
 
-        print(f'_read_kwargs: {_read_kwargs}')
         data = [{'name': self.__name__,
                  'data': self._read(**_read_kwargs),
                  'type': type_,
@@ -83,6 +82,7 @@ class MultipleReader(Reader):
         :rtype: list[dict[str,object]]
         '''
 
+        print(f'{self.__name__}: read from {len(readers)} Readers')
         data = []
         for reader_config in readers:
             reader_name = list(reader_config.keys())[0]
@@ -103,7 +103,7 @@ class YAMLReader(Reader):
         :rtype: dict
         '''
 
-        print(f'{self.__name__}: read from {filename} & return data.')
+        print(f'{self.__name__}: read dictionary from {filename}.')
         with open(filename) as file:
             data = yaml.safe_load(file)
         return(data)
@@ -124,7 +124,7 @@ class NexusReader(Reader):
         :rtype: nexusformat.nexus.NXobject
         '''
 
-        print(f'{self.__name__}: read from {filename} & return object at {nxpath}.')
+        print(f'{self.__name__}: read NeXus object at {nxpath} in {filename}')
 
         nxobject = nxload(filename)[nxpath]
         return(nxobject)

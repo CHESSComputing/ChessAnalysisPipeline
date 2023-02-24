@@ -57,6 +57,7 @@ class YAMLWriter(Writer):
         :return: the original input data
         :rtype: dict
         '''
+        print(f'{self.__name__}: write YAML data to {filename}')
 
         if not isinstance(data, (dict, list)):
             raise(TypeError(f'{self.__name__}.write: input data must be a dict or list.'))
@@ -81,7 +82,7 @@ class NexusWriter(Writer):
         :return: the original input data
         '''
         
-        print(f'Write data to {filename}')
+        print(f'{self.__name__}: write NeXus data to {filename}')
         
         if isinstance(data, NXobject):
             nxstructure = data
@@ -93,7 +94,6 @@ class NexusWriter(Writer):
             nxstructure = self.get_nxdata_from_dataarray(data)
         
         else:
-            print(f'{self.__name__}.write: unknown data format {type(data)}')
             raise(TypeError(f'{self.__name__}.write: unknown data format: {type(data).__name__}'))
 
         mode = 'w' if force_overwrite else 'w-'
@@ -111,7 +111,6 @@ class NexusWriter(Writer):
         :return: `dset` represented as an instance of `nexusformat.nexus.NXdata`
         :rtype: nexusformat.nexus.NXdata
         '''
-        print(f'{self.__name__}: get NXdata from xr.Dataset')
 
         nxdata_args = {'signal':None, 'axes':()}
 

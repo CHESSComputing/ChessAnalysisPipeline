@@ -23,23 +23,24 @@ class Pipeline():
         """
         self.items = items
         self.kwds = kwds
-        print("### kwds", kwds)
 
-    def execute(self):
+    def execute(self, verbose=False):
         """
         execute API
         """
         data = None
         for item, kwargs in zip(self.items, self.kwds):
-            print(f"execute {item} of name: {item.__name__}")
             if hasattr(item, 'read'):
-                print(f"### call item.read from {item} with kwargs={kwargs}")
+                if verbose:
+                    print(f"### call item.read from {item} with kwargs={kwargs}")
                 data = item.read(**kwargs)
             if hasattr(item, 'process'):
-                print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
+                if verbose:
+                    print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
                 data = item.process(data, **kwargs)
             if hasattr(item, 'write'):
-                print(f"### call item.write from {item} with data={data} kwargs={kwargs}")
+                if verbose:
+                    print(f"### call item.write from {item} with data={data} kwargs={kwargs}")
                 data = item.write(data, **kwargs)
 
 
