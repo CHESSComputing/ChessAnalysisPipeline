@@ -9,7 +9,16 @@ Description: Processor module
 
 # system modules
 import argparse
+import json
+from nexusformat.nexus import (NXcollection,
+                               NXdata,
+                               NXdetector,
+                               NXentry,
+                               NXfield,
+                               NXprocess,
+                               NXsample)
 import numpy as np
+import pyFAI
 import sys
 import xarray as xr
 
@@ -39,35 +48,27 @@ class Processor():
 
 class MapProcessor(Processor):
     '''Class representing a process that takes a map configuration and returns a
-    properly shaped `xr.Dataset` for that map. The original configuration
-    metadata will be present in the `attrs` attribute. Optional scalar-valued
-    data from the map will be included, if present in the supplied map
-    configuration.'''
+    `nexusformat.nexus.NXentry` representing that map's metadata and any
+    scalar-valued raw data requseted by the supplied map configuration.
+    '''
 
     def process(self, data):
-        '''Process a map configuration & return an `xarray.Dataset` of the proper
-        shape. If any scalar valued datasets are included in the map
-        configuration, their values over the map will be included as `data_vars`
-        in the returned `xarray.Dataset`.
-        
+        '''Process the output of a `Reader` that contains a map configuration and
+        return a `nexusformat.nexus.NXentry` representing the map.
+
         :param data: Result of `Reader.read` where at least one item has the
             value `'MapConfig'` for the `'schema'` key.
         :type data: list[dict[str,object]]
         :return: Map data & metadata (SPEC only, no detector)
-        :rtype: xarray.Dataset
+        :rtype: nexusformat.nexus.NXentry
         '''
 
-        print('MapProcessor.process: construct xr.Dataset with proper shape & metadata.')
+        print('MapProcessor.process: get map config, make nxentry, and return.')
 
         map_config = self.get_map_config(data)
-        if not isinstance(map_config, MapConfig):
-            raise(ValueError(f'{self.__name__}.process: input data is not a valid map configuration.'))
+        nxentry = self.get_nxentry(map_config)
 
-        processed_data = xr.Dataset(data_vars=self.get_data_vars(map_config),
-                                    coords=self.get_coords(map_config),
-                                    attrs=map_config.dict())
-
-        return(processed_data)
+        return(nxentry)
 
     def get_map_config(self, data):
         '''Get an instance of `MapConfig` from a returned value of `Reader.read`
@@ -95,73 +96,93 @@ class MapProcessor(Processor):
 
         return(MapConfig(**map_config))
         
-    def get_coords(self, map_config):
-        '''Get a dictionary of the coordinates at which the map configuration
-        collected data.
-
-        :param map_config: a valid map configuraion
-        :type map_config: MapConfig
-        :return: a dictionary of coordinate names & values over the map
-        :rtype: dict[str,np.ndarray]'''
-
-        print(f'{self.__name__}: get coords dict')
-
-        coords = {}
-        for dim in map_config.independent_dimensions[::-1]:
-            coords[dim.label] = (dim.label, map_config.coords[dim.label], dict(dim))
-
-        return(coords)
-
-    def get_data_vars(self, map_config):
-        '''Get a dictionary of the scalar-valued data specified in `map_config`.
+    def get_nxentry(self, map_config):
+        '''Use a `MapConfig` to construct a `nexusformat.nexus.NXentry`
 
         :param map_config: a valid map configuration
-        :return: a dictionary of data labels & their values over the map
-        :rtype: dict[str,np.ndarray]'''
+        :type map_config: MapConfig
+        :return: the map's data and metadata contained in a NeXus structure
+        :rtype: nexusformat.nexus.NXentry
+        '''
 
-        print(f'{self.__name__}: get data_vars dict')
+        print(f'{self.__name__}: Construct NXentry')
+
+        nxentry = NXentry(name=map_config.title)
+
+        nxentry.map_config = json.dumps(map_config.dict())
+
+        nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
+
+        nxentry.attrs['station'] = map_config.station
         
-        data_vars = {data.label: (map_config.dims, 
-                                  np.empty(map_config.shape),
-                                  data.dict()) for data in map_config.all_scalar_data}
-        
+        nxentry.spec_scans = NXcollection()
+        for scans in map_config.spec_scans:
+            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
+                NXfield(value=scans.scan_numbers,
+                        dtype='int8',
+                        attrs={'spec_file':str(scans.spec_file)})
+
+        nxentry.data = NXdata()
+        nxentry.data.attrs['axes'] = map_config.dims
+        for i,dim in enumerate(map_config.independent_dimensions[::-1]):
+            nxentry.data[dim.label] = NXfield(value=map_config.coords[dim.label],
+                                              units=dim.units,
+                                              attrs={'long_name': f'{dim.label} ({dim.units})', 
+                                                     'data_type': dim.data_type,
+                                                     'local_name': dim.name})
+            nxentry.data.attrs[f'{dim.label}_indices'] = i
+
+        signal = False
+        auxilliary_signals = []
+        for data in map_config.all_scalar_data:
+            nxentry.data[data.label] = NXfield(value=np.empty(map_config.shape),
+                                               units=data.units,
+                                               attrs={'long_name': f'{data.label} ({data.units})',
+                                                      'data_type': data.data_type,
+                                                      'local_name': data.name})
+            if not signal:
+                signal = data.label
+            else:
+                auxilliary_signals.append(data.label)
+
+        if signal:
+            nxentry.data.attrs['signal'] = signal
+            nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
+
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
                 for scan_step_index in range(scanparser.spec_scan_npts):
                     map_index = scans.get_index(scan_number, scan_step_index, map_config)
                     for data in map_config.all_scalar_data:
-                        data_vars[data.label][1][map_index] = data.get_value(scans, scan_number, scan_step_index)
+                        nxentry.data[data.label][map_index] = data.get_value(scans, scan_number, scan_step_index)
 
-        return(data_vars)
-
+        return(nxentry)
 
 class IntegrationProcessor(Processor):
-    '''Class representing a process that takes a map of 2D detector data and
-    generates a map of integrated data.'''
+    '''Class representing a process that takes a map and integration
+    configuration and returns a `nexusformat.nexus.NXprocess` containing a map of
+    the integrated detector data requested.
+    '''
 
     def process(self, data):
-        '''Process an integration configuration & return a map of integrated
-        data.
+        '''Process the output of a `Reader` that contains a map and integration
+        configuration and return a `nexusformat.nexus.NXprocess` containing a map
+        of the integrated detector data requested
 
         :param data: Result of `Reader.read` where at least one item has the
             value `'MapConfig'` for the `'schema'` key, and at least one item has
             the value `'IntegrationConfig'` for the `'schema'` key.
         :type data: list[dict[str,object]]
-        :return: map of integrated data
-        :rtype: xr.DataArray
+        :return: integrated data and process metadata
+        :rtype: nexusformat.nexus.NXprocess
         '''
+        print(f'{self.__name__}.process: get map and integration configs, make nxprocess, and return.')
 
         map_config, integration_config = self.get_configs(data)
+        nxprocess = self.get_nxprocess(map_config, integration_config)
 
-        integrated_data = xr.DataArray(data=self.get_data(map_config, integration_config),
-                                       coords=self.get_coords(map_config, integration_config),
-                                       attrs={'units':'Intensity (a.u)',
-                                              'map_config': map_config.dict(),
-                                              'integration_config': integration_config.dict()},
-                                       name=integration_config.title)
-
-        return(integrated_data)
+        return(nxprocess)
 
     def get_configs(self, data):
         '''Return valid instances of `MapConfig` and `IntegrationConfig` from the
@@ -196,56 +217,80 @@ class IntegrationProcessor(Processor):
 
         return(MapConfig(**map_config), IntegrationConfig(**integration_config))
 
+    def get_nxprocess(self, map_config, integration_config):
+        '''Use a `MapConfig` and `IntegrationConfig` to construct a
+        `nexusformat.nexus.NXprocess`
 
-
-    def get_data(self, map_config, integration_config):
-        '''Get a numpy array of integrated data for the map and integration
-        configurations provided.
-
-        :param map_config: a valid map configuraion
+        :param map_config: a valid map configuration
         :type map_config: MapConfig
-        :param integration_confg: a valid integration configuration
-        :type integration_config: IntegrationConfig
-        :return: an array of the integrated data specified by `map_config` and `integration_config`
-        :rtype: np.ndarray
+        :param integration_config: a valid integration configuration
+        :type integration_config" IntegrationConfig
+        :return: the integrated detector data and metadata contained in a NeXus
+            structure
+        :rtype: nexusformat.nexus.NXprocess
         '''
-        
-        print(f'{self.__name__}: Get map of integrated data')
-        data = np.empty((*map_config.shape, *integration_config.integrated_data_shape))
-        
+
+        nxprocess = NXprocess(name=integration_config.title)
+
+        nxprocess.map_config = json.dumps(map_config.dict())
+        nxprocess.integration_config = json.dumps(integration_config.dict())
+
+        nxprocess.program = 'pyFAI'
+        nxprocess.version = pyFAI.version
+
+        for k,v in integration_config.dict().items():
+            if k == 'detectors': 
+                continue
+            nxprocess.attrs[k] = v
+
+        for detector in integration_config.detectors:
+            nxprocess[detector.prefix] = NXdetector()
+            nxprocess[detector.prefix].local_name = detector.prefix
+            nxprocess[detector.prefix].distance = detector.azimuthal_integrator.dist
+            nxprocess[detector.prefix].distance.attrs['units'] = 'm'
+            nxprocess[detector.prefix].calibration_wavelength = detector.azimuthal_integrator.wavelength
+            nxprocess[detector.prefix].calibration_wavelength.attrs['units'] = 'm'
+            nxprocess[detector.prefix].attrs['poni_file'] = str(detector.poni_file)
+            nxprocess[detector.prefix].attrs['mask_file'] = str(detector.mask_file)
+            nxprocess[detector.prefix].raw_data_files = np.full(map_config.shape, '', dtype='|S256')
+
+        nxprocess.data = NXdata()
+
+        nxprocess.data.attrs['axes'] = (*map_config.dims, *integration_config.integrated_data_dims)
+        for i,dim in enumerate(map_config.independent_dimensions[::-1]):
+            nxprocess.data[dim.label] = NXfield(value=map_config.coords[dim.label],
+                                              units=dim.units,
+                                              attrs={'long_name': f'{dim.label} ({dim.units})', 
+                                                     'data_type': dim.data_type,
+                                                     'local_name': dim.name})
+            nxprocess.data.attrs[f'{dim.label}_indices'] = i
+
+        for i,(coord_name,coord_values) in enumerate(integration_config.integrated_data_coordinates.items()):
+            if coord_name == 'radial':
+                type_ = pyFAI.units.RADIAL_UNITS
+            elif coord_name == 'azimuthal':
+                type_ = pyFAI.units.AZIMUTHAL_UNITS
+            coord_units = pyFAI.units.to_unit(getattr(integration_config, f'{coord_name}_units'), type_=type_)
+            nxprocess.data[coord_units.name] = coord_values
+            nxprocess.data.attrs[f'{coord_units.name}_indices'] = i+len(map_config.coords)
+            nxprocess.data[coord_units.name].units = coord_units.unit_symbol
+            nxprocess.data[coord_units.name].attrs['long_name'] = coord_units.label
+
+        nxprocess.data.attrs['signal'] = 'I'
+        nxprocess.data.I = NXfield(value=np.empty((*tuple([len(coord_values) for coord_name,coord_values in map_config.coords.items()][::-1]), *integration_config.integrated_data_shape)),
+                                   units='a.u',
+                                   attrs={'long_name':'Intensity (a.u)'})
+
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
                 for scan_step_index in range(scanparser.spec_scan_npts):
                     map_index = scans.get_index(scan_number, scan_step_index, map_config)
-                    data[map_index] = integration_config.get_integrated_data(scans, scan_number, scan_step_index)
+                    nxprocess.data.I[map_index] = integration_config.get_integrated_data(scans, scan_number, scan_step_index)
+                    for detector in integration_config.detectors:
+                        nxprocess[detector.prefix].raw_data_files[map_index] = scanparser.get_detector_data_file(detector.prefix, scan_step_index)
 
-        return(data)
-
-    def get_coords(self, map_config, integration_config):
-        '''Get a dictionary of coordinates for navigating the map's integrated
-        detector intensities.
-
-        :param map_config: a valid map configuraion
-        :type map_config: MapConfig
-        :param integration_confg: a valid integration configuration
-        :type integration_config: IntegrationConfig
-        :return: a dictionary of coordinate names & values over the map's
-            integrated detector data
-        :rtype: dict[str,np.ndarray]
-        '''
-
-        print(f'{self.__name__}: Get coordinates for map of integrated data')
-        coords = {}
-
-        for dim in map_config.independent_dimensions[::-1]:
-            coords[dim.label] = (dim.label, map_config.coords[dim.label], dim.dict())
-        
-        for direction,values in integration_config.integrated_data_coordinates.items():
-            coords[direction] = (direction, values, {'units':getattr(integration_config, f'{direction}_units')})
-
-        return(coords)
-
+        return(nxprocess)
 
 class MCACeriaCalibrationProcessor(Processor):
     '''Class representing the procedure to use a CeO2 scan to obtain tuned values

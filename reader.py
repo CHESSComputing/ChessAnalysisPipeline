@@ -110,42 +110,24 @@ class YAMLReader(Reader):
 
 class NexusReader(Reader):
     def _read(self, filename, nxpath='/'):
-        '''Return an instance of `xarray.Dataset` representing the contents of
-        the default `nexusformat.nexus.NXdata` object in `filename`.
+        '''Return the NeXus object stored at `nxpath` in the nexus file
+        `filename`.
 
         :param filename: name of the NeXus file to read from
-        :param nxpath: path to a specific loaction in the NeXus file to read from,
-            defaults to `"/"`
+        :type filename: str
+        :param nxpath: path to a specific loaction in the NeXus file to read
+            from, defaults to `'/'`
         :type nxpath: str, optional
-        :return: the default plottable data in `filename`
-        :rtype: xarray.Dataset
+        :raises nexusformat.nexus.NeXusError: if `filename` is not a NeXus
+            file or `nxpath` is not in `filename`.
+        :return: the NeXus structure indicated by `filename` and `nxpath`.
+        :rtype: nexusformat.nexus.NXobject
         '''
 
-        print(f'{self.__name__}: read from {filename} & return data.')
-        
+        print(f'{self.__name__}: read from {filename} & return object at {nxpath}.')
+
         nxobject = nxload(filename)[nxpath]
-        nxdata = nxobject.plottable_data
-
-        data_vars = {}
-        coords = {}
-        for nxname,nxobject in nxdata.items():
-            if isinstance(nxobject, NXfield):
-                if nxname in nxdata.attrs['axes']:
-                    coords[nxname] = (nxname,
-                                      nxobject.nxdata,
-                                      {k:v.nxvalue for k,v in nxobject.attrs.items()})
-                else:
-                    data_vars[nxname] = (nxdata.attrs['axes'],
-                                         nxobject.nxdata,
-                                         {k:v.nxvalue for k,v in nxobject.attrs.items()})
-        
-        if 'xarray_attrs' in nxdata.attrs:
-            attrs = json.loads(nxdata.attrs['xarray_attrs'])
-        else:
-            attrs = {}
-
-        dset = xr.Dataset(data_vars=data_vars, coords=coords, attrs=attrs)
-        return(dset)
+        return(nxobject)
 
 
 class OptionParser():
