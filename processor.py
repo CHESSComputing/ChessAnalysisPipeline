@@ -10,22 +10,10 @@ Description: Processor module
 # system modules
 import argparse
 import json
-from nexusformat.nexus import (NXcollection,
-                               NXdata,
-                               NXdetector,
-                               NXentry,
-                               NXfield,
-                               NXprocess,
-                               NXsample)
-import numpy as np
-import pyFAI
 import sys
-import xarray as xr
 
 # local modules
 # from pipeline import PipelineObject
-from map import MapConfig
-from integration import IntegrationConfig
 
 class Processor():
     """
@@ -81,6 +69,8 @@ class MapProcessor(Processor):
         :rtype: MapConfig
         '''
 
+        from map import MapConfig
+
         map_config = False
         if isinstance(data, list):
             for item in data:
@@ -102,6 +92,13 @@ class MapProcessor(Processor):
         :return: the map's data and metadata contained in a NeXus structure
         :rtype: nexusformat.nexus.NXentry
         '''
+
+        from nexusformat.nexus import (NXcollection,
+                                       NXdata,
+                                       NXentry,
+                                       NXfield,
+                                       NXsample)
+        import numpy as np
 
         nxentry = NXentry(name=map_config.title)
 
@@ -193,6 +190,9 @@ class IntegrationProcessor(Processor):
         :rtype: tuple[MapConfig, IntegrationConfig]
         '''
 
+        from map import MapConfig
+        from integration import IntegrationConfig
+
         map_config = False
         integration_config = False
         if isinstance(data, list):
@@ -223,6 +223,13 @@ class IntegrationProcessor(Processor):
             structure
         :rtype: nexusformat.nexus.NXprocess
         '''
+
+        from nexusformat.nexus import (NXdata,
+                                       NXdetector,
+                                       NXfield,
+                                       NXprocess)
+        import numpy as np
+        import pyFAI
 
         nxprocess = NXprocess(name=integration_config.title)
 
@@ -375,6 +382,8 @@ class MCADataProcessor(Processor):
             taken from `data`.
         :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
         '''
+
+        from map import MapConfig
 
         map_config = False
         calibration_config = False

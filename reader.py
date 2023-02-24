@@ -8,10 +8,7 @@ Description: generic Reader module
 # system modules
 import argparse
 import json
-from nexusformat.nexus import nxload, NXfield
 import sys
-import xarray as xr
-import yaml
 
 # local modules
 # from pipeline import PipelineObject
@@ -104,6 +101,9 @@ class YAMLReader(Reader):
         '''
 
         print(f'{self.__name__}: read dictionary from {filename}.')
+
+        import yaml
+
         with open(filename) as file:
             data = yaml.safe_load(file)
         return(data)
@@ -125,6 +125,8 @@ class NexusReader(Reader):
         '''
 
         print(f'{self.__name__}: read NeXus object at {nxpath} in {filename}')
+
+        from nexusformat.nexus import nxload
 
         nxobject = nxload(filename)[nxpath]
         return(nxobject)

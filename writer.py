@@ -8,11 +8,8 @@ Description: generic Writer module
 # system modules
 import argparse
 import json
-from nexusformat.nexus import NXdata, NXfield, NXobject
 import os
 import sys
-import xarray as xr
-import yaml
 
 # local modules
 # from pipeline import PipelineObject
@@ -59,6 +56,8 @@ class YAMLWriter(Writer):
         '''
         print(f'{self.__name__}: write YAML data to {filename}')
 
+        import yaml
+
         if not isinstance(data, (dict, list)):
             raise(TypeError(f'{self.__name__}.write: input data must be a dict or list.'))
 
@@ -83,6 +82,9 @@ class NexusWriter(Writer):
         '''
         
         print(f'{self.__name__}: write NeXus data to {filename}')
+
+        from nexusformat.nexus import NXobject
+        import xarray as xr
         
         if isinstance(data, NXobject):
             nxstructure = data
@@ -111,6 +113,8 @@ class NexusWriter(Writer):
         :return: `dset` represented as an instance of `nexusformat.nexus.NXdata`
         :rtype: nexusformat.nexus.NXdata
         '''
+
+        from nexusformat.nexus import NXdata, NXfield
 
         nxdata_args = {'signal':None, 'axes':()}
 
@@ -145,6 +149,9 @@ class NexusWriter(Writer):
         :return: `darr` represented as an instance of `nexusformat.nexus.NXdata`
         :rtype: nexusformat.nexus.NXdata
         '''
+
+        from nexusformat.nexus import NXdata, NXfield
+
         nxdata_args = {'signal':None, 'axes':()}
 
         nxdata_args['signal'] = NXfield(darr.data,
