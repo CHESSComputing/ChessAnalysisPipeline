@@ -1,11 +1,10 @@
 pipeline:
   - reader.Reader:
-      fileName: data.csv
+      filename: data.csv
   - processor.Processor: {}
-  - fitter.Fitter: {}
   - processor.Processor: {}
   - writer.Writer:
-      fileName: data.out
-  - fitter.Fitter: {}
+      filename: data.out
+  - processor.Processor: {}
   - writer.Writer:
-      fileName: data.out
+      filename: data.out
