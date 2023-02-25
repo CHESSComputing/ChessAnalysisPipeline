@@ -1,0 +1,41 @@
+<tool id="chap" name="CHESS Analysis Pipeline" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
+    <requirements>
+    </requirements>
+    <command detect_errors="exit_code"><![CDATA[
+        cp '$input' data.csv && runner.py --config '$config'
+    ]]></command>
+    <inputs>
+        <param type="data" name="config" format="yaml" />
+        <param type="data" name="input" format="csv" />
+    </inputs>
+    <outputs>
+        <data name="output" format="csv" from_work_dir="test-data" />
+    </outputs>
+    <tests>
+        <test>
+            <param name="config" value="config.yaml"/>
+            <param name="input" file="data.csv"/>
+            <output name="output" file="data.out"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+        usage: PROG [-h] [--config CONFIG] [--verbose]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  Input configuration file
+  --verbose        verbose output
+
+    ]]></help>
+    <citations>
+        <citation type="bibtex">
+@misc{githubChessAnalysisPipeline,
+  author = {LastTODO, FirstTODO},
+  year = {TODO},
+  title = {ChessAnalysisPipeline},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  url = {https://github.com/CHESSComputing/ChessAnalysisPipeline},
+}</citation>
+    </citations>
+</tool>
