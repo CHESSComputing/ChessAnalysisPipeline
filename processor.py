@@ -308,8 +308,8 @@ class MCACeriaCalibrationProcessor(Processor):
         the MCA channel energies.
 
         :param data: input configuration for the raw data & tuning procedure
-        :type data: dict
-        :return: dictionary of tuned values
+        :type data: list[dict[str,object]]
+        :return: original configuration dictionary with tuned values added
         :rtype: dict[str,float]
         '''
 
@@ -317,11 +317,13 @@ class MCACeriaCalibrationProcessor(Processor):
 
         calibration_config = self.get_config(data)
 
-        calibrated_values = {'tth_calibrated': 7.55,
-                             'slope_calibrated': 0.99,
-                             'intercept_calibrated': 0.01}
-        calibration_config['detector'].update(calibrated_values)
-        return(calibration_config)
+        tth, slope, intercept = self.calibrate(calibration_config)
+
+        calibration_config.tth_calibrated = tth
+        calibration_config.slope_calibrated = slope
+        calibration_config.intercept_calibrated = intercept
+
+        return(calibration_config.dict())
 
     def get_config(self, data):
         '''Get an instance of the configuration object needed by this
@@ -336,6 +338,8 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: MCACeriaCalibrationConfig
         '''
 
+        from models.edd import MCACeriaCalibrationConfig
+
         calibration_config = False
         if isinstance(data, list):
             for item in data:
@@ -347,8 +351,108 @@ class MCACeriaCalibrationProcessor(Processor):
         if not calibration_config:
             raise(ValueError('No MCA ceria calibration configuration found in input data'))
 
-        return(calibration_config)
+        return(MCACeriaCalibrationConfig(**calibration_config))
 
+    def calibrate(self, calibration_config):
+        '''Iteratively calibrate 2&theta by fitting selected peaks of an MCA
+        spectrum until the computed strain is sufficiently small. Use the fitted
+        peak locations to determine linear correction parameters for the MCA's
+        channel energies.
+
+        :param calibration_config: object configuring the CeO2 calibration procedure
+        :type calibration_config: MCACeriaCalibrationConfig
+        :return: calibrated values of 2&theta and linear correction parameters
+            for MCA channel energies : tth, slope, intercept
+        :rtype: float, float, float
+        '''
+
+        from msnctools.fit import Fit, FitMultipeak
+        import numpy as np
+        from scipy.constants import physical_constants
+
+        hc = physical_constants['Planck constant in eV/Hz'][0] * \
+             physical_constants['speed of light in vacuum'][0] * \
+             1e7 # We'll work in keV and A, not eV and m.
+
+        # Collect raw MCA data of interest
+        mca_data = calibration_config.mca_data()
+        mca_bin_energies = np.arange(0, calibration_config.num_bins) * \
+                           (calibration_config.max_energy_kev / calibration_config.num_bins)
+
+        # Mask out the corrected MCA data for fitting
+        mca_mask = calibration_config.mca_mask()
+        fit_mca_energies = mca_bin_energies[mca_mask]
+        fit_mca_intensities = mca_data[mca_mask]
+
+        # Correct raw MCA data for variable flux at different energies
+        flux_correct = calibration_config.flux_correction_interpolation_function()
+        mca_intensity_weights = flux_correct(fit_mca_energies)
+        fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
+
+        # Get the HKLs and lattice spacings that will be used for fitting
+        tth = calibration_config.tth_initial_guess
+        fit_hkls, fit_ds = calibration_config.fit_ds()
+        c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
+
+        for iter_i in range(calibration_config.max_iter):
+
+            ### Perform the uniform fit first ###
+
+            # Get expected peak energy locations for this iteration's starting
+            # value of tth
+            fit_lambda = 2.0 * fit_ds * np.sin(0.5*np.radians(tth))
+            fit_E0 = hc / fit_lambda
+
+            # Run the uniform fit
+            best_fit, residual, best_values, best_errors, redchi, success = \
+                FitMultipeak.fit_multipeak(fit_mca_intensities,
+                                           fit_E0,
+                                           x=fit_mca_energies,
+                                           fit_type='uniform')
+
+            # Extract values of interest from the best values for the uniform fit
+            # parameters
+            uniform_fit_centers = [best_values[f'peak{i+1}_center'] for i in range(len(calibration_config.fit_hkls))]
+            # uniform_a = best_values['scale_factor']
+            # uniform_strain = np.log(uniform_a / calibration_config.lattice_parameter_angstrom)
+            # uniform_tth = tth * (1.0 + uniform_strain)
+            # uniform_rel_rms_error = np.linalg.norm(residual) / np.linalg.norm(fit_mca_intensities)
+
+            ### Next, perform the unconstrained fit ###
+
+            # Use the peak locations found in the uniform fit as the initial
+            # guesses for peak locations in the unconstrained fit
+            best_fit, residual, best_values, best_errors, redchi, success = \
+                FitMultipeak.fit_multipeak(fit_mca_intensities,
+                                           uniform_fit_centers,
+                                           x=fit_mca_energies,
+                                           fit_type='unconstrained')
+
+            # Extract values of interest from the best values for the
+            # unconstrained fit parameters
+            unconstrained_fit_centers = np.array([best_values[f'peak{i+1}_center'] for i in range(len(calibration_config.fit_hkls))])
+            unconstrained_a = 0.5 * hc * np.sqrt(c_1) / (unconstrained_fit_centers * abs(np.sin(0.5*np.radians(tth))))
+            unconstrained_strains = np.log(unconstrained_a / calibration_config.lattice_parameter_angstrom)
+            unconstrained_strain = np.mean(unconstrained_strains)
+            unconstrained_tth = tth * (1.0 + unconstrained_strain)
+            # unconstrained_rel_rms_error = np.linalg.norm(residual) / np.linalg.norm(fit_mca_intensities)
+
+
+            # Update tth for the next iteration of tuning
+            prev_tth = tth
+            tth = unconstrained_tth
+
+            # Stop tuning tth at this iteration if differences are small enough
+            if abs(tth - prev_tth) < calibration_config.tune_tth_tol:
+                break
+
+        # Fit line to expected / computed peak locations from the last
+        # unconstrained fit.
+        fit = Fit.fit_data(fit_E0,'linear', x=unconstrained_fit_centers, nan_policy='omit')
+        slope = fit.best_values['slope']
+        intercept = fit.best_values['intercept']
+
+        return(float(tth), float(slope), float(intercept))
 
 class MCADataProcessor(Processor):
     '''Class representing a process to return data from a MCA, restuctured to
