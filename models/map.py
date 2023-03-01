@@ -308,7 +308,7 @@ def get_smb_par_value(spec_file:str, scan_number:int, par_name:str):
     scanparser = get_scanparser(spec_file, scan_number)
     return(scanparser.pars[par_name])
 def validate_data_source_for_map_config(data_source, values):
-    import_scanparser(values.get('station'))
+    import_scanparser(values.get('station'), values.get('experiment_type'))
     data_source.validate_for_station(values.get('station'))
     data_source.validate_for_spec_scans(values.get('spec_scans'))
     return(data_source)
@@ -424,6 +424,7 @@ class MapConfig(BaseModel):
     """
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3','id3a','id3b']
+    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
     independent_dimensions: conlist(item_type=PointByPointScanData, min_items=1)
@@ -437,6 +438,21 @@ class MapConfig(BaseModel):
     _validate_dwell_time_actual = validator('dwell_time_actual', allow_reuse=True)(validate_data_source_for_map_config)
     _validate_postsample_intensity = validator('postsample_intensity', allow_reuse=True)(validate_data_source_for_map_config)
     _validate_scalar_data = validator('scalar_data', each_item=True, allow_reuse=True)(validate_data_source_for_map_config)
+    @validator('experiment_type')
+    def validate_experiment_type(cls, value, values):
+        '''Ensure values for the station and experiment_type fields are compatible'''
+        station = values.get('station')
+        if station == 'id1a3':
+            allowed_experiment_types = ['SAXSWAXS', 'EDD']
+        elif station == 'id3a':
+            allowed_experiment_types = ['EDD']
+        elif station == 'id3b':
+            allowed_experiment_types = ['SAXSWAXS', 'XRF']
+        else:
+            allowed_experiment_types = []
+        if value not in allowed_experiment_types:
+            raise(ValueError(f'For station {station}, allowed experiment types are {allowed_experiment_types} (suuplied experiment type {value} is not allowed)'))
+        return(value)
     @property
     def coords(self):
         """Return a dictionary of the values of each independent dimension across
@@ -480,12 +496,24 @@ class MapConfig(BaseModel):
         field."""
         return([getattr(self,l,None) for l in CorrectionsData.reserved_labels() if getattr(self,l,None) is not None] + self.scalar_data)
 
-def import_scanparser(station):
+def import_scanparser(station, experiment_type):
     if station.lower() in ('id1a3', 'id3a'):
-        from msnctools.scanparsers import SMBLinearScanParser
-        globals()['ScanParser'] = SMBLinearScanParser
+        if experiment_type == 'SAXSWAXS':
+            from msnctools.scanparsers import SMBLinearScanParser
+            globals()['ScanParser'] = SMBLinearScanParser
+        elif experiment_type == 'EDD':
+            from msnctools.scanparsers import SMBMCAScanParser
+            globals()['ScanParser'] = SMBMCAScanParser
+        else:
+            raise(ValueError(f'Invalid experiment_type: {experiment_type}'))
     elif station.lower() == 'id3b':
-        from msnctools.scanparsers import FMBSAXSWAXSScanParser
-        globals()['ScanParser'] = FMBSAXSWAXSScanParser
+        if experiment_type == 'SAXSWAXS':
+            from msnctools.scanparsers import FMBSAXSWAXSScanParser
+            globals()['ScanParser'] = FMBSAXSWAXSScanParser
+        elif experiment_type == 'XRF':
+            from msnctools.scanparsers import FMBXRFScanParser
+            globals()['ScanParser'] = FMBXRFScanParser
+        else:
+            raise(ValueError(f'Invalid experiment_type: {experiment_type}'))
     else:
-        raise(RuntimeError(f'Invalid station: {station}'))
+        raise(ValueError(f'Invalid station: {station}'))

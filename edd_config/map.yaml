@@ -1,5 +1,6 @@
 title: set2_c1-1
 station: id1a3
+experiment_type: EDD
 sample:
   name: set2_c1-1
 spec_scans:

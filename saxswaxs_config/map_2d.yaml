@@ -1,5 +1,6 @@
 title: test_2d
 station: id3b
+experiment_type: SAXSWAXS
 sample:
   name: sample_14
 spec_scans:
