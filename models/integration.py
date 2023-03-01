@@ -24,7 +24,7 @@ from pydantic import (BaseModel,
 import pyFAI, pyFAI.multi_geometry, pyFAI.units
 from pyspec.file.tiff import TiffFile
 
-from map import MapConfig, SpecScans
+from .map import MapConfig, SpecScans
 
 
 class Detector(BaseModel):

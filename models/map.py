@@ -76,6 +76,14 @@ class SpecScans(BaseModel):
                 if scan is None:
                     raise(ValueError(f'There is no scan number {scan_number} in {spec_file}'))
         return(scan_numbers)
+
+    @property
+    def scanparsers(self):
+        '''A list of `ScanParser`s for each of the scans specified by the SPEC
+        file and scan numbers belonging to this instance of `SpecScans`
+        '''
+        return([self.get_scanparser(scan_no) for scan_no in self.scan_numbers])
+
     def get_scanparser(self, scan_number):
         """This method returns a `ScanParser` for the specified scan number in
         the specified SPEC file.

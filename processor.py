@@ -73,7 +73,7 @@ class MapProcessor(Processor):
         :rtype: MapConfig
         '''
 
-        from map import MapConfig
+        from models.map import MapConfig
 
         map_config = False
         if isinstance(data, list):
@@ -194,8 +194,8 @@ class IntegrationProcessor(Processor):
         :rtype: tuple[MapConfig, IntegrationConfig]
         '''
 
-        from map import MapConfig
-        from integration import IntegrationConfig
+        from models.map import MapConfig
+        from models.integration import IntegrationConfig
 
         map_config = False
         integration_config = False
@@ -387,7 +387,7 @@ class MCADataProcessor(Processor):
         :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
         '''
 
-        from map import MapConfig
+        from models.map import MapConfig
 
         map_config = False
         calibration_config = False
