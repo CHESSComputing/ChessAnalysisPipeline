@@ -58,7 +58,7 @@ class MapProcessor(Processor):
         print(f'{self.__name__}: get MapConfig from input, return an NXentry')
 
         map_config = self.get_map_config(data)
-        nxentry = self.get_nxentry(map_config)
+        nxentry = self.__class__.get_nxentry(map_config)
 
         return(nxentry)
 
@@ -88,7 +88,8 @@ class MapProcessor(Processor):
 
         return(MapConfig(**map_config))
         
-    def get_nxentry(self, map_config):
+    @staticmethod
+    def get_nxentry(map_config):
         '''Use a `MapConfig` to construct a `nexusformat.nexus.NXentry`
 
         :param map_config: a valid map configuration
@@ -466,16 +467,17 @@ class MCADataProcessor(Processor):
         raw MCA data collected over the map.
 
         :param data: input map configuration and results of ceria calibration
-        :type data: dict[typing.Literal['map_config','ceria_calibration_results'],dict]
-        :return: calibrated MCA data
-        :rtype: xarray.Dataset
+        :type data: list[dict[str,object]]
+        :return: calibrated and flux-corrected MCA data
+        :rtype: nexusformat.nexus.NXentry
         '''
 
         print(f'{self.__name__}: get MapConfig and MCACeriaCalibrationConfig from input, return map of calibrated MCA data')
 
         map_config, calibration_config = self.get_configs(data)
+        nxroot = self.get_nxroot(map_config, calibration_config)
 
-        return(data)
+        return(nxroot)
 
     def get_configs(self, data):
         '''Get instances of the configuration objects needed by this
@@ -492,6 +494,7 @@ class MCADataProcessor(Processor):
         '''
 
         from models.map import MapConfig
+        from models.edd import MCACeriaCalibrationConfig
 
         map_config = False
         calibration_config = False
@@ -509,8 +512,64 @@ class MCADataProcessor(Processor):
         if not calibration_config:
             raise(ValueError('No MCA ceria calibration configuration found in input data'))
 
-        return(MapConfig(**map_config), calibration_config)
+        return(MapConfig(**map_config), MCACeriaCalibrationConfig(**calibration_config))
 
+    def get_nxroot(self, map_config, calibration_config):
+        '''Get a map of the MCA data collected by the scans in `map_config`. The
+        MCA data will be calibrated and flux-corrected according to the
+        parameters included in `calibration_config`. The data will be returned
+        along with relevant metadata in the form of a NeXus structure.
+
+        :param map_config: the map configuration
+        :type map_config: MapConfig
+        :param calibration_config: the calibration configuration
+        :type calibration_config: MCACeriaCalibrationConfig
+        :return: a map of the calibrated and flux-corrected MCA data
+        :rtype: nexusformat.nexus.NXroot
+        '''
+
+        from nexusformat.nexus import (NXdata,
+                                       NXdetector,
+                                       NXentry,
+                                       NXinstrument,
+                                       NXroot)
+        import numpy as np
+
+        nxroot = NXroot()
+
+        nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
+        nxentry = nxroot[map_config.title]
+
+        nxentry.instrument = NXinstrument()
+        nxentry.instrument.detector = NXdetector()
+        nxentry.instrument.detector.calibration_configuration = json.dumps(calibration_config.dict())
+
+        nxentry.instrument.detector.data = NXdata()
+        nxdata = nxentry.instrument.detector.data
+        nxdata.raw = np.empty((*map_config.shape, calibration_config.num_bins))
+        nxdata.raw.attrs['units'] = 'counts'
+        nxdata.channel_energy = calibration_config.slope_calibrated * \
+                                np.arange(0, calibration_config.num_bins) * \
+                                (calibration_config.max_energy_kev / calibration_config.num_bins) + \
+                                calibration_config.intercept_calibrated
+        nxdata.channel_energy.attrs['units'] = 'keV'
+
+        for scans in map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    map_index = scans.get_index(scan_number, scan_step_index, map_config)
+                    nxdata.raw[map_index] = scanparser.get_detector_data(calibration_config.detector_name, scan_step_index)
+
+        nxentry.data.makelink(nxdata.raw, name=calibration_config.detector_name)
+        nxentry.data.makelink(nxdata.channel_energy, name=f'{calibration_config.detector_name}_channel_energy')
+        if isinstance(nxentry.data.attrs['axes'], str):
+            nxentry.data.attrs['axes'] = [nxentry.data.attrs['axes'], f'{calibration_config.detector_name}_channel_energy']
+        else:
+            nxentry.data.attrs['axes'] += [f'{calibration_config.detector_name}_channel_energy']
+        nxentry.data.attrs['signal'] = calibration_config.detector_name
+
+        return(nxroot)
 
 class StrainAnalysisProcessor(Processor):
     '''Class representing a process to compute a map of sample strains by fitting

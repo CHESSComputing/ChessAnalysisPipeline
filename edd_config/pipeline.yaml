@@ -19,8 +19,8 @@ pipeline:
             filename: edd_data/ceria_calibrated.yaml
             schema: MCACeriaCalibrationConfig
   - processor.MCADataProcessor
-  - writer.YAMLWriter:
-      filename: edd_data/map_detector_data.yaml
+  - writer.NexusWriter:
+      filename: edd_data/map_detector_data.nxs
       force_overwrite: true
 
   # Compute sample strain map
