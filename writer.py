@@ -8,8 +8,10 @@ Description: generic Writer module
 # system modules
 import argparse
 import json
+import logging
 import os
 import sys
+from time import time
 
 # local modules
 # from pipeline import PipelineObject
@@ -24,8 +26,9 @@ class Writer():
         Constructor of Writer class
         """
         self.__name__ = self.__class__.__name__
+        self.logger = logging.getLogger(self.__name__)
 
-    def write(self, data, filename):
+    def write(self, data, filename, **_write_kwargs):
         """
         write API
 
@@ -33,12 +36,23 @@ class Writer():
         :param data: data to write to file
         :return: data written to file
         """
+
+        t0 = time()
+        self.logger.info(f'Executing "write" with filename={filename}, data={repr(data)}, kwargs={_write_kwargs}')
+
+        data = self._write(data, filename, **_write_kwargs)
+
+        self.logger.info(f'Finished "write" in {time()-t0:.3f} seconds\n')
+
+        return(data)
+
+    def _write(self, data, filename):
         with open(filename, 'a') as file:
             file.write(data)
         return(data)
 
 class YAMLWriter(Writer):
-    def write(self, data, filename, force_overwrite=False):
+    def _write(self, data, filename, force_overwrite=False):
         '''If `data` is a `dict`, write it to `filename`.
 
         :param data: the dictionary to write to `filename`.
@@ -54,7 +68,6 @@ class YAMLWriter(Writer):
         :return: the original input data
         :rtype: dict
         '''
-        print(f'{self.__name__}: write YAML data to {filename}')
 
         import yaml
 
@@ -71,7 +84,7 @@ class YAMLWriter(Writer):
         return(data)
 
 class NexusWriter(Writer):
-    def write(self, data, filename, force_overwrite=False):
+    def _write(self, data, filename, force_overwrite=False):
         '''Write `data` to a NeXus file
 
         :param data: the data to write to `filename`.
@@ -80,8 +93,6 @@ class NexusWriter(Writer):
             overwritten, if it already exists. 
         :return: the original input data
         '''
-        
-        print(f'{self.__name__}: write NeXus data to {filename}')
 
         from nexusformat.nexus import NXobject
         import xarray as xr
@@ -182,6 +193,8 @@ class OptionParser():
             dest="filename", default="", help="Output file")
         self.parser.add_argument("--writer", action="store",
             dest="writer", default="Writer", help="Writer class name")
+        self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
+            dest='log_level', default='INFO', help='logging level')
 
 def main():
     '''Main function'''
@@ -195,6 +208,10 @@ def main():
         sys.exit(1)
 
     writer = writerCls()
+    writer.logger.setLevel(getattr(logging, opts.log_level))
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
+    writer.logger.addHandler(log_handler)
     data = writer.write(opts.data, opts.filename)
     print(f"Writer {writer} writes to {opts.filename}, data {data}")
 

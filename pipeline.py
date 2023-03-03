@@ -8,7 +8,8 @@ Description:
 """
 
 # system modules
-
+import logging
+from time import time
 
 class Pipeline():
     """
@@ -21,28 +22,34 @@ class Pipeline():
         :param items: list of objects
         :param kwds: list of method args for individual objects
         """
+        self.__name__ = self.__class__.__name__
+
         self.items = items
         self.kwds = kwds
 
-    def execute(self, verbose=False):
+        self.logger = logging.getLogger(self.__name__)
+
+    def execute(self):
         """
         execute API
         """
+
+        t0 = time()
+        self.logger.info(f'Executing "execute"\n')
+
         data = None
         for item, kwargs in zip(self.items, self.kwds):
             if hasattr(item, 'read'):
-                if verbose:
-                    print(f"### call item.read from {item} with kwargs={kwargs}")
+                self.logger.info(f'Calling "read" on {item}')
                 data = item.read(**kwargs)
             if hasattr(item, 'process'):
-                if verbose:
-                    print(f"### call item.process from {item} with data={data} kwargs={kwargs}")
+                self.logger.info(f'Calling "process" on {item}')
                 data = item.process(data, **kwargs)
             if hasattr(item, 'write'):
-                if verbose:
-                    print(f"### call item.write from {item} with data={data} kwargs={kwargs}")
+                self.logger.info(f'Calling "write" on {item}')
                 data = item.write(data, **kwargs)
 
+        self.logger.info(f'Exectuted "exectute" in {time()-t0:.3f} seconds')
 
 class PipelineObject():
     """

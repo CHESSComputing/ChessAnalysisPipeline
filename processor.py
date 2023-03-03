@@ -10,7 +10,9 @@ Description: Processor module
 # system modules
 import argparse
 import json
+import logging
 import sys
+from time import time
 
 # local modules
 # from pipeline import PipelineObject
@@ -24,11 +26,23 @@ class Processor():
         Processor constructor
         """
         self.__name__ = self.__class__.__name__
+        self.logger = logging.getLogger(self.__name__)
 
     def process(self, data):
         """
         process data API
         """
+
+        t0 = time()
+        self.logger.info(f'Executing "process" with data={data}')
+
+        data = self._process(data)
+
+        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
+
+        return(data)
+
+    def _process(self, data):
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
             if all([isinstance(d,dict) for d in data]):
@@ -44,7 +58,7 @@ class MapProcessor(Processor):
     scalar-valued raw data requseted by the supplied map configuration.
     '''
 
-    def process(self, data):
+    def _process(self, data):
         '''Process the output of a `Reader` that contains a map configuration and
         return a `nexusformat.nexus.NXentry` representing the map.
 
@@ -54,8 +68,6 @@ class MapProcessor(Processor):
         :return: Map data & metadata (SPEC only, no detector)
         :rtype: nexusformat.nexus.NXentry
         '''
-
-        print(f'{self.__name__}: get MapConfig from input, return an NXentry')
 
         map_config = self.get_map_config(data)
         nxentry = self.__class__.get_nxentry(map_config)
@@ -163,7 +175,7 @@ class IntegrationProcessor(Processor):
     the integrated detector data requested.
     '''
 
-    def process(self, data):
+    def _process(self, data):
         '''Process the output of a `Reader` that contains a map and integration
         configuration and return a `nexusformat.nexus.NXprocess` containing a map
         of the integrated detector data requested
@@ -175,7 +187,6 @@ class IntegrationProcessor(Processor):
         :return: integrated data and process metadata
         :rtype: nexusformat.nexus.NXprocess
         '''
-        print(f'{self.__name__}: get MapConfig and IntegrationConfig from input, return an NXprocess')
 
         map_config, integration_config = self.get_configs(data)
         nxprocess = self.get_nxprocess(map_config, integration_config)
@@ -304,7 +315,7 @@ class MCACeriaCalibrationProcessor(Processor):
     channel energies for an EDD experimental setup.
     '''
 
-    def process(self, data):
+    def _process(self, data):
         '''Return tuned values for 2&theta and linear correction parameters for
         the MCA channel energies.
 
@@ -313,8 +324,6 @@ class MCACeriaCalibrationProcessor(Processor):
         :return: original configuration dictionary with tuned values added
         :rtype: dict[str,float]
         '''
-
-        print(f'{self.__name__}: get MCACeriaCalibrationConfig from input, return calibrated values')
 
         calibration_config = self.get_config(data)
 
@@ -462,7 +471,7 @@ class MCADataProcessor(Processor):
     results of a ceria calibration.
     '''
 
-    def process(self, data):
+    def _process(self, data):
         '''Process configurations for a map and MCA detector(s), and return the
         raw MCA data collected over the map.
 
@@ -471,8 +480,6 @@ class MCADataProcessor(Processor):
         :return: calibrated and flux-corrected MCA data
         :rtype: nexusformat.nexus.NXentry
         '''
-
-        print(f'{self.__name__}: get MapConfig and MCACeriaCalibrationConfig from input, return map of calibrated MCA data')
 
         map_config, calibration_config = self.get_configs(data)
         nxroot = self.get_nxroot(map_config, calibration_config)
@@ -577,7 +584,7 @@ class StrainAnalysisProcessor(Processor):
     peak locations and expected peak locations for the sample measured.
     '''
 
-    def process(self, data):
+    def _process(self, data):
         '''Process the input map detector data & configuration for the strain
         analysis procedure, and return a map of sample strains.
 
@@ -587,8 +594,6 @@ class StrainAnalysisProcessor(Processor):
         :return: map of sample strains
         :rtype: xarray.Dataset
         '''
-
-        print(f'{self.__name__}: get StrainAnalysisConfig from input, return map of strains')
 
         strain_analysis_config = self.get_config(data)
 
@@ -629,6 +634,8 @@ class OptionParser():
             dest="data", default="", help="Input data")
         self.parser.add_argument("--processor", action="store",
             dest="processor", default="Processor", help="Processor class name")
+        self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
+            dest='log_level', default='INFO', help='logging level')
 
 def main():
     '''Main function'''
@@ -642,7 +649,12 @@ def main():
         sys.exit(1)
 
     processor = processorCls()
+    processor.logger.setLevel(getattr(logging, opts.log_level))
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
+    processor.logger.addHandler(log_handler)
     data = processor.process(opts.data)
+
     print(f"Processor {processor} operates on data {data}")
 
 if __name__ == '__main__':

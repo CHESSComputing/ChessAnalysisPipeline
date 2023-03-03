@@ -8,11 +8,11 @@ Description:
 """
 
 # system modules
+import argparse
+import logging
 import os
 import sys
 import yaml
-import argparse
-import importlib
 
 # local modules
 from pipeline import Pipeline
@@ -24,9 +24,8 @@ class OptionParser():
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument("--config", action="store",
             dest="config", default="", help="Input configuration file")
-        self.parser.add_argument("--verbose", action="store_true",
-            dest="verbose", default=False, help="verbose output")
-
+        self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
+            dest='log_level', default='INFO', help='logging level')
 
 def main():
     "Main function"
@@ -40,11 +39,18 @@ def runner(opts):
 
     :param opts: opts is an instance of argparse.Namespace which contains all input parameters
     """
+
+    logger = logging.getLogger(__name__)
+    log_level = getattr(logging, opts.log_level)
+    logger.setLevel(log_level)
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
+    logger.addHandler(log_handler)
+
     config = {}
     with open(opts.config) as file:
         config = yaml.safe_load(file)
-    if opts.verbose:
-        print(f'config:\n{yaml.dump(config)}')
+    logger.info(f'Input configuration: {config}\n')
     pipeline_config = config.get('pipeline', [])
     objects = []
     kwds = []
@@ -59,12 +65,17 @@ def runner(opts):
         modName, clsName = name.split('.')
         module = __import__(modName)
         obj = getattr(module, clsName)()
-        if opts.verbose:
-            print(f"loaded {obj}")
+        obj.logger.setLevel(log_level)
+        obj.logger.addHandler(log_handler)
+        logger.info(f'Loaded {obj}')
         objects.append(obj)
         kwds.append(kwargs)
     pipeline = Pipeline(objects, kwds)
-    pipeline.execute(verbose=opts.verbose)
+    pipeline.logger.setLevel(log_level)
+    pipeline.logger.addHandler(log_handler)
+    logger.info(f'Loaded {pipeline} with {len(objects)} items\n')
+    logger.info(f'Calling "execute" on {pipeline}')
+    pipeline.execute()
 
 
 if __name__ == '__main__':

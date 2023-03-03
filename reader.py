@@ -8,7 +8,9 @@ Description: generic Reader module
 # system modules
 import argparse
 import json
+import logging
 import sys
+from time import time
 
 # local modules
 # from pipeline import PipelineObject
@@ -23,6 +25,7 @@ class Reader():
         Constructor of Reader class
         """
         self.__name__ = self.__class__.__name__
+        self.logger = logging.getLogger(self.__name__)
 
     def read(self, type_=None, schema=None, **_read_kwargs):
         '''Read API
@@ -44,11 +47,15 @@ class Reader():
         :rtype: list[dict[str,object]]
         '''
 
+        t0 = time()
+        self.logger.info(f'Executing "read" with type={type_}, schema={schema}, kwargs={_read_kwargs}')
+
         data = [{'name': self.__name__,
                  'data': self._read(**_read_kwargs),
                  'type': type_,
                  'schema': schema}]
 
+        self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
         return(data)
 
     def _read(self, filename):
@@ -59,7 +66,7 @@ class Reader():
         '''
 
         if not filename:
-            print(f"{self.__name__} no file name is given, will skip read operation")
+            self.logger.warning('No file name is given, will skip read operation')
             return None
 
         with open(filename) as file:
@@ -72,14 +79,16 @@ class MultipleReader(Reader):
 
         :param readers: a dictionary where the keys are specific names that are
             used by the next item in the `Pipeline`, and the values are `Reader`
-            cconfigurations.
+            configurations.
         :type readers: list[dict]
         :return: The results of calling `Reader.read(**kwargs)` for each item
             configured in `readers`.
         :rtype: list[dict[str,object]]
         '''
 
-        print(f'{self.__name__}: read from {len(readers)} Readers')
+        t0 = time()
+        self.logger.info(f'Executing "read" with {len(readers)} Readers')
+
         data = []
         for reader_config in readers:
             reader_name = list(reader_config.keys())[0]
@@ -88,6 +97,8 @@ class MultipleReader(Reader):
             reader_kwargs = reader_config[reader_name]
 
             data.extend(reader.read(**reader_kwargs))
+
+        self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
 
         return(data)
 
@@ -99,8 +110,6 @@ class YAMLReader(Reader):
         :return: the contents of `filename`
         :rtype: dict
         '''
-
-        print(f'{self.__name__}: read dictionary from {filename}.')
 
         import yaml
 
@@ -124,8 +133,6 @@ class NexusReader(Reader):
         :rtype: nexusformat.nexus.NXobject
         '''
 
-        print(f'{self.__name__}: read NeXus object at {nxpath} in {filename}')
-
         from nexusformat.nexus import nxload
 
         nxobject = nxload(filename)[nxpath]
@@ -140,6 +147,8 @@ class OptionParser():
             dest="filename", default="", help="Input file")
         self.parser.add_argument("--reader", action="store",
             dest="reader", default="Reader", help="Reader class name")
+        self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
+            dest='log_level', default='INFO', help='logging level')
 
 def main():
     '''Main function'''
@@ -153,7 +162,12 @@ def main():
         sys.exit(1)
 
     reader = readerCls()
-    data = reader.read(opts.filename)
+    reader.logger.setLevel(getattr(logging, opts.log_level))
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
+    reader.logger.addHandler(log_handler)
+    data = reader.read(filename=opts.filename)
+
     print(f"Reader {reader} reads from {opts.filename}, data {data}")
 
 if __name__ == '__main__':
