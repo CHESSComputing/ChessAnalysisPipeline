@@ -28,6 +28,7 @@ class Pipeline():
         self.kwds = kwds
 
         self.logger = logging.getLogger(self.__name__)
+        self.logger.propagate = False
 
     def execute(self):
         """

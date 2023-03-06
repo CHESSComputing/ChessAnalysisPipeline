@@ -27,6 +27,7 @@ class Writer():
         """
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
+        self.logger.propagate = False
 
     def write(self, data, filename, **_write_kwargs):
         """

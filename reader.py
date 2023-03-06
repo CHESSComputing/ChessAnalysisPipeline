@@ -26,6 +26,7 @@ class Reader():
         """
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
+        self.logger.propagate = False
 
     def read(self, type_=None, schema=None, **_read_kwargs):
         '''Read API

@@ -41,7 +41,7 @@ def runner(opts):
     """
 
     logger = logging.getLogger(__name__)
-    log_level = getattr(logging, opts.log_level)
+    log_level = getattr(logging, opts.log_level.upper())
     logger.setLevel(log_level)
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
