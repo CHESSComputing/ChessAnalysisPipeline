@@ -39,7 +39,7 @@ class Writer():
         """
 
         t0 = time()
-        self.logger.info(f'Executing "write" with filename={filename}, data={repr(data)}, kwargs={_write_kwargs}')
+        self.logger.info(f'Executing "write" with filename={filename}, type(data)={type(data)}, kwargs={_write_kwargs}')
 
         data = self._write(data, filename, **_write_kwargs)
 

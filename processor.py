@@ -35,7 +35,7 @@ class Processor():
         """
 
         t0 = time()
-        self.logger.info(f'Executing "process" with data={data}')
+        self.logger.info(f'Executing "process" with type(data)={type(data)}')
 
         data = self._process(data)
 
@@ -52,6 +52,33 @@ class Processor():
         data += "process part\n"
         # and we return data back to pipeline
         return data
+
+class PrintProcessor(Processor):
+    '''A Processor to simply print the input data to stdout and return the
+    original input data, unchanged in any way.
+    '''
+
+    def _process(self, data):
+        '''Print and return the input data.
+
+        :param data: Input data
+        :type data: object
+        :return: `data`
+        :rtype: object
+        '''
+
+        print(f'{self.__name__} data :')
+
+        if callable(getattr(data, '_str_tree', None)):
+            # If data is likely an NXobject, print its tree representation
+            # (since NXobjects' str representations are just their nxname -- not
+            # very helpful).
+            print(data._str_tree(attrs=True, recursive=True))
+        else:
+            print(str(data))
+
+        return(data)
+
 
 class MapProcessor(Processor):
     '''Class representing a process that takes a map configuration and returns a
