@@ -318,6 +318,10 @@ To build the code you need
 ```
 # download TF library and includes for your OS, e.g. macOS build
 curl -ksLO https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-cpu-darwin-x86_64-2.11.0.tar.gz
+# or linux build
+curl -ksLO https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-cpu-linux-x86_64-2.11.0.tar.gz
+# or linux GPU build
+curl -ksLO https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-gpu-linux-x86_64-2.11.0.tar.gz
 
 # provide TF include area location to go build command
 # the /opt/tensorflow/include is are where TF includes are
