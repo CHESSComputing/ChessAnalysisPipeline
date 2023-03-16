@@ -118,6 +118,18 @@ class YAMLReader(Reader):
             data = yaml.safe_load(file)
         return(data)
 
+class BinaryFileReader(Reader):
+    def _read(self, filename):
+        '''Return a content of a given file name
+
+        :param filename: name of the binart file to read from
+        :return: the content of `filename`
+        :rtype: binary
+        '''
+        with open(filename, 'rb') as file:
+            data = file.read()
+        return(data)
+
 class NexusReader(Reader):
     def _read(self, filename, nxpath='/'):
         '''Return the NeXus object stored at `nxpath` in the nexus file
