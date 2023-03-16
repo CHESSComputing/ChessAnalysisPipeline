@@ -16,7 +16,6 @@ import json
 import binascii
 import argparse
 import itertools
-import mimetools
 import mimetypes
 if  sys.version_info < (2, 7):
     raise Exception("TFaaS client requires python 2.7 or greater")
@@ -27,6 +26,7 @@ if  sys.version.startswith('3.'):
     import http.client as httplib
     import http.cookiejar as cookielib
 else:
+    import mimetools
     import urllib
     import urllib2
     import httplib
@@ -131,6 +131,18 @@ def fullpath(path):
         path = os.path.join(os.environ['HOME'], path)
     return path
 
+def choose_boundary():
+    """
+    Helper function to replace deprecated mimetools.choose_boundary
+    https://stackoverflow.com/questions/27099290/where-is-mimetools-choose-boundary-function-in-python3
+    https://docs.python.org/2.7/library/mimetools.html?highlight=choose_boundary#mimetools.choose_boundary
+    >>> mimetools.choose_boundary()
+    '192.168.1.191.502.42035.1678979116.376.1'
+    """
+    # we will return any random string
+    import uuid
+    return str(uuid.uuid4())
+
 # credit: https://pymotw.com/2/urllib2/#uploading-files
 class MultiPartForm(object):
     """Accumulate the data to be used when posting a form."""
@@ -138,7 +150,10 @@ class MultiPartForm(object):
     def __init__(self):
         self.form_fields = []
         self.files = []
-        self.boundary = mimetools.choose_boundary()
+        if  sys.version.startswith('3.'):
+            self.boundary = choose_boundary()
+        else:
+            self.boundary = mimetools.choose_boundary()
         return
     
     def get_content_type(self):
@@ -156,6 +171,8 @@ class MultiPartForm(object):
             mimetype = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
         if mimetype == 'application/octet-stream':
             body = binascii.b2a_base64(body)
+#         if isinstance(body, bytes):
+#             body = body.decode("utf-8") 
         self.files.append((fieldname, filename, mimetype, body))
         return
     
@@ -285,7 +302,8 @@ def predictImage(host, ifile, model, verbose=None, ckey=None, cert=None, capath=
         print("ifile : %s" % ifile)
         print("model : %s" % model)
     form = MultiPartForm()
-    form.add_file('image', ifile, fileHandle=open(ifile, 'r'))
+#     form.add_file('image', ifile, fileHandle=open(ifile, 'r'))
+    form.add_file('image', ifile, fileHandle=open(ifile, 'rb'))
     form.add_field('model', model)
     edata = str(form)
     headers['Content-length'] = len(edata)
