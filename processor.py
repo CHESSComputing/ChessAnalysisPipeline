@@ -82,7 +82,7 @@ class TFaaSImageProcessor(Processor):
         '''
         from MLaaS.tfaas_client import predictImage
         from pathlib import Path
-        print(f'{self.__name__} data :')
+        self.logger.info(f"input data {type(data)}")
         if isinstance(data, str) and Path(data).is_file():
             imgFile = data
             data = predictImage(url, imgFile, model, verbose)
@@ -91,10 +91,14 @@ class TFaaSImageProcessor(Processor):
             import requests
             img = rdict['data']
             session = requests.Session()
-            req = session.post(url + '/predict/image', files=dict(image=img), data=dict(model=model) )
+            rurl = url + '/predict/image'
+            payload = dict(model=model)
+            files = dict(image=img)
+            self.logger.info(f"HTTP request {rurl} with image file and {payload} payload")
+            req = session.post(rurl, files=files, data=payload )
             data = req.content
             data = data.decode("utf-8").replace('\n', '')
-            print("TFaas response", data)
+            self.logger.info(f"HTTP response {data}")
 
         return(data)
 
