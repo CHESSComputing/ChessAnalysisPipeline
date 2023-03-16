@@ -1,0 +1,9 @@
+pipeline:
+  - reader.BinaryFileReader:
+      filename: /Users/vk/Work/CHESS/MLPipeline/MNIST/img4.png
+  - processor.TFaaSImageProcessor:
+      url: "http://localhost:8083"
+      model: mnist
+      verbose: true
+  - writer.Writer:
+      filename: predictions.json
