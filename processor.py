@@ -129,6 +129,131 @@ class PrintProcessor(Processor):
 
         return(data)
 
+class NexusToNumpyProcessor(Processor):
+    '''A class to convert the default plottable data in an `NXobject` into an
+    `numpy.ndarray`.
+    '''
+
+    def _process(self, data):
+        '''Return the default plottable data signal in `data` as an
+        `numpy.ndarray`.
+
+        :param data: input NeXus structure
+        :type data: nexusformat.nexus.tree.NXobject
+        :raises ValueError: if `data` has no default plottable data signal
+        :return: default plottable data signal in `data`
+        :rtype: numpy.ndarray
+        '''
+
+        default_data = data.plottable_data
+
+        if default_data is None:
+            default_data_path = data.attrs['default']
+            default_data = data.get(default_data_path)
+        if default_data is None:
+            raise(ValueError(f'The structure of {data} contains no default data'))
+
+        default_signal = default_data.attrs.get('signal')
+        if default_signal is None:
+            raise(ValueError(f'The signal of {default_data} is unknown'))
+        default_signal = default_signal.nxdata
+
+        np_data = default_data[default_signal].nxdata
+
+        return(np_data)
+
+class NexusToXarrayProcessor(Processor):
+    '''A class to convert the default plottable data in an `NXobject` into an
+    `xarray.DataArray`.'''
+
+    def _process(self, data):
+        '''Return the default plottable data signal in `data` as an
+        `xarray.DataArray`.
+
+        :param data: input NeXus structure
+        :type data: nexusformat.nexus.tree.NXobject
+        :raises ValueError: if metadata for `xarray` is absen from `data`
+        :return: default plottable data signal in `data`
+        :rtype: xarray.DataArray
+        '''
+
+        from xarray import DataArray
+
+        default_data = data.plottable_data
+
+        if default_data is None:
+            default_data_path = data.attrs['default']
+            default_data = data.get(default_data_path)
+        if default_data is None:
+            raise(ValueError(f'The structure of {data} contains no default data'))
+
+        default_signal = default_data.attrs.get('signal')
+        if default_signal is None:
+            raise(ValueError(f'The signal of {default_data} is unknown'))
+        default_signal = default_signal.nxdata
+
+        signal_data = default_data[default_signal].nxdata
+
+        axes = default_data.attrs['axes']
+        coords = {}
+        for axis_name in axes:
+            axis = default_data[axis_name]
+            coords[axis_name] = (axis_name,
+                                 axis.nxdata,
+                                 axis.attrs)
+
+        dims = tuple(axes)
+
+        name = default_signal
+
+        attrs = default_data[default_signal].attrs
+
+        return(DataArray(data=signal_data,
+                         coords=coords,
+                         dims=dims,
+                         name=name,
+                         attrs=attrs))
+
+class XarrayToNexusProcessor(Processor):
+    '''A class to convert the data in an `xarray` structure to an
+    `nexusformat.nexus.NXdata`.
+    '''
+
+    def _process(self, data):
+        '''Return `data` represented as an `nexusformat.nexus.NXdata`.
+
+        :param data: The input `xarray` structure
+        :type data: typing.Union[xarray.DataArray, xarray.Dataset]
+        :return: The data and metadata in `data`
+        :rtype: nexusformat.nexus.NXdata
+        '''
+
+        from nexusformat.nexus import NXdata, NXfield
+
+        signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
+
+        axes = []
+        for name, coord in data.coords.items():
+            axes.append(NXfield(value=coord.data, name=name, attrs=coord.attrs))
+        axes = tuple(axes)
+
+        return(NXdata(signal=signal, axes=axes))
+
+class XarrayToNumpyProcessor(Processor):
+    '''A class to convert the data in an `xarray.DataArray` structure to an
+    `numpy.ndarray`.
+    '''
+
+    def _process(self, data):
+        '''Return just the signal values contained in `data`.
+
+        :param data: The input `xarray.DataArray`
+        :type data: xarray.DataArray
+        :return: The data in `data`
+        :rtype: numpy.ndarray
+        '''
+
+        return(data.data)
 
 class MapProcessor(Processor):
     '''Class representing a process that takes a map configuration and returns a
