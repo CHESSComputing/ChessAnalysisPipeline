@@ -4,7 +4,7 @@ experiment_type: EDD
 sample:
   name: set2_c1-1
 spec_scans:
-  - spec_file: edd_data/set2_c1-1/spec.log
+  - spec_file: edd/set2_c1-1/spec.log
     scan_numbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 independent_dimensions:
   - label: sample_y

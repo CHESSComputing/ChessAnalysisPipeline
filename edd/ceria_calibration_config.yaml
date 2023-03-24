@@ -1,13 +1,13 @@
-spec_file: edd_data/ceria_2222-2/spec.log
+spec_file: edd/ceria_2222-2/spec.log
 scan_number: 1
 
-flux_file: edd_data/flux.dft
+flux_file: edd/flux.dft
 
 detector_name: mca1
 num_bins: 2048
 max_energy_kev: 150
 
-hexrd_h5_material_file: edd_config/materials.h5
+hexrd_h5_material_file: edd/materials.h5
 
 tth_max: 90.0
 hkl_tth_tol: 0.15
