@@ -3,8 +3,8 @@ title: saxs_azimuthal
 integration_type: azimuthal
 detectors:
 - prefix: PIL5
-  poni_file: saxswaxs_data/PIL5.poni
-  mask_file: saxswaxs_data/PIL5.tif
+  poni_file: saxswaxs/PIL5.poni
+  mask_file: saxswaxs/PIL5.tif
 radial_units: q_A^-1
 radial_min: 0.0
 radial_max: 0.21821
