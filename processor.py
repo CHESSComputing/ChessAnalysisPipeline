@@ -373,6 +373,31 @@ class MapProcessor(Processor):
         return(nxentry)
 
 class IntegrationProcessor(Processor):
+    '''Class for integrating 2D detector data
+    '''
+
+    def _process(self, data):
+        '''Integrate the input data with the integration method and keyword
+        arguments supplied and return the results.
+
+        :param data: input data, including raw data, integration method, and
+            keyword args for the integration method.
+        :type data: tuple[typing.Union[numpy.ndarray, list[numpy.ndarray]],
+                          callable,
+                          dict]
+        :param integration_method: the method of a
+            `pyFAI.azimuthalIntegrator.AzimuthalIntegrator` or
+            `pyFAI.multi_geometry.MultiGeometry` that returns the desired
+            integration results.
+        :return: integrated raw data
+        :rtype: pyFAI.containers.IntegrateResult
+        '''
+
+        detector_data, integration_method, integration_kwargs = data
+
+        return(integration_method(detector_data, **integration_kwargs))
+
+class IntegrateMapProcessor(Processor):
     '''Class representing a process that takes a map and integration
     configuration and returns a `nexusformat.nexus.NXprocess` containing a map of
     the integrated detector data requested.
@@ -409,6 +434,9 @@ class IntegrationProcessor(Processor):
         :rtype: tuple[MapConfig, IntegrationConfig]
         '''
 
+        self.logger.debug('Getting configuration objects')
+        t0 = time()
+
         from models.map import MapConfig
         from models.integration import IntegrationConfig
 
@@ -428,7 +456,12 @@ class IntegrationProcessor(Processor):
         if not integration_config:
             raise(ValueError('No integration configuration found'))
 
-        return(MapConfig(**map_config), IntegrationConfig(**integration_config))
+        map_config = MapConfig(**map_config)
+        integration_config = IntegrationConfig(**integration_config)
+
+        self.logger.debug(f'Got configuration objects in {time()-t0:.3f} seconds')
+
+        return(map_config, integration_config)
 
     def get_nxprocess(self, map_config, integration_config):
         '''Use a `MapConfig` and `IntegrationConfig` to construct a
@@ -442,6 +475,9 @@ class IntegrationProcessor(Processor):
             structure
         :rtype: nexusformat.nexus.NXprocess
         '''
+
+        self.logger.debug('Constructing NXprocess')
+        t0 = time()
 
         from nexusformat.nexus import (NXdata,
                                        NXdetector,
@@ -501,14 +537,38 @@ class IntegrationProcessor(Processor):
                                    units='a.u',
                                    attrs={'long_name':'Intensity (a.u)'})
 
+        integrator = integration_config.get_multi_geometry_integrator()
+        if integration_config.integration_type == 'azimuthal':
+            integration_method = integrator.integrate1d
+            integration_kwargs = {
+                'lst_mask': [detector.mask_array for detector in integration_config.detectors],
+                'npt': integration_config.radial_npt
+            }
+        elif integration_config.integration_type == 'cake':
+            integration_method = integrator.integrate2d
+            integration_kwargs = {
+                'lst_mask': [detector.mask_array for detector in integration_config.detectors],
+                'npt_rad': integration_config.radial_npt,
+                'npt_azim': integration_config.azimuthal_npt,
+                'method': 'bbox'
+            }
+
+        integration_processor = IntegrationProcessor()
+        integration_processor.logger.setLevel(self.logger.getEffectiveLevel())
+        integration_processor.logger.addHandler(self.logger.handlers[0])
+        lst_args = []
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
                 for scan_step_index in range(scanparser.spec_scan_npts):
                     map_index = scans.get_index(scan_number, scan_step_index, map_config)
-                    nxprocess.data.I[map_index] = integration_config.get_integrated_data(scans, scan_number, scan_step_index)
+                    detector_data = scans.get_detector_data(integration_config.detectors, scan_number, scan_step_index)
+                    result = integration_processor.process((detector_data, integration_method, integration_kwargs))
+                    nxprocess.data.I[map_index] = result.intensity
                     for detector in integration_config.detectors:
                         nxprocess[detector.prefix].raw_data_files[map_index] = scanparser.get_detector_data_file(detector.prefix, scan_step_index)
+
+        self.logger.debug(f'Constructed NXprocess in {time()-t0:.3f} seconds')
 
         return(nxprocess)
 

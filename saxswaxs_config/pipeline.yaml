@@ -18,7 +18,7 @@ pipeline:
         - YAMLReader:
             filename: saxswaxs_config/integration_saxs_azimuthal.yaml
             schema: IntegrationConfig
-  - processor.IntegrationProcessor
+  - processor.IntegrateMapProcessor
   - writer.NexusWriter:
       filename: saxswaxs_data/saxs_azimuthal_integrated.nxs
       force_overwrite: true

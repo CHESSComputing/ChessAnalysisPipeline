@@ -18,7 +18,7 @@ pipeline:
         - YAMLReader:
             filename: sin2psi_config/integration.yaml
             schema: IntegrationConfig
-  - processor.IntegrationProcessor
+  - processor.IntegrateMapProcessor
   - writer.NexusWriter:
       filename: sin2psi_data/integrated_detector_data.nxs
       force_overwrite: true
