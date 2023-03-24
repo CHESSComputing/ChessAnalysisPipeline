@@ -102,6 +102,30 @@ class TFaaSImageProcessor(Processor):
 
         return(data)
 
+class URLResponseProcessor(Processor):
+    def _process(self, data):
+        '''Take data returned from URLReader.read and return a decoded version of
+        the content.
+
+        :param data: input data (output of URLReader.read)
+        :type data: list[dict]
+        :return: decoded data contents
+        :rtype: object
+        '''
+
+        data = data[0]
+
+        content = data['data']
+        encoding = data['encoding']
+
+        self.logger.debug(f'Decoding content of type {type(content)} with {encoding}')
+
+        try:
+            content = content.decode(encoding)
+        except:
+            self.logger.warning(f'Failed to decode content of type {type(content)} with {encoding}')
+
+        return(content)
 
 class PrintProcessor(Processor):
     '''A Processor to simply print the input data to stdout and return the
