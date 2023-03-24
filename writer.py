@@ -84,6 +84,29 @@ class YAMLWriter(Writer):
 
         return(data)
 
+class ExtractArchiveWriter(Writer):
+    def _write(self, data, filename):
+        '''Take a .tar archive represented as bytes in `data` and write the
+        extracted archive to files.
+
+        :param data: the archive data
+        :type data: bytes
+        :param filename: the name of a directory to which the archive files will
+            be written
+        :type filename: str
+        :return: the original `data`
+        :rtype: bytes
+        '''
+
+        from io import BytesIO
+        import tarfile
+
+        tar = tarfile.open(fileobj=BytesIO(data))
+        tar.extractall(path=filename)
+
+        return(data)
+
+
 class NexusWriter(Writer):
     def _write(self, data, filename, force_overwrite=False):
         '''Write `data` to a NeXus file

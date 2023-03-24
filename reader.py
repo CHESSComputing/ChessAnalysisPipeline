@@ -28,7 +28,7 @@ class Reader():
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
 
-    def read(self, type_=None, schema=None, **_read_kwargs):
+    def read(self, type_=None, schema=None, encoding=None, **_read_kwargs):
         '''Read API
 
         Wrapper to read, format, and return the data requested.
@@ -54,7 +54,8 @@ class Reader():
         data = [{'name': self.__name__,
                  'data': self._read(**_read_kwargs),
                  'type': type_,
-                 'schema': schema}]
+                 'schema': schema,
+                 'encoding': encoding}]
 
         self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
         return(data)
@@ -151,6 +152,27 @@ class NexusReader(Reader):
         nxobject = nxload(filename)[nxpath]
         return(nxobject)
 
+class URLReader(Reader):
+    def _read(self, url, headers={}):
+        '''Make an HTTPS request to the provided URL and return the results.
+        Headers for the request are optional.
+
+        :param url: the URL to read
+        :type url: str
+        :param headers: headers to attach to the request, defaults to `{}`
+        :type headers: dict, optional
+        :return: the content of the response
+        :rtype: object
+        '''
+
+        import requests
+
+        resp = requests.get(url, headers=headers)
+        data = resp.content
+
+        self.logger.debug(f'Response content: {data}')
+
+        return(data)
 
 class OptionParser():
     '''User based option parser'''
