@@ -3,7 +3,7 @@ energy_range:
 - 112
 lattice_parameters:
 - 5.41153
-material_file: materials.h5
+material_file: examples/edd/materials.h5
 material_name: CeO2
 selected_peaks:
 - 3

@@ -4,7 +4,7 @@ experiment_type: SAXSWAXS
 sample:
   name: Ti_1_A-2
 spec_scans:
-- spec_file: sin2psi_data/Ti_1_A-2/spec.log
+- spec_file: examples/sin2psi/Ti_1_A-2/spec.log
   scan_numbers: [1,2,16,17]
 independent_dimensions:
 - label: samx

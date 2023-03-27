@@ -6,13 +6,12 @@ import os
 from time import time
 from typing import Literal, Optional
 
-from msnctools.general import input_menu
-from multiprocessing.pool import ThreadPool
-from nexusformat.nexus import (NXdata,
-                               NXdetector,
-                               NXfield,
-                               NXprocess,
-                               NXroot)
+# from multiprocessing.pool import ThreadPool
+# from nexusformat.nexus import (NXdata,
+#                                NXdetector,
+#                                NXfield,
+#                                NXprocess,
+#                                NXroot)
 import numpy as np
 from pydantic import (BaseModel,
                       validator,
@@ -21,10 +20,13 @@ from pydantic import (BaseModel,
                       conint,
                       confloat,
                       FilePath)
-import pyFAI, pyFAI.multi_geometry, pyFAI.units
-from pyspec.file.tiff import TiffFile
+#import pyFAI, pyFAI.multi_geometry, pyFAI.units
+from pyFAI import load as pyfai_load
+from pyFAI.multi_geometry import MultiGeometry
+from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
+#from pyspec.file.tiff import TiffFile
 
-from .map import MapConfig, SpecScans
+#from .map import MapConfig, SpecScans
 
 
 class Detector(BaseModel):
@@ -98,12 +100,14 @@ class Detector(BaseModel):
 def azimuthal_integrator(poni_file:str):
     if not isinstance(poni_file, str):
         poni_file = str(poni_file)
-    return(pyFAI.load(poni_file))
+    return(pyfai_load(poni_file))
 @cache
 def get_mask_array(mask_file:str, poni_file:str):
     if mask_file is not None:
         if not isinstance(mask_file, str):
             mask_file = str(mask_file)
+
+        from pyspec.file.tiff import TiffFile
         with TiffFile(mask_file) as tiff:
             mask_array = tiff.asarray()
     else:
@@ -166,10 +170,10 @@ class IntegrationConfig(BaseModel):
         :return: validated radial units
         :rtype: str
         """
-        if radial_units in pyFAI.units.RADIAL_UNITS.keys():
+        if radial_units in RADIAL_UNITS.keys():
             return(radial_units)
         else:
-            raise(ValueError(f'Invalid radial units: {radial_units}. Must be one of {", ".join(pyFAI.units.RADIAL_UNITS.keys())}'))
+            raise(ValueError(f'Invalid radial units: {radial_units}. Must be one of {", ".join(RADIAL_UNITS.keys())}'))
     @validator('azimuthal_units', allow_reuse=True)
     def validate_azimuthal_units(cls, azimuthal_units):
         """
@@ -182,10 +186,10 @@ class IntegrationConfig(BaseModel):
         :return: The original supplied value, if is one of the keys in `pyFAI.units.AZIMUTHAL_UNITS`.
         :rtype: str
         """
-        if azimuthal_units in pyFAI.units.AZIMUTHAL_UNITS.keys():
+        if azimuthal_units in AZIMUTHAL_UNITS.keys():
             return(azimuthal_units)
         else:
-            raise(ValueError(f'Invalid azimuthal units: {azimuthal_units}. Must be one of {", ".join(pyFAI.units.AZIMUTHAL_UNITS.keys())}'))
+            raise(ValueError(f'Invalid azimuthal units: {azimuthal_units}. Must be one of {", ".join(AZIMUTHAL_UNITS.keys())}'))
     def validate_range_max(range_name:str):
         """Validate the maximum value of an integration range.
 
@@ -213,7 +217,7 @@ class IntegrationConfig(BaseModel):
         return(_validate_range_max)
     _validate_radial_max = validator('radial_max', allow_reuse=True)(validate_range_max('radial'))
     _validate_azimuthal_max = validator('azimuthal_max', allow_reuse=True)(validate_range_max('azimuthal'))        
-    def validate_for_map_config(self, map_config:MapConfig):
+    def validate_for_map_config(self, map_config:BaseModel):
         """
         Validate the existence of the detector data file for all scan points in `map_config`.
         
@@ -269,7 +273,7 @@ class IntegrationConfig(BaseModel):
         radial_range = (self.radial_min, self.radial_max)
         azimuthal_range = (self.azimuthal_min, self.azimuthal_max)
         return(get_multi_geometry_integrator(poni_files, self.radial_units, radial_range, azimuthal_range))
-    def get_azimuthally_integrated_data(self, spec_scans:SpecScans, scan_number:int, scan_step_index:int):
+    def get_azimuthally_integrated_data(self, spec_scans:BaseModel, scan_number:int, scan_step_index:int):
         """Return azimuthally-integrated data for the scan step specified.
         
         :param spec_scans: An instance of `SpecScans` containing the scan step requested.
@@ -289,7 +293,7 @@ class IntegrationConfig(BaseModel):
             return(result.intensity)
         else:
             return(result.intensity, result.sigma)
-    def get_radially_integrated_data(self, spec_scans:SpecScans, scan_number:int, scan_step_index:int):
+    def get_radially_integrated_data(self, spec_scans:BaseModel, scan_number:int, scan_step_index:int):
         """Return radially-integrated data for the scan step specified.
         
         :param spec_scans: An instance of `SpecScans` containing the scan step requested.
@@ -327,7 +331,7 @@ class IntegrationConfig(BaseModel):
             # Get the standard deviation of the summed detectors' intensities
             sigma = np.sqrt(np.nansum(variance_each_detector, axis=0))
             return(I, sigma)
-    def get_cake_integrated_data(self, spec_scans:SpecScans, scan_number:int, scan_step_index:int):
+    def get_cake_integrated_data(self, spec_scans:BaseModel, scan_number:int, scan_step_index:int):
         """Return cake-integrated data for the scan step specified.
         
         :param spec_scans: An instance of `SpecScans` containing the scan step requested.
@@ -350,7 +354,7 @@ class IntegrationConfig(BaseModel):
             return(result.intensity)
         else:
             return(result.intensity, result.sigma)
-    def get_integrated_data(self, spec_scans:SpecScans, scan_number:int, scan_step_index:int):
+    def get_integrated_data(self, spec_scans:BaseModel, scan_number:int, scan_step_index:int):
         """Return integrated data for the scan step specified.
         
         :param spec_scans: An instance of `SpecScans` containing the scan step requested.
@@ -471,12 +475,12 @@ def get_multi_geometry_integrator(poni_files:tuple, radial_unit:str, radial_rang
     """
     chi_min, chi_max, chi_offset, chi_disc = get_azimuthal_adjustments(*azimuthal_range)
     ais = copy.deepcopy(get_azimuthal_integrators(poni_files, chi_offset=chi_offset))
-    multi_geometry = pyFAI.multi_geometry.MultiGeometry(ais,
-                                                        unit=radial_unit,
-                                                        radial_range=radial_range,
-                                                        azimuth_range=(chi_min,chi_max),
-                                                        wavelength=sum([ai.wavelength for ai in ais])/len(ais),
-                                                        chi_disc=chi_disc)
+    multi_geometry = MultiGeometry(ais,
+                                   unit=radial_unit,
+                                   radial_range=radial_range,
+                                   azimuth_range=(chi_min,chi_max),
+                                   wavelength=sum([ai.wavelength for ai in ais])/len(ais),
+                                   chi_disc=chi_disc)
     return(multi_geometry)
 @cache
 def get_integrated_data_coordinates(azimuthal_range:tuple=None, azimuthal_npt:int=None, radial_range:tuple=None, radial_npt:int=None):
