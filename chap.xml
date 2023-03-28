@@ -1,8 +1,9 @@
 <tool id="chap" name="CHESS Analysis Pipeline" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
     <requirements>
+      <requirement type="package" version="0.0.1">ChessAnalysisPipeline</requirement>
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
-        cp '$input' data.csv && runner.py --config '$config'
+        cp '$input' data.csv && CHAP --config '$config'
     ]]></command>
     <inputs>
         <param type="data" name="config" format="yaml" />
@@ -14,8 +15,8 @@
     <tests>
         <test>
             <param name="config" value="config.yaml"/>
-            <param name="input" file="data.csv"/>
-            <output name="output" file="data.out"/>
+            <param name="input" value="data.csv"/>
+            <output name="output" value="data.out"/>
         </test>
     </tests>
     <help><![CDATA[
