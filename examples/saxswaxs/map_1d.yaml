@@ -1,17 +1,13 @@
-title: test_2d
+title: test_1d
 station: id3b
 experiment_type: SAXSWAXS
 sample:
-  name: sample_14
+  name: sample_14_align
 spec_scans:
-- spec_file: saxswaxs/test_2d
+- spec_file: examples/saxswaxs/test_1d
   scan_numbers:
   - 1
 independent_dimensions:
-- label: samz
-  units: mm
-  data_type: spec_motor
-  name: samz
 - label: samx
   units: mm
   data_type: spec_motor

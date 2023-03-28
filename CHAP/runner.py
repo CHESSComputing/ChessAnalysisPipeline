@@ -15,7 +15,7 @@ import sys
 import yaml
 
 # local modules
-from pipeline import Pipeline
+from CHAP.pipeline import Pipeline
 
 
 class OptionParser():
@@ -63,7 +63,7 @@ def runner(opts):
             name = item
             kwargs = {}
         modName, clsName = name.split('.')
-        module = __import__(modName)
+        module = __import__(f'CHAP.{modName}', fromlist=[clsName])
         obj = getattr(module, clsName)()
         obj.logger.setLevel(log_level)
         obj.logger.addHandler(log_handler)

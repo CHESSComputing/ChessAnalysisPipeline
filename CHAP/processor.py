@@ -312,7 +312,7 @@ class MapProcessor(Processor):
         :rtype: MapConfig
         '''
 
-        from models.map import MapConfig
+        from CHAP.models.map import MapConfig
 
         map_config = False
         if isinstance(data, list):
@@ -461,8 +461,8 @@ class IntegrateMapProcessor(Processor):
         self.logger.debug('Getting configuration objects')
         t0 = time()
 
-        from models.map import MapConfig
-        from models.integration import IntegrationConfig
+        from CHAP.models.map import MapConfig
+        from CHAP.models.integration import IntegrationConfig
 
         map_config = False
         integration_config = False
@@ -635,7 +635,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: MCACeriaCalibrationConfig
         '''
 
-        from models.edd import MCACeriaCalibrationConfig
+        from CHAP.models.edd import MCACeriaCalibrationConfig
 
         calibration_config = False
         if isinstance(data, list):
@@ -787,8 +787,8 @@ class MCADataProcessor(Processor):
         :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
         '''
 
-        from models.map import MapConfig
-        from models.edd import MCACeriaCalibrationConfig
+        from CHAP.models.map import MapConfig
+        from CHAP.models.edd import MCACeriaCalibrationConfig
 
         map_config = False
         calibration_config = False

@@ -7,41 +7,41 @@ pipeline:
         PRIVATE-TOKEN: # your token here
   - processor.URLResponseProcessor
   - writer.ExtractArchiveWriter:
-      filename: edd
+      filename: examples/edd
 
   # Calibrate detector
   - reader.YAMLReader:
-      filename: edd/ceria_calibration_config.yaml
+      filename: examples/edd/ceria_calibration_config.yaml
       schema: MCACeriaCalibrationConfig
   - processor.MCACeriaCalibrationProcessor
   - writer.YAMLWriter:
-      filename: edd/ceria_calibrated.yaml
+      filename: examples/edd/ceria_calibrated.yaml
       force_overwrite: true
 
   # Gather calibrated detector data
   - reader.MultipleReader:
       readers:
         - YAMLReader:
-            filename: edd/map.yaml
+            filename: examples/edd/map.yaml
             schema: MapConfig
         - YAMLReader:
-            filename: edd/ceria_calibrated.yaml
+            filename: examples/edd/ceria_calibrated.yaml
             schema: MCACeriaCalibrationConfig
   - processor.MCADataProcessor
   - writer.NexusWriter:
-      filename: edd/map_detector_data.nxs
+      filename: examples/edd/map_detector_data.nxs
       force_overwrite: true
 
   # Compute sample strain map
   - reader.MultipleReader:
       readers:
+        - NexusReader:
+            filename: examples/edd/map_detector_data.nxs
         - YAMLReader:
-            filename: edd/map_detector_data.nxs
-        - YAMLReader:
-            filename: edd/strain_analysis_config.yaml
+            filename: examples/edd/strain_analysis_config.yaml
             schema: StrainAnalysisConfig
   - processor.StrainAnalysisProcessor
   - writer.YAMLWriter:
-      filename: edd/map_strain_data.yaml
+      filename: examples/edd/map_strain_data.yaml
       force_overwrite: true
 

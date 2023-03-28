@@ -3,11 +3,11 @@ title: waxs_azimuthal
 integration_type: azimuthal
 detectors:
 - prefix: PIL9
-  poni_file: saxswaxs/PIL9.poni
-  mask_file: saxswaxs/PIL9.tif
+  poni_file: examples/saxswaxs/PIL9.poni
+  mask_file: examples/saxswaxs/PIL9.tif
 - prefix: PIL11
-  poni_file: saxswaxs/PIL11.poni
-  mask_file: saxswaxs/PIL11.tif
+  poni_file: examples/saxswaxs/PIL11.poni
+  mask_file: examples/saxswaxs/PIL11.tif
 radial_units: q_A^-1
 radial_min: 0.0
 radial_max: 3.33209

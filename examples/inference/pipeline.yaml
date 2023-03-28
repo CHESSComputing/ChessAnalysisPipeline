@@ -6,4 +6,4 @@ pipeline:
       model: mnist
       verbose: true
   - writer.Writer:
-      filename: predictions.json
+      filename: examples/inference/predictions.json

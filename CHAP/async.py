@@ -11,7 +11,7 @@ Description: AsyncProcessor module
 import asyncio
 
 # local modules
-from processor import Processor, PrintProcessor
+from CHAP.processor import Processor, PrintProcessor
 
 
 async def task(mgr, doc):
