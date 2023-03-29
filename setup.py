@@ -32,7 +32,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ChessAnalysisPipeline",
-    version="0.0.1",
+    version="0.0.2",
     author="Keara Soloway, Rolf Verberg, Valentin Kuznetsov",
     author_email="",
     description="CHESS analysis pipeline framework",
