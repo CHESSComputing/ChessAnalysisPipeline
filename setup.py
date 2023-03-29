@@ -32,7 +32,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ChessAnalysisPipeline",
-    version="0.0.1",
+    version="0.0.2",
     author="Keara Soloway, Rolf Verberg, Valentin Kuznetsov",
     author_email="",
     description="CHESS analysis pipeline framework",
@@ -42,7 +42,7 @@ setuptools.setup(
     packages=['CHAP', 'MLaaS'],
     package_dir={'CHAP': 'CHAP', 'MLaaS': 'MLaaS'},
     package_data={'examples': data_files},
-    scripts=['scripts/CHAP'],
+    entry_points={'console_scripts': ['CHAP = CHAP.runner:main']},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
