@@ -118,3 +118,4 @@ For more info see this
 2. [Adding custom tool to galaxy](https://galaxyproject.org/admin/tools/add-tool-tutorial/)
 3. [how to publish tool to Shed](https://galaxyproject.org/toolshed/publish-tool/)
 4. [Galaxy administration](https://galaxyproject.org/admin/)
+5. [Galaxy support](https://galaxyproject.org/support/)
