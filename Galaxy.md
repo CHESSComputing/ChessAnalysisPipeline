@@ -46,3 +46,64 @@ Now, we can start server via the following commad: `planemo s`,
 it will take a while. Once finished we may visit
 `http://127.0.0.1:9090` to see our galaxy hub along with
 our pipeline tool.
+
+### Run galaxy
+The galaxy framework can be run in two different ways:
+- either via `planemo s` command, or
+- by cloning galaxy repository and run `run.sh` script
+
+#### run galaxy via planemo
+`planemo` provides an easy wasy to run galaxy via `planemo s` (start the
+server) command. But when you invoke this command it will fetch all
+necessary dependencies for galaxy and this process will take 1/2 hour.
+Unfortunately, this process does not cache dependencies, and it will be
+repeated upon next call.
+
+Therefore, we recommend to run galaxy natively.
+
+#### run galaxy natively
+To run galaxy natively you must clone its repository:
+```
+git clone https://github.com/galaxyproject/galaxy.git
+```
+After that, just run `run.sh` and it will setup python virtual environment
+in `$PWD/.venv`, fetch and build all dependencies. This is one time process
+and after next call the galaxy server will start quickly.
+
+Upon successfull start you will see the following:
+```
+Serving on http://127.0.0.1:8080
+```
+and can visit this URL to access your galaxy server.
+
+### Adding tool manually to galaxy
+- perform local install of galaxy via
+```
+git clone clone https://github.com/galaxyproject/galaxy.git
+```
+- create your new area within tools
+```
+cd tools
+mkdir chess
+cd chess
+```
+- copy your files to your tools area, e.g.
+```
+cp chap.xml data.csv img.png ~/Work/CHESS/GIT/galaxy/tools/chess
+```
+- adjust your galaxy `config/tool_conf.xml.sample` or `config/tool_conf.xml`
+file with your new tool info, e.g.
+```
+<section name="CHESS" id="chess">
+   <tool file="chess/chap.xml" />
+</section>
+```
+- start galaxy via `run.sh`
+
+For more info see this
+[page](https://galaxyproject.org/admin/tools/add-tool-tutorial/)
+
+### References
+1. [Installing tools into Galaxy](https://galaxyproject.org/admin/tools/add-tool-from-toolshed-tutorial/)
+2. [Adding custom tool to galaxy](https://galaxyproject.org/admin/tools/add-tool-tutorial/)
+3. [how to publish tool to Shed](https://galaxyproject.org/toolshed/publish-tool/)

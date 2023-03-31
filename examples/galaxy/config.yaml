@@ -1,0 +1,12 @@
+pipeline:
+  - reader.Reader:
+      filename: data.csv
+  - processor.Processor: {}
+  - reader.BinaryFileReader:
+      filename: img.png
+  - processor.TFaaSImageProcessor:
+      url: "http://localhost:8083"
+      model: mnist
+      verbose: true
+  - writer.Writer:
+      filename: preds.json
