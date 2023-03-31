@@ -76,6 +76,16 @@ Serving on http://127.0.0.1:8080
 ```
 and can visit this URL to access your galaxy server.
 
+#### Use conda for galaxy
+The galaxy by default relies on python virtual env and will install it in
+`.venv` area. But it also supports `conda` environment. To use it you need:
+- install anaconda
+- source anaconda env
+- start galaexy as `run.sh --no-create-venv` or `run.sh --skip-venv`
+
+The one *big* advantage of using `conda` is that it will allow
+packages to install requirements if they are specified in shed xml file.
+
 ### Adding tool manually to galaxy
 - perform local install of galaxy via
 ```
@@ -107,3 +117,4 @@ For more info see this
 1. [Installing tools into Galaxy](https://galaxyproject.org/admin/tools/add-tool-from-toolshed-tutorial/)
 2. [Adding custom tool to galaxy](https://galaxyproject.org/admin/tools/add-tool-tutorial/)
 3. [how to publish tool to Shed](https://galaxyproject.org/toolshed/publish-tool/)
+4. [Galaxy administration](https://galaxyproject.org/admin/)
