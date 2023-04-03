@@ -1,25 +1,25 @@
 pipeline:
 
   # Download example data
-  - reader.URLReader:
+  - common.URLReader:
       url: https://gitlab01.classe.cornell.edu/api/v4/projects/308/repository/files/saxswaxs%2fdata.tar/raw?ref=main
       headers:
         PRIVATE-TOKEN: # your token here
-  - processor.URLResponseProcessor
-  - writer.ExtractArchiveWriter:
+  - common.URLResponseProcessor
+  - common.ExtractArchiveWriter:
       filename: examples/saxswaxs
 
   # Collect map data
-  - reader.YAMLReader:
+  - common.YAMLReader:
       filename: examples/saxswaxs/map_1d.yaml
       schema: MapConfig
-  - processor.MapProcessor
-  - writer.NexusWriter:
+  - common.MapProcessor
+  - common.NexusWriter:
       filename: examples/saxswaxs/saxswaxs_map.nxs
       force_overwrite: true
 
   # Integrate map detetcor data
-  - reader.MultipleReader:
+  - common.MultipleReader:
       readers:
         - YAMLReader:
             filename: examples/saxswaxs/map_1d.yaml
@@ -27,7 +27,7 @@ pipeline:
         - YAMLReader:
             filename: examples/saxswaxs/integration_saxs_azimuthal.yaml
             schema: IntegrationConfig
-  - processor.IntegrateMapProcessor
-  - writer.NexusWriter:
+  - common.IntegrateMapProcessor
+  - common.NexusWriter:
       filename: examples/saxswaxs/saxs_azimuthal_integrated.nxs
       force_overwrite: true

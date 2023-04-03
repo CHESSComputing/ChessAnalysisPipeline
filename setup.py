@@ -32,17 +32,39 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ChessAnalysisPipeline",
-    version="0.0.2",
+    version="0.0.3",
     author="Keara Soloway, Rolf Verberg, Valentin Kuznetsov",
     author_email="",
     description="CHESS analysis pipeline framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/CHESSComputing/ChessAnalysisPipeline",
-    packages=['CHAP', 'MLaaS'],
-    package_dir={'CHAP': 'CHAP', 'MLaaS': 'MLaaS'},
-    package_data={'examples': data_files},
-    entry_points={'console_scripts': ['CHAP = CHAP.runner:main']},
+    packages=[
+        'CHAP',
+        'CHAP.common',
+        'CHAP.common.models',
+        'CHAP.edd',
+        'CHAP.inference',
+        'CHAP.saxswaxs',
+        'CHAP.sin2psi',
+        'MLaaS'
+    ],
+    package_dir={
+        'CHAP': 'CHAP',
+        'CHAP.common': 'CHAP/common',
+        'CHAP.common.models': 'CHAP/common/models',
+        'CHAP.edd': 'CHAP/edd',
+        'CHAP.inference': 'CHAP/inference',
+        'CHAP.saxswaxs': 'CHAP/saxswaxs',
+        'CHAP.sin2psi': 'CHAP/sin2psi',
+        'MLaaS': 'MLaaS'
+    },
+    package_data={
+        'examples': data_files
+    },
+    entry_points={
+        'console_scripts': ['CHAP = CHAP.runner:main']
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

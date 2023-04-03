@@ -1,0 +1,6 @@
+certif-pyspec
+msnctools
+nexusformat
+numpy
+pydantic
+pyfai

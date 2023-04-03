@@ -1,0 +1,6 @@
+hexrd
+msnctools
+numpy
+pydantic
+scipy
+
