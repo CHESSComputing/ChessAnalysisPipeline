@@ -1,12 +1,12 @@
 pipeline:
-  - reader.Reader:
+  - CHAP.Reader:
       filename: data.csv
-  - processor.Processor: {}
-  - reader.BinaryFileReader:
+  - CHAP.Processor: {}
+  - common.BinaryFileReader:
       filename: img.png
-  - processor.TFaaSImageProcessor:
+  - inference.TFaaSImageProcessor:
       url: "http://localhost:8083"
       model: mnist
       verbose: true
-  - writer.Writer:
+  - CHAP.Writer:
       filename: preds.json
