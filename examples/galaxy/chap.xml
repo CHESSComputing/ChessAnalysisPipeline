@@ -1,0 +1,46 @@
+<tool id="chap" name="CHESS Analysis Pipeline" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
+    <requirements>
+        <requirement type="package" version="0.0.2">ChessAnalysisPipeline</requirement>
+    </requirements>
+    <command detect_errors="exit_code"><![CDATA[
+        cp '$input' data.csv &&
+        cp '$image' img.png &&
+        python `python -c "import CHAP, os; print(os.path.abspath(CHAP.__file__))" | sed "s,__init__,runner,g"` --config '$config' &&
+        cp preds.json '$output'
+    ]]></command>
+    <inputs>
+        <param type="data" name="config" format="yaml" />
+        <param type="data" name="input" format="csv" />
+        <param type="data" name="image" format="png" />
+    </inputs>
+    <outputs>
+        <data name="output" format="json" />
+    </outputs>
+    <tests>
+        <test>
+            <param name="config" value="config.yaml"/>
+            <param name="input" value="data.csv"/>
+            <param name="image" value="img.png"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+        CHESS Analysis Pipeline (CHAP):
+
+        To run it on command line you'll use:
+        CHAP --config CONFIG
+
+        To run it within galaxy you'll only need to upload your
+        required configuration pipeline and necessary data.
+    ]]></help>
+    <citations>
+        <citation type="bibtex">
+@misc{githubChessAnalysisPipeline,
+  author = {LastTODO, FirstTODO},
+  year = {TODO},
+  title = {ChessAnalysisPipeline},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  url = {https://github.com/CHESSComputing/ChessAnalysisPipeline},
+}</citation>
+    </citations>
+</tool>
