@@ -1,0 +1,6 @@
+certif-pyspec
+hexrd
+numpy
+pydantic
+scipy
+

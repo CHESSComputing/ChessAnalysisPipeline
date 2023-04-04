@@ -496,24 +496,39 @@ class MapConfig(BaseModel):
         field."""
         return([getattr(self,l,None) for l in CorrectionsData.reserved_labels() if getattr(self,l,None) is not None] + self.scalar_data)
 
-def import_scanparser(station, experiment_type):
-    if station.lower() in ('id1a3', 'id3a'):
-        if experiment_type == 'SAXSWAXS':
-            from msnctools.scanparsers import SMBLinearScanParser
-            globals()['ScanParser'] = SMBLinearScanParser
-        elif experiment_type == 'EDD':
-            from msnctools.scanparsers import SMBMCAScanParser
-            globals()['ScanParser'] = SMBMCAScanParser
+def import_scanparser(station, experiment):
+    '''Given the name of a CHESS station and experiment type, import the
+    corresponding subclass of `ScanParser` as `ScanParser`.
+
+    :param station: The station name ("IDxx", not the beamline acronym)
+    :type station: str
+    :param experiment: The experiment type
+    :type experiment: Literal["SAXSWAXS","EDD","XRF","Tomo","Powder"]
+    :return: None
+    '''
+
+    station = station.lower()
+    experiment = experiment.lower()
+
+    if station in ('id1a3', 'id3a'):
+        if experiment in ('saxswaxs', 'powder'):
+            from CHAP.common.utils.scanparsers import SMBLinearScanParser as ScanParser
+        elif experiment == 'edd':
+            from CHAP.common.utils.scanparsers import SMBMCAScanParser as ScanParser
+        elif experiment == 'tomo':
+            from CHAP.common.utils.scanparsers import SMBRotationScanParser as ScanParser
         else:
-            raise(ValueError(f'Invalid experiment_type: {experiment_type}'))
-    elif station.lower() == 'id3b':
-        if experiment_type == 'SAXSWAXS':
-            from msnctools.scanparsers import FMBSAXSWAXSScanParser
-            globals()['ScanParser'] = FMBSAXSWAXSScanParser
-        elif experiment_type == 'XRF':
-            from msnctools.scanparsers import FMBXRFScanParser
-            globals()['ScanParser'] = FMBXRFScanParser
+            raise(ValueError(f'Invalid experiment type for station {station}: {experiment}'))
+    elif station == 'id3b':
+        if experiment == 'saxswaxs':
+            from CHAP.common.utils.scanparsers import FMBSAXSWAXSScanParser as ScanParser
+        elif experiment == 'tomo':
+            from CHAP.common.utils.scanparsers import FMBRotationScanParser as ScanParser
+        elif experiment == 'xrf':
+            from CHAP.common.utils.scanparsers import FMBXRFScanParser as ScanParser
         else:
-            raise(ValueError(f'Invalid experiment_type: {experiment_type}'))
+            raise(ValueError(f'Invalid experiment type for station {station}: {experiment}'))
     else:
         raise(ValueError(f'Invalid station: {station}'))
+
+    globals()['ScanParser'] = ScanParser

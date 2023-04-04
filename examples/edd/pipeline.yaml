@@ -1,25 +1,25 @@
 pipeline:
 
   # Download example data
-  - reader.URLReader:
+  - common.URLReader:
       url: https://gitlab01.classe.cornell.edu/api/v4/projects/308/repository/files/edd%2fdata.tar/raw?ref=main
       headers:
         PRIVATE-TOKEN: # your token here
-  - processor.URLResponseProcessor
-  - writer.ExtractArchiveWriter:
+  - common.URLResponseProcessor
+  - common.ExtractArchiveWriter:
       filename: examples/edd
 
   # Calibrate detector
-  - reader.YAMLReader:
+  - common.YAMLReader:
       filename: examples/edd/ceria_calibration_config.yaml
       schema: MCACeriaCalibrationConfig
-  - processor.MCACeriaCalibrationProcessor
-  - writer.YAMLWriter:
+  - edd.MCACeriaCalibrationProcessor
+  - common.YAMLWriter:
       filename: examples/edd/ceria_calibrated.yaml
       force_overwrite: true
 
   # Gather calibrated detector data
-  - reader.MultipleReader:
+  - common.MultipleReader:
       readers:
         - YAMLReader:
             filename: examples/edd/map.yaml
@@ -27,21 +27,21 @@ pipeline:
         - YAMLReader:
             filename: examples/edd/ceria_calibrated.yaml
             schema: MCACeriaCalibrationConfig
-  - processor.MCADataProcessor
-  - writer.NexusWriter:
+  - edd.MCADataProcessor
+  - common.NexusWriter:
       filename: examples/edd/map_detector_data.nxs
       force_overwrite: true
 
   # Compute sample strain map
-  - reader.MultipleReader:
+  - common.MultipleReader:
       readers:
         - NexusReader:
             filename: examples/edd/map_detector_data.nxs
         - YAMLReader:
             filename: examples/edd/strain_analysis_config.yaml
             schema: StrainAnalysisConfig
-  - processor.StrainAnalysisProcessor
-  - writer.YAMLWriter:
+  - common.StrainAnalysisProcessor
+  - common.YAMLWriter:
       filename: examples/edd/map_strain_data.yaml
       force_overwrite: true
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-"""
+'''
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: generic Reader module
-"""
+'''
 
 # system modules
 import argparse
@@ -16,14 +16,14 @@ from time import time
 # from pipeline import PipelineObject
 
 class Reader():
-    """
+    '''
     Reader represent generic file writer
-    """
+    '''
 
     def __init__(self):
-        """
+        '''
         Constructor of Reader class
-        """
+        '''
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
@@ -75,119 +75,24 @@ class Reader():
             data = file.read()
         return(data)
 
-class MultipleReader(Reader):
-    def read(self, readers):
-        '''Return resuts from multiple `Reader`s.
-
-        :param readers: a dictionary where the keys are specific names that are
-            used by the next item in the `Pipeline`, and the values are `Reader`
-            configurations.
-        :type readers: list[dict]
-        :return: The results of calling `Reader.read(**kwargs)` for each item
-            configured in `readers`.
-        :rtype: list[dict[str,object]]
-        '''
-
-        t0 = time()
-        self.logger.info(f'Executing "read" with {len(readers)} Readers')
-
-        data = []
-        for reader_config in readers:
-            reader_name = list(reader_config.keys())[0]
-            reader_class = getattr(sys.modules[__name__], reader_name)
-            reader = reader_class()
-            reader_kwargs = reader_config[reader_name]
-
-            data.extend(reader.read(**reader_kwargs))
-
-        self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
-
-        return(data)
-
-class YAMLReader(Reader):
-    def _read(self, filename):
-        '''Return a dictionary from the contents of a yaml file.
-
-        :param filename: name of the YAML file to read from
-        :return: the contents of `filename`
-        :rtype: dict
-        '''
-
-        import yaml
-
-        with open(filename) as file:
-            data = yaml.safe_load(file)
-        return(data)
-
-class BinaryFileReader(Reader):
-    def _read(self, filename):
-        '''Return a content of a given file name
-
-        :param filename: name of the binart file to read from
-        :return: the content of `filename`
-        :rtype: binary
-        '''
-        with open(filename, 'rb') as file:
-            data = file.read()
-        return(data)
-
-class NexusReader(Reader):
-    def _read(self, filename, nxpath='/'):
-        '''Return the NeXus object stored at `nxpath` in the nexus file
-        `filename`.
-
-        :param filename: name of the NeXus file to read from
-        :type filename: str
-        :param nxpath: path to a specific loaction in the NeXus file to read
-            from, defaults to `'/'`
-        :type nxpath: str, optional
-        :raises nexusformat.nexus.NeXusError: if `filename` is not a NeXus
-            file or `nxpath` is not in `filename`.
-        :return: the NeXus structure indicated by `filename` and `nxpath`.
-        :rtype: nexusformat.nexus.NXobject
-        '''
-
-        from nexusformat.nexus import nxload
-
-        nxobject = nxload(filename)[nxpath]
-        return(nxobject)
-
-class URLReader(Reader):
-    def _read(self, url, headers={}):
-        '''Make an HTTPS request to the provided URL and return the results.
-        Headers for the request are optional.
-
-        :param url: the URL to read
-        :type url: str
-        :param headers: headers to attach to the request, defaults to `{}`
-        :type headers: dict, optional
-        :return: the content of the response
-        :rtype: object
-        '''
-
-        import requests
-
-        resp = requests.get(url, headers=headers)
-        data = resp.content
-
-        self.logger.debug(f'Response content: {data}')
-
-        return(data)
-
 class OptionParser():
     '''User based option parser'''
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
-        self.parser.add_argument("--filename", action="store",
-            dest="filename", default="", help="Input file")
-        self.parser.add_argument("--reader", action="store",
-            dest="reader", default="Reader", help="Reader class name")
-        self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
+        self.parser.add_argument(
+            '--filename', action='store',
+            dest='filename', default='', help='Input file')
+        self.parser.add_argument(
+            '--reader', action='store',
+            dest='reader', default='Reader', help='Reader class name')
+        self.parser.add_argument(
+            '--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
 
-def main():
+def main(opt_parser=OptionParser):
     '''Main function'''
-    optmgr  = OptionParser()
+
+    optmgr  = opt_parser()
     opts = optmgr.parser.parse_args()
     clsName = opts.reader
     try:
@@ -203,7 +108,7 @@ def main():
     reader.logger.addHandler(log_handler)
     data = reader.read(filename=opts.filename)
 
-    print(f"Reader {reader} reads from {opts.filename}, data {data}")
+    print(f'Reader {reader} reads from {opts.filename}, data {data}')
 
 if __name__ == '__main__':
     main()

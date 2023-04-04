@@ -1,7 +1,7 @@
 pipeline:
-  - reader.BinaryFileReader:
-      filename: /Users/vk/Work/CHESS/MLPipeline/MNIST/img4.png
-  - processor.TFaaSImageProcessor:
+  - common.BinaryFileReader:
+      filename: examples/inference/img4.png
+  - inference.TFaaSImageProcessor:
       url: "http://localhost:8083"
       model: mnist
       verbose: true
