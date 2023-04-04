@@ -1,6 +1,3 @@
-from msnctools.general import create_mask
-from msnctools.material import Material
-from msnctools.scanparsers import SMBMCAScanParser as ScanParser
 import numpy as np
 from pathlib import PosixPath
 from pydantic import (BaseModel,
@@ -114,6 +111,7 @@ class MCACeriaCalibrationConfig(BaseModel):
         :rtype: np.ndarray
         '''
 
+        from CHAP.common.utils.scanparsers import SMBMCAScanParser as ScanParser
         scanparser = ScanParser(self.spec_file, self.scan_number)
         if self.scan_step_index is None:
             data = scanparser.get_all_detector_data(self.detector_name)
@@ -133,13 +131,11 @@ class MCACeriaCalibrationConfig(BaseModel):
         :rtype: numpy.ndarray
         '''
 
-        mask = None
+        mask = np.asarray([False]*self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for bin_range in self.fit_include_bin_ranges:
-            mask = create_mask(bin_indices,
-                               bounds=bin_range,
-                               exclude_bounds=False,
-                               current_mask=mask)
+        for min_, max_ in self.fit_include_bin_ranges:
+            _mask =  np.logical_and(bin_indices > min_, bin_indices < max_)
+            mask = np.logical_or(mask, _mask)
 
         return(mask)
 
@@ -158,12 +154,13 @@ class MCACeriaCalibrationConfig(BaseModel):
         return(interpolation_function)
 
     def material(self):
-        '''Get CeO2 as a `msnctools.materials.Material` object.
+        '''Get CeO2 as a `CHAP.common.utils.Material` object.
 
         :return: CeO2 material
-        :rtype: msnctools.material.Material
+        :rtype: CHAP.common.utils.Material
         '''
 
+        from CHAP.common.utils import Material
         material = Material(material_name=self.hexrd_h5_material_name,
                             material_file=self.hexrd_h5_material_file,
                             lattice_parameters_angstroms=self.lattice_parameter_angstrom)

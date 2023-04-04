@@ -86,7 +86,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: float, float, float
         '''
 
-        from msnctools.fit import Fit, FitMultipeak
+        from CHAP.common.utils import Fit, FitMultipeak
         import numpy as np
         from scipy.constants import physical_constants
 

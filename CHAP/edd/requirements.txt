@@ -1,5 +1,5 @@
+certif-pyspec
 hexrd
-msnctools
 numpy
 pydantic
 scipy
