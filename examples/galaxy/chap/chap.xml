@@ -4,7 +4,7 @@
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
         cp '$input' data.csv &&
-        python `python -c "import CHAP, os; print(os.path.abspath(CHAP.__file__))" | sed "s,__init__,runner,g"` --config '$config' &&
+        CHAP --config '$config' &&
     ]]></command>
     <inputs>
         <param type="data" name="config" format="yaml" />
