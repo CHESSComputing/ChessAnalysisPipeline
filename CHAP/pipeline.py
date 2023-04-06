@@ -50,7 +50,7 @@ class Pipeline():
                 self.logger.info(f'Calling "write" on {item}')
                 data = item.write(data, **kwargs)
 
-        self.logger.info(f'Exectuted "exectute" in {time()-t0:.3f} seconds')
+        self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
 
 class PipelineObject():
     """

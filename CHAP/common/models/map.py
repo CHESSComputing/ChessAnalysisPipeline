@@ -221,11 +221,11 @@ class PointByPointScanData(BaseModel):
                     scan_step_index_range = range(scanparser.spec_scan_npts)
                 else:
                     scan_step_index_range = range(scan_step_index,scan_step_index+1)
-                for scan_step_index in scan_step_index_range:
+                for index in scan_step_index_range:
                     try:
-                        self.get_value(scans, scan_number, scan_step_index)
+                        self.get_value(scans, scan_number, index)
                     except:
-                        raise(RuntimeError(f'Could not find data for {self.name} (data_type "{self.data_type}") on scan number {scan_number} in spec file {scans.spec_file}'))
+                        raise(RuntimeError(f'Could not find data for {self.name} (data_type "{self.data_type}") on scan number {scan_number} for index {index} in spec file {scans.spec_file}'))
     def get_value(self, spec_scans:SpecScans, scan_number:int, scan_step_index:int):
         """Return the value recorded for this instance of `PointByPointScanData`
         at a specific scan step.
@@ -308,9 +308,10 @@ def get_smb_par_value(spec_file:str, scan_number:int, par_name:str):
     scanparser = get_scanparser(spec_file, scan_number)
     return(scanparser.pars[par_name])
 def validate_data_source_for_map_config(data_source, values):
-    import_scanparser(values.get('station'), values.get('experiment_type'))
-    data_source.validate_for_station(values.get('station'))
-    data_source.validate_for_spec_scans(values.get('spec_scans'))
+    if data_source is not None:
+        import_scanparser(values.get('station'), values.get('experiment_type'))
+        data_source.validate_for_station(values.get('station'))
+        data_source.validate_for_spec_scans(values.get('spec_scans'))
     return(data_source)
 
 class CorrectionsData(PointByPointScanData):
@@ -424,7 +425,7 @@ class MapConfig(BaseModel):
     """
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3','id3a','id3b']
-    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF']
+    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
     independent_dimensions: conlist(item_type=PointByPointScanData, min_items=1)
@@ -443,11 +444,11 @@ class MapConfig(BaseModel):
         '''Ensure values for the station and experiment_type fields are compatible'''
         station = values.get('station')
         if station == 'id1a3':
-            allowed_experiment_types = ['SAXSWAXS', 'EDD']
+            allowed_experiment_types = ['SAXSWAXS', 'EDD', 'TOMO']
         elif station == 'id3a':
-            allowed_experiment_types = ['EDD']
+            allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
-            allowed_experiment_types = ['SAXSWAXS', 'XRF']
+            allowed_experiment_types = ['SAXSWAXS', 'XRF', 'TOMO']
         else:
             allowed_experiment_types = []
         if value not in allowed_experiment_types:

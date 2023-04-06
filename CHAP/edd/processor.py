@@ -8,10 +8,7 @@ Description: Module for Processors used only by EDD experiments
 '''
 
 # system modules
-import argparse
 import json
-import logging
-import sys
 
 # local modules
 from CHAP.processor import Processor

@@ -48,6 +48,7 @@ setuptools.setup(
         'CHAP.inference',
         'CHAP.saxswaxs',
         'CHAP.sin2psi',
+        'CHAP.tomo',
         'MLaaS'
     ],
     package_dir={
@@ -59,6 +60,7 @@ setuptools.setup(
         'CHAP.inference': 'CHAP/inference',
         'CHAP.saxswaxs': 'CHAP/saxswaxs',
         'CHAP.sin2psi': 'CHAP/sin2psi',
+        'CHAP.tomo': 'CHAP/tomo',
         'MLaaS': 'MLaaS'
     },
     package_data={

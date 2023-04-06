@@ -1,0 +1,1225 @@
+#!/usr/bin/env python3
+
+#FIX write a function that returns a list of peak indices for a given plot
+#FIX use raise_error concept on more functions to optionally raise an error
+
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Dec  6 15:36:22 2021
+
+@author: rv43
+"""
+
+from logging import getLogger
+logger = getLogger(__name__)
+
+from ast import literal_eval
+from re import compile as re_compile
+from re import split as re_split
+from re import sub as re_sub
+from sys import float_info
+
+import numpy as np
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.widgets import Button
+except:
+    pass
+
+def depth_list(L): return isinstance(L, list) and max(map(depth_list, L))+1
+def depth_tuple(T): return isinstance(T, tuple) and max(map(depth_tuple, T))+1
+def unwrap_tuple(T):
+    if depth_tuple(T) > 1 and len(T) == 1:
+        T = unwrap_tuple(*T)
+    return T
+
+def illegal_value(value, name, location=None, raise_error=False, log=True):
+    if not isinstance(location, str):
+        location = ''
+    else:
+        location = f'in {location} '
+    if isinstance(name, str):
+        error_msg = f'Illegal value for {name} {location}({value}, {type(value)})'
+    else:
+        error_msg = f'Illegal value {location}({value}, {type(value)})'
+    if log:
+        logger.error(error_msg)
+    if raise_error:
+        raise ValueError(error_msg)
+
+def illegal_combination(value1, name1, value2, name2, location=None, raise_error=False,
+        log=True):
+    if not isinstance(location, str):
+        location = ''
+    else:
+        location = f'in {location} '
+    if isinstance(name1, str):
+        error_msg = f'Illegal combination for {name1} and {name2} {location}'+ \
+                f'({value1}, {type(value1)} and {value2}, {type(value2)})'
+    else:
+        error_msg = f'Illegal combination {location}'+ \
+                f'({value1}, {type(value1)} and {value2}, {type(value2)})'
+    if log:
+        logger.error(error_msg)
+    if raise_error:
+        raise ValueError(error_msg)
+
+def test_ge_gt_le_lt(ge, gt, le, lt, func, location=None, raise_error=False, log=True):
+    """Check individual and mutual validity of ge, gt, le, lt qualifiers
+       func: is_int or is_num to test for int or numbers
+       Return: True upon success or False when mutually exlusive
+    """
+    if ge is None and gt is None and le is None and lt is None:
+        return True
+    if ge is not None:
+        if not func(ge):
+            illegal_value(ge, 'ge', location, raise_error, log)
+            return False
+        if gt is not None:
+            illegal_combination(ge, 'ge', gt, 'gt', location, raise_error, log)
+            return False
+    elif gt is not None and not func(gt):
+        illegal_value(gt, 'gt', location, raise_error, log)
+        return False
+    if le is not None:
+        if not func(le):
+            illegal_value(le, 'le', location, raise_error, log)
+            return False
+        if lt is not None:
+            illegal_combination(le, 'le', lt, 'lt', location, raise_error, log)
+            return False
+    elif lt is not None and not func(lt):
+        illegal_value(lt, 'lt', location, raise_error, log)
+        return False
+    if ge is not None:
+        if le is not None and ge > le:
+            illegal_combination(ge, 'ge', le, 'le', location, raise_error, log)
+            return False
+        elif lt is not None and ge >= lt:
+            illegal_combination(ge, 'ge', lt, 'lt', location, raise_error, log)
+            return False
+    elif gt is not None:
+        if le is not None and gt >= le:
+            illegal_combination(gt, 'gt', le, 'le', location, raise_error, log)
+            return False
+        elif lt is not None and gt >= lt:
+            illegal_combination(gt, 'gt', lt, 'lt', location, raise_error, log)
+            return False
+    return True
+
+def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
+    """Return a range string representation matching the ge, gt, le, lt qualifiers
+       Does not validate the inputs, do that as needed before calling
+    """
+    range_string = ''
+    if ge is not None:
+        if le is None and lt is None:
+            range_string += f'>= {ge}'
+        else:
+            range_string += f'[{ge}, '
+    elif gt is not None:
+        if le is None and lt is None:
+            range_string += f'> {gt}'
+        else:
+            range_string += f'({gt}, '
+    if le is not None:
+        if ge is None and gt is None:
+            range_string += f'<= {le}'
+        else:
+            range_string += f'{le}]'
+    elif lt is not None:
+        if ge is None and gt is None:
+            range_string += f'< {lt}'
+        else:
+            range_string += f'{lt})'
+    return range_string
+
+def is_int(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is an integer in range ge <= v <= le or gt < v < lt or some combination.
+       Return: True if yes or False is no
+    """
+    return _is_int_or_num(v, 'int', ge, gt, le, lt, raise_error, log)
+
+def is_num(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is a number in range ge <= v <= le or gt < v < lt or some combination.
+       Return: True if yes or False is no
+    """
+    return _is_int_or_num(v, 'num', ge, gt, le, lt, raise_error, log)
+
+def _is_int_or_num(v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    if type_str == 'int':
+        if not isinstance(v, int):
+            illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
+            return False
+        if not test_ge_gt_le_lt(ge, gt, le, lt, is_int, '_is_int_or_num', raise_error, log):
+            return False
+    elif type_str == 'num':
+        if not isinstance(v, (int, float)):
+            illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
+            return False
+        if not test_ge_gt_le_lt(ge, gt, le, lt, is_num, '_is_int_or_num', raise_error, log):
+            return False
+    else:
+        illegal_value(type_str, 'type_str', '_is_int_or_num', raise_error, log)
+        return False
+    if ge is None and gt is None and le is None and lt is None:
+        return True
+    error = False
+    if ge is not None and v < ge:
+        error = True
+        error_msg = f'Value {v} out of range: {v} !>= {ge}'
+    if not error and gt is not None and v <= gt:
+        error = True
+        error_msg = f'Value {v} out of range: {v} !> {gt}'
+    if not error and le is not None and v > le:
+        error = True
+        error_msg = f'Value {v} out of range: {v} !<= {le}'
+    if not error and lt is not None and v >= lt:
+        error = True
+        error_msg = f'Value {v} out of range: {v} !< {lt}'
+    if error:
+        if log:
+            logger.error(error_msg)
+        if raise_error:
+            raise ValueError(error_msg)
+        return False
+    return True
+
+def is_int_pair(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is an integer pair, each in range ge <= v[i] <= le or gt < v[i] < lt or
+           ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i] or some combination.
+       Return: True if yes or False is no
+    """
+    return _is_int_or_num_pair(v, 'int', ge, gt, le, lt, raise_error, log)
+
+def is_num_pair(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is a number pair, each in range ge <= v[i] <= le or gt < v[i] < lt or
+           ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i] or some combination.
+       Return: True if yes or False is no
+    """
+    return _is_int_or_num_pair(v, 'num', ge, gt, le, lt, raise_error, log)
+
+def _is_int_or_num_pair(v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    if type_str == 'int':
+        if not (isinstance(v, (tuple, list)) and len(v) == 2 and isinstance(v[0], int) and
+                isinstance(v[1], int)):
+            illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
+            return False
+        func = is_int
+    elif type_str == 'num':
+        if not (isinstance(v, (tuple, list)) and len(v) == 2 and isinstance(v[0], (int, float)) and
+                isinstance(v[1], (int, float))):
+            illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
+            return False
+        func = is_num
+    else:
+        illegal_value(type_str, 'type_str', '_is_int_or_num_pair', raise_error, log)
+        return False
+    if ge is None and gt is None and le is None and lt is None:
+        return True
+    if ge is None or func(ge, log=True):
+        ge = 2*[ge]
+    elif not _is_int_or_num_pair(ge, type_str, raise_error=raise_error, log=log):
+        return False
+    if gt is None or func(gt, log=True):
+        gt = 2*[gt]
+    elif not _is_int_or_num_pair(gt, type_str, raise_error=raise_error, log=log):
+        return False
+    if le is None or func(le, log=True):
+        le = 2*[le]
+    elif not _is_int_or_num_pair(le, type_str, raise_error=raise_error, log=log):
+        return False
+    if lt is None or func(lt, log=True):
+        lt = 2*[lt]
+    elif not _is_int_or_num_pair(lt, type_str, raise_error=raise_error, log=log):
+        return False
+    if (not func(v[0], ge[0], gt[0], le[0], lt[0], raise_error, log) or
+            not func(v[1], ge[1], gt[1], le[1], lt[1], raise_error, log)):
+        return False
+    return True
+
+def is_int_series(l, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is a tuple or list of integers, each in range ge <= l[i] <= le or
+       gt < l[i] < lt or some combination.
+    """
+    if not test_ge_gt_le_lt(ge, gt, le, lt, is_int, 'is_int_series', raise_error, log):
+        return False
+    if not isinstance(l, (tuple, list)):
+        illegal_value(l, 'l', 'is_int_series', raise_error, log)
+        return False
+    if any(True if not is_int(v, ge, gt, le, lt, raise_error, log) else False for v in l):
+        return False
+    return True
+
+def is_num_series(l, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
+    """Value is a tuple or list of numbers, each in range ge <= l[i] <= le or
+       gt < l[i] < lt or some combination.
+    """
+    if not test_ge_gt_le_lt(ge, gt, le, lt, is_int, 'is_int_series', raise_error, log):
+        return False
+    if not isinstance(l, (tuple, list)):
+        illegal_value(l, 'l', 'is_num_series', raise_error, log)
+        return False
+    if any(True if not is_num(v, ge, gt, le, lt, raise_error, log) else False for v in l):
+        return False
+    return True
+
+def is_str_series(l, raise_error=False, log=True):
+    """Value is a tuple or list of strings.
+    """
+    if (not isinstance(l, (tuple, list)) or
+            any(True if not isinstance(s, str) else False for s in l)):
+        illegal_value(l, 'l', 'is_str_series', raise_error, log)
+        return False
+    return True
+
+def is_dict_series(l, raise_error=False, log=True):
+    """Value is a tuple or list of dictionaries.
+    """
+    if (not isinstance(l, (tuple, list)) or
+            any(True if not isinstance(d, dict) else False for d in l)):
+        illegal_value(l, 'l', 'is_dict_series', raise_error, log)
+        return False
+    return True
+
+def is_dict_nums(l, raise_error=False, log=True):
+    """Value is a dictionary with single number values
+    """
+    if (not isinstance(l, dict) or
+            any(True if not is_num(v, log=False) else False for v in l.values())):
+        illegal_value(l, 'l', 'is_dict_nums', raise_error, log)
+        return False
+    return True
+
+def is_dict_strings(l, raise_error=False, log=True):
+    """Value is a dictionary with single string values
+    """
+    if (not isinstance(l, dict) or
+            any(True if not isinstance(v, str) else False for v in l.values())):
+        illegal_value(l, 'l', 'is_dict_strings', raise_error, log)
+        return False
+    return True
+
+def is_index(v, ge=0, lt=None, raise_error=False, log=True):
+    """Value is an array index in range ge <= v < lt.
+       NOTE lt IS NOT included!
+    """
+    if isinstance(lt, int):
+        if lt <= ge:
+            illegal_combination(ge, 'ge', lt, 'lt', 'is_index', raise_error, log)
+            return False
+    return is_int(v, ge=ge, lt=lt, raise_error=raise_error, log=log)
+
+def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
+    """Value is an array index range in range ge <= v[0] <= v[1] <= le or ge <= v[0] <= v[1] < lt.
+       NOTE le IS included!
+    """
+    if not is_int_pair(v, raise_error=raise_error, log=log):
+        return False
+    if not test_ge_gt_le_lt(ge, None, le, lt, is_int, 'is_index_range', raise_error, log):
+        return False
+    if not ge <= v[0] <= v[1] or (le is not None and v[1] > le) or (lt is not None and v[1] >= lt):
+        if le is not None:
+            error_msg = f'Value {v} out of range: !({ge} <= {v[0]} <= {v[1]} <= {le})'
+        else:
+            error_msg = f'Value {v} out of range: !({ge} <= {v[0]} <= {v[1]} < {lt})'
+        if log:
+            logger.error(error_msg)
+        if raise_error:
+            raise ValueError(error_msg)
+        return False
+    return True
+
+def index_nearest(a, value):
+    a = np.asarray(a)
+    if a.ndim > 1:
+        raise ValueError(f'Invalid array dimension for parameter a ({a.ndim}, {a})')
+    # Round up for .5
+    value *= 1.0+float_info.epsilon
+    return (int)(np.argmin(np.abs(a-value)))
+
+def index_nearest_low(a, value):
+    a = np.asarray(a)
+    if a.ndim > 1:
+        raise ValueError(f'Invalid array dimension for parameter a ({a.ndim}, {a})')
+    index = int(np.argmin(np.abs(a-value)))
+    if value < a[index] and index > 0:
+        index -= 1
+    return index
+
+def index_nearest_upp(a, value):
+    a = np.asarray(a)
+    if a.ndim > 1:
+        raise ValueError(f'Invalid array dimension for parameter a ({a.ndim}, {a})')
+    index = int(np.argmin(np.abs(a-value)))
+    if value > a[index] and index < a.size-1:
+        index += 1
+    return index
+
+def round_to_n(x, n=1):
+    if x == 0.0:
+        return 0
+    else:
+        return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
+
+def round_up_to_n(x, n=1):
+    xr = round_to_n(x, n)
+    if abs(x/xr) > 1.0:
+        xr += np.sign(x)*10**(np.floor(np.log10(abs(x)))+1-n)
+    return type(x)(xr)
+
+def trunc_to_n(x, n=1):
+    xr = round_to_n(x, n)
+    if abs(xr/x) > 1.0:
+        xr -= np.sign(x)*10**(np.floor(np.log10(abs(x)))+1-n)
+    return type(x)(xr)
+
+def almost_equal(a, b, sig_figs):
+    if is_num(a) and is_num(b):
+        return abs(round_to_n(a-b, sig_figs)) < pow(10, -sig_figs+1)
+    else:
+        raise ValueError(f'Invalid value for a or b in almost_equal (a: {a}, {type(a)}, '+
+                f'b: {b}, {type(b)})')
+        return False
+
+def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
+    """Return a list of numbers by splitting/expanding a string on any combination of
+       commas, whitespaces, or dashes (when split_on_dash=True)
+       e.g: '1, 3, 5-8, 12 ' -> [1, 3, 5, 6, 7, 8, 12]
+    """
+    if not isinstance(s, str):
+        illegal_value(s, location='string_to_list')
+        return None
+    if not len(s):
+        return []
+    try:
+        ll = [x for x in re_split('\s+,\s+|\s+,|,\s+|\s+|,', s.strip())]
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        return None
+    if split_on_dash:
+        try:
+            l = []
+            for l1 in ll:
+                l2 = [literal_eval(x) for x in re_split('\s+-\s+|\s+-|-\s+|\s+|-', l1)]
+                if len(l2) == 1:
+                    l += l2
+                elif len(l2) == 2 and l2[1] > l2[0]:
+                    l += [i for i in range(l2[0], l2[1]+1)]
+                else:
+                    raise ValueError
+        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+            return None
+    else:
+        l = [literal_eval(x) for x in ll]
+    if remove_duplicates:
+        l = list(dict.fromkeys(l))
+    if sort:
+        l = sorted(l)
+    return l
+
+def get_trailing_int(string):
+    indexRegex = re_compile(r'\d+$')
+    mo = indexRegex.search(string)
+    if mo is None:
+        return None
+    else:
+        return int(mo.group())
+
+def input_int(s=None, ge=None, gt=None, le=None, lt=None, default=None, inset=None,
+        raise_error=False, log=True):
+    return _input_int_or_num('int', s, ge, gt, le, lt, default, inset, raise_error, log)
+
+def input_num(s=None, ge=None, gt=None, le=None, lt=None, default=None, raise_error=False,
+        log=True):
+    return _input_int_or_num('num', s, ge, gt, le, lt, default, None, raise_error,log)
+
+def _input_int_or_num(type_str, s=None, ge=None, gt=None, le=None, lt=None, default=None,
+        inset=None, raise_error=False, log=True):
+    if type_str == 'int':
+        if not test_ge_gt_le_lt(ge, gt, le, lt, is_int, '_input_int_or_num', raise_error, log):
+            return None
+    elif type_str == 'num':
+        if not test_ge_gt_le_lt(ge, gt, le, lt, is_num, '_input_int_or_num', raise_error, log):
+            return None
+    else:
+        illegal_value(type_str, 'type_str', '_input_int_or_num', raise_error, log)
+        return None
+    if default is not None:
+        if not _is_int_or_num(default, type_str, raise_error=raise_error, log=log):
+            return None
+        if ge is not None and default < ge:
+            illegal_combination(ge, 'ge', default, 'default', '_input_int_or_num', raise_error,
+                log)
+            return None
+        if gt is not None and default <= gt:
+            illegal_combination(gt, 'gt', default, 'default', '_input_int_or_num', raise_error,
+                log)
+            return None
+        if le is not None and default > le:
+            illegal_combination(le, 'le', default, 'default', '_input_int_or_num', raise_error,
+                log)
+            return None
+        if lt is not None and default >= lt:
+            illegal_combination(lt, 'lt', default, 'default', '_input_int_or_num', raise_error,
+                log)
+            return None
+        default_string = f' [{default}]'
+    else:
+        default_string = ''
+    if inset is not None:
+        if (not isinstance(inset, (tuple, list)) or any(True if not isinstance(i, int) else
+                False for i in inset)):
+            illegal_value(inset, 'inset', '_input_int_or_num', raise_error, log)
+            return None
+    v_range = f'{range_string_ge_gt_le_lt(ge, gt, le, lt)}'
+    if len(v_range):
+        v_range = f' {v_range}'
+    if s is None:
+        if type_str == 'int':
+            print(f'Enter an integer{v_range}{default_string}: ')
+        else:
+            print(f'Enter a number{v_range}{default_string}: ')
+    else:
+        print(f'{s}{v_range}{default_string}: ')
+    try:
+        i = input()
+        if isinstance(i, str) and not len(i):
+            v = default
+            print(f'{v}')
+        else:
+            v = literal_eval(i)
+        if inset and v not in inset:
+           raise ValueError(f'{v} not part of the set {inset}')
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        v = None
+    except:
+        if log:
+            logger.error('Unexpected error')
+        if raise_error:
+            raise ValueError('Unexpected error')
+    if not _is_int_or_num(v, type_str, ge, gt, le, lt):
+        v = _input_int_or_num(type_str, s, ge, gt, le, lt, default, inset, raise_error, log)
+    return v
+
+def input_int_list(s=None, ge=None, le=None, split_on_dash=True, remove_duplicates=True,
+        sort=True, raise_error=False, log=True):
+    """Prompt the user to input a list of interger and split the entered string on any combination
+       of commas, whitespaces, or dashes (when split_on_dash is True)
+       e.g: '1 3,5-8 , 12 ' -> [1, 3, 5, 6, 7, 8, 12]
+       remove_duplicates: removes duplicates if True (may also change the order)
+       sort: sort in ascending order if True
+       return None upon an illegal input
+    """
+    return _input_int_or_num_list('int', s, ge, le, split_on_dash, remove_duplicates, sort,
+        raise_error, log)
+
+def input_num_list(s=None, ge=None, le=None, remove_duplicates=True, sort=True, raise_error=False,
+        log=True):
+    """Prompt the user to input a list of numbers and split the entered string on any combination
+       of commas or whitespaces
+       e.g: '1.0, 3, 5.8, 12 ' -> [1.0, 3.0, 5.8, 12.0]
+       remove_duplicates: removes duplicates if True (may also change the order)
+       sort: sort in ascending order if True
+       return None upon an illegal input
+    """
+    return _input_int_or_num_list('num', s, ge, le, False, remove_duplicates, sort, raise_error,
+        log)
+
+def _input_int_or_num_list(type_str, s=None, ge=None, le=None, split_on_dash=True,
+        remove_duplicates=True, sort=True, raise_error=False, log=True):
+    #FIX do we want a limit on max dimension?
+    if type_str == 'int':
+        if not test_ge_gt_le_lt(ge, None, le, None, is_int, 'input_int_or_num_list', raise_error,
+                log):
+            return None
+    elif type_str == 'num':
+        if not test_ge_gt_le_lt(ge, None, le, None, is_num, 'input_int_or_num_list', raise_error,
+                log):
+            return None
+    else:
+        illegal_value(type_str, 'type_str', '_input_int_or_num_list')
+        return None
+    v_range = f'{range_string_ge_gt_le_lt(ge=ge, le=le)}'
+    if len(v_range):
+        v_range = f' (each value in {v_range})'
+    if s is None:
+        print(f'Enter a series of integers{v_range}: ')
+    else:
+        print(f'{s}{v_range}: ')
+    try:
+        l = string_to_list(input(), split_on_dash, remove_duplicates, sort)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        l = None
+    except:
+        print('Unexpected error')
+        raise
+    if (not isinstance(l, list) or
+            any(True if not _is_int_or_num(v, type_str, ge=ge, le=le) else False for v in l)):
+        if split_on_dash:
+            print('Invalid input: enter a valid set of dash/comma/whitespace separated integers '+
+                    'e.g. 1 3,5-8 , 12')
+        else:
+            print('Invalid input: enter a valid set of comma/whitespace separated integers '+
+                    'e.g. 1 3,5 8 , 12')
+        l = _input_int_or_num_list(type_str, s, ge, le, split_on_dash, remove_duplicates, sort,
+            raise_error, log)
+    return l
+
+def input_yesno(s=None, default=None):
+    if default is not None:
+        if not isinstance(default, str):
+            illegal_value(default, 'default', 'input_yesno')
+            return None
+        if default.lower() in 'yes':
+            default = 'y'
+        elif default.lower() in 'no':
+            default = 'n'
+        else:
+            illegal_value(default, 'default', 'input_yesno')
+            return None
+        default_string = f' [{default}]'
+    else:
+        default_string = ''
+    if s is None:
+        print(f'Enter yes or no{default_string}: ')
+    else:
+        print(f'{s}{default_string}: ')
+    i = input()
+    if isinstance(i, str) and not len(i):
+        i = default
+        print(f'{i}')
+    if i is not None and i.lower() in 'yes':
+        v = True
+    elif i is not None and i.lower() in 'no':
+        v = False
+    else:
+        print('Invalid input, enter yes or no')
+        v = input_yesno(s, default)
+    return v
+
+def input_menu(items, default=None, header=None):
+    if not isinstance(items, (tuple, list)) or any(True if not isinstance(i, str) else False
+            for i in items):
+        illegal_value(items, 'items', 'input_menu')
+        return None
+    if default is not None:
+        if not (isinstance(default, str) and default in items):
+            logger.error(f'Invalid value for default ({default}), must be in {items}')
+            return None
+        default_string = f' [{items.index(default)+1}]'
+    else:
+        default_string = ''
+    if header is None:
+        print(f'Choose one of the following items (1, {len(items)}){default_string}:')
+    else:
+        print(f'{header} (1, {len(items)}){default_string}:')
+    for i, choice in enumerate(items):
+        print(f'  {i+1}: {choice}')
+    try:
+        choice  = input()
+        if isinstance(choice, str) and not len(choice):
+            choice = items.index(default)
+            print(f'{choice+1}')
+        else:
+            choice = literal_eval(choice)
+            if isinstance(choice, int) and 1 <= choice <= len(items):
+                choice -= 1
+            else:
+                raise ValueError
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+        choice = None
+    except:
+        print('Unexpected error')
+        raise
+    if choice is None:
+        print(f'Invalid choice, enter a number between 1 and {len(items)}')
+        choice = input_menu(items, default)
+    return choice
+
+def assert_no_duplicates_in_list_of_dicts(l: list, raise_error=False) -> list:
+    if not isinstance(l, list):
+        illegal_value(l, 'l', 'assert_no_duplicates_in_list_of_dicts', raise_error)
+        return None
+    if any(True if not isinstance(d, dict) else False for d in l):
+        illegal_value(l, 'l', 'assert_no_duplicates_in_list_of_dicts', raise_error)
+        return None
+    if len(l) != len([dict(t) for t in {tuple(sorted(d.items())) for d in l}]):
+        if raise_error:
+            raise ValueError(f'Duplicate items found in {l}')
+        else:
+            logger.error(f'Duplicate items found in {l}')
+        return None
+    else:
+        return l
+
+def assert_no_duplicate_key_in_list_of_dicts(l: list, key: str, raise_error=False) -> list:
+    if not isinstance(key, str):
+        illegal_value(key, 'key', 'assert_no_duplicate_key_in_list_of_dicts', raise_error)
+        return None
+    if not isinstance(l, list):
+        illegal_value(l, 'l', 'assert_no_duplicate_key_in_list_of_dicts', raise_error)
+        return None
+    if any(True if not isinstance(d, dict) else False for d in l):
+        illegal_value(l, 'l', 'assert_no_duplicates_in_list_of_dicts', raise_error)
+        return None
+    keys = [d.get(key, None) for d in l]
+    if None in keys or len(set(keys)) != len(l):
+        if raise_error:
+            raise ValueError(f'Duplicate or missing key ({key}) found in {l}')
+        else:
+            logger.error(f'Duplicate or missing key ({key}) found in {l}')
+        return None
+    else:
+        return l
+
+def assert_no_duplicate_attr_in_list_of_objs(l: list, attr: str, raise_error=False) -> list:
+    if not isinstance(attr, str):
+        illegal_value(attr, 'attr', 'assert_no_duplicate_attr_in_list_of_objs', raise_error)
+        return None
+    if not isinstance(l, list):
+        illegal_value(l, 'l', 'assert_no_duplicate_key_in_list_of_objs', raise_error)
+        return None
+    attrs = [getattr(obj, attr, None) for obj in l]
+    if None in attrs or len(set(attrs)) != len(l):
+        if raise_error:
+            raise ValueError(f'Duplicate or missing attr ({attr}) found in {l}')
+        else:
+            logger.error(f'Duplicate or missing attr ({attr}) found in {l}')
+        return None
+    else:
+        return l
+
+def file_exists_and_readable(path):
+    import os
+    if not os.path.isfile(path):
+        raise ValueError(f'{path} is not a valid file')
+    elif not os.access(path, os.R_OK):
+        raise ValueError(f'{path} is not accessible for reading')
+    else:
+        return path
+
+def draw_mask_1d(ydata, xdata=None, current_index_ranges=None, current_mask=None,
+        select_mask=True, num_index_ranges_max=None, title=None, legend=None, test_mode=False):
+    #FIX make color blind friendly
+    def draw_selections(ax, current_include, current_exclude, selected_index_ranges):
+        ax.clear()
+        ax.set_title(title)
+        ax.legend([legend])
+        ax.plot(xdata, ydata, 'k')
+        for (low, upp) in current_include:
+            xlow = 0.5*(xdata[max(0, low-1)]+xdata[low])
+            xupp = 0.5*(xdata[upp]+xdata[min(num_data-1, upp+1)])
+            ax.axvspan(xlow, xupp, facecolor='green', alpha=0.5)
+        for (low, upp) in current_exclude:
+            xlow = 0.5*(xdata[max(0, low-1)]+xdata[low])
+            xupp = 0.5*(xdata[upp]+xdata[min(num_data-1, upp+1)])
+            ax.axvspan(xlow, xupp, facecolor='red', alpha=0.5)
+        for (low, upp) in selected_index_ranges:
+            xlow = 0.5*(xdata[max(0, low-1)]+xdata[low])
+            xupp = 0.5*(xdata[upp]+xdata[min(num_data-1, upp+1)])
+            ax.axvspan(xlow, xupp, facecolor=selection_color, alpha=0.5)
+        ax.get_figure().canvas.draw()
+
+    def onclick(event):
+        if event.inaxes in [fig.axes[0]]:
+            selected_index_ranges.append(index_nearest_upp(xdata, event.xdata))
+
+    def onrelease(event):
+        if len(selected_index_ranges) > 0:
+            if isinstance(selected_index_ranges[-1], int):
+                if event.inaxes in [fig.axes[0]]:
+                    event.xdata = index_nearest_low(xdata, event.xdata)
+                    if selected_index_ranges[-1] <= event.xdata:
+                        selected_index_ranges[-1] = (selected_index_ranges[-1], event.xdata)
+                    else:
+                        selected_index_ranges[-1] = (event.xdata, selected_index_ranges[-1])
+                    draw_selections(event.inaxes, current_include, current_exclude, selected_index_ranges)
+                else:
+                    selected_index_ranges.pop(-1)
+
+    def confirm_selection(event):
+        plt.close()
+
+    def clear_last_selection(event):
+        if len(selected_index_ranges):
+            selected_index_ranges.pop(-1)
+        else:
+            while len(current_include):
+                current_include.pop()
+            while len(current_exclude):
+                current_exclude.pop()
+            selected_mask.fill(False)
+        draw_selections(ax, current_include, current_exclude, selected_index_ranges)
+
+    def update_mask(mask, selected_index_ranges, unselected_index_ranges):
+        for (low, upp) in selected_index_ranges:
+            selected_mask = np.logical_and(xdata >= xdata[low], xdata <= xdata[upp])
+            mask = np.logical_or(mask, selected_mask)
+        for (low, upp) in unselected_index_ranges:
+            unselected_mask = np.logical_and(xdata >= xdata[low], xdata <= xdata[upp])
+            mask[unselected_mask] = False
+        return mask
+
+    def update_index_ranges(mask):
+        # Update the currently included index ranges (where mask is True)
+        current_include = []
+        for i, m in enumerate(mask):
+            if m == True:
+                if len(current_include) == 0 or type(current_include[-1]) == tuple:
+                    current_include.append(i)
+            else:
+                if len(current_include) > 0 and isinstance(current_include[-1], int):
+                    current_include[-1] = (current_include[-1], i-1)
+        if len(current_include) > 0 and isinstance(current_include[-1], int):
+            current_include[-1] = (current_include[-1], num_data-1)
+        return current_include
+
+    # Check inputs
+    ydata = np.asarray(ydata)
+    if ydata.ndim > 1:
+        logger.warning(f'Invalid ydata dimension ({ydata.ndim})')
+        return None, None
+    num_data = ydata.size
+    if xdata is None:
+        xdata = np.arange(num_data)
+    else:
+        xdata = np.asarray(xdata, dtype=np.float64)
+        if xdata.ndim > 1 or xdata.size != num_data:
+            logger.warning(f'Invalid xdata shape ({xdata.shape})')
+            return None, None
+        if not np.all(xdata[:-1] < xdata[1:]):
+            logger.warning('Invalid xdata: must be monotonically increasing')
+            return None, None
+    if current_index_ranges is not None:
+        if not isinstance(current_index_ranges, (tuple, list)):
+            logger.warning('Invalid current_index_ranges parameter ({current_index_ranges}, '+
+                    f'{type(current_index_ranges)})')
+            return None, None
+    if not isinstance(select_mask, bool):
+        logger.warning('Invalid select_mask parameter ({select_mask}, {type(select_mask)})')
+        return None, None
+    if num_index_ranges_max is not None:
+        logger.warning('num_index_ranges_max input not yet implemented in draw_mask_1d')
+    if title is None:
+        title = 'select ranges of data'
+    elif not isinstance(title, str):
+        illegal(title, 'title')
+        title = ''
+    if legend is None and not isinstance(title, str):
+        illegal(legend, 'legend')
+        legend = None
+
+    if select_mask:
+        title = f'Click and drag to {title} you wish to include'
+        selection_color = 'green'
+    else:
+        title = f'Click and drag to {title} you wish to exclude'
+        selection_color = 'red'
+
+    # Set initial selected mask and the selected/unselected index ranges as needed
+    selected_index_ranges = []
+    unselected_index_ranges = []
+    selected_mask = np.full(xdata.shape, False, dtype=bool)
+    if current_index_ranges is None:
+        if current_mask is None:
+            if not select_mask:
+                selected_index_ranges = [(0, num_data-1)]
+                selected_mask = np.full(xdata.shape, True, dtype=bool)
+        else:
+            selected_mask = np.copy(np.asarray(current_mask, dtype=bool))
+    if current_index_ranges is not None and len(current_index_ranges):
+        current_index_ranges = sorted([(low, upp) for (low, upp) in current_index_ranges])
+        for (low, upp) in current_index_ranges:
+            if low > upp or low >= num_data or upp < 0:
+                continue
+            if low < 0:
+                low = 0
+            if upp >= num_data:
+                upp = num_data-1
+            selected_index_ranges.append((low, upp))
+        selected_mask = update_mask(selected_mask, selected_index_ranges, unselected_index_ranges)
+    if current_index_ranges is not None and current_mask is not None:
+        selected_mask = np.logical_and(current_mask, selected_mask)
+    if current_mask is not None:
+        selected_index_ranges = update_index_ranges(selected_mask)
+
+    # Set up range selections for display
+    current_include = selected_index_ranges
+    current_exclude = []
+    selected_index_ranges = []
+    if not len(current_include):
+        if select_mask:
+            current_exclude = [(0, num_data-1)]
+        else:
+            current_include = [(0, num_data-1)]
+    else:
+        if current_include[0][0] > 0:
+            current_exclude.append((0, current_include[0][0]-1))
+        for i in range(1, len(current_include)):
+            current_exclude.append((current_include[i-1][1]+1, current_include[i][0]-1))
+        if current_include[-1][1] < num_data-1:
+            current_exclude.append((current_include[-1][1]+1, num_data-1))
+
+    if not test_mode:
+
+        # Set up matplotlib figure
+        plt.close('all')
+        fig, ax = plt.subplots()
+        plt.subplots_adjust(bottom=0.2)
+        draw_selections(ax, current_include, current_exclude, selected_index_ranges)
+
+        # Set up event handling for click-and-drag range selection
+        cid_click = fig.canvas.mpl_connect('button_press_event', onclick)
+        cid_release = fig.canvas.mpl_connect('button_release_event', onrelease)
+
+        # Set up confirm / clear range selection buttons
+        confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        clear_b = Button(plt.axes([0.59, 0.05, 0.15, 0.075]), 'Clear')
+        cid_confirm = confirm_b.on_clicked(confirm_selection)
+        cid_clear = clear_b.on_clicked(clear_last_selection)
+
+        # Show figure
+        plt.show(block=True)
+
+        # Disconnect callbacks when figure is closed
+        fig.canvas.mpl_disconnect(cid_click)
+        fig.canvas.mpl_disconnect(cid_release)
+        confirm_b.disconnect(cid_confirm)
+        clear_b.disconnect(cid_clear)
+
+    # Swap selection depending on select_mask
+    if not select_mask:
+        selected_index_ranges, unselected_index_ranges = unselected_index_ranges, \
+                selected_index_ranges
+
+    # Update the mask with the currently selected/unselected x-ranges
+    selected_mask = update_mask(selected_mask, selected_index_ranges, unselected_index_ranges)
+
+    # Update the currently included index ranges (where mask is True)
+    current_include = update_index_ranges(selected_mask)
+
+def select_image_bounds(a, axis, low=None, upp=None, num_min=None, title='select array bounds',
+        raise_error=False):
+    """Interactively select the lower and upper data bounds for a 2D numpy array.
+    """
+    a = np.asarray(a)
+    if a.ndim != 2:
+        illegal_value(a.ndim, 'array dimension', location='select_image_bounds',
+                raise_error=raise_error)
+        return None
+    if axis < 0 or axis >= a.ndim:
+        illegal_value(axis, 'axis', location='select_image_bounds', raise_error=raise_error)
+        return None
+    low_save = low
+    upp_save = upp
+    num_min_save = num_min
+    if num_min is None:
+        num_min = 1
+    else:
+        if num_min < 2 or num_min > a.shape[axis]:
+            logger.warning('Invalid input for num_min in select_image_bounds, input ignored')
+            num_min = 1
+    if low is None:
+        min_ = 0
+        max_ = a.shape[axis]
+        low_max = a.shape[axis]-num_min
+        while True:
+            if axis:
+                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
+                        extent=[min_,max_,a.shape[0],0])
+            else:
+                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
+                        extent=[0,a.shape[1], max_,min_])
+            zoom_flag = input_yesno('Set lower data bound (y) or zoom in (n)?', 'y')
+            if zoom_flag:
+                low = input_int('    Set lower data bound', ge=0, le=low_max)
+                break
+            else:
+                min_ = input_int('    Set lower zoom index', ge=0, le=low_max)
+                max_ = input_int('    Set upper zoom index', ge=min_+1, le=low_max+1)
+    else:
+        if not is_int(low, ge=0, le=a.shape[axis]-num_min):
+            illegal_value(low, 'low', location='select_image_bounds', raise_error=raise_error)
+            return None
+    if upp is None:
+        min_ = low+num_min
+        max_ = a.shape[axis]
+        upp_min = min_
+        while True:
+            if axis:
+                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
+                        extent=[min_,max_,a.shape[0],0])
+            else:
+                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
+                        extent=[0,a.shape[1], max_,min_])
+            zoom_flag = input_yesno('Set upper data bound (y) or zoom in (n)?', 'y')
+            if zoom_flag:
+                upp = input_int('    Set upper data bound', ge=upp_min, le=a.shape[axis])
+                break
+            else:
+                min_ = input_int('    Set upper zoom index', ge=upp_min, le=a.shape[axis]-1)
+                max_ = input_int('    Set upper zoom index', ge=min_+1, le=a.shape[axis])
+    else:
+        if not is_int(upp, ge=low+num_min, le=a.shape[axis]):
+            illegal_value(upp, 'upp', location='select_image_bounds', raise_error=raise_error)
+            return None
+    bounds = (low, upp)
+    a_tmp = np.copy(a)
+    a_tmp_max = a.max()
+    if axis:
+        a_tmp[:,bounds[0]] = a_tmp_max
+        a_tmp[:,bounds[1]-1] = a_tmp_max
+    else:
+        a_tmp[bounds[0],:] = a_tmp_max
+        a_tmp[bounds[1]-1,:] = a_tmp_max
+    print(f'lower bound = {low} (inclusive)\nupper bound = {upp} (exclusive)')
+    quick_imshow(a_tmp, title=title, aspect='auto')
+    del a_tmp
+    if not input_yesno('Accept these bounds (y/n)?', 'y'):
+        bounds = select_image_bounds(a, axis, low=low_save, upp=upp_save, num_min=num_min_save,
+            title=title)
+    clear_imshow(title)
+    return bounds
+
+def select_one_image_bound(a, axis, bound=None, bound_name=None, title='select array bounds',
+        default='y', raise_error=False):
+    """Interactively select a data boundary for a 2D numpy array.
+    """
+    a = np.asarray(a)
+    if a.ndim != 2:
+        illegal_value(a.ndim, 'array dimension', location='select_one_image_bound',
+                raise_error=raise_error)
+        return None
+    if axis < 0 or axis >= a.ndim:
+        illegal_value(axis, 'axis', location='select_one_image_bound', raise_error=raise_error)
+        return None
+    if bound_name is None:
+        bound_name = 'data bound'
+    if bound is None:
+        min_ = 0
+        max_ = a.shape[axis]
+        bound_max = a.shape[axis]-1
+        while True:
+            if axis:
+                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
+                        extent=[min_,max_,a.shape[0],0])
+            else:
+                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
+                        extent=[0,a.shape[1], max_,min_])
+            zoom_flag = input_yesno(f'Set {bound_name} (y) or zoom in (n)?', 'y')
+            if zoom_flag:
+                bound = input_int(f'    Set {bound_name}', ge=0, le=bound_max)
+                clear_imshow(title)
+                break
+            else:
+                min_ = input_int('    Set lower zoom index', ge=0, le=bound_max)
+                max_ = input_int('    Set upper zoom index', ge=min_+1, le=bound_max+1)
+
+    elif not is_int(bound, ge=0, le=a.shape[axis]-1):
+        illegal_value(bound, 'bound', location='select_one_image_bound', raise_error=raise_error)
+        return None
+    else:
+        print(f'Current {bound_name} = {bound}')
+    a_tmp = np.copy(a)
+    a_tmp_max = a.max()
+    if axis:
+        a_tmp[:,bound] = a_tmp_max
+    else:
+        a_tmp[bound,:] = a_tmp_max
+    quick_imshow(a_tmp, title=title, aspect='auto')
+    del a_tmp
+    if not input_yesno(f'Accept this {bound_name} (y/n)?', default):
+        bound = select_one_image_bound(a, axis, bound_name=bound_name, title=title)
+    clear_imshow(title)
+    return bound
+
+def clear_imshow(title=None):
+    plt.ioff()
+    if title is None:
+        title = 'quick imshow'
+    elif not isinstance(title, str):
+        raise ValueError(f'Invalid parameter title ({title})')
+    plt.close(fig=title)
+
+def clear_plot(title=None):
+    plt.ioff()
+    if title is None:
+        title = 'quick plot'
+    elif not isinstance(title, str):
+        raise ValueError(f'Invalid parameter title ({title})')
+    plt.close(fig=title)
+
+def quick_imshow(a, title=None, path=None, name=None, save_fig=False, save_only=False,
+            clear=True, extent=None, show_grid=False, grid_color='w', grid_linewidth=1,
+            block=False, **kwargs):
+    if title is not None and not isinstance(title, str):
+        raise ValueError(f'Invalid parameter title ({title})')
+    if path is not None and not isinstance(path, str):
+        raise ValueError(f'Invalid parameter path ({path})')
+    if not isinstance(save_fig, bool):
+        raise ValueError(f'Invalid parameter save_fig ({save_fig})')
+    if not isinstance(save_only, bool):
+        raise ValueError(f'Invalid parameter save_only ({save_only})')
+    if not isinstance(clear, bool):
+        raise ValueError(f'Invalid parameter clear ({clear})')
+    if not isinstance(block, bool):
+        raise ValueError(f'Invalid parameter block ({block})')
+    if not title:
+        title='quick imshow'
+    if name is None:
+        ttitle = re_sub(r"\s+", '_', title)
+        if path is None:
+            path = f'{ttitle}.png'
+        else:
+            path = f'{path}/{ttitle}.png'
+    else:
+        if path is None:
+            path = name
+        else:
+            path = f'{path}/{name}'
+    if 'cmap' in kwargs and a.ndim == 3 and (a.shape[2] == 3 or a.shape[2] == 4):
+        use_cmap = True
+        if a.shape[2] == 4 and a[:,:,-1].min() != a[:,:,-1].max():
+            use_cmap = False
+        if any(True if a[i,j,0] != a[i,j,1] and a[i,j,0] != a[i,j,2] else False
+                for i in range(a.shape[0]) for j in range(a.shape[1])):
+            use_cmap = False
+        if use_cmap:
+            a = a[:,:,0]
+        else:
+            logger.warning('Image incompatible with cmap option, ignore cmap')
+            kwargs.pop('cmap')
+    if extent is None:
+        extent = (0, a.shape[1], a.shape[0], 0)
+    if clear:
+        try:
+            plt.close(fig=title)
+        except:
+            pass
+    if not save_only:
+        if block:
+            plt.ioff()
+        else:
+            plt.ion()
+    plt.figure(title)
+    plt.imshow(a, extent=extent, **kwargs)
+    if show_grid:
+        ax = plt.gca()
+        ax.grid(color=grid_color, linewidth=grid_linewidth)
+#    if title != 'quick imshow':
+#        plt.title = title
+    if save_only:
+        plt.savefig(path)
+        plt.close(fig=title)
+    else:
+        if save_fig:
+            plt.savefig(path)
+        if block:
+            plt.show(block=block)
+
+def quick_plot(*args, xerr=None, yerr=None, vlines=None, title=None, xlim=None, ylim=None,
+        xlabel=None, ylabel=None, legend=None, path=None, name=None, show_grid=False,
+        save_fig=False, save_only=False, clear=True, block=False, **kwargs):
+    if title is not None and not isinstance(title, str):
+        illegal_value(title, 'title', 'quick_plot')
+        title = None
+    if xlim is not None and not isinstance(xlim, (tuple, list)) and len(xlim) != 2:
+        illegal_value(xlim, 'xlim', 'quick_plot')
+        xlim = None
+    if ylim is not None and not isinstance(ylim, (tuple, list)) and len(ylim) != 2:
+        illegal_value(ylim, 'ylim', 'quick_plot')
+        ylim = None
+    if xlabel is not None and not isinstance(xlabel, str):
+        illegal_value(xlabel, 'xlabel', 'quick_plot')
+        xlabel = None
+    if ylabel is not None and not isinstance(ylabel, str):
+        illegal_value(ylabel, 'ylabel', 'quick_plot')
+        ylabel = None
+    if legend is not None and not isinstance(legend, (tuple, list)):
+        illegal_value(legend, 'legend', 'quick_plot')
+        legend = None
+    if path is not None and not isinstance(path, str):
+        illegal_value(path, 'path', 'quick_plot')
+        return
+    if not isinstance(show_grid, bool):
+        illegal_value(show_grid, 'show_grid', 'quick_plot')
+        return
+    if not isinstance(save_fig, bool):
+        illegal_value(save_fig, 'save_fig', 'quick_plot')
+        return
+    if not isinstance(save_only, bool):
+        illegal_value(save_only, 'save_only', 'quick_plot')
+        return
+    if not isinstance(clear, bool):
+        illegal_value(clear, 'clear', 'quick_plot')
+        return
+    if not isinstance(block, bool):
+        illegal_value(block, 'block', 'quick_plot')
+        return
+    if title is None:
+        title = 'quick plot'
+    if name is None:
+        ttitle = re_sub(r"\s+", '_', title)
+        if path is None:
+            path = f'{ttitle}.png'
+        else:
+            path = f'{path}/{ttitle}.png'
+    else:
+        if path is None:
+            path = name
+        else:
+            path = f'{path}/{name}'
+    if clear:
+        try:
+            plt.close(fig=title)
+        except:
+            pass
+    args = unwrap_tuple(args)
+    if depth_tuple(args) > 1 and (xerr is not None or yerr is not None):
+        logger.warning('Error bars ignored form multiple curves')
+    if not save_only:
+        if block:
+            plt.ioff()
+        else:
+            plt.ion()
+    plt.figure(title)
+    if depth_tuple(args) > 1:
+       for y in args:
+           plt.plot(*y, **kwargs)
+    else:
+        if xerr is None and yerr is None:
+            plt.plot(*args, **kwargs)
+        else:
+            plt.errorbar(*args, xerr=xerr, yerr=yerr, **kwargs)
+    if vlines is not None:
+        if isinstance(vlines, (int, float)):
+            vlines = [vlines]
+        for v in vlines:
+            plt.axvline(v, color='r', linestyle='--', **kwargs)
+#    if vlines is not None:
+#        for s in tuple(([x, x], list(plt.gca().get_ylim())) for x in vlines):
+#            plt.plot(*s, color='red', **kwargs)
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
+    if xlabel is not None:
+        plt.xlabel(xlabel)
+    if ylabel is not None:
+        plt.ylabel(ylabel)
+    if show_grid:
+        ax = plt.gca()
+        ax.grid(color='k')#, linewidth=1)
+    if legend is not None:
+        plt.legend(legend)
+    if save_only:
+        plt.savefig(path)
+        plt.close(fig=title)
+    else:
+        if save_fig:
+            plt.savefig(path)
+        if block:
+            plt.show(block=block)
+

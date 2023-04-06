@@ -513,6 +513,19 @@ class RotationScanParser(ScanParser):
 class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     def __init__(self, spec_file_name, scan_number):
         super().__init__(spec_file_name, scan_number)
+    def get_spec_scan_npts(self):
+        if self.spec_macro == 'flyscan':
+            if len(self.spec_args) == 2:
+                # Flat field (dark or bright)
+                return(int(self.spec_args[0])+1)
+            elif len(self.spec_args) == 5:
+                return(int(self.spec_args[3])+1)
+            else:
+                raise(RuntimeError(f'{self.scan_title}: cannot obtain number of points from '+
+                        f'{self.spec_macro} with arguments {self.spec_args}'))
+        else:
+            raise(RuntimeError(f'{self.scan_title}: cannot determine number of points for scans '+
+                    f'of type {self.spec_macro}'))
     def get_theta_vals(self):
         if self.spec_macro == 'flyscan':
             if len(self.spec_args) == 2:
@@ -525,7 +538,7 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
                 raise(RuntimeError(f'{self.scan_title}: cannot obtain theta values from '+
                         f'{self.spec_macro} with arguments {self.spec_args}'))
         else:
-            raise(RuntimeError(f'{self.scan_title}: cannot determine scan motors for scans '+
+            raise(RuntimeError(f'{self.scan_title}: cannot determine theta values for scans '+
                     f'of type {self.spec_macro}'))
     def get_horizontal_shift(self):
         return(0.0)
@@ -578,6 +591,11 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
     def __init__(self, spec_file_name, scan_number):
         super().__init__(spec_file_name, scan_number)
         self.par_file_pattern = f'id*-*tomo*-{self.scan_name}'
+    def get_spec_scan_npts(self):
+        if self.spec_macro == 'slew_ome' or self.spec_macro == 'rams4_slew_ome':
+            return(int(self.pars['nframes_real']))
+        else:
+            raise(RuntimeError(f'{self.scan_title}: cannot determine number of points for scans of type {self.spec_macro}'))
     def get_scan_type(self):
         try:
             return(self.pars['tomo_type'])

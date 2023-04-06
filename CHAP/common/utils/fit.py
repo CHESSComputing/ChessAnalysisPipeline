@@ -96,15 +96,16 @@ class Fit:
         if y is not None:
             if isinstance(y, (tuple, list, np.ndarray)):
                 self._x = np.asarray(x)
+                self._y = np.asarray(y)
             elif have_xarray and isinstance(y, xr.DataArray):
                 if x is not None:
                     logging.warning('Ignoring superfluous input x ({x}) in Fit.__init__')
                 if y.ndim != 1:
                     illegal_value(y.ndim, 'DataArray dimensions', 'Fit:__init__', raise_error=True)
                 self._x = np.asarray(y[y.dims[0]])
+                self._y = y
             else:
                 illegal_value(y, 'y', 'Fit:__init__', raise_error=True)
-            self._y = y
             if self._x.ndim != 1:
                 raise ValueError(f'Invalid dimension for input x ({self._x.ndim})')
             if self._x.size != self._y.size:
@@ -171,6 +172,9 @@ class Fit:
         """Convert the input data array to a data set and add the fit results.
         """
         if self._result is None:
+            return(None)
+        if not have_xarray:
+            logging.warning('fit.best_results requires xarray in the conda environment')
             return(None)
         if isinstance(self._y, xr.DataArray):
             best_results = self._y.to_dataset()
@@ -272,9 +276,9 @@ class Fit:
             return(0.0)
         else:
             if self._result.init_params is not None:
-                normalization_offset = self._result.init_params['tmp_normalization_offset_c']
+                normalization_offset = float(self._result.init_params['tmp_normalization_offset_c'])
             else:
-                normalization_offset = self._result.params['tmp_normalization_offset_c']
+                normalization_offset = float(self._result.params['tmp_normalization_offset_c'])
             return(normalization_offset)
 
     @property
@@ -346,10 +350,10 @@ class Fit:
         if not isinstance(parameter, dict):
             raise ValueError(f'Invalid parameter ({parameter})')
         if parameter.get('expr') is not None:
-            raise KeyError(f'Illegal "expr" key in parameter {parameter}')
+            raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
         if not isinstance(name, str):
-            raise ValueError(f'Illegal "name" value ({name}) in parameter {parameter}')
+            raise ValueError(f'Invalid "name" value ({name}) in parameter {parameter}')
         if parameter.get('norm') is None:
             self._parameter_norms[name] = False
         else:
@@ -360,12 +364,12 @@ class Fit:
                 self._parameter_norms[name] = False
             else:
                 if not isinstance(norm, bool):
-                    raise ValueError(f'Illegal "norm" value ({norm}) in parameter {parameter}')
+                    raise ValueError(f'Invalid "norm" value ({norm}) in parameter {parameter}')
                 self._parameter_norms[name] = norm
         vary = parameter.get('vary')
         if vary is not None:
             if not isinstance(vary, bool):
-                raise ValueError(f'Illegal "vary" value ({vary}) in parameter {parameter}')
+                raise ValueError(f'Invalid "vary" value ({vary}) in parameter {parameter}')
             if not vary:
                 if 'min' in parameter:
                     logging.warning(f'Ignoring min in parameter {name} in '+
@@ -418,29 +422,29 @@ class Fit:
                 for par in parameters:
                     name = par['name']
                     if not isinstance(name, str):
-                        raise ValueError(f'Illegal "name" value ({name}) in input parameters')
+                        raise ValueError(f'Invalid "name" value ({name}) in input parameters')
                     if par.get('norm') is not None:
                         norm = par.pop('norm')
                         if not isinstance(norm, bool):
-                            raise ValueError(f'Illegal "norm" value ({norm}) in input parameters')
+                            raise ValueError(f'Invalid "norm" value ({norm}) in input parameters')
                         new_parameter_norms[f'{pprefix}{name}'] = norm
             else:
                 for par in parameter_norms:
                     name = par['name']
                     if not isinstance(name, str):
-                        raise ValueError(f'Illegal "name" value ({name}) in input parameters')
+                        raise ValueError(f'Invalid "name" value ({name}) in input parameters')
                     norm = par.get('norm')
                     if norm is None or not isinstance(norm, bool):
-                        raise ValueError(f'Illegal "norm" value ({norm}) in input parameters')
+                        raise ValueError(f'Invalid "norm" value ({norm}) in input parameters')
                     new_parameter_norms[f'{pprefix}{name}'] = norm
             if parameters is not None:
                 for par in parameters:
                     if par.get('expr') is not None:
-                        raise KeyError(f'Illegal "expr" key ({par.get("expr")}) in parameter '+
+                        raise KeyError(f'Invalid "expr" key ({par.get("expr")}) in parameter '+
                                 f'{name} for a callable model {model}')
                     name = par['name']
                     if not isinstance(name, str):
-                        raise ValueError(f'Illegal "name" value ({name}) in input parameters')
+                        raise ValueError(f'Invalid "name" value ({name}) in input parameters')
 # RV FIX callable model will need partial deriv functions for any linear pars to get the linearized matrix, so for now skip linear solution option
             newmodel = Model(model, prefix=prefix)
         elif isinstance(model, str):
@@ -462,6 +466,16 @@ class Fit:
                 self._linear_parameters.append(f'{pprefix}a')
                 self._linear_parameters.append(f'{pprefix}b')
                 self._linear_parameters.append(f'{pprefix}c')
+            elif model == 'polynomial': # Par: c0, c1,..., c7
+                degree = kwargs.get('degree')
+                if degree is not None:
+                    kwargs.pop('degree')
+                if degree is None or not is_int(degree, ge=0, le=7):
+                    raise ValueError(f'Invalid parameter degree for build-in step model ({degree})')
+                newmodel = PolynomialModel(degree=degree, prefix=prefix)
+                for i in range(degree+1):
+                    new_parameter_norms[f'{pprefix}c{i}'] = True
+                    self._linear_parameters.append(f'{pprefix}c{i}')
             elif model == 'gaussian':    # Par: amplitude, center, sigma (fwhm, height)
                 newmodel = GaussianModel(prefix=prefix)
                 new_parameter_norms[f'{pprefix}amplitude'] = True
@@ -524,7 +538,7 @@ class Fit:
             elif model == 'expression':  # Par: by expression
                 expr = kwargs['expr']
                 if not isinstance(expr, str):
-                    raise ValueError(f'Illegal "expr" value ({expr}) in {model}')
+                    raise ValueError(f'Invalid "expr" value ({expr}) in {model}')
                 kwargs.pop('expr')
                 if parameter_norms is not None:
                         logging.warning('Ignoring parameter_norms (normalization determined from '+
@@ -532,7 +546,7 @@ class Fit:
                 if parameters is not None:
                     for par in parameters:
                         if par.get('expr') is not None:
-                            raise KeyError(f'Illegal "expr" key ({par.get("expr")}) in parameter '+
+                            raise KeyError(f'Invalid "expr" key ({par.get("expr")}) in parameter '+
                                     f'({par}) for an expression model')
                         if par.get('norm') is not None:
                             logging.warning(f'Ignoring "norm" key in parameter ({par}) '+
@@ -540,7 +554,7 @@ class Fit:
                             par.pop('norm')
                         name = par['name']
                         if not isinstance(name, str):
-                            raise ValueError(f'Illegal "name" value ({name}) in input parameters')
+                            raise ValueError(f'Invalid "name" value ({name}) in input parameters')
                 ast = Interpreter()
                 expr_parameters = [name for name in get_ast_names(ast.parse(expr))
                         if name != 'x' and name not in self._parameters
@@ -632,7 +646,7 @@ class Fit:
             for parameter in parameters:
                 name = parameter['name']
                 if not isinstance(name, str):
-                    raise ValueError(f'Illegal "name" value ({name}) in input parameters')
+                    raise ValueError(f'Invalid "name" value ({name}) in input parameters')
                 if name not in new_parameters:
                     name = prefix+name
                     parameter['name'] = name
@@ -721,6 +735,13 @@ class Fit:
 #        print(f'\nat end add_model: newmodel:\n{newmodel.__dict__}\n')
         return(kwargs)
 
+    def eval(self, x, result=None):
+        if result is None:
+            result = self._result
+        if result is None:
+            return
+        return(result.eval(x=np.asarray(x))-self.normalization_offset)
+
     def fit(self, interactive=False, guess=False, **kwargs):
         # Check inputs
         if self._model is None:
@@ -797,7 +818,7 @@ class Fit:
                     raise ValueError(f'Unable to modify {name} parameter {par} (currently an '+
                             'expression)')
                 if par.get('expr') is not None:
-                    raise KeyError(f'Illegal "expr" key in {name} parameter {par}')
+                    raise KeyError(f'Invalid "expr" key in {name} parameter {par}')
                 self._parameters[name].set(vary=par.get('vary'))
                 self._parameters[name].set(min=par.get('min'))
                 self._parameters[name].set(max=par.get('max'))
@@ -901,8 +922,8 @@ class Fit:
 #RV        self._parameters.pretty_print()
 #        self.print_fit_report()
 
-    def plot(self, y=None, y_title=None, result=None, skip_init=False, plot_comp_legends=False,
-            plot_residual=False, plot_masked_data=True, **kwargs):
+    def plot(self, y=None, y_title=None, result=None, skip_init=False, plot_comp=True,
+            plot_comp_legends=False, plot_residual=False, plot_masked_data=True, **kwargs):
         if result is None:
             result = self._result
         if result is None:
@@ -932,34 +953,35 @@ class Fit:
                 plots += [(self._x[mask], np.asarray(self._y)[mask], 'bx')]
                 legend += ['masked data']
         if isinstance(plot_residual, bool) and plot_residual:
-            plots += [(self._x[~mask], result.residual, 'k-')]
+            plots += [(self._x[~mask], result.residual, 'r-')]
             legend += ['residual']
         plots += [(self._x[~mask], result.best_fit, 'k-')]
         legend += ['best fit']
         if not skip_init and hasattr(result, 'init_fit'):
             plots += [(self._x[~mask], result.init_fit, 'g-')]
             legend += ['init']
-        components = result.eval_components(x=self._x[~mask])
-        num_components = len(components)
-        if 'tmp_normalization_offset_' in components:
-            num_components -= 1
-        if num_components > 1:
-            eval_index = 0
-            for modelname, y in components.items():
-                if modelname == 'tmp_normalization_offset_':
-                    continue
-                if modelname == '_eval':
-                    modelname = f'eval{eval_index}'
-                if len(modelname) > 20:
-                    modelname = f'{modelname[0:16]} ...'
-                if isinstance(y, (int, float)):
-                    y *= np.ones(self._x[~mask].size)
-                plots += [(self._x[~mask], y, '--')]
-                if plot_comp_legends:
-                    if modelname[-1] == '_':
-                        legend.append(modelname[:-1])
-                    else:
-                        legend.append(modelname)
+        if plot_comp:
+            components = result.eval_components(x=self._x[~mask])
+            num_components = len(components)
+            if 'tmp_normalization_offset_' in components:
+                num_components -= 1
+            if num_components > 1:
+                eval_index = 0
+                for modelname, y in components.items():
+                    if modelname == 'tmp_normalization_offset_':
+                        continue
+                    if modelname == '_eval':
+                        modelname = f'eval{eval_index}'
+                    if len(modelname) > 20:
+                        modelname = f'{modelname[0:16]} ...'
+                    if isinstance(y, (int, float)):
+                        y *= np.ones(self._x[~mask].size)
+                    plots += [(self._x[~mask], y, '--')]
+                    if plot_comp_legends:
+                        if modelname[-1] == '_':
+                            legend.append(modelname[:-1])
+                        else:
+                            legend.append(modelname)
         title = kwargs.get('title')
         if title is not None:
             kwargs.pop('title')
@@ -1487,28 +1509,33 @@ class FitMultipeak(Fit):
 
     @classmethod
     def fit_multipeak(cls, y, centers, x=None, normalize=True, peak_models='gaussian',
-            center_exprs=None, fit_type=None, background_order=None, background_exp=False,
-            fwhm_max=None, plot_components=False):
+            center_exprs=None, fit_type=None, background=None, fwhm_max=None,
+            print_report=False, plot=True, x_eval=None):
         """Make sure that centers and fwhm_max are in the correct units and consistent with expr
            for a uniform fit (fit_type == 'uniform')
         """
+        if x_eval is not None and not isinstance(x_eval, (tuple, list, np.ndarray)):
+            raise ValueError(f'Invalid parameter x_eval ({x_eval})')
         fit = cls(y, x=x, normalize=normalize)
         success = fit.fit(centers, fit_type=fit_type, peak_models=peak_models, fwhm_max=fwhm_max,
-                center_exprs=center_exprs, background_order=background_order,
-                background_exp=background_exp, plot_components=plot_components)
+                center_exprs=center_exprs, background=background, print_report=print_report,
+                plot=plot)
+        if x_eval is None:
+            best_fit = fit.best_fit
+        else:
+            best_fit = fit.eval(x_eval)
         if success:
-            return(fit.best_fit, fit.residual, fit.best_values, fit.best_errors, fit.redchi, \
+            return(best_fit, fit.residual, fit.best_values, fit.best_errors, fit.redchi, \
                     fit.success)
         else:
             return(np.array([]), np.array([]), {}, {}, float_max, False)
 
     def fit(self, centers, fit_type=None, peak_models=None, center_exprs=None, fwhm_max=None,
-                background_order=None, background_exp=False, plot_components=False,
-                param_constraint=False):
+                background=None, print_report=False, plot=True, param_constraint=False):
         self._fwhm_max = fwhm_max
         # Create the multipeak model
-        self._create_model(centers, fit_type, peak_models, center_exprs, background_order,
-                background_exp, param_constraint)
+        self._create_model(centers, fit_type, peak_models, center_exprs, background,
+                param_constraint)
 
         # RV: Obsolete Normalize the data and results
 #        print('\nBefore fit before normalization in FitMultipeak:')
@@ -1536,8 +1563,8 @@ class FitMultipeak(Fit):
             else:
                 logging.info('  -> Retry fitting with constraints')
                 self.fit(centers, fit_type, peak_models, center_exprs, fwhm_max=fwhm_max,
-                        background_order=background_order, background_exp=background_exp,
-                        plot_components=plot_components, param_constraint=True)
+                        background=background, print_report=print_report, plot=plot,
+                        param_constraint=True)
         else:
             # RV: Obsolete Renormalize the data and results
 #            print('\nAfter fit before renormalization in FitMultipeak:')
@@ -1549,14 +1576,16 @@ class FitMultipeak(Fit):
 #            self.print_fit_report()
 
             # Print report and plot components if requested
-            if plot_components:
+            if print_report:
                 self.print_fit_report()
-                self.plot()
+            if plot:
+                self.plot(skip_init=True, plot_comp=True, plot_comp_legends=True,
+                        plot_residual=True)
 
         return(success)
 
     def _create_model(self, centers, fit_type=None, peak_models=None, center_exprs=None,
-                background_order=None, background_exp=False, param_constraint=False):
+                background=None, param_constraint=False):
         """Create the multipeak model
         """
         if isinstance(centers, (int, float)):
@@ -1564,8 +1593,10 @@ class FitMultipeak(Fit):
         num_peaks = len(centers)
         if peak_models is None:
             peak_models = num_peaks*['gaussian']
-        elif isinstance(peak_models, str):
+        elif isinstance(peak_models, str) and peak_models in ('gaussian', 'lorentzian'):
             peak_models = num_peaks*[peak_models]
+        else:
+            raise ValueError(f'Invalid peak model parameter ({peak_models})')
         if len(peak_models) != num_peaks:
             raise ValueError(f'Inconsistent number of peaks in peak_models ({len(peak_models)} vs '+
                     f'{num_peaks})')
@@ -1602,21 +1633,20 @@ class FitMultipeak(Fit):
         self._parameters = Parameters()
         self._result = None
 
-        # Add background model
-        if background_order is not None:
-            if background_order == 0:
-                self.add_model('constant', prefix='background', parameters=
-                        {'name': 'c', 'value': float_min, 'min': min_value})
-            elif background_order == 1:
-                self.add_model('linear', prefix='background', slope=0.0, intercept=0.0)
-            elif background_order == 2:
-                self.add_model('quadratic', prefix='background', a=0.0, b=0.0, c=0.0)
-            else:
-                raise ValueError(f'Invalid parameter background_order ({background_order})')
-        if background_exp:
-            self.add_model('exponential', prefix='background', parameters=(
-                        {'name': 'amplitude', 'value': float_min, 'min': min_value},
-                        {'name': 'decay', 'value': float_min, 'min': min_value}))
+        # Add background model(s)
+        if isinstance(background, dict):
+            background = [background]
+        if isinstance(background, str):
+            self.add_model(background, prefix='bkgd_')
+        elif is_dict_series(background):
+            for model in deepcopy(background):
+                if 'model' not in model:
+                    raise KeyError(f'Missing keyword "model" in model in background ({model})')
+                name = model.pop('model')
+                parameters=model.pop('parameters', None)
+                self.add_model(name, prefix=f'bkgd_{name}_', parameters=parameters, **model)
+        else:
+            raise ValueError(f'Invalid parameter background ({background})')
 
         # Add peaks and guess initial fit parameters
         ast = Interpreter()
@@ -1673,8 +1703,8 @@ class FitMultipeak(Fit):
         fit_failure = False
         index = compile(r'\d+')
         for name, par in self.best_parameters.items():
-            if 'background' in name:
-#                if ((name == 'backgroundc' and par['value'] <= 0.0) or
+            if 'bkgd' in name:
+#                if ((name == 'bkgd_c' and par['value'] <= 0.0) or
 #                        (name.endswith('amplitude') and par['value'] <= 0.0) or
                  if ((name.endswith('amplitude') and par['value'] <= 0.0) or
                         (name.endswith('decay') and par['value'] <= 0.0)):
@@ -1687,7 +1717,7 @@ class FitMultipeak(Fit):
                     (name == 'scale_factor' and par['value'] <= 0.0)):
                 logging.info(f'Invalid fit result for {name} ({par["value"]})')
                 fit_failure = True
-            if name.endswith('sigma') and self._sigma_max is not None:
+            if 'bkgd' not in name and name.endswith('sigma') and self._sigma_max is not None:
                 if name == 'sigma':
                     sigma_max = self._sigma_max[0]
                 else:
@@ -1697,7 +1727,7 @@ class FitMultipeak(Fit):
                     fit_failure = True
                 elif par['value'] == sigma_max:
                     logging.warning(f'Edge result on for {name} ({par["value"]})')
-            if name.endswith('fwhm') and self._fwhm_max is not None:
+            if 'bkgd' not in name and name.endswith('fwhm') and self._fwhm_max is not None:
                 if par['value'] > self._fwhm_max:
                     logging.info(f'Invalid fit result for {name} ({par["value"]})')
                     fit_failure = True
@@ -2016,7 +2046,7 @@ class FitMap(Fit):
         plots += [(self._x[~mask], self.best_fit[dims], 'k-')]
         legend += ['best fit']
         if plot_residual:
-            plots += [(self._x[~mask], self.residual[dims], 'k--')]
+            plots += [(self._x[~mask], self.residual[dims], 'r--')]
             legend += ['residual']
         # Create current parameters
         parameters = deepcopy(self._parameters)
@@ -2128,7 +2158,7 @@ class FitMap(Fit):
                 value =  par.get('value')
                 vary =  par.get('vary')
                 if par.get('expr') is not None:
-                    raise KeyError(f'Illegal "expr" key in {name} parameter {par}')
+                    raise KeyError(f'Invalid "expr" key in {name} parameter {par}')
                 self._parameters[name].set(value=value, vary=vary, min=par.get('min'),
                         max=par.get('max'))
                 # Overwrite existing best values for fixed parameters when a value is specified
