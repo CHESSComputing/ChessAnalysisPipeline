@@ -9,13 +9,19 @@ Created on Mon Dec  6 15:36:22 2021
 
 import logging
 
-from asteval import Interpreter, get_ast_names
+try:
+    from asteval import Interpreter, get_ast_names
+except:
+    pass
 from copy import deepcopy
-from lmfit import Model, Parameters
-from lmfit.model import ModelResult
-from lmfit.models import ConstantModel, LinearModel, QuadraticModel, PolynomialModel,\
-        ExponentialModel, StepModel, RectangleModel, ExpressionModel, GaussianModel,\
-        LorentzianModel
+try:
+    from lmfit import Model, Parameters
+    from lmfit.model import ModelResult
+    from lmfit.models import ConstantModel, LinearModel, QuadraticModel, PolynomialModel,\
+            ExponentialModel, StepModel, RectangleModel, ExpressionModel, GaussianModel,\
+            LorentzianModel
+except:
+    pass
 import numpy as np
 from os import cpu_count, getpid, listdir, mkdir, path
 from re import compile, sub
@@ -1510,7 +1516,7 @@ class FitMultipeak(Fit):
     @classmethod
     def fit_multipeak(cls, y, centers, x=None, normalize=True, peak_models='gaussian',
             center_exprs=None, fit_type=None, background=None, fwhm_max=None,
-            print_report=False, plot=True, x_eval=None):
+            print_report=False, plot=False, x_eval=None):
         """Make sure that centers and fwhm_max are in the correct units and consistent with expr
            for a uniform fit (fit_type == 'uniform')
         """
@@ -1634,19 +1640,20 @@ class FitMultipeak(Fit):
         self._result = None
 
         # Add background model(s)
-        if isinstance(background, dict):
-            background = [background]
-        if isinstance(background, str):
-            self.add_model(background, prefix='bkgd_')
-        elif is_dict_series(background):
-            for model in deepcopy(background):
-                if 'model' not in model:
-                    raise KeyError(f'Missing keyword "model" in model in background ({model})')
-                name = model.pop('model')
-                parameters=model.pop('parameters', None)
-                self.add_model(name, prefix=f'bkgd_{name}_', parameters=parameters, **model)
-        else:
-            raise ValueError(f'Invalid parameter background ({background})')
+        if background is not None:
+            if isinstance(background, dict):
+                background = [background]
+            if isinstance(background, str):
+                self.add_model(background, prefix='bkgd_')
+            elif is_dict_series(background):
+                for model in deepcopy(background):
+                    if 'model' not in model:
+                        raise KeyError(f'Missing keyword "model" in model in background ({model})')
+                    name = model.pop('model')
+                    parameters=model.pop('parameters', None)
+                    self.add_model(name, prefix=f'bkgd_{name}_', parameters=parameters, **model)
+            else:
+                raise ValueError(f'Invalid parameter background ({background})')
 
         # Add peaks and guess initial fit parameters
         ast = Interpreter()
