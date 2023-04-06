@@ -1,11 +1,12 @@
-<tool id="chap" name="CHESS Analysis Pipeline" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
+<tool id="chapmlaas" name="CHAP MLaaS" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
     <requirements>
-        <requirement type="package" version="0.0.2">ChessAnalysisPipeline</requirement>
+        <requirement type="package" version="2.28.2">requests</requirement>
+        <requirement type="package" version="0.0.2">chessanalysispipeline</requirement>
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
         cp '$input' data.csv &&
         cp '$image' img.png &&
-        python `python -c "import CHAP, os; print(os.path.abspath(CHAP.__file__))" | sed "s,__init__,runner,g"` --config '$config' &&
+        CHAP --config '$config' &&
         cp preds.json '$output'
     ]]></command>
     <inputs>
@@ -24,19 +25,31 @@
         </test>
     </tests>
     <help><![CDATA[
-        CHESS Analysis Pipeline (CHAP):
+CHESS Analysis Pipeline (CHAP) with Machine Learning as a Service (MLaaS)
 
-        To run it on command line you'll use:
-        CHAP --config CONFIG
+To run it you need the following:
+1. Working TFaaS server
+2. A pipeline config with TFaaS, e.g.
 
-        To run it within galaxy you'll only need to upload your
-        required configuration pipeline and necessary data.
+pipeline:
+  - reader.Reader:
+      filename: data.csv
+  - processor.Processor: {}
+  - reader.BinaryFileReader:
+      filename: img.png
+  - processor.TFaaSImageProcessor:
+      url: "http://localhost:8083"
+      model: mnist
+      verbose: true
+  - writer.Writer:
+      filename: preds.json
+
     ]]></help>
     <citations>
         <citation type="bibtex">
 @misc{githubChessAnalysisPipeline,
-  author = {LastTODO, FirstTODO},
-  year = {TODO},
+  author = {Kuznetsov, Valentin},
+  year = {2023},
   title = {ChessAnalysisPipeline},
   publisher = {GitHub},
   journal = {GitHub repository},
