@@ -14,7 +14,7 @@ cat /tmp/chap.json
 }
 
 ### curl call to the server with our CHAP pipeline
-curl -X POST -H "Content-type: application/json" -d@/tmp/chap.json http://localhost:5000/input
+curl -X POST -H "Content-type: application/json" -d@/tmp/chap.json http://localhost:5000/pipeline
 {"pipeline":[{"common.PrintProcessor":{}}],"status":"ok"}
 
 ### Server side:
@@ -42,7 +42,7 @@ None
 PrintProcessor      : Finished "process" in 0.000 seconds
 
 Pipeline            : Executed "execute" in 0.000 seconds
-127.0.0.1 - - [07/Apr/2023 09:11:22] "POST /input HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2023 09:11:22] "POST /pipeline HTTP/1.1" 200 -
 """
 
 # system modules
@@ -66,10 +66,16 @@ app = Flask(__name__)
 
 @app.route("/")
 def index_route():
+    """
+    Server main end-point
+    """
     return "CHAP daemon"
 
-@app.route("/input", methods=["POST"])
-def input_route():
+@app.route("/pipeline", methods=["POST"])
+def pipeline_route():
+    """
+    Server /pipeline end-point
+    """
     content = request.json
     if 'pipeline' in content:
         # spawn new pipeline task
