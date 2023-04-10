@@ -46,19 +46,28 @@ class TomoDataProcessor(Processor):
         nxroot = None
         center_config = None
 
-        #RV TODO Do validation of input files right away
+        # Get and validate the relevant configuration objects in data
+        configs = self.get_configs(data)
+
+        # Setup the pipeline for a tomography reconstruction
+        if 'setup' in configs:
+            configs.pop('nxroot', None)
+            nxroot = self.get_nxroot(configs.pop('map'), configs.pop('setup'))
+        else:
+            nxroot = configs.pop('nxroot', None)
 
         # Reduce tomography images
-        if any(True for l in data if l['schema'] == 'TomoReduceConfig'):
-            map_config, tool_config = self.get_configs(data, 'reduce_data')
-            nxroot = self.get_nxroot(map_config, tool_config)
+        if 'reduce' in configs:
+            tool_config = configs.pop('reduce')
+            if nxroot is None:
+                map_config = configs.pop('map')
+                nxroot = self.get_nxroot(map_config, tool_config)
             nxroot = tomo.gen_reduced_data(nxroot, img_x_bounds=tool_config.img_x_bounds)
 
         # Find rotation axis centers for the tomography stacks
-        # Pass tool_config directly to tomo.find_centers
-        center_config = None
-        if any(True for l in data if l['schema'] == 'TomoFindCenterConfig'):
-            nxroot, tool_config = self.get_configs(data, 'find_center', nxroot)
+        # Pass tool_config directly to tomo.find_centers?
+        if 'find_center' in configs:
+            tool_config = configs.pop('find_center')
             center_rows = [tool_config.lower_row, tool_config.upper_row]
             if (None in center_rows or tool_config.lower_center_offset is None or
                     tool_config.upper_center_offset is None):
@@ -73,97 +82,67 @@ class TomoDataProcessor(Processor):
 
         # Reconstruct tomography stacks
         # Pass tool_config and center_config directly to tomo.reconstruct_data
-        if any(True for l in data if l['schema'] == 'TomoReconstructConfig'):
-            if center_config is None:
-                nxroot, tool_config, center_config = self.get_configs(data, 'reconstruct_data',
-                        nxroot)
-                center_config = {'lower_row': center_config.lower_row,
-                        'lower_center_offset': center_config.lower_center_offset,
-                        'upper_row': center_config.upper_row,
-                        'upper_center_offset': center_config.upper_center_offset}
-            else:
-                nxroot, tool_config, _ = self.get_configs(data, 'reconstruct_data', nxroot)
+        if 'reconstruct' in configs:
+            tool_config = configs.pop('reconstruct')
             nxroot = tomo.reconstruct_data(nxroot, center_config, x_bounds=tool_config.x_bounds,
                     y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
             center_config = None
 
         # Combine reconstructed tomography stacks
-        if any(True for l in data if l['schema'] == 'TomoCombineConfig'):
-            nxroot, tool_config = self.get_configs(data, 'combine_data', nxroot)
+        if 'combine' in configs:
+            tool_config = configs.pop('combine')
             nxroot = tomo.combine_data(nxroot, x_bounds=tool_config.x_bounds,
                     y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
 
         if center_config is not None:
-            return(center_config)
+            return center_config
         else:
-            return(nxroot)
+            return nxroot
 
-    def get_configs(self, data, tool_type, nxroot=None, center_config=None):
-        '''Get instances of the configuration objects needed by this `Processor` from a
-        returned value of `Reader.read`
+    def get_configs(self, data):
+        '''Get instances of the configuration objects needed by this
+        `Processor` from a returned value of `Reader.read`
 
-        :param data: Result of `Reader.read` where at least one item is of type
-            `nexusformat.nexus.NXroot` or has the value `'MapConfig'` for the `'schema'` key,
-            and at least one item has the value `'TomoReduceConfig'` for the `'schema'` key.
+        :param data: Result of `Reader.read` where at least one item
+            is of type `nexusformat.nexus.NXroot` or has the value
+            `'MapConfig'` for the `'schema'` key, and at least one item
+            has the value `'TomoSetupConfig'`, or `'TomoReduceConfig'`,
+            or `'TomoFindCenterConfig'`, or `'TomoReconstructConfig'`,
+            or `'TomoCombineConfig'` for the `'schema'` key.
         :type data: list[dict[str,object]]
-        :raises Exception: If valid config objects cannot be constructed from `data`.
-        :return: valid instances of the configuration objects with field values
-            taken from `data`.
-        :rtype: tuple[MapConfig, TomoReduceConfig]
+        :raises Exception: If valid config objects cannot be constructed
+            from `data`.
+        :return: valid instances of the configuration objects with field
+            values taken from `data`.
+        :rtype: dict
         '''
+        #:rtype: dict{'map': MapConfig, 'reduce': TomoReduceConfig} RV: Is there a way to denote optional items?
         from CHAP.common.models import MapConfig
-        from CHAP.tomo.models import TomoReduceConfig, TomoFindCenterConfig, \
+        from CHAP.tomo.models import TomoSetupConfig, TomoReduceConfig, TomoFindCenterConfig, \
                 TomoReconstructConfig, TomoCombineConfig
         from nexusformat.nexus import NXroot
 
-        map_config = False
-        tool_config = False
+        configs = {}
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
                     schema = item.get('schema')
-                    if schema == 'MapConfig':
-                        map_config = item.get('data')
-                    elif tool_type == 'reduce_data' and schema == 'TomoReduceConfig':
-                        tool_config = item.get('data')
-                    elif tool_type == 'find_center' and schema == 'TomoFindCenterConfig':
-                        tool_config = item.get('data')
-                    elif tool_type == 'reconstruct_data' and schema == 'TomoFindCenterConfig':
-                        center_config = item.get('data')
-                    elif tool_type == 'reconstruct_data' and schema == 'TomoReconstructConfig':
-                        tool_config = item.get('data')
-                    elif tool_type == 'combine_data' and schema == 'TomoCombineConfig':
-                        tool_config = item.get('data')
                     if isinstance(item.get('data'), NXroot):
-                        nxroot = item.get('data')
+                        configs['nxroot'] = item.get('data')
+                    if schema == 'MapConfig':
+                        configs['map'] = MapConfig(**(item.get('data')))
+                    if schema == 'TomoSetupConfig':
+                        configs['setup'] = TomoSetupConfig(**(item.get('data')))
+                    if schema == 'TomoReduceConfig':
+                        configs['reduce'] = TomoReduceConfig(**(item.get('data')))
+                    elif schema == 'TomoFindCenterConfig':
+                        configs['find_center'] = TomoFindCenterConfig(**(item.get('data')))
+                    elif schema == 'TomoReconstructConfig':
+                        configs['reconstruct'] = TomoReconstructConfig(**(item.get('data')))
+                    elif schema == 'TomoCombineConfig':
+                        configs['combine'] = TomoCombineConfig(**(item.get('data')))
 
-        if tool_type == 'reduce_data':
-            if not map_config:
-                raise(ValueError('No map configuration found in input data'))
-            if not tool_config:
-                raise(ValueError('No Tomography reduction configuration found in input data'))
-            return(MapConfig(**map_config), TomoReduceConfig(**tool_config))
-        elif tool_type == 'find_center':
-            if nxroot is None:
-                raise(ValueError('No NXroot configuration found in input data'))
-            if not tool_config:
-                raise(ValueError('No Tomography center finding configuration found in input data'))
-            return(nxroot, TomoFindCenterConfig(**tool_config))
-        elif tool_type == 'reconstruct_data':
-            if nxroot is None:
-                raise(ValueError('No NXroot configuration found in input data'))
-            if not tool_config:
-                raise(ValueError('No Tomography reconstruction configuration found in input data'))
-            if center_config is None:
-                raise(ValueError('No Tomography center finding configuration found in input data'))
-            TomoFindCenterConfig(**center_config)
-            return(nxroot, TomoReconstructConfig(**tool_config), center_config)
-        elif tool_type == 'combine_data':
-            if nxroot is None:
-                raise(ValueError('No NXroot configuration found in input data'))
-            if not tool_config:
-                raise(ValueError('No Tomography combination configuration found in input data'))
-            return(nxroot, TomoCombineConfig(**tool_config))
+        return configs
 
     def get_nxroot(self, map_config, tool_config):
         '''Get a map of the collected tomography data from the scans in `map_config`. The
@@ -181,8 +160,10 @@ class TomoDataProcessor(Processor):
         from CHAP.common.models.map import import_scanparser
         from CHAP.common.utils.general import index_nearest
         from copy import deepcopy
-        from nexusformat.nexus import NXcollection, NXdetector, NXinstrument, NXsample, NXsource, \
-                NXsubentry, NXroot
+        from nexusformat.nexus import NXcollection, NXdata, NXdetector, NXinstrument, NXsample, \
+                NXsource, NXsubentry, NXroot
+
+        include_raw_data = getattr(tool_config, "include_raw_data", False)
 
         # Construct NXroot
         nxroot = NXroot()
@@ -226,8 +207,22 @@ class TomoDataProcessor(Processor):
         nxdetector.x_pixel_size.attrs['units'] = 'mm'
         nxdetector.y_pixel_size.attrs['units'] = 'mm'
 
+        if include_raw_data:
+            # Add an NXsample to NXentry (don't fill in data fields yet)
+            nxsample = NXsample()
+            nxentry.sample = nxsample
+            nxsample.name = map_config.sample.name
+            nxsample.description = map_config.sample.description
+
         # Add NXcollection's to NXentry to hold metadata about the spec scans in the map
+        # Also obtain the data fields in NXsample and NXdetector if requested
         import_scanparser(map_config.station, map_config.experiment_type)
+        image_keys = []
+        sequence_numbers = []
+        image_stacks = []
+        rotation_angles = []
+        x_translations = []
+        z_translations = []
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
@@ -298,16 +293,16 @@ class TomoDataProcessor(Processor):
                     else:
                         thetas = thetas[image_offset:]
 
+                # x and z translations
+                x_translation = scanparser.horizontal_shift
+                z_translation = scanparser.vertical_shift
+
                 # Add an NXsubentry to the NXcollection for each scan
                 entry_name = f'scan_{scan_number}'
                 nxsubentry = NXsubentry()
                 nxcollection[entry_name] = nxsubentry
                 nxsubentry.start_time = scanparser.spec_scan.date
                 nxsubentry.spec_command = scanparser.spec_command
-                # Add an NXdata for independent dimensions to the scan's NXsubentry
-#                nxsubentry.independent_dimensions = NXdata()
-#                nxsubentry.independent_dimensions.rotation_angle = thetas
-#                nxsubentry.independent_dimensions.rotation_angle.units = 'degrees'
                 # Add an NXinstrument to the scan's NXsubentry
                 nxsubentry.instrument = NXinstrument()
                 # Add an NXdetector to the NXinstrument to the scan's NXsubentry
@@ -318,10 +313,47 @@ class TomoDataProcessor(Processor):
                 nxsubentry.sample = NXsample()
                 nxsubentry.sample.rotation_angle = thetas
                 nxsubentry.sample.rotation_angle.units = 'degrees'
-                nxsubentry.sample.x_translation = scanparser.horizontal_shift
+                nxsubentry.sample.x_translation = x_translation
                 nxsubentry.sample.x_translation.units = 'mm'
-                nxsubentry.sample.z_translation = scanparser.vertical_shift
+                nxsubentry.sample.z_translation = z_translation
                 nxsubentry.sample.z_translation.units = 'mm'
+
+                if include_raw_data:
+                    num_image = len(thetas)
+                    image_keys += num_image*[image_key]
+                    sequence_numbers += list(range(num_image))
+                    image_stacks.append(scanparser.get_detector_data(tool_config.detector.prefix,
+                            scan_step_index=(image_offset, image_offset+num_image)))
+                    rotation_angles += list(thetas)
+                    x_translations += num_image*[x_translation]
+                    z_translations += num_image*[z_translation]
+
+        if include_raw_data:
+            # Add image data to NXdetector
+            nxinstrument.detector.image_key = image_keys
+            nxinstrument.detector.sequence_number = sequence_numbers
+            nxinstrument.detector.data = np.concatenate([image for image in image_stacks])
+
+            # Add image data to NXsample
+            nxsample.rotation_angle = rotation_angles
+            nxsample.rotation_angle.attrs['units'] = 'degrees'
+            nxsample.x_translation = x_translations
+            nxsample.x_translation.attrs['units'] = 'mm'
+            nxsample.z_translation = z_translations
+            nxsample.z_translation.attrs['units'] = 'mm'
+
+            # Add an NXdata to NXentry
+            nxdata = NXdata()
+            nxentry.data = nxdata
+            nxdata.makelink(nxentry.instrument.detector.data, name='data')
+            nxdata.makelink(nxentry.instrument.detector.image_key)
+            nxdata.makelink(nxentry.sample.rotation_angle)
+            nxdata.makelink(nxentry.sample.x_translation)
+            nxdata.makelink(nxentry.sample.z_translation)
+#            nxdata.attrs['axes'] = ['field', 'row', 'column']
+#            nxdata.attrs['field_indices'] = 0
+#            nxdata.attrs['row_indices'] = 1
+#            nxdata.attrs['column_indices'] = 2
 
         return(nxroot)
 
@@ -875,11 +907,11 @@ class Tomo:
 
         # Plot a few reconstructed image slices
         if self.save_figs:
-            if num_tomo_stacks == 1:
-                basetitle = 'recon'
-            else:
-                basetitle = f'recon stack {i+1}'
             for i, stack in enumerate(tomo_recon_stacks):
+                if num_tomo_stacks == 1:
+                    basetitle = 'recon'
+                else:
+                    basetitle = f'recon stack {i+1}'
                 title = f'{basetitle} {res_title} xslice{x_slice}'
                 quick_imshow(stack[z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
                         title=title, path=path, save_fig=True, save_only=True)
