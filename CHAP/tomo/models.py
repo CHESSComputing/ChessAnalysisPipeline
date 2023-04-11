@@ -3,10 +3,12 @@
 # third party imports
 from pydantic import (
         BaseModel,
+        StrictBool,
         conint,
         conlist,
         confloat,
-        constr)
+        constr,
+)
 from typing import Literal, Optional
 
 
@@ -30,6 +32,17 @@ class Detector(BaseModel):
     columns: conint(gt=0)
     pixel_size: conlist(item_type=confloat(gt=0, allow_inf_nan=False), min_items=1, max_items=2)
     lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
+
+
+class TomoSetupConfig(BaseModel):
+    """
+    Class representing the configuration for the tomography reconstruction setup.
+
+    :ivar detectors: Detector used in the tomography experiment
+    :type detectors: Detector
+    """
+    detector: Detector.construct()
+    include_raw_data: Optional[StrictBool] = False
 
 
 class TomoReduceConfig(BaseModel):

@@ -1,0 +1,15 @@
+pipeline:
+
+  # Reduce tomography images
+  - common.MultipleReader:
+      readers:
+        - YAMLReader:
+            filename: map.yaml
+            schema: MapConfig
+        - YAMLReader:
+            filename: reduce.yaml
+            schema: TomoReduceConfig
+  - tomo.TomoDataProcessor
+  - common.NexusWriter:
+      filename: output.nex
+      force_overwrite: true
