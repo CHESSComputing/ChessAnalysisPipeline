@@ -10,6 +10,8 @@ to run tests : python setup.py test
 import os
 import setuptools
 
+version = 'PACKAGE_VERSION'
+
 def datafiles(idir, pattern=None):
     """Return list of data files in provided relative dir"""
     files = []
@@ -32,7 +34,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ChessAnalysisPipeline",
-    version="0.0.3",
+    version=version,
     author="Keara Soloway, Rolf Verberg, Valentin Kuznetsov",
     author_email="",
     description="CHESS analysis pipeline framework",
