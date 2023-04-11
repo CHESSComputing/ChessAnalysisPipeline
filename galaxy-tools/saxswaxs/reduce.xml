@@ -6,11 +6,7 @@
       <requirement type="package" version="1.10.7">pydantic</requirement>
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
-<<<<<<< HEAD
-        pip --exists-action i install certif-pyspec==1.5.3
-=======
         pip --exists-action i install certif-pyspec==1.5.3 &&
->>>>>>> galaxy
         cp '$mapconfig' map.yaml &&
 	cp '$integrationconfig' integration.yaml &&
 	CHAP --config '$__tool_directory__/pipeline.yaml'

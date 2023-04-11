@@ -1,0 +1,93 @@
+<tool id="CHAP_tomo_reduce" name="Tomo Reduce" version="@TOOL_VERSION@+galaxy0" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
+    <description>Reduce tomography images</description>
+    <macros>
+        <import>tomo_macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code">
+        <![CDATA[
+        mkdir tomo_reduce_plots;
+        pip --exists-action i install certif-pyspec==1.5.3 &&
+        #if str($map.type_selector) == "YAML"
+            cp '$input_file' map.yaml &&
+        #else
+            cp '$input_file' setup.nex &&
+        #end if
+        cp '$tool_config' reduce.yaml &&
+        CHAP --config 
+        #if str($map.type_selector) == "YAML"
+            '$__tool_directory__/pipeline_reduce_yaml.yaml'
+        #else
+            '$__tool_directory__/pipeline_reduce_nexus.yaml'
+        #end if
+        ]]>
+    </command>
+    <configfiles>
+        <configfile name="tool_config">
+            <![CDATA[#slurp
+                #echo 'img_x_bounds:' #
+                #if str($img_x_bounds.type_selector) == "full_range"
+                    #echo '- -1'
+                    #echo '- -1'
+                #else
+                    #echo '- ' + str($img_x_bounds.low)
+                    #echo '- ' + str($img_x_bounds.upp)
+                #end if
+            ]]>
+        </configfile>
+    </configfiles>
+    <inputs>
+        <conditional name="map">
+            <param name="type_selector" type="select" display="radio" label="Choose map file type">
+                <option value="yaml">YAML</option>
+                <option value="nexus">NeXus</option>
+            </param>
+            <when value="yaml">
+                <param name="input_file" type="data" format="yaml" optional="false" label="Map config file"/>
+                <conditional name="detector">
+                    <param name="type_selector" type="select" display="radio" label="Choose detector prefix">
+                        <option value="andor2">andor2</option>
+                        <option value="manta">manta</option>
+                        <option value="retiga">retiga</option>
+                    </param>
+                    <when value="andor2"/>
+                    <when value="manta"/>
+                    <when value="retiga"/>
+                </conditional>
+            </when>
+            <when value="nexus">
+                <param name="input_file" type="data" format="nex" optional="false" label="Tomography setup file"/>
+            </when>
+        </conditional>
+        <conditional name="img_x_bounds">
+            <param name="type_selector" type="select" label="Choose vertical detector image bounds">
+                <option value="full_range" selected="true">Use the full image range</option>
+                <option value="enter_range">Manually enter the image range</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower image range index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper image range index"/>
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="tool_config" format="yaml" label="Tool config" from_work_dir="reduce.yaml" hidden="false"/>
+        <collection name="tomo_reduce_plots" type="list" label="Data reduction images">
+            <discover_datasets pattern="__name_and_ext__" directory="tomo_reduce_plots"/>
+        </collection>
+        <data name="output_file" format="nex" label="Reduced tomography data" from_work_dir="output.nex"/>
+    </outputs>
+    <help>
+        <![CDATA[
+        usage: PROG [-h] [--config CONFIG] [--verbose]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  Input configuration file
+  --verbose        verbose output
+
+        ]]>
+    </help>
+    <expand macro="citations"/>
+</tool>
