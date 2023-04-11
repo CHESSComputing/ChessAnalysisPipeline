@@ -1,4 +1,4 @@
-<tool id="chapmlaas" name="CHAP MLaaS" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
+<tool id="CHAP_inference_demo" name="CHAP MLaaS" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
     <requirements>
         <requirement type="package" version="2.28.2">requests</requirement>
         <requirement type="package" version="0.0.2">chessanalysispipeline</requirement>
