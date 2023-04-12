@@ -1,0 +1,14 @@
+name: CHAP_saxswaxs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8,<3.11
+  - requests==2.28.2
+  - numpy==1.24.2
+  - pydantic==1.10.7
+  - pip==23.0.1
+  - pip:
+    - certif-pyspec==1.5.3
+    - pyfai==2023.3.0 # pyFAI w/o GUIs can only be installed via pip
+  - nexusformat==1.0.1
