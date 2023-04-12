@@ -117,7 +117,7 @@ class TomoDataProcessor(Processor):
         :rtype: dict
         '''
         #:rtype: dict{'map': MapConfig, 'reduce': TomoReduceConfig} RV: Is there a way to denote optional items?
-        from CHAP.common.models import MapConfig
+        from CHAP.common.models.map import MapConfig
         from CHAP.tomo.models import TomoSetupConfig, TomoReduceConfig, TomoFindCenterConfig, \
                 TomoReconstructConfig, TomoCombineConfig
         from nexusformat.nexus import NXroot
@@ -550,8 +550,6 @@ class Tomo:
             nxentry = data[data.attrs['default']]
         else:
             raise ValueError(f'Invalid parameter data ({data})')
-        if 'data' in nxentry:
-            del nxentry['data']
 
         # Create an NXprocess to store data reduction (meta)data
         reduced_data = NXprocess()
