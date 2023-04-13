@@ -20,11 +20,14 @@ from pydantic import (BaseModel,
                       conint,
                       confloat,
                       FilePath)
-#import pyFAI, pyFAI.multi_geometry, pyFAI.units
-from pyFAI import load as pyfai_load
-from pyFAI.multi_geometry import MultiGeometry
-from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
-#from pyspec.file.tiff import TiffFile
+try:
+    #import pyFAI, pyFAI.multi_geometry, pyFAI.units
+    from pyFAI import load as pyfai_load
+    from pyFAI.multi_geometry import MultiGeometry
+    from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
+    #from pyspec.file.tiff import TiffFile
+except:
+    pass
 
 #from .map import MapConfig, SpecScans
 

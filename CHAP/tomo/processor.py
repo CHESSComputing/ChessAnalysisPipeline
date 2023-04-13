@@ -550,8 +550,6 @@ class Tomo:
             nxentry = data[data.attrs['default']]
         else:
             raise ValueError(f'Invalid parameter data ({data})')
-        if 'data' in nxentry:
-            del nxentry['data']
 
         # Create an NXprocess to store data reduction (meta)data
         reduced_data = NXprocess()

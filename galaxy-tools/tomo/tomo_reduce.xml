@@ -6,7 +6,8 @@
     <expand macro="requirements"/>
     <command detect_errors="exit_code">
         <![CDATA[
-        mkdir tomo_reduce_plots &&
+        mkdir tomo_reduce_plots;
+        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
         #if str($map.type_selector) == "yaml"
             cp $input_file map.yaml &&
             cat $__tool_directory__/andor2.yaml $tool_config > reduce.yaml &&
@@ -25,12 +26,6 @@
     <configfiles>
         <configfile name="tool_config">
             <![CDATA[#slurp
-#*
-#if str($map.type_selector) == "yaml"
-#echo 'detector:' #
-#echo '  file: ' + str($__tool_directory__) + '/andor2.yaml' #
-#end if
-*#
 #echo 'img_x_bounds:' #
 #if str($img_x_bounds.type_selector) == "full_range"
 #echo '- -1' #
