@@ -154,13 +154,13 @@ class MCACeriaCalibrationConfig(BaseModel):
         return(interpolation_function)
 
     def material(self):
-        '''Get CeO2 as a `CHAP.common.utils.Material` object.
+        '''Get CeO2 as a `CHAP.common.utils.material.Material` object.
 
         :return: CeO2 material
-        :rtype: CHAP.common.utils.Material
+        :rtype: CHAP.common.utils.material.Material
         '''
 
-        from CHAP.common.utils import Material
+        from CHAP.common.utils.material import Material
         material = Material(material_name=self.hexrd_h5_material_name,
                             material_file=self.hexrd_h5_material_file,
                             lattice_parameters_angstroms=self.lattice_parameter_angstrom)

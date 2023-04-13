@@ -127,8 +127,8 @@ class IntegrateMapProcessor(Processor):
         self.logger.debug('Getting configuration objects')
         t0 = time()
 
-        from CHAP.common.models import MapConfig
-        from CHAP.common.models import IntegrationConfig
+        from CHAP.common.models.map import MapConfig
+        from CHAP.common.models.integration import IntegrationConfig
 
         map_config = False
         integration_config = False

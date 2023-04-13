@@ -83,7 +83,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: float, float, float
         '''
 
-        from CHAP.common.utils import Fit, FitMultipeak
+        from CHAP.common.utils.fit import Fit, FitMultipeak
         import numpy as np
         from scipy.constants import physical_constants
 
@@ -127,7 +127,8 @@ class MCACeriaCalibrationProcessor(Processor):
                     fit_mca_intensities,
                     fit_E0,
                     x=fit_mca_energies,
-                    fit_type='uniform')
+                    fit_type='uniform',
+                    plot=False)
 
             # Extract values of interest from the best values for the uniform fit
             # parameters
@@ -149,7 +150,8 @@ class MCACeriaCalibrationProcessor(Processor):
                     fit_mca_intensities,
                     uniform_fit_centers,
                     x=fit_mca_energies,
-                    fit_type='unconstrained')
+                    fit_type='unconstrained',
+                    plot=False)
 
             # Extract values of interest from the best values for the
             # unconstrained fit parameters
@@ -224,7 +226,7 @@ class MCADataProcessor(Processor):
         :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
         '''
 
-        from CHAP.common.models import MapConfig
+        from CHAP.common.models.map import MapConfig
         from CHAP.edd.models import MCACeriaCalibrationConfig
 
         map_config = False
