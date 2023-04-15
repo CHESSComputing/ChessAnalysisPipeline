@@ -900,6 +900,8 @@ def draw_mask_1d(ydata, xdata=None, current_index_ranges=None, current_mask=None
     # Update the currently included index ranges (where mask is True)
     current_include = update_index_ranges(selected_mask)
 
+    return selected_mask, current_include
+
 def select_image_bounds(a, axis, low=None, upp=None, num_min=None, title='select array bounds',
         raise_error=False):
     """Interactively select the lower and upper data bounds for a 2D numpy array.

@@ -9,7 +9,9 @@ pipeline:
         - YAMLReader:
             filename: reduce.yaml
             schema: TomoReduceConfig
-  - tomo.TomoDataProcessor
+  - tomo.TomoDataProcessor:
+      output_folder: tomo_reduce_plots
+      save_figs: 'only'
   - common.NexusWriter:
       filename: output.nex
       force_overwrite: true

@@ -10,7 +10,7 @@ to run tests : python setup.py test
 import os
 import setuptools
 
-version = '0.0.4'
+version = 'PACKAGE_VERSION'
 
 def datafiles(idir, pattern=None):
     """Return list of data files in provided relative dir"""

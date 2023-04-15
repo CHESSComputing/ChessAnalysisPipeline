@@ -17,7 +17,9 @@ from nexusformat.nexus import NXobject
 import numpy as np
 
 # local modules
-from CHAP.common.utils.general import clear_plot, clear_imshow, quick_plot, quick_imshow
+from CHAP.common.utils.general import input_int, input_num, input_yesno, select_image_bounds, \
+        select_one_image_bound, draw_mask_1d, clear_plot, clear_imshow, quick_plot, quick_imshow
+from CHAP.common.utils.fit import Fit
 from CHAP.processor import Processor
 
 num_core_tomopy_limit = 24
@@ -29,7 +31,8 @@ class TomoDataProcessor(Processor):
     processing each individual step.
     '''
 
-    def _process(self, data):
+    def _process(self, data, interactive, reduce_data=False, find_center=False,
+            reconstruct_data=False, combine_data=False, output_folder='.', save_figs=None):
         '''Process the output of a `Reader` that contains a map or a `nexusformat.nexus.NXroot`
         object and one that contains the step specific instructions and return either a dictionary
         or a `nexusformat.nexus.NXroot` returning the processed result.
@@ -42,7 +45,16 @@ class TomoDataProcessor(Processor):
         :rtype: dict or nexusformat.nexus.NXroot
         '''
 
-        tomo = Tomo(save_figs='only')
+        if not isinstance(reduce_data, bool):
+            raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
+        if not isinstance(find_center, bool):
+            raise ValueError(f'Invalid parameter find_center ({find_center})')
+        if not isinstance(reconstruct_data, bool):
+            raise ValueError(f'Invalid parameter reconstruct_data ({reconstruct_data})')
+        if not isinstance(combine_data, bool):
+            raise ValueError(f'Invalid parameter combine_data ({combine_data})')
+
+        tomo = Tomo(interactive=interactive, output_folder=output_folder, save_figs=save_figs)
         nxroot = None
         center_config = None
 
@@ -57,42 +69,74 @@ class TomoDataProcessor(Processor):
             nxroot = configs.pop('nxroot', None)
 
         # Reduce tomography images
-        if 'reduce' in configs:
-            tool_config = configs.pop('reduce')
+        if reduce_data or 'reduce' in configs:
+            if 'reduce' in configs:
+                tool_config = configs.pop('reduce')
+                img_x_bounds = tool_config.img_x_bounds
+            else:
+                img_x_bounds = None
+                if nxroot is None:
+                    raise RuntimeError('Unable to reduce the data without providing a '+
+                            'reduced_data config file')
             if nxroot is None:
                 map_config = configs.pop('map')
                 nxroot = self.get_nxroot(map_config, tool_config)
-            nxroot = tomo.gen_reduced_data(nxroot, img_x_bounds=tool_config.img_x_bounds)
+            nxroot = tomo.gen_reduced_data(nxroot, img_x_bounds=img_x_bounds)
 
         # Find rotation axis centers for the tomography stacks
         # Pass tool_config directly to tomo.find_centers?
-        if 'find_center' in configs:
-            tool_config = configs.pop('find_center')
-            center_rows = [tool_config.lower_row, tool_config.upper_row]
-            if (None in center_rows or tool_config.lower_center_offset is None or
-                    tool_config.upper_center_offset is None):
+        if find_center or 'find_center' in configs:
+            if 'find_center' in configs:
+                tool_config = configs.pop('find_center')
+                center_rows = (tool_config.lower_row, tool_config.upper_row)
+                lower_center_offset = tool_config.lower_center_offset
+                upper_center_offset = tool_config.upper_center_offset
+                center_stack_index = tool_config.center_stack_index
+            else:
+                center_rows = (None, None)
+                lower_center_offset = None
+                upper_center_offset = None
+                center_stack_index = None
+            if None in center_rows or lower_center_offset is None or upper_center_offset is None:
                 center_config = tomo.find_centers(nxroot, center_rows=center_rows,
-                        center_stack_index=tool_config.center_stack_index)
+                            center_stack_index=center_stack_index)
             else:
                 #RV make a convert to dict in basemodel?
                 center_config = {'lower_row': tool_config.lower_row,
                         'lower_center_offset': tool_config.lower_center_offset,
                         'upper_row': tool_config.upper_row,
-                        'upper_center_offset': tool_config.upper_center_offset}
+                        'upper_center_offset': tool_config.upper_center_offset,
+                        'center_stack_index': tool_config.center_stack_index}
 
         # Reconstruct tomography stacks
         # Pass tool_config and center_config directly to tomo.reconstruct_data
-        if 'reconstruct' in configs:
-            tool_config = configs.pop('reconstruct')
-            nxroot = tomo.reconstruct_data(nxroot, center_config, x_bounds=tool_config.x_bounds,
-                    y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
+        if reconstruct_data or 'reconstruct' in configs:
+            if 'reconstruct' in configs:
+                tool_config = configs.pop('reconstruct')
+                x_bounds = tool_config.x_bounds
+                y_bounds = tool_config.y_bounds
+                z_bounds = tool_config.z_bounds
+            else:
+                x_bounds = None
+                y_bounds = None
+                z_bounds = None
+            nxroot = tomo.reconstruct_data(nxroot, center_config, x_bounds=x_bounds,
+                    y_bounds=y_bounds, z_bounds=z_bounds)
             center_config = None
 
         # Combine reconstructed tomography stacks
-        if 'combine' in configs:
-            tool_config = configs.pop('combine')
-            nxroot = tomo.combine_data(nxroot, x_bounds=tool_config.x_bounds,
-                    y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
+        if combine_data or 'combine' in configs:
+            if 'combine' in configs:
+                tool_config = configs.pop('combine')
+                x_bounds = tool_config.x_bounds
+                y_bounds = tool_config.y_bounds
+                z_bounds = tool_config.z_bounds
+            else:
+                x_bounds = None
+                y_bounds = None
+                z_bounds = None
+            nxroot = tomo.combine_data(nxroot, x_bounds=x_bounds, y_bounds=y_bounds,
+                    z_bounds=z_bounds)
 
         if center_config is not None:
             return center_config
@@ -125,7 +169,7 @@ class TomoDataProcessor(Processor):
         configs = {}
         if isinstance(data, list):
             for item in data:
-                if isinstance(item, dict):
+                if isinstance(item, dict) and item.get('data') is not None:
                     schema = item.get('schema')
                     if isinstance(item.get('data'), NXroot):
                         configs['nxroot'] = item.get('data')
@@ -402,25 +446,25 @@ class set_numexpr_threads:
         from multiprocessing import cpu_count
 
         if num_core is None or num_core < 1 or num_core > cpu_count():
-            self.num_core = cpu_count()
+            self._num_core = cpu_count()
         else:
-            self.num_core = num_core
+            self._num_core = num_core
 
     def __enter__(self):
         import numexpr as ne
 
-        self.num_core_org = ne.set_num_threads(min(self.num_core, ne.MAX_THREADS))
+        self._num_core_org = ne.set_num_threads(min(self._num_core, ne.MAX_THREADS))
 
     def __exit__(self, exc_type, exc_value, traceback):
         import numexpr as ne
 
-        ne.set_num_threads(self.num_core_org)
+        ne.set_num_threads(self._num_core_org)
 
 
 class Tomo:
     """Processing tomography data with misalignment.
     """
-    def __init__(self, galaxy_flag=False, num_core=-1, output_folder='.', save_figs=None,
+    def __init__(self, interactive=False, num_core=-1, output_folder='.', save_figs=None,
             test_mode=False):
         """Initialize with optional config input file or dictionary
         """
@@ -429,60 +473,52 @@ class Tomo:
         from multiprocessing import cpu_count
 
         self.__name__ = self.__class__.__name__
-        self.logger = getLogger(self.__name__)
-        self.logger.propagate = False
+        self._logger = getLogger(self.__name__)
+        self._logger.propagate = False
 
-        if not isinstance(galaxy_flag, bool):
-            raise ValueError(f'Invalid parameter galaxy_flag ({galaxy_flag})')
-        self.galaxy_flag = galaxy_flag
-        self.num_core = num_core
-        if self.galaxy_flag:
-            if output_folder != '.':
-                self.logger.warning('Ignoring output_folder in galaxy mode')
-            self.output_folder = '.'
-            if test_mode != False:
-                self.logger.warning('Ignoring test_mode in galaxy mode')
-            self.test_mode = False
-            if save_figs is not None:
-                self.logger.warning('Ignoring save_figs in galaxy mode')
-            save_figs = 'only'
+        if not isinstance(interactive, bool):
+            raise ValueError(f'Invalid parameter interactive ({interactive})')
+        self._interactive = interactive
+        self._num_core = num_core
+        self._output_folder = os_path.abspath(output_folder)
+        if not os_path.isdir(output_folder):
+            mkdir(os_path.abspath(output_folder))
+        if self._interactive:
+            self._test_mode = False
         else:
-            self.output_folder = os_path.abspath(output_folder)
-            if not os_path.isdir(output_folder):
-                mkdir(os_path.abspath(output_folder))
             if not isinstance(test_mode, bool):
                 raise ValueError(f'Invalid parameter test_mode ({test_mode})')
-            self.test_mode = test_mode
+            self._test_mode = test_mode
             if save_figs is None:
                 save_figs = 'no'
-        self.test_config = {}
-        if self.test_mode:
+        self._test_config = {}
+        if self._test_mode:
             if save_figs != 'only':
-                self.logger.warning('Ignoring save_figs in test mode')
+                self._logger.warning('Ignoring save_figs in test mode')
             save_figs = 'only'
         if save_figs == 'only':
-            self.save_only = True
-            self.save_figs = True
+            self._save_only = True
+            self._save_figs = True
         elif save_figs == 'yes':
-            self.save_only = False
-            self.save_figs = True
+            self._save_only = False
+            self._save_figs = True
         elif save_figs == 'no':
-            self.save_only = False
-            self.save_figs = False
+            self._save_only = False
+            self._save_figs = False
         else:
             raise ValueError(f'Invalid parameter save_figs ({save_figs})')
-        if self.save_only:
-            self.block = False
+        if self._save_only:
+            self._block = False
         else:
-            self.block = True
-        if self.num_core == -1:
-            self.num_core = cpu_count()
-        if not isinstance(self.num_core, int) or self.num_core < 0:
+            self._block = True
+        if self._num_core == -1:
+            self._num_core = cpu_count()
+        if not isinstance(self._num_core, int) or self._num_core < 0:
             raise ValueError(f'Invalid parameter num_core ({num_core})')
-        if self.num_core > cpu_count():
-            self.logger.warning(f'num_core = {self.num_core} is larger than the number of '
+        if self._num_core > cpu_count():
+            self._logger.warning(f'num_core = {self._num_core} is larger than the number of '
                     f'available processors and reduced to {cpu_count()}')
-            self.num_core= cpu_count()
+            self._num_core= cpu_count()
 
     def read(self, filename):
         extension = os_path.splitext(filename)[1]
@@ -520,15 +556,11 @@ class Tomo:
 
         from CHAP.common.models.map import import_scanparser
 
-        self.logger.info('Generate the reduced tomography images')
+        self._logger.info('Generate the reduced tomography images')
         if img_x_bounds is not None:
             if not isinstance(img_x_bounds, (tuple, list)):
                 raise ValueError(f'Invalid parameter img_x_bounds ({img_x_bounds})')
             img_x_bounds = tuple(img_x_bounds)
-
-        # Create plot galaxy path directory if needed
-        if self.galaxy_flag and not os_path.exists('tomo_reduce_plots'):
-            mkdir('tomo_reduce_plots')
 
         if isinstance(data, dict):
             # Create Nexus format object from input dictionary
@@ -538,14 +570,14 @@ class Tomo:
             nxroot = NXroot()
             t0 = time()
             for sample_map in wf.sample_maps:
-                self.logger.info(f'Start constructing the {sample_map.title} map.')
+                self._logger.info(f'Start constructing the {sample_map.title} map.')
                 import_scanparser(sample_map.station)
                 sample_map.construct_nxentry(nxroot, include_raw_data=False)
-            self.logger.info(f'Constructed all sample maps in {time()-t0:.2f} seconds.')
+            self._logger.info(f'Constructed all sample maps in {time()-t0:.2f} seconds.')
             nxentry = nxroot[nxroot.attrs['default']]
             # Get test mode configuration info
-            if self.test_mode:
-                self.test_config = data['sample_maps'][0]['test_mode']
+            if self._test_mode:
+                self._test_config = data['sample_maps'][0]['test_mode']
         elif isinstance(data, NXroot):
             nxentry = data[data.attrs['default']]
         else:
@@ -563,7 +595,7 @@ class Tomo:
 
         # Set vertical detector bounds for image stack
         img_x_bounds = self._set_detector_bounds(nxentry, reduced_data, img_x_bounds=img_x_bounds)
-        self.logger.info(f'img_x_bounds = {img_x_bounds}')
+        self._logger.info(f'img_x_bounds = {img_x_bounds}')
         reduced_data['img_x_bounds'] = img_x_bounds
 
         # Set zoom and/or theta skip to reduce memory the requirement
@@ -612,35 +644,22 @@ class Tomo:
 
         from CHAP.common.utils.general import is_int_pair
 
-        self.logger.info('Find the calibrated center axis info')
+        self._logger.info('Find the calibrated center axis info')
 
         if not isinstance(nxroot, NXroot):
             raise ValueError(f'Invalid parameter nxroot ({nxroot})')
         nxentry = nxroot[nxroot.attrs['default']]
         if not isinstance(nxentry, NXentry):
             raise ValueError(f'Invalid nxentry ({nxentry})')
-        if self.galaxy_flag:
-            if center_rows is not None:
-                center_rows = tuple(center_rows)
-                if not is_int_pair(center_rows):
-                    raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        elif center_rows is not None:
-#            self.logger.warning(f'Ignoring parameter center_rows ({center_rows})')
-#            center_rows = None
-             if not isinstance(center_rows, (tuple, list)) or len(center_rows) != 2:
-                raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        if self.galaxy_flag:
-            if center_stack_index is not None and (not isinstance(center_stack_index, int) or
-                    center_stack_index < 0):
-                raise ValueError(f'Invalid parameter center_stack_index ({center_stack_index})')
-
-        # Create plot galaxy path directory and path if needed
-        if self.galaxy_flag:
-            if not os_path.exists('tomo_find_centers_plots'):
-                mkdir('tomo_find_centers_plots')
-            path = 'tomo_find_centers_plots'
-        else:
-            path = self.output_folder
+        if center_rows is not None and (not isinstance(center_rows, (tuple, list))
+                or len(center_rows) != 2):
+            raise ValueError(f'Invalid parameter center_rows ({center_rows})')
+        if not self._interactive and (center_rows is None
+                or (center_rows[0] is None and center_rows[1] is None)):
+            self._logger.warning('center_rows unspecified, find centers at reduced data bounds')
+        if center_stack_index is not None and (not isinstance(center_stack_index, int)
+                or center_stack_index < 0):
+            raise ValueError(f'Invalid parameter center_stack_index ({center_stack_index})')
 
         # Check if reduced data is available
         if ('reduced_data' not in nxentry or 'reduced_data' not in nxentry.data):
@@ -658,14 +677,9 @@ class Tomo:
             center_stack_index = 0
             default = 'n'
         else:
-            if self.test_mode:
-                center_stack_index = self.test_config['center_stack_index']-1 # make offset 0
-            elif self.galaxy_flag:
-                if center_stack_index is None:
-                    center_stack_index = int(num_tomo_stacks/2)
-                if center_stack_index >= num_tomo_stacks:
-                    raise ValueError(f'Invalid parameter center_stack_index ({center_stack_index})')
-            else:
+            if self._test_mode:
+                center_stack_index = self._test_config['center_stack_index']-1 # make offset 0
+            elif self._interactive:
                 if center_stack_index is None:
                     center_stack_index = input_int('\nEnter tomography stack index to calibrate '
                             'the center axis', ge=1, le=num_tomo_stacks,
@@ -676,6 +690,13 @@ class Tomo:
                         raise ValueError('Invalid parameter center_stack_index '+
                                 f'({center_stack_index})')
                 center_stack_index -= 1
+            else:
+                if center_stack_index is None:
+                    center_stack_index = int(num_tomo_stacks/2)
+                    self._logger.warning('center_stack_index unspecified, use stack '+
+                            f'{center_stack_index+1} to find centers')
+                if center_stack_index >= num_tomo_stacks:
+                    raise ValueError(f'Invalid parameter center_stack_index ({center_stack_index})')
             default = 'y'
 
         # Get thetas (in degrees)
@@ -690,22 +711,15 @@ class Tomo:
 
         # Get cross sectional diameter
         cross_sectional_dim = tomo_fields_shape[3]*eff_pixel_size
-        self.logger.debug(f'cross_sectional_dim = {cross_sectional_dim}')
+        self._logger.debug(f'cross_sectional_dim = {cross_sectional_dim}')
 
         # Determine center offset at sample row boundaries
-        self.logger.info('Determine center offset at sample row boundaries')
+        self._logger.info('Determine center offset at sample row boundaries')
 
         # Lower row center
-        if self.test_mode:
-            lower_row = self.test_config['lower_row']
-        elif self.galaxy_flag:
-            if center_rows is None:
-                lower_row = 0
-            else:
-                lower_row = min(center_rows)
-                if not 0 <= lower_row < tomo_fields_shape[2]-1:
-                    raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        else:
+        if self._test_mode:
+            lower_row = self._test_config['lower_row']
+        elif self._interactive:
             if center_rows is not None and center_rows[0] is not None:
                 lower_row = center_rows[0]
                 if lower_row == -1:
@@ -718,28 +732,29 @@ class Tomo:
                         0, bound=0, title=f'theta={round(thetas[0], 2)+0}',
                         bound_name='row index to find lower center', default=default,
                         raise_error=True)
-        self.logger.debug('Finding center...')
+        else:
+            if center_rows is None or center_rows[0] is None:
+                lower_row = 0
+            else:
+                lower_row = center_rows[0]
+                if lower_row == -1:
+                    lower_row = 0
+                if not 0 <= lower_row < tomo_fields_shape[2]-1:
+                    raise ValueError(f'Invalid parameter center_rows ({center_rows})')
+        self._logger.debug('Finding center...')
         t0 = time()
         lower_center_offset = self._find_center_one_plane(
-                #np.asarray(nxentry.reduced_data.data.tomo_fields[center_stack_index,:,lower_row,:]),
                 nxentry.reduced_data.data.tomo_fields[center_stack_index,:,lower_row,:],
-                lower_row, thetas, eff_pixel_size, cross_sectional_dim, path=path,
-                num_core=self.num_core)
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.debug(f'lower_row = {lower_row:.2f}')
-        self.logger.debug(f'lower_center_offset = {lower_center_offset:.2f}')
+                lower_row, thetas, eff_pixel_size, cross_sectional_dim, path=self._output_folder,
+                num_core=self._num_core)
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.debug(f'lower_row = {lower_row:.2f}')
+        self._logger.debug(f'lower_center_offset = {lower_center_offset:.2f}')
 
         # Upper row center
-        if self.test_mode:
-            upper_row = self.test_config['upper_row']
-        elif self.galaxy_flag:
-            if center_rows is None:
-                upper_row = tomo_fields_shape[2]-1
-            else:
-                upper_row = max(center_rows)
-                if not lower_row < upper_row < tomo_fields_shape[2]:
-                    raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        else:
+        if self._test_mode:
+            upper_row = self._test_config['upper_row']
+        elif self._interactive:
             if center_rows is not None and center_rows[1] is not None:
                 upper_row = center_rows[1]
                 if upper_row == -1:
@@ -752,16 +767,24 @@ class Tomo:
                         0, bound=tomo_fields_shape[2]-1, title=f'theta={round(thetas[0], 2)+0}',
                         bound_name='row index to find upper center', default=default,
                         raise_error=True)
-        self.logger.debug('Finding center...')
+        else:
+            if center_rows is None or center_rows[1] is None:
+                upper_row = tomo_fields_shape[2]-1
+            else:
+                upper_row = center_rows[1]
+                if upper_row == -1:
+                    upper_row = tomo_fields_shape[2]-1
+                if not lower_row < upper_row < tomo_fields_shape[2]:
+                    raise ValueError(f'Invalid parameter center_rows ({center_rows})')
+        self._logger.debug('Finding center...')
         t0 = time()
         upper_center_offset = self._find_center_one_plane(
-                #np.asarray(nxentry.reduced_data.data.tomo_fields[center_stack_index,:,upper_row,:]),
                 nxentry.reduced_data.data.tomo_fields[center_stack_index,:,upper_row,:],
-                upper_row, thetas, eff_pixel_size, cross_sectional_dim, path=path,
-                num_core=self.num_core)
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.debug(f'upper_row = {upper_row:.2f}')
-        self.logger.debug(f'upper_center_offset = {upper_center_offset:.2f}')
+                upper_row, thetas, eff_pixel_size, cross_sectional_dim, path=self._output_folder,
+                num_core=self._num_core)
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.debug(f'upper_row = {upper_row:.2f}')
+        self._logger.debug(f'upper_center_offset = {upper_center_offset:.2f}')
 
         center_config = {'lower_row': lower_row, 'lower_center_offset': lower_center_offset,
                 'upper_row': upper_row, 'upper_center_offset': upper_center_offset}
@@ -769,8 +792,8 @@ class Tomo:
             center_config['center_stack_index'] = center_stack_index+1 # save as offset 1
 
         # Save test data to file
-        if self.test_mode:
-            with open(f'{self.output_folder}/center_config.yaml', 'w') as f:
+        if self._test_mode:
+            with open(f'{self._output_folder}/center_config.yaml', 'w') as f:
                 safe_dump(center_config, f)
 
         return(center_config)
@@ -782,7 +805,7 @@ class Tomo:
 
         from CHAP.common.utils.general import is_int_pair
 
-        self.logger.info('Reconstruct the tomography data')
+        self._logger.info('Reconstruct the tomography data')
 
         if not isinstance(nxroot, NXroot):
             raise ValueError(f'Invalid parameter nxroot ({nxroot})')
@@ -803,14 +826,6 @@ class Tomo:
             if not isinstance(z_bounds, (tuple, list)):
                 raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
             z_bounds = tuple(z_bounds)
-
-        # Create plot galaxy path directory and path if needed
-        if self.galaxy_flag:
-            if not os_path.exists('tomo_reconstruct_plots'):
-                mkdir('tomo_reconstruct_plots')
-            path = 'tomo_reconstruct_plots'
-        else:
-            path = self.output_folder
 
         # Check if reduced data is available
         if ('reduced_data' not in nxentry or 'reduced_data' not in nxentry.data):
@@ -846,10 +861,10 @@ class Tomo:
         tomo_recon_stacks = num_tomo_stacks*[np.array([])]
         for i in range(num_tomo_stacks):
             # Convert reduced data stack from theta,row,column to row,theta,column
-            self.logger.debug(f'Reading reduced data stack {i+1}...')
+            self._logger.debug(f'Reading reduced data stack {i+1}...')
             t0 = time()
             tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields[i])
-            self.logger.debug(f'... done in {time()-t0:.2f} seconds')
+            self._logger.debug(f'... done in {time()-t0:.2f} seconds')
             if len(tomo_stack.shape) != 3 or any(True for dim in tomo_stack.shape if not dim):
                 raise ValueError(f'Unable to load tomography stack {i+1} for reconstruction')
             tomo_stack = np.swapaxes(tomo_stack, 0, 1)
@@ -858,32 +873,34 @@ class Tomo:
             center_offsets = [lower_center_offset-lower_row*center_slope,
                     upper_center_offset+(tomo_stack.shape[0]-1-upper_row)*center_slope]
             t0 = time()
-            self.logger.debug(f'Running _reconstruct_one_tomo_stack on {self.num_core} cores ...')
+            self._logger.debug(f'Running _reconstruct_one_tomo_stack on {self._num_core} cores ...')
             tomo_recon_stack = self._reconstruct_one_tomo_stack(tomo_stack, thetas,
-                    center_offsets=center_offsets, num_core=self.num_core, algorithm='gridrec')
-            self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-            self.logger.info(f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
+                    center_offsets=center_offsets, num_core=self._num_core, algorithm='gridrec')
+            self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+            self._logger.info(f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
 
             # Combine stacks
             tomo_recon_stacks[i] = tomo_recon_stack
 
         # Resize the reconstructed tomography data
         #   reconstructed data order in each stack: row/z,x,y
-        if self.test_mode:
-            x_bounds = tuple(self.test_config.get('x_bounds'))
-            y_bounds = tuple(self.test_config.get('y_bounds'))
+        if self._test_mode:
+            x_bounds = tuple(self._test_config.get('x_bounds'))
+            y_bounds = tuple(self._test_config.get('y_bounds'))
             z_bounds = None
-        elif self.galaxy_flag:
-            if x_bounds is not None and not is_int_pair(x_bounds, ge=0,
-                    lt=tomo_recon_stacks[0].shape[1]):
-                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            if y_bounds is not None and not is_int_pair(y_bounds, ge=0,
-                    lt=tomo_recon_stacks[0].shape[1]):
-                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            z_bounds = None
-        else:
+        elif self._interactive:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(tomo_recon_stacks,
                    x_bounds=x_bounds, y_bounds=y_bounds, z_bounds=z_bounds)
+        else:
+            if x_bounds is None:
+                self._logger.warning('x_bounds unspecified, reconstruct data for full x-range')
+            elif not is_int_pair(x_bounds, ge=0, lt=tomo_recon_stacks[0].shape[1]):
+                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+            if y_bounds is None:
+                self._logger.warning('y_bounds unspecified, reconstruct data for full y-range')
+            elif not is_int_pair(y_bounds, ge=0, lt=tomo_recon_stacks[0].shape[1]):
+                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
+            z_bounds = None
         if x_bounds is None:
             x_range = (0, tomo_recon_stacks[0].shape[1])
             x_slice = int(x_range[1]/2)
@@ -904,7 +921,7 @@ class Tomo:
             z_slice = int((z_bounds[0]+z_bounds[1])/2)
 
         # Plot a few reconstructed image slices
-        if self.save_figs:
+        if self._save_figs:
             for i, stack in enumerate(tomo_recon_stacks):
                 if num_tomo_stacks == 1:
                     basetitle = 'recon'
@@ -912,19 +929,19 @@ class Tomo:
                     basetitle = f'recon stack {i+1}'
                 title = f'{basetitle} {res_title} xslice{x_slice}'
                 quick_imshow(stack[z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
-                        title=title, path=path, save_fig=True, save_only=True)
+                        title=title, path=self._output_folder, save_fig=True, save_only=True)
                 title = f'{basetitle} {res_title} yslice{y_slice}'
                 quick_imshow(stack[z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
-                        title=title, path=path, save_fig=True, save_only=True)
+                        title=title, path=self._output_folder, save_fig=True, save_only=True)
                 title = f'{basetitle} {res_title} zslice{z_slice}'
                 quick_imshow(stack[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
-                        title=title, path=path, save_fig=True, save_only=True)
+                        title=title, path=self._output_folder, save_fig=True, save_only=True)
 
         # Save test data to file
         #   reconstructed data order in each stack: row/z,x,y
-        if self.test_mode:
+        if self._test_mode:
             for i, stack in enumerate(tomo_recon_stacks):
-                np.savetxt(f'{self.output_folder}/recon_stack_{i+1}.txt',
+                np.savetxt(f'{self._output_folder}/recon_stack_{i+1}.txt',
                         stack[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]], fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -965,7 +982,7 @@ class Tomo:
 
         from CHAP.common.utils.general import is_int_pair
 
-        self.logger.info('Combine the reconstructed tomography stacks')
+        self._logger.info('Combine the reconstructed tomography stacks')
 
         if not isinstance(nxroot, NXroot):
             raise ValueError(f'Invalid parameter nxroot ({nxroot})')
@@ -985,14 +1002,6 @@ class Tomo:
                 raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
             z_bounds = tuple(z_bounds)
 
-        # Create plot galaxy path directory and path if needed
-        if self.galaxy_flag:
-            if not os_path.exists('tomo_combine_plots'):
-                mkdir('tomo_combine_plots')
-            path = 'tomo_combine_plots'
-        else:
-            path = self.output_folder
-
         # Check if reconstructed image data is available
         if ('reconstructed_data' not in nxentry or 'reconstructed_data' not in nxentry.data):
             raise KeyError(f'Unable to find valid reconstructed image data in {nxentry}.')
@@ -1006,13 +1015,13 @@ class Tomo:
         #         so get the data from the actual place, not from nxentry.data
         num_tomo_stacks = nxentry.reconstructed_data.data.reconstructed_data.shape[0]
         if num_tomo_stacks == 1:
-            self.logger.info('Only one stack available: leaving combine_data')
+            self._logger.info('Only one stack available: leaving combine_data')
             return(None)
 
         # Combine the reconstructed stacks
         # (load one stack at a time to reduce risk of hitting Nexus data access limit)
         t0 = time()
-        self.logger.debug(f'Combining the reconstructed stacks ...')
+        self._logger.debug(f'Combining the reconstructed stacks ...')
         tomo_recon_combined = np.asarray(nxentry.reconstructed_data.data.reconstructed_data[0])
         if num_tomo_stacks > 2:
             tomo_recon_combined = np.concatenate([tomo_recon_combined]+
@@ -1021,30 +1030,32 @@ class Tomo:
         if num_tomo_stacks > 1:
             tomo_recon_combined = np.concatenate([tomo_recon_combined]+
                     [nxentry.reconstructed_data.data.reconstructed_data[num_tomo_stacks-1]])
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.info(f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.info(f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
 
         # Resize the combined tomography data stacks
         #   combined data order: row/z,x,y
-        if self.test_mode:
+        if self._test_mode:
             x_bounds = None
             y_bounds = None
-            z_bounds = tuple(self.test_config.get('z_bounds'))
-        elif self.galaxy_flag:
-            if x_bounds is not None and not is_int_pair(x_bounds, ge=0,
-                    lt=tomo_recon_stacks[0].shape[1]):
-                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            if y_bounds is not None and not is_int_pair(y_bounds, ge=0,
-                    lt=tomo_recon_stacks[0].shape[1]):
-                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            z_bounds = None
-        else:
+            z_bounds = tuple(self._test_config.get('z_bounds'))
+        elif self._interactive:
             if x_bounds is None and x_bounds in nxentry.reconstructed_data:
                 x_bounds = (-1, -1)
             if y_bounds is None and y_bounds in nxentry.reconstructed_data:
                 y_bounds = (-1, -1)
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(tomo_recon_combined,
                     z_only=True)
+        else:
+            if x_bounds is None:
+                self._logger.warning('x_bounds unspecified, reconstruct data for full x-range')
+            elif not is_int_pair(x_bounds, ge=0, lt=tomo_recon_stacks[0].shape[1]):
+                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+            if y_bounds is None:
+                self._logger.warning('y_bounds unspecified, reconstruct data for full y-range')
+            elif not is_int_pair(y_bounds, ge=0, lt=tomo_recon_stacks[0].shape[1]):
+                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
+            z_bounds = None
         if x_bounds is None:
             x_range = (0, tomo_recon_combined.shape[1])
             x_slice = int(x_range[1]/2)
@@ -1065,21 +1076,21 @@ class Tomo:
             z_slice = int((z_bounds[0]+z_bounds[1])/2)
 
         # Plot a few combined image slices
-        if self.save_figs:
+        if self._save_figs:
             quick_imshow(tomo_recon_combined[z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
-                    title=f'recon combined xslice{x_slice}', path=path, save_fig=True,
-                    save_only=True)
+                    title=f'recon combined xslice{x_slice}', path=self._output_folder,
+                    save_fig=True, save_only=True)
             quick_imshow(tomo_recon_combined[z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
-                    title=f'recon combined yslice{y_slice}', path=path, save_fig=True,
-                    save_only=True)
+                    title=f'recon combined yslice{y_slice}', path=self._output_folder,
+                    save_fig=True, save_only=True)
             quick_imshow(tomo_recon_combined[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
-                    title=f'recon combined zslice{z_slice}', path=path, save_fig=True,
-                    save_only=True)
+                    title=f'recon combined zslice{z_slice}', path=self._output_folder,
+                    save_fig=True, save_only=True)
 
         # Save test data to file
         #   combined data order: row/z,x,y
-        if self.test_mode:
-            np.savetxt(f'{self.output_folder}/recon_combined.txt', tomo_recon_combined[
+        if self._test_mode:
+            np.savetxt(f'{self._output_folder}/recon_combined.txt', tomo_recon_combined[
                     z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]], fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -1154,27 +1165,23 @@ class Tomo:
         # Remove dark field intensities above the cutoff
 #RV        tdf_cutoff = None
         tdf_cutoff = tdf.min()+2*(np.median(tdf)-tdf.min())
-        self.logger.debug(f'tdf_cutoff = {tdf_cutoff}')
+        self._logger.debug(f'tdf_cutoff = {tdf_cutoff}')
         if tdf_cutoff is not None:
             if not isinstance(tdf_cutoff, (int, float)) or tdf_cutoff < 0:
-                self.logger.warning(f'Ignoring illegal value of tdf_cutoff {tdf_cutoff}')
+                self._logger.warning(f'Ignoring illegal value of tdf_cutoff {tdf_cutoff}')
             else:
                 tdf[tdf > tdf_cutoff] = np.nan
-                self.logger.debug(f'tdf_cutoff = {tdf_cutoff}')
+                self._logger.debug(f'tdf_cutoff = {tdf_cutoff}')
 
         # Remove nans
         tdf_mean = np.nanmean(tdf)
-        self.logger.debug(f'tdf_mean = {tdf_mean}')
+        self._logger.debug(f'tdf_mean = {tdf_mean}')
         np.nan_to_num(tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.)
 
         # Plot dark field
-        if self.save_figs:
-            if self.galaxy_flag:
-                quick_imshow(tdf, title='dark field', path='tomo_reduce_plots', save_fig=True,
-                        save_only=True)
-            else:
-                quick_imshow(tdf, title='dark field', path=self.output_folder, save_fig=True,
-                        save_only=True)
+        if self._save_figs:
+            quick_imshow(tdf, title='dark field', path=self._output_folder, save_fig=True,
+                    save_only=True)
 
         # Add dark field to reduced data NXprocess
         reduced_data.data = NXdata()
@@ -1236,20 +1243,16 @@ class Tomo:
         if 'data' in reduced_data and 'dark_field' in reduced_data.data:
             tbf -= reduced_data.data.dark_field
         else:
-            self.logger.warning('Dark field unavailable')
+            self._logger.warning('Dark field unavailable')
 
         # Set any non-positive values to one
         # (avoid negative bright field values for spikes in dark field)
         tbf[tbf < 1] = 1
 
         # Plot bright field
-        if self.save_figs:
-            if self.galaxy_flag:
-                quick_imshow(tbf, title='bright field', path='tomo_reduce_plots', save_fig=True,
-                        save_only=True)
-            else:
-                quick_imshow(tbf, title='bright field', path=self.output_folder, save_fig=True,
-                        save_only=True)
+        if self._save_figs:
+            quick_imshow(tbf, title='bright field', path=self._output_folder, save_fig=True,
+                    save_only=True)
 
         # Add bright field to reduced data NXprocess
         if 'data' not in reduced_data: 
@@ -1265,8 +1268,8 @@ class Tomo:
         from CHAP.common.models.map import get_scanparser, import_scanparser
         from CHAP.common.utils.general import is_index_range
 
-        if self.test_mode:
-            return(tuple(self.test_config['img_x_bounds']))
+        if self._test_mode:
+            return(tuple(self._test_config['img_x_bounds']))
 
         # Get the first tomography image and the reference heights
         image_key = nxentry.instrument.detector.get('image_key', None)
@@ -1297,10 +1300,15 @@ class Tomo:
         # Select image bounds
         title = f'tomography image at theta={round(theta, 2)+0}'
         if img_x_bounds is not None:
-            if not is_index_range(img_x_bounds, ge=0, le=first_image.shape[0]):
-                raise ValueError(f'Invalid parameter img_x_bounds ({img_x_bounds})')
-            #RV TODO make interactive upon request?
-            return(img_x_bounds)
+            if is_index_range(img_x_bounds, ge=0, le=first_image.shape[0]):
+                return img_x_bounds
+            else:
+                if self._interactive:
+                    self._logger.warning(f'Invalid parameter img_x_bounds ({img_x_bounds}), ' +
+                            'ignoring img_x_bounds')
+                    img_x_bounds = None
+                else:
+                    raise ValueError(f'Invalid parameter img_x_bounds ({img_x_bounds})')
         if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
             pixel_size = nxentry.instrument.detector.x_pixel_size
             # Try to get a fit from the bright field
@@ -1340,11 +1348,11 @@ class Tomo:
                 delta_z = vertical_shifts[1]-vertical_shifts[0]
                 for i in range(2, num_tomo_stacks):
                     delta_z = min(delta_z, vertical_shifts[i]-vertical_shifts[i-1])
-                self.logger.debug(f'delta_z = {delta_z}')
+                self._logger.debug(f'delta_z = {delta_z}')
                 num_x_min = int((delta_z-0.5*pixel_size)/pixel_size)
-                self.logger.debug(f'num_x_min = {num_x_min}')
+                self._logger.debug(f'num_x_min = {num_x_min}')
                 if num_x_min > tbf_shape[0]:
-                    self.logger.warning('Image bounds and pixel size prevent seamless stacking')
+                    self._logger.warning('Image bounds and pixel size prevent seamless stacking')
                 if have_fit:
                     # Center the default range relative to the fitted window
                     x_low = int(0.5*(x_low_fit+x_upp_fit-num_x_min))
@@ -1353,7 +1361,7 @@ class Tomo:
                     # Center the default range
                     x_low = int(0.5*(tbf_shape[0]-num_x_min))
                     x_upp = x_low+num_x_min
-            if self.galaxy_flag:
+            if not self._interactive:
                 img_x_bounds = (x_low, x_upp)
             else:
                 tmp = np.copy(tbf)
@@ -1390,7 +1398,7 @@ class Tomo:
                     img_x_bounds = tuple(img_x_bounds[0])
             if (num_tomo_stacks > 1 and img_x_bounds[1]-img_x_bounds[0]+1 < 
                     int((delta_z-0.5*pixel_size)/pixel_size)):
-                self.logger.warning('Image bounds and pixel size prevent seamless stacking')
+                self._logger.warning('Image bounds and pixel size prevent seamless stacking')
         else:
             if num_tomo_stacks > 1:
                 raise NotImplementedError('Selecting image bounds for multiple stacks on FMB')
@@ -1399,32 +1407,31 @@ class Tomo:
             x_sum = np.sum(first_image, 1)
             x_sum_min = x_sum.min()
             x_sum_max = x_sum.max()
-            if self.galaxy_flag:
-                if img_x_bounds is None:
-                    img_x_bounds = (0, first_image.shape[0])
-            else:
+            if self._interactive:
                 print('Select vertical data reduction range from first tomography image')
                 img_x_bounds = select_image_bounds(first_image, 0, title=title)
                 if img_x_bounds is None:
                     raise ValueError('Unable to select image bounds')
+            else:
+                if img_x_bounds is None:
+                    self._logger.warning('img_x_bounds unspecified, reduced data of entire '+
+                            'detector range')
+                    img_x_bounds = (0, first_image.shape[0])
 
         # Plot results
-        if self.save_figs:
-            if self.galaxy_flag:
-                path = 'tomo_reduce_plots'
-            else:
-                path = self.output_folder
+        if self._save_figs:
             x_low = img_x_bounds[0]
             x_upp = img_x_bounds[1]
             tmp = np.copy(first_image)
             tmp_max = tmp.max()
             tmp[x_low,:] = tmp_max
             tmp[x_upp-1,:] = tmp_max
-            quick_imshow(tmp, title=title, path=path, save_fig=True, save_only=True)
+            quick_imshow(tmp, title=title, path=self._output_folder, save_fig=True, save_only=True)
             quick_plot((range(x_sum.size), x_sum),
                     ([x_low, x_low], [x_sum_min, x_sum_max], 'r-'),
                     ([x_upp, x_upp], [x_sum_min, x_sum_max], 'r-'),
-                    title='sum over theta and y', path=path, save_fig=True, save_only=True)
+                    title='sum over theta and y', path=self._output_folder, save_fig=True,
+                    save_only=True)
             del tmp
 
         return(img_x_bounds)
@@ -1443,8 +1450,8 @@ class Tomo:
 #        else:
 #            num_theta_skip = None
         num_theta_skip = None
-        self.logger.debug(f'zoom_perc = {zoom_perc}')
-        self.logger.debug(f'num_theta_skip = {num_theta_skip}')
+        self._logger.debug(f'zoom_perc = {zoom_perc}')
+        self._logger.debug(f'num_theta_skip = {num_theta_skip}')
 
         return(zoom_perc, num_theta_skip)
 
@@ -1469,7 +1476,7 @@ class Tomo:
 #            tbf = np.asarray(reduced_data.data.dark_field[
 #                    img_x_bounds[0]:img_x_bounds[1],img_y_bounds[0]:img_y_bounds[1]])
 #        else:
-#            self.logger.warning('Dark field unavailable')
+#            self._logger.warning('Dark field unavailable')
 #            tdf = None
         tdf = None
 
@@ -1535,10 +1542,6 @@ class Tomo:
                 vertical_shifts.append(nxsubentry.sample.z_translation)
 
         reduced_tomo_stacks = []
-        if self.galaxy_flag:
-            path = 'tomo_reduce_plots'
-        else:
-            path = self.output_folder
         for i, tomo_stack in enumerate(tomo_stacks):
             # Resize the tomography images
             # Right now the range is the same for each set in the image stack.
@@ -1546,73 +1549,83 @@ class Tomo:
                 t0 = time()
                 tomo_stack = tomo_stack[:,img_x_bounds[0]:img_x_bounds[1],
                         img_y_bounds[0]:img_y_bounds[1]].astype('float64')
-                self.logger.debug(f'Resizing tomography images took {time()-t0:.2f} seconds')
+                self._logger.debug(f'Resizing tomography images took {time()-t0:.2f} seconds')
 
             # Subtract dark field
             if tdf is not None:
                 t0 = time()
-                with set_numexpr_threads(self.num_core):
-                    ne.evaluate('tomo_stack-tdf', out=tomo_stack)
-                self.logger.debug(f'Subtracting dark field took {time()-t0:.2f} seconds')
+                try:
+                    with set_numexpr_threads(self._num_core):
+                        ne.evaluate('tomo_stack-tdf', out=tomo_stack)
+                except:
+                    raise RuntimeError('Unable to subtract dark field, try reducing'
+                            + f' the detector range (currently img_x_bounds = {img_x_bounds}, and'
+                            + f' img_y_bounds = {img_y_bounds})')
+                self._logger.debug(f'Subtracting dark field took {time()-t0:.2f} seconds')
 
             # Normalize
             t0 = time()
-            with set_numexpr_threads(self.num_core):
-                ne.evaluate('tomo_stack/tbf', out=tomo_stack, truediv=True)
-            self.logger.debug(f'Normalizing took {time()-t0:.2f} seconds')
+            try:
+                with set_numexpr_threads(self._num_core):
+                    ne.evaluate('tomo_stack/tbf', out=tomo_stack, truediv=True)
+            except:
+                raise RuntimeError('Unable to normalize the tomography data, try reducing'
+                        + f' the detector range (currently img_x_bounds = {img_x_bounds}, and'
+                        + f' img_y_bounds = {img_y_bounds})')
+            self._logger.debug(f'Normalizing took {time()-t0:.2f} seconds')
 
             # Remove non-positive values and linearize data
             t0 = time()
             cutoff = 1.e-6
-            with set_numexpr_threads(self.num_core):
+            with set_numexpr_threads(self._num_core):
                 ne.evaluate('where(tomo_stack<cutoff, cutoff, tomo_stack)', out=tomo_stack)
-            with set_numexpr_threads(self.num_core):
+            with set_numexpr_threads(self._num_core):
                 ne.evaluate('-log(tomo_stack)', out=tomo_stack)
-            self.logger.debug('Removing non-positive values and linearizing data took '+
+            self._logger.debug('Removing non-positive values and linearizing data took '+
                     f'{time()-t0:.2f} seconds')
 
             # Get rid of nans/infs that may be introduced by normalization
             t0 = time()
             np.where(np.isfinite(tomo_stack), tomo_stack, 0.)
-            self.logger.debug(f'Remove nans/infs took {time()-t0:.2f} seconds')
+            self._logger.debug(f'Remove nans/infs took {time()-t0:.2f} seconds')
 
             # Downsize tomography stack to smaller size
             # TODO use theta_skip as well
             tomo_stack = tomo_stack.astype('float32')
-            if not self.test_mode:
+            if not self._test_mode:
                 if len(tomo_stacks) == 1:
                     title = f'red fullres theta {round(thetas[0], 2)+0}'
                 else:
                     title = f'red stack {i+1} fullres theta {round(thetas[0], 2)+0}'
-                quick_imshow(tomo_stack[0,:,:], title=title, path=path, save_fig=self.save_figs,
-                        save_only=self.save_only, block=self.block)
-#                if not self.block:
+                quick_imshow(tomo_stack[0,:,:], title=title, path=self._output_folder,
+                        save_fig=self._save_figs, save_only=self._save_only, block=self._block)
+#                if not self._block:
 #                    clear_imshow(title)
             if False and zoom_perc != 100:
                 t0 = time()
-                self.logger.debug(f'Zooming in ...')
+                self._logger.debug(f'Zooming in ...')
                 tomo_zoom_list = []
                 for j in range(tomo_stack.shape[0]):
                     tomo_zoom = spi.zoom(tomo_stack[j,:,:], 0.01*zoom_perc)
                     tomo_zoom_list.append(tomo_zoom)
                 tomo_stack = np.stack([tomo_zoom for tomo_zoom in tomo_zoom_list])
-                self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-                self.logger.info(f'Zooming in took {time()-t0:.2f} seconds')
+                self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+                self._logger.info(f'Zooming in took {time()-t0:.2f} seconds')
                 del tomo_zoom_list
-                if not self.test_mode:
+                if not self._test_mode:
                     title = f'red stack {zoom_perc}p theta {round(thetas[0], 2)+0}'
-                    quick_imshow(tomo_stack[0,:,:], title=title, path=path, save_fig=self.save_figs,
-                            save_only=self.save_only, block=self.block)
-#                    if not self.block:
+                    quick_imshow(tomo_stack[0,:,:], title=title, path=self._output_folder,
+                            save_fig=self._save_figs, save_only=self._save_only, block=self._block)
+#                    if not self._block:
 #                        clear_imshow(title)
 
             # Save test data to file
-            if self.test_mode:
+            if self._test_mode:
 #                row_index = int(tomo_stack.shape[0]/2)
-#                np.savetxt(f'{self.output_folder}/red_stack_{i+1}.txt', tomo_stack[row_index,:,:],
+#                np.savetxt(f'{self._output_folder}/red_stack_{i+1}.txt', tomo_stack[row_index,:,:],
 #                        fmt='%.6e')
                 row_index = int(tomo_stack.shape[1]/2)
-                np.savetxt(f'{self.output_folder}/red_stack_{i+1}.txt', tomo_stack[:,row_index,:],
+                np.savetxt(f'{self._output_folder}/red_stack_{i+1}.txt', tomo_stack[:,row_index,:],
                         fmt='%.6e')
 
             # Combine resized stacks
@@ -1646,21 +1659,21 @@ class Tomo:
         # Try using Nghia Vo’s method
         t0 = time()
         if num_core > num_core_tomopy_limit:
-            self.logger.debug(f'Running find_center_vo on {num_core_tomopy_limit} cores ...')
+            self._logger.debug(f'Running find_center_vo on {num_core_tomopy_limit} cores ...')
             tomo_center = tomopy.find_center_vo(sinogram, ncore=num_core_tomopy_limit)
         else:
-            self.logger.debug(f'Running find_center_vo on {num_core} cores ...')
+            self._logger.debug(f'Running find_center_vo on {num_core} cores ...')
             tomo_center = tomopy.find_center_vo(sinogram, ncore=num_core)
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.info(f'Finding the center using Nghia Vo’s method took {time()-t0:.2f} seconds')
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.info(f'Finding center using Nghia Vo’s method took {time()-t0:.2f} seconds')
         center_offset_vo = tomo_center-center
-        self.logger.info(f'Center at row {row} using Nghia Vo’s method = {center_offset_vo:.2f}')
+        self._logger.info(f'Center at row {row} using Nghia Vo’s method = {center_offset_vo:.2f}')
         t0 = time()
-        self.logger.debug(f'Running _reconstruct_one_plane on {self.num_core} cores ...')
+        self._logger.debug(f'Running _reconstruct_one_plane on {self._num_core} cores ...')
         recon_plane = self._reconstruct_one_plane(sinogram_T, tomo_center, thetas,
                 eff_pixel_size, cross_sectional_dim, False, num_core)
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.info(f'Reconstructing row {row} took {time()-t0:.2f} seconds')
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.info(f'Reconstructing row {row} took {time()-t0:.2f} seconds')
 
         title = f'edges row{row} center offset{center_offset_vo:.2f} Vo'
         self._plot_edges_one_plane(recon_plane, title, path=path)
@@ -1668,7 +1681,7 @@ class Tomo:
         # Try using phase correlation method
 #        if input_yesno('Try finding center using phase correlation (y/n)?', 'n'):
 #            t0 = time()
-#            self.logger.debug(f'Running find_center_pc ...')
+#            self._logger.debug(f'Running find_center_pc ...')
 #            tomo_center = tomopy.find_center_pc(sinogram, sinogram, tol=0.1, rotc_guess=tomo_center)
 #            error = 1.
 #            while error > tol:
@@ -1676,17 +1689,17 @@ class Tomo:
 #                tomo_center = tomopy.find_center_pc(sinogram, sinogram, tol=tol,
 #                        rotc_guess=tomo_center)
 #                error = np.abs(tomo_center-prev)
-#            self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-#            self.logger.info('Finding the center using the phase correlation method took '+
+#            self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+#            self._logger.info('Finding center using the phase correlation method took '+
 #                    f'{time()-t0:.2f} seconds')
 #            center_offset = tomo_center-center
 #            print(f'Center at row {row} using phase correlation = {center_offset:.2f}')
 #            t0 = time()
-#            self.logger.debug(f'Running _reconstruct_one_plane on {self.num_core} cores ...')
+#            self._logger.debug(f'Running _reconstruct_one_plane on {self._num_core} cores ...')
 #            recon_plane = self._reconstruct_one_plane(sinogram_T, tomo_center, thetas,
 #                    eff_pixel_size, cross_sectional_dim, False, num_core)
-#            self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-#            self.logger.info(f'Reconstructing row {row} took {time()-t0:.2f} seconds')
+#            self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+#            self._logger.info(f'Reconstructing row {row} took {time()-t0:.2f} seconds')
 #
 #            title = f'edges row{row} center_offset{center_offset:.2f} PC'
 #            self._plot_edges_one_plane(recon_plane, title, path=path)
@@ -1718,11 +1731,11 @@ class Tomo:
                 if center_offset == center_offset_vo:
                     continue
                 t0 = time()
-                self.logger.debug(f'Running _reconstruct_one_plane on {num_core} cores ...')
+                self._logger.debug(f'Running _reconstruct_one_plane on {num_core} cores ...')
                 recon_plane = self._reconstruct_one_plane(sinogram_T, center_offset+center, thetas,
                         eff_pixel_size, cross_sectional_dim, False, num_core)
-                self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-                self.logger.info(f'Reconstructing center_offset {center_offset} took '+
+                self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+                self._logger.info(f'Reconstructing center_offset {center_offset} took '+
                         f'{time()-t0:.2f} seconds')
                 title = f'edges row{row} center_offset{center_offset:.2f}'
                 self._plot_edges_one_plane(recon_plane, title, path=path)
@@ -1752,36 +1765,36 @@ class Tomo:
             max_rad = 0.5*tomo_plane_T.shape[0]
         dist_from_edge = max(1, int(np.floor((tomo_plane_T.shape[0]-two_offset_abs)/2.)-max_rad))
         if two_offset >= 0:
-            self.logger.debug(f'sinogram range = [{two_offset+dist_from_edge}, {-dist_from_edge}]')
+            self._logger.debug(f'sinogram range = [{two_offset+dist_from_edge}, {-dist_from_edge}]')
             sinogram = tomo_plane_T[two_offset+dist_from_edge:-dist_from_edge,:]
         else:
-            self.logger.debug(f'sinogram range = [{dist_from_edge}, {two_offset-dist_from_edge}]')
+            self._logger.debug(f'sinogram range = [{dist_from_edge}, {two_offset-dist_from_edge}]')
             sinogram = tomo_plane_T[dist_from_edge:two_offset-dist_from_edge,:]
-        if not self.galaxy_flag and plot_sinogram:
+        if plot_sinogram:
             quick_imshow(sinogram.T, f'sinogram center offset{center_offset:.2f}', aspect='auto',
-                    path=self.output_folder, save_fig=self.save_figs, save_only=self.save_only,
-                    block=self.block)
+                    path=self._output_folder, save_fig=self._save_figs, save_only=self._save_only,
+                    block=self._block)
 
         # Inverting sinogram
         t0 = time()
         recon_sinogram = iradon(sinogram, theta=thetas, circle=True)
-        self.logger.debug(f'Inverting sinogram took {time()-t0:.2f} seconds')
+        self._logger.debug(f'Inverting sinogram took {time()-t0:.2f} seconds')
         del sinogram
 
         # Performing Gaussian filtering and removing ring artifacts
-        recon_parameters = None#self.config.get('recon_parameters')
+        recon_parameters = None#self._config.get('recon_parameters')
         if recon_parameters is None:
             sigma = 1.0
             ring_width = 15
         else:
             sigma = recon_parameters.get('gaussian_sigma', 1.0)
             if not is_num(sigma, ge=0.0):
-                self.logger.warning(f'Invalid gaussian_sigma ({sigma}) in _reconstruct_one_plane, '+
-                        'set to a default value of 1.0')
+                self._logger.warning(f'Invalid gaussian_sigma ({sigma}) in '+
+                        '_reconstruct_one_plane, set to a default value of 1.0')
                 sigma = 1.0
             ring_width = recon_parameters.get('ring_width', 15)
             if not isinstance(ring_width, int) or ring_width < 0:
-                self.logger.warning(f'Invalid ring_width ({ring_width}) in '+
+                self._logger.warning(f'Invalid ring_width ({ring_width}) in '+
                         '_reconstruct_one_plane, set to a default value of 15')
                 ring_width = 15
         t0 = time()
@@ -1789,31 +1802,31 @@ class Tomo:
         recon_clean = np.expand_dims(recon_sinogram, axis=0)
         del recon_sinogram
         recon_clean = tomopy.misc.corr.remove_ring(recon_clean, rwidth=ring_width, ncore=num_core)
-        self.logger.debug(f'Filtering and removing ring artifacts took {time()-t0:.2f} seconds')
+        self._logger.debug(f'Filtering and removing ring artifacts took {time()-t0:.2f} seconds')
 
         return recon_clean
 
     def _plot_edges_one_plane(self, recon_plane, title, path=None):
         from skimage.restoration import denoise_tv_chambolle
 
-        vis_parameters = None#self.config.get('vis_parameters')
+        vis_parameters = None#self._config.get('vis_parameters')
         if vis_parameters is None:
             weight = 0.1
         else:
             weight = vis_parameters.get('denoise_weight', 0.1)
             if not is_num(weight, ge=0.0):
-                self.logger.warning(f'Invalid weight ({weight}) in _plot_edges_one_plane, '+
+                self._logger.warning(f'Invalid weight ({weight}) in _plot_edges_one_plane, '+
                         'set to a default value of 0.1')
                 weight = 0.1
         edges = denoise_tv_chambolle(recon_plane, weight=weight)
         vmax = np.max(edges[0,:,:])
         vmin = -vmax
         if path is None:
-            path = self.output_folder
+            path = self._output_folder
         quick_imshow(edges[0,:,:], f'{title} coolwarm', path=path, cmap='coolwarm',
-                save_fig=self.save_figs, save_only=self.save_only, block=self.block)
+                save_fig=self._save_figs, save_only=self._save_only, block=self._block)
         quick_imshow(edges[0,:,:], f'{title} gray', path=path, cmap='gray', vmin=vmin, vmax=vmax,
-                save_fig=self.save_figs, save_only=self.save_only, block=self.block)
+                save_fig=self._save_figs, save_only=self._save_only, block=self._block)
         del edges
 
     def _reconstruct_one_tomo_stack(self, tomo_stack, thetas, center_offsets=[], num_core=1,
@@ -1841,7 +1854,7 @@ class Tomo:
         centers += tomo_stack.shape[2]/2
 
         # Get reconstruction parameters
-        recon_parameters = None#self.config.get('recon_parameters')
+        recon_parameters = None#self._config.get('recon_parameters')
         if recon_parameters is None:
             sigma = 2.0
             secondary_iters = 0
@@ -1849,44 +1862,44 @@ class Tomo:
         else:
             sigma = recon_parameters.get('stripe_fw_sigma', 2.0)
             if not is_num(sigma, ge=0):
-                self.logger.warning(f'Invalid stripe_fw_sigma ({sigma}) in '+
+                self._logger.warning(f'Invalid stripe_fw_sigma ({sigma}) in '+
                         '_reconstruct_one_tomo_stack, set to a default value of 2.0')
                 ring_width = 15
             secondary_iters = recon_parameters.get('secondary_iters', 0)
             if not isinstance(secondary_iters, int) or secondary_iters < 0:
-                self.logger.warning(f'Invalid secondary_iters ({secondary_iters}) in '+
+                self._logger.warning(f'Invalid secondary_iters ({secondary_iters}) in '+
                         '_reconstruct_one_tomo_stack, set to a default value of 0 (skip them)')
                 ring_width = 0
             ring_width = recon_parameters.get('ring_width', 15)
             if not isinstance(ring_width, int) or ring_width < 0:
-                self.logger.warning(f'Invalid ring_width ({ring_width}) in '+
+                self._logger.warning(f'Invalid ring_width ({ring_width}) in '+
                         '_reconstruct_one_plane, set to a default value of 15')
                 ring_width = 15
 
         # Remove horizontal stripe
         t0 = time()
         if num_core > num_core_tomopy_limit:
-            self.logger.debug('Running remove_stripe_fw on {num_core_tomopy_limit} cores ...')
+            self._logger.debug('Running remove_stripe_fw on {num_core_tomopy_limit} cores ...')
             tomo_stack = tomopy.prep.stripe.remove_stripe_fw(tomo_stack, sigma=sigma,
                     ncore=num_core_tomopy_limit)
         else:
-            self.logger.debug(f'Running remove_stripe_fw on {num_core} cores ...')
+            self._logger.debug(f'Running remove_stripe_fw on {num_core} cores ...')
             tomo_stack = tomopy.prep.stripe.remove_stripe_fw(tomo_stack, sigma=sigma,
                     ncore=num_core)
-        self.logger.debug(f'... tomopy.prep.stripe.remove_stripe_fw took {time()-t0:.2f} seconds')
+        self._logger.debug(f'... tomopy.prep.stripe.remove_stripe_fw took {time()-t0:.2f} seconds')
 
         # Perform initial image reconstruction
-        self.logger.debug('Performing initial image reconstruction')
+        self._logger.debug('Performing initial image reconstruction')
         t0 = time()
-        self.logger.debug(f'Running recon on {num_core} cores ...')
+        self._logger.debug(f'Running recon on {num_core} cores ...')
         tomo_recon_stack = tomopy.recon(tomo_stack, np.radians(thetas), centers,
                 sinogram_order=True, algorithm=algorithm, ncore=num_core)
-        self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-        self.logger.info(f'Performing initial image reconstruction took {time()-t0:.2f} seconds')
+        self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+        self._logger.info(f'Performing initial image reconstruction took {time()-t0:.2f} seconds')
 
         # Run optional secondary iterations
         if secondary_iters > 0:
-            self.logger.debug(f'Running {secondary_iters} secondary iterations')
+            self._logger.debug(f'Running {secondary_iters} secondary iterations')
             #options = {'method':'SIRT_CUDA', 'proj_type':'cuda', 'num_iter':secondary_iters}
             #RV: doesn't work for me:
             #"Error: CUDA error 803: system has unsupported display driver/cuda driver combination."
@@ -1896,18 +1909,18 @@ class Tomo:
             options = {'method':'SART', 'proj_type':'linear', 'MinConstraint': 0,
                     'num_iter':secondary_iters}
             t0 = time()
-            self.logger.debug(f'Running recon on {num_core} cores ...')
+            self._logger.debug(f'Running recon on {num_core} cores ...')
             tomo_recon_stack  = tomopy.recon(tomo_stack, np.radians(thetas), centers,
                     init_recon=tomo_recon_stack, options=options, sinogram_order=True,
                     algorithm=tomopy.astra, ncore=num_core)
-            self.logger.debug(f'... done in {time()-t0:.2f} seconds')
-            self.logger.info(f'Performing secondary iterations took {time()-t0:.2f} seconds')
+            self._logger.debug(f'... done in {time()-t0:.2f} seconds')
+            self._logger.info(f'Performing secondary iterations took {time()-t0:.2f} seconds')
 
         # Remove ring artifacts
         t0 = time()
         tomopy.misc.corr.remove_ring(tomo_recon_stack, rwidth=ring_width, out=tomo_recon_stack,
                 ncore=num_core)
-        self.logger.debug(f'Removing ring artifacts took {time()-t0:.2f} seconds')
+        self._logger.debug(f'Removing ring artifacts took {time()-t0:.2f} seconds')
 
         return tomo_recon_stack
 
@@ -1948,7 +1961,7 @@ class Tomo:
                                 legend='recon stack sum yz')
                     x_bounds = x_bounds[0]
                     accept = True
-            self.logger.debug(f'x_bounds = {x_bounds}')
+            self._logger.debug(f'x_bounds = {x_bounds}')
 
         if y_bounds == (-1, -1):
             y_bounds = None
@@ -1972,7 +1985,7 @@ class Tomo:
                                 legend='recon stack sum xz')
                     y_bounds = y_bounds[0]
                     accept = True
-            self.logger.debug(f'y_bounds = {y_bounds}')
+            self._logger.debug(f'y_bounds = {y_bounds}')
 
         # Selecting z bounds (in xy-plane) (only valid for a single image stack)
         if z_bounds == (-1, -1):
@@ -1996,7 +2009,7 @@ class Tomo:
                                 legend='recon stack sum xy')
                     z_bounds = z_bounds[0]
                     accept = True
-            self.logger.debug(f'z_bounds = {z_bounds}')
+            self._logger.debug(f'z_bounds = {z_bounds}')
 
         return(x_bounds, y_bounds, z_bounds)
 
