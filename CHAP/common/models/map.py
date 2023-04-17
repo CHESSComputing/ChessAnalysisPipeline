@@ -12,10 +12,7 @@ from pydantic import (BaseModel,
                       PrivateAttr,
                       ValidationError,
                       validator)
-try:
-    from pyspec.file.spec import FileSpec
-except:
-    pass
+from pyspec.file.spec import FileSpec
 
 class Sample(BaseModel):
     """
