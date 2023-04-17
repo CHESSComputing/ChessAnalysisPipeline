@@ -7,6 +7,7 @@ Description: Module for Writers used in multiple experiment-specific workflows.
 
 # system modules
 import argparse
+import inspect
 import json
 import logging
 import sys
@@ -28,7 +29,7 @@ class BinaryFileReader(Reader):
         return(data)
 
 class MultipleReader(Reader):
-    def read(self, readers):
+    def read(self, readers, **_read_kwargs):
         '''Return resuts from multiple `Reader`s.
 
         :param readers: a dictionary where the keys are specific names that are
@@ -50,7 +51,10 @@ class MultipleReader(Reader):
             reader = reader_class()
             reader_kwargs = reader_config[reader_name]
 
-            data.extend(reader.read(**reader_kwargs))
+            # Combine keyword arguments to MultipleReader.read with those to the reader
+            # giving precedence to those in the latter
+            combined_kwargs = {**_read_kwargs, **reader_kwargs}
+            data.extend(reader.read(**combined_kwargs))
 
         self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
 

@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-#-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : runner.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -57,13 +54,14 @@ def runner(opts):
     kwds = []
     for item in pipeline_config:
         # load individual object with given name from its module
+        kwargs = {'interactive': opts.interactive}
         if isinstance(item, dict):
             name = list(item.keys())[0]
-            kwargs = item[name]
+            # Combine the "interactive" command line argument with the object's keywords
+            # giving precedence of "interactive" in the latter
+            kwargs = {**kwargs, **item[name]}
         else:
             name = item
-            kwargs = {}
-        kwargs['interactive'] = opts.interactive
         modName, clsName = name.split('.')
         module = __import__(f'CHAP.{modName}', fromlist=[clsName])
         obj = getattr(module, clsName)()
