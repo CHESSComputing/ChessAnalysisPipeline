@@ -9,6 +9,7 @@ Description: Processor module
 
 # system modules
 import argparse
+import inspect
 import json
 import logging
 import sys
@@ -29,21 +30,34 @@ class Processor():
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
 
-    def process(self, data):
+    def process(self, data, **_process_kwargs):
         """
         process data API
+
+        :param _process_kwargs: keyword arguments to pass to
+            `self._process`, defaults to `{}`
+        :type _process_kwargs: dict, optional
         """
 
         t0 = time()
         self.logger.info(f'Executing "process" with type(data)={type(data)}')
 
-        data = self._process(data)
+        _valid_process_args = {}
+        allowed_args = inspect.getfullargspec(self._process).args \
+                       + inspect.getfullargspec(self._process).kwonlyargs
+        for k, v in _process_kwargs.items():
+            if k in allowed_args:
+                _valid_process_args[k] = v
+            else:
+                self.logger.warning(f'Ignoring invalid arg to _process: {k}')
+
+        data = self._process(data, **_valid_process_args)
 
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
 
         return(data)
 
-    def _process(self, data):
+    def _process(self, data, **kwargs):
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
             if all([isinstance(d,dict) for d in data]):
@@ -53,54 +67,6 @@ class Processor():
         # and we return data back to pipeline
         return data
 
-
-class TFaaSImageProcessor(Processor):
-    '''
-    A Processor to get predictions from TFaaS inference server.
-    '''
-    def process(self, data, url, model, verbose=False):
-        """
-        process data API
-        """
-
-        t0 = time()
-        self.logger.info(f'Executing "process" with url {url} model {model}')
-
-        data = self._process(data, url, model, verbose)
-
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
-
-        return(data)
-
-    def _process(self, data, url, model, verbose):
-        '''Print and return the input data.
-
-        :param data: Input image data, either file name or actual image data
-        :type data: object
-        :return: `data`
-        :rtype: object
-        '''
-        from MLaaS.tfaas_client import predictImage
-        from pathlib import Path
-        self.logger.info(f"input data {type(data)}")
-        if isinstance(data, str) and Path(data).is_file():
-            imgFile = data
-            data = predictImage(url, imgFile, model, verbose)
-        else:
-            rdict = data[0]
-            import requests
-            img = rdict['data']
-            session = requests.Session()
-            rurl = url + '/predict/image'
-            payload = dict(model=model)
-            files = dict(image=img)
-            self.logger.info(f"HTTP request {rurl} with image file and {payload} payload")
-            req = session.post(rurl, files=files, data=payload )
-            data = req.content
-            data = data.decode("utf-8").replace('\n', '')
-            self.logger.info(f"HTTP response {data}")
-
-        return(data)
 
 class OptionParser():
     '''User based option parser'''
@@ -115,6 +81,7 @@ class OptionParser():
         self.parser.add_argument(
             '--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
+
 
 def main(opt_parser=OptionParser):
     '''Main function'''

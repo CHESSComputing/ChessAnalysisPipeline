@@ -26,6 +26,7 @@ from pyFAI.multi_geometry import MultiGeometry
 from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
 #from pyspec.file.tiff import TiffFile
 
+
 #from .map import MapConfig, SpecScans
 
 

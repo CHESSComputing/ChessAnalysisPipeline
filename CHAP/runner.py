@@ -17,13 +17,14 @@ import yaml
 # local modules
 from CHAP.pipeline import Pipeline
 
-
 class OptionParser():
     def __init__(self):
         "User based option parser"
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument("--config", action="store",
             dest="config", default="", help="Input configuration file")
+        self.parser.add_argument("--interactive", action="store_true",
+            dest="interactive", help="Allow interactive processes")
         self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
 
@@ -62,6 +63,7 @@ def runner(opts):
         else:
             name = item
             kwargs = {}
+        kwargs['interactive'] = opts.interactive
         modName, clsName = name.split('.')
         module = __import__(f'CHAP.{modName}', fromlist=[clsName])
         obj = getattr(module, clsName)()

@@ -7,6 +7,7 @@ Description: generic Reader module
 
 # system modules
 import argparse
+import inspect
 import json
 import logging
 import sys
@@ -51,8 +52,17 @@ class Reader():
         t0 = time()
         self.logger.info(f'Executing "read" with type={type_}, schema={schema}, kwargs={_read_kwargs}')
 
+        _valid_read_args = {}
+        allowed_args = inspect.getfullargspec(self._read).args \
+                       + inspect.getfullargspec(self._read).kwonlyargs
+        for k, v in _read_kwargs.items():
+            if k in allowed_args:
+                _valid_read_args[k] = v
+            else:
+                self.logger.warning(f'Ignoring invalid arg to _read: {k}')
+
         data = [{'name': self.__name__,
-                 'data': self._read(**_read_kwargs),
+                 'data': self._read(**_valid_read_args),
                  'type': type_,
                  'schema': schema,
                  'encoding': encoding}]

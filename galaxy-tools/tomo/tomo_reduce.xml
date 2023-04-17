@@ -7,32 +7,33 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_reduce_plots;
-        pip --exists-action i install certif-pyspec==1.5.3 &&
-        #if str($map.type_selector) == "YAML"
-            cp '$input_file' map.yaml &&
+        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
+        #if str($map.type_selector) == "yaml"
+            cp $input_file map.yaml &&
+            cat $__tool_directory__/andor2.yaml $tool_config > reduce.yaml &&
         #else
-            cp '$input_file' setup.nex &&
+            cp $input_file setup.nex &&
+            cp $tool_config reduce.yaml &&
         #end if
-        cp '$tool_config' reduce.yaml &&
         CHAP --config 
-        #if str($map.type_selector) == "YAML"
-            '$__tool_directory__/pipeline_reduce_yaml.yaml'
+        #if str($map.type_selector) == "yaml"
+            $__tool_directory__/pipeline_reduce_yaml.yaml
         #else
-            '$__tool_directory__/pipeline_reduce_nexus.yaml'
+            $__tool_directory__/pipeline_reduce_nexus.yaml
         #end if
         ]]>
     </command>
     <configfiles>
         <configfile name="tool_config">
             <![CDATA[#slurp
-                #echo 'img_x_bounds:' #
-                #if str($img_x_bounds.type_selector) == "full_range"
-                    #echo '- -1'
-                    #echo '- -1'
-                #else
-                    #echo '- ' + str($img_x_bounds.low)
-                    #echo '- ' + str($img_x_bounds.upp)
-                #end if
+#echo 'img_x_bounds:' #
+#if str($img_x_bounds.type_selector) == "full_range"
+#echo '- -1' #
+#echo '- -1' #
+#else
+#echo '- ' + str($img_x_bounds.low) #
+#echo '- ' + str($img_x_bounds.upp) #
+#end if
             ]]>
         </configfile>
     </configfiles>
