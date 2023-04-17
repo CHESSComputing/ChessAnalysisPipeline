@@ -34,15 +34,12 @@ class Pipeline():
         """
         execute API
         """
-        from CHAP.tomo.processor import TomoDataProcessor
 
         t0 = time()
         self.logger.info(f'Executing "execute"\n')
 
         data = None
         for item, kwargs in zip(self.items, self.kwds):
-            if not isinstance(item, TomoDataProcessor):
-                kwargs.pop('interactive')
             if hasattr(item, 'read'):
                 self.logger.info(f'Calling "read" on {item}')
                 data = item.read(**kwargs)

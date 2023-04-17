@@ -7,6 +7,7 @@ Description: generic Writer module
 
 # system modules
 import argparse
+import inspect
 import json
 import logging
 import os
@@ -41,7 +42,16 @@ class Writer():
         t0 = time()
         self.logger.info(f'Executing "write" with filename={filename}, type(data)={type(data)}, kwargs={_write_kwargs}')
 
-        data = self._write(data, filename, **_write_kwargs)
+        _valid_write_args = {}
+        allowed_args = inspect.getfullargspec(self._write).args \
+                       + inspect.getfullargspec(self._write).kwonlyargs
+        for k, v in _write_kwargs.items():
+            if k in allowed_args:
+                _valid_write_args[k] = v
+            else:
+                self.logger.warning(f'Ignoring invalid arg to _write: {k}')
+
+        data = self._write(data, filename, **_valid_write_args)
 
         self.logger.info(f'Finished "write" in {time()-t0:.3f} seconds\n')
 

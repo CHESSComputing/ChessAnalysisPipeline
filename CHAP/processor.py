@@ -9,6 +9,7 @@ Description: Processor module
 
 # system modules
 import argparse
+import inspect
 import json
 import logging
 import sys
@@ -41,7 +42,16 @@ class Processor():
         t0 = time()
         self.logger.info(f'Executing "process" with type(data)={type(data)}')
 
-        data = self._process(data, **_process_kwargs)
+        _valid_process_args = {}
+        allowed_args = inspect.getfullargspec(self._process).args \
+                       + inspect.getfullargspec(self._process).kwonlyargs
+        for k, v in _process_kwargs.items():
+            if k in allowed_args:
+                _valid_process_args[k] = v
+            else:
+                self.logger.warning(f'Ignoring invalid arg to _process: {k}')
+
+        data = self._process(data, **_valid_process_args)
 
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
 
