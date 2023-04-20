@@ -62,6 +62,8 @@ class Processor():
         if isinstance(data, list):
             if all([isinstance(d,dict) for d in data]):
                 data = data[0]['data']
+        if data == None:
+            return []
         # process operation is a simple print function
         data += "process part\n"
         # and we return data back to pipeline
