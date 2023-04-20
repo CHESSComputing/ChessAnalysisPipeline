@@ -73,7 +73,6 @@ def runner(opts):
         else:
             name = item
             kwargs = {}
-        kwargs['interactive'] = opts.interactive
         mod_name, cls_name = name.split('.')
         module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
         obj = getattr(module, cls_name)()

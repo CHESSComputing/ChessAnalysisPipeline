@@ -866,11 +866,15 @@ class Fit:
                 raise ValueError(
                     'Invalid value of keyword argument interactive '
                     + f'({interactive})')
+        else:
+            interactive = False
         if 'guess' in kwargs:
             guess = kwargs.pop('guess')
             if not isinstance(guess, bool):
                 raise ValueError(
                     f'Invalid value of keyword argument guess ({guess})')
+        else:
+            guess = False
         if 'try_linear_fit' in kwargs:
             try_linear_fit = kwargs.pop('try_linear_fit')
             if not isinstance(try_linear_fit, bool):
@@ -1610,7 +1614,7 @@ class FitMultipeak(Fit):
             raise ValueError(f'Invalid parameter x_eval ({x_eval})')
         fit = cls(y, x=x, normalize=normalize)
         success = fit.fit(
-            centers, fit_type=fit_type, peak_models=peak_models,
+            centers=centers, fit_type=fit_type, peak_models=peak_models,
             fwhm_max=fwhm_max, center_exprs=center_exprs,
             background=background, print_report=print_report, plot=plot)
         if x_eval is None:
@@ -1630,7 +1634,7 @@ class FitMultipeak(Fit):
         """Fit the model to the input data."""
         if centers is None:
             raise ValueError('Missing required parameter centers')
-        if not isinstance(centers, (int, float, tuple, list)):
+        if not isinstance(centers, (int, float, tuple, list, np.ndarray)):
             raise ValueError(f'Invalid parameter centers ({centers})')
         self._fwhm_max = fwhm_max
         self._create_model(

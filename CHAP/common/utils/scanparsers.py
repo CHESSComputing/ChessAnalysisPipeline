@@ -942,19 +942,19 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                 'num': int(self.pars['nframes_real'])}
 
     def get_horizontal_shift(self):
-        horizontal_shift = self.pars.get('rams4x',
-                                         self.pars.get('ramsx'), None)
+        horizontal_shift = self.pars.get(
+            'rams4x', self.pars.get('ramsx', None))
         if horizontal_shift is None:
-            raise RuntimeError(f'{self.scan_title}: cannot determine the '
-                               + 'horizontal shift')
+            raise RuntimeError(
+                f'{self.scan_title}: cannot determine the horizontal shift')
         return horizontal_shift
 
     def get_vertical_shift(self):
-        vertical_shift = self.pars.get('rams4z',
-                                         self.pars.get('ramsz'), None)
+        vertical_shift = self.pars.get(
+             'rams4z', self.pars.get('ramsz', None))
         if vertical_shift is None:
-            raise RuntimeError(f'{self.scan_title}: cannot determine the '
-                               + 'vertical shift')
+            raise RuntimeError(
+                f'{self.scan_title}: cannot determine the vertical shift')
         return vertical_shift
 
     def get_starting_image_index(self):

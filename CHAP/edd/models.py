@@ -180,7 +180,8 @@ class MCACeriaCalibrationConfig(BaseModel):
         :rtype: np.ndarray, np.ndarray
         '''
         
-        unique_hkls, unique_ds = self.material().get_unique_ds(tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+        unique_hkls, unique_ds = self.material().get_ds_unique(
+            tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
 
         return(unique_hkls, unique_ds)
 
