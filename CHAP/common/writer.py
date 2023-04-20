@@ -1,67 +1,70 @@
 #!/usr/bin/env python
-'''
+"""
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Module for Writers used in multiple experiment-specific workflows.
-'''
+"""
 
 # system modules
-import argparse
-import json
-import logging
 import os
-import sys
 
 # local modules
 from CHAP import Writer
 
+
 class ExtractArchiveWriter(Writer):
+    """Writer for tar files from binary data"""
     def _write(self, data, filename):
-        '''Take a .tar archive represented as bytes in `data` and write the
-        extracted archive to files.
+        """Take a .tar archive represented as bytes in `data` and
+        write the extracted archive to files.
 
         :param data: the archive data
         :type data: bytes
-        :param filename: the name of a directory to which the archive files will
-            be written
+        :param filename: the name of a directory to which the archive
+            files will be written
         :type filename: str
         :return: the original `data`
         :rtype: bytes
-        '''
+        """
 
         from io import BytesIO
         import tarfile
 
-        tar = tarfile.open(fileobj=BytesIO(data))
-        tar.extractall(path=filename)
+        with tarfile.open(fileobj=BytesIO(data)) as tar:
+            tar.extractall(path=filename)
 
-        return(data)
+        return data
+
 
 class NexusWriter(Writer):
+    """Writer for NeXus files from `NXobject`-s"""
     def _write(self, data, filename, force_overwrite=False):
-        '''Write `data` to a NeXus file
+        """Write `data` to a NeXus file
 
         :param data: the data to write to `filename`.
         :type data: nexusformat.nexus.NXobject
         :param filename: name of the file to write to.
         :param force_overwrite: flag to allow data in `filename` to be
-            overwritten, if it already exists. 
+            overwritten, if it already exists.
         :return: the original input data
-        '''
+        """
 
         from nexusformat.nexus import NXobject
-        
+
         if not isinstance(data, NXobject):
-            raise(TypeError(f'Cannot write object of type {type(data).__name__} to a NeXus file.'))
+            raise TypeError('Cannot write object of type '
+                            + f'{type(data).__name__} to a NeXus file.')
 
         mode = 'w' if force_overwrite else 'w-'
         data.save(filename, mode=mode)
 
-        return(data)
+        return data
+
 
 class YAMLWriter(Writer):
+    """Writer for YAML files from `dict`-s"""
     def _write(self, data, filename, force_overwrite=False):
-        '''If `data` is a `dict`, write it to `filename`.
+        """If `data` is a `dict`, write it to `filename`.
 
         :param data: the dictionary to write to `filename`.
         :type data: dict
@@ -75,21 +78,24 @@ class YAMLWriter(Writer):
             `force_overwrite` is `False`.
         :return: the original input data
         :rtype: dict
-        '''
+        """
 
         import yaml
 
         if not isinstance(data, (dict, list)):
-            raise(TypeError(f'{self.__name__}.write: input data must be a dict or list.'))
+            raise(TypeError(f'{self.__name__}.write: input data must be '
+                            + 'a dict or list.'))
 
         if not force_overwrite:
             if os.path.isfile(filename):
-                raise(RuntimeError(f'{self.__name__}: {filename} already exists.'))
+                raise(RuntimeError(f'{self.__name__}: {filename} already '
+                                   + 'exists.'))
 
         with open(filename, 'w') as outf:
             yaml.dump(data, outf, sort_keys=False)
 
-        return(data)
+        return data
+
 
 if __name__ == '__main__':
     from CHAP.writer import main

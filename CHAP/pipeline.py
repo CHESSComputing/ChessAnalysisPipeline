@@ -11,13 +11,11 @@ Description:
 import logging
 from time import time
 
+
 class Pipeline():
-    """
-    Pipeline represent generic Pipeline class
-    """
+    """Pipeline represent generic Pipeline class"""
     def __init__(self, items=None, kwds=None):
-        """
-        Pipeline class constructor
+        """Pipeline class constructor
         
         :param items: list of objects
         :param kwds: list of method args for individual objects
@@ -31,12 +29,10 @@ class Pipeline():
         self.logger.propagate = False
 
     def execute(self):
-        """
-        execute API
-        """
+        """execute API"""
 
         t0 = time()
-        self.logger.info(f'Executing "execute"\n')
+        self.logger.info('Executing "execute"\n')
 
         data = None
         for item, kwargs in zip(self.items, self.kwds):
@@ -52,33 +48,23 @@ class Pipeline():
 
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
 
+
 class PipelineObject():
-    """
-    PipelineObject represent generic Pipeline class
-    """
-    def __init__(self, reader, writer, processor, fitter):
-        """
-        PipelineObject class constructor
-        """
+    """PipelineObject represent generic Pipeline class"""
+    def __init__(self, reader, writer, processor):
+        """PipelineObject class constructor"""
         self.reader = reader
         self.writer = writer
         self.processor = processor
 
     def read(self, filename):
-        """
-        read object API
-        """
+        """read object API"""
         return self.reader.read(filename)
 
     def write(self, data, filename):
-        """
-        write object API
-        """
+        """write object API"""
         return self.writer.write(data, filename)
 
     def process(self, data):
-        """
-        process object API
-        """
+        """process object API"""
         return self.processor.process(data)
-
