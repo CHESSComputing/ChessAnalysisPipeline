@@ -50,6 +50,15 @@ class MultipleReader(Reader):
             reader = reader_class()
             reader_kwargs = reader_config[reader_name]
 
+#            _valid_read_args = {}
+#            allowed_args = inspect.getfullargspec(self._read).args \
+#                           + inspect.getfullargspec(self._read).kwonlyargs
+#            for k, v in _read_kwargs.items():
+#                if k in allowed_args:
+#                    _valid_read_args[k] = v
+#                else:
+#                    self.logger.warning(f'Ignoring invalid arg to _read: {k}')
+
             data.extend(reader.read(**reader_kwargs))
 
         self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
