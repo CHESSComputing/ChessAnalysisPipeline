@@ -27,12 +27,23 @@ class OptionParser():
             dest="interactive", help="Allow interactive processes")
         self.parser.add_argument('--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
+        self.parser.add_argument("--profile", action="store_true", dest="profile",
+            help="profile output")
 
 def main():
     "Main function"
     optmgr  = OptionParser()
     opts = optmgr.parser.parse_args()
-    runner(opts)
+    if opts.profile:
+        import cProfile # python profiler
+        import pstats   # profiler statistics
+        cmd  = 'runner(opts)'
+        cProfile.runctx(cmd, globals(), locals(), 'profile.dat')
+        info = pstats.Stats('profile.dat')
+        info.sort_stats('cumulative')
+        info.print_stats()
+    else:
+        runner(opts)
 
 def runner(opts):
     """
