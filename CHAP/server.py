@@ -46,7 +46,9 @@ Pipeline            : Executed "execute" in 0.000 seconds
 """
 
 # system modules
+import time
 import logging
+from queue import Queue
 
 # thrid-party modules
 
@@ -54,7 +56,7 @@ import logging
 from flask import Flask, request, jsonify
 
 # CHAP modules
-from CHAP.TaskManager import TaskManager
+from CHAP.TaskManager import TaskManager, start_new_thread, Worker, UidSet
 from CHAP.runner import run, setLogger
 
 
@@ -64,12 +66,24 @@ taskManager = TaskManager()
 # Flask Server
 app = Flask(__name__)
 
+# daemon task queue
+task_queue = Queue()
+
 @app.route("/")
 def index_route():
     """
     Server main end-point
     """
     return "CHAP daemon"
+
+@app.route("/run")
+def run_route():
+    """
+    Server main end-point
+    """
+    task = request.args.get('task')
+    task_queue.put(task)
+    return f"Execute {task}"
 
 @app.route("/pipeline", methods=["POST"])
 def pipeline_route():
@@ -96,3 +110,16 @@ def task(*args, **kwds):
     pipeline = kwds['pipeline']
     logger.info(f"pipeline\n{pipeline}")
     run(pipeline, logger, log_level, log_handler)
+
+def daemon(name, queue):
+    """
+    Daemon example based on Queue
+    """
+    pids = set()
+    uids = UidSet()
+    logger = logging.getLogger()
+    worker = Worker(name, queue, pids, uids, logger)
+    worker.run()
+
+# start daemon thread in addition to Flask server
+start_new_thread("daemon", daemon, ("daemon", task_queue))
