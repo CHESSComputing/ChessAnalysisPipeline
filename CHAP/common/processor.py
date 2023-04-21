@@ -4,11 +4,12 @@
 """
 File       : processor.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Processors used in multiple experiment-specific workflows.
+Description: Module for Processors used in multiple experiment-specific
+             workflows.
 """
 
 # system modules
-import json
+from json import dumps
 from time import time
 
 # local modules
@@ -153,8 +154,8 @@ class IntegrateMapProcessor(Processor):
         map_config = MapConfig(**map_config)
         integration_config = IntegrationConfig(**integration_config)
 
-        self.logger.debug('Got configuration objects in '
-                          + f'{time()-t0:.3f} seconds')
+        self.logger.debug(
+            f'Got configuration objects in {time()-t0:.3f} seconds')
 
         return map_config, integration_config
 
@@ -183,13 +184,13 @@ class IntegrateMapProcessor(Processor):
 
         nxprocess = NXprocess(name=integration_config.title)
 
-        nxprocess.map_config = json.dumps(map_config.dict())
-        nxprocess.integration_config = json.dumps(integration_config.dict())
+        nxprocess.map_config = dumps(map_config.dict())
+        nxprocess.integration_config = dumps(integration_config.dict())
 
         nxprocess.program = 'pyFAI'
         nxprocess.version = pyFAI.version
 
-        for k,v in integration_config.dict().items():
+        for k, v in integration_config.dict().items():
             if k == 'detectors':
                 continue
             nxprocess.attrs[k] = v
@@ -200,7 +201,8 @@ class IntegrateMapProcessor(Processor):
             nxdetector.local_name = detector.prefix
             nxdetector.distance = detector.azimuthal_integrator.dist
             nxdetector.distance.attrs['units'] = 'm'
-            nxdetector.calibration_wavelength = detector.azimuthal_integrator.wavelength
+            nxdetector.calibration_wavelength = \
+                detector.azimuthal_integrator.wavelength
             nxdetector.calibration_wavelength.attrs['units'] = 'm'
             nxdetector.attrs['poni_file'] = str(detector.poni_file)
             nxdetector.attrs['mask_file'] = str(detector.mask_file)
@@ -213,7 +215,7 @@ class IntegrateMapProcessor(Processor):
             *map_config.dims,
             *integration_config.integrated_data_dims
         )
-        for i,dim in enumerate(map_config.independent_dimensions[::-1]):
+        for i, dim in enumerate(map_config.independent_dimensions[::-1]):
             nxprocess.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
                 units=dim.units,
@@ -222,8 +224,8 @@ class IntegrateMapProcessor(Processor):
                        'local_name': dim.name})
             nxprocess.data.attrs[f'{dim.label}_indices'] = i
 
-        for i,(coord_name,coord_values) in \
-            enumerate(integration_config.integrated_data_coordinates.items()):
+        for i, (coord_name, coord_values) in enumerate(
+                integration_config.integrated_data_coordinates.items()):
             if coord_name == 'radial':
                 type_ = pyFAI.units.RADIAL_UNITS
             elif coord_name == 'azimuthal':
@@ -235,19 +237,16 @@ class IntegrateMapProcessor(Processor):
             nxprocess.data.attrs[f'{coord_units.name}_indices'] = i + len(
                 map_config.coords)
             nxprocess.data[coord_units.name].units = coord_units.unit_symbol
-            nxprocess.data[coord_units.name].attrs['long_name'] = coord_units.label
+            nxprocess.data[coord_units.name].attrs['long_name'] = \
+                coord_units.label
 
         nxprocess.data.attrs['signal'] = 'I'
         nxprocess.data.I = NXfield(
             value=np.empty(
                 (*tuple(
-                    [len(coord_values) \
-                     for coord_name,coord_values \
-                     in map_config.coords.items()][::-1]
-                  ),
-                 *integration_config.integrated_data_shape
-                )
-            ),
+                    [len(coord_values) for coord_name, coord_values
+                     in map_config.coords.items()][::-1]),
+                 *integration_config.integrated_data_shape)),
             units='a.u',
             attrs={'long_name':'Intensity (a.u)'})
 
@@ -255,16 +254,16 @@ class IntegrateMapProcessor(Processor):
         if integration_config.integration_type == 'azimuthal':
             integration_method = integrator.integrate1d
             integration_kwargs = {
-                'lst_mask': [detector.mask_array \
-                             for detector \
+                'lst_mask': [detector.mask_array
+                             for detector
                              in integration_config.detectors],
                 'npt': integration_config.radial_npt
             }
         elif integration_config.integration_type == 'cake':
             integration_method = integrator.integrate2d
             integration_kwargs = {
-                'lst_mask': [detector.mask_array \
-                             for detector \
+                'lst_mask': [detector.mask_array
+                             for detector
                              in integration_config.detectors],
                 'npt_rad': integration_config.radial_npt,
                 'npt_azim': integration_config.azimuthal_npt,
@@ -287,14 +286,14 @@ class IntegrateMapProcessor(Processor):
                         scan_number,
                         scan_step_index)
                     result = integration_processor.process(
-                        (detector_data, integration_method, integration_kwargs))
+                        (detector_data,
+                         integration_method, integration_kwargs))
                     nxprocess.data.I[map_index] = result.intensity
 
                     for detector in integration_config.detectors:
-                        nxprocess[detector.prefix].raw_data_files[map_index] = \
+                        nxprocess[detector.prefix].raw_data_files[map_index] =\
                             scanparser.get_detector_data_file(
-                                detector.prefix,
-                                scan_step_index)
+                                detector.prefix, scan_step_index)
 
         self.logger.debug(f'Constructed NXprocess in {time()-t0:.3f} seconds')
 
@@ -375,7 +374,7 @@ class MapProcessor(Processor):
 
         nxentry = NXentry(name=map_config.title)
 
-        nxentry.map_config = json.dumps(map_config.dict())
+        nxentry.map_config = dumps(map_config.dict())
 
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
 
@@ -386,11 +385,11 @@ class MapProcessor(Processor):
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
-                        attrs={'spec_file':str(scans.spec_file)})
+                        attrs={'spec_file': str(scans.spec_file)})
 
         nxentry.data = NXdata()
         nxentry.data.attrs['axes'] = map_config.dims
-        for i,dim in enumerate(map_config.independent_dimensions[::-1]):
+        for i, dim in enumerate(map_config.independent_dimensions[::-1]):
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
                 units=dim.units,
@@ -622,16 +621,17 @@ class URLResponseProcessor(Processor):
         content = data['data']
         encoding = data['encoding']
 
-        self.logger.debug(f'Decoding content of type {type(content)} '
-                          + f'with {encoding}')
+        self.logger.debug(
+            f'Decoding content of type {type(content)} with {encoding}')
 
         try:
             content = content.decode(encoding)
         except:
             self.logger.warning('Failed to decode content of type '
-                                + f'{type(content)} with {encoding}')
+                                f'{type(content)} with {encoding}')
 
         return content
+
 
 class XarrayToNexusProcessor(Processor):
     """A Processor to convert the data in an `xarray` structure to an
@@ -659,6 +659,7 @@ class XarrayToNexusProcessor(Processor):
 
         return NXdata(signal=signal, axes=axes)
 
+
 class XarrayToNumpyProcessor(Processor):
     """A Processor to convert the data in an `xarray.DataArray`
     structure to an `numpy.ndarray`.
@@ -674,6 +675,7 @@ class XarrayToNumpyProcessor(Processor):
         """
 
         return data.data
+
 
 if __name__ == '__main__':
     from CHAP.processor import main

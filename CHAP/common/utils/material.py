@@ -34,6 +34,7 @@ POEDER_INTENSITY_CUTOFF = 1.e-8
 
 logger = getLogger(__name__)
 
+
 class Material:
     """
     Base class for materials in an sin2psi or EDD analysis. Right now
@@ -61,8 +62,9 @@ class Material:
         if isinstance(matl, materials.material.Crystal):
             return [matl.a, matl.b, matl.c]
         if isinstance(matl, material.Material):
-            return [l.getVal('angstrom')
-                for l in self._materials[index].latticeParameters[0:3]]
+            return [
+                lpars.getVal('angstrom')
+                for lpars in self._materials[index].latticeParameters[0:3]]
         raise ValueError('Illegal material class type')
 
     def ds_unique(self, tth_tol=None, tth_max=None, round_sig=8):
@@ -89,8 +91,9 @@ class Material:
             raise ValueError('Multiple materials not implemented yet')
         self._ds_min.append(dmin_angstroms)
         self._materials.append(
-            Material.make_material(material_name, material_file, sgnum,
-            lattice_parameters_angstroms, atoms, pos, dmin_angstroms))
+            Material.make_material(
+                material_name, material_file, sgnum,
+                lattice_parameters_angstroms, atoms, pos, dmin_angstroms))
 
     def get_ds_unique(self, tth_tol=None, tth_max=None, round_sig=8):
         """
@@ -116,9 +119,9 @@ class Material:
                 if isinstance(m, materials.material.Crystal):
                     powder = simpack.PowderDiffraction(m, en=self._enrgy)
                     hklsi = [hkl for hkl in powder.data
-                        if powder.data[hkl]['active']]
+                             if powder.data[hkl]['active']]
                     ds_i = [m.planeDistance(hkl) for hkl in powder.data
-                        if powder.data[hkl]['active']]
+                            if powder.data[hkl]['active']]
                     mask = [d > self._ds_min[i] for d in ds_i]
                     hkls = np.vstack((hkls, np.array(hklsi)[mask,:]))
                     ds_i = np.array(ds_i)[mask]
@@ -149,12 +152,12 @@ class Material:
         self._ds_unique = ds[ds_index_unique]
         hkl_list = np.vstack(
             (np.arange(self._ds_unique.shape[0]), ds_index[ds_index_unique],
-            self._hkls_unique.T, self._ds_unique)).T
+             self._hkls_unique.T, self._ds_unique)).T
         logger.info("Unique d's:")
         for hkl in hkl_list:
             logger.info(
                 f'{hkl[0]:4.0f} {hkl[1]:.0f} {hkl[2]:.0f} {hkl[3]:.0f} '
-                + f'{hkl[4]:.0f} {hkl[5]:.6f}')
+                f'{hkl[4]:.0f} {hkl[5]:.6f}')
 
         return self._hkls_unique, self._ds_unique
 
@@ -170,21 +173,22 @@ class Material:
         if not isinstance(material_name, str):
             raise ValueError(
                 f'Illegal material_name: {material_name} '
-                + f'{type(material_name)}')
+                f'{type(material_name)}')
         if lattice_parameters_angstroms is not None:
             if material_file is not None:
                 logger.warning(
                     'Overwrite lattice_parameters of material_file with input '
-                    + f'values ({lattice_parameters_angstroms})')
+                    f'values ({lattice_parameters_angstroms})')
             if isinstance(lattice_parameters_angstroms, (int, float)):
                 lattice_parameters = [lattice_parameters_angstroms]
             elif isinstance(
                     lattice_parameters_angstroms, (tuple, list, np.ndarray)):
                 lattice_parameters = list(lattice_parameters_angstroms)
             else:
-                raise ValueError('Illegal lattice_parameters_angstroms: '
-                    + f'{lattice_parameters_angstroms} '
-                    + f'{type(lattice_parameters_angstroms)}')
+                raise ValueError(
+                    'Illegal lattice_parameters_angstroms: '
+                    f'{lattice_parameters_angstroms} '
+                    f'{type(lattice_parameters_angstroms)}')
         if material_file is None:
             if not isinstance(sgnum, int):
                 raise ValueError(f'Illegal sgnum: {sgnum} {type(sgnum)}')
@@ -192,7 +196,7 @@ class Material:
                     or pos is None):
                 raise ValueError(
                     'Valid inputs for sgnum, lattice_parameters_angstroms and '
-                    + 'pos are required if materials file is not specified')
+                    'pos are required if materials file is not specified')
             if isinstance(pos, str):
                 pos = [pos]
             use_xu = True
@@ -201,33 +205,34 @@ class Material:
                 if HAVE_HEXRD:
                     pos = np.array([pos])
                     use_xu = False
-            elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0 and
-                    np.array(pos).shape[1] == 3):
+            elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0
+                    and np.array(pos).shape[1] == 3):
                 if HAVE_HEXRD:
                     pos = np.array(pos)
                     use_xu = False
-            elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str) and
-                    np.array(pos).size > 0 and HAVE_XU):
+            elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str)
+                      and np.array(pos).size > 0 and HAVE_XU):
                 raise ValueError(
                     f'Illegal pos (HAVE_XU = {HAVE_XU}): {pos} {type(pos)}')
             if use_xu:
                 if atoms is None:
                     atoms = [material_name]
                 matl = materials.Crystal(
-                    material_name, materials.SGLattice(sgnum,
-                    *lattice_parameters, atoms=atoms,
-                    pos=list(np.array(pos))))
+                    material_name,
+                    materials.SGLattice(sgnum, *lattice_parameters,
+                                        atoms=atoms, pos=list(np.array(pos))))
             else:
                 matl = material.Material(material_name)
                 matl.sgnum = sgnum
                 matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
                 matl.latticeParameters = lattice_parameters
                 matl.dmin = valWUnit(
-                    'lp', 'length',  dmin_angstroms, 'angstrom')
+                    'lp', 'length', dmin_angstroms, 'angstrom')
                 exclusions = matl.planeData.get_exclusions()
                 powder_intensity = matl.planeData.powder_intensity
-                exclusions = [exclusion or i >= len(powder_intensity) or
-                    powder_intensity[i] < POEDER_INTENSITY_CUTOFF
+                exclusions = [
+                    exclusion or i >= len(powder_intensity)
+                    or powder_intensity[i] < POEDER_INTENSITY_CUTOFF
                     for i, exclusion in enumerate(exclusions)]
                 matl.planeData.set_exclusions(exclusions)
                 logger.debug(
@@ -237,22 +242,24 @@ class Material:
             if not HAVE_HEXRD:
                 raise ValueError(
                     'Illegal inputs: must provide detailed material info when '
-                    + 'hexrd package is unavailable')
+                    'hexrd package is unavailable')
             if sgnum is not None:
                 logger.warning(
                     'Ignore sgnum input when material_file is specified')
             if not (path.splitext(material_file)[1] in
                     ('.h5', '.hdf5', '.xtal', '.cif')):
                 raise ValueError(f'Illegal material file {material_file}')
-            matl = material.Material(material_name, material_file,
-                    dmin=valWUnit('lp', 'length',  dmin_angstroms, 'angstrom'))
+            matl = material.Material(
+                material_name, material_file,
+                dmin=valWUnit('lp', 'length', dmin_angstroms, 'angstrom'))
             if lattice_parameters_angstroms is not None:
                 matl.latticeParameters = lattice_parameters
             exclusions = matl.planeData.get_exclusions()
             powder_intensity = matl.planeData.powder_intensity
-            exclusions = [exclusion or i >= len(powder_intensity) or
-                    powder_intensity[i] < POEDER_INTENSITY_CUTOFF
-                    for i, exclusion in enumerate(exclusions)]
+            exclusions = [
+                exclusion or i >= len(powder_intensity)
+                or powder_intensity[i] < POEDER_INTENSITY_CUTOFF
+                for i, exclusion in enumerate(exclusions)]
             matl.planeData.set_exclusions(exclusions)
             logger.debug(
                 f'powder_intensity = {matl.planeData.powder_intensity}')

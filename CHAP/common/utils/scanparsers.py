@@ -3,13 +3,13 @@
 # -*- coding: utf-8 -*-
 
 # system modules
-import csv
-import fnmatch
-import json
+from csv import reader
+from fnmatch import filter as fnmatch_filter
+from json import load
 import os
 import re
 
-# other modules
+# third party modules
 import numpy as np
 from pyspec.file.spec import FileSpec
 
@@ -48,10 +48,9 @@ class ScanParser:
         self._detector_data_path = None
 
     def __repr__(self):
-        return (f'{self.__class__.__name__}('
-                + f'{self.spec_file_name}, '
-                + f'{self.scan_number}) '
-                + f'-- {self.spec_command}')
+        return (f'{self.__class__.__name__}'
+                f'({self.spec_file_name}, {self.scan_number}) '
+                f'-- {self.spec_command}')
 
     @property
     def spec_file(self):
@@ -59,56 +58,67 @@ class ScanParser:
         # attribute because it cannot be pickled (and therefore could
         # cause problems for parallel code that uses ScanParsers).
         return FileSpec(self.spec_file_name)
+
     @property
     def scan_path(self):
         if self._scan_path is None:
             self._scan_path = self.get_scan_path()
         return self._scan_path
+
     @property
     def scan_name(self):
         if self._scan_name is None:
             self._scan_name = self.get_scan_name()
         return self._scan_name
+
     @property
     def scan_title(self):
         if self._scan_title is None:
             self._scan_title = self.get_scan_title()
         return self._scan_title
+
     @property
     def spec_scan(self):
         if self._spec_scan is None:
             self._spec_scan = self.get_spec_scan()
         return self._spec_scan
+
     @property
     def spec_command(self):
         if self._spec_command is None:
             self._spec_command = self.get_spec_command()
         return self._spec_command
+
     @property
     def spec_macro(self):
         if self._spec_macro is None:
             self._spec_macro = self.get_spec_macro()
         return self._spec_macro
+
     @property
     def spec_args(self):
         if self._spec_args is None:
             self._spec_args = self.get_spec_args()
         return self._spec_args
+
     @property
     def spec_scan_npts(self):
         if self._spec_scan_npts is None:
             self._spec_scan_npts = self.get_spec_scan_npts()
         return self._spec_scan_npts
+
     @property
     def spec_scan_data(self):
         if self._spec_scan_data is None:
             self._spec_scan_data = self.get_spec_scan_data()
         return self._spec_scan_data
+
     @property
     def spec_positioner_values(self):
         if self._spec_positioner_values is None:
             self._spec_positioner_values = self.get_spec_positioner_values()
         return self._spec_positioner_values
+
     @property
     def detector_data_path(self):
         if self._detector_data_path is None:
@@ -253,11 +263,11 @@ class ScanParser:
             positioner_value = float(positioner_value)
         except KeyError:
             raise KeyError(f'{self.scan_title}: motor {positioner_name} '
-                           + 'not found for this scan')
+                           'not found for this scan')
         except ValueError:
             raise ValueError(f'{self.scan_title}: could not convert value of'
-                             + f' {positioner_name} to float: '
-                             + f'{positioner_value}')
+                             f' {positioner_name} to float: '
+                             f'{positioner_value}')
         return positioner_value
 
 
@@ -303,31 +313,31 @@ class SMBScanParser(ScanParser):
         :rtype: dict[str,object]
         """
         # JSON file holds titles for columns in the par file
-        json_files = fnmatch.filter(
+        json_files = fnmatch_filter(
             os.listdir(self.scan_path),
             f'{self.par_file_pattern}.json')
         if len(json_files) != 1:
             raise RuntimeError(f'{self.scan_title}: cannot find the '
-                               + '.json file to decode the .par file')
+                               '.json file to decode the .par file')
         with open(os.path.join(self.scan_path, json_files[0])) as json_file:
-            par_file_cols = json.load(json_file)
+            par_file_cols = load(json_file)
         try:
             par_col_names = list(par_file_cols.values())
             scann_val_idx = par_col_names.index('SCAN_N')
             scann_col_idx = int(list(par_file_cols.keys())[scann_val_idx])
         except:
             raise RuntimeError(f'{self.scan_title}: cannot find scan pars '
-                               + 'without a "SCAN_N" column in the par file')
+                               'without a "SCAN_N" column in the par file')
 
-        par_files = fnmatch.filter(
+        par_files = fnmatch_filter(
             os.listdir(self.scan_path),
             f'{self.par_file_pattern}.par')
         if len(par_files) != 1:
             raise RuntimeError(f'{self.scan_title}: cannot find the .par '
-                               + 'file for this scan directory')
+                               'file for this scan directory')
         par_dict = None
         with open(os.path.join(self.scan_path, par_files[0])) as par_file:
-            par_reader = csv.reader(par_file, delimiter=' ')
+            par_reader = reader(par_file, delimiter=' ')
             for row in par_reader:
                 if len(row) == len(par_col_names):
                     row_scann = int(row[scann_col_idx])
@@ -348,7 +358,7 @@ class SMBScanParser(ScanParser):
 
         if par_dict is None:
             raise RuntimeError(f'{self.scan_title}: could not find scan pars '
-                               + 'for scan number {self.scan_number}')
+                               'for scan number {self.scan_number}')
         return par_dict
 
     def get_counter_gain(self, counter_name):
@@ -362,20 +372,19 @@ class SMBScanParser(ScanParser):
         counter_gain = None
         for comment in self.spec_scan.comments:
             match = re.search(
-                f'{counter_name} gain: ' # start of counter gain comments
-                + '(?P<gain_value>\d+) ' # gain numerical value
-                + '(?P<unit_prefix>[m|u|n])A/V', # gain units
+                f'{counter_name} gain: '  # start of counter gain comments
+                '(?P<gain_value>\d+) '  # gain numerical value
+                '(?P<unit_prefix>[m|u|n])A/V',  # gain units
                 comment)
             if match:
                 unit_prefix = match['unit_prefix']
                 gain_scalar = 1 if unit_prefix == 'n' \
-                              else 1e3 if unit_prefix == 'u' \
-                                   else 1e6
+                    else 1e3 if unit_prefix == 'u' else 1e6
                 counter_gain = f'{float(match["gain_value"])*gain_scalar} nA/V'
 
         if counter_gain is None:
             raise RuntimeError(f'{self.scan_title}: could not get gain for '
-                               + f'counter {counter_name}')
+                               f'counter {counter_name}')
         return counter_gain
 
 
@@ -396,16 +405,19 @@ class LinearScanParser(ScanParser):
         if self._spec_scan_motor_mnes is None:
             self._spec_scan_motor_mnes = self.get_spec_scan_motor_mnes()
         return self._spec_scan_motor_mnes
+
     @property
     def spec_scan_motor_vals(self):
         if self._spec_scan_motor_vals is None:
             self._spec_scan_motor_vals = self.get_spec_scan_motor_vals()
         return self._spec_scan_motor_vals
+
     @property
     def spec_scan_shape(self):
         if self._spec_scan_shape is None:
             self._spec_scan_shape = self.get_spec_scan_shape()
         return self._spec_scan_shape
+
     @property
     def spec_scan_dwell(self):
         if self._spec_scan_dwell is None:
@@ -519,7 +531,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_motor_vals(self):
         if self.spec_macro == 'flymesh':
@@ -538,7 +550,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return self.spec_scan.data[:,0]
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_shape(self):
         if self.spec_macro == 'flymesh':
@@ -551,7 +563,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return len(np.array(self.spec_scan.data[:,0]))
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_dwell(self):
         if self.spec_macro in ('flymesh', 'flyscan'):
@@ -559,7 +571,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return float(self.spec_args[1])
         raise RuntimeError(f'{self.scan_title}: cannot determine dwell for '
-                           + f'scans of type {self.spec_macro}')
+                           f'scans of type {self.spec_macro}')
 
     def get_detector_data_path(self):
         return os.path.join(self.scan_path, self.scan_title)
@@ -575,23 +587,22 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
 
     def get_detector_data_file(self, detector_prefix, scan_step_index:int):
         scan_step = self.get_scan_step(scan_step_index)
-        file_indices = [f'{scan_step[i]:03d}' \
-                        for i in range(len(self.spec_scan_shape)) \
+        file_indices = [f'{scan_step[i]:03d}'
+                        for i in range(len(self.spec_scan_shape))
                         if self.spec_scan_shape[i] != 1]
-        file_name = (f'{self.scan_name}_'
-                     + f'{detector_prefix}_'
-                     + f'{self.scan_number:03d}_'
-                     + '_'.join(file_indices)
-                     + '.tiff')
+        file_name = f'{self.scan_name}_{detector_prefix}_' \
+                    f'{self.scan_number:03d}_{"_".join(file_indices)}.tiff'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + f'file for detector {detector_prefix} scan step '
-                           + f'({scan_step})')
+                           f'file for detector {detector_prefix} scan step '
+                           f'({scan_step})')
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
+        # third party modules
         from pyspec.file.tiff import TiffFile
+
         image_file = self.get_detector_data_file(detector_prefix,
                                                  scan_step_index)
         with TiffFile(image_file) as tiff_file:
@@ -614,16 +625,19 @@ class FMBXRFScanParser(FMBLinearScanParser):
         if os.path.isfile(file_name_full):
             return file_name_full
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + f'file for detector {detector_prefix} scan step '
-                           + f'({scan_step_index})')
+                           f'file for detector {detector_prefix} scan step '
+                           f'({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
-        import h5py
-        detector_file = self.get_detector_data_file(detector_prefix,
-                                                    scan_step_index)
+        # third party modules
+        from h5py import File
+
+        detector_file = self.get_detector_data_file(
+            detector_prefix, scan_step_index)
         scan_step = self.get_scan_step(scan_step_index)
-        with h5py.File(detector_file) as h5_file:
-            detector_data = h5_file['/entry/instrument/detector/data'][scan_step[0]]
+        with File(detector_file) as h5_file:
+            detector_data = \
+                h5_file['/entry/instrument/detector/data'][scan_step[0]]
         return detector_data
 
 
@@ -640,7 +654,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_motor_vals(self):
         if self.spec_macro == 'flymesh':
@@ -659,7 +673,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return self.spec_scan.data[:,0]
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_shape(self):
         if self.spec_macro == 'flymesh':
@@ -672,7 +686,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         if self.spec_macro in ('tseries', 'loopscan'):
             return len(np.array(self.spec_scan.data[:,0]))
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_dwell(self):
         if self.spec_macro == 'flymesh':
@@ -680,7 +694,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         if self.spec_macro == 'flyscan':
             return float(self.spec_args[-1])
         raise RuntimeError(f'{self.scan_title}: cannot determine dwell time '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_detector_data_path(self):
         return os.path.join(self.scan_path, str(self.scan_number))
@@ -690,23 +704,25 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         if len(scan_step) == 1:
             scan_step = (0, *scan_step)
         file_name_pattern = (f'{detector_prefix}_'
-                             + f'{self.scan_name}_*_'
-                             + f'{scan_step[0]}_data_'
-                             + f'{(scan_step[1]+1):06d}.h5')
-        file_name_matches = fnmatch.filter(
+                             f'{self.scan_name}_*_'
+                             f'{scan_step[0]}_data_'
+                             f'{(scan_step[1]+1):06d}.h5')
+        file_name_matches = fnmatch_filter(
             os.listdir(self.detector_data_path),
             file_name_pattern)
         if len(file_name_matches) == 1:
             return os.path.join(self.detector_data_path, file_name_matches[0])
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + f'file for detector {detector_prefix} scan step '
-                           + f'({scan_step_index})')
+                           f'file for detector {detector_prefix} scan step '
+                           f'({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
-        import h5py
-        image_file = self.get_detector_data_file(detector_prefix,
-                                                 scan_step_index)
-        with h5py.File(image_file) as h5_file:
+        # third party modules
+        from h5py import File
+
+        image_file = self.get_detector_data_file(
+            detector_prefix, scan_step_index)
+        with File(image_file) as h5_file:
             image_data = h5_file['/entry/data/data'][0]
         return image_data
 
@@ -731,26 +747,31 @@ class RotationScanParser(ScanParser):
         if self._scan_type is None:
             self._scan_type = self.get_scan_type()
         return self._scan_type
+
     @property
     def theta_vals(self):
         if self._theta_vals is None:
             self._theta_vals = self.get_theta_vals()
         return self._theta_vals
+
     @property
     def horizontal_shift(self):
         if self._horizontal_shift is None:
             self._horizontal_shift = self.get_horizontal_shift()
         return self._horizontal_shift
+
     @property
     def vertical_shift(self):
         if self._vertical_shift is None:
             self._vertical_shift = self.get_vertical_shift()
         return self._vertical_shift
+
     @property
     def starting_image_index(self):
         if self._starting_image_index is None:
             self._starting_image_index = self.get_starting_image_index()
         return self._starting_image_index
+
     @property
     def starting_image_offset(self):
         if self._starting_image_offset is None:
@@ -834,10 +855,10 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             if len(self.spec_args) == 5:
                 return int(self.spec_args[3])+1
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
-                               + f'points from {self.spec_macro} with '
-                               + f'arguments {self.spec_args}')
+                               f'points from {self.spec_macro} with '
+                               f'arguments {self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine number of '
-                           + f'points for scans of type {self.spec_macro}')
+                           f'points for scans of type {self.spec_macro}')
 
     def get_theta_vals(self):
         if self.spec_macro == 'flyscan':
@@ -849,10 +870,10 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
                         'end': float(self.spec_args[2]),
                         'num': int(self.spec_args[3])+1}
             raise RuntimeError(f'{self.scan_title}: cannot obtain theta values'
-                               + f' from {self.spec_macro} with arguments '
-                               + f'{self.spec_args}')
+                               f' from {self.spec_macro} with arguments '
+                               f'{self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine theta values '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_horizontal_shift(self):
         return 0.0
@@ -867,9 +888,11 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         return 1
 
     def get_num_image(self, detector_prefix):
-        import h5py
+        # third party modules
+        from h5py import File
+
         detector_file = self.get_detector_data_file(detector_prefix)
-        with h5py.File(detector_file) as h5_file:
+        with File(detector_file) as h5_file:
             num_image = h5_file['/entry/instrument/detector/data'].shape[0]
         return num_image-self.starting_image_offset
 
@@ -883,33 +906,34 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         if os.path.isfile(file_name_full):
             return file_name_full
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + f'file for detector {detector_prefix}')
+                           f'file for detector {detector_prefix}')
 
-    def get_all_detector_data_in_file(self,
-                                      detector_prefix,
-                                      scan_step_index=None):
-        import h5py
+    def get_all_detector_data_in_file(
+            self, detector_prefix, scan_step_index=None):
+        # third party modules
+        from h5py import File
+
         detector_file = self.get_detector_data_file(detector_prefix)
-        with h5py.File(detector_file) as h5_file:
+        with File(detector_file) as h5_file:
             if scan_step_index is None:
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                        self.starting_image_index:]
+                    self.starting_image_index:]
             elif isinstance(scan_step_index, int):
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                        self.starting_image_index+scan_step_index]
+                    self.starting_image_index+scan_step_index]
             elif (isinstance(scan_step_index, (list, tuple))
-                      and len(scan_step_index) == 2):
+                    and len(scan_step_index) == 2):
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                        self.starting_image_index+scan_step_index[0]:
-                        self.starting_image_index+scan_step_index[1]]
+                    self.starting_image_index+scan_step_index[0]:
+                    self.starting_image_index+scan_step_index[1]]
             else:
                 raise ValueError('Invalid parameter scan_step_index '
-                                 + f'({scan_step_index})')
+                                 f'({scan_step_index})')
         return detector_data
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
-        return self.get_all_detector_data_in_file(detector_prefix,
-                                                  scan_step_index)
+        return self.get_all_detector_data_in_file(
+            detector_prefix, scan_step_index)
 
 
 class SMBRotationScanParser(RotationScanParser, SMBScanParser):
@@ -926,14 +950,14 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         if self.spec_macro in ('slew_ome','rams4_slew_ome'):
             return int(self.pars['nframes_real'])
         raise RuntimeError(f'{self.scan_title}: cannot determine number of '
-                           + f'points for scans of type {self.spec_macro}')
+                           f'points for scans of type {self.spec_macro}')
 
     def get_scan_type(self):
         scan_type = self.pars.get('tomo_type',
                                   self.pars.get('tomotype', None))
         if scan_type is None:
             raise RuntimeError(f'{self.scan_title}: cannot determine '
-                               + 'the scan_type')
+                               'the scan_type')
         return scan_type
 
     def get_theta_vals(self):
@@ -951,7 +975,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
 
     def get_vertical_shift(self):
         vertical_shift = self.pars.get(
-             'rams4z', self.pars.get('ramsz', None))
+            'rams4z', self.pars.get('ramsz', None))
         if vertical_shift is None:
             raise RuntimeError(
                 f'{self.scan_title}: cannot determine the vertical shift')
@@ -962,7 +986,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
             return int(self.pars['junkstart'])
         except:
             raise RuntimeError(f'{self.scan_title}: cannot determine first '
-                               + 'detector image index')
+                               'detector image index')
 
     def get_starting_image_offset(self):
         try:
@@ -970,7 +994,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                     - self.get_starting_image_index())
         except:
             raise RuntimeError(f'{self.scan_title}: cannot determine index '
-                               + 'offset of first good detector image')
+                               'offset of first good detector image')
 
     def get_num_image(self, detector_prefix=None):
         try:
@@ -985,7 +1009,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
 #            return len(files)-self.starting_image_offset
         except:
             raise RuntimeError(f'{self.scan_title}: cannot determine the '
-                               + 'number of good detector images')
+                               'number of good detector images')
 
     def get_detector_data_path(self):
         return os.path.join(self.scan_path, str(self.scan_number), 'nf')
@@ -996,30 +1020,32 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         if os.path.isfile(file_name_full):
             return file_name_full
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + f'file for scan step ({scan_step_index})')
+                           f'file for scan step ({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         if scan_step_index is None:
             detector_data = []
             for index in range(len(self.get_num_image(detector_prefix))):
-                detector_data.append(self.get_detector_data(detector_prefix,
-                                                            index))
+                detector_data.append(
+                    self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)
         elif isinstance(scan_step_index, int):
-            image_file = self.get_detector_data_file(scan_step_index)
+            # third party modules
             from pyspec.file.tiff import TiffFile
+
+            image_file = self.get_detector_data_file(scan_step_index)
             with TiffFile(image_file) as tiff_file:
                 detector_data = tiff_file.asarray()
         elif (isinstance(scan_step_index, (list, tuple))
-                  and len(scan_step_index) == 2):
+                and len(scan_step_index) == 2):
             detector_data = []
             for index in range(scan_step_index[0], scan_step_index[1]):
-                detector_data.append(self.get_detector_data(detector_prefix,
-                                                            index))
+                detector_data.append(
+                    self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)
         else:
             raise ValueError('Invalid parameter scan_step_index '
-                             + f'({scan_step_index})')
+                             f'({scan_step_index})')
         return detector_data
 
 
@@ -1073,7 +1099,7 @@ class SMBMCAScanParser(MCAScanParser, SMBScanParser):
         if self.spec_scan == 'wbslew_scan':
             return 1
         raise RuntimeError(f'{self.scan_title}: cannot determine number of '
-                           + f'points for scans of type {self.spec_macro}')
+                           f'points for scans of type {self.spec_macro}')
 
     def get_dwell_time(self):
         if self.spec_macro == 'tseries':
@@ -1083,7 +1109,7 @@ class SMBMCAScanParser(MCAScanParser, SMBScanParser):
         if self.spec_macro == 'wbslew_scan':
             return float(self.spec_args[3])
         raise RuntimeError(f'{self.scan_title}: cannot determine dwell time '
-                           + f'for scans of type {self.spec_macro}')
+                           f'for scans of type {self.spec_macro}')
 
     def get_detector_num_bins(self, detector_prefix):
         with open(self.get_detector_data_file(detector_prefix)) \
@@ -1092,27 +1118,24 @@ class SMBMCAScanParser(MCAScanParser, SMBScanParser):
         for line in lines:
             if line.startswith('#@CHANN'):
                 try:
-                    line_prefix, \
-                    number_saved, \
-                    first_saved, \
-                    last_saved, \
-                    reduction_coef = line.split()
+                    line_prefix, number_saved, first_saved, last_saved, \
+                        reduction_coef = line.split()
                     return int(number_saved)
                 except:
                     continue
         raise RuntimeError(f'{self.scan_title}: could not find num_bins for '
-                           + f'detector {detector_prefix}')
+                           f'detector {detector_prefix}')
 
     def get_detector_data_path(self):
         return self.scan_path
 
-    def get_detector_data_file(self, detector_prefix, scan_step_index:int=0):
+    def get_detector_data_file(self, detector_prefix, scan_step_index=0):
         file_name = f'spec.log.scan{self.scan_number}.mca1.mca'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
-        raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           + 'file')
+        raise RuntimeError(
+            f'{self.scan_title}: could not find detector image file')
 
     def get_all_detector_data(self, detector_prefix):
         # This should be easy with pyspec, but there are bugs in
@@ -1123,7 +1146,7 @@ class SMBMCAScanParser(MCAScanParser, SMBScanParser):
         data = []
 
         with open(self.get_detector_data_file(detector_prefix)) \
-             as detector_file:
+                as detector_file:
             lines = [line.strip("\\\n") for line in detector_file.readlines()]
 
         num_bins = self.get_detector_num_bins(detector_prefix)

@@ -20,7 +20,6 @@ import numpy as np
 from CHAP.common.utils.general import (
     is_num,
     input_int,
-#    input_num,
     input_yesno,
     select_image_bounds,
     select_one_image_bound,
@@ -30,6 +29,7 @@ from CHAP.common.utils.general import (
     quick_plot,
     quick_imshow,
 )
+#    input_num,
 from CHAP.common.utils.fit import Fit
 from CHAP.processor import Processor
 from CHAP.reader import main
@@ -202,7 +202,7 @@ class TomoDataProcessor(Processor):
             values taken from `data`.
         :rtype: dict
         """
-        #:rtype: dict{'map': MapConfig, 'reduce': TomoReduceConfig}
+        # :rtype: dict{'map': MapConfig, 'reduce': TomoReduceConfig}
         # RV is there a way to denote optional items?
         # Third party modules
         from nexusformat.nexus import NXroot
@@ -396,8 +396,9 @@ class TomoDataProcessor(Processor):
                 image_offset = scanparser.starting_image_offset
                 if map_config.station in ('id1a3', 'id3a'):
                     theta_vals = scanparser.theta_vals
-                    thetas = np.linspace(theta_vals.get('start'),
-                        theta_vals.get('end'), theta_vals.get('num'))
+                    thetas = np.linspace(
+                        theta_vals.get('start'), theta_vals.get('end'),
+                        theta_vals.get('num'))
                 else:
                     if len(scans.scan_numbers) != 1:
                         raise RuntimeError(
@@ -459,7 +460,7 @@ class TomoDataProcessor(Processor):
                         scanparser.get_detector_data(
                             tool_config.detector.prefix,
                             scan_step_index=(image_offset,
-                            image_offset+num_image)))
+                                             image_offset+num_image)))
                     rotation_angles += list(thetas)
                     x_translations += num_image*[x_translation]
                     z_translations += num_image*[z_translation]
@@ -634,7 +635,7 @@ class Tomo:
             self._logger.warning(
                 f'num_core = {self._num_core} is larger than the number '
                 + f'of available processors and reduced to {cpu_count()}')
-            self._num_core= cpu_count()
+            self._num_core = cpu_count()
 
     def gen_reduced_data(self, data, img_x_bounds=None):
         """
@@ -775,18 +776,19 @@ class Tomo:
             raise ValueError(f'Invalid nxentry ({nxentry})')
         if (center_rows is not None
                 and (not isinstance(center_rows, (tuple, list))
-                or len(center_rows) != 2)):
+                     or len(center_rows) != 2)):
             raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        if not self._interactive and (center_rows is None
-                or (center_rows[0] is None and center_rows[1] is None)):
+        if (not self._interactive
+                and (center_rows is None
+                     or (center_rows[0] is None and center_rows[1] is None))):
             self._logger.warning(
                 'center_rows unspecified, find centers at reduced data bounds')
         if (center_stack_index is not None
                 and (not isinstance(center_stack_index, int)
-                or center_stack_index < 0)):
+                     or center_stack_index < 0)):
             raise ValueError(
-                    'Invalid parameter center_stack_index '
-                    + f'({center_stack_index})')
+                'Invalid parameter center_stack_index '
+                + f'({center_stack_index})')
 
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
@@ -831,8 +833,9 @@ class Tomo:
 
         # Get effective pixel_size
         if 'zoom_perc' in nxentry.reduced_data:
-            eff_pixel_size = 100.0 * (nxentry.instrument.detector.x_pixel_size
-                / nxentry.reduced_data.attrs['zoom_perc'])
+            eff_pixel_size = \
+                100.0 * (nxentry.instrument.detector.x_pixel_size
+                         / nxentry.reduced_data.attrs['zoom_perc'])
         else:
             eff_pixel_size = nxentry.instrument.detector.x_pixel_size
 
@@ -873,10 +876,10 @@ class Tomo:
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
         lower_center_offset = self._find_center_one_plane(
-                nxentry.reduced_data.data.tomo_fields[
-                    center_stack_index,:,lower_row,:],
-                lower_row, thetas, eff_pixel_size, cross_sectional_dim,
-                path=self._output_folder, num_core=self._num_core)
+            nxentry.reduced_data.data.tomo_fields[
+                center_stack_index,:,lower_row,:],
+            lower_row, thetas, eff_pixel_size, cross_sectional_dim,
+            path=self._output_folder, num_core=self._num_core)
         self._logger.info(f'Finding center took {time()-t0:.2f} seconds')
         self._logger.debug(f'lower_row = {lower_row:.2f}')
         self._logger.debug(f'lower_center_offset = {lower_center_offset:.2f}')
@@ -933,7 +936,7 @@ class Tomo:
         # Save test data to file
         if self._test_mode:
             with open(f'{self._output_folder}/center_config.yaml', 'w',
-                    encoding='utf8') as f:
+                      encoding='utf8') as f:
                 safe_dump(center_config, f)
 
         return center_config
@@ -1043,16 +1046,16 @@ class Tomo:
             assert len(thetas) == tomo_stack.shape[1]
             assert 0 <= lower_row < upper_row < tomo_stack.shape[0]
             center_offsets = [
-                lower_center_offset - lower_row*center_slope,
-                upper_center_offset + (tomo_stack.shape[0]-1-upper_row)
-                    * center_slope,
+                lower_center_offset-lower_row*center_slope,
+                upper_center_offset + center_slope * (
+                    tomo_stack.shape[0]-1-upper_row),
             ]
             t0 = time()
             tomo_recon_stack = self._reconstruct_one_tomo_stack(
                 tomo_stack, thetas, center_offsets=center_offsets,
                 num_core=self._num_core, algorithm='gridrec')
             self._logger.info(
-                 f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
+                f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
 
             # Combine stacks
             tomo_recon_stacks[i] = tomo_recon_stack
@@ -1065,14 +1068,14 @@ class Tomo:
             z_bounds = None
         elif self._interactive:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
-               tomo_recon_stacks, x_bounds=x_bounds, y_bounds=y_bounds,
-               z_bounds=z_bounds)
+                tomo_recon_stacks, x_bounds=x_bounds, y_bounds=y_bounds,
+                z_bounds=z_bounds)
         else:
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(x_bounds, ge=0,
-                    lt=tomo_recon_stacks[0].shape[1]):
+                                 lt=tomo_recon_stacks[0].shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             if y_bounds is None:
                 self._logger.warning(
@@ -1146,7 +1149,7 @@ class Tomo:
             nxprocess.z_bounds = z_bounds
         nxprocess.data['reconstructed_data'] = np.asarray(
             [stack[z_range[0]:z_range[1],x_range[0]:x_range[1],
-            y_range[0]:y_range[1]] for stack in tomo_recon_stacks])
+             y_range[0]:y_range[1]] for stack in tomo_recon_stacks])
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
 
         # Create a copy of the input Nexus object and remove reduced
@@ -1246,12 +1249,12 @@ class Tomo:
             tomo_recon_combined = np.concatenate(
                 [tomo_recon_combined]
                 + [nxentry.reconstructed_data.data.reconstructed_data[i]
-                for i in range(1, num_tomo_stacks-1)])
+                   for i in range(1, num_tomo_stacks-1)])
         if num_tomo_stacks > 1:
             tomo_recon_combined = np.concatenate(
                 [tomo_recon_combined]
                 + [nxentry.reconstructed_data.data.reconstructed_data[
-                num_tomo_stacks-1]])
+                   num_tomo_stacks-1]])
         self._logger.info(
             f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
 
@@ -1304,18 +1307,18 @@ class Tomo:
         # Plot a few combined image slices
         if self._save_figs:
             quick_imshow(
-                tomo_recon_combined[z_range[0]:z_range[1],x_slice,
-                    y_range[0]:y_range[1]],
+                tomo_recon_combined[
+                    z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
                 title=f'recon combined xslice{x_slice}',
                 path=self._output_folder, save_fig=True, save_only=True)
             quick_imshow(
-                tomo_recon_combined[z_range[0]:z_range[1],
-                    x_range[0]:x_range[1],y_slice],
+                tomo_recon_combined[
+                    z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
                 title=f'recon combined yslice{y_slice}',
                 path=self._output_folder, save_fig=True, save_only=True)
             quick_imshow(
-                tomo_recon_combined[z_slice,x_range[0]:x_range[1],
-                    y_range[0]:y_range[1]],
+                tomo_recon_combined[
+                    z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
                 title=f'recon combined zslice{z_slice}',
                 path=self._output_folder, save_fig=True, save_only=True)
 
@@ -1324,8 +1327,9 @@ class Tomo:
         if self._test_mode:
             np.savetxt(
                 f'{self._output_folder}/recon_combined.txt',
-                tomo_recon_combined[z_slice,x_range[0]:x_range[1],
-                y_range[0]:y_range[1]], fmt='%.6e')
+                tomo_recon_combined[
+                    z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
+                fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
         #     combined data order: row/z,x,y
@@ -1375,8 +1379,8 @@ class Tomo:
         # Get the dark field images
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key and 'data' in nxentry.instrument.detector:
-            field_indices = [index for index, key in enumerate(image_key)
-                if key == 2]
+            field_indices = [
+                index for index, key in enumerate(image_key) if key == 2]
             tdf_stack = nxentry.instrument.detector.data[field_indices,:,:]
             # RV the default NXtomo form does not accomodate dark field
             #     stacks
@@ -1399,7 +1403,7 @@ class Tomo:
                         detector_prefix,
                         (image_offset, image_offset+num_image)))
             if isinstance(tdf_stack, list):
-                assert len(tdf_stack) == 1 # RV
+                assert len(tdf_stack) == 1  # RV
                 tdf_stack = tdf_stack[0]
 
         # Take median
@@ -1455,8 +1459,8 @@ class Tomo:
         # Get the bright field images
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key and 'data' in nxentry.instrument.detector:
-            field_indices = [index for index, key in enumerate(image_key)
-                if key == 1]
+            field_indices = [
+                index for index, key in enumerate(image_key) if key == 1]
             tbf_stack = nxentry.instrument.detector.data[field_indices,:,:]
             # RV the default NXtomo form does not accomodate bright
             #     field stacks
@@ -1479,7 +1483,7 @@ class Tomo:
                         detector_prefix,
                         (image_offset, image_offset+num_image)))
             if isinstance(tbf_stack, list):
-                assert len(tbf_stack) == 1 # RV
+                assert len(tbf_stack) == 1  # RV
                 tbf_stack = tbf_stack[0]
 
         # Take median if more than one image
@@ -1544,8 +1548,8 @@ class Tomo:
         # Get the first tomography image and the reference heights
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key and 'data' in nxentry.instrument.detector:
-            field_indices = [index for index, key in enumerate(image_key)
-                if key == 0]
+            field_indices = [
+                index for index, key in enumerate(image_key) if key == 0]
             first_image = np.asarray(
                 nxentry.instrument.detector.data[field_indices[0],:,:])
             theta = float(nxentry.sample.rotation_angle[field_indices[0]])
@@ -1603,10 +1607,10 @@ class Tomo:
             sig_low = parameters.get('sigma1', None)
             sig_upp = parameters.get('sigma2', None)
             have_fit = (fit.success and x_low_fit is not None
-                and x_upp_fit is not None and sig_low is not None
-                and sig_upp is not None
-                and 0 <= x_low_fit < x_upp_fit <= x_sum.size
-                and (sig_low+sig_upp) / (x_upp_fit-x_low_fit) < 0.1)
+                        and x_upp_fit is not None and sig_low is not None
+                        and sig_upp is not None
+                        and 0 <= x_low_fit < x_upp_fit <= x_sum.size
+                        and (sig_low+sig_upp) / (x_upp_fit-x_low_fit) < 0.1)
             if have_fit:
                 # Set a 5% margin on each side
                 margin = 0.05 * (x_upp_fit-x_low_fit)
@@ -1667,7 +1671,7 @@ class Tomo:
                     title='sum over theta and y')
                 print(f'lower bound = {x_low} (inclusive)')
                 print(f'upper bound = {x_upp} (exclusive)]')
-                accept =  input_yesno('Accept these bounds (y/n)?', 'y')
+                accept = input_yesno('Accept these bounds (y/n)?', 'y')
                 clear_imshow('bright field')
                 clear_imshow(title)
                 clear_plot('sum over theta and y')
@@ -1684,7 +1688,7 @@ class Tomo:
                     img_x_bounds = tuple(img_x_bounds[0])
             if (num_tomo_stacks > 1
                     and (img_x_bounds[1]-img_x_bounds[0]+1)
-                        < int((delta_z - 0.5*pixel_size) / pixel_size)):
+                    < int((delta_z - 0.5*pixel_size) / pixel_size)):
                 self._logger.warning(
                     'Image bounds and pixel size prevent seamless stacking')
         else:
@@ -1776,9 +1780,9 @@ class Tomo:
 
         # Get image bounds
         img_x_bounds = tuple(
-             reduced_data.get('img_x_bounds', (0, tbf_shape[0])))
+            reduced_data.get('img_x_bounds', (0, tbf_shape[0])))
         img_y_bounds = tuple(
-             reduced_data.get('img_y_bounds', (0, tbf_shape[1])))
+            reduced_data.get('img_y_bounds', (0, tbf_shape[1])))
 
         # Get resized dark field
 #        if 'dark_field' in data:
@@ -1794,14 +1798,15 @@ class Tomo:
         # Resize bright field
         if (img_x_bounds != (0, tbf.shape[0])
                 or img_y_bounds != (0, tbf.shape[1])):
-            tbf = tbf[img_x_bounds[0]:img_x_bounds[1],
+            tbf = tbf[
+                img_x_bounds[0]:img_x_bounds[1],
                 img_y_bounds[0]:img_y_bounds[1]]
 
         # Get the tomography images
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key and 'data' in nxentry.instrument.detector:
-            field_indices_all = [index for index, key in enumerate(image_key)
-                if key == 0]
+            field_indices_all = [
+                index for index, key in enumerate(image_key) if key == 0]
             z_translation_all = nxentry.sample.z_translation[field_indices_all]
             z_translation_levels = sorted(list(set(z_translation_all)))
             num_tomo_stacks = len(z_translation_levels)
@@ -1811,7 +1816,8 @@ class Tomo:
             thetas = None
             tomo_stacks = []
             for i, z_translation in enumerate(z_translation_levels):
-                field_indices = [field_indices_all[index]
+                field_indices = [
+                    field_indices_all[index]
                     for index, z in enumerate(z_translation_all)
                     if z == z_translation]
                 horizontal_shift = list(
@@ -1823,7 +1829,7 @@ class Tomo:
                 assert len(vertical_shift) == 1
                 vertical_shifts += vertical_shift
                 sequence_numbers = nxentry.instrument.detector.sequence_number[
-                        field_indices]
+                    field_indices]
                 if thetas is None:
                     thetas = np.asarray(
                         nxentry.sample.rotation_angle[
@@ -1831,12 +1837,12 @@ class Tomo:
                 else:
                     assert all(
                         thetas[i] == nxentry.sample.rotation_angle[
-                        field_indices[index]]
+                            field_indices[index]]
                         for i, index in enumerate(sequence_numbers))
-                assert (list(set(sequence_numbers)) ==
-                    list(np.arange(0, (len(sequence_numbers)))))
-                if (list(sequence_numbers) ==
-                        list(np.arange(0, (len(sequence_numbers))))):
+                assert (list(set(sequence_numbers))
+                        == list(np.arange(0, (len(sequence_numbers)))))
+                if (list(sequence_numbers)
+                        == list(np.arange(0, (len(sequence_numbers))))):
                     tomo_stack = np.asarray(
                         nxentry.instrument.detector.data[field_indices])
                 else:
@@ -1875,7 +1881,8 @@ class Tomo:
             # Right now the range is the same for each set in the stack
             if (img_x_bounds != (0, tbf.shape[0])
                     or img_y_bounds != (0, tbf.shape[1])):
-                tomo_stack = tomo_stack[:,img_x_bounds[0]:img_x_bounds[1],
+                tomo_stack = tomo_stack[
+                    :,img_x_bounds[0]:img_x_bounds[1],
                     img_y_bounds[0]:img_y_bounds[1]].astype('float64')
 
             # Subtract dark field
@@ -1975,7 +1982,7 @@ class Tomo:
 
     def _find_center_one_plane(
             self, sinogram, row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=None, num_core=1):#, tol=0.1):
+            path=None, num_core=1):  # , tol=0.1):
         """Find center for a single tomography plane."""
         from tomopy import find_center_vo
 
@@ -2135,7 +2142,7 @@ class Tomo:
         del sinogram
 
         # Performing Gaussian filtering and removing ring artifacts
-        recon_parameters = None #self._config.get('recon_parameters')
+        recon_parameters = None  # self._config.get('recon_parameters')
         if recon_parameters is None:
             sigma = 1.0
             ring_width = 15
@@ -2168,7 +2175,7 @@ class Tomo:
         """
         from skimage.restoration import denoise_tv_chambolle
 
-        vis_parameters = None #self._config.get('vis_parameters')
+        vis_parameters = None  # self._config.get('vis_parameters')
         if vis_parameters is None:
             weight = 0.1
         else:
@@ -2229,7 +2236,7 @@ class Tomo:
         centers += tomo_stack.shape[2]/2
 
         # Get reconstruction parameters
-        recon_parameters = None #self._config.get('recon_parameters')
+        recon_parameters = None  # self._config.get('recon_parameters')
         if recon_parameters is None:
             sigma = 2.0
             secondary_iters = 0
@@ -2304,7 +2311,7 @@ class Tomo:
                 'num_iter': secondary_iters,
             }
             t0 = time()
-            tomo_recon_stack  = recon(
+            tomo_recon_stack = recon(
                 tomo_stack, np.radians(thetas), centers,
                 init_recon=tomo_recon_stack, options=options,
                 sinogram_order=True, algorithm=astra, ncore=num_core)
@@ -2319,8 +2326,9 @@ class Tomo:
 
         return tomo_recon_stack
 
-    def _resize_reconstructed_data(self, data, x_bounds=None, y_bounds=None,
-            z_bounds=None, z_only=False):
+    def _resize_reconstructed_data(
+            self, data, x_bounds=None, y_bounds=None, z_bounds=None,
+            z_only=False):
         """Resize the reconstructed tomography data."""
         # Data order: row(z),x,y or stack,row(z),x,y
         if isinstance(data, list):

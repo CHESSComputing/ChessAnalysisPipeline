@@ -4,7 +4,7 @@
 """
 File       : pipeline.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: 
+Description:
 """
 
 # system modules
@@ -16,7 +16,7 @@ class Pipeline():
     """Pipeline represent generic Pipeline class"""
     def __init__(self, items=None, kwds=None):
         """Pipeline class constructor
-        
+
         :param items: list of objects
         :param kwds: list of method args for individual objects
         """

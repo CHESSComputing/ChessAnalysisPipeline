@@ -6,8 +6,8 @@ File       : general.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
 Description: A collection of general modules
 """
-#RV write function that returns a list of peak indices for a given plot
-#RV use raise_error concept on more functions
+# RV write function that returns a list of peak indices for a given plot
+# RV use raise_error concept on more functions
 
 # System modules
 from ast import literal_eval
@@ -32,17 +32,23 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+
 def depth_list(_list):
     """Return the depth of a list."""
     return isinstance(_list, list) and 1+max(map(depth_list, _list))
+
+
 def depth_tuple(_tuple):
     """Return the depth of a tuple."""
     return isinstance(_tuple, tuple) and 1+max(map(depth_tuple, _tuple))
+
+
 def unwrap_tuple(_tuple):
     """Unwrap a tuple."""
     if depth_tuple(_tuple) > 1 and len(_tuple) == 1:
         _tuple = unwrap_tuple(*_tuple)
     return _tuple
+
 
 def illegal_value(value, name, location=None, raise_error=False, log=True):
     """Print illegal value message and/or raise error."""
@@ -60,6 +66,7 @@ def illegal_value(value, name, location=None, raise_error=False, log=True):
     if raise_error:
         raise ValueError(error_msg)
 
+
 def illegal_combination(
         value1, name1, value2, name2, location=None, raise_error=False,
         log=True):
@@ -70,14 +77,15 @@ def illegal_combination(
         location = f'in {location} '
     if isinstance(name1, str):
         error_msg = f'Illegal combination for {name1} and {name2} {location}' \
-                + f'({value1}, {type(value1)} and {value2}, {type(value2)})'
+            f'({value1}, {type(value1)} and {value2}, {type(value2)})'
     else:
         error_msg = f'Illegal combination {location}' \
-                + f'({value1}, {type(value1)} and {value2}, {type(value2)})'
+            f'({value1}, {type(value1)} and {value2}, {type(value2)})'
     if log:
         logger.error(error_msg)
     if raise_error:
         raise ValueError(error_msg)
+
 
 def test_ge_gt_le_lt(
         ge, gt, le, lt, func, location=None, raise_error=False, log=True):
@@ -127,6 +135,7 @@ def test_ge_gt_le_lt(
             return False
     return True
 
+
 def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
     """
     Return a range string representation matching the ge, gt, le, lt
@@ -156,6 +165,7 @@ def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
             range_string += f'{lt})'
     return range_string
 
+
 def is_int(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     """
     Value is an integer in range ge <= v <= le or gt < v < lt or some
@@ -166,6 +176,7 @@ def is_int(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     """
     return _is_int_or_num(v, 'int', ge, gt, le, lt, raise_error, log)
 
+
 def is_num(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     """
     Value is a number in range ge <= v <= le or gt < v < lt or some
@@ -175,6 +186,7 @@ def is_num(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     :rtype: bool
     """
     return _is_int_or_num(v, 'num', ge, gt, le, lt, raise_error, log)
+
 
 def _is_int_or_num(
         v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
@@ -219,6 +231,7 @@ def _is_int_or_num(
         return False
     return True
 
+
 def is_int_pair(
         v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     """
@@ -231,6 +244,7 @@ def is_int_pair(
     """
     return _is_int_or_num_pair(v, 'int', ge, gt, le, lt, raise_error, log)
 
+
 def is_num_pair(
         v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
     """
@@ -242,6 +256,7 @@ def is_num_pair(
     :rtype: bool
     """
     return _is_int_or_num_pair(v, 'num', ge, gt, le, lt, raise_error, log)
+
 
 def _is_int_or_num_pair(
         v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
@@ -285,10 +300,11 @@ def _is_int_or_num_pair(
     elif not _is_int_or_num_pair(
             lt, type_str, raise_error=raise_error, log=log):
         return False
-    if (not func(v[0], ge[0], gt[0], le[0], lt[0], raise_error, log) or
-            not func(v[1], ge[1], gt[1], le[1], lt[1], raise_error, log)):
+    if (not func(v[0], ge[0], gt[0], le[0], lt[0], raise_error, log)
+            or not func(v[1], ge[1], gt[1], le[1], lt[1], raise_error, log)):
         return False
     return True
+
 
 def is_int_series(
         t_or_l, ge=None, gt=None, le=None, lt=None, raise_error=False,
@@ -307,6 +323,7 @@ def is_int_series(
         return False
     return True
 
+
 def is_num_series(
         t_or_l, ge=None, gt=None, le=None, lt=None, raise_error=False,
         log=True):
@@ -324,6 +341,7 @@ def is_num_series(
         return False
     return True
 
+
 def is_str_series(t_or_l, raise_error=False, log=True):
     """
     Value is a tuple or list of strings.
@@ -333,6 +351,7 @@ def is_str_series(t_or_l, raise_error=False, log=True):
         illegal_value(t_or_l, 't_or_l', 'is_str_series', raise_error, log)
         return False
     return True
+
 
 def is_dict_series(t_or_l, raise_error=False, log=True):
     """
@@ -344,6 +363,7 @@ def is_dict_series(t_or_l, raise_error=False, log=True):
         return False
     return True
 
+
 def is_dict_nums(d, raise_error=False, log=True):
     """
     Value is a dictionary with single number values
@@ -354,6 +374,7 @@ def is_dict_nums(d, raise_error=False, log=True):
         return False
     return True
 
+
 def is_dict_strings(d, raise_error=False, log=True):
     """
     Value is a dictionary with single string values
@@ -363,6 +384,7 @@ def is_dict_strings(d, raise_error=False, log=True):
         illegal_value(d, 'd', 'is_dict_strings', raise_error, log)
         return False
     return True
+
 
 def is_index(v, ge=0, lt=None, raise_error=False, log=True):
     """
@@ -375,6 +397,7 @@ def is_index(v, ge=0, lt=None, raise_error=False, log=True):
                 ge, 'ge', lt, 'lt', 'is_index', raise_error, log)
             return False
     return is_int(v, ge=ge, lt=lt, raise_error=raise_error, log=log)
+
 
 def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
     """
@@ -401,6 +424,7 @@ def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
         return False
     return True
 
+
 def index_nearest(a, value):
     """Return index of nearest array value."""
     a = np.asarray(a)
@@ -410,6 +434,7 @@ def index_nearest(a, value):
     # Round up for .5
     value *= 1.0+float_info.epsilon
     return (int)(np.argmin(np.abs(a-value)))
+
 
 def index_nearest_low(a, value):
     """Return index of nearest array value, rounded down"""
@@ -422,6 +447,7 @@ def index_nearest_low(a, value):
         index -= 1
     return index
 
+
 def index_nearest_upp(a, value):
     """Return index of nearest array value, rounded upp."""
     a = np.asarray(a)
@@ -433,11 +459,13 @@ def index_nearest_upp(a, value):
         index += 1
     return index
 
+
 def round_to_n(x, n=1):
     """Round to a specific number of decimals."""
     if x == 0.0:
         return 0
     return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
+
 
 def round_up_to_n(x, n=1):
     """Round up to a specific number of decimals."""
@@ -446,12 +474,14 @@ def round_up_to_n(x, n=1):
         x_round += np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
     return type(x)(x_round)
 
+
 def trunc_to_n(x, n=1):
     """Truncate to a specific number of decimals."""
     x_round = round_to_n(x, n)
     if abs(x_round/x) > 1.0:
         x_round -= np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
     return type(x)(x_round)
+
 
 def almost_equal(a, b, sig_figs):
     """
@@ -461,7 +491,8 @@ def almost_equal(a, b, sig_figs):
         return abs(round_to_n(a-b, sig_figs)) < pow(10, 1-sig_figs)
     raise ValueError(
         f'Invalid value for a or b in almost_equal (a: {a}, {type(a)}, '
-        + f'b: {b}, {type(b)})')
+        f'b: {b}, {type(b)})')
+
 
 def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
     """
@@ -483,7 +514,8 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
         try:
             l_of_i = []
             for v in list1:
-                list2 = [literal_eval(x)
+                list2 = [
+                    literal_eval(x)
                     for x in re_split(r'\s+-\s+|\s+-|-\s+|\s+|-', v)]
                 if len(list2) == 1:
                     l_of_i += list2
@@ -502,6 +534,7 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
         l_of_i = sorted(l_of_i)
     return l_of_i
 
+
 def get_trailing_int(string):
     """Get the trailing integer in a string."""
     index_regex = re_compile(r'\d+$')
@@ -510,6 +543,7 @@ def get_trailing_int(string):
         return None
     return int(match.group())
 
+
 def input_int(
         s=None, ge=None, gt=None, le=None, lt=None, default=None, inset=None,
         raise_error=False, log=True):
@@ -517,12 +551,14 @@ def input_int(
     return _input_int_or_num(
         'int', s, ge, gt, le, lt, default, inset, raise_error, log)
 
+
 def input_num(
         s=None, ge=None, gt=None, le=None, lt=None, default=None,
         raise_error=False, log=True):
     """Interactively prompt the user to enter a number."""
     return _input_int_or_num(
         'num', s, ge, gt, le, lt, default, None, raise_error,log)
+
 
 def _input_int_or_num(
         type_str, s=None, ge=None, gt=None, le=None, lt=None, default=None,
@@ -599,6 +635,7 @@ def _input_int_or_num(
             type_str, s, ge, gt, le, lt, default, inset, raise_error, log)
     return v
 
+
 def input_int_list(
         s=None, ge=None, le=None, split_on_dash=True, remove_duplicates=True,
         sort=True, raise_error=False, log=True):
@@ -617,6 +654,7 @@ def input_int_list(
         'int', s, ge, le, split_on_dash, remove_duplicates, sort, raise_error,
         log)
 
+
 def input_num_list(
         s=None, ge=None, le=None, remove_duplicates=True, sort=True,
         raise_error=False, log=True):
@@ -633,10 +671,11 @@ def input_num_list(
     return _input_int_or_num_list(
         'num', s, ge, le, False, remove_duplicates, sort, raise_error, log)
 
+
 def _input_int_or_num_list(
         type_str, s=None, ge=None, le=None, split_on_dash=True,
         remove_duplicates=True, sort=True, raise_error=False, log=True):
-    #RV do we want a limit on max dimension?
+    # RV do we want a limit on max dimension?
     if type_str == 'int':
         if not test_ge_gt_le_lt(
                 ge, None, le, None, is_int, 'input_int_or_num_list',
@@ -668,14 +707,15 @@ def _input_int_or_num_list(
             not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
         if split_on_dash:
             print('Invalid input: enter a valid set of dash/comma/whitespace '
-                + 'separated integers e.g. 1 3,5-8 , 12')
+                  'separated integers e.g. 1 3,5-8 , 12')
         else:
             print('Invalid input: enter a valid set of comma/whitespace '
-                + 'separated integers e.g. 1 3,5 8 , 12')
+                  'separated integers e.g. 1 3,5 8 , 12')
         _list = _input_int_or_num_list(
             type_str, s, ge, le, split_on_dash, remove_duplicates, sort,
             raise_error, log)
     return _list
+
 
 def input_yesno(s=None, default=None):
     """Interactively prompt the user to enter a y/n question."""
@@ -710,6 +750,7 @@ def input_yesno(s=None, default=None):
         v = input_yesno(s, default)
     return v
 
+
 def input_menu(items, default=None, header=None):
     """Interactively prompt the user to select from a menu."""
     if (not isinstance(items, (tuple, list))
@@ -725,15 +766,14 @@ def input_menu(items, default=None, header=None):
     else:
         default_string = ''
     if header is None:
-        print(
-            'Choose one of the following items '
-            + f'(1, {len(items)}){default_string}:')
+        print('Choose one of the following items '
+              f'(1, {len(items)}){default_string}:')
     else:
         print(f'{header} (1, {len(items)}){default_string}:')
     for i, choice in enumerate(items):
         print(f'  {i+1}: {choice}')
     try:
-        choice  = input()
+        choice = input()
         if isinstance(choice, str) and not choice:
             choice = items.index(default)
             print(f'{1+choice}')
@@ -753,6 +793,7 @@ def input_menu(items, default=None, header=None):
         choice = input_menu(items, default)
     return choice
 
+
 def assert_no_duplicates_in_list_of_dicts(_list, raise_error=False):
     """
     Assert that there are no duplicates in a list of dictionaries.
@@ -760,20 +801,21 @@ def assert_no_duplicates_in_list_of_dicts(_list, raise_error=False):
     if not isinstance(_list, list):
         illegal_value(
             _list, '_list', 'assert_no_duplicates_in_list_of_dicts',
-             raise_error)
+            raise_error)
         return None
     if any(not isinstance(d, dict) for d in _list):
         illegal_value(
             _list, '_list', 'assert_no_duplicates_in_list_of_dicts',
-             raise_error)
+            raise_error)
         return None
     if (len(_list) != len([dict(_tuple) for _tuple in
-            {tuple(sorted(d.items())) for d in _list}])):
+                          {tuple(sorted(d.items())) for d in _list}])):
         if raise_error:
             raise ValueError(f'Duplicate items found in {_list}')
         logger.error(f'Duplicate items found in {_list}')
         return None
     return _list
+
 
 def assert_no_duplicate_key_in_list_of_dicts(_list, key, raise_error=False):
     """
@@ -803,6 +845,7 @@ def assert_no_duplicate_key_in_list_of_dicts(_list, key, raise_error=False):
         return None
     return _list
 
+
 def assert_no_duplicate_attr_in_list_of_objs(_list, attr, raise_error=False):
     """
     Assert that there are no duplicate attributes in a list of objects.
@@ -826,6 +869,7 @@ def assert_no_duplicate_attr_in_list_of_objs(_list, attr, raise_error=False):
         return None
     return _list
 
+
 def file_exists_and_readable(f):
     """Check if a file exists and is readable."""
     if not os_path.isfile(f):
@@ -834,14 +878,15 @@ def file_exists_and_readable(f):
         raise ValueError(f'{f} is not accessible for reading')
     return f
 
+
 def draw_mask_1d(
         ydata, xdata=None, current_index_ranges=None, current_mask=None,
         select_mask=True, num_index_ranges_max=None, title=None, legend=None,
         test_mode=False):
     """Display a 2D plot and have the user select a mask."""
-    #RV make color blind friendly
-    def draw_selections(ax, current_include, current_exclude,
-            selected_index_ranges):
+    # RV make color blind friendly
+    def draw_selections(
+            ax, current_include, current_exclude, selected_index_ranges):
         """Draw the selections."""
         ax.clear()
         ax.set_title(title)
@@ -950,12 +995,12 @@ def draw_mask_1d(
         if not isinstance(current_index_ranges, (tuple, list)):
             logger.warning(
                 'Invalid current_index_ranges parameter '
-                + f'({current_index_ranges}, {type(current_index_ranges)})')
+                f'({current_index_ranges}, {type(current_index_ranges)})')
             return None, None
     if not isinstance(select_mask, bool):
         logger.warning(
             f'Invalid select_mask parameter ({select_mask}, '
-            + f'{type(select_mask)})')
+            f'{type(select_mask)})')
         return None, None
     if num_index_ranges_max is not None:
         logger.warning(
@@ -1063,6 +1108,7 @@ def draw_mask_1d(
 
     return selected_mask, current_include
 
+
 def select_image_bounds(
         a, axis, low=None, upp=None, num_min=None, title='select array bounds',
         raise_error=False):
@@ -1072,8 +1118,9 @@ def select_image_bounds(
     """
     a = np.asarray(a)
     if a.ndim != 2:
-        illegal_value(a.ndim, 'array dimension', location='select_image_bounds',
-                raise_error=raise_error)
+        illegal_value(
+            a.ndim, 'array dimension', location='select_image_bounds',
+            raise_error=raise_error)
         return None
     if axis < 0 or axis >= a.ndim:
         illegal_value(
@@ -1089,7 +1136,7 @@ def select_image_bounds(
         if num_min < 2 or num_min > a.shape[axis]:
             logger.warning(
                 'Invalid input for num_min in select_image_bounds, '
-                + 'input ignored')
+                'input ignored')
             num_min = 1
     if low is None:
         min_ = 0
@@ -1097,11 +1144,13 @@ def select_image_bounds(
         low_max = a.shape[axis]-num_min
         while True:
             if axis:
-                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
-                        extent=[min_,max_,a.shape[0],0])
+                quick_imshow(
+                    a[:,min_:max_], title=title, aspect='auto',
+                    extent=[min_,max_,a.shape[0],0])
             else:
-                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
-                        extent=[0,a.shape[1], max_,min_])
+                quick_imshow(
+                    a[min_:max_,:], title=title, aspect='auto',
+                    extent=[0,a.shape[1], max_,min_])
             zoom_flag = input_yesno(
                 'Set lower data bound (y) or zoom in (n)?', 'y')
             if zoom_flag:
@@ -1122,11 +1171,13 @@ def select_image_bounds(
         upp_min = min_
         while True:
             if axis:
-                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
-                        extent=[min_,max_,a.shape[0],0])
+                quick_imshow(
+                    a[:,min_:max_], title=title, aspect='auto',
+                    extent=[min_,max_,a.shape[0],0])
             else:
-                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
-                        extent=[0,a.shape[1], max_,min_])
+                quick_imshow(
+                    a[min_:max_,:], title=title, aspect='auto',
+                    extent=[0,a.shape[1], max_,min_])
             zoom_flag = input_yesno(
                 'Set upper data bound (y) or zoom in (n)?', 'y')
             if zoom_flag:
@@ -1162,6 +1213,7 @@ def select_image_bounds(
     clear_imshow(title)
     return bounds
 
+
 def select_one_image_bound(
         a, axis, bound=None, bound_name=None, title='select array bounds',
         default='y', raise_error=False):
@@ -1187,11 +1239,13 @@ def select_one_image_bound(
         bound_max = a.shape[axis]-1
         while True:
             if axis:
-                quick_imshow(a[:,min_:max_], title=title, aspect='auto',
-                        extent=[min_,max_,a.shape[0],0])
+                quick_imshow(
+                    a[:,min_:max_], title=title, aspect='auto',
+                    extent=[min_,max_,a.shape[0],0])
             else:
-                quick_imshow(a[min_:max_,:], title=title, aspect='auto',
-                        extent=[0,a.shape[1], max_,min_])
+                quick_imshow(
+                    a[min_:max_,:], title=title, aspect='auto',
+                    extent=[0,a.shape[1], max_,min_])
             zoom_flag = input_yesno(
                 f'Set {bound_name} (y) or zoom in (n)?', 'y')
             if zoom_flag:
@@ -1223,6 +1277,7 @@ def select_one_image_bound(
     clear_imshow(title)
     return bound
 
+
 def clear_imshow(title=None):
     """Clear an image opened by quick_imshow()."""
     plt.ioff()
@@ -1232,6 +1287,7 @@ def clear_imshow(title=None):
         raise ValueError(f'Invalid parameter title ({title})')
     plt.close(fig=title)
 
+
 def clear_plot(title=None):
     """Clear an image opened by quick_plot()."""
     plt.ioff()
@@ -1240,6 +1296,7 @@ def clear_plot(title=None):
     elif not isinstance(title, str):
         raise ValueError(f'Invalid parameter title ({title})')
     plt.close(fig=title)
+
 
 def quick_imshow(
         a, title=None, path=None, name=None, save_fig=False, save_only=False,
@@ -1259,7 +1316,7 @@ def quick_imshow(
     if not isinstance(block, bool):
         raise ValueError(f'Invalid parameter block ({block})')
     if not title:
-        title='quick imshow'
+        title = 'quick imshow'
     if name is None:
         ttitle = re_sub(r'\s+', '_', title)
         if path is None:
@@ -1313,6 +1370,7 @@ def quick_imshow(
             plt.savefig(path)
         if block:
             plt.show(block=block)
+
 
 def quick_plot(
         *args, xerr=None, yerr=None, vlines=None, title=None, xlim=None,
@@ -1412,7 +1470,7 @@ def quick_plot(
         plt.ylabel(ylabel)
     if show_grid:
         ax = plt.gca()
-        ax.grid(color='k')#, linewidth=1)
+        ax.grid(color='k')  # , linewidth=1)
     if legend is not None:
         plt.legend(legend)
     if save_only:

@@ -7,12 +7,10 @@ Description: generic Reader module
 
 # system modules
 import argparse
-import inspect
+from inspect import getfullargspec
 import logging
-import sys
+from sys import modules
 from time import time
-
-# local modules
 
 
 class Reader():
@@ -46,11 +44,11 @@ class Reader():
 
         t0 = time()
         self.logger.info(f'Executing "read" with type={type_}, '
-                         + f'schema={schema}, kwargs={_read_kwargs}')
+                         f'schema={schema}, kwargs={_read_kwargs}')
 
         _valid_read_args = {}
-        allowed_args = inspect.getfullargspec(self._read).args \
-                       + inspect.getfullargspec(self._read).kwonlyargs
+        allowed_args = getfullargspec(self._read).args \
+            + getfullargspec(self._read).kwonlyargs
         for k, v in _read_kwargs.items():
             if k in allowed_args:
                 _valid_read_args[k] = v
@@ -74,8 +72,8 @@ class Reader():
         """
 
         if not filename:
-            self.logger.warning('No file name is given, will skip '
-                                + 'read operation')
+            self.logger.warning(
+                'No file name is given, will skip read operation')
             return None
 
         with open(filename) as file:
@@ -97,17 +95,18 @@ class OptionParser():
             '--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
 
+
 def main(opt_parser=OptionParser):
     """Main function"""
 
-    optmgr  = opt_parser()
+    optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.reader
     try:
-        reader_cls = getattr(sys.modules[__name__],cls_name)
-    except:
+        reader_cls = getattr(modules[__name__], cls_name)
+    except AttributeError:
         print(f'Unsupported reader {cls_name}')
-        sys.exit(1)
+        raise
 
     reader = reader_cls()
     reader.logger.setLevel(getattr(logging, opts.log_level))
@@ -118,6 +117,7 @@ def main(opt_parser=OptionParser):
     data = reader.read(filename=opts.filename)
 
     print(f'Reader {reader} reads from {opts.filename}, data {data}')
+
 
 if __name__ == '__main__':
     main()

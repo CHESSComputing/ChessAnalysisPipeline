@@ -69,8 +69,8 @@ from CHAP.common.utils.general import (
     index_nearest,
     input_num,
     quick_plot,
-    #eval_expr,
 )
+#    eval_expr,
 
 logger = getLogger(__name__)
 FLOAT_MIN = float_info.min
@@ -80,19 +80,20 @@ FLOAT_MAX = float_info.max
 fwhm_factor = {
     'gaussian': 'fwhm/(2*sqrt(2*log(2)))',
     'lorentzian': '0.5*fwhm',
-    'splitlorentzian': '0.5*fwhm', # sigma = sigma_r
-    'voight': '0.2776*fwhm', # sigma = gamma
-    'pseudovoight': '0.5*fwhm', # fraction = 0.5
+    'splitlorentzian': '0.5*fwhm',  # sigma = sigma_r
+    'voight': '0.2776*fwhm',        # sigma = gamma
+    'pseudovoight': '0.5*fwhm',     # fraction = 0.5
 }
 
 # amplitude = height_factor*height*fwhm
 height_factor = {
     'gaussian': 'height*fwhm*0.5*sqrt(pi/log(2))',
     'lorentzian': 'height*fwhm*0.5*pi',
-    'splitlorentzian': 'height*fwhm*0.5*pi', # sigma = sigma_r
-    'voight': '3.334*height*fwhm', # sigma = gamma
-    'pseudovoight': '1.268*height*fwhm', # fraction = 0.5
+    'splitlorentzian': 'height*fwhm*0.5*pi',  # sigma = sigma_r
+    'voight': '3.334*height*fwhm',            # sigma = gamma
+    'pseudovoight': '1.268*height*fwhm',      # fraction = 0.5
 }
+
 
 class Fit:
     """
@@ -122,7 +123,7 @@ class Fit:
             if not isinstance(self._try_linear_fit, bool):
                 raise ValueError(
                     'Invalid value of keyword argument try_linear_fit '
-                    + f'({self._try_linear_fit})')
+                    f'({self._try_linear_fit})')
         if y is not None:
             if isinstance(y, (tuple, list, np.ndarray)):
                 self._x = np.asarray(x)
@@ -133,7 +134,7 @@ class Fit:
                 if y.ndim != 1:
                     raise ValueError(
                         'Invalid DataArray dimensions for parameter y '
-                        + f'({y.ndim})')
+                        f'({y.ndim})')
                 self._x = np.asarray(y[y.dims[0]])
                 self._y = y
             else:
@@ -144,7 +145,7 @@ class Fit:
             if self._x.size != self._y.size:
                 raise ValueError(
                     f'Inconsistent x and y dimensions ({self._x.size} vs '
-                    + f'{self._y.size})')
+                    f'{self._y.size})')
             if 'mask' in kwargs:
                 self._mask = kwargs.pop('mask')
             if self._mask is None:
@@ -157,7 +158,7 @@ class Fit:
                 if self._x.size != self._mask.size:
                     raise ValueError(
                         f'Inconsistent x and mask dimensions ({self._x.size} '
-                        + f'vs {self._mask.size})')
+                        f'vs {self._mask.size})')
                 y_masked = np.asarray(self._y)[~self._mask]
                 y_min = float(y_masked.min())
                 self._y_range = float(y_masked.max())-y_min
@@ -182,10 +183,9 @@ class Fit:
         """Return errors in the best fit parameters."""
         if self._result is None:
             return None
-        return(
-            {name:self._result.params[name].stderr
-            for name in sorted(self._result.params)
-            if name != 'tmp_normalization_offset_c'})
+        return {name:self._result.params[name].stderr
+                for name in sorted(self._result.params)
+                if name != 'tmp_normalization_offset_c'}
 
     @property
     def best_fit(self):
@@ -204,11 +204,11 @@ class Fit:
                 par = self._result.params[name]
                 parameters[name] = {
                     'value': par.value,
-                     'error': par.stderr,
-                     'init_value': par.init_value,
-                     'min': par.min,
-                     'max': par.max,
-                     'vary': par.vary, 'expr': par.expr
+                    'error': par.stderr,
+                    'init_value': par.init_value,
+                    'min': par.min,
+                    'max': par.max,
+                    'vary': par.vary, 'expr': par.expr
                 }
         return parameters
 
@@ -250,10 +250,9 @@ class Fit:
         """Return values of the best fit parameters."""
         if self._result is None:
             return None
-        return(
-            {name:self._result.params[name].value
-            for name in sorted(self._result.params)
-            if name != 'tmp_normalization_offset_c'})
+        return {name:self._result.params[name].value
+                for name in sorted(self._result.params)
+                if name != 'tmp_normalization_offset_c'}
 
     @property
     def chisqr(self):
@@ -336,10 +335,9 @@ class Fit:
         """Return the initial values for the fit parameters."""
         if self._result is None or self._result.init_params is None:
             return None
-        return(
-            {name:self._result.init_params[name].value
-            for name in sorted(self._result.init_params)
-            if name != 'tmp_normalization_offset_c'})
+        return {name:self._result.init_params[name].value
+                for name in sorted(self._result.init_params)
+                if name != 'tmp_normalization_offset_c'}
 
     @property
     def normalization_offset(self):
@@ -368,10 +366,9 @@ class Fit:
     @property
     def parameters(self):
         """Return the fit parameter info."""
-        return(
-            {name:{'min': par.min, 'max': par.max, 'vary': par.vary,
-            'expr': par.expr} for name, par in self._parameters.items()
-            if name != 'tmp_normalization_offset_c'})
+        return {name:{'min': par.min, 'max': par.max, 'vary': par.vary,
+                'expr': par.expr} for name, par in self._parameters.items()
+                if name != 'tmp_normalization_offset_c'}
 
     @property
     def redchi(self):
@@ -442,13 +439,13 @@ class Fit:
             if self._norm is None:
                 logger.warning(
                     f'Ignoring norm in parameter {name} in Fit.add_parameter '
-                    + '(normalization is turned off)')
+                    '(normalization is turned off)')
                 self._parameter_norms[name] = False
             else:
                 if not isinstance(norm, bool):
                     raise ValueError(
                         f'Invalid "norm" value ({norm}) in parameter '
-                        + f'{parameter}')
+                        f'{parameter}')
                 self._parameter_norms[name] = norm
         vary = parameter.get('vary')
         if vary is not None:
@@ -459,12 +456,12 @@ class Fit:
                 if 'min' in parameter:
                     logger.warning(
                         f'Ignoring min in parameter {name} in '
-                        + f'Fit.add_parameter (vary = {vary})')
+                        f'Fit.add_parameter (vary = {vary})')
                     parameter.pop('min')
                 if 'max' in parameter:
                     logger.warning(
                         f'Ignoring max in parameter {name} in '
-                        + f'Fit.add_parameter (vary = {vary})')
+                        f'Fit.add_parameter (vary = {vary})')
                     parameter.pop('max')
         if self._norm is not None and name not in self._parameter_norms:
             raise ValueError(
@@ -508,19 +505,19 @@ class Fit:
                 if parameters is None:
                     raise ValueError(
                         'Either parameters or parameter_norms is required in '
-                        + f'{model}')
+                        f'{model}')
                 for par in parameters:
                     name = par['name']
                     if not isinstance(name, str):
                         raise ValueError(
                             f'Invalid "name" value ({name}) in input '
-                            + 'parameters')
+                            'parameters')
                     if par.get('norm') is not None:
                         norm = par.pop('norm')
                         if not isinstance(norm, bool):
                             raise ValueError(
                                 f'Invalid "norm" value ({norm}) in input '
-                                + 'parameters')
+                                'parameters')
                         new_parameter_norms[f'{pprefix}{name}'] = norm
             else:
                 for par in parameter_norms:
@@ -528,24 +525,24 @@ class Fit:
                     if not isinstance(name, str):
                         raise ValueError(
                             f'Invalid "name" value ({name}) in input '
-                            + 'parameters')
+                            'parameters')
                     norm = par.get('norm')
                     if norm is None or not isinstance(norm, bool):
                         raise ValueError(
                             f'Invalid "norm" value ({norm}) in input '
-                            + 'parameters')
+                            'parameters')
                     new_parameter_norms[f'{pprefix}{name}'] = norm
             if parameters is not None:
                 for par in parameters:
                     if par.get('expr') is not None:
                         raise KeyError(
                             f'Invalid "expr" key ({par.get("expr")}) in '
-                            + f'parameter {name} for a callable model {model}')
+                            f'parameter {name} for a callable model {model}')
                     name = par['name']
                     if not isinstance(name, str):
                         raise ValueError(
                             f'Invalid "name" value ({name}) in input '
-                            + 'parameters')
+                            'parameters')
 # RV callable model will need partial deriv functions for any linear
 #     parameter to get the linearized matrix, so for now skip linear
 #     solution option
@@ -580,7 +577,7 @@ class Fit:
                 if degree is None or not is_int(degree, ge=0, le=7):
                     raise ValueError(
                         'Invalid parameter degree for build-in step model '
-                        + f'({degree})')
+                        f'({degree})')
                 newmodel = PolynomialModel(degree=degree, prefix=prefix)
                 for i in range(degree+1):
                     new_parameter_norms[f'{pprefix}c{i}'] = True
@@ -627,7 +624,7 @@ class Fit:
                         ('linear', 'atan', 'arctan', 'erf', 'logistic')):
                     raise ValueError(
                         'Invalid parameter form for build-in step model '
-                        + f'({form})')
+                        f'({form})')
                 newmodel = StepModel(prefix=prefix, form=form)
                 new_parameter_norms[f'{pprefix}amplitude'] = True
                 new_parameter_norms[f'{pprefix}center'] = False
@@ -644,7 +641,7 @@ class Fit:
                         ('linear', 'atan', 'arctan', 'erf', 'logistic')):
                     raise ValueError(
                         'Invalid parameter form for build-in rectangle model '
-                        + f'({form})')
+                        f'({form})')
                 newmodel = RectangleModel(prefix=prefix, form=form)
                 new_parameter_norms[f'{pprefix}amplitude'] = True
                 new_parameter_norms[f'{pprefix}center1'] = False
@@ -666,28 +663,28 @@ class Fit:
                 if parameter_norms is not None:
                     logger.warning(
                         'Ignoring parameter_norms (normalization '
-                        + 'determined from linearity)}')
+                        'determined from linearity)}')
                 if parameters is not None:
                     for par in parameters:
                         if par.get('expr') is not None:
                             raise KeyError(
                                 f'Invalid "expr" key ({par.get("expr")}) in '
-                                + f'parameter ({par}) for an expression model')
+                                f'parameter ({par}) for an expression model')
                         if par.get('norm') is not None:
                             logger.warning(
                                 f'Ignoring "norm" key in parameter ({par}) '
-                                + '(normalization determined from linearity)')
+                                '(normalization determined from linearity)')
                             par.pop('norm')
                         name = par['name']
                         if not isinstance(name, str):
                             raise ValueError(
                                 f'Invalid "name" value ({name}) in input '
-                                + 'parameters')
+                                'parameters')
                 ast = Interpreter()
                 expr_parameters = [
                     name for name in get_ast_names(ast.parse(expr))
-                    if name != 'x' and name not in self._parameters
-                    and name not in ast.symtable]
+                    if (name != 'x' and name not in self._parameters
+                        and name not in ast.symtable)]
                 if prefix is None:
                     newmodel = ExpressionModel(expr=expr)
                 else:
@@ -765,45 +762,45 @@ class Fit:
                         if not isinstance(parameter['norm'], bool):
                             raise ValueError(
                                 f'Invalid "norm" value ({norm}) in the '
-                                + f'input parameter {name}')
+                                f'input parameter {name}')
                         new_parameter_norms[name] = parameter['norm']
                         parameter.pop('norm')
                     if parameter.get('expr') is not None:
                         if 'value' in parameter:
                             logger.warning(
                                 f'Ignoring value in parameter {name} '
-                                + f'(set by expression: {parameter["expr"]})')
+                                f'(set by expression: {parameter["expr"]})')
                             parameter.pop('value')
                         if 'vary' in parameter:
                             logger.warning(
                                 f'Ignoring vary in parameter {name} '
-                                + f'(set by expression: {parameter["expr"]})')
+                                f'(set by expression: {parameter["expr"]})')
                             parameter.pop('vary')
                         if 'min' in parameter:
                             logger.warning(
                                 f'Ignoring min in parameter {name} '
-                                + f'(set by expression: {parameter["expr"]})')
+                                f'(set by expression: {parameter["expr"]})')
                             parameter.pop('min')
                         if 'max' in parameter:
                             logger.warning(
                                 f'Ignoring max in parameter {name} '
-                                + f'(set by expression: {parameter["expr"]})')
+                                f'(set by expression: {parameter["expr"]})')
                             parameter.pop('max')
                     if 'vary' in parameter:
                         if not isinstance(parameter['vary'], bool):
                             raise ValueError(
                                 f'Invalid "vary" value ({parameter["vary"]}) '
-                                + f'in the input parameter {name}')
+                                f'in the input parameter {name}')
                         if not parameter['vary']:
                             if 'min' in parameter:
                                 logger.warning(
                                     f'Ignoring min in parameter {name} '
-                                    + f'(vary = {parameter["vary"]})')
+                                    f'(vary = {parameter["vary"]})')
                                 parameter.pop('min')
                             if 'max' in parameter:
                                 logger.warning(
                                     f'Ignoring max in parameter {name} '
-                                    + f'(vary = {parameter["vary"]})')
+                                    f'(vary = {parameter["vary"]})')
                                 parameter.pop('max')
                     self._parameters[name].set(**parameter)
                     parameter['name'] = name
@@ -826,12 +823,12 @@ class Fit:
                 else:
                     logger.warning(
                         f'Ignoring parameter {name} (set by expression: '
-                        + f'{self._parameters[full_name].expr})')
+                        f'{self._parameters[full_name].expr})')
 
         # Check parameter norms
         # (also need it for expressions to renormalize the errors)
-        if (self._norm is not None and
-                (callable(model) or model == 'expression')):
+        if (self._norm is not None
+                and (callable(model) or model == 'expression')):
             missing_norm = False
             for name in new_parameters.valuesdict():
                 if name not in self._parameter_norms:
@@ -839,7 +836,7 @@ class Fit:
                     print(f'self._parameter_norms:\n{self._parameter_norms}')
                     logger.error(
                         f'Missing parameter normalization type for {name} in '
-                        + f'{model}')
+                        f'{model}')
                     missing_norm = True
             if missing_norm:
                 raise ValueError
@@ -865,7 +862,7 @@ class Fit:
             if not isinstance(interactive, bool):
                 raise ValueError(
                     'Invalid value of keyword argument interactive '
-                    + f'({interactive})')
+                    f'({interactive})')
         else:
             interactive = False
         if 'guess' in kwargs:
@@ -880,11 +877,11 @@ class Fit:
             if not isinstance(try_linear_fit, bool):
                 raise ValueError(
                     'Invalid value of keyword argument try_linear_fit '
-                    + f'({try_linear_fit})')
+                    f'({try_linear_fit})')
             if not self._try_linear_fit:
                 logger.warning(
                     'Ignore superfluous keyword argument "try_linear_fit" '
-                    + '(not yet supported for callable models)')
+                    '(not yet supported for callable models)')
             else:
                 self._try_linear_fit = try_linear_fit
         if self._result is not None:
@@ -906,7 +903,7 @@ class Fit:
             if self._x.size != self._mask.size:
                 raise ValueError(
                     f'Inconsistent x and mask dimensions ({self._x.size} vs '
-                    + f'{self._mask.size})')
+                    f'{self._mask.size})')
 
         # Estimate initial parameters with build-in lmfit guess method
         # (only mplemented for a single model)
@@ -926,10 +923,10 @@ class Fit:
                     'value': -self._norm[0],
                     'vary': False,
                     'norm': True,
+                })
 #                    'value': -self._norm[0]/self._norm[1],
 #                    'vary': False,
 #                    'norm': False,
-                })
 
         # Adjust existing parameters for refit:
         if 'parameters' in kwargs:
@@ -939,17 +936,17 @@ class Fit:
             elif not is_dict_series(parameters):
                 raise ValueError(
                     'Invalid value of keyword argument parameters '
-                    + f'({parameters})')
+                    f'({parameters})')
             for par in parameters:
                 name = par['name']
                 if name not in self._parameters:
                     raise ValueError(
                         f'Unable to match {name} parameter {par} to an '
-                        + 'existing one')
+                        'existing one')
                 if self._parameters[name].expr is not None:
                     raise ValueError(
                         f'Unable to modify {name} parameter {par} '
-                        + '(currently an expression)')
+                        '(currently an expression)')
                 if par.get('expr') is not None:
                     raise KeyError(
                         f'Invalid "expr" key in {name} parameter {par}')
@@ -966,7 +963,7 @@ class Fit:
             else:
                 logger.warning(
                     f'Ignoring parameter {name} (set by expression: '
-                    + f'{self._parameters[name].expr})')
+                    f'{self._parameters[name].expr})')
 
         # Check for uninitialized parameters
         for name, par in self._parameters.items():
@@ -1000,8 +997,9 @@ class Fit:
                 if self._mask is None:
                     self._fit_linear_model(self._x, self._y_norm)
                 else:
-                    self._fit_linear_model(self._x[~self._mask],
-                            np.asarray(self._y_norm)[~self._mask])
+                    self._fit_linear_model(
+                        self._x[~self._mask],
+                        np.asarray(self._y_norm)[~self._mask])
             except:
                 linear_model = False
         if not linear_model:
@@ -1120,23 +1118,23 @@ class Fit:
         if len(x) != len(y):
             logger.error(
                 f'Invalid x and y lengths ({len(x)}, {len(y)}), '
-                + 'skip initial guess')
+                'skip initial guess')
             return None, None, None
         if isinstance(center_guess, (int, float)):
             if args:
                 logger.warning(
                     'Ignoring additional arguments for single center_guess '
-                    + 'value')
+                    'value')
             center_guesses = [center_guess]
         elif isinstance(center_guess, (tuple, list, np.ndarray)):
             if len(center_guess) == 1:
                 logger.warning(
                     'Ignoring additional arguments for single center_guess '
-                    + 'value')
+                    'value')
                 if not isinstance(center_guess[0], (int, float)):
                     raise ValueError(
                         'Invalid parameter center_guess '
-                        + f'({type(center_guess[0])})')
+                        f'({type(center_guess[0])})')
                 center_guess = center_guess[0]
             else:
                 if len(args) != 1:
@@ -1328,7 +1326,7 @@ class Fit:
                         if not self._parameter_norms[name]:
                             dexpr_dname = f'({dexpr_dname})/{norm}'
                         y_expr = [(lambda _: ast.eval(str(dexpr_dname)))
-                            (ast(f'x={v}')) for v in x]
+                                  (ast(f'x={v}')) for v in x]
                         if ast.error:
                             raise ValueError(
                                 f'Unable to evaluate {dexpr_dname}')
@@ -1337,7 +1335,7 @@ class Fit:
                 #     simplify
                 const_expr = str(simplify(f'({const_expr})/{norm}'))
                 delta_y_const = [(lambda _: ast.eval(const_expr))
-                    (ast(f'x = {v}')) for v in x]
+                                 (ast(f'x = {v}')) for v in x]
                 y_const += delta_y_const
                 if ast.error:
                     raise ValueError(f'Unable to evaluate {const_expr}')
@@ -1358,7 +1356,7 @@ class Fit:
                         mat_a[:,free_parameters.index(name)] = 1.0
                     else:
                         y_const += self._parameters[name].value \
-                                * np.ones(len(x))
+                            * np.ones(len(x))
                 elif isinstance(component, QuadraticModel):
                     name = f'{component.prefix}a'
                     if name in free_model_parameters:
@@ -1399,7 +1397,7 @@ class Fit:
                         parameters[name].set(value=1.0)
                         dcomp_dname = component.eval(params=parameters, x=x)
                         for nname in free_parameters:
-                            dexpr_dnname =  diff(expr, nname)
+                            dexpr_dnname = diff(expr, nname)
                             if dexpr_dnname:
                                 assert self._parameter_norms[name]
                                 y_expr = np.asarray(
@@ -1425,16 +1423,16 @@ class Fit:
         # (compensate for normalization in expression models)
         for name, value in zip(free_parameters, solution):
             self._parameters[name].set(value=value)
-        if (self._normalized and (have_expression_model
-                or expr_parameters)):
+        if (self._normalized
+                and (have_expression_model or expr_parameters)):
             for name, norm in self._parameter_norms.items():
                 par = self._parameters[name]
                 if par.expr is None and norm:
                     self._parameters[name].set(value=par.value*self._norm[1])
         self._result = ModelResult(self._model, deepcopy(self._parameters))
         self._result.best_fit = self._model.eval(params=self._parameters, x=x)
-        if (self._normalized and (have_expression_model
-                or expr_parameters)):
+        if (self._normalized
+                and (have_expression_model or expr_parameters)):
             if 'tmp_normalization_offset_c' in self._parameters:
                 offset = self._parameters['tmp_normalization_offset_c']
             else:
@@ -1495,8 +1493,8 @@ class Fit:
                 par.set(value=value, min=_min, max=_max)
         if self._result is None:
             return
-        self._result.best_fit = (self._result.best_fit*self._norm[1]
-            + self._norm[0])
+        self._result.best_fit = (
+            self._result.best_fit*self._norm[1] + self._norm[0])
         for name, par in self._result.params.items():
             if self._parameter_norms.get(name, False):
                 if par.stderr is not None:
@@ -1513,8 +1511,8 @@ class Fit:
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
         if hasattr(self._result, 'init_fit'):
-            self._result.init_fit = (self._result.init_fit*self._norm[1]
-                + self._norm[0])
+            self._result.init_fit = (
+                self._result.init_fit*self._norm[1] + self._norm[0])
         if hasattr(self._result, 'init_values'):
             init_values = {}
             for name, value in self._result.init_values.items():
@@ -1604,7 +1602,7 @@ class FitMultipeak(Fit):
             center_exprs=None, fit_type=None, background=None, fwhm_max=None,
             print_report=False, plot=False, x_eval=None):
         """Class method for FitMultipeak.
-        
+
         Make sure that centers and fwhm_max are in the correct units
         and consistent with expr for a uniform fit (fit_type ==
         'uniform').
@@ -1658,7 +1656,7 @@ class FitMultipeak(Fit):
             if param_constraint:
                 logger.warning(
                     '  -> Should not happen with param_constraint set, '
-                    + 'fail the fit')
+                    'fail the fit')
                 success = False
             else:
                 logger.info('  -> Retry fitting with constraints')
@@ -1698,7 +1696,7 @@ class FitMultipeak(Fit):
         if len(peak_models) != num_peaks:
             raise ValueError(
                 'Inconsistent number of peaks in peak_models '
-                + f'({len(peak_models)} vs {num_peaks})')
+                f'({len(peak_models)} vs {num_peaks})')
         if num_peaks == 1:
             if fit_type is not None:
                 logger.debug('Ignoring fit_type input for fitting one peak')
@@ -1714,7 +1712,7 @@ class FitMultipeak(Fit):
                 if len(center_exprs) != num_peaks:
                     raise ValueError(
                         'Inconsistent number of peaks in center_exprs '
-                        + f'({len(center_exprs)} vs {num_peaks})')
+                        f'({len(center_exprs)} vs {num_peaks})')
             elif fit_type == 'unconstrained' or fit_type is None:
                 if center_exprs is not None:
                     logger.warning(
@@ -1747,9 +1745,9 @@ class FitMultipeak(Fit):
                     if 'model' not in model:
                         raise KeyError(
                             'Missing keyword "model" in model in background '
-                            + f'({model})')
+                            f'({model})')
                     name = model.pop('model')
-                    parameters=model.pop('parameters', None)
+                    parameters = model.pop('parameters', None)
                     self.add_model(
                         name, prefix=f'bkgd_{name}_', parameters=parameters,
                         **model)
@@ -1779,7 +1777,7 @@ class FitMultipeak(Fit):
                     {'name': 'amplitude', 'value': amp_init, 'min': min_value},
                     {'name': 'center', 'value': cen_init, 'min': min_value},
                     {'name': 'sigma', 'value': sig_init, 'min': min_value,
-                    'max': sig_max},
+                     'max': sig_max},
                 ))
         else:
             if fit_type == 'uniform':
@@ -1803,10 +1801,10 @@ class FitMultipeak(Fit):
                         peak_models[i], prefix=f'peak{i+1}_',
                         parameters=(
                             {'name': 'amplitude', 'value': amp_init,
-                            'min': min_value},
+                             'min': min_value},
                             {'name': 'center', 'expr': center_exprs[i]},
                             {'name': 'sigma', 'value': sig_init,
-                            'min': min_value, 'max': sig_max},
+                             'min': min_value, 'max': sig_max},
                         ))
                 else:
                     self.add_model(
@@ -1814,11 +1812,11 @@ class FitMultipeak(Fit):
                         prefix=f'peak{i+1}_',
                         parameters=(
                             {'name': 'amplitude', 'value': amp_init,
-                            'min': min_value},
+                             'min': min_value},
                             {'name': 'center', 'value': cen_init,
-                            'min': min_value},
+                             'min': min_value},
                             {'name': 'sigma', 'value': sig_init,
-                            'min': min_value, 'max': sig_max},
+                             'min': min_value, 'max': sig_max},
                         ))
 
     def _check_validity(self):
@@ -1835,7 +1833,7 @@ class FitMultipeak(Fit):
             elif (((name.endswith('amplitude') or name.endswith('height'))
                     and par['value'] <= 0.0)
                     or ((name.endswith('sigma') or name.endswith('fwhm'))
-                    and par['value'] <= 0.0)
+                        and par['value'] <= 0.0)
                     or (name.endswith('center') and par['value'] <= 0.0)
                     or (name == 'scale_factor' and par['value'] <= 0.0)):
                 logger.info(f'Invalid fit result for {name} ({par["value"]})')
@@ -1912,22 +1910,22 @@ class FitMap(Fit):
         if self._ymap.ndim < 2:
             raise ValueError(
                 'Invalid number of dimension of the input dataset '
-                + f'{self._ymap.ndim}')
+                f'{self._ymap.ndim}')
         if self._x.size != self._ymap.shape[-1]:
             raise ValueError(
                 f'Inconsistent x and y dimensions ({self._x.size} vs '
-                + f'{self._ymap.shape[-1]})')
+                f'{self._ymap.shape[-1]})')
         if not isinstance(normalize, bool):
             logger.warning(
                 f'Invalid value for normalize ({normalize}) in Fit.__init__: '
-                + 'setting normalize to True')
+                'setting normalize to True')
             normalize = True
         if isinstance(transpose, bool) and not transpose:
             transpose = None
         if transpose is not None and self._ymap.ndim < 3:
             logger.warning(
                 f'Transpose meaningless for {self._ymap.ndim-1}D data maps: '
-                + 'ignoring transpose')
+                'ignoring transpose')
         if transpose is not None:
             if (self._ymap.ndim == 3 and isinstance(transpose, bool)
                     and transpose):
@@ -1935,20 +1933,21 @@ class FitMap(Fit):
             elif not isinstance(transpose, (tuple, list)):
                 logger.warning(
                     f'Invalid data type for transpose ({transpose}, '
-                    + f'{type(transpose)}): setting transpose to False')
+                    f'{type(transpose)}): setting transpose to False')
             elif transpose != self._ymap.ndim-1:
                 logger.warning(
                     f'Invalid dimension for transpose ({transpose}, must be '
-                    + f'equal to {self._ymap.ndim-1}): '
-                    + 'setting transpose to False')
+                    f'equal to {self._ymap.ndim-1}): '
+                    'setting transpose to False')
             elif any(i not in transpose for i in range(len(transpose))):
                 logger.warning(
                     f'Invalid index in transpose ({transpose}): '
-                    + 'setting transpose to False')
-            elif not all(i==transpose[i] for i in range(self._ymap.ndim-1)):
+                    'setting transpose to False')
+            elif not all(i == transpose[i] for i in range(self._ymap.ndim-1)):
                 self._transpose = transpose
             if self._transpose is not None:
-                self._inv_transpose = tuple(self._transpose.index(i)
+                self._inv_transpose = tuple(
+                    self._transpose.index(i)
                     for i in range(len(self._transpose)))
 
         # Flatten the map (transpose if requested)
@@ -1976,7 +1975,7 @@ class FitMap(Fit):
             if self._x.size != self._mask.size:
                 raise ValueError(
                     f'Inconsistent mask dimension ({self._x.size} vs '
-                    + f'{self._mask.size})')
+                    f'{self._mask.size})')
             ymap_masked = np.asarray(self._ymap_norm)[:,~self._mask]
             ymap_min = float(ymap_masked.min())
             ymap_max = float(ymap_masked.max())
@@ -2301,39 +2300,39 @@ class FitMap(Fit):
         if num_proc > cpu_count():
             logger.warning(
                 f'The requested number of processors ({num_proc}) exceeds the '
-                + 'maximum number of processors, num_proc reduced to '
-                + f'({cpu_count()})')
+                'maximum number of processors, num_proc reduced to '
+                f'({cpu_count()})')
             num_proc = cpu_count()
         if 'try_no_bounds' in kwargs:
             self._try_no_bounds = kwargs.pop('try_no_bounds')
             if not isinstance(self._try_no_bounds, bool):
                 raise ValueError(
                     'Invalid value for keyword argument try_no_bounds '
-                    + f'({self._try_no_bounds})')
+                    f'({self._try_no_bounds})')
         if 'redchi_cutoff' in kwargs:
             self._redchi_cutoff = kwargs.pop('redchi_cutoff')
             if not is_num(self._redchi_cutoff, gt=0):
                 raise ValueError(
                     'Invalid value for keyword argument redchi_cutoff'
-                    + f'({self._redchi_cutoff})')
+                    f'({self._redchi_cutoff})')
         if 'print_report' in kwargs:
             self._print_report = kwargs.pop('print_report')
             if not isinstance(self._print_report, bool):
                 raise ValueError(
                     'Invalid value for keyword argument print_report'
-                    + f'({self._print_report})')
+                    f'({self._print_report})')
         if 'plot' in kwargs:
             self._plot = kwargs.pop('plot')
             if not isinstance(self._plot, bool):
                 raise ValueError(
                     'Invalid value for keyword argument plot'
-                    + f'({self._plot})')
+                    f'({self._plot})')
         if 'skip_init' in kwargs:
             self._skip_init = kwargs.pop('skip_init')
             if not isinstance(self._skip_init, bool):
                 raise ValueError(
                     'Invalid value for keyword argument skip_init'
-                    + f'({self._skip_init})')
+                    f'({self._skip_init})')
 
         # Apply mask if supplied:
         if 'mask' in kwargs:
@@ -2343,7 +2342,7 @@ class FitMap(Fit):
             if self._x.size != self._mask.size:
                 raise ValueError(
                     f'Inconsistent x and mask dimensions ({self._x.size} vs '
-                    + f'{self._mask.size})')
+                    f'{self._mask.size})')
 
         # Add constant offset for a normalized single component model
         if self._result is None and self._norm is not None and self._norm[0]:
@@ -2355,10 +2354,10 @@ class FitMap(Fit):
                     'value': -self._norm[0],
                     'vary': False,
                     'norm': True,
+                })
 #                    'value': -self._norm[0]/self._norm[1],
 #                    'vary': False,
 #                    'norm': False,
-                })
 
         # Adjust existing parameters for refit:
         if 'parameters' in kwargs:
@@ -2368,19 +2367,19 @@ class FitMap(Fit):
             elif not is_dict_series(parameters):
                 raise ValueError(
                     'Invalid value for keyword argument parameters'
-                    + f'({parameters})')
+                    f'({parameters})')
             for par in parameters:
                 name = par['name']
                 if name not in self._parameters:
                     raise ValueError(
                         f'Unable to match {name} parameter {par} to an '
-                        + 'existing one')
+                        'existing one')
                 if self._parameters[name].expr is not None:
                     raise ValueError(
                         f'Unable to modify {name} parameter {par} '
-                        + '(currently an expression)')
-                value =  par.get('value')
-                vary =  par.get('vary')
+                        '(currently an expression)')
+                value = par.get('value')
+                vary = par.get('vary')
                 if par.get('expr') is not None:
                     raise KeyError(
                         f'Invalid "expr" key in {name} parameter {par}')
@@ -2439,8 +2438,8 @@ class FitMap(Fit):
             assert self._best_values.shape[0] == num_best_parameters
             assert self._best_values.shape[1:] == self._map_shape
             if self._transpose is not None:
-                self._best_values = np.transpose(self._best_values,
-                        [0]+[i+1 for i in self._transpose])
+                self._best_values = np.transpose(
+                    self._best_values, [0]+[i+1 for i in self._transpose])
             self._best_values = [
                 np.reshape(self._best_values[i], self._map_dim)
                 for i in range(num_best_parameters)]
@@ -2454,8 +2453,9 @@ class FitMap(Fit):
         self._normalize()
 
         # Prevent initial values from sitting at boundaries
-        self._parameter_bounds = {name:{'min': par.min, 'max': par.max}
-                for name, par in self._parameters.items() if par.vary}
+        self._parameter_bounds = {
+            name:{'min': par.min, 'max': par.max}
+            for name, par in self._parameters.items() if par.vary}
         for name, par in self._parameters.items():
             if par.vary:
                 par.set(value=self._reset_par_at_boundary(par, par.value))
@@ -2476,8 +2476,8 @@ class FitMap(Fit):
             self._max_nfev_flat = np.zeros(self._map_dim, dtype=bool)
             self._redchi_flat = np.zeros(self._map_dim, dtype=np.float64)
             self._success_flat = np.zeros(self._map_dim, dtype=bool)
-            self._best_fit_flat = np.zeros((self._map_dim, x_size),
-                    dtype=self._ymap_norm.dtype)
+            self._best_fit_flat = np.zeros(
+                (self._map_dim, x_size), dtype=self._ymap_norm.dtype)
             self._best_errors_flat = [
                 np.zeros(self._map_dim, dtype=np.float64)
                 for _ in range(num_best_parameters+num_new_parameters)]
@@ -2517,17 +2517,17 @@ class FitMap(Fit):
             self._best_errors_flat = []
             for i in range(num_best_parameters+num_new_parameters):
                 filename_memmap = path.join(
-                self._memfolder, f'best_errors_memmap_{i}')
+                    self._memfolder, f'best_errors_memmap_{i}')
                 self._best_errors_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
-                    shape=self._map_dim, mode='w+'))
+                              shape=self._map_dim, mode='w+'))
             self._best_values_flat = []
             for i in range(num_best_parameters):
                 filename_memmap = path.join(
                     self._memfolder, f'best_values_memmap_{i}')
                 self._best_values_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
-                    shape=self._map_dim, mode='w+'))
+                              shape=self._map_dim, mode='w+'))
                 if self._result is not None:
                     self._best_values_flat[i][:] = self._best_values[i][:]
             for i in range(num_new_parameters):
@@ -2536,7 +2536,7 @@ class FitMap(Fit):
                     f'best_values_memmap_{i+num_best_parameters}')
                 self._best_values_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
-                    shape=self._map_dim, mode='w+'))
+                              shape=self._map_dim, mode='w+'))
 
         # Update the best parameter list
         if num_new_parameters:
@@ -2562,7 +2562,6 @@ class FitMap(Fit):
             try:
                 delattr(self._result, attr)
             except AttributeError:
-#                logger.warning(f'Unknown attribute {attr}')
                 pass
 
         if num_proc == 1:
@@ -2575,20 +2574,19 @@ class FitMap(Fit):
             if num_proc > num_fit:
                 logger.warning(
                     f'The requested number of processors ({num_proc}) exceeds '
-                    + f'the number of fits, num_proc reduced to ({num_fit})')
+                    f'the number of fits, num_proc reduced to ({num_fit})')
                 num_proc = num_fit
                 num_fit_per_proc = 1
             else:
                 num_fit_per_proc = round((num_fit)/num_proc)
                 if num_proc*num_fit_per_proc < num_fit:
-                    num_fit_per_proc +=1
+                    num_fit_per_proc += 1
             num_fit_batch = min(num_fit_per_proc, 40)
             with Parallel(n_jobs=num_proc) as parallel:
                 parallel(
                     delayed(self._fit_parallel)
-                        (current_best_values, num_fit_batch,
-                    n_start, **kwargs)
-                for n_start in range(1, self._map_dim, num_fit_batch))
+                        (current_best_values, num_fit_batch, n_start, **kwargs)
+                    for n_start in range(1, self._map_dim, num_fit_batch))
 
         # Renormalize the initial parameters for external use
         if self._norm is not None and self._normalized:
@@ -2770,7 +2768,7 @@ class FitMap(Fit):
         if self._plot:
             dims = np.unravel_index(n, self._map_shape)
             if self._inv_transpose is not None:
-                dims= tuple(
+                dims = tuple(
                     dims[self._inv_transpose[i]] for i in range(len(dims)))
             super().plot(
                 result=result, y=np.asarray(self._ymap[dims]),
@@ -2807,8 +2805,8 @@ class FitMap(Fit):
                             if (not np.isinf(par.max)
                                     and abs(par.max) != FLOAT_MIN):
                                 par.max *= self._norm[1]
-            self._best_fit_flat[n] = (result.best_fit*self._norm[1]
-                + self._norm[0])
+            self._best_fit_flat[n] = (
+                result.best_fit*self._norm[1] + self._norm[0])
             for i, name in enumerate(self._best_parameters):
                 self._best_values_flat[i][n] = np.float64(
                     result.params[name].value)
@@ -2816,6 +2814,6 @@ class FitMap(Fit):
                     result.params[name].stderr)
             if self._plot:
                 if not self._skip_init:
-                    result.init_fit = (result.init_fit*self._norm[1]
-                        + self._norm[0])
+                    result.init_fit = (
+                        result.init_fit*self._norm[1] + self._norm[0])
                 result.best_fit = np.copy(self._best_fit_flat[n])

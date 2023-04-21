@@ -53,7 +53,7 @@ class NexusWriter(Writer):
 
         if not isinstance(data, NXobject):
             raise TypeError('Cannot write object of type '
-                            + f'{type(data).__name__} to a NeXus file.')
+                            f'{type(data).__name__} to a NeXus file.')
 
         mode = 'w' if force_overwrite else 'w-'
         data.save(filename, mode=mode)
@@ -83,13 +83,13 @@ class YAMLWriter(Writer):
         import yaml
 
         if not isinstance(data, (dict, list)):
-            raise(TypeError(f'{self.__name__}.write: input data must be '
-                            + 'a dict or list.'))
+            raise TypeError(
+                f'{self.__name__}.write: input data must be a dict or list.')
 
         if not force_overwrite:
             if os.path.isfile(filename):
-                raise(RuntimeError(f'{self.__name__}: {filename} already '
-                                   + 'exists.'))
+                raise RuntimeError(
+                    f'{self.__name__}: {filename} already exists.')
 
         with open(filename, 'w') as outf:
             yaml.dump(data, outf, sort_keys=False)

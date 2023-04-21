@@ -4,13 +4,13 @@
 """
 File       : runner.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: 
+Description:
 """
 
 # system modules
 import argparse
 import logging
-import yaml
+from yaml import safe_load
 
 # local modules
 from CHAP.pipeline import Pipeline
@@ -22,28 +22,29 @@ class OptionParser():
         """OptionParser class constructor"""
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
-            '--config', action='store', dest='config',
-            default='', help='Input configuration file')
+            '--config', action='store', dest='config', default='',
+            help='Input configuration file')
         self.parser.add_argument(
             '--interactive', action='store_true', dest='interactive',
             help='Allow interactive processes')
         self.parser.add_argument(
             '--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
-        self.parser.add_argument("--profile", action="store_true", dest="profile",
-            help="profile output")
+        self.parser.add_argument(
+            '--profile', action='store_true', dest='profile',
+            help='profile output')
 
 
 def main():
     """Main function"""
-    optmgr  = OptionParser()
+    optmgr = OptionParser()
     opts = optmgr.parser.parse_args()
     if opts.profile:
-        import cProfile # python profiler
-        import pstats   # profiler statistics
-        cmd  = 'runner(opts)'
-        cProfile.runctx(cmd, globals(), locals(), 'profile.dat')
-        info = pstats.Stats('profile.dat')
+        from cProfile import runctx  # python profiler
+        from pstats import Stats     # profiler statistics
+        cmd = 'runner(opts)'
+        runctx(cmd, globals(), locals(), 'profile.dat')
+        info = Stats('profile.dat')
         info.sort_stats('cumulative')
         info.print_stats()
     else:
@@ -67,7 +68,7 @@ def runner(opts):
 
     config = {}
     with open(opts.config) as file:
-        config = yaml.safe_load(file)
+        config = safe_load(file)
     logger.info(f'Input configuration: {config}\n')
     pipeline_config = config.get('pipeline', [])
     objects = []

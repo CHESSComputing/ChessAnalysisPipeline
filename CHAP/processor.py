@@ -9,9 +9,9 @@ Description: Processor module
 
 # system modules
 import argparse
-import inspect
+from inspect import getfullargspec
 import logging
-import sys
+from sys import modules
 from time import time
 
 
@@ -35,8 +35,8 @@ class Processor():
         self.logger.info(f'Executing "process" with type(data)={type(data)}')
 
         _valid_process_args = {}
-        allowed_args = inspect.getfullargspec(self._process).args \
-                       + inspect.getfullargspec(self._process).kwonlyargs
+        allowed_args = getfullargspec(self._process).args \
+            + getfullargspec(self._process).kwonlyargs
         for k, v in _process_kwargs.items():
             if k in allowed_args:
                 _valid_process_args[k] = v
@@ -58,9 +58,9 @@ class Processor():
         """
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
-            if all(isinstance(d,dict) for d in data):
+            if all(isinstance(d, dict) for d in data):
                 data = data[0]['data']
-        if data == None:
+        if data is None:
             return []
         # process operation is a simple print function
         data += "process part\n"
@@ -86,14 +86,14 @@ class OptionParser():
 def main(opt_parser=OptionParser):
     """Main function"""
 
-    optmgr  = opt_parser()
+    optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.processor
     try:
-        processor_cls = getattr(sys.modules[__name__],cls_name)
-    except:
+        processor_cls = getattr(modules[__name__], cls_name)
+    except AttributeError:
         print(f'Unsupported processor {cls_name}')
-        sys.exit(1)
+        raise
 
     processor = processor_cls()
     processor.logger.setLevel(getattr(logging, opts.log_level))
@@ -104,6 +104,7 @@ def main(opt_parser=OptionParser):
     data = processor.process(opts.data)
 
     print(f'Processor {processor} operates on data {data}')
+
 
 if __name__ == '__main__':
     main()

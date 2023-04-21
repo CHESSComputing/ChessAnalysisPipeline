@@ -7,9 +7,9 @@ Description: generic Writer module
 
 # system modules
 import argparse
-import inspect
+from inspect import getfullargspec
 import logging
-import sys
+from sys import modules
 from time import time
 
 
@@ -32,11 +32,11 @@ class Writer():
 
         t0 = time()
         self.logger.info(f'Executing "write" with filename={filename}, '
-                         + f'type(data)={type(data)}, kwargs={_write_kwargs}')
+                         f'type(data)={type(data)}, kwargs={_write_kwargs}')
 
         _valid_write_args = {}
-        allowed_args = inspect.getfullargspec(self._write).args \
-                       + inspect.getfullargspec(self._write).kwonlyargs
+        allowed_args = getfullargspec(self._write).args \
+            + getfullargspec(self._write).kwonlyargs
         for k, v in _write_kwargs.items():
             if k in allowed_args:
                 _valid_write_args[k] = v
@@ -53,6 +53,7 @@ class Writer():
         with open(filename, 'a') as file:
             file.write(data)
         return data
+
 
 class OptionParser():
     """User based option parser"""
@@ -71,17 +72,18 @@ class OptionParser():
             '--log-level', choices=logging._nameToLevel.keys(),
             dest='log_level', default='INFO', help='logging level')
 
+
 def main(opt_parser=OptionParser):
     """Main function"""
 
-    optmgr  = opt_parser()
+    optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.writer
     try:
-        writer_cls = getattr(sys.modules[__name__],cls_name)
-    except:
+        writer_cls = getattr(modules[__name__], cls_name)
+    except AttributeError:
         print(f'Unsupported writer {cls_name}')
-        sys.exit(1)
+        raise
 
     writer = writer_cls()
     writer.logger.setLevel(getattr(logging, opts.log_level))
@@ -91,6 +93,7 @@ def main(opt_parser=OptionParser):
     writer.logger.addHandler(log_handler)
     data = writer.write(opts.data, opts.filename)
     print(f'Writer {writer} writes to {opts.filename}, data {data}')
+
 
 if __name__ == '__main__':
     main()

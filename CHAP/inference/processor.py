@@ -13,6 +13,7 @@ from time import time
 # local modules
 from CHAP import Processor
 
+
 class TFaaSImageProcessor(Processor):
     """A Processor to get predictions from TFaaS inference server."""
 
@@ -37,25 +38,29 @@ class TFaaSImageProcessor(Processor):
         :return: `data`
         :rtype: object
         """
-
-        from MLaaS.tfaas_client import predictImage
+        # system modules
         from pathlib import Path
+
+        # local modules
+        from MLaaS.tfaas_client import predictImage
 
         self.logger.info(f'input data {type(data)}')
         if isinstance(data, str) and Path(data).is_file():
             img_file = data
             data = predictImage(url, img_file, model, verbose)
         else:
+            # third party modules
+            from requests import Session
+
             rdict = data[0]
-            import requests
             img = rdict['data']
-            session = requests.Session()
+            session = Session()
             rurl = url + '/predict/image'
             payload = {'model': model}
             files = {'image': img}
             self.logger.info(
                 f'HTTP request {rurl} with image file and {payload} payload')
-            req = session.post(rurl, files=files, data=payload )
+            req = session.post(rurl, files=files, data=payload)
             data = req.content
             data = data.decode('utf-8').replace('\n', '')
             self.logger.info(f'HTTP response {data}')
@@ -64,5 +69,7 @@ class TFaaSImageProcessor(Processor):
 
 
 if __name__ == '__main__':
+    # local modules
     from CHAP.processor import main
+
     main()

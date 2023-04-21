@@ -200,7 +200,7 @@ class IntegrationConfig(BaseModel):
             return radial_units
         raise ValueError(
             f'Invalid radial units: {radial_units}. '
-            + f'Must be one of {", ".join(RADIAL_UNITS.keys())}')
+            f'Must be one of {", ".join(RADIAL_UNITS.keys())}')
 
     @validator('azimuthal_units', allow_reuse=True)
     def validate_azimuthal_units(cls, azimuthal_units):
@@ -220,7 +220,7 @@ class IntegrationConfig(BaseModel):
             return azimuthal_units
         raise ValueError(
             f'Invalid azimuthal units: {azimuthal_units}. '
-            + f'Must be one of {", ".join(AZIMUTHAL_UNITS.keys())}')
+            f'Must be one of {", ".join(AZIMUTHAL_UNITS.keys())}')
 
     def validate_range_max(range_name:str):
         """Validate the maximum value of an integration range.
@@ -252,8 +252,8 @@ class IntegrationConfig(BaseModel):
                 return range_max
             raise ValueError(
                 'Maximum value of integration range must be '
-                + 'greater than minimum value of integration range '
-                + f'({range_name}_min={range_min}).')
+                'greater than minimum value of integration range '
+                f'({range_name}_min={range_min}).')
         return _validate_range_max
 
     _validate_radial_max = validator(
@@ -289,9 +289,9 @@ class IntegrationConfig(BaseModel):
                         except Exception as exc:
                             raise RuntimeError(
                                 'Could not find data file for detector prefix '
-                                + f'{detector.prefix} '
-                                + f'on scan number {scan_number} '
-                                + f'in spec file {scans.spec_file}') from exc
+                                f'{detector.prefix} '
+                                f'on scan number {scan_number} '
+                                f'in spec file {scans.spec_file}') from exc
 
     def get_azimuthal_adjustments(self):
         """To enable a continuous range of integration in the
@@ -397,17 +397,17 @@ class IntegrationConfig(BaseModel):
         intensity_each_detector = []
         variance_each_detector = []
         integrators = self.get_azimuthal_integrators()
-        for integrator,detector in zip(integrators,self.detectors):
+        for integrator, detector in zip(integrators, self.detectors):
             detector_data = spec_scans.get_detector_data(
                 [detector], scan_number, scan_step_index)[0]
             result = integrator.integrate_radial(
                 detector_data,
                 self.azimuthal_npt,
                 unit=self.azimuthal_units,
-                azimuth_range=(chi_min,chi_max),
+                azimuth_range=(chi_min, chi_max),
                 radial_unit=self.radial_units,
-                radial_range=(self.radial_min,self.radial_max),
-                mask=detector.mask_array) #, error_model=self.error_model)
+                radial_range=(self.radial_min, self.radial_max),
+                mask=detector.mask_array)  # , error_model=self.error_model)
             intensity_each_detector.append(result.intensity)
             if result.sigma is not None:
                 variance_each_detector.append(result.sigma**2)
@@ -415,7 +415,7 @@ class IntegrationConfig(BaseModel):
         # together
         intensity = np.nansum(intensity_each_detector, axis=0)
         # Ignore data at values of chi for which there was no data
-        intensity = np.where(intensity==0, np.nan, intensity)
+        intensity = np.where(intensity == 0, np.nan, intensity)
         if len(intensity_each_detector) != len(variance_each_detector):
             return intensity
 
@@ -501,17 +501,17 @@ class IntegrationConfig(BaseModel):
         """
         if self.integration_type == 'azimuthal':
             return get_integrated_data_coordinates(
-                radial_range=(self.radial_min,self.radial_max),
+                radial_range=(self.radial_min, self.radial_max),
                 radial_npt=self.radial_npt)
         if self.integration_type == 'radial':
             return get_integrated_data_coordinates(
-                azimuthal_range=(self.azimuthal_min,self.azimuthal_max),
+                azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
                 azimuthal_npt=self.azimuthal_npt)
         if self.integration_type == 'cake':
             return get_integrated_data_coordinates(
-                radial_range=(self.radial_min,self.radial_max),
+                radial_range=(self.radial_min, self.radial_max),
                 radial_npt=self.radial_npt,
-                azimuthal_range=(self.azimuthal_min,self.azimuthal_max),
+                azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
                 azimuthal_npt=self.azimuthal_npt)
         return None
 
@@ -521,7 +521,7 @@ class IntegrationConfig(BaseModel):
         data produced by this instance of `IntegrationConfig`.
         """
         directions = list(self.integrated_data_coordinates.keys())
-        dim_names = [getattr(self, f'{direction}_units') \
+        dim_names = [getattr(self, f'{direction}_units')
                      for direction in directions]
         return dim_names
 
@@ -531,8 +531,8 @@ class IntegrationConfig(BaseModel):
         data produced by this instance of `IntegrationConfig` for a
         single scan step.
         """
-        return tuple([len(coordinate_values) \
-                      for coordinate_name,coordinate_values \
+        return tuple([len(coordinate_values)
+                      for coordinate_name, coordinate_values
                       in self.integrated_data_coordinates.items()])
 
 
@@ -615,7 +615,7 @@ def get_multi_geometry_integrator(poni_files:tuple, radial_unit:str,
         ais,
         unit=radial_unit,
         radial_range=radial_range,
-        azimuth_range=(chi_min,chi_max),
+        azimuth_range=(chi_min, chi_max),
         wavelength=sum([ai.wavelength for ai in ais])/len(ais),
         chi_disc=chi_disc)
     return multi_geometry

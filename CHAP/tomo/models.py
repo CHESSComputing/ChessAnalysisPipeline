@@ -1,4 +1,4 @@
-'''Tomography Pydantic model classes'''
+"""Tomography Pydantic model classes"""
 
 # Third party imports
 from typing import (
@@ -18,7 +18,7 @@ from pydantic import (
 class Detector(BaseModel):
     """
     Detector class to represent the detector used in the experiment.
-    
+
     :ivar prefix: Prefix of the detector in the SPEC file.
     :type prefix: str
     :ivar rows: Number of pixel rows on the detector
@@ -33,7 +33,8 @@ class Detector(BaseModel):
     prefix: constr(strip_whitespace=True, min_length=1)
     rows: conint(gt=0)
     columns: conint(gt=0)
-    pixel_size: conlist(item_type=confloat(gt=0, allow_inf_nan=False),
+    pixel_size: conlist(
+        item_type=confloat(gt=0, allow_inf_nan=False),
         min_items=1, max_items=2)
     lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
 
@@ -68,8 +69,8 @@ class TomoReduceConfig(BaseModel):
     """
     tool_type: Literal['reduce_data'] = 'reduce_data'
     detector: Detector = Detector.construct()
-    img_x_bounds: Optional[conlist(item_type=conint(ge=0), min_items=2,
-        max_items=2)]
+    img_x_bounds: Optional[
+        conlist(item_type=conint(ge=0), min_items=2, max_items=2)]
 
 
 class TomoFindCenterConfig(BaseModel):
@@ -115,12 +116,12 @@ class TomoReconstructConfig(BaseModel):
     :type z_bounds: list[int], optional
     """
     tool_type: Literal['reconstruct_data'] = 'reconstruct_data'
-    x_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
-    y_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
-    z_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
+    x_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    y_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    z_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
 
 
 class TomoCombineConfig(BaseModel):
@@ -138,9 +139,9 @@ class TomoCombineConfig(BaseModel):
     :type z_bounds: list[int], optional
     """
     tool_type: Literal['combine_data'] = 'combine_data'
-    x_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
-    y_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
-    z_bounds: Optional[conlist(item_type=conint(ge=-1), min_items=2,
-        max_items=2)]
+    x_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    y_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    z_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]

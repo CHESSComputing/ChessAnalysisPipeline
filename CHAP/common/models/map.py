@@ -73,7 +73,7 @@ class SpecScans(BaseModel):
                 scan = spec_scans.get_scan_by_number(scan_number)
                 if scan is None:
                     raise ValueError(
-                        f'There is no scan number {scan_number} in {spec_file}')
+                        f'No scan number {scan_number} in {spec_file}')
         return scan_numbers
 
     @property
@@ -112,13 +112,9 @@ class SpecScans(BaseModel):
         index = ()
         for independent_dimension in map_config.independent_dimensions:
             coordinate_index = list(
-                map_config.coords[independent_dimension.label]
-                ).index(
+                map_config.coords[independent_dimension.label]).index(
                     independent_dimension.get_value(
-                        self,
-                        scan_number,
-                        scan_step_index)
-                )
+                        self, scan_number, scan_step_index))
             index = (coordinate_index, *index)
         return index
 
@@ -200,7 +196,7 @@ class PointByPointScanData(BaseModel):
         """Validate that the supplied `label` does not conflict with
         any of the values for `label` reserved for certain data needed
         to perform corrections.
-        
+
         :param label: The value of `label` to validate
         :type label: str
         :raises ValueError: If `label` is one of the reserved values.
@@ -212,13 +208,13 @@ class PointByPointScanData(BaseModel):
                 and label in CorrectionsData.reserved_labels()):
             raise ValueError(
                 f'{cls.__name__}.label may not be any of the following '
-                + f'reserved values: {CorrectionsData.reserved_labels()}')
+                f'reserved values: {CorrectionsData.reserved_labels()}')
         return label
 
     def validate_for_station(self, station:str):
         """Validate this instance of `PointByPointScanData` for a
         certain choice of station (beamline).
-        
+
         :param station: The name of the station (in 'idxx' format).
         :type station: str
         :raises TypeError: If the station is not compatible with the
@@ -231,7 +227,7 @@ class PointByPointScanData(BaseModel):
                 and self.data_type == 'smb_par'):
             raise TypeError(
                 f'{self.__class__.__name__}.data_type may not be "smb_par" '
-                + f'when station is "{station}"')
+                f'when station is "{station}"')
 
     def validate_for_spec_scans(
             self, spec_scans:list[SpecScans],
@@ -243,8 +239,8 @@ class PointByPointScanData(BaseModel):
             be checked for the presence of the data represented by
             this instance of `PointByPointScanData`
         :type spec_scans: list[SpecScans]
-        :param scan_step_index: A specific scan step index to validate, defaults
-            to `'all'`.
+        :param scan_step_index: A specific scan step index to validate,
+            defaults to `'all'`.
         :type scan_step_index: Union[Literal['all'],int], optional
         :raises RuntimeError: If the data represented by this instance of
             `PointByPointScanData` is missing for the specified scan steps.
@@ -257,24 +253,24 @@ class PointByPointScanData(BaseModel):
                 if scan_step_index == 'all':
                     scan_step_index_range = range(scanparser.spec_scan_npts)
                 else:
-                    scan_step_index_range = range(scan_step_index,
-                                                  scan_step_index + 1)
+                    scan_step_index_range = range(
+                        scan_step_index, 1+scan_step_index)
                 for index in scan_step_index_range:
                     try:
                         self.get_value(scans, scan_number, index)
                     except:
                         raise RuntimeError(
                             f'Could not find data for {self.name} '
-                            + f'(data_type "{self.data_type}") '
-                            + f'on scan number {scan_number} '
-                            + f'for index {index} '
-                            + f'in spec file {scans.spec_file}')
+                            f'(data_type "{self.data_type}") '
+                            f'on scan number {scan_number} '
+                            f'for index {index} '
+                            f'in spec file {scans.spec_file}')
 
     def get_value(self, spec_scans:SpecScans,
                   scan_number:int, scan_step_index:int):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
-        
+
         :param spec_scans: An instance of `SpecScans` in which the
             requested scan step occurs.
         :type spec_scans: SpecScans
@@ -303,6 +299,7 @@ class PointByPointScanData(BaseModel):
                                      scan_number,
                                      self.name)
         return None
+
 
 @cache
 def get_spec_motor_value(spec_file:str, scan_number:int,
@@ -582,8 +579,8 @@ class MapConfig(BaseModel):
         if value not in allowed_experiment_types:
             raise ValueError(
                 f'For station {station}, allowed experiment types are '
-                + f'{", ".join(allowed_experiment_types)}. '
-                + f'Supplied experiment type {value} is not allowed.')
+                f'{", ".join(allowed_experiment_types)}. '
+                f'Supplied experiment type {value} is not allowed.')
         return value
 
     @property
@@ -618,8 +615,8 @@ class MapConfig(BaseModel):
         """Return a tuple of the independent dimension labels for the
         map.
         """
-        return [point_by_point_scan_data.label \
-                for point_by_point_scan_data \
+        return [point_by_point_scan_data.label
+                for point_by_point_scan_data
                 in self.independent_dimensions[::-1]]
 
     @property
@@ -639,10 +636,9 @@ class MapConfig(BaseModel):
         corrections-data-related fields, as well as any additional
         items in the optional `scalar_data` field.
         """
-        return [getattr(self,l,None) \
-                for l in CorrectionsData.reserved_labels() \
-                if getattr(self,l,None) is not None] \
-                + self.scalar_data
+        return [getattr(self, label, None)
+                for label in CorrectionsData.reserved_labels()
+                if getattr(self, label, None) is not None] + self.scalar_data
 
 
 def import_scanparser(station, experiment):
