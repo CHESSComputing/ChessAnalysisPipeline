@@ -124,15 +124,20 @@ class Worker(threading.Thread):
                 return
             if self.exit:
                 return
-            evt, pid, func, args, kwargs = task
-            try:
-                func(*args, **kwargs)
-                self.pids.discard(pid)
-            except Exception as exc:
-                self.pids.discard(pid)
-                msg = "func=%s args=%s kwargs=%s" % (func, args, kwargs)
-                self.logger.error('error %s, call %s', str(exc), msg)
-            evt.set()
+            if isinstance(task, str):
+                print(f"Worker daemon run {task}")
+            elif isinstance(task, tuple) and len(task) == 5:
+                evt, pid, func, args, kwargs = task
+                try:
+                    func(*args, **kwargs)
+                    self.pids.discard(pid)
+                except Exception as exc:
+                    self.pids.discard(pid)
+                    msg = "func=%s args=%s kwargs=%s" % (func, args, kwargs)
+                    self.logger.error('error %s, call %s', str(exc), msg)
+                evt.set()
+            else:
+                print(f"Unsupported task {task}")
 
 class TaskManager(object):
     """
