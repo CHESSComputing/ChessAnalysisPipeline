@@ -56,7 +56,7 @@ from queue import Queue
 from flask import Flask, request, jsonify
 
 # CHAP modules
-from CHAP.TaskManager import TaskManager, start_new_thread, Worker, UidSet
+from CHAP.TaskManager import TaskManager, start_new_thread 
 from CHAP.runner import run, setLogger
 
 
@@ -111,15 +111,20 @@ def task(*args, **kwds):
     logger.info(f"pipeline\n{pipeline}")
     run(pipeline, logger, log_level, log_handler)
 
-def daemon(name, queue):
+def daemon(name, queue, interval):
     """
     Daemon example based on Queue
     """
-    pids = set()
-    uids = UidSet()
-    logger = logging.getLogger()
-    worker = Worker(name, queue, pids, uids, logger)
-    worker.run()
+    print(f"Daemon {name}")
+    while True:
+        if queue.qsize() == 0:
+            print("Default action")
+            time.sleep(interval)
+        else:
+            task = queue.get()
+            if task == "exit":
+                return
+            print(f"daemon run {task}")
 
 # start daemon thread in addition to Flask server
-start_new_thread("daemon", daemon, ("daemon", task_queue))
+start_new_thread("daemon", daemon, ("daemon", task_queue, 3))
