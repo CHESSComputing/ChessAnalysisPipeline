@@ -59,10 +59,10 @@ def runner(opts):
     logger, log_handler = setLogger(log_level)
     config = {}
     with open(opts.config) as file:
-        config = yaml.safe_load(file)
+        config = safe_load(file)
     logger.info(f'Input configuration: {config}\n')
     pipeline_config = config.get('pipeline', [])
-    run(pipeline_config, logger, log_level, log_handler)
+    run(pipeline_config, opts.interactive, logger, log_level, log_handler)
 
 def setLogger(log_level="INFO"):
     """
@@ -79,7 +79,7 @@ def setLogger(log_level="INFO"):
     logger.addHandler(log_handler)
     return logger, log_handler
 
-def run(pipeline_config, logger=None, log_level=None, log_handler=None):
+def run(pipeline_config, interactive=False, logger=None, log_level=None, log_handler=None):
     """
     Run given pipeline_config
 
@@ -89,7 +89,7 @@ def run(pipeline_config, logger=None, log_level=None, log_handler=None):
     kwds = []
     for item in pipeline_config:
         # load individual object with given name from its module
-        kwargs = {'interactive': opts.interactive}
+        kwargs = {'interactive': interactive}
         if isinstance(item, dict):
             name = list(item.keys())[0]
             # Combine the "interactive" command line argument with the object's keywords
