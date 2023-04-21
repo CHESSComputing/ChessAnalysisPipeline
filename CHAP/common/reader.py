@@ -7,7 +7,7 @@ Description: Module for Writers used in multiple experiment-specific
 """
 
 # system modules
-import sys
+from sys import modules
 from time import time
 
 # local modules
@@ -30,7 +30,6 @@ class BinaryFileReader(Reader):
 
 
 class MultipleReader(Reader):
-    """Reader to deliver combined results from other Readers"""
     def read(self, readers, **_read_kwargs):
         """Return resuts from multiple `Reader`s.
 
@@ -49,13 +48,12 @@ class MultipleReader(Reader):
         data = []
         for reader_config in readers:
             reader_name = list(reader_config.keys())[0]
-            reader_class = getattr(sys.modules[__name__], reader_name)
+            reader_class = getattr(modules[__name__], reader_name)
             reader = reader_class()
             reader_kwargs = reader_config[reader_name]
 
-            # Combine keyword arguments to MultipleReader.read with
-            # those to the reader giving precedence to those in the
-            # latter
+            # Combine keyword arguments to MultipleReader.read with those to the reader
+            # giving precedence to those in the latter
             combined_kwargs = {**_read_kwargs, **reader_kwargs}
             data.extend(reader.read(**combined_kwargs))
 
