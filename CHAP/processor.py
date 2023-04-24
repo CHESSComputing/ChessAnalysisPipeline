@@ -9,30 +9,22 @@ Description: Processor module
 
 # system modules
 import argparse
-import inspect
-import json
+from inspect import getfullargspec
 import logging
-import sys
+from sys import modules
 from time import time
 
-# local modules
-# from pipeline import PipelineObject
 
 class Processor():
-    """
-    Processor represent generic processor
-    """
+    """Processor represent generic processor"""
     def __init__(self):
-        """
-        Processor constructor
-        """
+        """Processor constructor"""
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
 
     def process(self, data, **_process_kwargs):
-        """
-        process data API
+        """process data API
 
         :param _process_kwargs: keyword arguments to pass to
             `self._process`, defaults to `{}`
@@ -43,8 +35,8 @@ class Processor():
         self.logger.info(f'Executing "process" with type(data)={type(data)}')
 
         _valid_process_args = {}
-        allowed_args = inspect.getfullargspec(self._process).args \
-                       + inspect.getfullargspec(self._process).kwonlyargs
+        allowed_args = getfullargspec(self._process).args \
+            + getfullargspec(self._process).kwonlyargs
         for k, v in _process_kwargs.items():
             if k in allowed_args:
                 _valid_process_args[k] = v
@@ -55,14 +47,20 @@ class Processor():
 
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
 
-        return(data)
+        return data
 
-    def _process(self, data, **kwargs):
+    def _process(self, data):
+        """Private method to carry out the mechanics of the specific
+        Processor.
+
+        :param data: input data
+        :return: processed data
+        """
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
-            if all([isinstance(d,dict) for d in data]):
+            if all(isinstance(d, dict) for d in data):
                 data = data[0]['data']
-        if data == None:
+        if data is None:
             return []
         # process operation is a simple print function
         data += "process part\n"
@@ -71,7 +69,7 @@ class Processor():
 
 
 class OptionParser():
-    '''User based option parser'''
+    """User based option parser"""
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -86,25 +84,27 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    '''Main function'''
+    """Main function"""
 
-    optmgr  = opt_parser()
+    optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
-    clsName = opts.processor
+    cls_name = opts.processor
     try:
-        processorCls = getattr(sys.modules[__name__],clsName)
-    except:
-        print(f'Unsupported processor {clsName}')
-        sys.exit(1)
+        processor_cls = getattr(modules[__name__], cls_name)
+    except AttributeError:
+        print(f'Unsupported processor {cls_name}')
+        raise
 
-    processor = processorCls()
+    processor = processor_cls()
     processor.logger.setLevel(getattr(logging, opts.log_level))
     log_handler = logging.StreamHandler()
-    log_handler.setFormatter(logging.Formatter('{name:20}: {message}', style='{'))
+    log_handler.setFormatter(logging.Formatter(
+        '{name:20}: {message}', style='{'))
     processor.logger.addHandler(log_handler)
     data = processor.process(opts.data)
 
-    print(f"Processor {processor} operates on data {data}")
+    print(f'Processor {processor} operates on data {data}')
+
 
 if __name__ == '__main__':
     main()
