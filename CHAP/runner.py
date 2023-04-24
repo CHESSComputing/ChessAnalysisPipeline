@@ -32,11 +32,12 @@ def main():
     optmgr  = OptionParser()
     opts = optmgr.parser.parse_args()
     if opts.profile:
-        import cProfile # python profiler
-        import pstats   # profiler statistics
-        cmd  = 'runner(opts)'
-        cProfile.runctx(cmd, globals(), locals(), 'profile.dat')
-        info = pstats.Stats('profile.dat')
+        from cProfile import runctx  # python profiler
+        from pstats import Stats     # profiler statistics
+        cmd = 'runner(opts)'
+        runctx(cmd, globals(), locals(), 'profile.dat')
+        info = Stats('profile.dat')
+#        info.strip_dirs()
         info.sort_stats('cumulative')
         info.print_stats()
     else:

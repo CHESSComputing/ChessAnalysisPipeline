@@ -1,0 +1,85 @@
+<tool id="CHAP_tomo_reconstruct" name="Tomo Reconstruct" version="@TOOL_VERSION@+galaxy0" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
+    <description>Reconstruct tomography stacks</description>
+    <macros>
+        <import>tomo_macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code">
+        <![CDATA[
+        mkdir tomo_reconstruct_plots;
+        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
+        cp $input_file reduced.nex &&
+        cp $center_file centers.yaml &&
+        cp $tool_config reconstruct.yaml
+        CHAP --config 
+        $__tool_directory__/pipeline_reconstruct.yaml
+        ]]>
+    </command>
+    <configfiles>
+        <configfile name="tool_config">
+            <![CDATA[#slurp
+#echo 'x_bounds:' #
+#if str($x_bounds.type_selector) == "full_range"
+#echo '- -1' #
+#echo '- -1' #
+#else
+#echo '- ' + str($x_bounds.low) #
+#echo '- ' + str($x_bounds.upp) #
+#end if
+#echo 'y_bounds:' #
+#if str($y_bounds.type_selector) == "full_range"
+#echo '- -1' #
+#echo '- -1' #
+#else
+#echo '- ' + str($y_bounds.low) #
+#echo '- ' + str($y_bounds.upp) #
+#end if
+            ]]>
+        </configfile>
+    </configfiles>
+    <inputs>
+        <param name="input_file" type="data" format="nex" optional="false" label="Reduce tomography data file"/>
+        <param name="center_file" type="data" format="yaml" optional="false" label="Rotation axis centers data file"/>
+        <conditional name="x_bounds">
+            <param name="type_selector" type="select" label="Choose reconstructed image range in the x-direction">
+                <option value="full_range" selected="true">Use the full image range</option>
+                <option value="enter_range">Manually enter the image range in the x-direction</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower image x-range index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper image x-range index"/>
+            </when>
+        </conditional>
+        <conditional name="y_bounds">
+            <param name="type_selector" type="select" label="Choose reconstructed image range in the y-direction">
+                <option value="full_range" selected="true">Use the full image range</option>
+                <option value="enter_range">Manually enter the image range in the y-direction</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower image y-range index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper image y-range index"/>
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="tool_config" format="yaml" label="Tool config" from_work_dir="reconstruct.yaml" hidden="false"/>
+        <collection name="tomo_reconstruct_plots" type="list" label="Data reconstruction images">
+            <discover_datasets pattern="__name_and_ext__" directory="tomo_reconstruct_plots"/>
+        </collection>
+        <data name="output_file" format="nex" label="Reconstructed tomography data" from_work_dir="output.nex"/>
+    </outputs>
+    <help>
+        <![CDATA[
+        usage: PROG [-h] [--config CONFIG] [--verbose]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  Input configuration file
+  --verbose        verbose output
+
+        ]]>
+    </help>
+    <expand macro="citations"/>
+</tool>

@@ -1,0 +1,83 @@
+<tool id="CHAP_tomo_combine" name="Tomo Combine" version="@TOOL_VERSION@+galaxy0" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
+    <description>Combine tomography stacks</description>
+    <macros>
+        <import>tomo_macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code">
+        <![CDATA[
+        mkdir tomo_combine_plots;
+        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
+        cp $input_file reconstruced.nex &&
+        cp $tool_config combine.yaml
+        CHAP --config 
+        $__tool_directory__/pipeline_combine.yaml
+        ]]>
+    </command>
+    <configfiles>
+        <configfile name="tool_config">
+            <![CDATA[#slurp
+#echo 'x_bounds:' #
+#if str($x_bounds.type_selector) == "full_range"
+#echo '- -1' #
+#echo '- -1' #
+#else
+#echo '- ' + str($x_bounds.low) #
+#echo '- ' + str($x_bounds.upp) #
+#end if
+#echo 'y_bounds:' #
+#if str($y_bounds.type_selector) == "full_range"
+#echo '- -1' #
+#echo '- -1' #
+#else
+#echo '- ' + str($y_bounds.low) #
+#echo '- ' + str($y_bounds.upp) #
+#end if
+            ]]>
+        </configfile>
+    </configfiles>
+    <inputs>
+        <param name="input_file" type="data" format="nex" optional="false" label="Reconstructed tomography data file"/>
+        <conditional name="x_bounds">
+            <param name="type_selector" type="select" label="Choose combined image range in the x-direction">
+                <option value="full_range" selected="true">Use the full image range</option>
+                <option value="enter_range">Manually enter the image range in the x-direction</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower image x-range index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper image x-range index"/>
+            </when>
+        </conditional>
+        <conditional name="y_bounds">
+            <param name="type_selector" type="select" label="Choose combined image range in the y-direction">
+                <option value="full_range" selected="true">Use the full image range</option>
+                <option value="enter_range">Manually enter the image range in the y-direction</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower image y-range index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper image y-range index"/>
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="tool_config" format="yaml" label="Tool config" from_work_dir="combine.yaml" hidden="false"/>
+        <collection name="tomo_combine_plots" type="list" label="Data combination images">
+            <discover_datasets pattern="__name_and_ext__" directory="tomo_combine_plots"/>
+        </collection>
+        <data name="output_file" format="nex" label="Combined tomography data" from_work_dir="output.nex"/>
+    </outputs>
+    <help>
+        <![CDATA[
+        usage: PROG [-h] [--config CONFIG] [--verbose]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  Input configuration file
+  --verbose        verbose output
+
+        ]]>
+    </help>
+    <expand macro="citations"/>
+</tool>

@@ -1,0 +1,16 @@
+pipeline:
+
+  # Combine tomography stacks
+  - common.MultipleReader:
+      readers:
+        - NexusReader:
+            filename: reconstructed.nxs
+        - YAMLReader:
+            filename: combine.yaml
+            schema: TomoCombineConfig
+  - tomo.TomoDataProcessor:
+      output_folder: tomo_combine_plots
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: output.nxs
+      force_overwrite: true
