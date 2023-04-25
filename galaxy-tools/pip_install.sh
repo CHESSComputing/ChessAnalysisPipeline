@@ -10,4 +10,4 @@ PIPLOC=`which python | sed 's/bin\/python//g'`
 PIPLOC=$PIPLOC/lib/python$VERSION/site-packages
 
 echo "Try installing $1 to $PIPLOC"
-#pip install --target $PIPLOC $1
+pip install --target $PIPLOC $1 --upgrade

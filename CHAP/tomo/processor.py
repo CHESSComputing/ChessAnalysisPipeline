@@ -1579,6 +1579,8 @@ class Tomo:
 
         # Select image bounds
         title = f'tomography image at theta = {round(theta, 2)+0}'
+        if img_x_bounds == (-1, -1):
+            img_x_bounds = None
         if img_x_bounds is not None:
             if is_index_range(img_x_bounds, ge=0, le=first_image.shape[0]):
                 return img_x_bounds

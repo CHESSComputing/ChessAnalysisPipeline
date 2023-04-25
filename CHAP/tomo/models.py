@@ -70,7 +70,7 @@ class TomoReduceConfig(BaseModel):
     tool_type: Literal['reduce_data'] = 'reduce_data'
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
-        conlist(item_type=conint(ge=0), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
 
 
 class TomoFindCenterConfig(BaseModel):

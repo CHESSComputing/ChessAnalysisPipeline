@@ -1,0 +1,62 @@
+<tool id="CHAP_tomo_find_center" name="Tomo Find Center" version="@TOOL_VERSION@+galaxy0" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
+    <description>Find rotation axis centers for the tomography stacks</description>
+    <macros>
+        <import>tomo_macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <command detect_errors="exit_code">
+        <![CDATA[
+        mkdir tomo_find_center_plots;
+        cp $input_file reduced.nex &&
+        cp $tool_config find_center.yaml &&
+        CHAP --config 
+        $__tool_directory__/pipeline_find_center.yaml
+        ]]>
+    </command>
+    <configfiles>
+        <configfile name="tool_config">
+            <![CDATA[#slurp
+#if str($center_rows.type_selector) == "full_range"
+#echo 'lower_row: -1' #
+#echo 'upper_row: -1' #
+#else
+#echo 'lower_row: ' + str($center_rows.low) #
+#echo 'upper_row: ' + str($center_rows.upp) #
+#end if
+            ]]>
+        </configfile>
+    </configfiles>
+    <inputs>
+        <param name="input_file" type="data" format="nex" optional="false" label="Reduce tomography data file"/>
+        <conditional name="center_rows">
+            <param name="type_selector" type="select" label="Choose axis center image rows">
+                <option value="full_range" selected="true">Use the first and last detector row</option>
+                <option value="enter_range">Manually enter the center image rows</option>
+            </param>
+            <when value="full_range"/>
+            <when value="enter_range">
+                <param name="low" type="integer" value="-1" optional="false" label="Lower detector row index"/>
+                <param name="upp" type="integer" value="-1" optional="false" label="Upper detector row index"/>
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="tool_config" format="yaml" label="Tool config" from_work_dir="find_center.yaml" hidden="false"/>
+        <collection name="tomo_find_center_plots" type="list" label="Find rotation axis center images">
+            <discover_datasets pattern="__name_and_ext__" directory="tomo_find_center_plots"/>
+        </collection>
+        <data name="output_file" format="yaml" label="Rotation axis centers data" from_work_dir="output.yaml"/>
+    </outputs>
+    <help>
+        <![CDATA[
+        usage: PROG [-h] [--config CONFIG] [--verbose]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  Input configuration file
+  --verbose        verbose output
+
+        ]]>
+    </help>
+    <expand macro="citations"/>
+</tool>

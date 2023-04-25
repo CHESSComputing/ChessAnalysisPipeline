@@ -1,0 +1,19 @@
+pipeline:
+
+  # Reconstruct tomography stacks
+  - common.MultipleReader:
+      readers:
+        - NexusReader:
+            filename: reduced.nex
+        - YAMLReader:
+            filename: reconstruct.yaml
+            schema: TomoReconstructConfig
+        - YAMLReader:
+            filename: centers.yaml
+            schema: TomoFindCenterConfig
+  - tomo.TomoDataProcessor:
+      output_folder: tomo_reconstruct_plots
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: output.nex
+      force_overwrite: true

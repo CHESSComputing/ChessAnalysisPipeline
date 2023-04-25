@@ -42,6 +42,7 @@ def main():
         cmd = 'runner(opts)'
         runctx(cmd, globals(), locals(), 'profile.dat')
         info = Stats('profile.dat')
+#        info.strip_dirs()
         info.sort_stats('cumulative')
         info.print_stats()
     else:

@@ -1,0 +1,16 @@
+pipeline:
+
+  # Find rotation axis centers for the tomography stacks
+  - common.MultipleReader:
+      readers:
+        - NexusReader:
+            filename: reduced.nex
+        - YAMLReader:
+            filename: find_center.yaml
+            schema: TomoFindCenterConfig
+  - tomo.TomoDataProcessor:
+      output_folder: tomo_find_center_plots
+      save_figs: 'only'
+  - common.YAMLWriter:
+      filename: output.yaml
+      force_overwrite: true
