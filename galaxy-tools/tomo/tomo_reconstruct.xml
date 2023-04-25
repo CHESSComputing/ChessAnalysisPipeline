@@ -7,10 +7,9 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_reconstruct_plots;
-        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
         cp $input_file reduced.nex &&
         cp $center_file centers.yaml &&
-        cp $tool_config reconstruct.yaml
+        cp $tool_config reconstruct.yaml &&
         CHAP --config 
         $__tool_directory__/pipeline_reconstruct.yaml
         ]]>

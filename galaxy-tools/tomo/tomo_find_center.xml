@@ -7,9 +7,8 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_find_center_plots;
-        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
         cp $input_file reduced.nex &&
-        cp $tool_config find_center.yaml
+        cp $tool_config find_center.yaml &&
         CHAP --config 
         $__tool_directory__/pipeline_find_center.yaml
         ]]>
@@ -19,10 +18,10 @@
             <![CDATA[#slurp
 #if str($center_rows.type_selector) == "full_range"
 #echo 'lower_row: -1' #
-#echo 'lower_row: -1' #
+#echo 'upper_row: -1' #
 #else
 #echo 'lower_row: ' + str($center_rows.low) #
-#echo 'lower_row: ' + str($center_rows.upp) #
+#echo 'upper_row: ' + str($center_rows.upp) #
 #end if
             ]]>
         </configfile>

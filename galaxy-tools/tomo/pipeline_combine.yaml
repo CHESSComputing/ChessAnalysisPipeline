@@ -4,7 +4,7 @@ pipeline:
   - common.MultipleReader:
       readers:
         - NexusReader:
-            filename: reconstructed.nxs
+            filename: reconstructed.nex
         - YAMLReader:
             filename: combine.yaml
             schema: TomoCombineConfig
@@ -12,5 +12,5 @@ pipeline:
       output_folder: tomo_combine_plots
       save_figs: 'only'
   - common.NexusWriter:
-      filename: output.nxs
+      filename: output.nex
       force_overwrite: true

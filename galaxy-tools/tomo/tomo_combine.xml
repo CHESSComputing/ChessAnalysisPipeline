@@ -7,9 +7,8 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_combine_plots;
-        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
         cp $input_file reconstruced.nex &&
-        cp $tool_config combine.yaml
+        cp $tool_config combine.yaml &&
         CHAP --config 
         $__tool_directory__/pipeline_combine.yaml
         ]]>
