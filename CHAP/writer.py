@@ -12,44 +12,15 @@ import logging
 from sys import modules
 from time import time
 
+# local modules
+from CHAP.pipeline import PipelineItem
 
-class Writer():
+
+class Writer(PipelineItem):
     """Writer represent generic file writer"""
 
-    def __init__(self):
-        """Constructor of Writer class"""
-        self.__name__ = self.__class__.__name__
-        self.logger = logging.getLogger(self.__name__)
-        self.logger.propagate = False
-
-    def write(self, data, filename, **_write_kwargs):
-        """write API
-
-        :param filename: Name of file to write to
-        :param data: data to write to file
-        :return: data written to file
-        """
-
-        t0 = time()
-        self.logger.info(f'Executing "write" with filename={filename}, '
-                         f'type(data)={type(data)}, kwargs={_write_kwargs}')
-
-        _valid_write_args = {}
-        allowed_args = getfullargspec(self._write).args \
-            + getfullargspec(self._write).kwonlyargs
-        for k, v in _write_kwargs.items():
-            if k in allowed_args:
-                _valid_write_args[k] = v
-            else:
-                self.logger.warning(f'Ignoring invalid arg to _write: {k}')
-
-        data = self._write(data, filename, **_valid_write_args)
-
-        self.logger.info(f'Finished "write" in {time()-t0:.3f} seconds\n')
-
-        return data
-
-    def _write(self, data, filename):
+    def write(self, data, filename):
+        data = self.unwrap_pipelinedata(data)
         with open(filename, 'a') as file:
             file.write(data)
         return data

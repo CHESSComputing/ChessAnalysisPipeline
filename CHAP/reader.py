@@ -12,59 +12,14 @@ import logging
 from sys import modules
 from time import time
 
+# local modules
+from CHAP.pipeline import PipelineItem
 
-class Reader():
+
+class Reader(PipelineItem):
     """Reader represent generic file writer"""
 
-    def __init__(self):
-        """Constructor of Reader class"""
-        self.__name__ = self.__class__.__name__
-        self.logger = logging.getLogger(self.__name__)
-        self.logger.propagate = False
-
-    def read(self, type_=None, schema=None, encoding=None, **_read_kwargs):
-        """Read API
-
-        Wrapper to read, format, and return the data requested.
-
-        :param type_: the expected type of data read from `filename`,
-            defualts to `None`
-        :type type_: type, optional
-        :param schema: the expected schema of the data read from
-            `filename`, defaults to `None`
-        :type schema: str, otional
-        :param _read_kwargs: keyword arguments to pass to
-            `self._read`, defaults to `{}`
-        :type _read_kwargs: dict, optional
-        :return: list with one item: a dictionary containing the data
-            read from `filename`, the name of this `Reader`, and the
-            values of `type_` and `schema`.
-        :rtype: list[dict[str,object]]
-        """
-
-        t0 = time()
-        self.logger.info(f'Executing "read" with type={type_}, '
-                         f'schema={schema}, kwargs={_read_kwargs}')
-
-        _valid_read_args = {}
-        allowed_args = getfullargspec(self._read).args \
-            + getfullargspec(self._read).kwonlyargs
-        for k, v in _read_kwargs.items():
-            if k in allowed_args:
-                _valid_read_args[k] = v
-            else:
-                self.logger.warning(f'Ignoring invalid arg to _read: {k}')
-
-        data = [{'name': self.__name__,
-                 'data': self._read(**_valid_read_args),
-                 'type': type_,
-                 'schema': schema,
-                 'encoding': encoding}]
-
-        self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
-        return data
-
-    def _read(self, filename):
+    def read(self, filename):
         """Read and return the data from requested from `filename`
 
         :param filename: Name of file to read from
