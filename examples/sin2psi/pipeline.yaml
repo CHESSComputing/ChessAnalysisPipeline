@@ -6,7 +6,6 @@ pipeline:
 #      url: https://gitlab01.classe.cornell.edu/api/v4/projects/308/repository/files/sin2psi%2fdata.tar/raw?ref=main
 #      headers:
 #        PRIVATE-TOKEN: # your token here
-#  - common.URLResponseProcessor
 #  - common.ExtractArchiveWriter:
 #      filename: examples/sin2psi
 
@@ -20,12 +19,12 @@ pipeline:
       force_overwrite: true
 
   # Integrate map detector data
-  - common.MultipleReader:
-      readers:
-        - YAMLReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.YAMLReader:
             filename: examples/sin2psi/map.yaml
             schema: MapConfig
-        - YAMLReader:
+        - common.YAMLReader:
             filename: examples/sin2psi/integration.yaml
             schema: IntegrationConfig
   - common.IntegrateMapProcessor
@@ -34,11 +33,11 @@ pipeline:
       force_overwrite: true
 
   # Compute sample strain map
-  - common.MultipleReader:
-      readers:
-        - NexusReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
             filename: examples/sin2psi/integrated_detector_data.nxs
-        - YAMLReader:
+        - common.YAMLReader:
             filename: examples/sin2psi/strain_analysis_config.yaml
             schema: StrainAnalysisConfig
   - common.StrainAnalysisProcessor

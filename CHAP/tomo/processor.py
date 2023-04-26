@@ -45,7 +45,7 @@ class TomoDataProcessor(Processor):
     step.
     """
 
-    def _process(
+    def process(
             self, data, interactive=False, reduce_data=False,
             find_center=False, reconstruct_data=False, combine_data=False,
             output_folder='.', save_figs=None, **kwargs):

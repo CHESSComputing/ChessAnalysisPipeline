@@ -11,10 +11,9 @@ import os
 # local modules
 from CHAP import Writer
 
-
 class ExtractArchiveWriter(Writer):
     """Writer for tar files from binary data"""
-    def _write(self, data, filename):
+    def write(self, data, filename):
         """Take a .tar archive represented as bytes in `data` and
         write the extracted archive to files.
 
@@ -30,6 +29,8 @@ class ExtractArchiveWriter(Writer):
         from io import BytesIO
         import tarfile
 
+        data = self.unwrap_pipelinedata(data)
+
         with tarfile.open(fileobj=BytesIO(data)) as tar:
             tar.extractall(path=filename)
 
@@ -38,7 +39,7 @@ class ExtractArchiveWriter(Writer):
 
 class NexusWriter(Writer):
     """Writer for NeXus files from `NXobject`-s"""
-    def _write(self, data, filename, force_overwrite=False):
+    def write(self, data, filename, force_overwrite=False):
         """Write `data` to a NeXus file
 
         :param data: the data to write to `filename`.
@@ -50,6 +51,8 @@ class NexusWriter(Writer):
         """
 
         from nexusformat.nexus import NXobject
+
+        data = self.unwrap_pipelinedata(data)
 
         if not isinstance(data, NXobject):
             raise TypeError('Cannot write object of type '
@@ -63,7 +66,7 @@ class NexusWriter(Writer):
 
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s"""
-    def _write(self, data, filename, force_overwrite=False):
+    def write(self, data, filename, force_overwrite=False):
         """If `data` is a `dict`, write it to `filename`.
 
         :param data: the dictionary to write to `filename`.
@@ -81,6 +84,8 @@ class YAMLWriter(Writer):
         """
 
         import yaml
+
+        data = self.unwrap_pipelinedata(data)
 
         if not isinstance(data, (dict, list)):
             raise TypeError(

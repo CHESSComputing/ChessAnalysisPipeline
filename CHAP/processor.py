@@ -14,42 +14,13 @@ import logging
 from sys import modules
 from time import time
 
+# local modules
+from CHAP.pipeline import PipelineItem
 
-class Processor():
+class Processor(PipelineItem):
     """Processor represent generic processor"""
-    def __init__(self):
-        """Processor constructor"""
-        self.__name__ = self.__class__.__name__
-        self.logger = logging.getLogger(self.__name__)
-        self.logger.propagate = False
 
-    def process(self, data, **_process_kwargs):
-        """process data API
-
-        :param _process_kwargs: keyword arguments to pass to
-            `self._process`, defaults to `{}`
-        :type _process_kwargs: dict, optional
-        """
-
-        t0 = time()
-        self.logger.info(f'Executing "process" with type(data)={type(data)}')
-
-        _valid_process_args = {}
-        allowed_args = getfullargspec(self._process).args \
-            + getfullargspec(self._process).kwonlyargs
-        for k, v in _process_kwargs.items():
-            if k in allowed_args:
-                _valid_process_args[k] = v
-            else:
-                self.logger.warning(f'Ignoring invalid arg to _process: {k}')
-
-        data = self._process(data, **_valid_process_args)
-
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
-
-        return data
-
-    def _process(self, data):
+    def process(self, data):
         """Private method to carry out the mechanics of the specific
         Processor.
 

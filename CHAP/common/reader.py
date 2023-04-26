@@ -16,7 +16,7 @@ from CHAP import Reader
 
 class BinaryFileReader(Reader):
     """Reader for binary files"""
-    def _read(self, filename):
+    def read(self, filename):
         """Return a content of a given file name
 
         :param filename: name of the binart file to read from
@@ -29,42 +29,9 @@ class BinaryFileReader(Reader):
         return data
 
 
-class MultipleReader(Reader):
-    def read(self, readers, **_read_kwargs):
-        """Return resuts from multiple `Reader`s.
-
-        :param readers: a dictionary where the keys are specific names
-            that are used by the next item in the `Pipeline`, and the
-            values are `Reader` configurations.
-        :type readers: list[dict]
-        :return: The results of calling `Reader.read(**kwargs)` for
-            each item configured in `readers`.
-        :rtype: list[dict[str,object]]
-        """
-
-        t0 = time()
-        self.logger.info(f'Executing "read" with {len(readers)} Readers')
-
-        data = []
-        for reader_config in readers:
-            reader_name = list(reader_config.keys())[0]
-            reader_class = getattr(modules[__name__], reader_name)
-            reader = reader_class()
-            reader_kwargs = reader_config[reader_name]
-
-            # Combine keyword arguments to MultipleReader.read with those to the reader
-            # giving precedence to those in the latter
-            combined_kwargs = {**_read_kwargs, **reader_kwargs}
-            data.extend(reader.read(**combined_kwargs))
-
-        self.logger.info(f'Finished "read" in {time()-t0:.3f} seconds\n')
-
-        return data
-
-
 class NexusReader(Reader):
     """Reader for NeXus files"""
-    def _read(self, filename, nxpath='/'):
+    def read(self, filename, nxpath='/'):
         """Return the NeXus object stored at `nxpath` in the nexus
         file `filename`.
 
@@ -87,7 +54,7 @@ class NexusReader(Reader):
 
 class URLReader(Reader):
     """Reader for data available over HTTPS"""
-    def _read(self, url, headers={}, timeout=10):
+    def read(self, url, headers={}, timeout=10):
         """Make an HTTPS request to the provided URL and return the
         results.  Headers for the request are optional.
 
@@ -112,7 +79,7 @@ class URLReader(Reader):
 
 class YAMLReader(Reader):
     """Reader for YAML files"""
-    def _read(self, filename):
+    def read(self, filename):
         """Return a dictionary from the contents of a yaml file.
 
         :param filename: name of the YAML file to read from

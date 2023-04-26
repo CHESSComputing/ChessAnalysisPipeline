@@ -1,5 +1,4 @@
 from CHAP.common.reader import (BinaryFileReader,
-                                MultipleReader,
                                 NexusReader,
                                 URLReader,
                                 YAMLReader)
@@ -11,7 +10,6 @@ from CHAP.common.processor import (AsyncProcessor,
                                    NexusToXarrayProcessor,
                                    PrintProcessor,
                                    StrainAnalysisProcessor,
-                                   URLResponseProcessor,
                                    XarrayToNexusProcessor,
                                    XarrayToNumpyProcessor)
 from CHAP.common.writer import (ExtractArchiveWriter,

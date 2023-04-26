@@ -23,7 +23,7 @@ class MCACeriaCalibrationProcessor(Processor):
     channel energies for an EDD experimental setup.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
 
@@ -209,7 +209,7 @@ class MCADataProcessor(Processor):
     transformed according to the results of a ceria calibration.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
 
