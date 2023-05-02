@@ -23,13 +23,16 @@ class MCACeriaCalibrationProcessor(Processor):
     channel energies for an EDD experimental setup.
     """
 
-    def process(self, data):
+    def process(self, data, interactive=False):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
 
         :param data: input configuration for the raw data & tuning
             procedure
         :type data: list[dict[str,object]]
+        :param interactive: allow for user interactions, defaults to
+            False
+        :type interactive: bool, optional
         :return: original configuration dictionary with tuned values
             added
         :rtype: dict[str,float]
@@ -37,7 +40,8 @@ class MCACeriaCalibrationProcessor(Processor):
 
         calibration_config = self.get_config(data)
 
-        tth, slope, intercept = self.calibrate(calibration_config)
+        tth, slope, intercept = self.calibrate(calibration_config,
+                                               interactive=interactive)
 
         calibration_config.tth_calibrated = tth
         calibration_config.slope_calibrated = slope
@@ -76,7 +80,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
         return MCACeriaCalibrationConfig(**calibration_config)
 
-    def calibrate(self, calibration_config):
+    def calibrate(self, calibration_config, interactive=False):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
         small. Use the fitted peak locations to determine linear
@@ -85,6 +89,9 @@ class MCACeriaCalibrationProcessor(Processor):
         :param calibration_config: object configuring the CeO2
             calibration procedure
         :type calibration_config: MCACeriaCalibrationConfig
+        :param interactive: allow for user interactions, defaults to
+            False
+        :type interactive: bool, optional
         :return: calibrated values of 2&theta and linear correction
             parameters for MCA channel energies : tth, slope,
             intercept
@@ -106,6 +113,22 @@ class MCACeriaCalibrationProcessor(Processor):
             * (calibration_config.max_energy_kev/calibration_config.num_bins)
 
         # Mask out the corrected MCA data for fitting
+        if calibration_config.fit_include_bin_ranges is None:
+            if interactive:
+                from CHAP.common.utils.general import draw_mask_1d
+                mask, include_bin_ranges = draw_mask_1d(
+                    mca_data,
+                    xdata=mca_bin_energies,
+                    title='Click and drag to select ranges of Ceria'
+                           +' calibration data to include',
+                    xlabel='MCA channel energy (keV)',
+                    ylabel='MCA intensity (counts)')
+                calibration_config.fit_include_bin_ranges = include_bin_ranges
+            else:
+                raise ValueError(
+                    'No value provided for fit_include_bin_ranges. '
+                    'Provide them in the MCA Ceria Calibration Configuration, '
+                    'or re-run the pipeline with the --interactive flag.')
         mca_mask = calibration_config.mca_mask()
         fit_mca_energies = mca_bin_energies[mca_mask]
         fit_mca_intensities = mca_data[mca_mask]
@@ -119,6 +142,22 @@ class MCACeriaCalibrationProcessor(Processor):
         # Get the HKLs and lattice spacings that will be used for
         # fitting
         tth = calibration_config.tth_initial_guess
+        if calibration_config.fit_hkls is None:
+            if interactive:
+                from CHAP.common.utils.general import select_peaks
+                hkls, ds = calibration_config.unique_ds()
+                peak_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
+                selected_peaks = select_peaks(
+                    mca_data, mca_bin_energies, peak_locations,
+                    mask=mca_mask)
+                fit_hkls = [np.where(peak_locations == peak)[0][0]
+                            for peak in selected_peaks]
+                calibration_config.fit_hkls = fit_hkls
+            else:
+                raise ValueError(
+                    'No value provided for fit_hkls. Provide them in '
+                    'the MCA Ceria Calibration Configuration, or re-run '
+                    'the pipeline with the --interactive flag.')
         fit_hkls, fit_ds = calibration_config.fit_ds()
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
 

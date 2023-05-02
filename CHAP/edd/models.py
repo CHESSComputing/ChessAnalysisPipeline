@@ -83,11 +83,14 @@ class MCACeriaCalibrationConfig(BaseModel):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
 
-    fit_include_bin_ranges: conlist(min_items=1,
-                                    item_type=conlist(item_type=conint(ge=0),
-                                                      min_items=2,
-                                                      max_items=2))
-    fit_hkls: conlist(item_type=conint(ge=0), min_items=1)
+    fit_include_bin_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+                max_items=2))] = None
+    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
 
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False)
     slope_initial_guess: float = 1.0
