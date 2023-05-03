@@ -7,15 +7,15 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_reduce_plots;
-        $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
         #if str($map.type_selector) == "yaml"
+            $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
             cp $input_file map.yaml &&
-            cat $__tool_directory__/andor2.yaml $tool_config > reduce.yaml &&
+            cat $__tool_directory__/$map.detector.type_selector $tool_config > reduce.yaml &&
         #else
             cp $input_file setup.nex &&
             cp $tool_config reduce.yaml &&
         #end if
-        CHAP --config 
+        CHAP --config
         #if str($map.type_selector) == "yaml"
             $__tool_directory__/pipeline_reduce_yaml.yaml
         #else
@@ -47,13 +47,13 @@
                 <param name="input_file" type="data" format="yaml" optional="false" label="Map config file"/>
                 <conditional name="detector">
                     <param name="type_selector" type="select" display="radio" label="Choose detector prefix">
-                        <option value="andor2">andor2</option>
-                        <option value="manta">manta</option>
-                        <option value="retiga">retiga</option>
+                        <option value="andor2.yaml">andor2</option>
+                        <option value="manta.yaml">manta</option>
+                        <option value="retiga.yaml">retiga</option>
                     </param>
-                    <when value="andor2"/>
-                    <when value="manta"/>
-                    <when value="retiga"/>
+                    <when value="andor2.yaml"/>
+                    <when value="manta.yaml"/>
+                    <when value="retiga.yaml"/>
                 </conditional>
             </when>
             <when value="nexus">

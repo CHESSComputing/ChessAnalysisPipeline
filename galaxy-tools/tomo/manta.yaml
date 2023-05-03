@@ -1,0 +1,8 @@
+detector:
+  prefix: manta
+  rows: 3008
+  columns: 4112
+  pixel_size:
+  - 0.00345
+  - 0.00345
+  lens_magnification: 5.0
