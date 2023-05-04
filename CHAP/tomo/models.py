@@ -71,6 +71,7 @@ class TomoReduceConfig(BaseModel):
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
 
 
 class TomoFindCenterConfig(BaseModel):
