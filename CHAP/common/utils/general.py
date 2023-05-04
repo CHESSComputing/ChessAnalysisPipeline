@@ -881,10 +881,50 @@ def file_exists_and_readable(f):
 
 
 def draw_mask_1d(
-        ydata, xdata=None, current_index_ranges=None, current_mask=None,
-        select_mask=True, num_index_ranges_max=None, legend=None,
+        ydata, xdata=None, label=None, ref_data=[],
+        current_index_ranges=None, current_mask=None,
+        select_mask=True, num_index_ranges_max=None,
         title=None, xlabel=None, ylabel=None, test_mode=False):
-    """Display a 2D plot and have the user select a mask."""
+    """Display a 2D plot and have the user select a mask.
+
+    :param ydata: data array for which a mask will be constructed
+    :type ydata: numpy.ndarray
+    :param xdata: x-coordinates of the reference data, defaults to
+        None
+    :type xdata: numpy.ndarray, optional
+    :param label: legend label for the reference data, defaults to
+        None
+    :type label: str, optional
+    :param ref_data: a list of additional reference data to
+        plot. Items in the list should be tuples of positional
+        arguments and keyword arguments to unpack and pass directly to
+        `matplotlib.axes.Axes.plot`, defaults to []
+    :type ref_data: list[tuple[tuple, dict]]
+    :param current_index_ranges: list of preselected index ranges to
+        mask, defaults to None
+    :type current_index_ranges: list[tuple[int, int]]
+    :param current_mask: preselected boolean mask array, defaults to
+        None
+    :type current_mask: numpy.ndarray, optional
+    :param select_mask: if True, user-selected ranges will be included
+        when the returned mask is applied to `ydata`. If False, they
+        will be excluded. Defaults to True.
+    :type select_mask: bool, optional
+    :param title: title for the displayed figure, defaults to None
+    :type title: str, optional
+    :param xlabel: label for the x-axis of the displayed figure,
+        defaults to None
+    :type xlabel: str, optional
+    :param ylabel: label for the y-axis of the displayed figure,
+        defaults to None
+    :type ylabel: str, optional
+    :param test_mode: if True, run as a non-interactive test
+        case. Defaults to False
+    :type test_mode: bool, optional
+    :return: a boolean mask array and the list of selected index
+        ranges
+    :rtype: numpy.ndarray, list[tuple[int, int]]
+    """
     # RV make color blind friendly
     def draw_selections(
             ax, current_include, current_exclude, selected_index_ranges):
@@ -896,9 +936,10 @@ def draw_mask_1d(
             ax.set_xlabel(xlabel)
         if ylabel is not None:
             ax.set_ylabel(ylabel)
-        if legend is not None:
-            ax.legend([legend])
-        ax.plot(xdata, ydata, 'k')
+        ax.plot(xdata, ydata, 'k', label=label)
+        for data in ref_data:
+            ax.plot(*data[0], **data[1])
+        ax.legend()
         for low, upp in current_include:
             xlow = 0.5 * (xdata[max(0, low-1)]+xdata[low])
             xupp = 0.5 * (xdata[upp]+xdata[min(num_data-1, 1+upp)])
@@ -1017,9 +1058,6 @@ def draw_mask_1d(
     elif not isinstance(title, str):
         illegal_value(title, 'title')
         title = ''
-    if legend is None and not isinstance(title, str):
-        illegal_value(legend, 'legend')
-        legend = None
 
     if select_mask:
         selection_color = 'green'
