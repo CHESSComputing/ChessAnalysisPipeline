@@ -1,0 +1,4 @@
+spec_file: examples/edd/fe-foil-0522-1/spec.log
+scan_number: 2
+
+include_bin_ranges: [[670, 1218]]

@@ -12,7 +12,7 @@ hexrd_h5_material_file: examples/edd/materials.h5
 tth_max: 90.0
 hkl_tth_tol: 0.15
 
-fit_include_bin_ranges: [[736,1529]]
+include_bin_ranges: [[736,1529]]
 fit_hkls: [3,4,5,6,7,8,9,10,11,12,13]
 
 tth_initial_guess: 7.5

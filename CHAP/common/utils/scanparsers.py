@@ -646,10 +646,20 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
     with the typical powder diffraction setup at SMB.
     """
 
+    def get_spec_scan_dwell(self):
+        if self.spec_macro in ('flymesh', 'flyscan', 'ascan'):
+            return float(self.spec_args[4])
+        if self.spec_macro == 'tseries':
+            return float(self.spec_args[1])
+        if self.spec_macro == 'wbslew_scan':
+            return float(self.spec_args[3])
+        raise RuntimeError(f'{self.scan_title}: cannot determine dwell time '
+                           f'for scans of type {self.spec_macro}')
+
     def get_spec_scan_motor_mnes(self):
         if self.spec_macro == 'flymesh':
             return (self.spec_args[0], self.spec_args[5])
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             return (self.spec_args[0],)
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
@@ -665,7 +675,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                                         float(self.spec_args[7]),
                                         int(self.spec_args[8])+1)
             return (fast_mot_vals, slow_mot_vals)
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
@@ -680,7 +690,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             fast_mot_npts = int(self.spec_args[3])+1
             slow_mot_npts = int(self.spec_args[8])+1
             return (fast_mot_npts, slow_mot_npts)
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             mot_npts = int(self.spec_args[3])+1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
@@ -691,7 +701,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
     def get_spec_scan_dwell(self):
         if self.spec_macro == 'flymesh':
             return float(self.spec_args[4])
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             return float(self.spec_args[-1])
         raise RuntimeError(f'{self.scan_title}: cannot determine dwell time '
                            f'for scans of type {self.spec_macro}')
@@ -1057,22 +1067,7 @@ class MCAScanParser(ScanParser):
     def __init__(self, spec_file_name, scan_number):
         super().__init__(spec_file_name, scan_number)
 
-        self._dwell_time = None
         self._detector_num_bins = None
-
-    @property
-    def dwell_time(self):
-        if self._dwell_time is None:
-            self._dwell_time = self.get_dwell_time()
-        return self._dwell_time
-
-    def get_dwell_time(self):
-        """Return the dwell time for each scan point as it appears in
-        the SPEC command.
-
-        :rtype: float
-        """
-        raise NotImplementedError
 
     def get_detector_num_bins(self, detector_prefix):
         """Return the number of bins for the detector with the given
@@ -1086,30 +1081,10 @@ class MCAScanParser(ScanParser):
         raise NotImplementedError
 
 
-class SMBMCAScanParser(MCAScanParser, SMBScanParser):
+class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
     """Concrete implementation of a class representing a scan taken
     with the typical EDD setup at SMB or FAST.
     """
-
-    def get_spec_scan_npts(self):
-        if self.spec_macro == 'tseries':
-            return 1
-        if self.spec_macro == 'ascan':
-            return int(self.spec_args[3])
-        if self.spec_scan == 'wbslew_scan':
-            return 1
-        raise RuntimeError(f'{self.scan_title}: cannot determine number of '
-                           f'points for scans of type {self.spec_macro}')
-
-    def get_dwell_time(self):
-        if self.spec_macro == 'tseries':
-            return float(self.spec_args[1])
-        if self.spec_macro == 'ascan':
-            return float(self.spec_args[4])
-        if self.spec_macro == 'wbslew_scan':
-            return float(self.spec_args[3])
-        raise RuntimeError(f'{self.scan_title}: cannot determine dwell time '
-                           f'for scans of type {self.spec_macro}')
 
     def get_detector_num_bins(self, detector_prefix):
         with open(self.get_detector_data_file(detector_prefix)) \
@@ -1174,7 +1149,7 @@ class SMBMCAScanParser(MCAScanParser, SMBScanParser):
                 data.append(spectrum)
                 counter = 0
 
-        return data
+        return np.array(data)
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
         detector_data = self.get_all_detector_data(detector_prefix)

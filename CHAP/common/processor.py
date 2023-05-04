@@ -27,7 +27,7 @@ class AsyncProcessor(Processor):
         super().__init__()
         self.mgr = mgr
 
-    def _process(self, data):
+    def process(self, data):
         """Asynchronously process the input documents with the
         `self.mgr` `Processor`.
 
@@ -67,7 +67,7 @@ class AsyncProcessor(Processor):
 class IntegrationProcessor(Processor):
     """A processor for integrating 2D data with pyFAI"""
 
-    def _process(self, data):
+    def process(self, data):
         """Integrate the input data with the integration method and
         keyword arguments supplied and return the results.
 
@@ -93,7 +93,7 @@ class IntegrateMapProcessor(Processor):
     containing a map of the integrated detector data requested.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Process the output of a `Reader` that contains a map and
         integration configuration and return a
         `nexusformat.nexus.NXprocess` containing a map of the
@@ -307,7 +307,7 @@ class MapProcessor(Processor):
     configuration.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Process the output of a `Reader` that contains a map
         configuration and return a `nexusformat.nexus.NXentry`
         representing the map.
@@ -438,7 +438,7 @@ class NexusToNumpyProcessor(Processor):
     `NXobject` into an `numpy.ndarray`.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Return the default plottable data signal in `data` as an
         `numpy.ndarray`.
 
@@ -474,7 +474,7 @@ class NexusToXarrayProcessor(Processor):
     `NXobject` into an `xarray.DataArray`.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Return the default plottable data signal in `data` as an
         `xarray.DataArray`.
 
@@ -528,7 +528,7 @@ class PrintProcessor(Processor):
     the original input data, unchanged in any way.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Print and return the input data.
 
         :param data: Input data
@@ -557,7 +557,7 @@ class StrainAnalysisProcessor(Processor):
     measured.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Process the input map detector data & configuration for the
         strain analysis procedure, and return a map of sample strains.
 
@@ -601,44 +601,12 @@ class StrainAnalysisProcessor(Processor):
         return strain_analysis_config
 
 
-class URLResponseProcessor(Processor):
-    """A Processor to decode and return data resulting from from
-    URLReader.read
-    """
-
-    def _process(self, data):
-        """Take data returned from URLReader.read and return a decoded
-        version of the content.
-
-        :param data: input data (output of URLReader.read)
-        :type data: list[dict]
-        :return: decoded data contents
-        :rtype: object
-        """
-
-        data = data[0]
-
-        content = data['data']
-        encoding = data['encoding']
-
-        self.logger.debug(
-            f'Decoding content of type {type(content)} with {encoding}')
-
-        try:
-            content = content.decode(encoding)
-        except:
-            self.logger.warning('Failed to decode content of type '
-                                f'{type(content)} with {encoding}')
-
-        return content
-
-
 class XarrayToNexusProcessor(Processor):
     """A Processor to convert the data in an `xarray` structure to an
     `nexusformat.nexus.NXdata`.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Return `data` represented as an `nexusformat.nexus.NXdata`.
 
         :param data: The input `xarray` structure
@@ -665,7 +633,7 @@ class XarrayToNumpyProcessor(Processor):
     structure to an `numpy.ndarray`.
     """
 
-    def _process(self, data):
+    def process(self, data):
         """Return just the signal values contained in `data`.
 
         :param data: The input `xarray.DataArray`
