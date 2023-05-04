@@ -17,6 +17,16 @@ pipeline:
       filename: examples/edd/ceria_calibrated.yaml
       force_overwrite: true
 
+  # Measure diffraction volume length
+  - common.YAMLReader:
+      filename: examples/edd/dvl_measurement.yaml
+      schema: DiffractionVolumeLengthConfig
+  - edd.DiffractionVolumeLengthProcessor:
+      dvl_model: manual
+  - common.YAMLWriter:
+      filename: examples/edd/dvl_measured.yaml
+      force_overwrite: true
+
   # Gather calibrated detector data
   - pipeline.MultiplePipelineItem:
       items:
