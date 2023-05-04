@@ -2308,9 +2308,12 @@ class Tomo:
         # Get reconstruction parameters
         recon_parameters = None  # self._config.get('recon_parameters')
         if recon_parameters is None:
-            sigma = 2.0
+            #RV sigma = 2.0
+            #RV secondary_iters = 0
+            #RV ring_width = 15
+            sigma = 0.5
             secondary_iters = 0
-            ring_width = 15
+            ring_width = 0
         else:
             sigma = recon_parameters.get('stripe_fw_sigma', 2.0)
             if not is_num(sigma, ge=0):
@@ -2498,6 +2501,185 @@ class Tomo:
             self._logger.debug(f'z_bounds = {z_bounds}')
 
         return x_bounds, y_bounds, z_bounds
+
+
+class TomoSimProcessor(Processor):
+    """
+    Class representing the processes to create a simulated tomography
+    data set, suitable to be processed by TomoSimProcessor returning \
+    a `nexusformat.nexus.NXroot` object containing the simulated
+    tomography detector images.
+    """
+
+    def _process(self, data, **kwargs):
+        # Third party modules
+        from nexusformat.nexus import (
+            NXroot,
+            NXentry,
+            NXinstrument,
+            NXdetector,
+        )
+
+        # Local modules
+        from CHAP.tomo.models import TomoSim
+
+        if not isinstance(data, list):
+            raise ValueError(f'Invalid parameter data ({data})')
+
+        # Get and validate the TomoSim configuration object in data
+        config = None
+        for item in data:
+            if (isinstance(item, dict) and item.get('data') is not None
+                    and item.get('schema') == 'TomoSim'):
+                if config is not None:
+                    raise ValueError(
+                        f'Invalid parameter data ({data}) '
+                        '(multiple items with schema "TomoSim")')
+                config = TomoSim(**(item.get('data')))
+
+        sample_type = config.sample_type
+        sample_size = config.sample_size
+        wall_thickness = config.wall_thickness
+        beam_intensity = config.beam_intensity
+        background_intensity = config.background_intensity
+        mu = config.mu
+
+        # Create the x-ray path length through a solid square
+        #     crosssection for a set of rotation angles.
+        thetas, coords, path_lengths_solid = \
+            self._create_pathlength_solid_square(config)
+#        print(f'\n\nthetas {len(thetas)}: {thetas}')
+#        print(f'\ncoords {coords.shape}: {coords}')
+#        print(f'\npath_lengths_solids {path_lengths_solid.shape}\n\n')
+
+        # Create the x-ray path length through a hollow square
+        #     crosssection for a set of rotation angles.
+        path_lengths_hollow = None
+        if sample_type in ('square_pipe', 'hollow_cube'):
+            path_lengths_hollow = path_lengths_solid \
+                - self._create_pathlength_solid_square(
+                    config, sample_size - 2*wall_thickness)[2]
+
+        # Get transmitted intensities
+        num_theta = len(thetas)
+        assert config.detector_size == len(coords)
+        tomo_field = beam_intensity * np.ones(
+            (num_theta, len(coords), len(coords)))
+        if sample_type == 'square_rod':
+            intensities = beam_intensity * np.exp(-mu*path_lengths_solid)
+            for n in range(num_theta):
+                tomo_field[n,:,:] = intensities[n]
+        elif sample_type == 'square_pipe':
+            intensities = beam_intensity * np.exp(-mu*path_lengths_hollow)
+            for n in range(num_theta):
+                tomo_field[n,:,:] = intensities[n]
+        else:
+            intensities_solid = beam_intensity * np.exp(-mu*path_lengths_solid)
+            intensities_hollow = beam_intensity * np.exp(-mu*path_lengths_hollow)
+            outer_indices = [i for i, coord in enumerate(coords)
+                if abs(coord) <= sample_size/2]
+            inner_indices = [i for i, coord in enumerate(coords)
+                if abs(coord) <= sample_size/2-wall_thickness]
+            wall_indices = list(set(outer_indices)-set(inner_indices))
+#            print(f'outer_indices: {outer_indices}')
+#            print(f'inner_indices: {inner_indices}')
+#            print(f'wall_indices: {wall_indices}')
+            for i in wall_indices:
+                for n in range(num_theta):
+                    tomo_field[n,i] = intensities_solid[n]
+            for i in inner_indices:
+                for n in range(num_theta):
+                    tomo_field[n,i] = intensities_hollow[n]
+        tomo_field += background_intensity
+            
+#        quick_imshow(tomo_field[0,:,:], block=True)
+#        quick_imshow(tomo_field[int(num_theta/8),:,:], block=True)
+#        quick_imshow(tomo_field[int(num_theta/4),:,:], block=True)
+#        quick_imshow(tomo_field[int(num_theta/2),:,:], block=True)
+
+        # Create Nexus object and write to file
+        nxtomo = NXroot()
+        nxtomo.entry = NXentry()
+        nxtomo.entry['instrument'] = NXinstrument()
+        nxtomo.entry.instrument['detector'] = NXdetector()
+        nxtomo.entry.instrument.detector.data = tomo_field
+        nxtomo.save(f'{sample_type}_TEST_001.h5', 'w')
+
+        # Create the dark field
+        dark_field = int(background_intensity) \
+            * np.ones((5, len(coords), len(coords)), dtype=np.int64)
+        nxdark = NXroot()
+        nxdark.entry = NXentry()
+        nxdark.entry['instrument'] = NXinstrument()
+        nxdark.entry.instrument['detector'] = NXdetector()
+        nxdark.entry.instrument.detector.data = dark_field
+        nxdark.save(f'{sample_type}_dark_TEST_001.h5', 'w')
+
+        # Create the bright field
+        bright_field = int(background_intensity+beam_intensity) \
+            * np.ones((5, len(coords), len(coords)), dtype=np.int64)
+#        bright_field[:,:int(0.2*len(coords)),:] = 0
+#        bright_field[:,int(0.8*len(coords)):,:] = 0
+        nxbright = NXroot()
+        nxbright.entry = NXentry()
+        nxbright.entry['instrument'] = NXinstrument()
+        nxbright.entry.instrument['detector'] = NXdetector()
+        nxbright.entry.instrument.detector.data = bright_field
+        nxbright.save(f'{sample_type}_flat_TEST_001.h5', 'w')
+
+        return None
+
+    def _create_pathlength_solid_square(self, config, dim=None):
+        """
+        Create the x-ray path length through a solid square
+        crosssection for a set of rotation angles.
+        """
+
+        if dim is None:
+            dim = config.sample_size
+        thetas = list(
+            np.arange(0., 180.+0.5*config.delta_theta, config.delta_theta))
+        coords = config.pixel_size * (0.5 * (1 - config.detector_size%2)
+            + np.asarray(range(int(0.5 * (config.detector_size+1)))))
+
+        lengths = np.zeros((len(thetas), len(coords)), dtype=np.float64)
+        for i, theta in enumerate(thetas):
+            if theta > 90.:
+                theta -= 90.
+                if theta in thetas:
+                    lengths[i] = lengths[thetas.index(theta)]
+                    continue
+            if 45. < theta <= 90.:
+                theta = 90.-theta
+                if theta in thetas:
+                    lengths[i] = lengths[thetas.index(theta)]
+                    continue
+            theta_rad = theta*np.pi/180.
+            len_ab = dim/np.cos(theta_rad)
+            len_oc = dim*np.cos(theta_rad+0.25*np.pi)/np.sqrt(2.)
+            len_ce = dim*np.sin(theta_rad)
+            index1 = int(np.argmin(np.abs(coords-len_oc)))
+            if len_oc < coords[index1] and index1 > 0:
+                index1 -= 1
+            index2 = int(np.argmin(np.abs(coords-len_oc-len_ce)))
+            if len_oc+len_ce < coords[index2]:
+                index2 -= 1
+            index1 += 1
+            index2 += 1
+            for j in range(index1):
+                lengths[i,j] = len_ab
+            for j, column in enumerate(coords[index1:index2]):
+                lengths[i,j+index1] = len_ab*(len_oc+len_ce-column)/len_ce
+
+        # Add the mirror image for negative column coordinates
+        if len(coords)%2:
+            coords = np.concatenate((-np.flip(coords[1:]), coords))
+            lengths = np.concatenate((np.fliplr(lengths[:,1:]), lengths), axis=1)
+        else:
+            coords = np.concatenate((-np.flip(coords), coords))
+            lengths = np.concatenate((np.fliplr(lengths), lengths), axis=1)
+
+        return thetas, coords, lengths
 
 
 if __name__ == '__main__':

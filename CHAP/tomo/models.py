@@ -146,3 +146,43 @@ class TomoCombineConfig(BaseModel):
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     z_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+
+
+class TomoSim(BaseModel):
+    """
+    Class representing the configuration for the tomography simulator.
+
+    :ivar sample_type: Sample type for the tomography simulator, one of
+        "square_rod", "square_pipe", or "hollow_cube"
+    :type sample_type: str
+    :ivar sample_size: Outer sample dimension of the square (will
+        be converted to an integer number of pixels)
+        crosssection in mm
+    :type sample_size: float
+    :ivar wall_thickness: Wall thickness for pipe and cube in mm (will
+        be converted to an integer number of pixels)
+    :type wall_thickness: float
+    :ivar detector_size: Size of each dimension of the square detector
+        in pixels
+    :type detector_size: float
+    :ivar pixel_size: Detector pixel size in mm
+    :type pixel_size: float
+    :ivar delta_theta: Rotation angle step in the tomography simulation
+        in degrees
+    :type delta_theta: float
+    :ivar beam_intensity: Initial beam intensity
+    :type beam_intensity: float
+    :ivar background_intensity: Background intensity
+    :type beam_intensity: float
+    :ivar mu: Linear attenuation coefficient in mm^-1
+    :type mu: float
+    """
+    sample_type: Literal['square_rod', 'square_pipe', 'hollow_cube']
+    sample_size: confloat(gt=0)
+    wall_thickness: Optional[confloat(ge=0)]
+    detector_size: conint(gt=0)
+    pixel_size: confloat(gt=0)
+    delta_theta: confloat(gt=0)
+    beam_intensity: Optional[confloat(gt=0)] = 1.e9
+    background_intensity: Optional[confloat(gt=0)] = 20
+    mu: Optional[confloat(gt=0)] = 0.05
