@@ -107,13 +107,14 @@ class TomoDataProcessor(Processor):
             if 'reduce' in configs:
                 tool_config = configs.pop('reduce')
                 img_x_bounds = tool_config.img_x_bounds
+                delta_theta = tool_config.delta_theta
             else:
                 img_x_bounds = None
+                delta_theta = None
                 if nxroot is None:
                     raise RuntimeError(
                         'Unable to reduce the data without providing a '
                         + 'reduced_data config file')
-            delta_theta = tool_config.delta_theta
             if nxroot is None:
                 map_config = configs.pop('map')
                 nxroot = self.get_nxroot(map_config, tool_config)
@@ -1680,7 +1681,7 @@ class Tomo:
                     while True:
                         _, img_x_bounds = draw_mask_1d(
                             x_sum, title='select x data range',
-                            legend='sum over theta and y')
+                            ylabel='sum over theta and y')
                         if len(img_x_bounds) == 1:
                             break
                         print('Choose a single connected data range')
@@ -2433,12 +2434,12 @@ class Tomo:
                     _, x_bounds = draw_mask_1d(
                         tomosum, current_index_ranges=index_ranges,
                         title='select x data range',
-                        legend='recon stack sum yz')
+                        ylabel='sum yz')
                     while len(x_bounds) != 1:
                         print('Please select exactly one continuous range')
                         _, x_bounds = draw_mask_1d(
                             tomosum, title='select x data range',
-                            legend='recon stack sum yz')
+                            ylabel='sum yz')
                     x_bounds = x_bounds[0]
                     accept = True
             self._logger.debug(f'x_bounds = {x_bounds}')
@@ -2461,12 +2462,12 @@ class Tomo:
                     _, y_bounds = draw_mask_1d(
                         tomosum, current_index_ranges=index_ranges,
                         title='select x data range',
-                        legend='recon stack sum xz')
+                        ylabel='sum xz')
                     while len(y_bounds) != 1:
                         print('Please select exactly one continuous range')
                         _, y_bounds = draw_mask_1d(
                             tomosum, title='select x data range',
-                            legend='recon stack sum xz')
+                            ylabel='sum xz')
                     y_bounds = y_bounds[0]
                     accept = True
             self._logger.debug(f'y_bounds = {y_bounds}')
@@ -2490,12 +2491,12 @@ class Tomo:
                     _, z_bounds = draw_mask_1d(
                         tomosum, current_index_ranges=index_ranges,
                         title='select x data range',
-                        legend='recon stack sum xy')
+                        ylabel='sum xy')
                     while len(z_bounds) != 1:
                         print('Please select exactly one continuous range')
                         _, z_bounds = draw_mask_1d(
                             tomosum, title='select x data range',
-                            legend='recon stack sum xy')
+                            ylabel='sum xy')
                     z_bounds = z_bounds[0]
                     accept = True
             self._logger.debug(f'z_bounds = {z_bounds}')
