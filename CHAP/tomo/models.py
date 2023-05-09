@@ -148,7 +148,7 @@ class TomoCombineConfig(BaseModel):
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
 
 
-class TomoSim(BaseModel):
+class TomoSimConfig(BaseModel):
     """
     Class representing the configuration for the tomography simulator.
 

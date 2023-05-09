@@ -102,6 +102,51 @@ class YAMLWriter(Writer):
         return data
 
 
+class TXTWriter(Writer):
+    """Writer for plain text files from string or list of strings."""
+    def write(self, data, filename, force_overwrite=False):
+        """If `data` is a `str`, `tuple[str]` or `list[str]`, write it
+        to `filename`.
+
+        :param data: the string or tuple or list of strings to write to
+            `filename`.
+        :type data: str, tuple, list
+        :param filename: name of the file to write to.
+        :type filename: str
+        :param force_overwrite: flag to allow data in `filename` to be
+            overwritten if it already exists.
+        :type force_overwrite: bool
+        :raises TypeError: if `data` is not a `str`, `tuple[str]` or
+            `list[str]`
+        :raises RuntimeError: if `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: the original input data
+        :rtype: str, tuple, list
+        """
+        # Local modules
+        from .utils.general import is_str_series
+
+        data = self.unwrap_pipelinedata(data)
+
+        if not isinstance(data, str) and not is_str_series(data, log=False):
+            raise TypeError(
+                f'{self.__name__}.write: input data must be a str or a tuple or '
+                'list of str.')
+
+        if not force_overwrite:
+            if os.path.isfile(filename):
+                raise RuntimeError(
+                    f'{self.__name__}: {filename} already exists.')
+
+        with open(filename, 'w') as f:
+            if isinstance(data, str):
+                f.write(data)
+            else:
+                f.write('\n'.join(data))
+
+        return data
+
+
 if __name__ == '__main__':
     from CHAP.writer import main
     main()

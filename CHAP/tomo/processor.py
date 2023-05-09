@@ -2309,12 +2309,9 @@ class Tomo:
         # Get reconstruction parameters
         recon_parameters = None  # self._config.get('recon_parameters')
         if recon_parameters is None:
-            #RV sigma = 2.0
-            #RV secondary_iters = 0
-            #RV ring_width = 15
-            sigma = 0.5
+            sigma = 2.0
             secondary_iters = 0
-            ring_width = 0
+            ring_width = 15
         else:
             sigma = recon_parameters.get('stripe_fw_sigma', 2.0)
             if not is_num(sigma, ge=0):
@@ -2504,15 +2501,14 @@ class Tomo:
         return x_bounds, y_bounds, z_bounds
 
 
-class TomoSimProcessor(Processor):
+class TomoSimFieldProcessor(Processor):
     """
-    Class representing the processes to create a simulated tomography
-    data set, suitable to be processed by TomoSimProcessor returning \
-    a `nexusformat.nexus.NXroot` object containing the simulated
-    tomography detector images.
+    Class representing the process to create a simulated tomography
+    data set returning a `nexusformat.nexus.NXroot` object containing
+    the simulated tomography detector images.
     """
 
-    def _process(self, data, **kwargs):
+    def process(self, data, **kwargs):
         # Third party modules
         from nexusformat.nexus import (
             NXroot,
@@ -2521,22 +2517,8 @@ class TomoSimProcessor(Processor):
             NXdetector,
         )
 
-        # Local modules
-        from CHAP.tomo.models import TomoSim
-
-        if not isinstance(data, list):
-            raise ValueError(f'Invalid parameter data ({data})')
-
-        # Get and validate the TomoSim configuration object in data
-        config = None
-        for item in data:
-            if (isinstance(item, dict) and item.get('data') is not None
-                    and item.get('schema') == 'TomoSim'):
-                if config is not None:
-                    raise ValueError(
-                        f'Invalid parameter data ({data}) '
-                        '(multiple items with schema "TomoSim")')
-                config = TomoSim(**(item.get('data')))
+        # Get and validate the relevant configuration object in data
+        config = self.get_configs(data)
 
         sample_type = config.sample_type
         sample_size = config.sample_size
@@ -2593,42 +2575,69 @@ class TomoSimProcessor(Processor):
                     tomo_field[n,i] = intensities_hollow[n]
         tomo_field += background_intensity
             
-#        quick_imshow(tomo_field[0,:,:], block=True)
-#        quick_imshow(tomo_field[int(num_theta/8),:,:], block=True)
-#        quick_imshow(tomo_field[int(num_theta/4),:,:], block=True)
-#        quick_imshow(tomo_field[int(num_theta/2),:,:], block=True)
-
         # Create Nexus object and write to file
-        nxtomo = NXroot()
-        nxtomo.entry = NXentry()
-        nxtomo.entry['instrument'] = NXinstrument()
-        nxtomo.entry.instrument['detector'] = NXdetector()
-        nxtomo.entry.instrument.detector.data = tomo_field
-        nxtomo.save(f'{sample_type}_TEST_001.h5', 'w')
+        nxroot = NXroot()
+        nxroot.entry = NXentry()
+        nxroot.entry.attrs['sample_type'] = sample_type
+        nxroot.entry['instrument'] = NXinstrument()
+        nxroot.entry.instrument['detector'] = NXdetector()
+        nxroot.entry.instrument.detector.data = tomo_field
+        nxroot.entry.instrument.detector.thetas = thetas
+        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
+            background_intensity
+        nxroot.entry.instrument.detector.attrs['beam_intensity'] = \
+            beam_intensity
 
-        # Create the dark field
-        dark_field = int(background_intensity) \
-            * np.ones((5, len(coords), len(coords)), dtype=np.int64)
-        nxdark = NXroot()
-        nxdark.entry = NXentry()
-        nxdark.entry['instrument'] = NXinstrument()
-        nxdark.entry.instrument['detector'] = NXdetector()
-        nxdark.entry.instrument.detector.data = dark_field
-        nxdark.save(f'{sample_type}_dark_TEST_001.h5', 'w')
+        return nxroot
 
-        # Create the bright field
-        bright_field = int(background_intensity+beam_intensity) \
-            * np.ones((5, len(coords), len(coords)), dtype=np.int64)
-#        bright_field[:,:int(0.2*len(coords)),:] = 0
-#        bright_field[:,int(0.8*len(coords)):,:] = 0
-        nxbright = NXroot()
-        nxbright.entry = NXentry()
-        nxbright.entry['instrument'] = NXinstrument()
-        nxbright.entry.instrument['detector'] = NXdetector()
-        nxbright.entry.instrument.detector.data = bright_field
-        nxbright.save(f'{sample_type}_flat_TEST_001.h5', 'w')
+    def get_configs(self, data):
+        """
+        Get instances of the configuration objects needed by this
+        `Processor` from a returned value of `Reader.read`
 
-        return None
+        :param data: Result of `Reader.read` where at least one item
+            has `'TomoReduceConfig'` for the `'schema'` key, and at
+            least one item has `'TomoSimConfig'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If valid config objects cannot be constructed
+            from `data`.
+        :return: valid instance of the configuration object with field
+            values taken from `data`.
+        :rtype: TomoSimConfig
+        """
+        # Local modules
+        from CHAP.tomo.models import (
+            TomoSimConfig,
+            TomoReduceConfig,
+        )
+
+        reduce_config = None
+        tomo_sim_data = None
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and item.get('data') is not None:
+                    schema = item.get('schema')
+                    if schema == 'TomoReduceConfig':
+                        reduce_config = TomoReduceConfig(
+                            **(item.get('data')))
+                    elif schema == 'TomoSimConfig':
+                        tomo_sim_data = item.get('data')
+        if reduce_config is None or tomo_sim_data is None:
+            raise ValueError(f'Invalid parameter data ({data})')
+#RV for now assume square detector and pixels
+        tomo_sim_data['detector_size'] = reduce_config.detector.rows
+#        tomo_sim_data['detector_size'] = (
+#            int(configs['reduce'].detector.rows),
+#            int(configs['reduce'].detector.columns),
+#        )
+        tomo_sim_data['pixel_size'] = (
+            reduce_config.detector.pixel_size[0]
+            / reduce_config.detector.lens_magnification)
+#        tomo_sim_data['pixel_size'] = list(np.asarray(
+#            configs['reduce'].detector.pixel_size) \
+#            / configs['reduce'].detector.lens_magnification)
+
+        return TomoSimConfig(**tomo_sim_data)
 
     def _create_pathlength_solid_square(self, config, dim=None):
         """
@@ -2681,6 +2690,271 @@ class TomoSimProcessor(Processor):
             lengths = np.concatenate((np.fliplr(lengths), lengths), axis=1)
 
         return thetas, coords, lengths
+
+
+class TomoDarkFieldProcessor(Processor):
+    """
+    Class representing the process to create a dark field associated
+    with a simulated tomography data set created by TomoSimProcessor
+    returning a `nexusformat.nexus.NXroot` object containing the
+    dark field tomography detector images.
+    """
+
+    def process(self, data, num_image=5, **kwargs):
+        # Third party modules
+        from nexusformat.nexus import (
+            NeXusError,
+            NXroot,
+            NXentry,
+            NXinstrument,
+            NXdetector,
+        )
+
+        # Get and validate the TomoSimField configuration object in data
+        nxroot = self.get_config(data)
+        try:
+            background_intensity = \
+                nxroot.entry.instrument.detector.attrs['background_intensity']
+        except NeXusError:
+            raise ValueError(
+                f'Invalid tomography field configuration:\n{nxroot.tree}')
+        except KeyError:
+            raise ValueError(
+                'No background_intensity found in tomography field '
+                'configuration')
+        try:
+            tomo_shape = nxroot.entry.instrument.detector.data.shape
+        except NeXusError:
+            raise ValueError(
+                f'Invalid tomography field configuration:\n{nxroot.tree}')
+        if len(tomo_shape) != 3:
+            raise ValueError(
+                f'Invalid tomography data field dimension:\n{tomo_shape}')
+
+        # Create the dark field
+        # RV: make number of dark fields an input?
+        dark_field = int(background_intensity) \
+            * np.ones((num_image, tomo_shape[1], tomo_shape[2]), dtype=np.int64)
+        nxroot = NXroot()
+        nxroot.entry = NXentry()
+        nxroot.entry['instrument'] = NXinstrument()
+        nxroot.entry.instrument['detector'] = NXdetector()
+        nxroot.entry.instrument.detector.data = dark_field
+        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
+            background_intensity
+
+        return nxroot
+
+    def get_config(self, data):
+        """Get an instance of the configuration object needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item
+            has the value `'TomoSimField'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If a valid config object cannot be
+            constructed from `data`.
+        :return: a valid instance of a configuration object with field
+            values taken from `data`.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        nxroot = None
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    if item.get('schema') == 'TomoSimField':
+                        nxroot = item.get('data')
+                        break
+        if nxroot is None:
+            raise ValueError(
+                'No tomography field configuration found in input data')
+        return nxroot
+
+
+class TomoBrightFieldProcessor(Processor):
+    """
+    Class representing the process to create a bright field associated
+    with a simulated tomography data set created by TomoSimProcessor
+    returning a `nexusformat.nexus.NXroot` object containing the
+    bright field tomography detector images.
+    """
+
+    def process(self, data, num_image=5, **kwargs):
+        # Third party modules
+        from nexusformat.nexus import (
+            NeXusError,
+            NXroot,
+            NXentry,
+            NXinstrument,
+            NXdetector,
+        )
+
+        # Get and validate the TomoSimField configuration object in data
+        nxroot = self.get_config(data)
+        try:
+            beam_intensity = \
+                nxroot.entry.instrument.detector.attrs['beam_intensity']
+        except NeXusError:
+            raise ValueError(
+                f'Invalid tomography field configuration:\n{nxroot.tree}')
+        except KeyError:
+            raise ValueError(
+                'No beam_intensity found in tomography field configuration')
+        try:
+            background_intensity = \
+                nxroot.entry.instrument.detector.attrs['background_intensity']
+        except NeXusError:
+            raise ValueError(
+                f'Invalid tomography field configuration:\n{nxroot.tree}')
+        except KeyError:
+            raise ValueError(
+                'No background_intensity found in tomography field '
+                'configuration')
+        try:
+            tomo_shape = nxroot.entry.instrument.detector.data.shape
+        except NeXusError:
+            raise ValueError(
+                f'Invalid tomography field configuration:\n{nxroot.tree}')
+        if len(tomo_shape) != 3:
+            raise ValueError(
+                f'Invalid tomography data field dimension:\n{tomo_shape}')
+
+        # Create the bright field
+        # RV: make number of bright fields an input?
+        bright_field = int(background_intensity+beam_intensity) \
+            * np.ones((num_image, tomo_shape[1], tomo_shape[2]), dtype=np.int64)
+#        bright_field[:,:int(0.2*tomo_shape[1]),:] = 0
+#        bright_field[:,int(0.8*tomo_shape[1]):,:] = 0
+        nxroot = NXroot()
+        nxroot.entry = NXentry()
+        nxroot.entry['instrument'] = NXinstrument()
+        nxroot.entry.instrument['detector'] = NXdetector()
+        nxroot.entry.instrument.detector.data = bright_field
+        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
+            background_intensity
+        nxroot.entry.instrument.detector.attrs['beam_intensity'] = \
+            beam_intensity
+
+        return nxroot
+
+    def get_config(self, data):
+        """Get an instance of the configuration object needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item
+            has the value `'TomoSimField'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If a valid config object cannot be
+            constructed from `data`.
+        :return: a valid instance of a configuration object with field
+            values taken from `data`.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        nxroot = None
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    if item.get('schema') == 'TomoSimField':
+                        nxroot = item.get('data')
+                        break
+        if nxroot is None:
+            raise ValueError(
+                'No tomography field configuration found in input data')
+        return nxroot
+
+
+class TomoSpecProcessor(Processor):
+    """
+    Class representing the process to create a tomography SPEC file
+    associated with a simulated tomography data set created by
+    TomoSimProcessor returning a plain text object containing the
+    tomography SPEC file.
+    """
+
+    def process(self, data, field_type=None, **kwargs):
+        # System modules
+        from datetime import datetime
+
+        # Third party modules
+        from nexusformat.nexus import NeXusError
+
+        # Get and validate the TomoSimField, TomoDarkField, or
+        #     TomoBrightField configuration object in data
+        schema, nxroot = self.get_config(data)
+        try:
+            thetas = nxroot.entry.instrument.detector.thetas
+        except NeXusError:
+            if schema == 'TomoSimField':
+                raise ValueError(
+                    f'Unable to get thetas from:\n{nxroot.tree}')
+            else:
+                try:
+                    data_shape = nxroot.entry.instrument.detector.data.shape
+                except NeXusError:
+                    raise ValueError(
+                        f'Unable to get data shape from:\n{nxroot.tree}')
+                if len(data_shape) != 3:
+                    raise ValueError(
+                        f'Invalid data field dimension:\n{data_shape}')
+                thetas = 1+np.arange(data_shape[0])
+
+        if schema == 'TomoSimField':
+            field_type = 'tomo_field'
+            macro = f'1  flyscan phi_air 0 {len(thetas)-1} {len(thetas)-1} 1.0'
+        elif schema == 'TomoDarkField':
+            field_type = 'dark_field'
+            macro = f'1  flyscan {len(thetas)} 1.0'
+        elif schema == 'TomoBrightField':
+            field_type = 'bright_field'
+            macro = f'1  flyscan {len(thetas)} 1.0'
+
+        # Create the spec file
+        now = datetime.now().strftime("%a %b %d %I:%M:%S %Y")
+        spec_file = [f'#F {field_type}']
+        spec_file.append(f'#E 0')
+        spec_file.append(f'#D {now}')
+        spec_file.append(f'#C spec  User = chess_id3b')
+        spec_file.append(f'')
+        spec_file.append(f'#O0 4C_samz  4C_samx')
+        spec_file.append(f'#o0 samz samx')
+        spec_file.append(f'')
+        spec_file.append(f'#S {macro}')
+        spec_file.append(f'#D {now}')
+        spec_file.append(f'#P0 0.0 0.0')
+        spec_file.append(f'#N 1')
+        spec_file.append(f'#L  theta')
+        if schema != 'TomoSimField':
+            spec_file.append(f'0')
+        spec_file += [str(theta) for theta in thetas]
+
+        return spec_file
+
+    def get_config(self, data):
+        """Get an instance of the configuration object needed by this
+        `Processor` from a returned value of `Reader.read`
+
+        :param data: Result of `Reader.read` where at least one item
+            has the value `'TomoSimField'` for the `'schema'` key.
+        :type data: list[dict[str,object]]
+        :raises Exception: If a valid config object cannot be
+            constructed from `data`.
+        :return: a valid instance of a configuration object with field
+            values taken from `data`.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        nxroot = None
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    schema = item.get('schema')
+                    if schema in [
+                            'TomoSimField', 'TomoDarkField', 'TomoBrightField']:
+                        nxroot = item.get('data')
+                        break
+        if nxroot is None:
+            raise ValueError(
+                'No tomography field configuration found in input data')
+        return schema, nxroot
 
 
 if __name__ == '__main__':

@@ -1,5 +1,8 @@
 from CHAP.common import MapProcessor
 from CHAP.tomo.processor import (
     TomoDataProcessor,
-    TomoSimProcessor,
+    TomoSimFieldProcessor,
+    TomoDarkFieldProcessor,
+    TomoBrightFieldProcessor,
+    TomoSpecProcessor,
 )
