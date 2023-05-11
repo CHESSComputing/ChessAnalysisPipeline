@@ -71,7 +71,7 @@ class TomoReduceConfig(BaseModel):
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
-    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
+    delta_theta: Optional[confloat(gt=1, allow_inf_nan=False)]
 
 
 class TomoFindCenterConfig(BaseModel):
@@ -172,9 +172,9 @@ class TomoSimConfig(BaseModel):
     :type detector_size: float
     :ivar pixel_size: Detector pixel size in mm
     :type pixel_size: float
-    :ivar delta_theta: Rotation angle step in the tomography simulation
+    :ivar theta_step: Rotation angle step in the tomography simulation
         in degrees
-    :type delta_theta: float
+    :type theta_step: float
     :ivar beam_intensity: Initial beam intensity
     :type beam_intensity: float
     :ivar background_intensity: Background intensity
@@ -187,6 +187,6 @@ class TomoSimConfig(BaseModel):
     sample_size: confloat(gt=0, allow_inf_nan=False)
     wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
     mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
-    delta_theta: confloat(gt=0, allow_inf_nan=False)
+    theta_step: confloat(gt=0, allow_inf_nan=False)
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
