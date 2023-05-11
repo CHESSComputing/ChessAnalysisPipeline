@@ -2465,10 +2465,12 @@ class TomoSimFieldProcessor(Processor):
     def process(self, data, **kwargs):
         # Third party modules
         from nexusformat.nexus import (
-            NXroot,
+            NXdetector,
             NXentry,
             NXinstrument,
-            NXdetector,
+            NXroot,
+            NXsample,
+            NXsource,
         )
 
         # Get and validate the relevant configuration object in data
@@ -2477,14 +2479,28 @@ class TomoSimFieldProcessor(Processor):
         sample_type = config.sample_type
         sample_size = config.sample_size
         wall_thickness = config.wall_thickness
+        mu = config.mu
+        delta_theta = config.delta_theta
         beam_intensity = config.beam_intensity
         background_intensity = config.background_intensity
-        mu = config.mu
+        pixel_size = config.detector.pixel_size
+        if len(pixel_size) == 1:
+            pixel_size = (
+                pixel_size[0]/config.detector.lens_magnification,
+                pixel_size[0]/config.detector.lens_magnification,
+            )
+        else:
+            pixel_size = (
+                pixel_size[0]/config.detector.lens_magnification,
+                pixel_size[1]/config.detector.lens_magnification,
+            )
+        detector_size = (config.detector.rows, config.detector.columns)
 
         # Create the x-ray path length through a solid square
         #     crosssection for a set of rotation angles.
         thetas, coords, path_lengths_solid = \
-            self._create_pathlength_solid_square(config)
+            self._create_pathlength_solid_square(
+                sample_size, delta_theta, pixel_size, detector_size)
 #        print(f'\n\nthetas {len(thetas)}: {thetas}')
 #        print(f'\ncoords {coords.shape}: {coords}')
 #        print(f'\npath_lengths_solids {path_lengths_solid.shape}\n\n')
@@ -2495,11 +2511,11 @@ class TomoSimFieldProcessor(Processor):
         if sample_type in ('square_pipe', 'hollow_cube'):
             path_lengths_hollow = path_lengths_solid \
                 - self._create_pathlength_solid_square(
-                    config, sample_size - 2*wall_thickness)[2]
+                    sample_size - 2*wall_thickness, delta_theta,
+                    pixel_size, detector_size)[2]
 
         # Get transmitted intensities
         num_theta = len(thetas)
-        assert config.detector_size == len(coords)
         tomo_field = beam_intensity * np.ones(
             (num_theta, len(coords), len(coords)))
         if sample_type == 'square_rod':
@@ -2532,15 +2548,29 @@ class TomoSimFieldProcessor(Processor):
         # Create Nexus object and write to file
         nxroot = NXroot()
         nxroot.entry = NXentry()
-        nxroot.entry.attrs['sample_type'] = sample_type
-        nxroot.entry['instrument'] = NXinstrument()
-        nxroot.entry.instrument['detector'] = NXdetector()
-        nxroot.entry.instrument.detector.data = tomo_field
-        nxroot.entry.instrument.detector.thetas = thetas
-        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
-            background_intensity
-        nxroot.entry.instrument.detector.attrs['beam_intensity'] = \
-            beam_intensity
+        nxroot.entry.sample = NXsample()
+        nxroot.entry.sample.sample_type = sample_type
+        nxroot.entry.sample.sample_size = sample_size
+        if wall_thickness is not None:
+            nxroot.entry.sample.wall_thickness = wall_thickness
+        nxroot.entry.sample.mu = mu
+        nxinstrument = NXinstrument()
+        nxroot.entry.instrument = nxinstrument
+        nxinstrument.source = NXsource()
+        nxinstrument.source.type = 'Synchrotron X-ray Source'
+        nxinstrument.source.name = 'Tomography Simulator'
+        nxinstrument.source.probe = 'x-ray'
+        nxinstrument.source.background_intensity = background_intensity
+        nxinstrument.source.beam_intensity = beam_intensity
+        nxdetector = NXdetector()
+        nxinstrument.detector = nxdetector
+        nxdetector.local_name = config.detector.prefix
+        nxdetector.x_pixel_size = pixel_size[0]
+        nxdetector.y_pixel_size = pixel_size[1]
+        nxdetector.x_pixel_size.attrs['units'] = 'mm'
+        nxdetector.y_pixel_size.attrs['units'] = 'mm'
+        nxdetector.data = tomo_field
+        nxdetector.thetas = thetas
 
         return nxroot
 
@@ -2560,51 +2590,33 @@ class TomoSimFieldProcessor(Processor):
         :rtype: TomoSimConfig
         """
         # Local modules
-        from CHAP.tomo.models import (
-            TomoSimConfig,
-            TomoReduceConfig,
-        )
+        from CHAP.tomo.models import TomoSimConfig
 
-        reduce_config = None
         tomo_sim_data = None
         if isinstance(data, list):
             for item in data:
-                if isinstance(item, dict) and item.get('data') is not None:
-                    schema = item.get('schema')
-                    if schema == 'TomoReduceConfig':
-                        reduce_config = TomoReduceConfig(
-                            **(item.get('data')))
-                    elif schema == 'TomoSimConfig':
-                        tomo_sim_data = item.get('data')
-        if reduce_config is None or tomo_sim_data is None:
+                if (isinstance(item, dict) and item.get('data') is not None
+                        and item.get('schema') == 'TomoSimConfig'):
+                    tomo_sim_data = item.get('data')
+        if tomo_sim_data is None:
             raise ValueError(f'Invalid parameter data ({data})')
-#RV for now assume square detector and pixels
-        tomo_sim_data['detector_size'] = reduce_config.detector.rows
-#        tomo_sim_data['detector_size'] = (
-#            int(configs['reduce'].detector.rows),
-#            int(configs['reduce'].detector.columns),
-#        )
-        tomo_sim_data['pixel_size'] = (
-            reduce_config.detector.pixel_size[0]
-            / reduce_config.detector.lens_magnification)
-#        tomo_sim_data['pixel_size'] = list(np.asarray(
-#            configs['reduce'].detector.pixel_size) \
-#            / configs['reduce'].detector.lens_magnification)
 
         return TomoSimConfig(**tomo_sim_data)
 
-    def _create_pathlength_solid_square(self, config, dim=None):
+    def _create_pathlength_solid_square(self, dim, delta_theta, pixel_size,
+            detector_size):
         """
         Create the x-ray path length through a solid square
         crosssection for a set of rotation angles.
         """
 
-        if dim is None:
-            dim = config.sample_size
         thetas = list(
-            np.arange(0., 180.+0.5*config.delta_theta, config.delta_theta))
-        coords = config.pixel_size * (0.5 * (1 - config.detector_size%2)
-            + np.asarray(range(int(0.5 * (config.detector_size+1)))))
+            np.arange(0., 180.+0.5*delta_theta, delta_theta))
+        # For now assume square pixel and detector size
+        assert pixel_size[0] == pixel_size[1]
+        assert detector_size[0] == detector_size[1]
+        coords = pixel_size[0] * (0.5 * (1 - detector_size[0]%2)
+            + np.asarray(range(int(0.5 * (detector_size[0]+1)))))
 
         lengths = np.zeros((len(thetas), len(coords)), dtype=np.float64)
         for i, theta in enumerate(thetas):
@@ -2668,7 +2680,7 @@ class TomoDarkFieldProcessor(Processor):
         nxroot = self.get_config(data)
         try:
             background_intensity = \
-                nxroot.entry.instrument.detector.attrs['background_intensity']
+                nxroot.entry.instrument.source.background_intensity
         except NeXusError:
             raise ValueError(
                 f'Invalid tomography field configuration:\n{nxroot.tree}')
@@ -2747,7 +2759,7 @@ class TomoBrightFieldProcessor(Processor):
         nxroot = self.get_config(data)
         try:
             beam_intensity = \
-                nxroot.entry.instrument.detector.attrs['beam_intensity']
+                nxroot.entry.instrument.source.beam_intensity
         except NeXusError:
             raise ValueError(
                 f'Invalid tomography field configuration:\n{nxroot.tree}')
@@ -2756,7 +2768,7 @@ class TomoBrightFieldProcessor(Processor):
                 'No beam_intensity found in tomography field configuration')
         try:
             background_intensity = \
-                nxroot.entry.instrument.detector.attrs['background_intensity']
+                nxroot.entry.instrument.source.background_intensity
         except NeXusError:
             raise ValueError(
                 f'Invalid tomography field configuration:\n{nxroot.tree}')

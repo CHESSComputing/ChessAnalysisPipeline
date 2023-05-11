@@ -182,12 +182,11 @@ class TomoSimConfig(BaseModel):
     :ivar mu: Linear attenuation coefficient in mm^-1
     :type mu: float
     """
+    detector: Detector.construct()
     sample_type: Literal['square_rod', 'square_pipe', 'hollow_cube']
     sample_size: confloat(gt=0, allow_inf_nan=False)
     wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
-    detector_size: conint(gt=0)
-    pixel_size: confloat(gt=0, allow_inf_nan=False)
+    mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
     delta_theta: confloat(gt=0, allow_inf_nan=False)
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
-    mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
