@@ -99,6 +99,8 @@ class TomoFindCenterConfig(BaseModel):
     lower_center_offset: Optional[confloat(allow_inf_nan=False)]
     upper_row: Optional[conint(ge=-1)]
     upper_center_offset: Optional[confloat(allow_inf_nan=False)]
+    gaussian_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
 
 
 class TomoReconstructConfig(BaseModel):
@@ -123,6 +125,9 @@ class TomoReconstructConfig(BaseModel):
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     z_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+    secondary_iters: conint(ge=0) = 0
+    gaussian_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
 
 
 class TomoCombineConfig(BaseModel):
@@ -178,11 +183,11 @@ class TomoSimConfig(BaseModel):
     :type mu: float
     """
     sample_type: Literal['square_rod', 'square_pipe', 'hollow_cube']
-    sample_size: confloat(gt=0)
-    wall_thickness: Optional[confloat(ge=0)]
+    sample_size: confloat(gt=0, allow_inf_nan=False)
+    wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
     detector_size: conint(gt=0)
-    pixel_size: confloat(gt=0)
-    delta_theta: confloat(gt=0)
-    beam_intensity: Optional[confloat(gt=0)] = 1.e9
-    background_intensity: Optional[confloat(gt=0)] = 20
-    mu: Optional[confloat(gt=0)] = 0.05
+    pixel_size: confloat(gt=0, allow_inf_nan=False)
+    delta_theta: confloat(gt=0, allow_inf_nan=False)
+    beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
+    background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
+    mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05

@@ -104,13 +104,12 @@ class TomoDataProcessor(Processor):
 
         # Reduce tomography images
         if reduce_data or 'reduce' in configs:
+            args = {}
             if 'reduce' in configs:
                 tool_config = configs.pop('reduce')
-                img_x_bounds = tool_config.img_x_bounds
-                delta_theta = tool_config.delta_theta
+                args['img_x_bounds'] = tool_config.img_x_bounds
+                args['delta_theta'] = tool_config.delta_theta
             else:
-                img_x_bounds = None
-                delta_theta = None
                 if nxroot is None:
                     raise RuntimeError(
                         'Unable to reduce the data without providing a '
@@ -118,28 +117,25 @@ class TomoDataProcessor(Processor):
             if nxroot is None:
                 map_config = configs.pop('map')
                 nxroot = self.get_nxroot(map_config, tool_config)
-            nxroot = tomo.gen_reduced_data(
-                nxroot, img_x_bounds=img_x_bounds, delta_theta=delta_theta)
+            nxroot = tomo.gen_reduced_data(nxroot, **args)
 
         # Find rotation axis centers for the tomography stacks
         # RV pass tool_config directly to tomo.find_centers?
         if find_center or 'find_center' in configs:
+            args = {}
+            run_find_centers = False
             if 'find_center' in configs:
                 tool_config = configs.pop('find_center')
-                center_rows = (tool_config.lower_row, tool_config.upper_row)
+                args['center_rows'] = (
+                    tool_config.lower_row, tool_config.upper_row)
+                args['center_stack_index'] = tool_config.center_stack_index
                 lower_center_offset = tool_config.lower_center_offset
                 upper_center_offset = tool_config.upper_center_offset
-                center_stack_index = tool_config.center_stack_index
-            else:
-                center_rows = (None, None)
-                lower_center_offset = None
-                upper_center_offset = None
-                center_stack_index = None
-            if (None in center_rows or lower_center_offset is None
-                    or upper_center_offset is None):
-                center_config = tomo.find_centers(
-                    nxroot, center_rows=center_rows,
-                    center_stack_index=center_stack_index)
+                if (None in args['center_rows'] or lower_center_offset is None
+                        or upper_center_offset is None):
+                    run_find_centers = True
+            if run_find_centers:
+                center_config = tomo.find_centers(nxroot, **args)
             else:
                 # RV make a convert to dict in basemodel?
                 center_config = {
@@ -154,34 +150,24 @@ class TomoDataProcessor(Processor):
         # RV pass tool_config and center_config directly to
         #     tomo.reconstruct_data?
         if reconstruct_data or 'reconstruct' in configs:
+            args = {}
             if 'reconstruct' in configs:
                 tool_config = configs.pop('reconstruct')
-                x_bounds = tool_config.x_bounds
-                y_bounds = tool_config.y_bounds
-                z_bounds = tool_config.z_bounds
-            else:
-                x_bounds = None
-                y_bounds = None
-                z_bounds = None
-            nxroot = tomo.reconstruct_data(
-                nxroot, center_config, x_bounds=x_bounds, y_bounds=y_bounds,
-                z_bounds=z_bounds)
+                args['x_bounds'] = tool_config.x_bounds
+                args['y_bounds'] = tool_config.y_bounds
+                args['z_bounds'] = tool_config.z_bounds
+            nxroot = tomo.reconstruct_data(nxroot, center_config, **args)
             center_config = None
 
         # Combine reconstructed tomography stacks
         if combine_data or 'combine' in configs:
+            args = {}
             if 'combine' in configs:
                 tool_config = configs.pop('combine')
-                x_bounds = tool_config.x_bounds
-                y_bounds = tool_config.y_bounds
-                z_bounds = tool_config.z_bounds
-            else:
-                x_bounds = None
-                y_bounds = None
-                z_bounds = None
-            nxroot = tomo.combine_data(
-                nxroot, x_bounds=x_bounds, y_bounds=y_bounds,
-                z_bounds=z_bounds)
+                args['x_bounds'] = tool_config.x_bounds
+                args['y_bounds'] = tool_config.y_bounds
+                args['z_bounds'] = tool_config.z_bounds
+            nxroot = tomo.combine_data(nxroot, **args)
 
         if center_config is not None:
             return center_config
@@ -741,7 +727,8 @@ class Tomo:
 
         return nxroot
 
-    def find_centers(self, nxroot, center_rows=None, center_stack_index=None):
+    def find_centers(self, nxroot, center_rows=None, center_stack_index=None,
+            gaussian_sigma=None, ring_width=None):
         """
         Find the calibrated center axis info
 
@@ -873,7 +860,8 @@ class Tomo:
             nxentry.reduced_data.data.tomo_fields[
                 center_stack_index,:,lower_row,:],
             lower_row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=self._output_folder, num_core=self._num_core)
+            path=self._output_folder, num_core=self._num_core,
+            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
         self._logger.info(f'Finding center took {time()-t0:.2f} seconds')
         self._logger.debug(f'lower_row = {lower_row:.2f}')
         self._logger.debug(f'lower_center_offset = {lower_center_offset:.2f}')
@@ -912,7 +900,8 @@ class Tomo:
             nxentry.reduced_data.data.tomo_fields[
                 center_stack_index,:,upper_row,:],
             upper_row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=self._output_folder, num_core=self._num_core)
+            path=self._output_folder, num_core=self._num_core,
+            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
         self._logger.info(f'Finding center took {time()-t0:.2f} seconds')
         self._logger.debug(f'upper_row = {upper_row:.2f}')
         self._logger.debug(f'upper_center_offset = {upper_center_offset:.2f}')
@@ -937,7 +926,8 @@ class Tomo:
 
     def reconstruct_data(
             self, nxroot, center_info, x_bounds=None, y_bounds=None,
-            z_bounds=None):
+            z_bounds=None, secondary_iters=0, remove_stripe_sigma=None,
+            ring_width=None):
         """
         Reconstruct the tomography data.
 
@@ -1047,7 +1037,9 @@ class Tomo:
             t0 = time()
             tomo_recon_stack = self._reconstruct_one_tomo_stack(
                 tomo_stack, thetas, center_offsets=center_offsets,
-                num_core=self._num_core, algorithm='gridrec')
+                num_core=self._num_core, algorithm='gridrec',
+                secondary_iters=secondary_iters,
+                remove_stripe_sigma=remove_stripe_sigma, ring_width=ring_width)
             self._logger.info(
                 f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
 
@@ -2046,7 +2038,7 @@ class Tomo:
 
     def _find_center_one_plane(
             self, sinogram, row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=None, num_core=1):  # , tol=0.1):
+            path=None, num_core=1, gaussian_sigma=None, ring_width=None):  # , tol=0.1):
         """Find center for a single tomography plane."""
         from tomopy import find_center_vo
 
@@ -2082,7 +2074,7 @@ class Tomo:
         t0 = time()
         recon_plane = self._reconstruct_one_plane(
             sinogram_t, tomo_center, thetas, eff_pixel_size,
-            cross_sectional_dim, False, num_core)
+            cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
         self._logger.info(
             f'Reconstructing row {row} took {time()-t0:.2f} seconds')
 
@@ -2113,7 +2105,7 @@ class Tomo:
 #            t0 = time()
 #            recon_plane = self._reconstruct_one_plane(
 #                sinogram_t, tomo_center, thetas, eff_pixel_size,
-#                cross_sectional_dim, False, num_core)
+#                cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
 #            self._logger.info(
 #                f'Reconstructing row {row} took {time()-t0:.2f} seconds')
 #
@@ -2152,7 +2144,7 @@ class Tomo:
 #                t0 = time()
 #                recon_plane = self._reconstruct_one_plane(
 #                    sinogram_t, center_offset+center, thetas, eff_pixel_size,
-#                    cross_sectional_dim, False, num_core)
+#                    cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
 #                self._logger.info(
 #                    f'Reconstructing center_offset {center_offset} took '
 #                    + 'f{time()-t0:.2f} seconds')
@@ -2171,7 +2163,8 @@ class Tomo:
 
     def _reconstruct_one_plane(
             self, tomo_plane_t, center, thetas, eff_pixel_size,
-            cross_sectional_dim, plot_sinogram=True, num_core=1):
+            cross_sectional_dim, plot_sinogram=True, num_core=1,
+            gaussian_sigma=None, ring_width=None):
         """Invert the sinogram for a single tomography plane."""
         from scipy.ndimage import gaussian_filter
         from skimage.transform import iradon
@@ -2213,29 +2206,14 @@ class Tomo:
         del sinogram
 
         # Performing Gaussian filtering and removing ring artifacts
-        recon_parameters = None  # self._config.get('recon_parameters')
-        if recon_parameters is None:
-            sigma = 1.0
-            ring_width = 15
-        else:
-            sigma = recon_parameters.get('gaussian_sigma', 1.0)
-            if not is_num(sigma, ge=0.0):
-                self._logger.warning(
-                    f'Invalid gaussian_sigma ({sigma}) in '
-                    + '_reconstruct_one_plane, set to a default of 1.0')
-                sigma = 1.0
-            ring_width = recon_parameters.get('ring_width', 15)
-            if not isinstance(ring_width, int) or ring_width < 0:
-                self._logger.warning(
-                    f'Invalid ring_width ({ring_width}) in '
-                    + '_reconstruct_one_plane, set to a default of 15')
-                ring_width = 15
-        recon_sinogram = gaussian_filter(
-            recon_sinogram, sigma, mode='nearest')
+        if gaussian_sigma is not None:
+            recon_sinogram = gaussian_filter(
+                recon_sinogram, gaussian_sigma, mode='nearest')
         recon_clean = np.expand_dims(recon_sinogram, axis=0)
         del recon_sinogram
-        recon_clean = misc.corr.remove_ring(
-            recon_clean, rwidth=ring_width, ncore=num_core)
+        if ring_width is not None:
+            recon_clean = misc.corr.remove_ring(
+                recon_clean, rwidth=ring_width, ncore=num_core)
 
         return recon_clean
 
@@ -2273,7 +2251,8 @@ class Tomo:
 
     def _reconstruct_one_tomo_stack(
             self, tomo_stack, thetas, center_offsets=None, num_core=1,
-            algorithm='gridrec'):
+            algorithm='gridrec', secondary_iters=0, remove_stripe_sigma=None,
+            ring_width=None):
         """Reconstruct a single tomography stack."""
         # Third party modules
         from tomopy import (
@@ -2306,40 +2285,15 @@ class Tomo:
             centers = center_offsets
         centers += tomo_stack.shape[2]/2
 
-        # Get reconstruction parameters
-        recon_parameters = None  # self._config.get('recon_parameters')
-        if recon_parameters is None:
-            sigma = 2.0
-            secondary_iters = 0
-            ring_width = 15
-        else:
-            sigma = recon_parameters.get('stripe_fw_sigma', 2.0)
-            if not is_num(sigma, ge=0):
-                self._logger.warning(
-                    f'Invalid stripe_fw_sigma ({sigma}) in '
-                    + '_reconstruct_one_tomo_stack, set to a default of 2.0')
-                ring_width = 15
-            secondary_iters = recon_parameters.get('secondary_iters', 0)
-            if not isinstance(secondary_iters, int) or secondary_iters < 0:
-                self._logger.warning(
-                    f'Invalid secondary_iters ({secondary_iters}) in '
-                    + '_reconstruct_one_tomo_stack, set to a default of 0 '
-                    + '(i.e., skip them)')
-                ring_width = 0
-            ring_width = recon_parameters.get('ring_width', 15)
-            if not isinstance(ring_width, int) or ring_width < 0:
-                self._logger.warning(
-                    f'Invalid ring_width ({ring_width}) in '
-                    + '_reconstruct_one_plane, set to a default of 15')
-                ring_width = 15
-
         # Remove horizontal stripe
-        if num_core > NUM_CORE_TOMOPY_LIMIT:
-            tomo_stack = prep.stripe.remove_stripe_fw(
-                tomo_stack, sigma=sigma, ncore=NUM_CORE_TOMOPY_LIMIT)
-        else:
-            tomo_stack = prep.stripe.remove_stripe_fw(
-                tomo_stack, sigma=sigma, ncore=num_core)
+        if remove_stripe_sigma is not None:
+            if num_core > NUM_CORE_TOMOPY_LIMIT:
+                tomo_stack = prep.stripe.remove_stripe_fw(
+                    tomo_stack, sigma=remove_stripe_sigma,
+                    ncore=NUM_CORE_TOMOPY_LIMIT)
+            else:
+                tomo_stack = prep.stripe.remove_stripe_fw(
+                    tomo_stack, sigma=remove_stripe_sigma, ncore=num_core)
 
         # Perform initial image reconstruction
         self._logger.debug('Performing initial image reconstruction')
@@ -2391,7 +2345,7 @@ class Tomo:
                 + 'seconds')
 
         # Remove ring artifacts
-        if ring_width:
+        if ring_width is not None:
             misc.corr.remove_ring(
                 tomo_recon_stack, rwidth=ring_width, out=tomo_recon_stack,
                 ncore=num_core)
