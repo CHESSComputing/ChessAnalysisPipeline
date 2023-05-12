@@ -16,9 +16,13 @@ release = 'PACKAGE_VERSION'
 
 extensions = [
     'myst_parser',
-    'autodoc2'
+    'autodoc2',
+    'sphinxarg.ext'
 ]
-autodoc2_packages = ['../CHAP']
+autodoc2_packages = [
+    '../CHAP',
+    '../MLaaS'
+]
 autodoc2_render_plugin = 'myst'
 myst_enable_extensions = ['fieldlist']
 
