@@ -18,7 +18,7 @@ extensions = [
     'myst_parser',
     'autodoc2'
 ]
-autodoc2_packages = ['../../CHAP']
+autodoc2_packages = ['../CHAP']
 autodoc2_render_plugin = 'myst'
 myst_enable_extensions = ['fieldlist']
 
