@@ -16,5 +16,12 @@ jobs:
       pages: write
       id-token: write
     steps:
-    - id: deployment
+    - uses: actions/checkout@v3
+    - name: Update docs configuration with version (tag) name
+      run: |
+        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
+    - name: Build and deploy docs
+      id: deployment
       uses: sphinx-notes/pages@v3
+      with:
+        checkout: false
