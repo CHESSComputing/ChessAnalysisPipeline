@@ -3,6 +3,8 @@
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: generic Writer module
+
+Define a generic `Writer` object.
 """
 
 # system modules
@@ -17,9 +19,25 @@ from CHAP.pipeline import PipelineItem
 
 
 class Writer(PipelineItem):
-    """Writer represent generic file writer"""
+    """Generic file writer
+
+    The job of any `Writer` in a `Pipeline` is to receive input
+    returned by a previous `PipelineItem`, write its data to a
+    particular file format, then return the same data unaltered so it
+    can be used by a successive `PipelineItem`.
+    """
 
     def write(self, data, filename):
+        """Write the input data as text to a file.
+
+        :param data: input data
+        :type data: list[PipelineData]
+        :param filename: Name of file to write to
+        :type filename: str
+        :return: contents of the input data
+        :rtype: object
+        """
+
         data = self.unwrap_pipelinedata(data)
         with open(filename, 'a') as file:
             file.write(data)
