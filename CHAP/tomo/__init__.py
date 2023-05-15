@@ -3,4 +3,10 @@ processing workflows.
 """
 
 from CHAP.common import MapProcessor
-from CHAP.tomo.processor import TomoDataProcessor
+from CHAP.tomo.processor import (
+    TomoDataProcessor,
+    TomoSimFieldProcessor,
+    TomoDarkFieldProcessor,
+    TomoBrightFieldProcessor,
+    TomoSpecProcessor,
+)
