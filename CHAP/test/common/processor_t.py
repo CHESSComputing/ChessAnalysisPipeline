@@ -7,6 +7,7 @@ Description: Unit tests for common/processor.py code
 # system modules
 import time
 import os
+from shutil import rmtree
 import unittest
 
 # local modules
@@ -21,6 +22,11 @@ from CHAP.common import (AsyncProcessor,
                          XarrayToNexusProcessor,
                          XarrayToNumpyProcessor)
 from CHAP.pipeline import PipelineData
+
+
+test_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                             'data')
+
 
 class AsyncProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.AsyncProcessor class"""
@@ -58,10 +64,7 @@ class MapProcessorTest(unittest.TestCase):
 
     def setUp(self):
         """Create a fake spec file and map configuration"""
-        self.spec_file = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            'data',
-            'test_spec_file')
+        self.spec_file = os.path.join(test_data_dir, 'test_scans')
         map_config = {'title': 'test_map',
                       'station': 'id3b',
                       'experiment_type': 'SAXSWAXS',
@@ -107,10 +110,8 @@ class MapProcessorTest(unittest.TestCase):
             spec_lines += [f'#L  {column_labels}']
             for dim_1_val in dim_values:
                 spec_lines += [f'{dim_1_val} {" ".join([str(random()) for s in scalars])}']
-        self.spec_file = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            'data',
-            map_config['spec_scans'][0]['spec_file'])
+        self.spec_file = os.path.join(test_data_dir,
+                                      map_config['spec_scans'][0]['spec_file'])
         with open(self.spec_file, 'w') as specf:
             specf.write('\n'.join(spec_lines))
 
@@ -127,6 +128,64 @@ class MapProcessorTest(unittest.TestCase):
     def tearDown(self):
         """Remove the fake spec file created in the setUp method."""
         os.remove(self.spec_file)
+
+
+class IntegrateMapProcessorTest(MapProcessorTest):
+    """Unit tets for CHAP.common.IntegrateMapProcessor class"""
+
+    def setUp(self):
+        """Create a fake spec file, diffraction data files, a map
+        configuration, and an integration configuration
+        """
+        super().setUp()
+
+        from pyFAI.test.utilstest import create_fake_data
+        from fabio.tifimage import TifImage
+
+        self.detector_data_dirs = []
+        detector_prefix = 'det'
+        for scan_number in range(1, 4):
+            detector_data_dir = os.path.join(
+                test_data_dir,
+                f'{os.path.basename(self.spec_file)}_{scan_number:03d}')
+            self.detector_data_dirs.append(detector_data_dir)
+            os.mkdir(detector_data_dir)
+            for scan_step in range(3):
+                data, ai = create_fake_data()
+                detector_data_file = os.path.join(
+                    detector_data_dir,
+                    f'{os.path.basename(self.spec_file)}_{detector_prefix}_' \
+                    + f'{scan_number:03d}_{scan_step:03d}.tiff')
+                TifImage(data=data).write(detector_data_file)
+
+        self.poni_file = os.path.join(test_data_dir, 'det.poni')
+        ai.save(self.poni_file)
+        integration_config = {'title': 'test_integration',
+                              'tool_type': 'integration',
+                              'integration_type': 'azimuthal',
+                              'detectors': [
+                                  {'prefix': detector_prefix,
+                                   'poni_file': self.poni_file}
+                              ],
+                              'radial_min': 0.0,
+                              'radial_max': 0.6}
+        self.processor = IntegrateMapProcessor()
+        self.data += [PipelineData(schema='IntegrationConfig',
+                                   data=integration_config)]
+
+    def testProcessor(self):
+        from nexusformat.nexus import NXprocess
+        data = self.processor.process(self.data)
+        self.assertIsInstance(data, NXprocess)
+
+    def tearDown(self):
+        """Remove all the fake data files created in the setUp
+        method
+        """
+        super().tearDown()
+        os.remove(self.poni_file)
+        for detector_data_dir in self.detector_data_dirs:
+            rmtree(detector_data_dir)
 
 class NexusToNumpyProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.NexusToNumpyProcessor class"""
