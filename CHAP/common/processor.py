@@ -272,7 +272,8 @@ class IntegrateMapProcessor(Processor):
 
         integration_processor = IntegrationProcessor()
         integration_processor.logger.setLevel(self.logger.getEffectiveLevel())
-        integration_processor.logger.addHandler(self.logger.handlers[0])
+        for handler in self.logger.handlers:
+            integration_processor.logger.addHandler(handler)
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
