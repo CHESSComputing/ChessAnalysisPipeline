@@ -3,6 +3,8 @@
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: generic Reader module
+
+Define a generic `Reader` object.
 """
 
 # system modules
@@ -17,13 +19,22 @@ from CHAP.pipeline import PipelineItem
 
 
 class Reader(PipelineItem):
-    """Reader represent generic file writer"""
+    """Generic file reader.
+
+    The job of any `Reader` in a `Pipeline` is to provide data stored
+    in a file to the next `PipelineItem`. Note that a `Reader` used on
+    its own disrupts the flow of data in a `Pipeline` -- it does not
+    receive or pass along any data returned by the previous
+    `PipelineItem`.
+    """
 
     def read(self, filename):
-        """Read and return the data from requested from `filename`
+        """Read and return the contents of `filename` as text
 
         :param filename: Name of file to read from
-        :return: specific number of bytes from a file
+        :type filename: str
+        :return: entire contents of the file
+        :rtype: str
         """
 
         if not filename:

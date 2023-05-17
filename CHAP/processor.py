@@ -5,6 +5,8 @@
 File       : processor.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Processor module
+
+Define a generic `Processor` object.
 """
 
 # system modules
@@ -18,11 +20,16 @@ from time import time
 from CHAP.pipeline import PipelineItem
 
 class Processor(PipelineItem):
-    """Processor represent generic processor"""
+    """Generic data processor.
+
+    The job of any `Processor` in a `Pipeline` is to receive data
+    returned by the previous `PipelineItem`, process it in some way,
+    and return the result for the next `PipelineItem` to use as input.
+    """
 
     def process(self, data):
-        """Private method to carry out the mechanics of the specific
-        Processor.
+        """Extract the contents of the input data, add a string to it,
+        and return the amended value.
 
         :param data: input data
         :return: processed data
@@ -33,7 +40,7 @@ class Processor(PipelineItem):
                 data = data[0]['data']
         if data is None:
             return []
-        # process operation is a simple print function
+        # process operation is a simple string concatenation
         data += "process part\n"
         # and we return data back to pipeline
         return data
