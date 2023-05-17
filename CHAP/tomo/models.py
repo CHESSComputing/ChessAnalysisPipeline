@@ -158,14 +158,14 @@ class TomoSimConfig(BaseModel):
     Class representing the configuration for the tomography simulator.
 
     :ivar sample_type: Sample type for the tomography simulator, one of
-        "square_rod", "square_pipe", or "hollow_cube"
+        "square_rod", "square_pipe", "hollow_cube", or "hollow_brick"
     :type sample_type: str
     :ivar sample_size: Outer sample dimension of the square (will
         be converted to an integer number of pixels)
         crosssection in mm
     :type sample_size: float
-    :ivar wall_thickness: Wall thickness for pipe and cube in mm (will
-        be converted to an integer number of pixels)
+    :ivar wall_thickness: Wall thickness for pipe, cube, and brick in
+        mm (will be converted to an integer number of pixels)
     :type wall_thickness: float
     :ivar detector_size: Size of each dimension of the square detector
         in pixels
@@ -182,11 +182,15 @@ class TomoSimConfig(BaseModel):
     :ivar mu: Linear attenuation coefficient in mm^-1
     :type mu: float
     """
+    station: Literal['id1a3','id3a','id3b']
     detector: Detector.construct()
-    sample_type: Literal['square_rod', 'square_pipe', 'hollow_cube']
-    sample_size: confloat(gt=0, allow_inf_nan=False)
+    sample_type: Literal['square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick']
+    sample_size: conlist(
+        item_type=confloat(gt=0, allow_inf_nan=False),
+        min_items=1, max_items=2)
     wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
     mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
     theta_step: confloat(gt=0, allow_inf_nan=False)
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
+    slit_size: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0

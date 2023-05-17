@@ -104,7 +104,7 @@ class YAMLWriter(Writer):
 
 class TXTWriter(Writer):
     """Writer for plain text files from string or list of strings."""
-    def write(self, data, filename, force_overwrite=False):
+    def write(self, data, filename, force_overwrite=False, append=False):
         """If `data` is a `str`, `tuple[str]` or `list[str]`, write it
         to `filename`.
 
@@ -133,16 +133,23 @@ class TXTWriter(Writer):
                 f'{self.__name__}.write: input data must be a str or a tuple or '
                 'list of str.')
 
-        if not force_overwrite:
+        if not force_overwrite and not append:
             if os.path.isfile(filename):
                 raise RuntimeError(
                     f'{self.__name__}: {filename} already exists.')
 
-        with open(filename, 'w') as f:
-            if isinstance(data, str):
-                f.write(data)
-            else:
-                f.write('\n'.join(data))
+        if append:
+            with open(filename, 'a') as f:
+                if isinstance(data, str):
+                    f.write(data)
+                else:
+                    f.write('\n'.join(data))
+        else:
+            with open(filename, 'w') as f:
+                if isinstance(data, str):
+                    f.write(data)
+                else:
+                    f.write('\n'.join(data))
 
         return data
 
