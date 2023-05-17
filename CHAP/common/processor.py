@@ -272,7 +272,8 @@ class IntegrateMapProcessor(Processor):
 
         integration_processor = IntegrationProcessor()
         integration_processor.logger.setLevel(self.logger.getEffectiveLevel())
-        integration_processor.logger.addHandler(self.logger.handlers[0])
+        for handler in self.logger.handlers:
+            integration_processor.logger.addHandler(handler)
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
@@ -450,14 +451,20 @@ class NexusToNumpyProcessor(Processor):
         :rtype: numpy.ndarray
         """
 
-        default_data = data.plottable_data
+        from nexusformat.nexus import NXdata
 
-        if default_data is None:
-            default_data_path = data.attrs['default']
-            default_data = data.get(default_data_path)
-        if default_data is None:
-            raise ValueError(
-                f'The structure of {data} contains no default data')
+        data = self.unwrap_pipelinedata(data)
+
+        if isinstance(data, NXdata):
+            default_data = data
+        else:
+            default_data = data.plottable_data
+            if default_data is None:
+                default_data_path = data.attrs.get('default')
+                default_data = data.get(default_data_path)
+            if default_data is None:
+                raise ValueError(
+                    f'The structure of {data} contains no default data')
 
         default_signal = default_data.attrs.get('signal')
         if default_signal is None:
@@ -486,16 +493,21 @@ class NexusToXarrayProcessor(Processor):
         :rtype: xarray.DataArray
         """
 
+        from nexusformat.nexus import NXdata
         from xarray import DataArray
 
-        default_data = data.plottable_data
+        data = self.unwrap_pipelinedata(data)
 
-        if default_data is None:
-            default_data_path = data.attrs['default']
-            default_data = data.get(default_data_path)
-        if default_data is None:
-            raise ValueError(
-                f'The structure of {data} contains no default data')
+        if isinstance(data, NXdata):
+            default_data = data
+        else:
+            default_data = data.plottable_data
+            if default_data is None:
+                default_data_path = data.attrs.get('default')
+                default_data = data.get(default_data_path)
+            if default_data is None:
+                raise ValueError(
+                    f'The structure of {data} contains no default data')
 
         default_signal = default_data.attrs.get('signal')
         if default_signal is None:
@@ -505,6 +517,8 @@ class NexusToXarrayProcessor(Processor):
         signal_data = default_data[default_signal].nxdata
 
         axes = default_data.attrs['axes']
+        if isinstance(axes, str):
+            axes = [axes]
         coords = {}
         for axis_name in axes:
             axis = default_data[axis_name]
@@ -617,6 +631,8 @@ class XarrayToNexusProcessor(Processor):
 
         from nexusformat.nexus import NXdata, NXfield
 
+        data = self.unwrap_pipelinedata(data)
+
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
 
         axes = []
@@ -642,7 +658,7 @@ class XarrayToNumpyProcessor(Processor):
         :rtype: numpy.ndarray
         """
 
-        return data.data
+        return self.unwrap_pipelinedata(data).data
 
 
 if __name__ == '__main__':
