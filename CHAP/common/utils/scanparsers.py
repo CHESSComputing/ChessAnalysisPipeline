@@ -526,7 +526,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
     def get_spec_scan_motor_mnes(self):
         if self.spec_macro == 'flymesh':
             return (self.spec_args[0], self.spec_args[5])
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             return (self.spec_args[0],)
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
@@ -542,7 +542,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                                         float(self.spec_args[7]),
                                         int(self.spec_args[8])+1)
             return (fast_mot_vals, slow_mot_vals)
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
@@ -557,7 +557,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             fast_mot_npts = int(self.spec_args[3])+1
             slow_mot_npts = int(self.spec_args[8])+1
             return (fast_mot_npts, slow_mot_npts)
-        if self.spec_macro == 'flyscan':
+        if self.spec_macro in ('flyscan', 'ascan'):
             mot_npts = int(self.spec_args[3])+1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
@@ -566,7 +566,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_dwell(self):
-        if self.spec_macro in ('flymesh', 'flyscan'):
+        if self.spec_macro in ('flymesh', 'flyscan', 'ascan'):
             return float(self.spec_args[4])
         if self.spec_macro in ('tseries', 'loopscan'):
             return float(self.spec_args[1])
@@ -590,6 +590,8 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
         file_indices = [f'{scan_step[i]:03d}'
                         for i in range(len(self.spec_scan_shape))
                         if self.spec_scan_shape[i] != 1]
+        if len(file_indices) == 0:
+            file_indices = ['000']
         file_name = f'{self.scan_name}_{detector_prefix}_' \
                     f'{self.scan_number:03d}_{"_".join(file_indices)}.tiff'
         file_name_full = os.path.join(self.detector_data_path, file_name)
