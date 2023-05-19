@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Standard python setup.py file
 to build     : python setup.py build
@@ -10,7 +11,9 @@ to run tests : python setup.py test
 import os
 import setuptools
 
+# [set version]
 version = 'PACKAGE_VERSION'
+# [version set]
 
 def datafiles(idir, pattern=None):
     """Return list of data files in provided relative dir"""
