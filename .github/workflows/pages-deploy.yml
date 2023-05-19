@@ -19,6 +19,7 @@ jobs:
     - name: Update docs configuration with version (tag) name
       run: |
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
+        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/install.md
     - name: Build and deploy docs
       id: deployment
       uses: sphinx-notes/pages@v3
