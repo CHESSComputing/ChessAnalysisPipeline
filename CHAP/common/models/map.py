@@ -1,7 +1,9 @@
+# System modules
 from functools import cache, lru_cache
 import os
 from typing import Literal, Optional, Union
 
+# Third party modules
 import numpy as np
 from pydantic import (BaseModel,
                       conint,
@@ -655,6 +657,7 @@ def import_scanparser(station, experiment):
     station = station.lower()
     experiment = experiment.lower()
 
+    # Local modules
     if station in ('id1a3', 'id3a'):
         if experiment in ('saxswaxs', 'powder'):
             from CHAP.common.utils.scanparsers \

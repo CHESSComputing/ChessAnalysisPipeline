@@ -39,10 +39,9 @@ NUM_CORE_TOMOPY_LIMIT = 24
 
 class TomoDataProcessor(Processor):
     """
-    Class representing the processes to reconstruct a set of Tomographic
-    images returning either a dictionary or a `nexusformat.nexus.NXroot`
-    object containing the (meta) data after processing each individual
-    step.
+    A processor to reconstruct a set of tomographic images returning
+    either a dictionary or a `nexusformat.nexus.NXroot` object
+    containing the (meta) data after processing each individual step.
     """
 
     def process(
@@ -53,25 +52,31 @@ class TomoDataProcessor(Processor):
         Process the output of a `Reader` that contains a map or a
         `nexusformat.nexus.NXroot` object and one that contains the step
         specific instructions and return either a dictionary or a
-        `nexusformat.nexus.NXroot` returning the processed result.
+        `nexusformat.nexus.NXroot` with the processed result.
 
-        :param data: Result of `Reader.read`
-        :type data: list[dict[str,object]]
-        :param interactive: Allows interactive actions
-        :type bool, optional [False]
-        :param reduce_data: Generate reduced tomography images
-        :type bool, optional [False]
-        :param find_center: Find the calibrated center axis info
-        :type bool, optional [False]
-        :param reconstruct_data: Reconstruct the tomography data
-        :type bool, optional [False]
-        :param combine_data: Combine the reconstructed tomography stacks
-        :type bool, optional [False]
-        :param output_folder: Output folder name
-        :type str, optional ['.']
-        :param save_figs: Display and/or save figures to file
+        :param data: Input configuration for the individual steps in the
+            tomographic image reduction.
+        :type data: list[PipelineData]
+        :param interactive: Allows for user interactions,
+            defaults to False.
+        :type bool, optional
+        :param reduce_data: Generate reduced tomography images,
+            defaults to False.
+        :type bool, optional
+        :param find_center: Find the calibrated center axis info,
+            defaults to False.
+        :type bool, optional
+        :param reconstruct_data: Reconstruct the tomography data,
+            defaults to False.
+        :type bool, optional
+        :param combine_data: Combine the reconstructed tomography
+            stacks, defaults to False.
+        :type bool, optional
+        :param output_folder: Output folder name, defaults to '.'.
         :type str, optional
-        :return: processed (meta)data
+        :param save_figs: Display and/or save figures to file.
+        :type str, optional
+        :return: Processed (meta)data of the last step.
         :rtype: dict or nexusformat.nexus.NXroot
         """
 
@@ -134,7 +139,7 @@ class TomoDataProcessor(Processor):
                 if (None in args['center_rows'] or lower_center_offset is None
                         or upper_center_offset is None):
                     run_find_centers = True
-            if run_find_centers:
+            if run_find_centers or 'find_center' not in configs:
                 center_config = tomo.find_centers(nxroot, **args)
             else:
                 # RV make a convert to dict in basemodel?
@@ -184,15 +189,11 @@ class TomoDataProcessor(Processor):
             has the value `'TomoSetupConfig'`, or `'TomoReduceConfig'`,
             or `'TomoFindCenterConfig'`, or `'TomoReconstructConfig'`,
             or `'TomoCombineConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If valid config objects cannot be constructed
-            from `data`.
+        :type data: list[PipelineData]
         :return: valid instances of the configuration objects with field
             values taken from `data`.
         :rtype: dict
         """
-        # :rtype: dict{'map': MapConfig, 'reduce': TomoReduceConfig}
-        # RV is there a way to denote optional items?
         # Third party modules
         from nexusformat.nexus import NXroot
 
@@ -236,13 +237,13 @@ class TomoDataProcessor(Processor):
     def get_nxroot(self, map_config, tool_config):
         """
         Get a map of the collected tomography data from the scans in
-        `map_config`. The data will be reduced based on additional
-        parameters included in `tool_config`. The data will be returned
-        along with relevant metadata in the form of a NeXus structure.
+        `map_config` and the detector info in `tool_config'.
+        The map is returned as an `nexusformat.nexus.NXroot` object.
 
-        :param map_config: the map configuration
+        :param map_config: Map configuration
         :type map_config: MapConfig
-        :param tool_config: the tomography image reduction configuration
+        :param tool_config: The tomography image reduction configuration
+            containing at minimum the detector information.
         :type tool_config: TomoReduceConfig
         :return: a map of the collected tomography data along with the
         data reduction configuration
@@ -250,6 +251,7 @@ class TomoDataProcessor(Processor):
         """
         # System modules
         from copy import deepcopy
+        from logging import getLogger
 
         # Third party modules
         from nexusformat.nexus import (
@@ -267,6 +269,9 @@ class TomoDataProcessor(Processor):
         from CHAP.common import MapProcessor
         from CHAP.common.models.map import import_scanparser
         from CHAP.common.utils.general import index_nearest
+
+        logger = getLogger(self.__name__)
+        logger.propagate = False
 
         include_raw_data = getattr(tool_config, 'include_raw_data', False)
 
@@ -325,7 +330,7 @@ class TomoDataProcessor(Processor):
             nxsample.name = map_config.sample.name
             nxsample.description = map_config.sample.description
 
-        # Add NXcollection's to NXentry to hold metadata about the spec
+        # Add NXcollection's to NXentry to hold metadata about the SPEC
         #     scans in the map
         # Also obtain the data fields in NXsample and NXdetector if
         #     requested
@@ -336,7 +341,16 @@ class TomoDataProcessor(Processor):
         rotation_angles = []
         x_translations = []
         z_translations = []
-        for scans in map_config.spec_scans:
+        spec_scans = map_config.spec_scans
+        if map_config.station == 'id3b':
+            scan_types = len(spec_scans)*['ts1']
+            if tool_config.dark_field is not None:
+                spec_scans += tool_config.dark_field
+                scan_types.append('df1')
+            if tool_config.bright_field is not None:
+                spec_scans += tool_config.bright_field
+                scan_types.append('bf1')
+        for n, scans in enumerate(spec_scans):
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
                 if map_config.station in ('id1a3', 'id3a'):
@@ -352,12 +366,13 @@ class TomoDataProcessor(Processor):
                         field_name = 'tomo_fields'
                     else:
                         raise RuntimeError('Invalid scan type: {scan_type}')
-                elif map_config.station in ('id3b'):
-                    if scans.spec_file.endswith('_dark'):
+                elif map_config.station == 'id3b':
+                    if (scans.spec_file.endswith('_dark')
+                            or scan_types[n] == 'df1'):
                         image_key = 2
                         field_name = 'dark_field'
-                    elif scans.spec_file.endswith('_flat'):
-                        # RV not yet tested with an actual fmb run
+                    elif (scans.spec_file.endswith('_flat')
+                            or scan_types[n] == 'bf1'):
                         image_key = 1
                         field_name = 'bright_field'
                     else:
@@ -384,35 +399,24 @@ class TomoDataProcessor(Processor):
                 # Get thetas
                 image_offset = scanparser.starting_image_offset
                 if map_config.station in ('id1a3', 'id3a'):
-                    theta_vals = scanparser.theta_vals
-                    thetas = np.linspace(
-                        theta_vals.get('start'), theta_vals.get('end'),
-                        theta_vals.get('num'))
+                    thetas = scanparser.rotation_angles
                 else:
-                    if len(scans.scan_numbers) != 1:
-                        raise RuntimeError(
-                            'Multiple scans not yet implemented for '
-                            + f'{map_config.station}')
-                    scan_number = scans.scan_numbers[0]
-                    thetas = []
-                    for dim in map_config.independent_dimensions:
-                        if dim.label != 'theta':
-                            continue
-                        for index in range(scanparser.spec_scan_npts):
-                            thetas.append(
-                                dim.get_value(scans, scan_number, index))
-                    if not thetas:
-                        raise RuntimeError(
-                            f'Unable to obtain thetas for {field_name}')
-                    if thetas[image_offset] <= 0.0 and thetas[-1] >= 180.0:
-                        image_offset = index_nearest(thetas, 0.0)
-                        image_end = index_nearest(thetas, 180.0)
-                        thetas = thetas[image_offset:image_end]
-                    elif thetas[-1]-thetas[image_offset] >= 180:
-                        image_end = index_nearest(thetas, thetas[0]+180.0)
-                        thetas = thetas[image_offset:image_end]
-                    else:
-                        thetas = thetas[image_offset:]
+                    try:
+                        thetas = []
+                        num_theta = scanparser.spec_scan_npts
+                        for dim in map_config.independent_dimensions:
+                            if dim.label != 'theta':
+                                continue
+                            for index in range(num_theta):
+                                thetas.append(dim.get_value(
+                                    scans, scan_number, index+image_offset))
+                        thetas = np.asarray(thetas)
+                        assert thetas == scanparser.rotation_angles
+                    except:
+                        thetas = scanparser.rotation_angles
+                    if thetas[-1]-thetas[0] > 180.:
+                        image_end = index_nearest(thetas, thetas[0]+180)
+                        thetas = thetas[:image_end]
 
                 # x and z translations
                 x_translation = scanparser.horizontal_shift
@@ -567,7 +571,7 @@ class SetNumexprThreads:
 
 
 class Tomo:
-    """Reconstruct a set of Tomographic images."""
+    """Reconstruct a set of tomographic images."""
 
     def __init__(
             self, interactive=False, num_core=-1, output_folder='.',
@@ -586,8 +590,8 @@ class Tomo:
         self._interactive = interactive
         self._num_core = num_core
         self._output_folder = os_path.abspath(output_folder)
-        if not os_path.isdir(output_folder):
-            mkdir(os_path.abspath(output_folder))
+        if not os_path.isdir(self._output_folder):
+            mkdir(self._output_folder)
         if self._interactive:
             self._test_mode = False
         else:
@@ -811,20 +815,19 @@ class Tomo:
         else:
             if self._test_mode:
                 # Convert input value to offset 0
-                center_stack_index = self._test_config['center_stack_index']-1
+                center_stack_index = self._test_config['center_stack_index']
             elif self._interactive:
                 if center_stack_index is None:
                     center_stack_index = input_int(
                         '\nEnter tomography stack index to calibrate the '
-                        + 'center axis', ge=1, le=num_tomo_stacks,
-                        default=int(1 + num_tomo_stacks/2))
-                center_stack_index -= 1
+                        + 'center axis', ge=0, lt=num_tomo_stacks,
+                        default=int(num_tomo_stacks/2))
             else:
                 if center_stack_index is None:
                     center_stack_index = int(num_tomo_stacks/2)
                     self._logger.warning(
                         'center_stack_index unspecified, use stack '
-                        + f'{center_stack_index+1} to find centers')
+                        + f'{center_stack_index} to find centers')
             default = 'y'
 
         # Get thetas (in degrees)
@@ -834,7 +837,7 @@ class Tomo:
         # Get effective pixel_size
         if 'zoom_perc' in nxentry.reduced_data:
             eff_pixel_size = \
-                100.0 * (nxentry.instrument.detector.x_pixel_size
+                100. * (nxentry.instrument.detector.x_pixel_size
                          / nxentry.reduced_data.attrs['zoom_perc'])
         else:
             eff_pixel_size = nxentry.instrument.detector.x_pixel_size
@@ -932,8 +935,7 @@ class Tomo:
             'upper_center_offset': upper_center_offset,
         }
         if num_tomo_stacks > 1:
-            # Save as offset 1
-            center_config['center_stack_index'] = center_stack_index+1
+            center_config['center_stack_index'] = center_stack_index
 
         # Save test data to file
         if self._test_mode:
@@ -1038,12 +1040,12 @@ class Tomo:
             t0 = time()
             tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields[i])
             self._logger.info(
-                f'Reading reduced data stack {i+1} took {time()-t0:.2f} '
+                f'Reading reduced data stack {i} took {time()-t0:.2f} '
                 + 'seconds')
             if (len(tomo_stack.shape) != 3
                     or any(True for dim in tomo_stack.shape if not dim)):
                 raise RuntimeError(
-                    f'Unable to load tomography stack {i+1} for '
+                    f'Unable to load tomography stack {i} for '
                     + 'reconstruction')
             tomo_stack = np.swapaxes(tomo_stack, 0, 1)
             assert len(thetas) == tomo_stack.shape[1]
@@ -1060,7 +1062,7 @@ class Tomo:
                 secondary_iters=secondary_iters,
                 remove_stripe_sigma=remove_stripe_sigma, ring_width=ring_width)
             self._logger.info(
-                f'Reconstruction of stack {i+1} took {time()-t0:.2f} seconds')
+                f'Reconstruction of stack {i} took {time()-t0:.2f} seconds')
 
             # Combine stacks
             tomo_recon_stacks[i] = tomo_recon_stack
@@ -1118,7 +1120,7 @@ class Tomo:
                 if num_tomo_stacks == 1:
                     basetitle = 'recon'
                 else:
-                    basetitle = f'recon stack {i+1}'
+                    basetitle = f'recon stack {i}'
                 title = f'{basetitle} {res_title} xslice{x_slice}'
                 quick_imshow(
                     stack[z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
@@ -1140,7 +1142,7 @@ class Tomo:
         if self._test_mode:
             for i, stack in enumerate(tomo_recon_stacks):
                 np.savetxt(
-                    f'{self._output_folder}/recon_stack_{i+1}.txt',
+                    f'{self._output_folder}/recon_stack_{i}.txt',
                     stack[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
                     fmt='%.6e')
 
@@ -1440,7 +1442,7 @@ class Tomo:
         tdf_mean = np.nanmean(tdf)
         self._logger.debug(f'tdf_mean = {tdf_mean}')
         np.nan_to_num(
-            tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.0)
+            tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.)
 
         # Plot dark field
         if self._save_figs:
@@ -1647,7 +1649,7 @@ class Tomo:
                 else:
                     # Center a default range of 1 mm
                     # RV can we get this from the slits?
-                    num_x_min = int((1.0 - 0.5*pixel_size) / pixel_size)
+                    num_x_min = int((1. + 0.5*pixel_size) / pixel_size)
                     x_low = int((tbf_shape[0]-num_x_min) / 2)
                     x_upp = x_low+num_x_min
             else:
@@ -1657,7 +1659,7 @@ class Tomo:
                     delta_z = min(
                         delta_z, vertical_shifts[i]-vertical_shifts[i-1])
                 self._logger.debug(f'delta_z = {delta_z}')
-                num_x_min = int((delta_z - 0.5*pixel_size) / pixel_size)
+                num_x_min = int((delta_z + 0.5*pixel_size) / pixel_size)
                 self._logger.debug(f'num_x_min = {num_x_min}')
                 if num_x_min > tbf_shape[0]:
                     self._logger.warning(
@@ -1710,7 +1712,7 @@ class Tomo:
                     img_x_bounds = tuple(img_x_bounds[0])
             if (num_tomo_stacks > 1
                     and (img_x_bounds[1]-img_x_bounds[0]+1)
-                    < int((delta_z - 0.5*pixel_size) / pixel_size)):
+                         < int((delta_z - 0.5*pixel_size) / pixel_size)):
                 self._logger.warning(
                     'Image bounds and pixel size prevent seamless stacking')
         else:
@@ -1819,7 +1821,7 @@ class Tomo:
 #            zoom_perc = None
         zoom_perc = None
 
-        if delta_theta is not None and not isinstance(delta_theta, (int, float)):
+        if delta_theta is not None and not is_num(delta_theta, gt=0):
             self._logger.warning(
                 f'Invalid parameter delta_theta ({delta_theta}), '
                 + 'ignoring delta_theta')
@@ -1910,11 +1912,11 @@ class Tomo:
                     for index, z in enumerate(z_translation_all)
                     if z == z_translation]
                 field_indices_masked = field_indices[image_mask]
-                horizontal_shift = list(
+                horizontal_shift = np.asarray(
                     set(nxentry.sample.x_translation[field_indices_masked]))
                 assert len(horizontal_shift) == 1
-                horizontal_shifts += horizontal_shift
-                vertical_shift = list(
+                horizontal_shifts += list(horizontal_shift)
+                vertical_shift = np.asarray(
                     set(nxentry.sample.z_translation[field_indices_masked]))
                 assert len(vertical_shift) == 1
                 vertical_shifts += vertical_shift
@@ -1944,22 +1946,19 @@ class Tomo:
                     tomo_field_scans.attrs['spec_file'], scan_number)
                 image_offset = int(
                     nxsubentry.instrument.detector.frame_start_number)
-                num_image = len(image_mask)
-                if image_mask is not None:
-                    tomo_stack = []
-                    for i, n in enumerate(range(num_image)):
-                        if image_mask[i]:
-                            tomo_stack.append(
-                                scanparser.get_detector_data(
-                                    detector_prefix, image_offset+n))
-                    tomo_stacks.append(np.asarray(tomo_stack))
-                else:
-                    tomo_stacks.append(
-                        scanparser.get_detector_data(
-                            detector_prefix,
-                            (image_offset, image_offset+num_image)))
-                horizontal_shifts.append(nxsubentry.sample.x_translation)
-                vertical_shifts.append(nxsubentry.sample.z_translation)
+                tomo_stack = []
+                n = 0
+                for i in range(image_mask.size):
+                    if image_mask[i]:
+                        tomo_stack.append(
+                            scanparser.get_detector_data(
+                                detector_prefix, image_offset+n))
+                        n += 1
+                tomo_stacks.append(np.asarray(tomo_stack))
+                horizontal_shift = float(nxsubentry.sample.x_translation)
+                horizontal_shifts.append(horizontal_shift)
+                vertical_shift = float(nxsubentry.sample.z_translation)
+                vertical_shifts.append(vertical_shift)
 
         reduced_tomo_stacks = []
         for i, tomo_stack in enumerate(tomo_stacks):
@@ -1972,7 +1971,8 @@ class Tomo:
             else:
                 tomo_stack = tomo_stack[
                     :,img_x_bounds[0]:img_x_bounds[1],
-                    img_y_bounds[0]:img_y_bounds[1]].astype('float64', copy=False)
+                    img_y_bounds[0]:img_y_bounds[1]].astype(
+                        'float64', copy=False)
 
             # Subtract dark field
             if tdf is not None:
@@ -2017,7 +2017,7 @@ class Tomo:
                 if len(tomo_stacks) == 1:
                     title = f'red fullres theta {round(thetas[0], 2)+0}'
                 else:
-                    title = f'red stack {i+1} fullres theta ' \
+                    title = f'red stack {i} fullres theta ' \
                         + f'{round(thetas[0], 2)+0}'
                 quick_imshow(
                     tomo_stack[0,:,:], title=title, path=self._output_folder,
@@ -2050,7 +2050,7 @@ class Tomo:
             if self._test_mode:
                 row_index = int(tomo_stack.shape[1]/2)
                 np.savetxt(
-                    f'{self._output_folder}/red_stack_{i+1}.txt',
+                    f'{self._output_folder}/red_stack_{i}.txt',
                     tomo_stack[:,row_index,:], fmt='%.6e')
 
             # Combine resized stacks
@@ -2069,8 +2069,9 @@ class Tomo:
 
     def _find_center_one_plane(
             self, sinogram, row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=None, num_core=1, gaussian_sigma=None, ring_width=None):  # , tol=0.1):
+            path=None, num_core=1, gaussian_sigma=None, ring_width=None):
         """Find center for a single tomography plane."""
+        # Third party modules
         from tomopy import find_center_vo
 
         # Try automatic center finding routines for initial value
@@ -2197,6 +2198,7 @@ class Tomo:
             cross_sectional_dim, plot_sinogram=True, num_core=1,
             gaussian_sigma=None, ring_width=None):
         """Invert the sinogram for a single tomography plane."""
+        # Third party modules
         from scipy.ndimage import gaussian_filter
         from skimage.transform import iradon
         from tomopy import misc
@@ -2211,7 +2213,7 @@ class Tomo:
         if max_rad > 0.5*tomo_plane_t.shape[0]:
             max_rad = 0.5*tomo_plane_t.shape[0]
         dist_from_edge = max(1, int(np.floor(
-            (tomo_plane_t.shape[0] - two_offset_abs) / 2.0) - max_rad))
+            (tomo_plane_t.shape[0] - two_offset_abs) / 2.) - max_rad))
         if two_offset >= 0:
             self._logger.debug(
                 f'sinogram range = [{two_offset+dist_from_edge}, '
@@ -2253,6 +2255,7 @@ class Tomo:
         Create an "edges plot" for a singled reconstructed tomography
         data plane.
         """
+        # Third party modules
         from skimage.restoration import denoise_tv_chambolle
 
         vis_parameters = None  # self._config.get('vis_parameters')
@@ -2260,7 +2263,7 @@ class Tomo:
             weight = 0.1
         else:
             weight = vis_parameters.get('denoise_weight', 0.1)
-            if not is_num(weight, ge=0.0):
+            if not is_num(weight, ge=0.):
                 self._logger.warning(
                     f'Invalid weight ({weight}) in _plot_edges_one_plane, '
                     + 'set to a default of 0.1')
@@ -2507,13 +2510,17 @@ class TomoSimFieldProcessor(Processor):
         # Get and validate the relevant configuration object in data
         config = self.get_configs(data)
 
+        station = config.station
         sample_type = config.sample_type
         sample_size = config.sample_size
+        if len(sample_size) == 1:
+            sample_size = (sample_size[0], sample_size[0])
         wall_thickness = config.wall_thickness
         mu = config.mu
         theta_step = config.theta_step
         beam_intensity = config.beam_intensity
         background_intensity = config.background_intensity
+        slit_size = config.slit_size
         pixel_size = config.detector.pixel_size
         if len(pixel_size) == 1:
             pixel_size = (
@@ -2526,56 +2533,120 @@ class TomoSimFieldProcessor(Processor):
                 pixel_size[1]/config.detector.lens_magnification,
             )
         detector_size = (config.detector.rows, config.detector.columns)
+        if slit_size-0.5*pixel_size[0] > detector_size[0]*pixel_size[0]:
+            raise ValueError(
+                f'Slit size ({slit_size}) larger than detector height '
+                f'({detector_size[0]*pixel_size[0]})')
+
+        # Get the rotation angles (start at a arbitrarily choose angle
+        #    and add thetas for a full 360 degrees rotation series)
+        if station in ('id1a3', 'id3a'):
+            theta_start = 0.
+        else:
+            theta_start = -17
+        theta_end = theta_start + 360.
+        thetas = list(
+            np.arange(theta_start, theta_end+0.5*theta_step, theta_step))
+
+        # Get the number of horizontal stacks bases on the diagonal
+        #     of the square and for now don't allow more than one
+        num_tomo_stack = 1 + int((sample_size[1]*np.sqrt(2)-pixel_size[1])
+                                 / (detector_size[1]*pixel_size[1]))
+        if num_tomo_stack > 1:
+            raise ValueError('Sample is too wide for the detector')
 
         # Create the x-ray path length through a solid square
         #     crosssection for a set of rotation angles.
-        thetas, coords, path_lengths_solid = \
-            self._create_pathlength_solid_square(
-                sample_size, theta_step, pixel_size, detector_size)
-#        print(f'\n\nthetas {len(thetas)}: {thetas}')
-#        print(f'\ncoords {coords.shape}: {coords}')
-#        print(f'\npath_lengths_solids {path_lengths_solid.shape}\n\n')
+        path_lengths_solid = self._create_pathlength_solid_square(
+                sample_size[1], thetas, pixel_size[1], detector_size[1])
 
         # Create the x-ray path length through a hollow square
         #     crosssection for a set of rotation angles.
         path_lengths_hollow = None
-        if sample_type in ('square_pipe', 'hollow_cube'):
+        if sample_type in ('square_pipe', 'hollow_cube', 'hollow_brick'):
             path_lengths_hollow = path_lengths_solid \
                 - self._create_pathlength_solid_square(
-                    sample_size - 2*wall_thickness, theta_step,
-                    pixel_size, detector_size)[2]
+                    sample_size[1] - 2*wall_thickness, thetas,
+                    pixel_size[1], detector_size[1])
 
-        # Get transmitted intensities
+        # Get the number of stacks
+        num_tomo_stack = 1 + int((sample_size[0]-pixel_size[0])/slit_size)
+        if num_tomo_stack > 1 and station == 'id3b':
+            raise ValueError('Sample is to tall for the detector')
+
+        # Get the column coordinates
+        img_x_offset = -0.5 * (detector_size[0]*pixel_size[0]
+                               + slit_size * (num_tomo_stack-1))
+        img_x_coords = (img_x_offset
+            + pixel_size[0] * (0.5 + np.asarray(range(int(detector_size[0])))))
+
+        # Get the transmitted intensities
         num_theta = len(thetas)
-        tomo_field = beam_intensity * np.ones(
-            (num_theta, len(coords), len(coords)))
-        if sample_type == 'square_rod':
-            intensities = beam_intensity * np.exp(-mu*path_lengths_solid)
-            for n in range(num_theta):
-                tomo_field[n,:,:] = intensities[n]
-        elif sample_type == 'square_pipe':
-            intensities = beam_intensity * np.exp(-mu*path_lengths_hollow)
-            for n in range(num_theta):
-                tomo_field[n,:,:] = intensities[n]
-        else:
-            intensities_solid = beam_intensity * np.exp(-mu*path_lengths_solid)
-            intensities_hollow = beam_intensity * np.exp(-mu*path_lengths_hollow)
-            outer_indices = [i for i, coord in enumerate(coords)
-                if abs(coord) <= sample_size/2]
-            inner_indices = [i for i, coord in enumerate(coords)
-                if abs(coord) <= sample_size/2-wall_thickness]
-            wall_indices = list(set(outer_indices)-set(inner_indices))
-#            print(f'outer_indices: {outer_indices}')
-#            print(f'inner_indices: {inner_indices}')
-#            print(f'wall_indices: {wall_indices}')
-            for i in wall_indices:
+        vertical_shifts = []
+        tomo_fields_stack = []
+        img_dim = (len(img_x_coords), path_lengths_solid.shape[1])
+        intensities_solid = None
+        intensities_hollow = None
+        for n in range(num_tomo_stack):
+            vertical_shifts.append(img_x_offset + n*slit_size)
+            tomo_field = beam_intensity * np.ones((num_theta, *img_dim))
+            if sample_type == 'square_rod':
+                intensities_solid = \
+                    beam_intensity * np.exp(-mu*path_lengths_solid)
                 for n in range(num_theta):
-                    tomo_field[n,i] = intensities_solid[n]
-            for i in inner_indices:
+                    tomo_field[n,:,:] = intensities_solid[n]
+            elif sample_type == 'square_pipe':
+                intensities_hollow = \
+                    beam_intensity * np.exp(-mu*path_lengths_hollow)
                 for n in range(num_theta):
-                    tomo_field[n,i] = intensities_hollow[n]
-        tomo_field += background_intensity
+                    tomo_field[n,:,:] = intensities_hollow[n]
+            else:
+                intensities_solid = \
+                    beam_intensity * np.exp(-mu*path_lengths_solid)
+                intensities_hollow = \
+                    beam_intensity * np.exp(-mu*path_lengths_hollow)
+                outer_indices = \
+                    np.where(abs(img_x_coords) <= sample_size[0]/2)[0]
+                inner_indices = np.where(
+                    abs(img_x_coords) < sample_size[0]/2 - wall_thickness)[0]
+                wall_indices = list(set(outer_indices)-set(inner_indices))
+                for i in wall_indices:
+                    for n in range(num_theta):
+                        tomo_field[n,i] = intensities_solid[n]
+                for i in inner_indices:
+                    for n in range(num_theta):
+                        tomo_field[n,i] = intensities_hollow[n]
+            tomo_field += background_intensity
+            tomo_fields_stack.append(tomo_field.astype(np.int64))
+            if num_tomo_stack > 1:
+                img_x_coords += slit_size
             
+        # Add dummy snapshots at each end to mimic FMB/SMB
+        if station in ('id1a3', 'id3a'):
+            num_theta_dummy_start = 5
+            num_theta_dummy_end = 0
+        else:
+            num_theta_dummy_start = 1
+            num_theta_dummy_end = 1
+        thetas = [theta_start-n*theta_step
+            for n in range(num_theta_dummy_start, 0, -1)] + thetas
+        thetas += [theta_end+n*theta_step
+            for n in range(1, num_theta_dummy_end+1)]
+        if num_theta_dummy_start:
+            dummy_fields = background_intensity * np.ones(
+                (num_theta_dummy_start, *img_dim), dtype=np.int64)
+            for n, tomo_field in enumerate(tomo_fields_stack):
+                tomo_fields_stack[n] = np.concatenate(
+                    (dummy_fields, tomo_field))
+        if num_theta_dummy_end:
+            dummy_fields = background_intensity * np.ones(
+                (num_theta_dummy_end, *img_dim), dtype=np.int64)
+            for n, tomo_field in enumerate(tomo_fields_stack):
+                tomo_fields_stack[n] = np.concatenate(
+                    (tomo_field, dummy_fields))
+        if num_tomo_stack == 1:
+            tomo_fields_stack = tomo_fields_stack[0]
+
         # Create Nexus object and write to file
         nxroot = NXroot()
         nxroot.entry = NXentry()
@@ -2588,11 +2659,13 @@ class TomoSimFieldProcessor(Processor):
         nxinstrument = NXinstrument()
         nxroot.entry.instrument = nxinstrument
         nxinstrument.source = NXsource()
+        nxinstrument.source.attrs['station'] = station
         nxinstrument.source.type = 'Synchrotron X-ray Source'
         nxinstrument.source.name = 'Tomography Simulator'
         nxinstrument.source.probe = 'x-ray'
         nxinstrument.source.background_intensity = background_intensity
         nxinstrument.source.beam_intensity = beam_intensity
+        nxinstrument.source.slit_size = slit_size
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = config.detector.prefix
@@ -2600,8 +2673,14 @@ class TomoSimFieldProcessor(Processor):
         nxdetector.y_pixel_size = pixel_size[1]
         nxdetector.x_pixel_size.attrs['units'] = 'mm'
         nxdetector.y_pixel_size.attrs['units'] = 'mm'
-        nxdetector.data = tomo_field
+        nxdetector.data = tomo_fields_stack
         nxdetector.thetas = thetas
+        nxdetector.z_translation = vertical_shifts
+        nxdetector.frame_start_number = num_theta_dummy_start
+#        nxdetector.path_lengths_solid = path_lengths_solid
+#        nxdetector.path_lengths_hollow = path_lengths_hollow
+#        nxdetector.intensities_solid = intensities_solid
+#        nxdetector.intensities_hollow = intensities_hollow
 
         return nxroot
 
@@ -2634,59 +2713,49 @@ class TomoSimFieldProcessor(Processor):
 
         return TomoSimConfig(**tomo_sim_data)
 
-    def _create_pathlength_solid_square(self, dim, theta_step, pixel_size,
+    def _create_pathlength_solid_square(self, dim, thetas, pixel_size,
             detector_size):
         """
         Create the x-ray path length through a solid square
         crosssection for a set of rotation angles.
         """
 
-        thetas = list(
-            np.arange(0., 180.+0.5*theta_step, theta_step))
-        # For now assume square pixel and detector size
-        assert pixel_size[0] == pixel_size[1]
-        assert detector_size[0] == detector_size[1]
-        coords = pixel_size[0] * (0.5 * (1 - detector_size[0]%2)
-            + np.asarray(range(int(0.5 * (detector_size[0]+1)))))
+        # Get the column coordinates
+        img_y_coords = pixel_size * (0.5 * (1 - detector_size%2)
+            + np.asarray(range(int(0.5 * (detector_size+1)))))
 
-        lengths = np.zeros((len(thetas), len(coords)), dtype=np.float64)
+        # Get the path lenghts for position column coordinates
+        lengths = np.zeros((len(thetas), len(img_y_coords)), dtype=np.float64)
         for i, theta in enumerate(thetas):
-            if theta > 90.:
-                theta -= 90.
-                if theta in thetas:
-                    lengths[i] = lengths[thetas.index(theta)]
-                    continue
+            dummy = theta
+            theta = theta - 90.*np.floor(theta/90.)
             if 45. < theta <= 90.:
                 theta = 90.-theta
-                if theta in thetas:
-                    lengths[i] = lengths[thetas.index(theta)]
-                    continue
             theta_rad = theta*np.pi/180.
             len_ab = dim/np.cos(theta_rad)
             len_oc = dim*np.cos(theta_rad+0.25*np.pi)/np.sqrt(2.)
             len_ce = dim*np.sin(theta_rad)
-            index1 = int(np.argmin(np.abs(coords-len_oc)))
-            if len_oc < coords[index1] and index1 > 0:
+            index1 = int(np.argmin(np.abs(img_y_coords-len_oc)))
+            if len_oc < img_y_coords[index1] and index1 > 0:
                 index1 -= 1
-            index2 = int(np.argmin(np.abs(coords-len_oc-len_ce)))
-            if len_oc+len_ce < coords[index2]:
+            index2 = int(np.argmin(np.abs(img_y_coords-len_oc-len_ce)))
+            if len_oc+len_ce < img_y_coords[index2]:
                 index2 -= 1
             index1 += 1
             index2 += 1
             for j in range(index1):
                 lengths[i,j] = len_ab
-            for j, column in enumerate(coords[index1:index2]):
+            for j, column in enumerate(img_y_coords[index1:index2]):
                 lengths[i,j+index1] = len_ab*(len_oc+len_ce-column)/len_ce
 
         # Add the mirror image for negative column coordinates
-        if len(coords)%2:
-            coords = np.concatenate((-np.flip(coords[1:]), coords))
-            lengths = np.concatenate((np.fliplr(lengths[:,1:]), lengths), axis=1)
+        if len(img_y_coords)%2:
+            lengths = np.concatenate(
+                (np.fliplr(lengths[:,1:]), lengths), axis=1)
         else:
-            coords = np.concatenate((-np.flip(coords), coords))
             lengths = np.concatenate((np.fliplr(lengths), lengths), axis=1)
 
-        return thetas, coords, lengths
+        return lengths
 
 
 class TomoDarkFieldProcessor(Processor):
@@ -2700,47 +2769,47 @@ class TomoDarkFieldProcessor(Processor):
     def process(self, data, num_image=5, **kwargs):
         # Third party modules
         from nexusformat.nexus import (
-            NeXusError,
             NXroot,
             NXentry,
             NXinstrument,
             NXdetector,
         )
 
-        # Get and validate the TomoSimField configuration object in data
+        # Get the TomoSimField configuration object in data
         nxroot = self.get_config(data)
-        try:
-            background_intensity = \
-                nxroot.entry.instrument.source.background_intensity
-        except NeXusError:
-            raise ValueError(
-                f'Invalid tomography field configuration:\n{nxroot.tree}')
-        except KeyError:
-            raise ValueError(
-                'No background_intensity found in tomography field '
-                'configuration')
-        try:
-            tomo_shape = nxroot.entry.instrument.detector.data.shape
-        except NeXusError:
-            raise ValueError(
-                f'Invalid tomography field configuration:\n{nxroot.tree}')
-        if len(tomo_shape) != 3:
-            raise ValueError(
-                f'Invalid tomography data field dimension:\n{tomo_shape}')
+        source = nxroot.entry.instrument.source
+        detector = nxroot.entry.instrument.detector
+        background_intensity = source.background_intensity
+        detector_size = detector.data.shape[-2:]
+
+        # Add dummy snapshots at start to mimic SMB
+        if source.station in ('id1a3', 'id3a'):
+            num_theta_dummy_start = 5
+        else:
+            num_theta_dummy_start = 0
+        num_image += num_theta_dummy_start
 
         # Create the dark field
-        # RV: make number of dark fields an input?
-        dark_field = int(background_intensity) \
-            * np.ones((num_image, tomo_shape[1], tomo_shape[2]), dtype=np.int64)
-        nxroot = NXroot()
-        nxroot.entry = NXentry()
-        nxroot.entry['instrument'] = NXinstrument()
-        nxroot.entry.instrument['detector'] = NXdetector()
-        nxroot.entry.instrument.detector.data = dark_field
-        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
-            background_intensity
+        dark_field = int(background_intensity) * np.ones(
+            (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
 
-        return nxroot
+        # Create Nexus object and write to file
+        nxdark = NXroot()
+        nxdark.entry = NXentry()
+        nxdark.entry.sample = nxroot.entry.sample
+        nxinstrument = NXinstrument()
+        nxdark.entry.instrument = nxinstrument
+        nxinstrument.source = nxroot.entry.instrument.source
+        nxdetector = NXdetector()
+        nxinstrument.detector = nxdetector
+        nxdetector.local_name = detector.local_name
+        nxdetector.x_pixel_size = detector.x_pixel_size
+        nxdetector.y_pixel_size = detector.y_pixel_size
+        nxdetector.data = dark_field
+        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.frame_start_number = num_theta_dummy_start
+
+        return nxdark
 
     def get_config(self, data):
         """Get an instance of the configuration object needed by this
@@ -2764,7 +2833,8 @@ class TomoDarkFieldProcessor(Processor):
                         break
         if nxroot is None:
             raise ValueError(
-                'No tomography field configuration found in input data')
+                'No tomography data set found in input data')
+
         return nxroot
 
 
@@ -2788,51 +2858,49 @@ class TomoBrightFieldProcessor(Processor):
 
         # Get and validate the TomoSimField configuration object in data
         nxroot = self.get_config(data)
-        try:
-            beam_intensity = \
-                nxroot.entry.instrument.source.beam_intensity
-        except NeXusError:
-            raise ValueError(
-                f'Invalid tomography field configuration:\n{nxroot.tree}')
-        except KeyError:
-            raise ValueError(
-                'No beam_intensity found in tomography field configuration')
-        try:
-            background_intensity = \
-                nxroot.entry.instrument.source.background_intensity
-        except NeXusError:
-            raise ValueError(
-                f'Invalid tomography field configuration:\n{nxroot.tree}')
-        except KeyError:
-            raise ValueError(
-                'No background_intensity found in tomography field '
-                'configuration')
-        try:
-            tomo_shape = nxroot.entry.instrument.detector.data.shape
-        except NeXusError:
-            raise ValueError(
-                f'Invalid tomography field configuration:\n{nxroot.tree}')
-        if len(tomo_shape) != 3:
-            raise ValueError(
-                f'Invalid tomography data field dimension:\n{tomo_shape}')
+        source = nxroot.entry.instrument.source
+        detector = nxroot.entry.instrument.detector
+        beam_intensity = source.beam_intensity
+        background_intensity = source.background_intensity
+        detector_size = detector.data.shape[-2:]
+
+        # Add dummy snapshots at start to mimic SMB
+        if source.station in ('id1a3', 'id3a'):
+            num_theta_dummy_start = 5
+        else:
+            num_theta_dummy_start = 0
+        num_image += num_theta_dummy_start
 
         # Create the bright field
-        # RV: make number of bright fields an input?
-        bright_field = int(background_intensity+beam_intensity) \
-            * np.ones((num_image, tomo_shape[1], tomo_shape[2]), dtype=np.int64)
-#        bright_field[:,:int(0.2*tomo_shape[1]),:] = 0
-#        bright_field[:,int(0.8*tomo_shape[1]):,:] = 0
-        nxroot = NXroot()
-        nxroot.entry = NXentry()
-        nxroot.entry['instrument'] = NXinstrument()
-        nxroot.entry.instrument['detector'] = NXdetector()
-        nxroot.entry.instrument.detector.data = bright_field
-        nxroot.entry.instrument.detector.attrs['background_intensity'] = \
-            background_intensity
-        nxroot.entry.instrument.detector.attrs['beam_intensity'] = \
-            beam_intensity
+        bright_field = int(background_intensity+beam_intensity) * np.ones(
+            (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
+        # Add 10% to slit size to make the bright beam slightly taller
+        #     than the vertical displacements between stacks
+        slit_size = 1.10*source.slit_size
+        if slit_size < detector.x_pixel_size*detector_size[0]:
+            img_x_coords = detector.x_pixel_size \
+                * (0.5 + np.asarray(range(int(detector_size[0])))
+                   - 0.5*detector_size[0])
+            outer_indices = np.where(abs(img_x_coords) > slit_size/2)[0]
+            bright_field[:,outer_indices,:] = 0
 
-        return nxroot
+        # Create Nexus object and write to file
+        nxbright = NXroot()
+        nxbright.entry = NXentry()
+        nxbright.entry.sample = nxroot.entry.sample
+        nxinstrument = NXinstrument()
+        nxbright.entry.instrument = nxinstrument
+        nxinstrument.source = nxroot.entry.instrument.source
+        nxdetector = NXdetector()
+        nxinstrument.detector = nxdetector
+        nxdetector.local_name = detector.local_name
+        nxdetector.x_pixel_size = detector.x_pixel_size
+        nxdetector.y_pixel_size = detector.y_pixel_size
+        nxdetector.data = bright_field
+        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.frame_start_number = num_theta_dummy_start
+
+        return nxbright
 
     def get_config(self, data):
         """Get an instance of the configuration object needed by this
@@ -2856,7 +2924,8 @@ class TomoBrightFieldProcessor(Processor):
                         break
         if nxroot is None:
             raise ValueError(
-                'No tomography field configuration found in input data')
+                'No tomography data set found in input data')
+
         return nxroot
 
 
@@ -2868,8 +2937,9 @@ class TomoSpecProcessor(Processor):
     tomography SPEC file.
     """
 
-    def process(self, data, field_type=None, **kwargs):
+    def process(self, data, spec_folder='.', scan_numbers=[1], **kwargs):
         # System modules
+        from json import dump
         from datetime import datetime
 
         # Third party modules
@@ -2877,52 +2947,185 @@ class TomoSpecProcessor(Processor):
 
         # Get and validate the TomoSimField, TomoDarkField, or
         #     TomoBrightField configuration object in data
-        schema, nxroot = self.get_config(data)
-        try:
-            thetas = nxroot.entry.instrument.detector.thetas
-        except NeXusError:
-            if schema == 'TomoSimField':
-                raise ValueError(
-                    f'Unable to get thetas from:\n{nxroot.tree}')
+        scan_numbers = list(set(scan_numbers))
+        configs = self.get_config(data)
+        station = None
+        sample_type = None
+        num_scan = 0
+        for schema, nxroot in configs.items():
+            source = nxroot.entry.instrument.source
+            if station is None:
+                station = source.attrs.get('station')
             else:
-                try:
-                    data_shape = nxroot.entry.instrument.detector.data.shape
-                except NeXusError:
+                if station != source.attrs.get('station'):
+                    raise ValueError('Inconsistent station among scans')
+            if sample_type is None:
+                sample_type = nxroot.entry.sample.sample_type
+            else:
+                if sample_type != nxroot.entry.sample.sample_type:
+                    raise ValueError('Inconsistent sample_type among scans')
+            detector = nxroot.entry.instrument.detector
+            if 'z_translation' in detector:
+                num_stack = np.asarray(detector.z_translation).size
+            else:
+                num_stack = 1
+            data_shape = detector.data.shape
+            if len(data_shape) == 3:
+                if num_stack != 1:
                     raise ValueError(
-                        f'Unable to get data shape from:\n{nxroot.tree}')
-                if len(data_shape) != 3:
+                        'Inconsistent z_translation and data dimensions'
+                        f'({num_stack} vs {1})')
+            elif len(data_shape) == 4:
+                if num_stack != data_shape[0]:
                     raise ValueError(
-                        f'Invalid data field dimension:\n{data_shape}')
-                thetas = 1+np.arange(data_shape[0])
+                        'Inconsistent z_translation dimension and data shape '
+                        f'({num_stack} vs {data_shape[0]})')
+            else:
+                raise ValueError(f'Invalid data shape ({data_shape})')
+            num_scan += num_stack
+        if len(scan_numbers) != num_scan:
+            raise ValueError(
+                f'Inconsistent number of scans ({num_scan}), '
+                f'len(scan_numbers) = {len(scan_numbers)})')
 
-        if schema == 'TomoSimField':
-            field_type = 'tomo_field'
-            macro = f'1  flyscan phi_air 0 {len(thetas)-1} {len(thetas)-1} 1.0'
-        elif schema == 'TomoDarkField':
-            field_type = 'dark_field'
-            macro = f'1  flyscan {len(thetas)} 1.0'
-        elif schema == 'TomoBrightField':
-            field_type = 'bright_field'
-            macro = f'1  flyscan {len(thetas)} 1.0'
+        # Create the SPEC output folder if needed
+        spec_folder = os_path.abspath(spec_folder)
+        if not os_path.isdir(spec_folder):
+            mkdir(spec_folder)
 
-        # Create the spec file
-        now = datetime.now().strftime("%a %b %d %I:%M:%S %Y")
-        spec_file = [f'#F {field_type}']
-        spec_file.append(f'#E 0')
-        spec_file.append(f'#D {now}')
-        spec_file.append(f'#C spec  User = chess_id3b')
-        spec_file.append(f'')
-        spec_file.append(f'#O0 4C_samz  4C_samx')
-        spec_file.append(f'#o0 samz samx')
-        spec_file.append(f'')
-        spec_file.append(f'#S {macro}')
-        spec_file.append(f'#D {now}')
-        spec_file.append(f'#P0 0.0 0.0')
-        spec_file.append(f'#N 1')
-        spec_file.append(f'#L  theta')
-        if schema != 'TomoSimField':
-            spec_file.append(f'0')
-        spec_file += [str(theta) for theta in thetas]
+        # Create the SPEC file header
+        spec_file = [f'#F {sample_type}']
+        spec_file.append('#E 0')
+        spec_file.append(
+            f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
+        spec_file.append(f'#C spec  User = chess_{station}\n')
+        if station in ('id1a3', 'id3a'):
+            spec_file.append('#O0 ramsx  ramsz')
+        else:
+            #RV Fix main code to use independent dim info
+            spec_file.append('#O0 GI_samx  GI_samz  GI_samphi')
+            spec_file.append('#o0 samx samz samphi') #RV do I need this line?
+        spec_file.append('')
+
+        # Create the SPEC file scan info (and image and parfile data for SMB)
+        par_file = []
+        image_sets = []
+        num_scan = 0
+        count_time = 1
+        for schema, nxroot in configs.items():
+            detector = nxroot.entry.instrument.detector
+            if 'z_translation' in detector:
+                z_translations = list(np.asarray(detector.z_translation))
+            else:
+                z_translations = [0.]
+            frame_start_number = int(detector.frame_start_number)
+            thetas = np.asarray(detector.thetas)[frame_start_number:]
+            num_theta = thetas.size
+            if schema == 'TomoDarkField':
+                if station in ('id1a3', 'id3a'):
+                    macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
+                        f'{num_theta} {count_time} darkfield'
+                    scan_type = 'df1'
+                else:
+                    macro = f'flyscan {num_theta} {count_time}'
+            elif schema == 'TomoBrightField':
+                if station in ('id1a3', 'id3a'):
+                    macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
+                        f'{num_theta} {count_time}'
+                    scan_type = 'bf1'
+                else:
+                    macro = f'flyscan {num_theta} {count_time}'
+            elif schema == 'TomoSimField':
+                if station in ('id1a3', 'id3a'):
+                    macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
+                        f'{num_theta} {count_time}'
+                    scan_type = 'ts1'
+                else:
+                    macro = f'flyscan samphi {thetas[0]} ' \
+                        f'{thetas[-1]} {num_theta-1} {count_time}'
+            for  n, z_translation in enumerate(z_translations):
+                spec_file.append(f'#S {scan_numbers[num_scan]}  {macro}')
+                spec_file.append(
+                    f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
+                if station in ('id1a3', 'id3a'):
+                    spec_file.append(f'#P0 0.0 {z_translation}')
+                    spec_file.append('#N 1')
+                    spec_file.append('#L  ome')
+                    if scan_type == 'ts1':
+                        image_sets.append(detector.data[n])
+                    else:
+                        image_sets.append(detector.data)
+                    par_file.append(
+                        f'{datetime.now().strftime("%Y%m%d")} '
+                        f'{datetime.now().strftime("%H%M%S")} '
+                        f'{scan_numbers[num_scan]} '
+#                        '2.0 '
+#                        '1.0 '
+                        '0 '
+                        f'{frame_start_number} '
+                        '0.0 '
+                        f'{z_translation} '
+                        f'{thetas[0]} '
+                        f'{thetas[-1]} '
+                        f'{num_theta} '
+                        f'{count_time} '
+                        f'{scan_type}')
+                else:
+                    spec_file.append(f'#P0 0.0 {z_translation} 0.0')
+                    spec_file.append('#N 1')
+                    if schema in ('TomoDarkField', 'TomoBrightField'):
+                        spec_file.append('#L Time')
+                        spec_file += [str(count_time*time)
+                            for time in range(num_theta)]
+                    elif schema == 'TomoSimField':
+                        spec_file.append('#L GI_samphi')
+                        spec_file += [str(theta) for theta in thetas]
+                spec_file.append('')
+                num_scan += 1
+        
+        if station in ('id1a3', 'id3a'):
+
+            # Write the SPEC file
+            self.write_txt(spec_file, os_path.join(spec_folder, 'spec.log'))
+
+            # Write the JSON file
+            parfile_header = {
+                '0': 'date',
+                '1': 'time',
+                '2': 'SCAN_N',
+#                '3': 'beam_width',
+#                '4': 'beam_height',
+                '3': 'junkstart',
+                '4': 'goodstart',
+                '5': 'ramsx',
+                '6': 'ramsz',
+                '7': 'ome_start_real',
+                '8': 'ome_end_real',
+                '9': 'nframes_real',
+                '10': 'count_time',
+                '11': 'tomotype',
+            }
+            json_filename = os_path.join(
+                spec_folder,
+                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.json')
+            with open(json_filename, 'w') as f:
+                dump(parfile_header, f)
+        
+            # Write the par file
+            par_filename = os_path.join(
+                spec_folder,
+                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.par')
+            self.write_txt(par_file, par_filename)
+
+            # Write image files as individual tiffs
+            for scan_number, image_set in zip(scan_numbers, image_sets):
+                image_folder = os_path.join(spec_folder, str(scan_number))
+                if not os_path.isdir(image_folder):
+                    mkdir(image_folder)
+                image_folder = os_path.join(image_folder, 'nf')
+                if not os_path.isdir(image_folder):
+                    mkdir(image_folder)
+                self.write_tiffs(image_set, image_folder)
 
         return spec_file
 
@@ -2939,19 +3142,38 @@ class TomoSpecProcessor(Processor):
             values taken from `data`.
         :rtype: nexusformat.nexus.NXroot
         """
-        nxroot = None
+        configs = {}
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
                     schema = item.get('schema')
-                    if schema in [
-                            'TomoSimField', 'TomoDarkField', 'TomoBrightField']:
-                        nxroot = item.get('data')
-                        break
-        if nxroot is None:
+                    if schema == 'TomoDarkField':
+                        configs[schema] = item.get('data')
+                    elif schema == 'TomoBrightField':
+                        configs[schema] = item.get('data')
+                    elif schema == 'TomoSimField':
+                        configs[schema] = item.get('data')
+        if not len(configs):
             raise ValueError(
-                'No tomography field configuration found in input data')
-        return schema, nxroot
+                'No tomography data set found in input data')
+
+        return configs
+
+    def write_tiffs(self, data, image_folder):
+        # Third party modules
+        from imageio import imwrite
+        for n in range(data.shape[0]):
+            imwrite(
+                os_path.join(image_folder, f'nf_{n:06d}.tif'), data[n])
+
+    def write_txt(self, data, filepath, force_overwrite=True):
+        # Local modules
+        from CHAP.common import TXTWriter
+        from CHAP.pipeline import PipelineData
+        writer = TXTWriter()
+        writer.write(
+            [PipelineData(data=data)], filepath,
+            force_overwrite=force_overwrite)
 
 
 if __name__ == '__main__':

@@ -1,8 +1,10 @@
+# System modules
 import copy
 from functools import cache
 import os
 from typing import Literal, Optional
 
+# Third party modules
 import numpy as np
 from pydantic import (BaseModel,
                       validator,
@@ -119,10 +121,12 @@ def get_mask_array(mask_file:str, poni_file:str):
     :rtype: numpy.ndarray
     """
     if mask_file is not None:
+        # Third party modules
+        from pyspec.file.tiff import TiffFile
+
         if not isinstance(mask_file, str):
             mask_file = str(mask_file)
 
-        from pyspec.file.tiff import TiffFile
         with TiffFile(mask_file) as tiff:
             mask_array = tiff.asarray()
     else:

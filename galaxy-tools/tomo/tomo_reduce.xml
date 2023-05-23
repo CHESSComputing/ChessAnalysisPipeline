@@ -8,7 +8,6 @@
         <![CDATA[
         mkdir tomo_reduce_plots;
         #if str($map.type_selector) == "yaml"
-            $__tool_directory__/../pip_install.sh 'certif-pyspec==1.5.3' &&
             cp $input_file map.yaml &&
             cat $__tool_directory__/$map.detector.type_selector $tool_config > reduce.yaml &&
         #else
