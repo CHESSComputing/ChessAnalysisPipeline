@@ -25,7 +25,7 @@ class DiffractionVolumeLengthProcessor(Processor):
     def process(self, data, interactive=False):
         """Return calculated value of the DV length.
 
-        :param data: input confguration for the raw scan data & DVL
+        :param data: input configuration for the raw scan data & DVL
             calculation procedure.
         :type data: list[PipelineData]
         :param dvl_model: method to use for calculating DVL. Choices:

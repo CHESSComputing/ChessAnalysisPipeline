@@ -1,4 +1,4 @@
-'''Tomography command line writer'''
+"""Tomography command line writer."""
 
 # Local modules
 from CHAP.reader import main
