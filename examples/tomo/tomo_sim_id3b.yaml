@@ -1,0 +1,15 @@
+station: id3b
+detector:
+  prefix: sim
+  rows: 40
+  columns: 400
+  pixel_size:
+  - 0.05
+  - 0.005
+  lens_magnification: 1.0
+sample_type: hollow_cube
+sample_size:
+- 1.0
+wall_thickness: 0.2
+theta_step: 1.0
+slit_size: 2.0
