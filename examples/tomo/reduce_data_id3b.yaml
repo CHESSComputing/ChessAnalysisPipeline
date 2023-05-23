@@ -1,0 +1,16 @@
+detector:
+  prefix: sim
+  rows: 40
+  columns: 400
+  pixel_size:
+  - 0.05
+  - 0.005
+  lens_magnification: 1.0
+dark_field:
+- spec_file: examples/tomo/hollow_cube
+  scan_numbers:
+  - 1
+bright_field:
+- spec_file: examples/tomo/hollow_cube
+  scan_numbers:
+  - 2

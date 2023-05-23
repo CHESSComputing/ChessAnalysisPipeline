@@ -115,7 +115,8 @@ class PipelineItem():
                 args[k] = v
 
         t0 = time()
-        self.logger.info(f'Executing "{method_name}" with {args}')
+        self.logger.debug(f'Executing "{method_name}" with {args}')
+        self.logger.info(f'Executing "{method_name}"')
         data = method(**args)
         self.logger.info(f'Finished "{method_name}" in '
                          + f'{time()-t0:.0f} seconds\n')

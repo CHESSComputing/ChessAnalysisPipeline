@@ -1,0 +1,72 @@
+pipeline:
+
+  # Create a simulated stack of tomography images
+  - common.YAMLReader:
+      filename: examples/tomo/tomo_sim_id3a.yaml
+      schema: TomoSimConfig
+  - tomo.TomoSimFieldProcessor
+  - common.NexusWriter:
+      filename: examples/tomo/hollow_brick_SIM_001.h5
+      force_overwrite: true
+
+  # Create the dark field for the simulation
+  - common.NexusReader:
+      filename: examples/tomo/hollow_brick_SIM_001.h5
+      schema: TomoSimField
+  - tomo.TomoDarkFieldProcessor
+  - common.NexusWriter:
+      filename: examples/tomo/hollow_brick_dark_SIM_001.h5
+      force_overwrite: true
+
+  # Create the bright field for the simulation
+  - common.NexusReader:
+      filename: examples/tomo/hollow_brick_SIM_001.h5
+      schema: TomoSimField
+  - tomo.TomoBrightFieldProcessor:
+      num_image: 10
+  - common.NexusWriter:
+      filename: examples/tomo/hollow_brick_flat_SIM_001.h5
+      force_overwrite: true
+
+  # Create the SPEC file for the simulation
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
+            filename: examples/tomo/hollow_brick_dark_SIM_001.h5
+            schema: TomoDarkField
+        - common.NexusReader:
+            filename: examples/tomo/hollow_brick_flat_SIM_001.h5
+            schema: TomoBrightField
+        - common.NexusReader:
+            filename: examples/tomo/hollow_brick_SIM_001.h5
+            schema: TomoSimField
+  - tomo.TomoSpecProcessor:
+      spec_folder: examples/tomo/hollow_brick
+      scan_numbers: [1, 2, 3, 4, 5]
+      force_overwrite: true
+
+  # Full tomography reconstruction
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.YAMLReader:
+            filename: examples/tomo/map_id3a.yaml
+            schema: MapConfig
+        - common.YAMLReader:
+            filename: examples/tomo/reduce_data_id3a.yaml
+            schema: TomoReduceConfig
+        - common.YAMLReader:
+            filename: examples/tomo/find_center_data_id3a.yaml
+            schema: TomoFindCenterConfig
+        - common.YAMLReader:
+            filename: examples/tomo/reconstruct_data.yaml
+            schema: TomoReconstructConfig
+        - common.YAMLReader:
+            filename: examples/tomo/combine_data_id3a.yaml
+            schema: TomoCombineConfig
+  - tomo.TomoDataProcessor:
+      output_folder: examples/tomo/output
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: examples/tomo/reconstruct_hollow_brick.nxs
+      force_overwrite: true
+

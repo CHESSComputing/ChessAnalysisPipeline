@@ -1,0 +1,8 @@
+detector:
+  prefix: sim
+  rows: 40
+  columns: 400
+  pixel_size:
+  - 0.05
+  - 0.005
+  lens_magnification: 1.0

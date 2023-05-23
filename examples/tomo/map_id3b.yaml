@@ -1,0 +1,14 @@
+title: hollow_cube
+station: id3b
+experiment_type: TOMO
+sample:
+  name: hollow_cube
+spec_scans:
+- spec_file: examples/tomo/hollow_cube
+  scan_numbers:
+  - 3
+independent_dimensions:
+- label: theta
+  units: degrees
+  data_type: scan_column
+  name: GI_samphi
