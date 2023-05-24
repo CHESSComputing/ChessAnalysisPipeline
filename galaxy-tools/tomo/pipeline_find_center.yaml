@@ -1,11 +1,11 @@
 pipeline:
 
   # Find rotation axis centers for the tomography stacks
-  - common.MultipleReader:
-      readers:
-        - NexusReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
             filename: reduced.nex
-        - YAMLReader:
+        - common.YAMLReader:
             filename: find_center.yaml
             schema: TomoFindCenterConfig
   - tomo.TomoDataProcessor:

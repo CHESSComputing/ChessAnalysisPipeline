@@ -1324,12 +1324,16 @@ class Tomo:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, z_only=True)
         else:
+            if x_bounds == (-1, -1):
+                x_bounds = None
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(
                     x_bounds, ge=0, lt=tomo_recon_combined.shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+            if y_bounds == (-1, -1):
+                y_bounds = None
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
