@@ -52,6 +52,12 @@ class TomoSetupConfig(BaseModel):
     :ivar include_raw_data: Flag to designate whether raw data will be
         included (True) or not (False), defaults to False.
     :type include_raw_data: bool, optional
+    :ivar dark_field: A list of dark field spec scans (only required for
+        id3b style experiments).
+    :type dark_field: list[SpecScans], optional
+    :ivar bright_field: A list of bright field spec scans (only required
+        for id3b style experiments).
+    :type bright_field: list[SpecScans], optional
     """
     detector: Detector.construct()
     include_raw_data: Optional[StrictBool] = False
@@ -71,6 +77,12 @@ class TomoReduceConfig(BaseModel):
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.
     :type delta_theta: float, optional
+    :ivar dark_field: A list of dark field spec scans (only required for
+        id3b style experiments).
+    :type dark_field: list[SpecScans], optional
+    :ivar bright_field: A list of bright field spec scans (only required
+        for id3b style experiments).
+    :type bright_field: list[SpecScans], optional
     """
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
@@ -171,12 +183,12 @@ class TomoSimConfig(BaseModel):
     Class representing the configuration for the tomography simulator.
 
     :ivar station: The station name (in 'idxx' format).
-    :type station: str
+    :type station: Literal['id1a3', 'id3a', 'id3b']
     :ivar detector: Detector used in the tomography experiment.
     :type detector: Detector
-    :ivar sample_type: Sample type for the tomography simulator, one of
-        "square_rod", "square_pipe", "hollow_cube", or "hollow_brick".
-    :type sample_type: str
+    :ivar sample_type: Sample type for the tomography simulator.
+    :type sample_type: Literal['square_rod', 'square_pipe',
+        'hollow_cube', 'hollow_brick']
     :ivar sample_size: Size of each sample dimension in mm (internally
         converted to an integer number of pixels).
     :type sample_size: list[float]
@@ -193,11 +205,11 @@ class TomoSimConfig(BaseModel):
     :type beam_intensity: float, optional
     :ivar background_intensity: Background intensity in counts,
         defaults to 20.
-    :type beam_intensity: float, optional
+    :type background_intensity:: float, optional
     :ivar slit_size: Vertical beam height in mm, defaults to 1.0.
-    :type beam_intensity: float, optional
+    :type slit_size:: float, optional
     """
-    station: Literal['id1a3','id3a','id3b']
+    station: Literal['id1a3', 'id3a', 'id3b']
     detector: Detector.construct()
     sample_type: Literal[
         'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick']

@@ -47,37 +47,37 @@ class TomoDataProcessor(Processor):
     def process(
             self, data, interactive=False, reduce_data=False,
             find_center=False, reconstruct_data=False, combine_data=False,
-            output_folder='.', save_figs=None, **kwargs):
+            output_folder='.', save_figs='no', **kwargs):
         """
-        Process the output of a `Reader` that contains a map or a
-        `nexusformat.nexus.NXroot` object and one that contains the step
-        specific instructions and return either a dictionary or a
-        `nexusformat.nexus.NXroot` with the processed result.
+        Process the input map or configuration with the step specific
+        instructions and return either a dictionary or a
+        `nexusformat.nexus.NXroot` object with the processed result.
 
-        :param data: Input configuration for the individual steps in the
-            tomographic image reduction.
+        :param data: Input map or configuration(s) and specific step
+            instructions for tomographic image reduction.
         :type data: list[PipelineData]
         :param interactive: Allows for user interactions,
             defaults to False.
-        :type bool, optional
+        :type interactive: bool, optional
         :param reduce_data: Generate reduced tomography images,
             defaults to False.
-        :type bool, optional
+        :type reduce_data: bool, optional
         :param find_center: Find the calibrated center axis info,
             defaults to False.
-        :type bool, optional
+        :type find_center: bool, optional
         :param reconstruct_data: Reconstruct the tomography data,
             defaults to False.
-        :type bool, optional
+        :type reconstruct_data: bool, optional
         :param combine_data: Combine the reconstructed tomography
             stacks, defaults to False.
-        :type bool, optional
+        :type combine_data: bool, optional
         :param output_folder: Output folder name, defaults to '.'.
-        :type str, optional
-        :param save_figs: Display and/or save figures to file.
-        :type str, optional
+        :type output_folder:: str, optional
+        :param save_figs: Safe figures to file ('yes' or 'only') and/or
+            display figures ('yes' or 'no'), defaults to 'no'.
+        :type save_figs: Literal['yes', 'no', 'only'], optional
         :return: Processed (meta)data of the last step.
-        :rtype: dict or nexusformat.nexus.NXroot
+        :rtype: Union[dict, nexusformat.nexus.NXroot]
         """
 
         if not isinstance(reduce_data, bool):
@@ -181,16 +181,16 @@ class TomoDataProcessor(Processor):
     def get_configs(self, data):
         """
         Get instances of the configuration objects needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor` from a list of `PipelineData` objects.
 
-        :param data: Result of `Reader.read` where at least one item
-            is of type `nexusformat.nexus.NXroot` or has the value
+        :param data: Input list of `PipelineData` objects, where one
+            item is of type `nexusformat.nexus.NXroot` or has the value
             `'MapConfig'` for the `'schema'` key, and at least one item
             has the value `'TomoSetupConfig'`, or `'TomoReduceConfig'`,
             or `'TomoFindCenterConfig'`, or `'TomoReconstructConfig'`,
             or `'TomoCombineConfig'` for the `'schema'` key.
         :type data: list[PipelineData]
-        :return: valid instances of the configuration objects with field
+        :return: Valid instances of the configuration objects with field
             values taken from `data`.
         :rtype: dict
         """
@@ -238,15 +238,14 @@ class TomoDataProcessor(Processor):
         """
         Get a map of the collected tomography data from the scans in
         `map_config` and the detector info in `tool_config'.
-        The map is returned as an `nexusformat.nexus.NXroot` object.
 
         :param map_config: Map configuration
         :type map_config: MapConfig
         :param tool_config: The tomography image reduction configuration
             containing at minimum the detector information.
         :type tool_config: TomoReduceConfig
-        :return: a map of the collected tomography data along with the
-        data reduction configuration
+        :return: Map of the collected tomography (meta) data along
+            with the data reduction configuration
         :rtype: nexusformat.nexus.NXroot
         """
         # System modules
@@ -496,12 +495,13 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
     :param nxobject: the original nexus object to return a "copy" of
     :type nxobject: nexusformat.nexus.NXobject
     :param exlude_nxpaths: a list of paths to child nexus objects that
-        should be exluded from the returned "copy", defaults to `[]`
+        should be excluded from the returned "copy", defaults to `[]`
     :type exclude_nxpaths: list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
         function only!
     :type nxpath_prefix: str
-    :return: a copy of `nxobject` with some children optionally exluded.
+    :return: Copy of the input `nxobject` with some children optionally
+        exluded.
     :rtype: NXobject
     """
     # Third party modules
@@ -537,13 +537,16 @@ class SetNumexprThreads:
     """
     Class that sets and keeps track of the number of processors used by
     the code in general and by the num_expr package specifically.
-
-    :ivar num_core: Number of processors used by the num_expr package
-    :type num_core: int
     """
 
     def __init__(self, num_core):
-        """Initialize SetNumexprThreads."""
+        """
+        Initialize SetNumexprThreads.
+
+        :param num_core: Number of processors used by the num_expr
+            package
+        :type num_core: int
+        """
         # System modules
         from multiprocessing import cpu_count
 
@@ -575,8 +578,24 @@ class Tomo:
 
     def __init__(
             self, interactive=False, num_core=-1, output_folder='.',
-            save_figs=None, test_mode=False):
-        """Initialize Tomo."""
+            save_figs='no', test_mode=False):
+        """
+        Initialize Tomo.
+
+        :param interactive: Allows for user interactions,
+            defaults to False.
+        :type interactive: bool, optional
+        :param num_core: Number of processors
+        :type num_core: int
+        :param output_folder: Output folder name, defaults to '.'.
+        :type output_folder:: str, optional
+        :param save_figs: Safe figures to file ('yes' or 'only') and/or
+            display figures ('yes' or 'no'), defaults to 'no'.
+        :type save_figs: Literal['yes', 'no', 'only'], optional
+        :param test_mode: Run in test mode (non-interactively), defaults
+            to False
+        :type test_mode: bool, optional
+        """
         # System modules
         from logging import getLogger
         from multiprocessing import cpu_count
@@ -598,8 +617,6 @@ class Tomo:
             if not isinstance(test_mode, bool):
                 raise ValueError(f'Invalid parameter test_mode ({test_mode})')
             self._test_mode = test_mode
-            if save_figs is None:
-                save_figs = 'no'
         self._test_config = {}
         if self._test_mode:
             if save_figs != 'only':
@@ -639,6 +656,8 @@ class Tomo:
         :type data: nexusformat.nexus.NXroot
         :param img_x_bounds: Detector image bounds in the x-direction
         :type img_x_bounds: tuple(int, int), list[int], optional
+        :param delta_theta: Rotation angle step size
+        :type delta_theta: float, optional
         :return: Reduced tomography data
         :rtype: nexusformat.nexus.NXroot
         """
@@ -760,6 +779,17 @@ class Tomo:
         :param center_rows: Lower and upper row indices for center
             finding
         :type center_rows: tuple(int, int), list[int], optional
+        :param center_stack_index: Stack index of the tomography set to
+            find the center axis.
+        :type center_stack_index: int, optional
+        :param gaussian_sigma: Standard deviation for the Gaussian
+            filter applied to image reconstruction visualizations,
+            defaults to no filtering performed.
+        :type gaussian_sigma: float, optional
+        :param ring_width: Maximum width of rings to be filtered in the
+            image reconstruction in pixels, defaults to no filtering
+            performed.
+        :type ring_width: float, optional
         :return: Calibrated center axis info
         :rtype: dict
         """
@@ -962,8 +992,19 @@ class Tomo:
         :type y_bounds: tuple(int, int), list[int], optional
         :param z_bounds: Reconstructed image bounds in the z-direction
         :type z_bounds: tuple(int, int), list[int], optional
+        :param secondary_iters: Number of secondary iterations in the
+            tomopy image reconstruction algorithm, defaults to 0.
+        :type secondary_iters: int, optional
+        :param remove_stripe_sigma: Damping parameter in Fourier space
+            in tomopy's horizontal stripe removal tool, defaults to no
+            correction performed.
+        :type remove_stripe_sigma: float, optional
+        :param ring_width: Maximum width of rings to be filtered in the
+            image reconstruction in pixels, defaults to no filtering
+            performed.
+        :type ring_width: float, optional
         :return: Reconstructed tomography data
-        :rtype: dict
+        :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -1196,7 +1237,7 @@ class Tomo:
         :param z_bounds: Combined image bounds in the z-direction
         :type z_bounds: tuple(int, int), list[int], optional
         :return: Combined reconstructed tomography data
-        :rtype: dict
+        :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -1761,7 +1802,6 @@ class Tomo:
 
     def _gen_thetas(self, nxentry):
         """Get the rotation angles for the image stacks."""
-
         # Get the rotation angles
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key is not None and 'data' in nxentry.instrument.detector:
@@ -2491,12 +2531,22 @@ class Tomo:
 
 class TomoSimFieldProcessor(Processor):
     """
-    Class representing the process to create a simulated tomography
-    data set returning a `nexusformat.nexus.NXroot` object containing
-    the simulated tomography detector images.
+    A processor to create a simulated tomography data set returning a
+    `nexusformat.nexus.NXroot` object containing the simulated
+    tomography detector images.
     """
 
     def process(self, data, **kwargs):
+        """
+        Process the input configuration and return a
+        `nexusformat.nexus.NXroot` object with the simulated
+        tomography detector images.
+
+        :param data: Input configuration for the simulation.
+        :type data: list[PipelineData]
+        :return: Simulated tomographic images.
+        :rtype: nexusformat.nexus.NXroot
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXdetector,
@@ -2686,16 +2736,15 @@ class TomoSimFieldProcessor(Processor):
 
     def get_configs(self, data):
         """
-        Get instances of the configuration objects needed by this
-        `Processor` from a returned value of `Reader.read`
+        Get an instance of the configuration object needed by this
+        `Processor` from a list of `PipelineData` objects.
 
-        :param data: Result of `Reader.read` where at least one item
-            has `'TomoReduceConfig'` for the `'schema'` key, and at
+        :param data: Input list of `PipelineData` objects, where at
             least one item has `'TomoSimConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If valid config objects cannot be constructed
-            from `data`.
-        :return: valid instance of the configuration object with field
+        :type data: list[PipelineData]
+        :raises ValueError: If a valid config object cannot be
+            constructed from `data`.
+        :return: Valid instance of the configuration object with field
             values taken from `data`.
         :rtype: TomoSimConfig
         """
@@ -2719,7 +2768,6 @@ class TomoSimFieldProcessor(Processor):
         Create the x-ray path length through a solid square
         crosssection for a set of rotation angles.
         """
-
         # Get the column coordinates
         img_y_coords = pixel_size * (0.5 * (1 - detector_size%2)
             + np.asarray(range(int(0.5 * (detector_size+1)))))
@@ -2760,13 +2808,23 @@ class TomoSimFieldProcessor(Processor):
 
 class TomoDarkFieldProcessor(Processor):
     """
-    Class representing the process to create a dark field associated
-    with a simulated tomography data set created by TomoSimProcessor
-    returning a `nexusformat.nexus.NXroot` object containing the
-    dark field tomography detector images.
+    A processor to create the dark field associated with a simulated
+    tomography data set created by TomoSimProcessor.
     """
 
     def process(self, data, num_image=5, **kwargs):
+        """
+        Process the input configuration and return a
+        `nexusformat.nexus.NXroot` object with the simulated
+        dark field detector images.
+
+        :param data: Input configuration for the simulation.
+        :type data: list[PipelineData]
+        :param num_image: Number of dark field images, defaults to 5.
+        :type num_image: int, optional.
+        :return: Simulated dark field images.
+        :rtype: nexusformat.nexus.NXroot
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXroot,
@@ -2813,14 +2871,14 @@ class TomoDarkFieldProcessor(Processor):
 
     def get_config(self, data):
         """Get an instance of the configuration object needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor` from a list of `PipelineData` objects.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'TomoSimField'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid config object cannot be
+        :param data: Input list of `PipelineData` objects, where at
+            least one item has `'TomoSimField'` for the `'schema'` key.
+        :type data: list[PipelineData]
+        :raises ValueError: If a valid config object cannot be
             constructed from `data`.
-        :return: a valid instance of a configuration object with field
+        :return: Valid instance of a configuration object with field
             values taken from `data`.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2840,13 +2898,23 @@ class TomoDarkFieldProcessor(Processor):
 
 class TomoBrightFieldProcessor(Processor):
     """
-    Class representing the process to create a bright field associated
-    with a simulated tomography data set created by TomoSimProcessor
-    returning a `nexusformat.nexus.NXroot` object containing the
-    bright field tomography detector images.
+    A processor to create the bright field associated with a simulated
+    tomography data set created by TomoSimProcessor.
     """
 
     def process(self, data, num_image=5, **kwargs):
+        """
+        Process the input configuration and return a
+        `nexusformat.nexus.NXroot` object with the simulated
+        bright field detector images.
+
+        :param data: Input configuration for the simulation.
+        :type data: list[PipelineData]
+        :param num_image: Number of bright field images, defaults to 5.
+        :type num_image: int, optional.
+        :return: Simulated bright field images.
+        :rtype: nexusformat.nexus.NXroot
+        """
         # Third party modules
         from nexusformat.nexus import (
             NeXusError,
@@ -2904,14 +2972,14 @@ class TomoBrightFieldProcessor(Processor):
 
     def get_config(self, data):
         """Get an instance of the configuration object needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor` from a list of `PipelineData` objects.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'TomoSimField'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid config object cannot be
+        :param data: Input list of `PipelineData` objects, where at
+            least one item has `'TomoSimField'` for the `'schema'` key.
+        :type data: list[PipelineData]
+        :raises ValueError: If a valid config object cannot be
             constructed from `data`.
-        :return: a valid instance of a configuration object with field
+        :return: Valid instance of a configuration object with field
             values taken from `data`.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2931,13 +2999,25 @@ class TomoBrightFieldProcessor(Processor):
 
 class TomoSpecProcessor(Processor):
     """
-    Class representing the process to create a tomography SPEC file
-    associated with a simulated tomography data set created by
-    TomoSimProcessor returning a plain text object containing the
-    tomography SPEC file.
+    A processor to create a tomography SPEC file associated with a
+    simulated tomography data set created by TomoSimProcessor.
     """
 
     def process(self, data, spec_folder='.', scan_numbers=[1], **kwargs):
+        """
+        Process the input configuration and return a list of strings
+        representing a plain text SPEC file.
+
+        :param data: Input configuration for the simulation.
+        :type data: list[PipelineData]
+        :param spec_folder: Output folder for the SPEC file(s), defaults
+            to '.'.
+        :type spec_folder: str, optional.
+        :param scan_numbers: List of SPEC scan numbers, defaults to [1].
+        :type scan_numbers: list[int]
+        :return: Simulated SPEC file.
+        :rtype: list[str]
+        """
         # System modules
         from json import dump
         from datetime import datetime
@@ -3086,7 +3166,7 @@ class TomoSpecProcessor(Processor):
         if station in ('id1a3', 'id3a'):
 
             # Write the SPEC file
-            self.write_txt(spec_file, os_path.join(spec_folder, 'spec.log'))
+            self._write_txt(spec_file, os_path.join(spec_folder, 'spec.log'))
 
             # Write the JSON file
             parfile_header = {
@@ -3115,7 +3195,7 @@ class TomoSpecProcessor(Processor):
             par_filename = os_path.join(
                 spec_folder,
                 f'{station}-tomo_sim-{os_path.basename(spec_folder)}.par')
-            self.write_txt(par_file, par_filename)
+            self._write_txt(par_file, par_filename)
 
             # Write image files as individual tiffs
             for scan_number, image_set in zip(scan_numbers, image_sets):
@@ -3125,22 +3205,24 @@ class TomoSpecProcessor(Processor):
                 image_folder = os_path.join(image_folder, 'nf')
                 if not os_path.isdir(image_folder):
                     mkdir(image_folder)
-                self.write_tiffs(image_set, image_folder)
+                self._write_tiffs(image_set, image_folder)
 
         return spec_file
 
     def get_config(self, data):
         """Get an instance of the configuration object needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor` from a list of `PipelineData` objects.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'TomoSimField'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid config object cannot be
+        :param data: Input list of `PipelineData` objects, where at
+            least one item has `'TomoDarkField'` for the `'schema'` key,
+            one item has `'TomoBrightField'` for the `'schema'` key, and
+            one item has `'TomoSimField'` for the `'schema'` key.
+        :type data: list[PipelineData]
+        :raises ValueError: If valid config objects cannot be
             constructed from `data`.
-        :return: a valid instance of a configuration object with field
+        :return: Valid instances of configuration objects with field
             values taken from `data`.
-        :rtype: nexusformat.nexus.NXroot
+        :rtype: dict
         """
         configs = {}
         if isinstance(data, list):
@@ -3159,14 +3241,16 @@ class TomoSpecProcessor(Processor):
 
         return configs
 
-    def write_tiffs(self, data, image_folder):
+    def _write_tiffs(self, data, image_folder):
+        """Write a set of images to individual tiff files."""
         # Third party modules
         from imageio import imwrite
         for n in range(data.shape[0]):
             imwrite(
                 os_path.join(image_folder, f'nf_{n:06d}.tif'), data[n])
 
-    def write_txt(self, data, filepath, force_overwrite=True):
+    def _write_txt(self, data, filepath, force_overwrite=True):
+        """Local wrapper for the text file writer."""
         # Local modules
         from CHAP.common import TXTWriter
         from CHAP.pipeline import PipelineData
