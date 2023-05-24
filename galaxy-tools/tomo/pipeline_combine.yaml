@@ -1,11 +1,11 @@
 pipeline:
 
   # Combine tomography stacks
-  - common.MultipleReader:
-      readers:
-        - NexusReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
             filename: reconstructed.nex
-        - YAMLReader:
+        - common.YAMLReader:
             filename: combine.yaml
             schema: TomoCombineConfig
   - tomo.TomoDataProcessor:

@@ -7,7 +7,7 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_combine_plots;
-        cp $input_file reconstruced.nex &&
+        cp $input_file reconstructed.nex &&
         cp $tool_config combine.yaml &&
         CHAP --config 
         $__tool_directory__/pipeline_combine.yaml

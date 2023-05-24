@@ -1009,7 +1009,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         if scan_step_index is None:
             detector_data = []
-            for index in range(len(self.get_spec_scan_npts())):
+            for index in range(len(self.spec_scan_npts)):
                 detector_data.append(
                     self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)

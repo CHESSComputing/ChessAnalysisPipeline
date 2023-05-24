@@ -1,11 +1,11 @@
 pipeline:
 
   # Reduce tomography images
-  - common.MultipleReader:
-      readers:
-        - NexusReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
             filename: setup.nex
-        - YAMLReader:
+        - common.YAMLReader:
             filename: reduce.yaml
             schema: TomoReduceConfig
   - tomo.TomoDataProcessor:

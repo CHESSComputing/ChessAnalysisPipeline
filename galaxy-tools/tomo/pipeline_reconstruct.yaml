@@ -1,14 +1,14 @@
 pipeline:
 
   # Reconstruct tomography stacks
-  - common.MultipleReader:
-      readers:
-        - NexusReader:
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
             filename: reduced.nex
-        - YAMLReader:
+        - common.YAMLReader:
             filename: reconstruct.yaml
             schema: TomoReconstructConfig
-        - YAMLReader:
+        - common.YAMLReader:
             filename: centers.yaml
             schema: TomoFindCenterConfig
   - tomo.TomoDataProcessor:

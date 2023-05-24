@@ -9,7 +9,11 @@
         mkdir tomo_reduce_plots;
         #if str($map.type_selector) == "yaml"
             cp $input_file map.yaml &&
-            cat $__tool_directory__/$map.detector.type_selector $tool_config > reduce.yaml &&
+            #if str($map.detector.type_selector) == "from_file"
+                cat $map.detector.detector_file $tool_config > reduce.yaml &&
+            #else
+                cat $__tool_directory__/$map.detector.type_selector $tool_config > reduce.yaml &&
+            #end if
         #else
             cp $input_file setup.nex &&
             cp $tool_config reduce.yaml &&
@@ -45,14 +49,18 @@
             <when value="yaml">
                 <param name="input_file" type="data" format="yaml" optional="false" label="Map config file"/>
                 <conditional name="detector">
-                    <param name="type_selector" type="select" display="radio" label="Choose detector prefix">
+                    <param name="type_selector" type="select" display="radio" label="Choose detector">
                         <option value="andor2.yaml">andor2</option>
                         <option value="manta.yaml">manta</option>
                         <option value="retiga.yaml">retiga</option>
+                        <option value="from_file">from file</option>
                     </param>
                     <when value="andor2.yaml"/>
                     <when value="manta.yaml"/>
                     <when value="retiga.yaml"/>
+                    <when value="from_file">
+                        <param name="detector_file" type="data" format="yaml" optional="false" label="Detector config file"/>
+                    </when>
                 </conditional>
             </when>
             <when value="nexus">
