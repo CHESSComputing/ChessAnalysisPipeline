@@ -31,6 +31,10 @@ class OptionParser():
             '--profile', action='store_true', dest='profile',
             help='profile output')
 
+def parser():
+    """Return the parser from `OptionParser`."""
+    optmgr = OptionParser()
+    return optmgr.parser
 
 def main():
     """Main function"""
