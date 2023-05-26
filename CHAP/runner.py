@@ -12,6 +12,12 @@ from yaml import safe_load
 # local modules
 from CHAP.pipeline import Pipeline
 
+# load user processor
+try:
+    from userprocessor import UserProcessor
+except ImportError:
+    pass
+
 
 class OptionParser():
     """User based option parser"""
@@ -102,15 +108,18 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
             kwargs = {**kwargs, **item[name]}
         else:
             name = item
-        modName, clsName = name.split('.')
-        module = __import__(f'CHAP.{modName}', fromlist=[clsName])
-        obj = getattr(module, clsName)()
-        if log_level:
-            obj.logger.setLevel(log_level)
-        if log_handler:
-            obj.logger.addHandler(log_handler)
-        if logger:
-            logger.info(f'Loaded {obj}')
+        if name == "UserProcessor":
+            obj = UserProcessor()
+        else:
+            modName, clsName = name.split('.')
+            module = __import__(f'CHAP.{modName}', fromlist=[clsName])
+            obj = getattr(module, clsName)()
+            if log_level:
+                obj.logger.setLevel(log_level)
+            if log_handler:
+                obj.logger.addHandler(log_handler)
+            if logger:
+                logger.info(f'Loaded {obj}')
         objects.append(obj)
         kwds.append(kwargs)
     pipeline = Pipeline(objects, kwds)
