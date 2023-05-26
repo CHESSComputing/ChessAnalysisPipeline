@@ -14,7 +14,7 @@ from CHAP.pipeline import Pipeline
 
 # load user processor
 try:
-    from userprocessor import UserProcessor
+    import users
 except ImportError:
     pass
 
@@ -108,8 +108,12 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
             kwargs = {**kwargs, **item[name]}
         else:
             name = item
-        if name == "UserProcessor":
+        if "users" in name:
             obj = UserProcessor()
+            clsName = name.split('.')[-1]
+            modName = '.'.join(name.split('.')[:-1])
+            module = __import__(modName, fromlist=[clsName])
+            obj = getattr(module, clsName)()
         else:
             modName, clsName = name.split('.')
             module = __import__(f'CHAP.{modName}', fromlist=[clsName])
