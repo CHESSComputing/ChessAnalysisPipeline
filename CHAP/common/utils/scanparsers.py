@@ -796,7 +796,7 @@ class RotationScanParser(ScanParser):
         being collected by this scan: df1 (dark field), bf1 (bright
         field), or tf1 (sample tomography data).
 
-        :rtype: typing.Literal['df1', 'bf1', 'tf1']
+        :rtype: typing.Literal['df1', 'bf1', 'ts1', 'tomo']
         """
         return None
 
@@ -950,10 +950,12 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         super().__init__(spec_file_name, scan_number)
 
         self._par_file_pattern = f'id*-*tomo*-{self.scan_name}'
+        self._katefix = 0  # RV remove when no longer needed
 
     def get_scan_type(self):
         scan_type = self.pars.get(
-            'tomo_type', self.pars.get('tomotype', None))
+            'tomo_type', self.pars.get(
+            'tomotype', self.pars.get('scan_type', None)))
         if scan_type is None:
             raise RuntimeError(
                 f'{self.scan_title}: cannot determine the scan_type')
@@ -982,7 +984,18 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
 
     def get_starting_image_index(self):
         try:
-            return int(self.pars['junkstart'])
+            junkstart = int(self.pars['junkstart'])
+            #RV temp fix for error in par files at Kate's beamline
+            #Remove this and self._katefix when no longer needed
+            file_name = f'nf_{junkstart:06d}.tif'
+            file_name_full = os.path.join(self.detector_data_path, file_name)
+            if not os.path.isfile(file_name_full):
+                self._katefix = min([
+                    int(re.findall(r'\d+', f)[0])
+                        for f in os.listdir(self.detector_data_path)
+                        if re.match(r'nf_\d+\.tif', f)])
+            return junkstart
+            #return int(self.pars['junkstart'])
         except:
             raise RuntimeError(f'{self.scan_title}: cannot determine first '
                                'detector image index')
@@ -1000,6 +1013,12 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
 
     def get_detector_data_file(self, scan_step_index:int):
         file_name = f'nf_{self.starting_image_index+scan_step_index:06d}.tif'
+        file_name_full = os.path.join(self.detector_data_path, file_name)
+        if os.path.isfile(file_name_full):
+            return file_name_full
+        #RV temp fix for error in par files at Kate's beamline
+        #Remove this and self._katefix when no longer needed
+        file_name = f'nf_{self.starting_image_index+scan_step_index+self._katefix:06d}.tif'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full

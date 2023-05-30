@@ -18,21 +18,18 @@
         <configfile name="tool_config">
             <![CDATA[#slurp
 #echo 'x_bounds:' #
-#if str($x_bounds.type_selector) == "full_range"
-#echo '- -1' #
-#echo '- -1' #
-#else
+#if str($x_bounds.type_selector) == "enter_range"
 #echo '- ' + str($x_bounds.low) #
 #echo '- ' + str($x_bounds.upp) #
 #end if
 #echo 'y_bounds:' #
-#if str($y_bounds.type_selector) == "full_range"
-#echo '- -1' #
-#echo '- -1' #
-#else
+#if str($y_bounds.type_selector) == "enter_range"
 #echo '- ' + str($y_bounds.low) #
 #echo '- ' + str($y_bounds.upp) #
 #end if
+#echo 'secondary_iters: ' + str($secondary_iters) #
+#echo 'remove_stripe_sigma: ' + str($remove_stripe_sigma) #
+#echo 'ring_width: ' + str($ring_width) #
             ]]>
         </configfile>
     </configfiles>
@@ -46,8 +43,8 @@
             </param>
             <when value="full_range"/>
             <when value="enter_range">
-                <param name="low" type="integer" value="-1" optional="false" label="Lower image x-range index"/>
-                <param name="upp" type="integer" value="-1" optional="false" label="Upper image x-range index"/>
+                <param name="low" type="integer" value="" optional="false" min="0" label="Lower image x-range index"/>
+                <param name="upp" type="integer" value="" optional="false" min="0" label="Upper image x-range index"/>
             </when>
         </conditional>
         <conditional name="y_bounds">
@@ -57,10 +54,13 @@
             </param>
             <when value="full_range"/>
             <when value="enter_range">
-                <param name="low" type="integer" value="-1" optional="false" label="Lower image y-range index"/>
-                <param name="upp" type="integer" value="-1" optional="false" label="Upper image y-range index"/>
+                <param name="low" type="integer" value="" optional="false" min="0" label="Lower image y-range index"/>
+                <param name="upp" type="integer" value="" optional="false" min="0" label="Upper image y-range index"/>
             </when>
         </conditional>
+        <param name="secondary_iters" type="integer" value="0" optional="false" min="0" label="Number of secondary iterations"/>
+        <param name="remove_stripe_sigma" type="float" value="0.05" optional="false" min="0" label="Damping parameter in horizontal stripe removal"/>
+        <param name="ring_width" type="float" value="1" optional="false" min="1" label="Maximum filtered ring width in pixels"/>
     </inputs>
     <outputs>
         <data name="tool_config" format="yaml" label="Tool config" from_work_dir="reconstruct.yaml" hidden="false"/>
