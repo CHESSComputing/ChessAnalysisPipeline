@@ -360,7 +360,7 @@ class TomoDataProcessor(Processor):
                     elif scan_type == 'bf1':
                         image_key = 1
                         field_name = 'bright_field'
-                    elif scan_type == 'ts1':
+                    elif scan_type in ('ts1', 'tomo'):
                         image_key = 0
                         field_name = 'tomo_fields'
                     else:
@@ -885,8 +885,6 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[0] is not None:
                 lower_row = center_rows[0]
-                if lower_row == -1:
-                    lower_row = 0
                 if not 0 <= lower_row < tomo_fields_shape[2]-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
@@ -902,8 +900,6 @@ class Tomo:
                 lower_row = 0
             else:
                 lower_row = center_rows[0]
-                if lower_row == -1:
-                    lower_row = 0
                 if not 0 <= lower_row < tomo_fields_shape[2]-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
@@ -924,8 +920,6 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[1] is not None:
                 upper_row = center_rows[1]
-                if upper_row == -1:
-                    upper_row = tomo_fields_shape[2]-1
                 if not lower_row < upper_row < tomo_fields_shape[2]:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
@@ -942,8 +936,6 @@ class Tomo:
                 upper_row = tomo_fields_shape[2]-1
             else:
                 upper_row = center_rows[1]
-                if upper_row == -1:
-                    upper_row = tomo_fields_shape[2]-1
                 if not lower_row < upper_row < tomo_fields_shape[2]:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
@@ -1119,16 +1111,12 @@ class Tomo:
                 tomo_recon_stacks, x_bounds=x_bounds, y_bounds=y_bounds,
                 z_bounds=z_bounds)
         else:
-            if x_bounds == (-1, -1):
-                x_bounds = None
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(x_bounds, ge=0,
                                  lt=tomo_recon_stacks[0].shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            if y_bounds == (-1, -1):
-                y_bounds = None
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
@@ -1154,37 +1142,46 @@ class Tomo:
         else:
             z_range = (min(z_bounds), max(z_bounds))
             z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
+        for i, stack in enumerate(tomo_recon_stacks):
+            tomo_recon_stacks[i] = stack[
+                z_range[0]:z_range[1],x_range[0]:x_range[1],y_range[0]:y_range[1]]
+        tomo_recon_stacks = np.asarray(tomo_recon_stacks)
+#        print(f'tomo_recon_stacks {tomo_recon_stacks.shape}: {np.amin(tomo_recon_stacks)} {np.amax(tomo_recon_stacks)}')
+#        _min = np.amin(tomo_recon_stacks)
+#        _max = np.amax(tomo_recon_stacks)
+#        tomo_recon_stacks = (tomo_recon_stacks-_min) / (_max-_min)
+#        print(f'tomo_recon_stacks {tomo_recon_stacks.shape}: {np.amin(tomo_recon_stacks)} {np.amax(tomo_recon_stacks)}')
 
         # Plot a few reconstructed image slices
         if self._save_figs:
-            for i, stack in enumerate(tomo_recon_stacks):
+            for i in range(tomo_recon_stacks.shape[0]):
                 if num_tomo_stacks == 1:
                     basetitle = 'recon'
                 else:
                     basetitle = f'recon stack {i}'
                 title = f'{basetitle} {res_title} xslice{x_slice}'
                 quick_imshow(
-                    stack[z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
+                    tomo_recon_stacks[i,:,x_slice-x_range[0],:],
                     title=title, path=self._output_folder, save_fig=True,
                     save_only=True)
                 title = f'{basetitle} {res_title} yslice{y_slice}'
                 quick_imshow(
-                    stack[z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
+                    tomo_recon_stacks[i,:,:,y_slice-y_range[0]],
                     title=title, path=self._output_folder, save_fig=True,
                     save_only=True)
                 title = f'{basetitle} {res_title} zslice{z_slice}'
                 quick_imshow(
-                    stack[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
+                    tomo_recon_stacks[i,z_slice-z_range[0],:,:],
                     title=title, path=self._output_folder, save_fig=True,
                     save_only=True)
 
         # Save test data to file
         #     reconstructed data order in each stack: row/z,x,y
         if self._test_mode:
-            for i, stack in enumerate(tomo_recon_stacks):
+            for i in range(tomo_recon_stacks.shape[0]):
                 np.savetxt(
                     f'{self._output_folder}/recon_stack_{i}.txt',
-                    stack[z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
+                    tomo_recon_stacks[i,z_slice,:,:],
                     fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -1199,9 +1196,7 @@ class Tomo:
             nxprocess.y_bounds = y_bounds
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
-        nxprocess.data['reconstructed_data'] = np.asarray(
-            [stack[z_range[0]:z_range[1],x_range[0]:x_range[1],
-             y_range[0]:y_range[1]] for stack in tomo_recon_stacks])
+        nxprocess.data['reconstructed_data'] = tomo_recon_stacks
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
 
         # Create a copy of the input Nexus object and remove reduced
@@ -1317,23 +1312,15 @@ class Tomo:
             y_bounds = None
             z_bounds = tuple(self._test_config.get('z_bounds'))
         elif self._interactive:
-            if x_bounds is None and x_bounds in nxentry.reconstructed_data:
-                x_bounds = (-1, -1)
-            if y_bounds is None and y_bounds in nxentry.reconstructed_data:
-                y_bounds = (-1, -1)
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, z_only=True)
         else:
-            if x_bounds == (-1, -1):
-                x_bounds = None
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(
                     x_bounds, ge=0, lt=tomo_recon_combined.shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            if y_bounds == (-1, -1):
-                y_bounds = None
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
@@ -1646,8 +1633,6 @@ class Tomo:
 
         # Select image bounds
         title = f'tomography image at theta={round(theta, 2)+0}'
-        if img_x_bounds == (-1, -1):
-            img_x_bounds = None
         if img_x_bounds is not None:
             if is_index_range(img_x_bounds, ge=0, le=first_image.shape[0]):
                 return img_x_bounds
@@ -2445,9 +2430,7 @@ class Tomo:
             num_tomo_stacks = 1
             tomo_recon_stacks = [data]
 
-        if x_bounds == (-1, -1):
-            x_bounds = None
-        elif not z_only and x_bounds is None:
+        if not z_only and x_bounds is None:
             # Selecting x bounds (in yz-plane)
             tomosum = 0
             for i in range(num_tomo_stacks):
@@ -2473,9 +2456,7 @@ class Tomo:
                     accept = True
             self._logger.debug(f'x_bounds = {x_bounds}')
 
-        if y_bounds == (-1, -1):
-            y_bounds = None
-        elif not z_only and y_bounds is None:
+        if not z_only and y_bounds is None:
             # Selecting y bounds (in xz-plane)
             tomosum = 0
             for i in range(num_tomo_stacks):
@@ -2503,9 +2484,7 @@ class Tomo:
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack)
-        if z_bounds == (-1, -1):
-            z_bounds = None
-        elif z_bounds is None and num_tomo_stacks != 1:
+        if z_bounds is None and num_tomo_stacks != 1:
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))

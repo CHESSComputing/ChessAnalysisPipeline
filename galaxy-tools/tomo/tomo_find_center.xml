@@ -16,13 +16,12 @@
     <configfiles>
         <configfile name="tool_config">
             <![CDATA[#slurp
-#if str($center_rows.type_selector) == "full_range"
-#echo 'lower_row: -1' #
-#echo 'upper_row: -1' #
-#else
+#if str($center_rows.type_selector) == "enter_range"
 #echo 'lower_row: ' + str($center_rows.low) #
 #echo 'upper_row: ' + str($center_rows.upp) #
 #end if
+#echo 'gaussian_sigma: ' + str($gaussian_sigma) #
+#echo 'ring_width: ' + str($ring_width) #
             ]]>
         </configfile>
     </configfiles>
@@ -35,10 +34,12 @@
             </param>
             <when value="full_range"/>
             <when value="enter_range">
-                <param name="low" type="integer" value="-1" optional="false" label="Lower detector row index"/>
-                <param name="upp" type="integer" value="-1" optional="false" label="Upper detector row index"/>
+                <param name="low" type="integer" value="" optional="false" min="0" label="Lower detector row index"/>
+                <param name="upp" type="integer" value="" optional="false" min="0" label="Upper detector row index"/>
             </when>
         </conditional>
+        <param name="gaussian_sigma" type="float" value="0.05" optional="false" min="0" label="Standard deviation for the Gaussian filter"/>
+        <param name="ring_width" type="float" value="1" optional="false" min="1" label="Maximum filtered ring width in pixels"/>
     </inputs>
     <outputs>
         <data name="tool_config" format="yaml" label="Tool config" from_work_dir="find_center.yaml" hidden="false"/>
