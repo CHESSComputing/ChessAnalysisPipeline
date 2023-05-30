@@ -109,7 +109,6 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
         else:
             name = item
         if "users" in name:
-            obj = UserProcessor()
             clsName = name.split('.')[-1]
             modName = '.'.join(name.split('.')[:-1])
             module = __import__(modName, fromlist=[clsName])
