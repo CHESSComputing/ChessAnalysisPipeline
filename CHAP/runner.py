@@ -103,6 +103,16 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
         else:
             name = item
         if "users" in name:
+            # load users module. This is required in CHAPaaS which can
+            # have common area for users module. Otherwise, we will be
+            # required to have invidual user's PYTHONPATHs to load user
+            # processors.
+            try:
+                import users
+            except ImportError:
+                if logger:
+                    logger.error(f'Unable to load {name}')
+                continue
             clsName = name.split('.')[-1]
             modName = '.'.join(name.split('.')[:-1])
             module = __import__(modName, fromlist=[clsName])
