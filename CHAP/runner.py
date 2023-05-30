@@ -103,13 +103,6 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
         else:
             name = item
         if "users" in name:
-            # load user processor
-            try:
-                import users
-            except ImportError:
-                if logger:
-                    logger.error(f'Unable to load {name}')
-                continue
             clsName = name.split('.')[-1]
             modName = '.'.join(name.split('.')[:-1])
             module = __import__(modName, fromlist=[clsName])
