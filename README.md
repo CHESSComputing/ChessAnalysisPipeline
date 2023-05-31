@@ -8,3 +8,6 @@ There are several subpackages within CHAP that contain specialized items to hand
 
 ## Documentation
 Documentation for the latest version can be found on [this project's github pages site](https://chesscomputing.github.io/ChessAnalysisPipeline/).
+
+## Galaxy
+The `galaxy-tools/` directory contains a set of CHAP-based tools for use in the [Galaxy](https://galaxyproject.org) science gateway.
