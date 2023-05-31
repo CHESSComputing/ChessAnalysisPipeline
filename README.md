@@ -1,30 +1,10 @@
-### Pipeline
-This package conains proof of concepts pipeline framework for workflow
-execution. It requires proper configuration of pipeline in terms classes, e.g.
-```
-# pipeline deifinition as sequence of objects
-pipeline:
-  - reader.Reader
-  - processor.Processor
-  - fitter.Fitter
-  - processor.Processor
-  - writer.Writer
-  - fitter.Fitter
-  - writer.Writer
+[![DOI](https://zenodo.org/badge/600053436.svg)](https://zenodo.org/badge/latestdoi/600053436)
 
-# specific object parameters, e.g. our reader accepts fileName=data.csv
-reader.Reader:
-  fileName: data.csv
+# ChessAnalysisPipeline (CHAP)
+CHAP is a package that provides a framework for executing data anlaysis pipelines. The package can be found on PyPI and conda-forge.
 
+## Subpackages
+There are several subpackages within CHAP that contain specialized items to handle specific types of data processing in the CHAP framework. Dependencies for these subpackages can be found in `CHAP/<subpackage_name>/environment.yml`.
 
-# specific object parameters, e.g. our writer accepts fileName=data.out
-writer.Writer:
-  fileName: data.out
-```
-
-Then, you may execute this pipeline as following:
-```
-./runner.py --config config.yaml
-```
-and, check the output in `data.out` file.
-
+## Documentation
+Documentation for the latest version can be found on [this project's github pages site](https://chesscomputing.github.io/ChessAnalysisPipeline/).
