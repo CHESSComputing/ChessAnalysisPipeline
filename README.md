@@ -1,4 +1,5 @@
 [![DOI](https://zenodo.org/badge/600053436.svg)](https://zenodo.org/badge/latestdoi/600053436)
+![pylint](https://github.com/CHESSComputing/ChessAnalysisPipeline/actions/workflows/pylint-check.yml/badge.svg)
 
 # ChessAnalysisPipeline (CHAP)
 CHAP is a package that provides a framework for executing data anlaysis pipelines. The package can be found on PyPI and conda-forge.
