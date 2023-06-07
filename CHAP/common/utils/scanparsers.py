@@ -620,7 +620,7 @@ class FMBXRFScanParser(FMBLinearScanParser):
 
     def get_detector_data_file(self, detector_prefix, scan_step_index:int):
         scan_step = self.get_scan_step(scan_step_index)
-        file_name = f'scan{self.scan_number}_{scan_step[1]:03d}.hdf5'
+        file_name = f'scan{self.scan_number}_{scan_step[0]:03d}.hdf5'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
