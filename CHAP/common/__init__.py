@@ -24,6 +24,7 @@ from CHAP.common.processor import (
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
     PrintProcessor,
+    RawDetectorDataMapProcessor,
     StrainAnalysisProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
