@@ -11,7 +11,7 @@ pipeline:
   # Calibrate detector
   - common.YAMLReader:
       filename: examples/edd/ceria_calibration_config.yaml
-      schema: MCACeriaCalibrationConfig
+      schema: edd.models.MCACeriaCalibrationConfig
   - edd.MCACeriaCalibrationProcessor
   - common.YAMLWriter:
       filename: examples/edd/ceria_calibrated.yaml
@@ -20,7 +20,7 @@ pipeline:
   # Measure diffraction volume length
   - common.YAMLReader:
       filename: examples/edd/dvl_measurement.yaml
-      schema: DiffractionVolumeLengthConfig
+      schema: edd.models.DiffractionVolumeLengthConfig
   - edd.DiffractionVolumeLengthProcessor:
       dvl_model: manual
   - common.YAMLWriter:
@@ -32,10 +32,10 @@ pipeline:
       items:
         - common.YAMLReader:
             filename: examples/edd/map.yaml
-            schema: MapConfig
+            schema: common.models.map.MapConfig
         - common.YAMLReader:
             filename: examples/edd/ceria_calibrated.yaml
-            schema: MCACeriaCalibrationConfig
+            schema: edd.models.MCACeriaCalibrationConfig
   - edd.MCADataProcessor
   - common.NexusWriter:
       filename: examples/edd/map_detector_data.nxs

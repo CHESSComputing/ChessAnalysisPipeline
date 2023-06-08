@@ -12,7 +12,7 @@ pipeline:
   # Collect map data
   - common.YAMLReader:
       filename: examples/sin2psi/map.yaml
-      schema: MapConfig
+      schema: common.models.map.MapConfig
   - common.MapProcessor
   - common.NexusWriter:
       filename: examples/sin2psi/map.nxs
@@ -23,10 +23,10 @@ pipeline:
       items:
         - common.YAMLReader:
             filename: examples/sin2psi/map.yaml
-            schema: MapConfig
+            schema: common.models.map.MapConfig
         - common.YAMLReader:
             filename: examples/sin2psi/integration.yaml
-            schema: IntegrationConfig
+            schema: common.models.integration.IntegrationConfig
   - common.IntegrateMapProcessor
   - common.NexusWriter:
       filename: examples/sin2psi/integrated_detector_data.nxs

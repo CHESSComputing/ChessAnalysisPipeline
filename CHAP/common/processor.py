@@ -108,56 +108,13 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
 
-        map_config, integration_config = self.get_configs(data)
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig')
+        integration_config = self.get_config(
+            data, 'common.models.integration.IntegrationConfig')
         nxprocess = self.get_nxprocess(map_config, integration_config)
 
         return nxprocess
-
-    def get_configs(self, data):
-        """Return valid instances of `MapConfig` and
-        `IntegrationConfig` from the input supplied by
-        `MultipleReader`.
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key, and at
-            least one item has the value `'IntegrationConfig'` for the
-            `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises ValueError: if `data` cannot be parsed into map and
-            integration configurations.
-        :return: valid map and integration configuration objects.
-        :rtype: tuple[MapConfig, IntegrationConfig]
-        """
-
-        self.logger.debug('Getting configuration objects')
-        t0 = time()
-
-        from CHAP.common.models.map import MapConfig
-        from CHAP.common.models.integration import IntegrationConfig
-
-        map_config = False
-        integration_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'MapConfig':
-                        map_config = item.get('data')
-                    elif schema == 'IntegrationConfig':
-                        integration_config = item.get('data')
-
-        if not map_config:
-            raise ValueError('No map configuration found')
-        if not integration_config:
-            raise ValueError('No integration configuration found')
-
-        map_config = MapConfig(**map_config)
-        integration_config = IntegrationConfig(**integration_config)
-
-        self.logger.debug(
-            f'Got configuration objects in {time()-t0:.3f} seconds')
-
-        return map_config, integration_config
 
     def get_nxprocess(self, map_config, integration_config):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
@@ -320,39 +277,10 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
 
-        map_config = self.get_map_config(data)
+        map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config)
 
         return nxentry
-
-    def get_map_config(self, data):
-        """Get an instance of `MapConfig` from a returned value of
-        `Reader.read`
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid `MapConfig` cannot be
-            constructed from `data`.
-        :return: a valid instance of `MapConfig` with field values
-            taken from `data`.
-        :rtype: MapConfig
-        """
-
-        from CHAP.common.models.map import MapConfig
-
-        map_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'MapConfig':
-                        map_config = item.get('data')
-                        break
-
-        if not map_config:
-            raise ValueError('No map configuration found')
-
-        return MapConfig(**map_config)
 
     @staticmethod
     def get_nxentry(map_config):
