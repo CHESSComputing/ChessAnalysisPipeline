@@ -42,42 +42,12 @@ class DiffractionVolumeLengthProcessor(Processor):
         :rtype: dict
         """
 
-        dvl_config = self.get_config(data)
+        dvl_config = self.get_config(
+            data, 'edd.models.DiffractionVolumeLengthConfig')
         dvl = self.measure_dvl(dvl_config, interactive=interactive)
         dvl_config.dvl_measured = dvl
 
         return dvl_config.dict()
-
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a returned value of `Reader.read`
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MCACeriaCalibrationConfig'` for the
-            `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid config object cannot be
-            constructed from `data`.
-        :return: a valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: MCACeriaCalibrationConfig
-        """
-        # local modules
-        from CHAP.edd.models import DiffractionVolumeLengthConfig
-
-        dvl_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'DiffractionVolumeLengthConfig':
-                        dvl_config = item.get('data')
-                        break
-
-        if not dvl_config:
-            raise ValueError(
-                'No DVL calculation configuration found in input data')
-
-        return DiffractionVolumeLengthConfig(**dvl_config)
 
     def measure_dvl(self, dvl_config, interactive=False):
         """Return a measured value for the length of the diffraction
@@ -205,7 +175,8 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: dict[str,float]
         """
 
-        calibration_config = self.get_config(data)
+        calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig')
 
         tth, slope, intercept = self.calibrate(calibration_config,
                                                interactive=interactive)
@@ -215,37 +186,6 @@ class MCACeriaCalibrationProcessor(Processor):
         calibration_config.intercept_calibrated = intercept
 
         return calibration_config.dict()
-
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a returned value of `Reader.read`
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MCACeriaCalibrationConfig'` for the
-            `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid config object cannot be
-            constructed from `data`.
-        :return: a valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: MCACeriaCalibrationConfig
-        """
-        # local modules
-        from CHAP.edd.models import MCACeriaCalibrationConfig
-
-        calibration_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'MCACeriaCalibrationConfig':
-                        calibration_config = item.get('data')
-                        break
-
-        if not calibration_config:
-            raise ValueError(
-                'No MCA ceria calibration configuration found in input data')
-
-        return MCACeriaCalibrationConfig(**calibration_config)
 
     def calibrate(self, calibration_config, interactive=False):
         """Iteratively calibrate 2&theta by fitting selected peaks of
@@ -426,49 +366,13 @@ class MCADataProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
 
-        map_config, calibration_config = self.get_configs(data)
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig')
+        calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig')
         nxroot = self.get_nxroot(map_config, calibration_config)
 
         return nxroot
-
-    def get_configs(self, data):
-        """Get instances of the configuration objects needed by this
-        `Processor` from a returned value of `Reader.read`
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key, and at
-            least one item has the value `'MCACeriaCalibrationConfig'`
-            for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If valid config objects cannot be
-            constructed from `data`.
-        :return: valid instances of the configuration objects with
-            field values taken from `data`.
-        :rtype: tuple[MapConfig, MCACeriaCalibrationConfig]
-        """
-        # local modules
-        from CHAP.common.models.map import MapConfig
-        from CHAP.edd.models import MCACeriaCalibrationConfig
-
-        map_config = False
-        calibration_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'MapConfig':
-                        map_config = item.get('data')
-                    elif schema == 'MCACeriaCalibrationConfig':
-                        calibration_config = item.get('data')
-
-        if not map_config:
-            raise ValueError('No map configuration found in input data')
-        if not calibration_config:
-            raise ValueError('No MCA ceria calibration configuration found in '
-                             'input data')
-
-        return (MapConfig(**map_config),
-                MCACeriaCalibrationConfig(**calibration_config))
 
     def get_nxroot(self, map_config, calibration_config):
         """Get a map of the MCA data collected by the scans in
