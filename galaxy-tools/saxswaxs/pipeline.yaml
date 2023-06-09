@@ -1,30 +1,12 @@
 pipeline:
 
-  # Download example data
-  - common.URLReader:
-      url: https://gitlab01.classe.cornell.edu/api/v4/projects/308/repository/files/saxswaxs%2frawdata_test_1d.tar/raw?ref=main
-      headers:
-        PRIVATE-TOKEN: # your token here
-  - common.URLResponseProcessor
-  - common.ExtractArchiveWriter:
-      filename: .
-
-  # Collect map data
-  - common.YAMLReader:
-      filename: map.yaml
-      schema: MapConfig
-  - common.MapProcessor
-  - common.NexusWriter:
-      filename: map_specdata.nxs
-      force_overwrite: true
-
-  # Integrate map detetcor data
-  - common.MultipleReader:
-      readers:
-        - YAMLReader:
+  # Integrate map detector data
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.YAMLReader:
             filename: map.yaml
             schema: MapConfig
-        - YAMLReader:
+        - common.YAMLReader:
             filename: integration.yaml
             schema: IntegrationConfig
   - common.IntegrateMapProcessor

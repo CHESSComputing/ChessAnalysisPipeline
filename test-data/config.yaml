@@ -1,7 +1,0 @@
-pipeline:
-  - reader.Reader:
-      filename: data.csv
-  - processor.Processor: {}
-  - common.PrintProcessor: {}
-  - writer.Writer:
-      filename: data.out
