@@ -108,56 +108,13 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
 
-        map_config, integration_config = self.get_configs(data)
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig')
+        integration_config = self.get_config(
+            data, 'common.models.integration.IntegrationConfig')
         nxprocess = self.get_nxprocess(map_config, integration_config)
 
         return nxprocess
-
-    def get_configs(self, data):
-        """Return valid instances of `MapConfig` and
-        `IntegrationConfig` from the input supplied by
-        `MultipleReader`.
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key, and at
-            least one item has the value `'IntegrationConfig'` for the
-            `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises ValueError: if `data` cannot be parsed into map and
-            integration configurations.
-        :return: valid map and integration configuration objects.
-        :rtype: tuple[MapConfig, IntegrationConfig]
-        """
-
-        self.logger.debug('Getting configuration objects')
-        t0 = time()
-
-        from CHAP.common.models.map import MapConfig
-        from CHAP.common.models.integration import IntegrationConfig
-
-        map_config = False
-        integration_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'MapConfig':
-                        map_config = item.get('data')
-                    elif schema == 'IntegrationConfig':
-                        integration_config = item.get('data')
-
-        if not map_config:
-            raise ValueError('No map configuration found')
-        if not integration_config:
-            raise ValueError('No integration configuration found')
-
-        map_config = MapConfig(**map_config)
-        integration_config = IntegrationConfig(**integration_config)
-
-        self.logger.debug(
-            f'Got configuration objects in {time()-t0:.3f} seconds')
-
-        return map_config, integration_config
 
     def get_nxprocess(self, map_config, integration_config):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
@@ -320,39 +277,10 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
 
-        map_config = self.get_map_config(data)
+        map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config)
 
         return nxentry
-
-    def get_map_config(self, data):
-        """Get an instance of `MapConfig` from a returned value of
-        `Reader.read`
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :raises Exception: If a valid `MapConfig` cannot be
-            constructed from `data`.
-        :return: a valid instance of `MapConfig` with field values
-            taken from `data`.
-        :rtype: MapConfig
-        """
-
-        from CHAP.common.models.map import MapConfig
-
-        map_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'MapConfig':
-                        map_config = item.get('data')
-                        break
-
-        if not map_config:
-            raise ValueError('No map configuration found')
-
-        return MapConfig(**map_config)
 
     @staticmethod
     def get_nxentry(map_config):
@@ -562,6 +490,132 @@ class PrintProcessor(Processor):
             print(str(data))
 
         return data
+
+
+class RawDetectorDataMapProcessor(Processor):
+    """A Processor to return a map of raw derector data in an NXroot"""
+
+    def process(self, data, detector_name, detector_shape):
+        """Process configurations for a map and return the raw
+        detector data data collected over the map.
+
+        :param data: input map configuration
+        :type data: list[dict[str,object]]
+        :param detector_name: detector prefix
+        :type detector_name: str
+        :param detector_shape: shape of detector data for a single
+            scan step
+        :type detector_shape: list
+        :return: map of raw detector data
+        :rtype: nexusformat.nexus.NXroot
+        """
+
+        map_config = self.get_config(data)
+        nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
+
+        return nxroot
+
+    def get_config(self, data):
+        """Get instances of the map configuration object needed by this
+        `Processor`
+
+        :param data: Result of `Reader.read` where at least one item
+            has the value `'MapConfig'` for the `'schema'` key
+        :type data: list[dict[str,object]]
+        :raises Exception: If a valid map config object cannot be
+            constructed from `data`.
+        :return: valid instances of the map configuration object with
+            field values taken from `data`.
+        :rtype: MapConfig
+        """
+        from CHAP.common.models.map import MapConfig
+
+        map_config = False
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    schema = item.get('schema')
+                    if schema == 'MapConfig':
+                        map_config = item.get('data')
+
+        if not map_config:
+            raise ValueError('No map configuration found in input data')
+
+        return MapConfig(**map_config)
+
+    def get_nxroot(self, map_config, detector_name, detector_shape):
+        """Get a map of the detector data collected by the scans in
+        `map_config`.The data will be returned along with some
+        relevant metadata in the form of a NeXus structure.
+
+        :param map_config: the map configuration
+        :type map_config: MapConfig
+        :param detector_name: detector prefix
+        :type detector_name: str
+        :param detector_shape: shape of detector data for a single
+            scan step
+        :type detector_shape: list
+        :return: a map of the raw detector data
+        :rtype: nexusformat.nexus.NXroot
+        """
+        # third party modules
+        from nexusformat.nexus import (NXdata,
+                                       NXdetector,
+                                       NXinstrument,
+                                       NXroot)
+        import numpy as np
+
+        # local modules
+        from CHAP.common import MapProcessor
+
+        nxroot = NXroot()
+
+        nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
+        nxentry = nxroot[map_config.title]
+
+        nxentry.instrument = NXinstrument()
+        nxentry.instrument.detector = NXdetector()
+
+        nxentry.instrument.detector.data = NXdata()
+        nxdata = nxentry.instrument.detector.data
+        nxdata.raw = np.empty((*map_config.shape, *detector_shape))
+        nxdata.raw.attrs['units'] = 'counts'
+        for i, det_axis_size in enumerate(detector_shape):
+            nxdata[f'detector_axis_{i}_index'] = np.arange(det_axis_size)
+
+        for scans in map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    map_index = scans.get_index(
+                        scan_number,
+                        scan_step_index,
+                        map_config)
+                    self.logger.debug(
+                        f'Adding data to nxroot for map point {map_index}')
+                    nxdata.raw[map_index] = scanparser.get_detector_data(
+                        detector_name,
+                        scan_step_index)
+
+        nxentry.data.makelink(
+            nxdata.raw,
+            name=detector_name)
+        for i, det_axis_size in enumerate(detector_shape):
+            nxentry.data.makelink(
+                nxdata[f'detector_axis_{i}_index'],
+                name=f'{detector_name}_axis_{i}_index'
+            )
+            if isinstance(nxentry.data.attrs['axes'], str):
+                nxentry.data.attrs['axes'] = [
+                    nxentry.data.attrs['axes'],
+                    f'{detector_name}_axis_{i}_index']
+            else:
+                nxentry.data.attrs['axes'] += [
+                    f'{detector_name}_axis_{i}_index']
+
+        nxentry.data.attrs['signal'] = detector_name
+
+        return nxroot
 
 
 class StrainAnalysisProcessor(Processor):

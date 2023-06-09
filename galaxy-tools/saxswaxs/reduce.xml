@@ -1,7 +1,7 @@
 <tool id="CHAP_saxswaxs_reduce" name="SAXSWAXS Reduce Map" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
     <requirements>
-      <requirement type="package" version="0.0.3">chessanalysispipeline</requirement>
-      <requirement type="package" version="2.28.1">requests</requirement>
+      <requirement type="package" version="0.0.8">chessanalysispipeline</requirement>
+      <requirement type="package" version="1.0.1">nexusformat</requirement>
       <requirement type="package" version="2023.3.0">pyfai</requirement>
       <requirement type="package" version="1.10.7">pydantic</requirement>
     </requirements>
@@ -16,14 +16,12 @@
         <param type="data" name="integrationconfig" format="yaml" />
     </inputs>
     <outputs>
-        <data name="specdata" label="Map of SPEC data" format="nex" from_work_dir="map_specdata.nxs"/>
 	<data name="reduceddata" label="Map of reduced data" format="nex" from_work_dir="map_reduceddata.nxs"/>
     </outputs>
     <tests>
         <test>
             <param name="mapconfig" value="map.yaml"/>
             <param name="integrationconfig" value="integration.yaml"/>
-            <output name="specdata" value="map_specdata.nxs"/>
             <output name="reduceddata" value="map_reduceddata.nxs"/>
         </test>
     </tests>

@@ -83,6 +83,48 @@ class PipelineItem():
 
         return values
 
+    def get_config(self, data, schema, remove=True):
+        """Look through `data` for an item whose value for the
+        `'schema'` key matches `schema`. Convert the value for that
+        item's `'data'` key into the configuration `BaseModel`
+        identified by `schema` and return it.
+
+        :param data: input data from a previous `PipelineItem`
+        :type data: list[PipelineData]
+        :param schema: name of the `BaseModel` class to match in
+            `data` & return
+        :type schema: str
+        :param remove: if there is a matching entry in `data`, remove
+           it from the list, defaults to `True`.
+        :type remove: bool, optional
+        :raises ValueError: if there's no match for `schema` in `data`
+        :return: matching configuration model
+        :rtype: BaseModel
+        """
+
+        self.logger.debug(f'Getting {schema} configuration')
+        t0 = time()
+
+        matching_config = False
+        for i, d in enumerate(data):
+            _schema = d.get('schema')
+            if _schema == schema:
+                matching_config = d.get('data')
+                if remove:
+                    data.pop(i)
+
+        if not matching_config:
+            raise ValueError(f'No configuration for {schema} found')
+
+        mod_name, cls_name = schema.rsplit('.', 1)
+        module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
+        model_config = getattr(module, cls_name)(**matching_config)
+
+        self.logger.debug(
+            f'Got {schema} configuration in {time()-t0:.3f} seconds')
+
+        return model_config
+
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the
         result.

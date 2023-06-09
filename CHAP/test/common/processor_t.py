@@ -116,7 +116,7 @@ class MapProcessorTest(unittest.TestCase):
             specf.write('\n'.join(spec_lines))
 
         self.processor = MapProcessor()
-        self.data = [PipelineData(schema='MapConfig',
+        self.data = [PipelineData(schema='common.models.map.MapConfig',
                                   data=map_config)]
 
     def testProcessor(self):
@@ -170,8 +170,9 @@ class IntegrateMapProcessorTest(MapProcessorTest):
                               'radial_min': 0.0,
                               'radial_max': 0.6}
         self.processor = IntegrateMapProcessor()
-        self.data += [PipelineData(schema='IntegrationConfig',
-                                   data=integration_config)]
+        self.data += [PipelineData(
+            schema='common.models.integration.IntegrationConfig',
+            data=integration_config)]
 
     def testProcessor(self):
         from nexusformat.nexus import NXprocess
