@@ -1,6 +1,0 @@
-categories:
-- Structural Materials Analysis
-description: A generic test pipeline for CHAP
-name: chap_test_20230328
-owner: kls286
-remote_repository_url: https://github.com/CHESSComputing/ChessAnalysisPipeline/tree/galaxy

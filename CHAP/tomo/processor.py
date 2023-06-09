@@ -1160,20 +1160,37 @@ class Tomo:
                 else:
                     basetitle = f'recon stack {i}'
                 title = f'{basetitle} {res_title} xslice{x_slice}'
+                x_pixel_size = nxentry.instrument.detector.x_pixel_size
+                y_pixel_size = nxentry.instrument.detector.y_pixel_size
+                extent = (
+                    0,
+                    float(y_pixel_size*tomo_recon_stacks.shape[3]),
+                    float(x_pixel_size*tomo_recon_stacks.shape[1]),
+                    0)
                 quick_imshow(
                     tomo_recon_stacks[i,:,x_slice-x_range[0],:],
                     title=title, path=self._output_folder, save_fig=True,
-                    save_only=True)
+                    save_only=True, extent=extent)
                 title = f'{basetitle} {res_title} yslice{y_slice}'
+                extent = (
+                    0,
+                    float(y_pixel_size*tomo_recon_stacks.shape[2]),
+                    float(x_pixel_size*tomo_recon_stacks.shape[1]),
+                    0)
                 quick_imshow(
                     tomo_recon_stacks[i,:,:,y_slice-y_range[0]],
                     title=title, path=self._output_folder, save_fig=True,
-                    save_only=True)
+                    save_only=True, extent=extent)
                 title = f'{basetitle} {res_title} zslice{z_slice}'
+                extent = (
+                    0,
+                    float(y_pixel_size*tomo_recon_stacks.shape[3]),
+                    float(y_pixel_size*tomo_recon_stacks.shape[2]),
+                    0)
                 quick_imshow(
                     tomo_recon_stacks[i,z_slice-z_range[0],:,:],
                     title=title, path=self._output_folder, save_fig=True,
-                    save_only=True)
+                    save_only=True, extent=extent)
 
         # Save test data to file
         #     reconstructed data order in each stack: row/z,x,y
@@ -1349,20 +1366,37 @@ class Tomo:
 
         # Plot a few combined image slices
         if self._save_figs:
+            x_pixel_size = nxentry.instrument.detector.x_pixel_size
+            y_pixel_size = nxentry.instrument.detector.y_pixel_size
+            extent = (
+                0,
+                float(y_pixel_size*tomo_recon_combined.shape[2]),
+                float(x_pixel_size*tomo_recon_combined.shape[0]),
+                0)
             quick_imshow(
                 tomo_recon_combined[
                     z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
-                title=f'recon combined xslice{x_slice}',
+                title=f'recon combined xslice{x_slice}', extent=extent,
                 path=self._output_folder, save_fig=True, save_only=True)
+            extent = (
+                0,
+                float(y_pixel_size*tomo_recon_combined.shape[1]),
+                float(x_pixel_size*tomo_recon_combined.shape[0]),
+                0)
             quick_imshow(
                 tomo_recon_combined[
                     z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
-                title=f'recon combined yslice{y_slice}',
+                title=f'recon combined yslice{y_slice}', extent=extent,
                 path=self._output_folder, save_fig=True, save_only=True)
+            extent = (
+                0,
+                float(y_pixel_size*tomo_recon_combined.shape[2]),
+                float(y_pixel_size*tomo_recon_combined.shape[1]),
+                0)
             quick_imshow(
                 tomo_recon_combined[
                     z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
-                title=f'recon combined zslice{z_slice}',
+                title=f'recon combined zslice{z_slice}', extent=extent,
                 path=self._output_folder, save_fig=True, save_only=True)
 
         # Save test data to file
@@ -1478,9 +1512,14 @@ class Tomo:
 
         # Plot dark field
         if self._save_figs:
+            extent = (
+                0,
+                float(nxentry.instrument.detector.y_pixel_size*tdf.shape[1]),
+                float(nxentry.instrument.detector.x_pixel_size*tdf.shape[0]),
+                0)
             quick_imshow(
                 tdf, title='dark field', path=self._output_folder,
-                save_fig=True, save_only=True)
+                extent=extent, save_fig=True, save_only=True)
 
         # Add dark field to reduced data NXprocess
         reduced_data.data = NXdata()
@@ -1562,9 +1601,14 @@ class Tomo:
 
         # Plot bright field
         if self._save_figs:
+            extent = (
+                0,
+                float(nxentry.instrument.detector.y_pixel_size*tbf.shape[1]),
+                float(nxentry.instrument.detector.x_pixel_size*tbf.shape[0]),
+                0)
             quick_imshow(
                 tbf, title='bright field', path=self._output_folder,
-                save_fig=True, save_only=True)
+                extent=extent, save_fig=True, save_only=True)
 
         # Add bright field to reduced data NXprocess
         if 'data' not in reduced_data:
@@ -1989,6 +2033,8 @@ class Tomo:
                 vertical_shift = float(nxsubentry.sample.z_translation)
                 vertical_shifts.append(vertical_shift)
 
+        x_pixel_size = nxentry.instrument.detector.x_pixel_size
+        y_pixel_size = nxentry.instrument.detector.y_pixel_size
         reduced_tomo_stacks = []
         for i, tomo_stack in enumerate(tomo_stacks):
             # Resize the tomography images
@@ -2048,10 +2094,15 @@ class Tomo:
                 else:
                     title = f'red stack {i} fullres theta ' \
                         + f'{round(thetas[0], 2)+0}'
+                extent = (
+                    0,
+                    float(y_pixel_size*tomo_stack.shape[2]),
+                    float(x_pixel_size*tomo_stack.shape[1]),
+                    0)
                 quick_imshow(
                     tomo_stack[0,:,:], title=title, path=self._output_folder,
                     save_fig=self._save_figs, save_only=self._save_only,
-                    block=self._block)
+                    extent=extent, block=self._block)
 #                if not self._block:
 #                    clear_imshow(title)
             zoom_perc = 100

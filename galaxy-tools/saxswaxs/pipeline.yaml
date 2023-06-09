@@ -1,6 +1,6 @@
 pipeline:
 
-  # Integrate map detetcor data
+  # Integrate map detector data
   - pipeline.MultiplePipelineItem:
       items:
         - common.YAMLReader:
