@@ -2,12 +2,9 @@
 be used in workflows for processing data from multiple different X-ray
 techniques.
 
-In addition, `CHAP.common` contains two subpackages of its own:
+In addition, `CHAP.common` contains a subpackage of its own:
 [`CHAP.common.models`](CHAP.common.models.md) contains tools for
 validating input data in some `Processor`s.
-[`CHAP.common.utils`](CHAP.common.utils.md) contains a
-broad selection of utilities to assist in some common tasks that
-appear in specific `Processor` implementations.
 """
 
 from CHAP.common.reader import (

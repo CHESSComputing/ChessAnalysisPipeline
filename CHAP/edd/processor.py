@@ -74,8 +74,8 @@ class DiffractionVolumeLengthProcessor(Processor):
         :rtype: float
         """
 
-        from CHAP.common.utils.fit import Fit
-        from CHAP.common.utils.general import draw_mask_1d
+        from CHAP.utils.fit import Fit
+        from CHAP.utils.general import draw_mask_1d
 
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data()
@@ -126,7 +126,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         # Calculate / manually select diffraction volume length
         dvl = fit.best_values['sigma'] * dvl_config.sigma_to_dvl_factor
         if interactive:
-            from CHAP.common.utils.general import input_yesno
+            from CHAP.utils.general import input_yesno
             manual_dvl = input_yesno(
                 'Indicate the diffraction volume length manually? (y/n)',
                 default='y')
@@ -208,7 +208,7 @@ class MCACeriaCalibrationProcessor(Processor):
         from scipy.constants import physical_constants
 
         # local modules
-        from CHAP.common.utils.fit import Fit, FitMultipeak
+        from CHAP.utils.fit import Fit, FitMultipeak
 
         # We'll work in keV and A, not eV and m.
         hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
@@ -222,7 +222,7 @@ class MCACeriaCalibrationProcessor(Processor):
         # Mask out the corrected MCA data for fitting
         if calibration_config.include_bin_ranges is None:
             if interactive:
-                from CHAP.common.utils.general import draw_mask_1d
+                from CHAP.utils.general import draw_mask_1d
                 mask, include_bin_ranges = draw_mask_1d(
                     mca_data,
                     xdata=mca_bin_energies,
@@ -251,7 +251,7 @@ class MCACeriaCalibrationProcessor(Processor):
         tth = calibration_config.tth_initial_guess
         if calibration_config.fit_hkls is None:
             if interactive:
-                from CHAP.common.utils.general import select_peaks
+                from CHAP.utils.general import select_peaks
                 hkls, ds = calibration_config.unique_ds()
                 peak_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
                 selected_peaks = select_peaks(

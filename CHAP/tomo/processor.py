@@ -17,7 +17,7 @@ from time import time
 import numpy as np
 
 # Local modules
-from CHAP.common.utils.general import (
+from CHAP.utils.general import (
     is_num,
     input_int,
     input_num,
@@ -30,7 +30,7 @@ from CHAP.common.utils.general import (
     quick_plot,
     quick_imshow,
 )
-from CHAP.common.utils.fit import Fit
+from CHAP.utils.fit import Fit
 from CHAP.processor import Processor
 from CHAP.reader import main
 
@@ -267,7 +267,7 @@ class TomoDataProcessor(Processor):
         # Local modules
         from CHAP.common import MapProcessor
         from CHAP.common.models.map import import_scanparser
-        from CHAP.common.utils.general import index_nearest
+        from CHAP.utils.general import index_nearest
 
         logger = getLogger(self.__name__)
         logger.propagate = False
@@ -1007,7 +1007,7 @@ class Tomo:
         )
 
         # Local modules
-        from CHAP.common.utils.general import is_int_pair
+        from CHAP.utils.general import is_int_pair
 
         self._logger.info('Reconstruct the tomography data')
 
@@ -1260,7 +1260,7 @@ class Tomo:
         )
 
         # Local modules
-        from CHAP.common.utils.general import is_int_pair
+        from CHAP.utils.general import is_int_pair
 
         self._logger.info('Combine the reconstructed tomography stacks')
 
@@ -1628,7 +1628,7 @@ class Tomo:
             get_scanparser,
             import_scanparser,
         )
-        from CHAP.common.utils.general import is_index_range
+        from CHAP.utils.general import is_index_range
 
         if self._test_mode:
             return tuple(self._test_config['img_x_bounds'])
@@ -1880,7 +1880,7 @@ class Tomo:
         for the analysis.
         """
         # Local modules
-        from CHAP.common.utils.general import index_nearest
+        from CHAP.utils.general import index_nearest
 
         if self._test_mode:
             return tuple(self._test_config['delta_theta'])
