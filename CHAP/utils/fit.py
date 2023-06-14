@@ -61,7 +61,7 @@ except ImportError:
     HAVE_XARRAY = False
 
 # Local modules
-from CHAP.common.utils.general import (
+from CHAP.utils.general import (
     is_int,
     is_num,
     is_dict_series,

@@ -124,7 +124,7 @@ class TXTWriter(Writer):
         :rtype: str, tuple, list
         """
         # Local modules
-        from .utils.general import is_str_series
+        from CHAP.utils.general import is_str_series
 
         data = self.unwrap_pipelinedata(data)
 

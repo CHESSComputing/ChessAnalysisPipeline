@@ -48,24 +48,24 @@ setuptools.setup(
         'CHAP',
         'CHAP.common',
         'CHAP.common.models',
-        'CHAP.common.utils',
         'CHAP.edd',
         'CHAP.inference',
         'CHAP.saxswaxs',
         'CHAP.sin2psi',
         'CHAP.tomo',
+        'CHAP.utils',
         'MLaaS'
     ],
     package_dir={
         'CHAP': 'CHAP',
         'CHAP.common': 'CHAP/common',
         'CHAP.common.models': 'CHAP/common/models',
-        'CHAP.common.utils': 'CHAP/common/utils',
         'CHAP.edd': 'CHAP/edd',
         'CHAP.inference': 'CHAP/inference',
         'CHAP.saxswaxs': 'CHAP/saxswaxs',
         'CHAP.sin2psi': 'CHAP/sin2psi',
         'CHAP.tomo': 'CHAP/tomo',
+        'CHAP.utils': 'CHAP/utils',
         'MLaaS': 'MLaaS'
     },
     package_data={

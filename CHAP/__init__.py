@@ -12,6 +12,10 @@ just a single technique. The `PipelineItem`s that are shared by many
 techniques are organized in the `CHAP.common` subpackage.
 `PipelineItem`s unique to a tomography workflow, for instance, are
 organized in the `CHAP.tomo` subpackage.
+
+[`CHAP.utils`](CHAP.utils.md) contains a
+broad selection of utilities to assist in some common tasks that
+appear in specific `Processor` implementations.
 """
 
 from CHAP.reader import Reader

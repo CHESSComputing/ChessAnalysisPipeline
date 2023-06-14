@@ -13,7 +13,7 @@ from scipy.interpolate import interp1d
 from typing import Literal, Optional
 
 # local modules
-from CHAP.common.utils.scanparsers import SMBMCAScanParser as ScanParser
+from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
 class MCAScanDataConfig(BaseModel):
@@ -279,13 +279,13 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         return interpolation_function
 
     def material(self):
-        """Get CeO2 as a `CHAP.common.utils.material.Material` object.
+        """Get CeO2 as a `CHAP.utils.material.Material` object.
 
         :return: CeO2 material
-        :rtype: CHAP.common.utils.material.Material
+        :rtype: CHAP.utils.material.Material
         """
         # local modules
-        from CHAP.common.utils.material import Material
+        from CHAP.utils.material import Material
 
         material = Material(
             material_name=self.hexrd_h5_material_name,

@@ -660,26 +660,26 @@ def import_scanparser(station, experiment):
     # Local modules
     if station in ('id1a3', 'id3a'):
         if experiment in ('saxswaxs', 'powder'):
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import SMBLinearScanParser as ScanParser
         elif experiment == 'edd':
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import SMBMCAScanParser as ScanParser
         elif experiment == 'tomo':
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import SMBRotationScanParser as ScanParser
         else:
             raise ValueError(
                 f'Invalid experiment type for station {station}: {experiment}')
     elif station == 'id3b':
         if experiment == 'saxswaxs':
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import FMBSAXSWAXSScanParser as ScanParser
         elif experiment == 'tomo':
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import FMBRotationScanParser as ScanParser
         elif experiment == 'xrf':
-            from CHAP.common.utils.scanparsers \
+            from CHAP.utils.scanparsers \
                 import FMBXRFScanParser as ScanParser
         else:
             raise ValueError(
