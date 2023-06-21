@@ -1,42 +1,37 @@
-<tool id="CHAP_test" name="CHESS Analysis Pipeline" version="0.1.0+galaxy0" python_template_version="3.5" profile="21.05">
-    <requirements>
-        <requirement type="package" version="0.0.2">ChessAnalysisPipeline</requirement>
-    </requirements>
-    <command detect_errors="exit_code"><![CDATA[
-        cp '$input' data.csv &&
-        CHAP --config '$config' &&
-    ]]></command>
-    <inputs>
-        <param type="data" name="config" format="yaml" />
-        <param type="data" name="input" format="csv" />
-    </inputs>
-    <outputs>
-        <data name="output" format="json" />
-    </outputs>
-    <tests>
-        <test>
-            <param name="config" value="config.yaml"/>
-            <param name="input" value="data.csv"/>
-        </test>
-    </tests>
-    <help><![CDATA[
-        CHESS Analysis Pipeline (CHAP):
+<tool id="CHAP_test" name="CHESS Analysis Pipeline" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" python_template_version="@PYTHON_TEMPLATE_VERSION@" profile="@PROFILE@">
+  <macros>
+    <import>../macros.xml</import>
+  </macros>
+  <requirements>
+    <expand macro="chap-requirement" />
+  </requirements>
+  <command detect_errors="exit_code"><![CDATA[
+      cp '$input' data.csv &&
+      CHAP --config '$config' &&
+  ]]></command>
+  <inputs>
+      <param type="data" name="config" format="yaml" />
+      <param type="data" name="input" format="csv" />
+  </inputs>
+  <outputs>
+      <data name="output" format="json" />
+  </outputs>
+  <tests>
+      <test>
+          <param name="config" value="config.yaml"/>
+          <param name="input" value="data.csv"/>
+      </test>
+  </tests>
+  <help><![CDATA[
+      CHESS Analysis Pipeline (CHAP):
 
-        To run it on command line you'll use:
-        CHAP --config CONFIG
+      To run it on command line you'll use:
+      CHAP --config CONFIG
 
-        To run it within galaxy you'll only need to upload your
-        required configuration pipeline and necessary data.
-    ]]></help>
-    <citations>
-        <citation type="bibtex">
-@misc{githubChessAnalysisPipeline,
-  author = {LastTODO, FirstTODO},
-  year = {TODO},
-  title = {ChessAnalysisPipeline},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  url = {https://github.com/CHESSComputing/ChessAnalysisPipeline},
-}</citation>
-    </citations>
+      To run it within galaxy you'll only need to upload your
+      required configuration pipeline and necessary data.
+  ]]></help>
+  <citations>
+    <expand macro="chap-citation" />
+  </citations>
 </tool>
