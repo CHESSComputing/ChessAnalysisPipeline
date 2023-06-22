@@ -1,0 +1,12 @@
+<macros>
+  <token name="@TOOL_VERSION@">PACKAGE_VERSION</token>
+  <token name="@VERSION_SUFFIX@">0</token>
+  <token name="@PROFILE@">21.09</token>
+  <token name="@PYTHON_TEMPLATE_VERSION@">3.11</token>
+  <xml name="chap-requirement">
+    <requirement type="package" version="@TOOL_VERSION@">chessanalysispipeline</requirement>
+  </xml>
+  <xml name="chap-citation">
+    <citation type="doi">10.5281/zenodo.7963532</citation>
+  </xml>
+</macros>

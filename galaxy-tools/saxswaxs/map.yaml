@@ -2,22 +2,16 @@ title: test_1d
 station: id3b
 experiment_type: SAXSWAXS
 sample:
-  name: sample_14_align
+  name: sample_name
 spec_scans:
-- spec_file: test_1d
-  scan_numbers:
-  - 1
+- spec_file: test_scans
+  scan_numbers: [1, 2, 3]
 independent_dimensions:
-- label: samx
+- label: mtr_0
   units: mm
   data_type: spec_motor
-  name: samx
-presample_intensity:
-  data_type: scan_column
-  name: ic3
-dwell_time_actual:
-  data_type: scan_column
-  name: sec_2
-postsample_intensity:
-  data_type: scan_column
-  name: diode
+  name: mtr_0
+- label: mtr_1
+  units: mm
+  data_type: spec_motor
+  name: mtr_1

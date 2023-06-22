@@ -1,6 +1,7 @@
-<tool id="CHAP_tomo_find_center" name="Tomo Find Center" version="@TOOL_VERSION@+galaxy0" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
+<tool id="CHAP_tomo_find_center" name="Tomo Find Center" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@" python_template_version="@PYTHON_TEMPLATE_VERSION@">
     <description>Find rotation axis centers for the tomography stacks</description>
     <macros>
+        <import>../macros.xml</import>
         <import>tomo_macros.xml</import>
     </macros>
     <expand macro="requirements"/>
