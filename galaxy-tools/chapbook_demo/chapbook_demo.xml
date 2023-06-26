@@ -1,0 +1,45 @@
+<tool id="CHAP_chapbook_demo" name="CHAPbook" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" python_template_version="@PYTHON_TEMPLATE_VERSION@" profile="@PROFILE@">
+  <macros>
+    <import>../macros.xml</import>
+  </macros>
+  <requirements>
+    <expand macro="chap-requirement" />
+    <requirement type="package" version="1.0.1">nexusformat</requirement>
+    <requirement type="package" version="2023.3.0">pyfai</requirement>
+    <requirement type="package" version="1.10.7">pydantic</requirement>
+  </requirements>
+  <command detect_errors="exit_code"><![CDATA[
+      pip --exists-action i install certif-pyspec==1.5.3 &&
+      cd '$indir' &&
+      CHAP --config '$config'
+]]></command>
+  <environment_variables>
+    <environment_variable name="PYTHONPATH">/home/chess_chapaas/chess/chap/</environment_variable>
+  </environment_variables>
+  <inputs>
+      <param type="data" name="config" format="yaml" label="Pipeline Configuration File" />
+      <param type="text" name="indir" label="Input Directory" />
+  </inputs>
+  <outputs>
+      <data name="data" format="nex" label="Reduced data"/>
+      <data name="plot" format="png" label="Plot"/>
+  </outputs>
+  <tests>
+      <test>
+          <param name="config" value="config.yaml"/>
+	  <param name="indir" value="/tmp/"/>
+      </test>
+  </tests>
+  <help><![CDATA[
+      CHESS Analysis Pipeline (CHAP):
+
+      To run it on command line you'll use:
+      CHAP --config CONFIG
+
+      To run it within galaxy you'll only need to upload your
+      required configuration pipeline and necessary data.
+  ]]></help>
+  <citations>
+    <expand macro="chap-citation" />
+  </citations>
+</tool>
