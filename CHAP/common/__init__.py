@@ -28,6 +28,7 @@ from CHAP.common.processor import (
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,
+    MatplotlibFigureWriter,
     NexusWriter,
     YAMLWriter,
     TXTWriter,
