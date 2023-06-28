@@ -37,6 +37,37 @@ class ExtractArchiveWriter(Writer):
         return data
 
 
+class MatplotlibFigureWriter(Writer):
+    """Writer for saving matplotlib figures to image files."""
+    def write(self, data, filename, savefig_kw={}, force_overwrite=False):
+        """Write the matplotlib.fgure.Figure contained in `data` to
+        the filename provided.
+
+        :param data: input containing a matplotlib figure
+        :type data: CHAP.pipeline.PipelineData
+        :param filename: name of the file to write to.
+        :param savefig_kw: keyword args to pass to
+            matplotlib.figure.Figure.savefig, defaults to {}
+        :type savefig_kw: dict, optional
+        :param force_overwrite: flag to allow data in `filename` to be
+            overwritten, if it already exists.
+        :return: the original input data
+        """
+
+        if os.path.isfile(filename) and not force_overwrite:
+            raise FileExistsError(f'{filename} already exists')
+
+        figure = self.unwrap_pipelinedata(data)
+
+        from matplotlib.figure import Figure
+        if not isinstance(figure, Figure):
+            raise TypeError('Cannot write object of type'
+                            f'{type(figure)} as a matplotlib Figure.')
+
+        figure.savefig(filename, **savefig_kw)
+        return figure
+
+
 class NexusWriter(Writer):
     """Writer for NeXus files from `NXobject`-s"""
     def write(self, data, filename, force_overwrite=False):
