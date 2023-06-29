@@ -19,7 +19,7 @@ jobs:
         pip install planemo
     - name: Update tool version macro with CHAP version (tag) name
       run: |
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" galaxy-tools/macros.xml
+        sed -i "s/PACKAGE_VERSION/$(echo ${{ github.ref_name }} | sed s/v//)/" galaxy-tools/macros.xml
     - name: Update toolshed
       run: |
         planemo shed_update --shed_target testtoolshed --shed_key ${{secrets.XIMGCHESS_TESTTOOLSHED_KEY}}$ galaxy-tools
