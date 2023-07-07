@@ -121,6 +121,8 @@ class TomoFindCenterConfig(BaseModel):
     lower_center_offset: Optional[confloat(allow_inf_nan=False)]
     upper_row: Optional[conint(ge=-1)]
     upper_center_offset: Optional[confloat(allow_inf_nan=False)]
+    search_range: Optional[confloat(ge=0, allow_inf_nan=False)]
+    search_step: Optional[confloat(ge=0, allow_inf_nan=False)]
     gaussian_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
     ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
 
