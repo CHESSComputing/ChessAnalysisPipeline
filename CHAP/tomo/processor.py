@@ -1930,7 +1930,6 @@ class Tomo:
             image_mask = np.ones(len(thetas), dtype=bool)
         else:
             image_mask = np.asarray(image_mask)
-#        exit(f'image_mask {type(image_mask)} {len(image_mask)}: {image_mask}')
 
         # Get the tomography images
         image_key = nxentry.instrument.detector.get('image_key', None)
@@ -1978,6 +1977,7 @@ class Tomo:
             tomo_stacks = []
             horizontal_shifts = []
             vertical_shifts = []
+            theta_mask = np.ones(len(thetas), dtype=bool)
             for nxsubentry_name, nxsubentry in tomo_field_scans.items():
                 scan_number = int(nxsubentry_name.split('_')[-1])
                 scanparser = get_scanparser(
@@ -1988,15 +1988,33 @@ class Tomo:
                 n = 0
                 for i in range(image_mask.size):
                     if image_mask[i]:
-                        tomo_stack.append(
-                            scanparser.get_detector_data(
-                                detector_prefix, image_offset+n))
+                        detector_data = scanparser.get_detector_data(
+                            detector_prefix, image_offset+i)
+                        if detector_data is None:
+                            image_mask[i] = 0
+                            theta_mask[n] = 0
+                            tomo_stack.append(np.zeros(tbf_shape))
+                            self._logger.warning(
+                                f'{scanparser.scan_title}: could not find '
+                                f'detector image for scan step {i}')
+
+                        else:
+                            tomo_stack.append(detector_data)
                         n += 1
                 tomo_stacks.append(np.asarray(tomo_stack))
                 horizontal_shift = float(nxsubentry.sample.x_translation)
                 horizontal_shifts.append(horizontal_shift)
                 vertical_shift = float(nxsubentry.sample.z_translation)
                 vertical_shifts.append(vertical_shift)
+            if len(thetas) != image_mask.sum():
+                thetas = thetas[theta_mask]
+                reduced_data['rotation_angle'] = thetas
+                for i in range(len(tomo_stacks)):
+                    tomo_stacks[i] = tomo_stacks[i][theta_mask,:,:]
+#            print(f'\n\ntomo_stacks {type(tomo_stacks)}: {np.asarray(tomo_stacks).shape}')
+#            print(f'thetas {type(thetas)}: {thetas.shape}')
+#            print(f'theta_mask {type(theta_mask)}: {theta_mask.shape} {theta_mask.sum()}')
+#            print(f'image_mask: {image_mask.shape} {image_mask.sum()}')
 
         x_pixel_size = nxentry.instrument.detector.x_pixel_size
         y_pixel_size = nxentry.instrument.detector.y_pixel_size

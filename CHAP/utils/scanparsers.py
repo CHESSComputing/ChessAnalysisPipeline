@@ -865,6 +865,23 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             raise RuntimeError(f'{self.scan_title}: cannot obtain rotation '
                                f'angles from {self.spec_macro} with '
                                f'arguments {self.spec_args}')
+        elif self.spec_macro == 'ascan':
+            if (len(self.spec_args) == 5
+                    and int(self.spec_args[3]) > 2*self.starting_image_offset):
+                all_rotation_angles = np.linspace(
+                    float(self.spec_args[1]), float(self.spec_args[2]),
+                    int(self.spec_args[3])+1)
+                return all_rotation_angles[self.starting_image_offset:]
+            raise RuntimeError(f'{self.scan_title}: cannot obtain rotation '
+                               f'angles from {self.spec_macro} with '
+                               f'arguments {self.spec_args}')
+        elif self.spec_macro == 'tseries':
+            if len(self.spec_args) == 3:
+                # Flat field (dark or bright)
+                return [0]
+            raise RuntimeError(f'{self.scan_title}: cannot obtain rotation '
+                               f'angles from {self.spec_macro} with '
+                               f'arguments {self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine rotation '
                            f' angles for scans of type {self.spec_macro}')
 
@@ -895,7 +912,7 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         return 0
 
     def get_starting_image_offset(self):
-        if len(self.spec_args) == 2:
+        if len(self.spec_args) == 2 or len(self.spec_args) == 3:
             # Flat field (dark or bright)
             return 0
         if len(self.spec_args) == 5:
@@ -937,8 +954,48 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         return detector_data
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
-        return self.get_all_detector_data_in_file(
-            detector_prefix, scan_step_index)
+        try:
+            # Detector files in h5 format
+            detector_data = self.get_all_detector_data_in_file(
+                detector_prefix, scan_step_index)
+        except:
+            # Detector files in tiff format
+            if scan_step_index is None:
+                detector_data = []
+                for index in range(len(self.spec_scan_npts)):
+                    detector_data.append(
+                        self.get_detector_data(detector_prefix, index))
+                detector_data = np.asarray(detector_data)
+            elif isinstance(scan_step_index, int):
+                image_file = self._get_detector_tiff_file(
+                    detector_prefix, scan_step_index)
+                if image_file is None:
+                    detector_data = None
+                else:
+                    with TiffFile(image_file) as tiff_file:
+                        detector_data = tiff_file.asarray()
+            elif (isinstance(scan_step_index, (list, tuple))
+                    and len(scan_step_index) == 2):
+                detector_data = []
+                for index in range(scan_step_index[0], scan_step_index[1]):
+                    detector_data.append(
+                        self.get_detector_data(detector_prefix, index))
+                detector_data = np.asarray(detector_data)
+            else:
+                raise ValueError('Invalid parameter scan_step_index '
+                                 f'({scan_step_index})')
+
+        return detector_data
+
+    def _get_detector_tiff_file(self, detector_prefix, scan_step_index):
+        file_name_full = f'{self.spec_file_name}_{detector_prefix.upper()}_' \
+            f'{self.scan_number:03d}_' \
+            f'{self.starting_image_index+scan_step_index:03d}.tiff'
+        if os.path.isfile(file_name_full):
+            return file_name_full
+        return None
+#        raise RuntimeError(f'{self.scan_title}: could not find detector image '
+#                           f'file for scan step ({scan_step_index})')
 
 
 class SMBRotationScanParser(RotationScanParser, SMBScanParser):

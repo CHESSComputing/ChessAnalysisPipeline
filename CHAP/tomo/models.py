@@ -87,7 +87,7 @@ class TomoReduceConfig(BaseModel):
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
-    delta_theta: Optional[confloat(gt=1, allow_inf_nan=False)]
+    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
     dark_field: Optional[conlist(item_type=SpecScans, min_items=1)]
     bright_field: Optional[conlist(item_type=SpecScans, min_items=1)]
 
