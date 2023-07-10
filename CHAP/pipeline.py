@@ -10,6 +10,7 @@ Description:
 # system modules
 import inspect
 import logging
+import os
 from time import time
 
 
@@ -141,10 +142,19 @@ class PipelineItem():
 
         if hasattr(self, 'read'):
             method_name = 'read'
+            inputdir = kwargs.get('inputdir')
+            if inputdir is not None:
+                kwargs['filename'] = os.path.join(inputdir,
+                                                  kwargs['filename'])
         elif hasattr(self, 'process'):
             method_name = 'process'
         elif hasattr(self, 'write'):
             method_name = 'write'
+            outputdir = kwargs.get('outputdir')
+            if outputdir is not None:
+                kwargs['filename'] = os.path.join(outputdir,
+                                                  kwargs['filename'])
+
         else:
             self.logger.error('No implementation of read, write, or process')
 

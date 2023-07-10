@@ -7,67 +7,87 @@ Description:
 # system modules
 import argparse
 import logging
+import os
 from yaml import safe_load
 
 # local modules
 from CHAP.pipeline import Pipeline
 
 
-class OptionParser():
-    """User based option parser"""
-    def __init__(self):
-        """OptionParser class constructor"""
-        self.parser = argparse.ArgumentParser(prog='PROG')
-        self.parser.add_argument(
-            '--config', action='store', dest='config', default='',
-            help='Input configuration file')
-        self.parser.add_argument(
-            '--interactive', action='store_true', dest='interactive',
-            help='Allow interactive processes')
-        self.parser.add_argument(
-            '--log-level', choices=logging._nameToLevel.keys(),
-            dest='log_level', default='INFO', help='logging level')
-        self.parser.add_argument(
-            '--profile', action='store_true', dest='profile',
-            help='profile output')
+class RunConfig():
+    """Representation of Pipeline run configuration."""
+    opts = {'root': os.getcwd(),
+            'profile': False,
+            'interactive': False,
+            'log_level': 'INFO',
+            'inputdir': os.getcwd(),
+            'outputdir': os.getcwd()}
+
+    def __init__(self, config={}):
+        """RunConfig constructor
+
+        :param config: Pipeline configuration options
+        :type config: dict
+        """
+        for opt in self.opts:
+            setattr(self, opt, config.get(opt, self.opts[opt]))
+
+        if not os.path.isabs(self.inputdir):
+            self.inputdir = os.path.join(self.root, self.inputdir)
+        if not os.path.isabs(self.outputdir):
+            self.outputdir = os.path.join(self.root, self.outputdir)
+
+        self.log_level = self.log_level.upper()
 
 def parser():
-    """Return the parser from `OptionParser`."""
-    optmgr = OptionParser()
-    return optmgr.parser
+    """Return an argument parser for the `CHAP` CLI. This parser has
+    one argument: the input CHAP configuration file.
+    """
+    parser = argparse.ArgumentParser(prog='PROG')
+    parser.add_argument(
+        'config', action='store', default='',
+        help='Input configuration file')
+    return parser
 
 def main():
     """Main function"""
-    optmgr = OptionParser()
-    opts = optmgr.parser.parse_args()
-    if opts.profile:
+    args = parser().parse_args()
+
+    # read input config file
+    configfile = args.config
+    with open(configfile) as file:
+        config = safe_load(file)
+    run_config = RunConfig(config.get('config', {}))
+    pipeline_config = config.get('pipeline', [])
+
+    # profiling setup
+    if run_config.profile:
         from cProfile import runctx  # python profiler
         from pstats import Stats     # profiler statistics
-        cmd = 'runner(opts)'
+        cmd = 'runner(run_config, pipeline_config)'
         runctx(cmd, globals(), locals(), 'profile.dat')
         info = Stats('profile.dat')
-#        info.strip_dirs()
         info.sort_stats('cumulative')
         info.print_stats()
     else:
-        runner(opts)
+        runner(run_config, pipeline_config)
 
+def runner(run_config, pipeline_config):
+    """Main runner funtion
 
-def runner(opts):
-    """Main runner function
-
-    :param opts: object containing input parameters
-    :type opts: OptionParser
+    :param run_config: CHAP run configuration
+    :type run_config: RunConfig
+    :param pipeline_config: CHAP Pipeline configuration
+    :type pipeline_config: dict
     """
+    # logging setup
+    logger, log_handler = setLogger(run_config.log_level)
+    logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
-    log_level = opts.log_level.upper()
-    logger, log_handler = setLogger(log_level)
-    config = {}
-    with open(opts.config) as file:
-        config = safe_load(file)
-    logger.info(f'Input configuration: {config}\n')
-    pipeline_config = config.get('pipeline', [])
-    run(pipeline_config, opts.interactive, logger, log_level, log_handler)
+    # run pipeline
+    run(pipeline_config,
+        run_config.inputdir, run_config.outputdir, run_config.interactive,
+        logger, run_config.log_level, log_handler)
 
 def setLogger(log_level="INFO"):
     """
@@ -84,7 +104,9 @@ def setLogger(log_level="INFO"):
     logger.addHandler(log_handler)
     return logger, log_handler
 
-def run(pipeline_config, interactive=False, logger=None, log_level=None, log_handler=None):
+def run(pipeline_config,
+        inputdir=None, outputdir=None, interactive=False,
+        logger=None, log_level=None, log_handler=None):
     """
     Run given pipeline_config
 
@@ -94,7 +116,9 @@ def run(pipeline_config, interactive=False, logger=None, log_level=None, log_han
     kwds = []
     for item in pipeline_config:
         # load individual object with given name from its module
-        kwargs = {'interactive': interactive}
+        kwargs = {'interactive': interactive,
+                  'inputdir': inputdir,
+                  'outputdir': outputdir}
         if isinstance(item, dict):
             name = list(item.keys())[0]
             # Combine the "interactive" command line argument with the object's keywords
