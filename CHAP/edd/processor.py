@@ -47,14 +47,17 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         dvl_config = self.get_config(
             data, 'edd.models.DiffractionVolumeLengthConfig')
-        dvl = self.measure_dvl(dvl_config,
-                               save_figures=save_figures,
-                               interactive=interactive)
-        dvl_config.dvl_measured = dvl
+
+        for detector in dvl_config.detectors:
+            dvl = self.measure_dvl(dvl_config, detector,
+                                   save_figures=save_figures,
+                                   interactive=interactive)
+            detector.dvl_measured = dvl
 
         return dvl_config.dict()
 
-    def measure_dvl(self, dvl_config, save_figures=False, interactive=False):
+    def measure_dvl(self, dvl_config, detector,
+                    save_figures=False, interactive=False):
         """Return a measured value for the length of the diffraction
         volume. Use the iron foil raster scan data provided in
         `dvl_config` and fit a gaussian to the sum of all MCA channel
@@ -65,13 +68,8 @@ class DiffractionVolumeLengthProcessor(Processor):
         :param dvl_config: configuration for the DVL calculation
             procedure
         :type dvl_config: DiffractionVolumeLengthConfig
-        :param dvl_model: method to use for calculating DVL. Choices:
-            one of three acceptable scalars which will be multiplied
-            by the standard deviation of a gauusian fit to the raster
-            scan data, or "manual" (in which case the user is
-            presented with a plot of the fit and unfit data, and they
-            select the accepatble DVL by eye).
-        :type dvl_model: Literal[1.0, 1.75, 2.0, "manual"]
+        :param detector: A single MCA detector element configuration
+        :type detector: CHAP.edd.models.MCAElementDiffractionVolumeLengthConfig
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
@@ -86,22 +84,22 @@ class DiffractionVolumeLengthProcessor(Processor):
         from CHAP.utils.general import draw_mask_1d
 
         # Get raw MCA data from raster scan
-        mca_data = dvl_config.mca_data()
+        mca_data = dvl_config.mca_data(detector)
 
         # Interactively set mask, if needed & possible.
         if interactive:
             mask, include_bin_ranges = draw_mask_1d(
                 np.sum(mca_data, axis=0),
-                xdata = np.arange(dvl_config.num_bins),
-                current_index_ranges=dvl_config.include_bin_ranges,
+                xdata = np.arange(detector.num_bins),
+                current_index_ranges=detector.include_bin_ranges,
                 label='sum of MCA spectra over all scan points',
                 title='Click and drag to select ranges of MCA data to\n'
                 + 'include when measuring the diffraction volume length.',
                 xlabel='MCA channel (index)',
                 ylabel='MCA intensity (counts)'
             )
-            dvl_config.include_bin_ranges = include_bin_ranges
-        if dvl_config.include_bin_ranges is None:
+            detector.include_bin_ranges = include_bin_ranges
+        if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
                 + 'Provide them in the Diffraction Volume Length '
@@ -113,7 +111,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         # 2) max of intensities in detector bins after mask is applied
         # 3) sum of intensities in detector bins after mask is applied
         unmasked_sum = np.sum(mca_data, axis=1)
-        mask = dvl_config.mca_mask()
+        mask = detector.mca_mask()
         masked_mca_data = np.empty(
             (mca_data.shape[0], *mca_data[0][mask].shape))
         for i in range(mca_data.shape[0]):
@@ -132,20 +130,20 @@ class DiffractionVolumeLengthProcessor(Processor):
         fit = Fit.fit_data(y, 'gaussian', x=x, normalize=False)
 
         # Calculate / manually select diffraction volume length
-        dvl = fit.best_values['sigma'] * dvl_config.sigma_to_dvl_factor
+        dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
         if interactive:
             from CHAP.utils.general import input_yesno
             manual_dvl = input_yesno(
                 'Indicate the diffraction volume length manually? (y/n)',
                 default='y')
             if manual_dvl:
-                dvl_config.measurement_mode = 'manual'
+                detector.measurement_mode = 'manual'
                 mask, dvl_bounds = draw_mask_1d(
                     y, xdata=x,
-                    label='total (masked)',
+                    label='total (masked & normalized)',
                     ref_data=[
                         ((x, fit.best_fit),
-                         {'label': 'gaussian fit'}),
+                         {'label': 'gaussian fit (to total)'}),
                         ((x, masked_max / max(masked_max)),
                          {'label': 'maximum (masked)'}),
                         ((x, unmasked_sum / max(unmasked_sum)),
@@ -163,12 +161,12 @@ class DiffractionVolumeLengthProcessor(Processor):
         if interactive or save_figures:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
-            ax.set_title('Diffraction Volume')
+            ax.set_title(f'Diffraction Volume ({detector.detector_name})')
             ax.set_xlabel(dvl_config.motor_mne \
                           + ' (offset from scan "center")')
             ax.set_ylabel('MCA intensity (normalized)')
-            ax.plot(x, y, label='total (masked)')
-            ax.plot(x, fit.best_fit, label='gaussian fit')
+            ax.plot(x, y, label='total (masked & normalized)')
+            ax.plot(x, fit.best_fit, label='gaussian fit (to total)')
             ax.plot(x, masked_max / max(masked_max),
                     label='maximum (masked)')
             ax.plot(x, unmasked_sum / max(unmasked_sum),
@@ -176,11 +174,11 @@ class DiffractionVolumeLengthProcessor(Processor):
             ax.axvspan(-dvl / 2., dvl / 2.,
                        color='gray', alpha=0.5,
                        label='diffraction volume'
-                       + f' ({dvl_config.measurement_mode})')
+                       + f' ({detector.measurement_mode})')
             ax.legend()
 
             if save_figures:
-                plt.savefig('diffraction_volume.png')
+                plt.savefig(f'{detector.detector_name}_diffraction_volume.png')
             if interactive:
                 plt.show()
 
@@ -213,17 +211,18 @@ class MCACeriaCalibrationProcessor(Processor):
         calibration_config = self.get_config(
             data, 'edd.models.MCACeriaCalibrationConfig')
 
-        tth, slope, intercept = self.calibrate(calibration_config,
-                                               save_figures=save_figures,
-                                               interactive=interactive)
+        for detector in calibration_config.detectors:
+            tth, slope, intercept = self.calibrate(
+                calibration_config, detector,
+                save_figures=save_figures, interactive=interactive)
 
-        calibration_config.tth_calibrated = tth
-        calibration_config.slope_calibrated = slope
-        calibration_config.intercept_calibrated = intercept
+            detector.tth_calibrated = tth
+            detector.slope_calibrated = slope
+            detector.intercept_calibrated = intercept
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config,
+    def calibrate(self, calibration_config, detector,
                   save_figures=False, interactive=False):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
@@ -233,6 +232,8 @@ class MCACeriaCalibrationProcessor(Processor):
         :param calibration_config: object configuring the CeO2
             calibration procedure
         :type calibration_config: MCACeriaCalibrationConfig
+        :param detector: a single MCA detector element configuration
+        :type detector: CHAP.edd.models.MCAElementCalibrationConfig
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
@@ -255,9 +256,9 @@ class MCACeriaCalibrationProcessor(Processor):
             * physical_constants['speed of light in vacuum'][0]
 
         # Collect raw MCA data of interest
-        mca_data = calibration_config.mca_data()
-        mca_bin_energies = np.arange(0, calibration_config.num_bins) \
-            * (calibration_config.max_energy_kev/calibration_config.num_bins)
+        mca_data = calibration_config.mca_data(detector)
+        mca_bin_energies = np.arange(0, detector.num_bins) \
+            * (detector.max_energy_kev / detector.num_bins)
 
         # Mask out the corrected MCA data for fitting
         if interactive:
@@ -265,18 +266,18 @@ class MCACeriaCalibrationProcessor(Processor):
             mask, include_bin_ranges = draw_mask_1d(
                 mca_data,
                 xdata=mca_bin_energies,
-                current_index_ranges=calibration_config.include_bin_ranges,
+                current_index_ranges=detector.include_bin_ranges,
                 title='Click and drag to select ranges of Ceria'
                 +' calibration data to include',
                 xlabel='MCA channel energy (keV)',
                 ylabel='MCA intensity (counts)')
-            calibration_config.include_bin_ranges = include_bin_ranges
-        if calibration_config.include_bin_ranges is None:
+            detector.include_bin_ranges = include_bin_ranges
+        if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration, '
                 'or re-run the pipeline with the --interactive flag.')
-        mca_mask = calibration_config.mca_mask()
+        mca_mask = detector.mca_mask()
         fit_mca_energies = mca_bin_energies[mca_mask]
         fit_mca_intensities = mca_data[mca_mask]
 
@@ -284,30 +285,31 @@ class MCACeriaCalibrationProcessor(Processor):
         flux_correct = \
             calibration_config.flux_correction_interpolation_function()
         mca_intensity_weights = flux_correct(fit_mca_energies)
-        fit_mca_intensities = fit_mca_intensities/mca_intensity_weights
+        fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
 
         # Get the HKLs and lattice spacings that will be used for
         # fitting
-        tth = calibration_config.tth_initial_guess
+        tth = detector.tth_initial_guess
         if interactive:
             from CHAP.utils.general import select_peaks
-            hkls, ds = calibration_config.unique_ds()
+            hkls, ds = calibration_config.unique_ds(
+                hkl_tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
             peak_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
-            pre_selected_peak_indices = calibration_config.fit_hkls \
-                                        if calibration_config.fit_hkls else []
+            pre_selected_peak_indices = detector.fit_hkls \
+                                        if detector.fit_hkls else []
             selected_peaks = select_peaks(
                 mca_data, mca_bin_energies, peak_locations,
                 pre_selected_peak_indices=pre_selected_peak_indices,
                 mask=mca_mask)
             fit_hkls = [np.where(peak_locations == peak)[0][0]
                         for peak in selected_peaks]
-            calibration_config.fit_hkls = fit_hkls
-        if calibration_config.fit_hkls is None:
+            detector.fit_hkls = fit_hkls
+        if detector.fit_hkls is None:
             raise ValueError(
                 'No value provided for fit_hkls. Provide them in '
-                'the MCA Ceria Calibration Configuration, or re-run '
-                'the pipeline with the --interactive flag.')
-        fit_hkls, fit_ds = calibration_config.fit_ds()
+                'the detector\'s MCA Ceria Calibration Configuration, or'
+                ' re-run the pipeline with the --interactive flag.')
+        fit_hkls, fit_ds = detector.fit_ds(calibration_config.material())
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
 
         for iter_i in range(calibration_config.max_iter):
@@ -333,7 +335,7 @@ class MCACeriaCalibrationProcessor(Processor):
             # uniform fit parameters
             uniform_fit_centers = [
                 best_values[f'peak{i+1}_center']
-                for i in range(len(calibration_config.fit_hkls))]
+                for i in range(len(detector.fit_hkls))]
             uniform_a = best_values['scale_factor']
             uniform_strain = np.log(
                 (uniform_a
@@ -360,7 +362,7 @@ class MCACeriaCalibrationProcessor(Processor):
             # unconstrained fit parameters
             unconstrained_fit_centers = np.array(
                 [best_values[f'peak{i+1}_center']
-                 for i in range(len(calibration_config.fit_hkls))])
+                 for i in range(len(detector.fit_hkls))])
             unconstrained_a = 0.5*hc*np.sqrt(c_1) \
                 / (unconstrained_fit_centers*abs(np.sin(0.5*np.radians(tth))))
             unconstrained_strains = np.log(

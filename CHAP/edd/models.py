@@ -16,12 +16,57 @@ from typing import Literal, Optional
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
+class MCAElementConfig(BaseModel):
+    """Class representing metadata required to configure a single MCA
+    detector element.
+
+    :ivar detector_name: name of the MCA used with the scan
+    :type detector_name: str
+    :ivar num_bins: number of channels on the MCA
+    :type num_bins: int
+    :ivar include_bin_ranges: list of MCA channel index ranges whose
+        data should be included after applying a mask
+    :type include_bin_ranges: list[list[int]]
+    """
+    detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
+    num_bins: Optional[conint(gt=0)]
+    include_bin_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+                max_items=2))] = None
+
+    @validator('include_bin_ranges', each_item=True)
+    def validate_include_bin_range(cls, value, values):
+        """Ensure no bin ranges are outside the boundary of the detector"""
+        num_bins = values.get('num_bins')
+        if num_bins is not None:
+            value[1] = min(value[1], num_bins)
+        return value
+
+    def mca_mask(self):
+        """Get a boolean mask array to use on this MCA element's data.
+
+        :return: boolean mask array
+        :rtype: numpy.ndarray
+        """
+        mask = np.asarray([False] * self.num_bins)
+        bin_indices = np.arange(self.num_bins)
+        for min_, max_ in self.include_bin_ranges:
+            _mask = np.logical_and(bin_indices > min_, bin_indices < max_)
+            mask = np.logical_or(mask, _mask)
+        return mask
+
+
 class MCAScanDataConfig(BaseModel):
     """Class representing metadata required to locate raw MCA data for
     a single scan and construct a mask for it.
 
     :ivar spec_file: Path to the SPEC file containing the scan
     :ivar scan_number: Number of the scan in `spec_file`
+    :ivar detectors: list of detector element metadata configurations
 
     :ivar detector_name: name of the MCA used with the scan
     :ivar num_bins: number of channels on the MCA
@@ -32,16 +77,7 @@ class MCAScanDataConfig(BaseModel):
     spec_file: FilePath
     scan_number: conint(gt=0)
 
-    detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
-    num_bins: Optional[conint(gt=0)]
-
-    include_bin_ranges: Optional[
-        conlist(
-            min_items=1,
-            item_type=conlist(
-                item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))] = None
+    detectors: conlist(min_items=1, item_type=MCAElementConfig)
 
     _scanparser: Optional[ScanParser]
 
@@ -61,13 +97,13 @@ class MCAScanDataConfig(BaseModel):
         """
         values['_scanparser'] = ScanParser(values.get('spec_file'),
                                            values.get('scan_number'))
-        if values.get('num_bins') is None:
-            try:
-                values['num_bins'] = values['_scanparser']\
-                    .get_detector_num_bins(
-                        values.get('detector_name'))
-            except exc:
-                raise ValueError('No value found for num_bins') from exc
+        for detector in values.get('detectors'):
+            if detector.num_bins is None:
+                try:
+                    detector.num_bins = values['_scanparser']\
+                        .get_detector_num_bins(detector.detector_name)
+                except exc:
+                    raise ValueError('No value found for num_bins') from exc
         return values
 
     @property
@@ -79,48 +115,30 @@ class MCAScanDataConfig(BaseModel):
             self._scanparser = scanparser
         return scanparser
 
-    @validator('include_bin_ranges', each_item=True)
-    def validate_include_bin_range(cls, value, values):
-        """Ensure no bin ranges are outside the boundary of the detector"""
-        num_bins = values.get('num_bins')
-        if num_bins is not None:
-            value[1] = min(value[1], num_bins)
-        return value
-
-    def mca_mask(self):
-        """Get a boolean mask array to use on the MCA data.
-
-        :return: boolean mask array
-        :rtype: numpy.ndarray
-        """
-        mask = np.asarray([False] * self.num_bins)
-        bin_indices = np.arange(self.num_bins)
-        for min_, max_ in self.include_bin_ranges:
-            _mask = np.logical_and(bin_indices > min_, bin_indices < max_)
-            mask = np.logical_or(mask, _mask)
-        return mask
-
-    def mca_data(self, scan_step_index=None):
+    def mca_data(self, detector_config, scan_step_index=None):
         """Get the array of MCA data collected by the scan.
 
+        :param detector_config: detector for which data will be returned
+        :type detector_config: MCAElementConfig
         :return: MCA data
         :rtype: np.ndarray
         """
         if scan_step_index is None:
-            data = self.scanparser.get_all_detector_data(self.detector_name)
+            data = self.scanparser.get_all_detector_data(
+                detector_config.detector_name)
         else:
-            data = self.scanparser.get_detector_data(self.detector_name,
-                                                     self.scan_step_index)
+            data = self.scanparser.get_detector_data(
+                detector_config.detector_name, self.scan_step_index)
         return data
 
-    def dict(self):
+    def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
         :return: dictionary representation of the configuration.
         :rtype: dict
         """
-        d = super().dict()
+        d = super().dict(*args, **kwargs)
         for k,v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
@@ -129,10 +147,59 @@ class MCAScanDataConfig(BaseModel):
         return d
 
 
-class DiffractionVolumeLengthConfig(MCAScanDataConfig):
-    """Class representing metadata required to perform a diffraction
-    volume length calculation for an EDD setup using a steel-foil
-    raster scan.
+class MCAElementCalibrationConfig(MCAElementConfig):
+    """Class representing metadata & parameters required for
+    calibrating a single MCA detector element.
+
+    :ivar max_energy_kev: maximum channel energy of the MCA in keV
+    :ivar tth_max: detector rotation about hutch x axis, defaults to `90`.
+    :ivar hkl_tth_tol: minimum resolvable difference in 2&theta between two
+        unique HKL peaks, defaults to `0.15`.
+    :ivar fit_hkls: list of unique HKL indices to fit peaks for in the
+        calibration routine
+    :ivar tth_initial_guess: initial guess for 2&theta
+    :ivar slope_initial_guess: initial guess for detector channel energy
+        correction linear slope, defaults to `1.0`.
+    :ivar intercept_initial_guess: initial guess for detector channel energy
+        correction y-intercept, defaults to `0.0`.
+    :ivar tth_calibrated: calibrated value for 2&theta, defaults to None
+    :ivar slope_calibrated: calibrated value for detector channel energy
+        correction linear slope, defaults to `None`
+    :ivar intercept_calibrated: calibrated value for detector channel energy
+        correction y-intercept, defaluts to None
+    """
+    max_energy_kev: confloat(gt=0)
+    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
+    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
+    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
+    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False)
+    slope_initial_guess: float = 1.0
+    intercept_initial_guess: float = 0.0
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
+    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
+    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+
+    def fit_ds(self, material):
+        """Get a list of HKLs and their lattice spacings that will be
+        fit in the calibration routine
+
+        :return: HKLs to fit and their lattice spacings in angstroms
+        :rtype: np.ndarray, np.ndarray
+        """
+
+        unique_hkls, unique_ds = material.get_ds_unique(
+            tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+
+        fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
+        fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
+
+        return fit_hkls, fit_ds
+
+
+class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
+    """Class representing input parameters required to perform a
+    diffraction volume length measurement for a single MCA detector
+    element.
 
     :ivar measurement_mode: placeholder for recording whether the
         measured DVL value was obtained through the automated
@@ -150,6 +217,28 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     sigma_to_dvl_factor: Optional[Literal[1.75, 1., 2.]] = 1.75
     dvl_measured: Optional[confloat(gt=0)] = None
 
+    def dict(self, *args, **kwargs):
+        """If measurement_mode is 'manual', exclude
+        sigma_to_dvl_factor from the dict representation.
+        """
+        d = super().dict(*args, **kwargs)
+        if self.measurement_mode == 'manual':
+            del d['sigma_to_dvl_factor']
+        return d
+
+
+class DiffractionVolumeLengthConfig(MCAScanDataConfig):
+    """Class representing metadata required to perform a diffraction
+    volume length calculation for an EDD setup using a steel-foil
+    raster scan.
+
+    :ivar detectors: list of individual detector elmeent DVL
+        measurement configurations
+    :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
+    """
+    detectors: conlist(min_items=1,
+                       item_type=MCAElementDiffractionVolumeLengthConfig)
+
     @property
     def motor_vals(self):
         """Return the list of values visited by the scanning motor
@@ -165,15 +254,6 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         """Return the mnenomic of the raster scan's motor"""
         return self.scanparser.spec_scan_motor_mnes[0]
 
-    def dict(self):
-        """If measurement_mode is 'manual', exclude
-        sigma_to_dvl_factor from the dict representation.
-        """
-        d = super().dict()
-        if self.measurement_mode == 'manual':
-            del d['sigma_to_dvl_factor']
-        return d
-
 
 class MCACeriaCalibrationConfig(MCAScanDataConfig):
     """
@@ -187,8 +267,6 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
     :ivar flux_file: csv file containing station beam energy in eV (column 0)
         and flux (column 1)
 
-    :ivar max_energy_kev: maximum channel energy of the MCA in keV
-
     :ivar hexrd_h5_material_file: path to a HEXRD materials.h5 file containing
         an entry for the material properties.
     :ivar hexrd_h5_material_name: Name of the material entry in
@@ -196,24 +274,9 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
     :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
         the cubic CeO2 crystal, defaults to `5.41153`.
 
-    :ivar tth_max: detector rotation about hutch x axis, defaults to `90`.
-    :ivar hkl_tth_tol: minimum resolvable difference in 2&theta between two
-        unique HKL peaks, defaults to `0.15`.
-
-    :ivar fit_hkls: list of unique HKL indices to fit peaks for in the
-        calibration routine
-
-    :ivar tth_initial_guess: initial guess for 2&theta
-    :ivar slope_initial_guess: initial guess for detector channel energy
-        correction linear slope, defaults to `1.0`.
-    :ivar intercept_initial_guess: initial guess for detector channel energy
-        correction y-intercept, defaults to `0.0`.
-
-    :ivar tth_calibrated: calibrated value for 2&theta, defaults to None
-    :ivar slope_calibrated: calibrated value for detector channel energy
-        correction linear slope, defaults to `None`
-    :ivar intercept_calibrated: calibrated value for detector channel energy
-        correction y-intercept, defaluts to None
+    :ivar detectors: list of individual detector element calibration
+        configurations
+    :type detectors: list[MCAElementCalibrationConfig]
 
     :ivar max_iter: maximum number of iterations of the calibration routine,
         defaults to `10`.
@@ -225,42 +288,33 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
 
     flux_file: FilePath
 
-    max_energy_kev: confloat(gt=0)
-
     hexrd_h5_material_file: FilePath
     hexrd_h5_material_name: constr(
         strip_whitespace=True, min_length=1) = 'CeO2'
     lattice_parameter_angstrom: confloat(gt=0) = 5.41153
 
-    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
-    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-
-    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
-
-    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False)
-    slope_initial_guess: float = 1.0
-    intercept_initial_guess: float = 0.0
-    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
-    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+    detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
 
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 
-    def mca_data(self):
+    def mca_data(self, detector_config):
         """Get the 1D array of MCA data to use for calibration.
 
+        :param detector_config: detector for which data will be returned
+        :type detector_config: MCAElementConfig
         :return: MCA data
         :rtype: np.ndarray
         """
         if self.scan_step_index is None:
-            data = super().mca_data()
+            data = super().mca_data(detector_config)
             if self.scanparser.spec_scan_npts > 1:
                 data = np.average(data, axis=1)
             else:
                 data = data[0]
         else:
-            data = super().mca_data(scan_step_index=self.scan_step_index)
+            data = super().mca_data(detector_confg,
+                                    scan_step_index=self.scan_step_index)
         return data
 
     def flux_correction_interpolation_function(self):
@@ -302,30 +356,20 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         # xrayutilities?
         return material
 
-    def unique_ds(self):
+    def unique_ds(self, hkl_tth_tol=0.15, tth_max=90.0):
         """Get a list of unique HKLs and their lattice spacings
 
+        :param hkl_tth_tol: minimum resolvable difference in 2&theta
+            between two unique HKL peaks, defaults to `0.15`.
+        :type hkl_tth_tol: float, optional
+        :param tth_max: detector rotation about hutch x axis, defaults
+            to `90.0`.
+        :type tth_max: float, optional
         :return: unique HKLs and their lattice spacings in angstroms
         :rtype: np.ndarray, np.ndarray
         """
 
         unique_hkls, unique_ds = self.material().get_ds_unique(
-            tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+            tth_tol=hkl_tth_tol, tth_max=tth_max)
 
         return unique_hkls, unique_ds
-
-    def fit_ds(self):
-        """
-        Get a list of HKLs and their lattice spacings that will be fit in the
-        calibration routine
-
-        :return: HKLs to fit and their lattice spacings in angstroms
-        :rtype: np.ndarray, np.ndarray
-        """
-
-        unique_hkls, unique_ds = self.unique_ds()
-
-        fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
-        fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
-
-        return fit_hkls, fit_ds
