@@ -22,7 +22,8 @@ class DiffractionVolumeLengthProcessor(Processor):
     length of the diffraction volume for an EDD setup.
     """
 
-    def process(self, data, save_figures=False, interactive=False):
+    def process(self, data, save_figures=False,
+                interactive=False, outputdir='.'):
         """Return calculated value of the DV length.
 
         :param data: input configuration for the raw scan data & DVL
@@ -41,6 +42,8 @@ class DiffractionVolumeLengthProcessor(Processor):
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
         :return: complete DVL configuraiton dictionary
         :rtype: dict
         """
@@ -56,8 +59,8 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         return dvl_config.dict()
 
-    def measure_dvl(self, dvl_config, detector,
-                    save_figures=False, interactive=False):
+    def measure_dvl(self, dvl_config, detector, save_figures=False,
+                    interactive=False, outputdir='.'):
         """Return a measured value for the length of the diffraction
         volume. Use the iron foil raster scan data provided in
         `dvl_config` and fit a gaussian to the sum of all MCA channel
@@ -76,6 +79,8 @@ class DiffractionVolumeLengthProcessor(Processor):
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
         :return: calculated diffraction volume length
         :rtype: float
         """
@@ -178,7 +183,8 @@ class DiffractionVolumeLengthProcessor(Processor):
             ax.legend()
 
             if save_figures:
-                plt.savefig(f'{detector.detector_name}_diffraction_volume.png')
+                plt.savefig(
+                    os.path.join(outputdir,f'{detector.detector_name}_dvl.png')
             if interactive:
                 plt.show()
 
@@ -190,7 +196,8 @@ class MCACeriaCalibrationProcessor(Processor):
     channel energies for an EDD experimental setup.
     """
 
-    def process(self, data, save_figures=False, interactive=False):
+    def process(self, data, save_figures=False,
+                interactive=False, outputdir='.'):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
 
@@ -203,6 +210,9 @@ class MCACeriaCalibrationProcessor(Processor):
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
         :return: original configuration dictionary with tuned values
             added
         :rtype: dict[str,float]
@@ -214,7 +224,8 @@ class MCACeriaCalibrationProcessor(Processor):
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
                 calibration_config, detector,
-                save_figures=save_figures, interactive=interactive)
+                save_figures=save_figures,
+                interactive=interactive, outputdir=outputdir)
 
             detector.tth_calibrated = tth
             detector.slope_calibrated = slope
@@ -222,8 +233,8 @@ class MCACeriaCalibrationProcessor(Processor):
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config, detector,
-                  save_figures=False, interactive=False):
+    def calibrate(self, calibration_config, detector, save_figures=False,
+                  interactive=False, outputdir='.'):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
         small. Use the fitted peak locations to determine linear
@@ -240,6 +251,8 @@ class MCACeriaCalibrationProcessor(Processor):
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
         :return: calibrated values of 2&theta and linear correction
             parameters for MCA channel energies : tth, slope,
             intercept
@@ -455,7 +468,8 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                plt.savefig('ceria_calibration_fits.png')
+                plt.savefig(
+                    os.path.join(outputdir, 'ceria_calibration_fits.png'))
             if interactive:
                 plt.show()
 
