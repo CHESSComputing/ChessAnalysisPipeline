@@ -2399,8 +2399,26 @@ class Tomo:
             centers = center_offsets
         centers += tomo_stack.shape[2]/2
 
+#        tomo_recon_stack = []
+#        eff_pixel_size = 0.05
+#        cross_sectional_dim = 20.0 
+#        gaussian_sigma = 0.05
+#        ring_width = 1
+#        for i in range(tomo_stack.shape[0]):
+#            sinogram_t = tomo_stack[i,:,:].T
+#            recon_plane = self._reconstruct_one_plane(
+#                sinogram_t, centers[i], thetas, eff_pixel_size,
+#                cross_sectional_dim, False, num_core, gaussian_sigma,
+#                ring_width)
+#            tomo_recon_stack.append(recon_plane[0,:,:])
+#        tomo_recon_stack = np.asarray(tomo_recon_stack)
+#        return tomo_recon_stack
+
         # Remove horizontal stripe
+        # RV prep.stripe.remove_stripe_fw seems flawed for hollow brick
+        #     accross multiple stacks
         if remove_stripe_sigma is not None and remove_stripe_sigma:
+            self._logger.warning('Ignoring remove_stripe_sigma')
             if num_core > NUM_CORE_TOMOPY_LIMIT:
                 tomo_stack = prep.stripe.remove_stripe_fw(
                     tomo_stack, sigma=remove_stripe_sigma,
