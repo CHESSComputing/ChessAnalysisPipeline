@@ -40,7 +40,7 @@ NUM_CORE_TOMOPY_LIMIT = 24
 class TomoDataProcessor(Processor):
     """
     A processor to reconstruct a set of tomographic images returning
-    either a dictionary or a `nexusformat.nexus.NXroot` object
+    either a dictionary or a nexusformat.nexus.NXroot object
     containing the (meta) data after processing each individual step.
     """
 
@@ -51,7 +51,7 @@ class TomoDataProcessor(Processor):
         """
         Process the input map or configuration with the step specific
         instructions and return either a dictionary or a
-        `nexusformat.nexus.NXroot` object with the processed result.
+        nexusformat.nexus.NXroot object with the processed result.
 
         :param data: Input map or configuration(s) and specific step
             instructions for tomographic image reduction.
@@ -467,7 +467,7 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
     :type nxpath_prefix: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
-    :rtype: NXobject
+    :rtype: nexusformat.nexus.NXobject
     """
     # Third party modules
     from nexusformat.nexus import NXgroup
@@ -497,6 +497,43 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
 
     return nxobject_copy
 
+
+def get_nxroot(data, schema, remove=True):
+    """Look through `data` for an item whose value for the `'schema'`
+    key matches `schema` and whose value for the `'data'` key matches
+    an nexusformat.nexus.NXroot object and return this object.
+
+    :param data: Input list of `PipelineData` objects
+    :type data: list[PipelineData]
+    :param schema: name associated with the nexusformat.nexus.NXroot
+         object to match in `data`
+    :type schema: str
+    :param remove: if there is a matching entry in `data`, remove
+       it from the list, defaults to `True`.
+    :type remove: bool, optional
+    :raises ValueError: if there's no match for `schema` in `data`
+    :return: object matching with `schema`
+    :rtype: nexusformat.nexus.NXroot
+    """
+    # Local modules
+    from nexusformat.nexus import NXroot
+    nxroot = None
+    if isinstance(data, list):
+        for i, item in enumerate(data):
+            if isinstance(item, dict):
+                if item.get('schema') == schema:
+                    if nxroot is isinstance(nxroot, NXroot):
+                        raise ValueError(
+                            'Multiple NXroot objects with found in input data '
+                            f'matching schema = {schema}')
+                    nxroot = item.get('data')
+                    if remove:
+                        data.pop(i)
+
+    if nxroot is None or not isinstance(nxroot, NXroot):
+        raise ValueError('No valid NXroot object found in input data')
+
+    return nxroot
 
 class SetNumexprThreads:
     """
@@ -2610,7 +2647,7 @@ class TomoSimFieldProcessor(Processor):
         )
 
         # Get and validate the relevant configuration object in data
-        config = self.get_configs(data)
+        config = self.get_config(data, 'tomo.models.TomoSimConfig')
 
         station = config.station
         sample_type = config.sample_type
@@ -2786,34 +2823,6 @@ class TomoSimFieldProcessor(Processor):
 
         return nxroot
 
-    def get_configs(self, data):
-        """
-        Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimConfig'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of the configuration object with field
-            values taken from `data`.
-        :rtype: TomoSimConfig
-        """
-        # Local modules
-        from CHAP.tomo.models import TomoSimConfig
-
-        tomo_sim_data = None
-        if isinstance(data, list):
-            for item in data:
-                if (isinstance(item, dict) and item.get('data') is not None
-                        and item.get('schema') == 'tomo.models.TomoSimConfig'):
-                    tomo_sim_data = item.get('data')
-        if tomo_sim_data is None:
-            raise ValueError(f'Invalid parameter data ({data})')
-
-        return TomoSimConfig(**tomo_sim_data)
-
     def _create_pathlength_solid_square(self, dim, thetas, pixel_size,
             detector_size):
         """
@@ -2885,8 +2894,8 @@ class TomoDarkFieldProcessor(Processor):
             NXdetector,
         )
 
-        # Get the TomoSimField configuration object in data
-        nxroot = self.get_config(data)
+        # Get and validate the TomoSimField configuration object in data
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         background_intensity = source.background_intensity
@@ -2921,32 +2930,6 @@ class TomoDarkFieldProcessor(Processor):
 
         return nxdark
 
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: nexusformat.nexus.NXroot
-        """
-        nxroot = None
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'tomo.models.TomoSimField':
-                        nxroot = item.get('data')
-                        break
-        if nxroot is None:
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return nxroot
-
 
 class TomoBrightFieldProcessor(Processor):
     """
@@ -2977,7 +2960,7 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = self.get_config(data)
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         beam_intensity = source.beam_intensity
@@ -3022,32 +3005,6 @@ class TomoBrightFieldProcessor(Processor):
 
         return nxbright
 
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: nexusformat.nexus.NXroot
-        """
-        nxroot = None
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'tomo.models.TomoSimField':
-                        nxroot = item.get('data')
-                        break
-        if nxroot is None:
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return nxroot
-
 
 class TomoSpecProcessor(Processor):
     """
@@ -3079,8 +3036,23 @@ class TomoSpecProcessor(Processor):
 
         # Get and validate the TomoSimField, TomoDarkField, or
         #     TomoBrightField configuration object in data
+        configs = {}
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoDarkField')
+            configs['tomo.models.TomoDarkField'] = nxroot
+        except:
+            pass
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoBrightField')
+            configs['tomo.models.TomoBrightField'] = nxroot
+        except:
+            pass
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+            configs['tomo.models.TomoSimField'] = nxroot
+        except:
+            pass
         scan_numbers = list(set(scan_numbers))
-        configs = self.get_config(data)
         station = None
         sample_type = None
         num_scan = 0
@@ -3261,38 +3233,6 @@ class TomoSpecProcessor(Processor):
                 self._write_tiffs(image_set, image_folder)
 
         return spec_file
-
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoDarkField'` for the `'schema'` key,
-            one item has `'TomoBrightField'` for the `'schema'` key, and
-            one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If valid config objects cannot be
-            constructed from `data`.
-        :return: Valid instances of configuration objects with field
-            values taken from `data`.
-        :rtype: dict
-        """
-        configs = {}
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'tomo.models.TomoDarkField':
-                        configs[schema] = item.get('data')
-                    elif schema == 'tomo.models.TomoBrightField':
-                        configs[schema] = item.get('data')
-                    elif schema == 'tomo.models.TomoSimField':
-                        configs[schema] = item.get('data')
-        if not len(configs):
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return configs
 
     def _write_tiffs(self, data, image_folder):
         """Write a set of images to individual tiff files."""

@@ -108,8 +108,7 @@ class PipelineItem():
 
         matching_config = False
         for i, d in enumerate(data):
-            _schema = d.get('schema')
-            if _schema == schema:
+            if d.get('schema') == schema:
                 matching_config = d.get('data')
                 if remove:
                     data.pop(i)
