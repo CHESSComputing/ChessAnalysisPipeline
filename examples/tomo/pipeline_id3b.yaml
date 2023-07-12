@@ -3,7 +3,7 @@ pipeline:
   # Create a simulated stack of tomography images
   - common.YAMLReader:
       filename: examples/tomo/tomo_sim_id3b.yaml
-      schema: TomoSimConfig
+      schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor
   - common.NexusWriter:
       filename: examples/tomo/hollow_cube_SIM_003.h5
@@ -12,7 +12,7 @@ pipeline:
   # Create the dark field for the simulation
   - common.NexusReader:
       filename: examples/tomo/hollow_cube_SIM_003.h5
-      schema: TomoSimField
+      schema: tomo.models.TomoSimField
   - tomo.TomoDarkFieldProcessor
   - common.NexusWriter:
       filename: examples/tomo/hollow_cube_SIM_001.h5
@@ -21,7 +21,7 @@ pipeline:
   # Create the bright field for the simulation
   - common.NexusReader:
       filename: examples/tomo/hollow_cube_SIM_003.h5
-      schema: TomoSimField
+      schema: tomo.models.TomoSimField
   - tomo.TomoBrightFieldProcessor:
       num_image: 10
   - common.NexusWriter:
@@ -33,13 +33,13 @@ pipeline:
       items:
         - common.NexusReader:
             filename: examples/tomo/hollow_cube_SIM_001.h5
-            schema: TomoDarkField
+            schema: tomo.models.TomoDarkField
         - common.NexusReader:
             filename: examples/tomo/hollow_cube_SIM_002.h5
-            schema: TomoBrightField
+            schema: tomo.models.TomoBrightField
         - common.NexusReader:
             filename: examples/tomo/hollow_cube_SIM_003.h5
-            schema: TomoSimField
+            schema: tomo.models.TomoSimField
   - tomo.TomoSpecProcessor:
       scan_numbers: [1, 2, 3]
   - common.TXTWriter:
@@ -51,16 +51,16 @@ pipeline:
       items:
         - common.YAMLReader:
             filename: examples/tomo/map_id3b.yaml
-            schema: MapConfig
+            schema: common.models.map.MapConfig
         - common.YAMLReader:
             filename: examples/tomo/reduce_data_id3b.yaml
-            schema: TomoReduceConfig
+            schema: tomo.models.TomoReduceConfig
         - common.YAMLReader:
             filename: examples/tomo/find_center_data_id3b.yaml
-            schema: TomoFindCenterConfig
+            schema: tomo.models.TomoFindCenterConfig
         - common.YAMLReader:
             filename: examples/tomo/reconstruct_data.yaml
-            schema: TomoReconstructConfig
+            schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
       output_folder: examples/tomo/output
       save_figs: 'only'

@@ -123,8 +123,8 @@ class TomoFindCenterConfig(BaseModel):
     upper_center_offset: Optional[confloat(allow_inf_nan=False)]
     search_range: Optional[confloat(ge=0, allow_inf_nan=False)]
     search_step: Optional[confloat(ge=0, allow_inf_nan=False)]
-    gaussian_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 
 
 class TomoReconstructConfig(BaseModel):
@@ -156,8 +156,8 @@ class TomoReconstructConfig(BaseModel):
     z_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     secondary_iters: conint(ge=0) = 0
-    remove_stripe_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
+    remove_stripe_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 
 
 class TomoCombineConfig(BaseModel):

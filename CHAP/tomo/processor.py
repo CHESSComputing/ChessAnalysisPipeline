@@ -106,8 +106,10 @@ class TomoDataProcessor(Processor):
         
         # Setup the pipeline for a tomography reconstruction
         try:
-            tool_config = self.get_config(data, 'tomo.models.TomoSetupConfig')
-            map_config = self.get_config(data, 'common.models.map.MapConfig')
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoSetupConfig', False)
+            map_config = self.get_config(
+                data, 'common.models.map.MapConfig', False)
             nxroot = self.get_nxroot(map_config, tool_config)
         except:
             if isinstance(data, list):
@@ -118,7 +120,8 @@ class TomoDataProcessor(Processor):
 
         # Reduce tomography images
         try:
-            tool_config = self.get_config(data, 'tomo.models.TomoReduceConfig')
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoReduceConfig', False)
         except:
             tool_config = None
         if reduce_data or tool_config is not None:
@@ -128,14 +131,14 @@ class TomoDataProcessor(Processor):
                     'reduced_data config file')
             if nxroot is None:
                 map_config = self.get_config(
-                    data, 'common.models.map.MapConfig')
+                    data, 'common.models.map.MapConfig', False)
                 nxroot = self.get_nxroot(map_config, tool_config)
             nxroot = tomo.gen_reduced_data(nxroot, tool_config)
 
         # Find rotation axis centers for the tomography stacks
         try:
             tool_config = self.get_config(
-                data, 'tomo.models.TomoFindCenterConfig')
+                data, 'tomo.models.TomoFindCenterConfig', False)
         except:
             tool_config = None
         if find_center or tool_config is not None:
@@ -165,7 +168,7 @@ class TomoDataProcessor(Processor):
         #     tomo.reconstruct_data?
         try:
             tool_config = self.get_config(
-                data, 'tomo.models.TomoReconstructConfig')
+                data, 'tomo.models.TomoReconstructConfig', False)
         except:
             tool_config = None
         if reconstruct_data or tool_config is not None:
@@ -177,7 +180,7 @@ class TomoDataProcessor(Processor):
         # Combine reconstructed tomography stacks
         try:
             tool_config = self.get_config(
-                data, 'tomo.models.TomoCombineConfig')
+                data, 'tomo.models.TomoCombineConfig', False)
         except:
             tool_config = None
         if combine_data or tool_config is not None:
@@ -2097,6 +2100,10 @@ class Tomo:
         # Third party modules
         from tomopy import find_center_vo
 
+        if not gaussian_sigma:
+            gaussian_sigma = None
+        if not ring_width:
+            ring_width = None
         # Try automatic center finding routines for initial value
         # sinogram index order: theta,column
         # need column,theta for iradon, so take transpose
@@ -2307,12 +2314,12 @@ class Tomo:
         del sinogram
 
         # Performing Gaussian filtering and removing ring artifacts
-        if gaussian_sigma is not None:
+        if gaussian_sigma is not None and gaussian_sigma:
             recon_sinogram = gaussian_filter(
                 recon_sinogram, gaussian_sigma, mode='nearest')
         recon_clean = np.expand_dims(recon_sinogram, axis=0)
         del recon_sinogram
-        if ring_width is not None:
+        if ring_width is not None and ring_width:
             recon_clean = misc.corr.remove_ring(
                 recon_clean, rwidth=ring_width, ncore=num_core)
 
@@ -2393,7 +2400,7 @@ class Tomo:
         centers += tomo_stack.shape[2]/2
 
         # Remove horizontal stripe
-        if remove_stripe_sigma is not None:
+        if remove_stripe_sigma is not None and remove_stripe_sigma:
             if num_core > NUM_CORE_TOMOPY_LIMIT:
                 tomo_stack = prep.stripe.remove_stripe_fw(
                     tomo_stack, sigma=remove_stripe_sigma,
@@ -2452,7 +2459,7 @@ class Tomo:
                 'seconds')
 
         # Remove ring artifacts
-        if ring_width is not None:
+        if ring_width is not None and ring_width:
             misc.corr.remove_ring(
                 tomo_recon_stack, rwidth=ring_width, out=tomo_recon_stack,
                 ncore=num_core)
@@ -2782,7 +2789,7 @@ class TomoSimFieldProcessor(Processor):
         if isinstance(data, list):
             for item in data:
                 if (isinstance(item, dict) and item.get('data') is not None
-                        and item.get('schema') == 'TomoSimConfig'):
+                        and item.get('schema') == 'tomo.models.TomoSimConfig'):
                     tomo_sim_data = item.get('data')
         if tomo_sim_data is None:
             raise ValueError(f'Invalid parameter data ({data})')
@@ -2913,7 +2920,7 @@ class TomoDarkFieldProcessor(Processor):
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
-                    if item.get('schema') == 'TomoSimField':
+                    if item.get('schema') == 'tomo.models.TomoSimField':
                         nxroot = item.get('data')
                         break
         if nxroot is None:
@@ -3014,7 +3021,7 @@ class TomoBrightFieldProcessor(Processor):
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
-                    if item.get('schema') == 'TomoSimField':
+                    if item.get('schema') == 'tomo.models.TomoSimField':
                         nxroot = item.get('data')
                         break
         if nxroot is None:
@@ -3128,21 +3135,21 @@ class TomoSpecProcessor(Processor):
             frame_start_number = int(detector.frame_start_number)
             thetas = np.asarray(detector.thetas)[frame_start_number:]
             num_theta = thetas.size
-            if schema == 'TomoDarkField':
+            if schema == 'tomo.models.TomoDarkField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time} darkfield'
                     scan_type = 'df1'
                 else:
                     macro = f'flyscan {num_theta} {count_time}'
-            elif schema == 'TomoBrightField':
+            elif schema == 'tomo.models.TomoBrightField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time}'
                     scan_type = 'bf1'
                 else:
                     macro = f'flyscan {num_theta} {count_time}'
-            elif schema == 'TomoSimField':
+            elif schema == 'tomo.models.TomoSimField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time}'
@@ -3180,11 +3187,12 @@ class TomoSpecProcessor(Processor):
                 else:
                     spec_file.append(f'#P0 0.0 {z_translation} 0.0')
                     spec_file.append('#N 1')
-                    if schema in ('TomoDarkField', 'TomoBrightField'):
+                    if schema in ('tomo.models.TomoDarkField',
+                                  'tomo.models.TomoBrightField'):
                         spec_file.append('#L Time')
                         spec_file += [str(count_time*time)
                             for time in range(num_theta)]
-                    elif schema == 'TomoSimField':
+                    elif schema == 'tomo.models.TomoSimField':
                         spec_file.append('#L GI_samphi')
                         spec_file += [str(theta) for theta in thetas]
                 spec_file.append('')
@@ -3256,11 +3264,11 @@ class TomoSpecProcessor(Processor):
             for item in data:
                 if isinstance(item, dict):
                     schema = item.get('schema')
-                    if schema == 'TomoDarkField':
+                    if schema == 'tomo.models.TomoDarkField':
                         configs[schema] = item.get('data')
-                    elif schema == 'TomoBrightField':
+                    elif schema == 'tomo.models.TomoBrightField':
                         configs[schema] = item.get('data')
-                    elif schema == 'TomoSimField':
+                    elif schema == 'tomo.models.TomoSimField':
                         configs[schema] = item.get('data')
         if not len(configs):
             raise ValueError(
