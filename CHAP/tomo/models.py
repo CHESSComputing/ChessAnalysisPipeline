@@ -87,7 +87,7 @@ class TomoReduceConfig(BaseModel):
     detector: Detector = Detector.construct()
     img_x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
-    delta_theta: Optional[confloat(gt=1, allow_inf_nan=False)]
+    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
     dark_field: Optional[conlist(item_type=SpecScans, min_items=1)]
     bright_field: Optional[conlist(item_type=SpecScans, min_items=1)]
 
@@ -121,8 +121,10 @@ class TomoFindCenterConfig(BaseModel):
     lower_center_offset: Optional[confloat(allow_inf_nan=False)]
     upper_row: Optional[conint(ge=-1)]
     upper_center_offset: Optional[confloat(allow_inf_nan=False)]
-    gaussian_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
+    search_range: Optional[confloat(ge=0, allow_inf_nan=False)]
+    search_step: Optional[confloat(ge=0, allow_inf_nan=False)]
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 
 
 class TomoReconstructConfig(BaseModel):
@@ -154,8 +156,8 @@ class TomoReconstructConfig(BaseModel):
     z_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     secondary_iters: conint(ge=0) = 0
-    remove_stripe_sigma: Optional[confloat(gt=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(gt=0, allow_inf_nan=False)]
+    remove_stripe_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 
 
 class TomoCombineConfig(BaseModel):

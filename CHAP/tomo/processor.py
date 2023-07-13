@@ -40,7 +40,7 @@ NUM_CORE_TOMOPY_LIMIT = 24
 class TomoDataProcessor(Processor):
     """
     A processor to reconstruct a set of tomographic images returning
-    either a dictionary or a `nexusformat.nexus.NXroot` object
+    either a dictionary or a nexusformat.nexus.NXroot object
     containing the (meta) data after processing each individual step.
     """
 
@@ -51,7 +51,7 @@ class TomoDataProcessor(Processor):
         """
         Process the input map or configuration with the step specific
         instructions and return either a dictionary or a
-        `nexusformat.nexus.NXroot` object with the processed result.
+        nexusformat.nexus.NXroot object with the processed result.
 
         :param data: Input map or configuration(s) and specific step
             instructions for tomographic image reduction.
@@ -79,6 +79,13 @@ class TomoDataProcessor(Processor):
         :return: Processed (meta)data of the last step.
         :rtype: Union[dict, nexusformat.nexus.NXroot]
         """
+        # Local modules
+        from nexusformat.nexus import NXroot
+        from CHAP.tomo.models import (
+            TomoFindCenterConfig,
+            TomoReconstructConfig,
+            TomoCombineConfig,
+        )
 
         if not isinstance(reduce_data, bool):
             raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
@@ -96,51 +103,56 @@ class TomoDataProcessor(Processor):
             save_figs=save_figs)
         nxroot = None
         center_config = None
-
-        # Get and validate the relevant configuration objects in data
-        configs = self.get_configs(data)
-
+        
         # Setup the pipeline for a tomography reconstruction
-        if 'setup' in configs:
-            configs.pop('nxroot', None)
-            nxroot = self.get_nxroot(configs.pop('map'), configs.pop('setup'))
-        else:
-            nxroot = configs.pop('nxroot', None)
+        try:
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoSetupConfig', False)
+            map_config = self.get_config(
+                data, 'common.models.map.MapConfig', False)
+            nxroot = self.get_nxroot(map_config, tool_config)
+        except:
+            if isinstance(data, list):
+                for item in data:
+                    if (isinstance(item, dict) and item.get('data') is not None
+                            and isinstance(item.get('data'), NXroot)):
+                        nxroot = item.get('data')
 
         # Reduce tomography images
-        if reduce_data or 'reduce' in configs:
-            args = {}
-            if 'reduce' in configs:
-                tool_config = configs.pop('reduce')
-                args['img_x_bounds'] = tool_config.img_x_bounds
-                args['delta_theta'] = tool_config.delta_theta
-            else:
-                if nxroot is None:
-                    raise RuntimeError(
-                        'Unable to reduce the data without providing a '
-                        + 'reduced_data config file')
+        try:
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoReduceConfig', False)
+        except:
+            tool_config = None
+        if reduce_data or tool_config is not None:
+            if tool_config is None and nxroot is None:
+                raise RuntimeError(
+                    'Unable to reduce the data without providing a '
+                    'reduced_data config file')
             if nxroot is None:
-                map_config = configs.pop('map')
+                map_config = self.get_config(
+                    data, 'common.models.map.MapConfig', False)
                 nxroot = self.get_nxroot(map_config, tool_config)
-            nxroot = tomo.gen_reduced_data(nxroot, **args)
+            nxroot = tomo.gen_reduced_data(nxroot, tool_config)
 
         # Find rotation axis centers for the tomography stacks
-        # RV pass tool_config directly to tomo.find_centers?
-        if find_center or 'find_center' in configs:
-            args = {}
+        try:
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoFindCenterConfig', False)
+        except:
+            tool_config = None
+        if find_center or tool_config is not None:
             run_find_centers = False
-            if 'find_center' in configs:
-                tool_config = configs.pop('find_center')
-                args['center_rows'] = (
-                    tool_config.lower_row, tool_config.upper_row)
-                args['center_stack_index'] = tool_config.center_stack_index
-                lower_center_offset = tool_config.lower_center_offset
-                upper_center_offset = tool_config.upper_center_offset
-                if (None in args['center_rows'] or lower_center_offset is None
-                        or upper_center_offset is None):
+            if tool_config is None:
+                tool_config = TomoFindCenterConfig()
+                run_find_centers = True
+            else:
+                if (None in (tool_config.lower_row, tool_config.upper_row)
+                        or tool_config.lower_center_offset is None
+                        or tool_config.upper_center_offset is None):
                     run_find_centers = True
-            if run_find_centers or 'find_center' not in configs:
-                center_config = tomo.find_centers(nxroot, **args)
+            if run_find_centers:
+                center_config = tomo.find_centers(nxroot, tool_config)
             else:
                 # RV make a convert to dict in basemodel?
                 center_config = {
@@ -154,85 +166,31 @@ class TomoDataProcessor(Processor):
         # Reconstruct tomography stacks
         # RV pass tool_config and center_config directly to
         #     tomo.reconstruct_data?
-        if reconstruct_data or 'reconstruct' in configs:
-            args = {}
-            if 'reconstruct' in configs:
-                tool_config = configs.pop('reconstruct')
-                args['x_bounds'] = tool_config.x_bounds
-                args['y_bounds'] = tool_config.y_bounds
-                args['z_bounds'] = tool_config.z_bounds
-            nxroot = tomo.reconstruct_data(nxroot, center_config, **args)
+        try:
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoReconstructConfig', False)
+        except:
+            tool_config = None
+        if reconstruct_data or tool_config is not None:
+            if tool_config is None:
+                tool_config = TomoReconstructConfig()
+            nxroot = tomo.reconstruct_data(nxroot, center_config, tool_config)
             center_config = None
 
         # Combine reconstructed tomography stacks
-        if combine_data or 'combine' in configs:
-            args = {}
-            if 'combine' in configs:
-                tool_config = configs.pop('combine')
-                args['x_bounds'] = tool_config.x_bounds
-                args['y_bounds'] = tool_config.y_bounds
-                args['z_bounds'] = tool_config.z_bounds
-            nxroot = tomo.combine_data(nxroot, **args)
+        try:
+            tool_config = self.get_config(
+                data, 'tomo.models.TomoCombineConfig', False)
+        except:
+            tool_config = None
+        if combine_data or tool_config is not None:
+            if tool_config is None:
+                tool_config = TomoCombineConfig()
+            nxroot = tomo.combine_data(nxroot, tool_config)
 
         if center_config is not None:
             return center_config
         return nxroot
-
-    def get_configs(self, data):
-        """
-        Get instances of the configuration objects needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where one
-            item is of type `nexusformat.nexus.NXroot` or has the value
-            `'MapConfig'` for the `'schema'` key, and at least one item
-            has the value `'TomoSetupConfig'`, or `'TomoReduceConfig'`,
-            or `'TomoFindCenterConfig'`, or `'TomoReconstructConfig'`,
-            or `'TomoCombineConfig'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :return: Valid instances of the configuration objects with field
-            values taken from `data`.
-        :rtype: dict
-        """
-        # Third party modules
-        from nexusformat.nexus import NXroot
-
-        # Local modules
-        from CHAP.common.models.map import MapConfig
-        from CHAP.tomo.models import (
-            TomoSetupConfig,
-            TomoReduceConfig,
-            TomoFindCenterConfig,
-            TomoReconstructConfig,
-            TomoCombineConfig,
-        )
-
-        configs = {}
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict) and item.get('data') is not None:
-                    schema = item.get('schema')
-                    if isinstance(item.get('data'), NXroot):
-                        configs['nxroot'] = item.get('data')
-                    if schema == 'MapConfig':
-                        configs['map'] = MapConfig(**(item.get('data')))
-                    if schema == 'TomoSetupConfig':
-                        configs['setup'] = TomoSetupConfig(
-                            **(item.get('data')))
-                    if schema == 'TomoReduceConfig':
-                        configs['reduce'] = TomoReduceConfig(
-                            **(item.get('data')))
-                    elif schema == 'TomoFindCenterConfig':
-                        configs['find_center'] = TomoFindCenterConfig(
-                            **(item.get('data')))
-                    elif schema == 'TomoReconstructConfig':
-                        configs['reconstruct'] = TomoReconstructConfig(
-                            **(item.get('data')))
-                    elif schema == 'TomoCombineConfig':
-                        configs['combine'] = TomoCombineConfig(
-                            **(item.get('data')))
-
-        return configs
 
     def get_nxroot(self, map_config, tool_config):
         """
@@ -243,7 +201,7 @@ class TomoDataProcessor(Processor):
         :type map_config: MapConfig
         :param tool_config: The tomography image reduction configuration
             containing at minimum the detector information.
-        :type tool_config: TomoReduceConfig
+        :type tool_config: TomoSetupConfig, TomoReduceConfig
         :return: Map of the collected tomography (meta) data along
             with the data reduction configuration
         :rtype: nexusformat.nexus.NXroot
@@ -267,10 +225,17 @@ class TomoDataProcessor(Processor):
         # Local modules
         from CHAP.common import MapProcessor
         from CHAP.common.models.map import import_scanparser
+        from CHAP.tomo.models import (
+            TomoSetupConfig,
+            TomoReduceConfig,
+        )
         from CHAP.utils.general import index_nearest
 
         logger = getLogger(self.__name__)
         logger.propagate = False
+
+        if not isinstance(tool_config, (TomoSetupConfig, TomoReduceConfig)):
+            raise ValueError(f'Invalid parameter tool_config ({tool_config})')
 
         include_raw_data = getattr(tool_config, 'include_raw_data', False)
 
@@ -387,8 +352,8 @@ class TomoDataProcessor(Processor):
                     if nxcollection.attrs['spec_file'] != str(scans.spec_file):
                         raise RuntimeError(
                             'Multiple SPEC files for a single field type not '
-                            + f'yet implemented; field name: {field_name}, '
-                            + f'SPEC file: {str(scans.spec_file)}')
+                            f'yet implemented; field name: {field_name}, '
+                            f'SPEC file: {str(scans.spec_file)}')
                 else:
                     nxcollection = NXcollection()
                     nxentry.spec_scans[field_name] = nxcollection
@@ -502,7 +467,7 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
     :type nxpath_prefix: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
-    :rtype: NXobject
+    :rtype: nexusformat.nexus.NXobject
     """
     # Third party modules
     from nexusformat.nexus import NXgroup
@@ -532,6 +497,43 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
 
     return nxobject_copy
 
+
+def get_nxroot(data, schema, remove=True):
+    """Look through `data` for an item whose value for the `'schema'`
+    key matches `schema` and whose value for the `'data'` key matches
+    an nexusformat.nexus.NXroot object and return this object.
+
+    :param data: Input list of `PipelineData` objects
+    :type data: list[PipelineData]
+    :param schema: name associated with the nexusformat.nexus.NXroot
+         object to match in `data`
+    :type schema: str
+    :param remove: if there is a matching entry in `data`, remove
+       it from the list, defaults to `True`.
+    :type remove: bool, optional
+    :raises ValueError: if there's no match for `schema` in `data`
+    :return: object matching with `schema`
+    :rtype: nexusformat.nexus.NXroot
+    """
+    # Local modules
+    from nexusformat.nexus import NXroot
+    nxroot = None
+    if isinstance(data, list):
+        for i, item in enumerate(data):
+            if isinstance(item, dict):
+                if item.get('schema') == schema:
+                    if nxroot is isinstance(nxroot, NXroot):
+                        raise ValueError(
+                            'Multiple NXroot objects with found in input data '
+                            f'matching schema = {schema}')
+                    nxroot = item.get('data')
+                    if remove:
+                        data.pop(i)
+
+    if nxroot is None or not isinstance(nxroot, NXroot):
+        raise ValueError('No valid NXroot object found in input data')
+
+    return nxroot
 
 class SetNumexprThreads:
     """
@@ -644,20 +646,18 @@ class Tomo:
         if self._num_core > cpu_count():
             self._logger.warning(
                 f'num_core = {self._num_core} is larger than the number '
-                + f'of available processors and reduced to {cpu_count()}')
+                f'of available processors and reduced to {cpu_count()}')
             self._num_core = cpu_count()
 
-    def gen_reduced_data(self, data, img_x_bounds=None, delta_theta=None):
+    def gen_reduced_data(self, nxroot, tool_config=None):
         """
         Generate the reduced tomography images.
 
-        :param data: Data object containing the raw data info and
+        :param nxroot: Data object containing the raw data info and
             metadata required for a tomography data reduction
-        :type data: nexusformat.nexus.NXroot
-        :param img_x_bounds: Detector image bounds in the x-direction
-        :type img_x_bounds: tuple(int, int), list[int], optional
-        :param delta_theta: Rotation angle step size
-        :type delta_theta: float, optional
+        :type nxroot: nexusformat.nexus.NXroot
+        :param tool_config: Tool configuration
+        :type tool_config: CHAP.tomo.models.TomoReduceConfig, optional
         :return: Reduced tomography data
         :rtype: nexusformat.nexus.NXroot
         """
@@ -668,17 +668,23 @@ class Tomo:
             NXroot,
         )
 
-        self._logger.info('Generate the reduced tomography images')
-        if img_x_bounds is not None:
-            if not isinstance(img_x_bounds, (tuple, list)):
-                raise ValueError(
-                    f'Invalid parameter img_x_bounds ({img_x_bounds})')
-            img_x_bounds = tuple(img_x_bounds)
+        # Local modules
+        from CHAP.tomo.models import TomoReduceConfig
 
-        if isinstance(data, NXroot):
-            nxentry = data[data.attrs['default']]
+        self._logger.info('Generate the reduced tomography images')
+
+        if isinstance(nxroot, NXroot):
+            nxentry = nxroot[nxroot.attrs['default']]
         else:
-            raise ValueError(f'Invalid parameter data ({data})')
+            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+        if tool_config is None:
+            delta_theta = None
+            img_x_bounds = None
+        else:
+            if not isinstance(tool_config, TomoReduceConfig):
+                raise ValueError(f'Invalid parameter tool_config ({tool_config})')
+            delta_theta = tool_config.delta_theta
+            img_x_bounds = tool_config.img_x_bounds
 
         # Create an NXprocess to store data reduction (meta)data
         reduced_data = NXprocess()
@@ -736,7 +742,7 @@ class Tomo:
 
         # Create a copy of the input Nexus object and remove raw and
         #     any existing reduced data
-        if isinstance(data, NXroot):
+        if isinstance(nxroot, NXroot):
             exclude_items = [
                 f'{nxentry.nxname}/reduced_data/data',
                 f'{nxentry.nxname}/instrument/detector/data',
@@ -751,7 +757,7 @@ class Tomo:
                 f'{nxentry.nxname}/data/x_translation',
                 f'{nxentry.nxname}/data/z_translation',
             ]
-            nxroot = nxcopy(data, exclude_nxpaths=exclude_items)
+            nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
             nxentry = nxroot[nxroot.attrs['default']]
 
         # Add the reduced data NXprocess
@@ -768,28 +774,15 @@ class Tomo:
 
         return nxroot
 
-    def find_centers(self, nxroot, center_rows=None, center_stack_index=None,
-            gaussian_sigma=None, ring_width=None):
+    def find_centers(self, nxroot, tool_config):
         """
         Find the calibrated center axis info
 
         :param nxroot: Data object containing the reduced data and
             metadata required to find the calibrated center axis info
         :type data: nexusformat.nexus.NXroot
-        :param center_rows: Lower and upper row indices for center
-            finding
-        :type center_rows: tuple(int, int), list[int], optional
-        :param center_stack_index: Stack index of the tomography set to
-            find the center axis.
-        :type center_stack_index: int, optional
-        :param gaussian_sigma: Standard deviation for the Gaussian
-            filter applied to image reconstruction visualizations,
-            defaults to no filtering performed.
-        :type gaussian_sigma: float, optional
-        :param ring_width: Maximum width of rings to be filtered in the
-            image reconstruction in pixels, defaults to no filtering
-            performed.
-        :type ring_width: float, optional
+        :param tool_config: Tool configuration
+        :type tool_config: CHAP.tomo.models.TomoFindCenterConfig
         :return: Calibrated center axis info
         :rtype: dict
         """
@@ -800,6 +793,9 @@ class Tomo:
         )
         from yaml import safe_dump
 
+        # Local modules
+        from CHAP.tomo.models import TomoFindCenterConfig
+
         self._logger.info('Find the calibrated center axis info')
 
         if not isinstance(nxroot, NXroot):
@@ -807,13 +803,11 @@ class Tomo:
         nxentry = nxroot[nxroot.attrs['default']]
         if not isinstance(nxentry, NXentry):
             raise ValueError(f'Invalid nxentry ({nxentry})')
-        if (center_rows is not None
-                and (not isinstance(center_rows, (tuple, list))
-                     or len(center_rows) != 2)):
-            raise ValueError(f'Invalid parameter center_rows ({center_rows})')
-        if (not self._interactive
-                and (center_rows is None
-                     or (center_rows[0] is None and center_rows[1] is None))):
+        if not isinstance(tool_config, TomoFindCenterConfig):
+            raise ValueError(f'Invalid parameter tool_config ({tool_config})')
+        center_rows = (tool_config.lower_row, tool_config.upper_row)
+        center_stack_index = tool_config.center_stack_index
+        if not self._interactive and center_rows == (None, None):
             self._logger.warning(
                 'center_rows unspecified, find centers at reduced data bounds')
         if (center_stack_index is not None
@@ -821,7 +815,7 @@ class Tomo:
                      or center_stack_index < 0)):
             raise ValueError(
                 'Invalid parameter center_stack_index '
-                + f'({center_stack_index})')
+                f'({center_stack_index})')
 
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
@@ -850,14 +844,14 @@ class Tomo:
                 if center_stack_index is None:
                     center_stack_index = input_int(
                         '\nEnter tomography stack index to calibrate the '
-                        + 'center axis', ge=0, lt=num_tomo_stacks,
+                        'center axis', ge=0, lt=num_tomo_stacks,
                         default=int(num_tomo_stacks/2))
             else:
                 if center_stack_index is None:
                     center_stack_index = int(num_tomo_stacks/2)
                     self._logger.warning(
                         'center_stack_index unspecified, use stack '
-                        + f'{center_stack_index} to find centers')
+                        f'{center_stack_index} to find centers')
             default = 'y'
 
         # Get thetas (in degrees)
@@ -909,7 +903,10 @@ class Tomo:
                 center_stack_index,:,lower_row,:],
             lower_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
-            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
+            search_range=tool_config.search_range,
+            search_step=tool_config.search_step,
+            gaussian_sigma=tool_config.gaussian_sigma,
+            ring_width=tool_config.ring_width)
         self._logger.info(f'Finding center took {time()-t0:.2f} seconds')
         self._logger.debug(f'lower_row = {lower_row:.2f}')
         self._logger.debug(f'lower_center_offset = {lower_center_offset:.2f}')
@@ -945,7 +942,10 @@ class Tomo:
                 center_stack_index,:,upper_row,:],
             upper_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
-            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
+            search_range=tool_config.search_range,
+            search_step=tool_config.search_step,
+            gaussian_sigma=tool_config.gaussian_sigma,
+            ring_width=tool_config.ring_width)
         self._logger.info(f'Finding center took {time()-t0:.2f} seconds')
         self._logger.debug(f'upper_row = {upper_row:.2f}')
         self._logger.debug(f'upper_center_offset = {upper_center_offset:.2f}')
@@ -967,10 +967,7 @@ class Tomo:
 
         return center_config
 
-    def reconstruct_data(
-            self, nxroot, center_info, x_bounds=None, y_bounds=None,
-            z_bounds=None, secondary_iters=0, remove_stripe_sigma=None,
-            ring_width=None):
+    def reconstruct_data(self, nxroot, center_info, tool_config):
         """
         Reconstruct the tomography data.
 
@@ -978,23 +975,8 @@ class Tomo:
         :type data: nexusformat.nexus.NXroot
         :param center_info: Calibrated center axis info
         :type center_info: dict
-        :param x_bounds: Reconstructed image bounds in the x-direction
-        :type x_bounds: tuple(int, int), list[int], optional
-        :param y_bounds: Reconstructed image bounds in the y-direction
-        :type y_bounds: tuple(int, int), list[int], optional
-        :param z_bounds: Reconstructed image bounds in the z-direction
-        :type z_bounds: tuple(int, int), list[int], optional
-        :param secondary_iters: Number of secondary iterations in the
-            tomopy image reconstruction algorithm, defaults to 0.
-        :type secondary_iters: int, optional
-        :param remove_stripe_sigma: Damping parameter in Fourier space
-            in tomopy's horizontal stripe removal tool, defaults to no
-            correction performed.
-        :type remove_stripe_sigma: float, optional
-        :param ring_width: Maximum width of rings to be filtered in the
-            image reconstruction in pixels, defaults to no filtering
-            performed.
-        :type ring_width: float, optional
+        :param tool_config: Tool configuration
+        :type tool_config: CHAP.tomo.models.TomoReconstructConfig
         :return: Reconstructed tomography data
         :rtype: nexusformat.nexus.NXroot
         """
@@ -1007,6 +989,7 @@ class Tomo:
         )
 
         # Local modules
+        from CHAP.tomo.models import TomoReconstructConfig
         from CHAP.utils.general import is_int_pair
 
         self._logger.info('Reconstruct the tomography data')
@@ -1018,18 +1001,8 @@ class Tomo:
             raise ValueError(f'Invalid nxentry ({nxentry})')
         if not isinstance(center_info, dict):
             raise ValueError(f'Invalid parameter center_info ({center_info})')
-        if x_bounds is not None:
-            if not isinstance(x_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            x_bounds = tuple(x_bounds)
-        if y_bounds is not None:
-            if not isinstance(y_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            y_bounds = tuple(y_bounds)
-        if z_bounds is not None:
-            if not isinstance(z_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
-            z_bounds = tuple(z_bounds)
+        if not isinstance(tool_config, TomoReconstructConfig):
+            raise ValueError(f'Invalid parameter tool_config ({tool_config})')
 
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
@@ -1048,7 +1021,7 @@ class Tomo:
                 or upper_row is None or upper_center_offset is None):
             raise KeyError(
                 'Unable to find valid calibrated center axis info in '
-                + f'{center_info}.')
+                f'{center_info}.')
         center_slope = (upper_center_offset-lower_center_offset) \
             / (upper_row-lower_row)
 
@@ -1074,12 +1047,12 @@ class Tomo:
             tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields[i])
             self._logger.info(
                 f'Reading reduced data stack {i} took {time()-t0:.2f} '
-                + 'seconds')
+                'seconds')
             if (len(tomo_stack.shape) != 3
                     or any(True for dim in tomo_stack.shape if not dim)):
                 raise RuntimeError(
                     f'Unable to load tomography stack {i} for '
-                    + 'reconstruction')
+                    'reconstruction')
             tomo_stack = np.swapaxes(tomo_stack, 0, 1)
             assert len(thetas) == tomo_stack.shape[1]
             assert 0 <= lower_row < upper_row < tomo_stack.shape[0]
@@ -1092,8 +1065,9 @@ class Tomo:
             tomo_recon_stack = self._reconstruct_one_tomo_stack(
                 tomo_stack, thetas, center_offsets=center_offsets,
                 num_core=self._num_core, algorithm='gridrec',
-                secondary_iters=secondary_iters,
-                remove_stripe_sigma=remove_stripe_sigma, ring_width=ring_width)
+                secondary_iters=tool_config.secondary_iters,
+                remove_stripe_sigma=tool_config.remove_stripe_sigma,
+                ring_width=tool_config.ring_width)
             self._logger.info(
                 f'Reconstruction of stack {i} took {time()-t0:.2f} seconds')
 
@@ -1108,15 +1082,17 @@ class Tomo:
             z_bounds = None
         elif self._interactive:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
-                tomo_recon_stacks, x_bounds=x_bounds, y_bounds=y_bounds,
-                z_bounds=z_bounds)
+                tomo_recon_stacks, x_bounds=tool_config.x_bounds,
+                y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
         else:
+            x_bounds = tool_config.x_bounds
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(x_bounds, ge=0,
                                  lt=tomo_recon_stacks[0].shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+            y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
@@ -1236,18 +1212,13 @@ class Tomo:
 
         return nxroot_copy
 
-    def combine_data(
-            self, nxroot, x_bounds=None, y_bounds=None, z_bounds=None):
+    def combine_data(self, nxroot, tool_config):
         """Combine the reconstructed tomography stacks.
 
         :param nxroot: A stack of reconstructed tomography datasets
         :type data: nexusformat.nexus.NXroot
-        :param x_bounds: Combined image bounds in the x-direction
-        :type x_bounds: tuple(int, int), list[int], optional
-        :param y_bounds: Combined image bounds in the y-direction
-        :type y_bounds: tuple(int, int), list[int], optional
-        :param z_bounds: Combined image bounds in the z-direction
-        :type z_bounds: tuple(int, int), list[int], optional
+        :param tool_config: Tool configuration
+        :type tool_config: CHAP.tomo.models.TomoCombineConfig
         :return: Combined reconstructed tomography data
         :rtype: nexusformat.nexus.NXroot
         """
@@ -1260,6 +1231,7 @@ class Tomo:
         )
 
         # Local modules
+        from CHAP.tomo.models import TomoCombineConfig
         from CHAP.utils.general import is_int_pair
 
         self._logger.info('Combine the reconstructed tomography stacks')
@@ -1269,18 +1241,8 @@ class Tomo:
         nxentry = nxroot[nxroot.attrs['default']]
         if not isinstance(nxentry, NXentry):
             raise ValueError(f'Invalid nxentry ({nxentry})')
-        if x_bounds is not None:
-            if not isinstance(x_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            x_bounds = tuple(x_bounds)
-        if y_bounds is not None:
-            if not isinstance(y_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            y_bounds = tuple(y_bounds)
-        if z_bounds is not None:
-            if not isinstance(z_bounds, (tuple, list)):
-                raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
-            z_bounds = tuple(z_bounds)
+        if not isinstance(tool_config, TomoCombineConfig):
+            raise ValueError(f'Invalid parameter tool_config ({tool_config})')
 
         # Check if reconstructed image data is available
         if ('reconstructed_data' not in nxentry
@@ -1332,12 +1294,14 @@ class Tomo:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, z_only=True)
         else:
+            x_bounds = tool_config.x_bounds
             if x_bounds is None:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(
                     x_bounds, ge=0, lt=tomo_recon_combined.shape[1]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+            y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
@@ -1683,7 +1647,7 @@ class Tomo:
             if self._interactive:
                 self._logger.warning(
                     f'Invalid parameter img_x_bounds ({img_x_bounds}), '
-                    + 'ignoring img_x_bounds')
+                    'ignoring img_x_bounds')
                 img_x_bounds = None
             else:
                 raise ValueError(
@@ -1738,7 +1702,7 @@ class Tomo:
                 if num_x_min > tbf_shape[0]:
                     self._logger.warning(
                         'Image bounds and pixel size prevent seamless '
-                        + 'stacking')
+                        'stacking')
                 if have_fit:
                     # Center the default range relative to the fitted
                     #     window
@@ -1801,7 +1765,7 @@ class Tomo:
             if self._interactive:
                 print(
                     'Select vertical data reduction range from first '
-                    + 'tomography image')
+                    'tomography image')
                 img_x_bounds = select_image_bounds(first_image, 0, title=title)
                 if img_x_bounds is None:
                     raise RuntimeError('Unable to select image bounds')
@@ -1809,7 +1773,7 @@ class Tomo:
                 if img_x_bounds is None:
                     self._logger.warning(
                         'img_x_bounds unspecified, reduce data for entire '
-                        + 'detector range')
+                        'detector range')
                     img_x_bounds = (0, first_image.shape[0])
 
         # Plot results
@@ -1887,7 +1851,7 @@ class Tomo:
 
 #        if input_yesno(
 #                '\nDo you want to zoom in to reduce memory '
-#                + 'requirement (y/n)?', 'n'):
+#                'requirement (y/n)?', 'n'):
 #            zoom_perc = input_int(
 #                '    Enter zoom percentage', ge=1, le=100)
 #        else:
@@ -1897,7 +1861,7 @@ class Tomo:
         if delta_theta is not None and not is_num(delta_theta, gt=0):
             self._logger.warning(
                 f'Invalid parameter delta_theta ({delta_theta}), '
-                + 'ignoring delta_theta')
+                'ignoring delta_theta')
             delta_theta = None
         if self._interactive:
             if delta_theta is None:
@@ -1906,7 +1870,7 @@ class Tomo:
             print(f'Current theta interval: {delta_theta}')
             if input_yesno(
                     'Do you want to change the theta interval to reduce the '
-                    + 'memory requirement (y/n)?', 'n'):
+                    'memory requirement (y/n)?', 'n'):
                 delta_theta = input_num(
                     '    Enter the desired theta interval',
                     ge=thetas[1]-thetas[0], lt=(thetas[-1]-thetas[0])/2)
@@ -1965,7 +1929,6 @@ class Tomo:
             image_mask = np.ones(len(thetas), dtype=bool)
         else:
             image_mask = np.asarray(image_mask)
-#        exit(f'image_mask {type(image_mask)} {len(image_mask)}: {image_mask}')
 
         # Get the tomography images
         image_key = nxentry.instrument.detector.get('image_key', None)
@@ -2013,6 +1976,7 @@ class Tomo:
             tomo_stacks = []
             horizontal_shifts = []
             vertical_shifts = []
+            theta_mask = np.ones(len(thetas), dtype=bool)
             for nxsubentry_name, nxsubentry in tomo_field_scans.items():
                 scan_number = int(nxsubentry_name.split('_')[-1])
                 scanparser = get_scanparser(
@@ -2023,15 +1987,33 @@ class Tomo:
                 n = 0
                 for i in range(image_mask.size):
                     if image_mask[i]:
-                        tomo_stack.append(
-                            scanparser.get_detector_data(
-                                detector_prefix, image_offset+n))
+                        detector_data = scanparser.get_detector_data(
+                            detector_prefix, image_offset+i)
+                        if detector_data is None:
+                            image_mask[i] = 0
+                            theta_mask[n] = 0
+                            tomo_stack.append(np.zeros(tbf_shape))
+                            self._logger.warning(
+                                f'{scanparser.scan_title}: could not find '
+                                f'detector image for scan step {i}')
+
+                        else:
+                            tomo_stack.append(detector_data)
                         n += 1
                 tomo_stacks.append(np.asarray(tomo_stack))
                 horizontal_shift = float(nxsubentry.sample.x_translation)
                 horizontal_shifts.append(horizontal_shift)
                 vertical_shift = float(nxsubentry.sample.z_translation)
                 vertical_shifts.append(vertical_shift)
+            if len(thetas) != image_mask.sum():
+                thetas = thetas[theta_mask]
+                reduced_data['rotation_angle'] = thetas
+                for i in range(len(tomo_stacks)):
+                    tomo_stacks[i] = tomo_stacks[i][theta_mask,:,:]
+#            print(f'\n\ntomo_stacks {type(tomo_stacks)}: {np.asarray(tomo_stacks).shape}')
+#            print(f'thetas {type(thetas)}: {thetas.shape}')
+#            print(f'theta_mask {type(theta_mask)}: {theta_mask.shape} {theta_mask.sum()}')
+#            print(f'image_mask: {image_mask.shape} {image_mask.sum()}')
 
         x_pixel_size = nxentry.instrument.detector.x_pixel_size
         y_pixel_size = nxentry.instrument.detector.y_pixel_size
@@ -2057,10 +2039,10 @@ class Tomo:
                 except TypeError as e:
                     sys_exit(
                         f'\nA {type(e).__name__} occured while subtracting '
-                        + 'the dark field with num_expr.evaluate()'
-                        + '\nTry reducing the detector range'
-                        + f'\n(currently img_x_bounds = {img_x_bounds}, and '
-                        + f'img_y_bounds = {img_y_bounds})\n')
+                        'the dark field with num_expr.evaluate()'
+                        '\nTry reducing the detector range'
+                        f'\n(currently img_x_bounds = {img_x_bounds}, and '
+                        f'img_y_bounds = {img_y_bounds})\n')
 
             # Normalize
             try:
@@ -2069,10 +2051,10 @@ class Tomo:
             except TypeError as e:
                 sys_exit(
                     f'\nA {type(e).__name__} occured while normalizing the '
-                    + 'tomography data with num_expr.evaluate()'
-                    + '\nTry reducing the detector range'
-                    + f'\n(currently img_x_bounds = {img_x_bounds}, and '
-                    + f'img_y_bounds = {img_y_bounds})\n')
+                    'tomography data with num_expr.evaluate()'
+                    '\nTry reducing the detector range'
+                    f'\n(currently img_x_bounds = {img_x_bounds}, and '
+                    f'img_y_bounds = {img_y_bounds})\n')
 
             # Remove non-positive values and linearize data
             # RV make input argument? cutoff = 1.e-6
@@ -2093,7 +2075,7 @@ class Tomo:
                     title = f'red fullres theta {round(thetas[0], 2)+0}'
                 else:
                     title = f'red stack {i} fullres theta ' \
-                        + f'{round(thetas[0], 2)+0}'
+                        f'{round(thetas[0], 2)+0}'
                 extent = (
                     0,
                     float(y_pixel_size*tomo_stack.shape[2]),
@@ -2118,7 +2100,7 @@ class Tomo:
                 del tomo_zoom_list
                 if not self._test_mode:
                     title = f'red stack {zoom_perc}p theta ' \
-                        + f'{round(thetas[0], 2)+0}'
+                        f'{round(thetas[0], 2)+0}'
                     quick_imshow(
                         tomo_stack[0,:,:], title=title,
                         path=self._output_folder, save_fig=self._save_figs,
@@ -2149,11 +2131,16 @@ class Tomo:
 
     def _find_center_one_plane(
             self, sinogram, row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=None, num_core=1, gaussian_sigma=None, ring_width=None):
+            path=None, num_core=1, search_range=None, search_step=None,
+            gaussian_sigma=None, ring_width=None):
         """Find center for a single tomography plane."""
         # Third party modules
         from tomopy import find_center_vo
 
+        if not gaussian_sigma:
+            gaussian_sigma = None
+        if not ring_width:
+            ring_width = None
         # Try automatic center finding routines for initial value
         # sinogram index order: theta,column
         # need column,theta for iradon, so take transpose
@@ -2178,19 +2165,20 @@ class Tomo:
             tomo_center = find_center_vo(sinogram, ncore=num_core)
         self._logger.info(
             f'Finding center using Nghia Vo’s method took {time()-t0:.2f} '
-            + 'seconds')
-        center_offset_vo = tomo_center-center
+            'seconds')
+        center_offset_vo = float(tomo_center-center)
         self._logger.info(
             f'Center at row {row} using Nghia Vo’s method = '
-            + f'{center_offset_vo:.2f}')
-        t0 = time()
-        recon_plane = self._reconstruct_one_plane(
-            sinogram_t, tomo_center, thetas, eff_pixel_size,
-            cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
-        self._logger.info(
-            f'Reconstructing row {row} took {time()-t0:.2f} seconds')
+            f'{center_offset_vo:.2f}')
 
         if self._save_figs:
+            t0 = time()
+            recon_plane = self._reconstruct_one_plane(
+                sinogram_t, tomo_center, thetas, eff_pixel_size,
+                cross_sectional_dim, False, num_core, gaussian_sigma,
+                ring_width)
+            self._logger.info(
+                f'Reconstructing row {row} took {time()-t0:.2f} seconds')
             title = f'edges row{row} center offset{center_offset_vo:.2f} Vo'
             self._plot_edges_one_plane(recon_plane, title, path=path)
 
@@ -2209,11 +2197,11 @@ class Tomo:
 #                error = np.abs(tomo_center-prev)
 #            self._logger.info(
 #                'Finding center using the phase correlation method '
-#                + f'took {time()-t0:.2f} seconds')
+#                f'took {time()-t0:.2f} seconds')
 #            center_offset = tomo_center-center
 #            print(
 #                f'Center at row {row} using phase correlation = '
-#                + f'{center_offset:.2f}')
+#                f'{center_offset:.2f}')
 #            t0 = time()
 #            recon_plane = self._reconstruct_one_plane(
 #                sinogram_t, tomo_center, thetas, eff_pixel_size,
@@ -2225,51 +2213,95 @@ class Tomo:
 #                f'edges row{row} center_offset{center_offset:.2f} PC'
 #            self._plot_edges_one_plane(recon_plane, title, path=path)
 
-        # Select center location
-#        if input_yesno(
-#            'Accept a center location (y) or continue search (n)?',
-#            'y'):
-#            center_offset = input_num('    Enter chosen center offset',
-#                    ge=-center, le=center, default=center_offset_vo)
-#            return float(center_offset)
-
         # Perform center finding search
-#        while True:
-#            center_offset_low = input_int(
-#                '\nEnter lower bound for center offset', ge=-center,le=center)
-#            center_offset_upp = input_int(
-#                'Enter upper bound for center offset', ge=center_offset_low,
-#                le=center)
-#            if center_offset_upp == center_offset_low:
-#                center_offset_step = 1
-#            else:
-#                center_offset_step = input_int(
-#                    'Enter step size for center offset search', ge=1,
-#                        le=center_offset_upp-center_offset_low)
-#            num_center_offset = 1 + int(
-#                (center_offset_upp-center_offset_low) / center_offset_step)
-#            center_offsets = np.linspace(
-#                center_offset_low, center_offset_upp, num_center_offset)
-#            for center_offset in center_offsets:
-#                if center_offset == center_offset_vo:
-#                    continue
-#                t0 = time()
-#                recon_plane = self._reconstruct_one_plane(
-#                    sinogram_t, center_offset+center, thetas, eff_pixel_size,
-#                    cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
-#                self._logger.info(
-#                    f'Reconstructing center_offset {center_offset} took '
-#                    + 'f{time()-t0:.2f} seconds')
-#                title = f'edges row{row} center_offset{center_offset:.2f}'
-#                self._plot_edges_one_plane(recon_plane, title, path=path)
-#            if input_int('\nContinue (0) or end the search (1)', ge=0, le=1):
-#                break
+        if self._interactive:
+            print(
+                f'Center at row {row} using Nghia Vo’s method = '
+                f'{center_offset_vo:.2f}')
+            accept_vo = input_yesno(
+                '\nAccept this center location (y) or perform a search (n)?',
+                'y')
+        elif search_range is not None or search_step is not None:
+            accept_vo = False
+        else:
+            accept_vo = True
+        while not accept_vo:
+            if search_range is None:
+                if search_step is None:
+                    center_offset_low = max(-center, center_offset_vo-10)
+                    center_offset_upp = min(center, center_offset_vo+10)
+                else:
+                    center_offset_low = max(
+                        -center, center_offset_vo-search_step)
+                    center_offset_upp = min(
+                        center, center_offset_vo+search_step)
+            else:
+                center_offset_low = max(-center, center_offset_vo-search_range)
+                center_offset_upp = min(center, center_offset_vo+search_range)
+            if search_step is None:
+                center_offset_step = center_offset_upp-center_offset_vo
+            else:
+                center_offset_step = min(
+                    search_step, center_offset_upp-center_offset_vo)
+            if self._interactive:
+                center_offset_low = input_num(
+                    '\nEnter lower bound for center offset', ge=-int(center),
+                    le=int(center), default=center_offset_low)
+                center_offset_upp = input_num(
+                    'Enter upper bound for center offset',
+                    ge=center_offset_low, le=int(center),
+                    default=center_offset_upp)
+                if search_step is None:
+                    center_offset_step = 1
+                else:
+                    center_offset_step = min(search_range, search_step)
+                if center_offset_upp == center_offset_low:
+                    center_offset_step = 1
+                else:
+                    center_offset_step = input_num(
+                        'Enter step size for center offset search',
+                        ge=1, le=center_offset_upp-center_offset_low,
+                        default=center_offset_step)
+            num_center_offset = 1 + int(
+                (center_offset_upp-center_offset_low) / center_offset_step)
+            center_offsets = np.linspace(
+                center_offset_low, center_offset_upp, num_center_offset)
+            if self._interactive:
+                save_figs = self._save_figs
+                save_only = False
+            else:
+                save_figs = True
+                save_only = True
+            for center_offset in center_offsets:
+                if (not self._interactive and center_offset == center_offset_vo
+                        and self._save_figs):
+                    continue
+                t0 = time()
+                recon_plane = self._reconstruct_one_plane(
+                    sinogram_t, center_offset+center, thetas, eff_pixel_size,
+                    cross_sectional_dim, False, num_core, gaussian_sigma,
+                    ring_width)
+                self._logger.info(
+                    f'Reconstructing center_offset {center_offset} took '
+                    'f{time()-t0:.2f} seconds')
+                title = f'edges row{row} center_offset{center_offset:.2f}'
+                self._plot_edges_one_plane(
+                    recon_plane, title, path=path, save_figs=save_figs,
+                    save_only=save_only)
+            if (not self._interactive
+                    or input_yesno('\nEnd the search (y/n)?', 'y')):
+                break
+
+        # Select center location
+        if not accept_vo and self._interactive:
+            center_offset = input_num(
+                '    Enter chosen center offset', ge=-center, le=center,
+                default=center_offset_vo)
+        else:
+            center_offset = center_offset_vo
 
         del sinogram_t
         del recon_plane
-#        center_offset = input_num(
-#            '    Enter chosen center offset', ge=-center, le=center)
-        center_offset = center_offset_vo
 
         return float(center_offset)
 
@@ -2297,13 +2329,13 @@ class Tomo:
         if two_offset >= 0:
             self._logger.debug(
                 f'sinogram range = [{two_offset+dist_from_edge}, '
-                + f'{-dist_from_edge}]')
+                f'{-dist_from_edge}]')
             sinogram = tomo_plane_t[
                 two_offset+dist_from_edge:-dist_from_edge,:]
         else:
             self._logger.debug(
                 f'sinogram range = [{dist_from_edge}, '
-                + f'{two_offset-dist_from_edge}]')
+                f'{two_offset-dist_from_edge}]')
             sinogram = tomo_plane_t[dist_from_edge:two_offset-dist_from_edge,:]
         if plot_sinogram:
             quick_imshow(
@@ -2319,18 +2351,20 @@ class Tomo:
         del sinogram
 
         # Performing Gaussian filtering and removing ring artifacts
-        if gaussian_sigma is not None:
+        if gaussian_sigma is not None and gaussian_sigma:
             recon_sinogram = gaussian_filter(
                 recon_sinogram, gaussian_sigma, mode='nearest')
         recon_clean = np.expand_dims(recon_sinogram, axis=0)
         del recon_sinogram
-        if ring_width is not None:
+        if ring_width is not None and ring_width:
             recon_clean = misc.corr.remove_ring(
                 recon_clean, rwidth=ring_width, ncore=num_core)
 
         return recon_clean
 
-    def _plot_edges_one_plane(self, recon_plane, title, path=None):
+    def _plot_edges_one_plane(
+            self, recon_plane, title, path=None, save_figs=None,
+            save_only=None):
         """
         Create an "edges plot" for a singled reconstructed tomography
         data plane.
@@ -2338,6 +2372,10 @@ class Tomo:
         # Third party modules
         from skimage.restoration import denoise_tv_chambolle
 
+        if save_figs is None:
+            save_figs = self._save_figs
+        if save_only is None:
+            save_only = self._save_only
         vis_parameters = None  # self._config.get('vis_parameters')
         if vis_parameters is None:
             weight = 0.1
@@ -2346,7 +2384,7 @@ class Tomo:
             if not is_num(weight, ge=0.):
                 self._logger.warning(
                     f'Invalid weight ({weight}) in _plot_edges_one_plane, '
-                    + 'set to a default of 0.1')
+                    'set to a default of 0.1')
                 weight = 0.1
         edges = denoise_tv_chambolle(recon_plane, weight=weight)
         vmax = np.max(edges[0,:,:])
@@ -2355,11 +2393,10 @@ class Tomo:
             path = self._output_folder
         quick_imshow(
             edges[0,:,:], f'{title} coolwarm', path=path, cmap='coolwarm',
-            save_fig=self._save_figs, save_only=self._save_only,
-            block=self._block)
+            save_fig=save_figs, save_only=save_only, block=self._block)
         quick_imshow(
             edges[0,:,:], f'{title} gray', path=path, cmap='gray', vmin=vmin,
-            vmax=vmax, save_fig=self._save_figs, save_only=self._save_only,
+            vmax=vmax, save_fig=save_figs, save_only=save_only,
             block=self._block)
         del edges
 
@@ -2395,12 +2432,30 @@ class Tomo:
             if center_offsets.size != tomo_stack.shape[0]:
                 raise RuntimeError(
                     'center_offsets dimension mismatch in '
-                    + 'reconstruct_one_tomo_stack')
+                    'reconstruct_one_tomo_stack')
             centers = center_offsets
         centers += tomo_stack.shape[2]/2
 
+#        tomo_recon_stack = []
+#        eff_pixel_size = 0.05
+#        cross_sectional_dim = 20.0 
+#        gaussian_sigma = 0.05
+#        ring_width = 1
+#        for i in range(tomo_stack.shape[0]):
+#            sinogram_t = tomo_stack[i,:,:].T
+#            recon_plane = self._reconstruct_one_plane(
+#                sinogram_t, centers[i], thetas, eff_pixel_size,
+#                cross_sectional_dim, False, num_core, gaussian_sigma,
+#                ring_width)
+#            tomo_recon_stack.append(recon_plane[0,:,:])
+#        tomo_recon_stack = np.asarray(tomo_recon_stack)
+#        return tomo_recon_stack
+
         # Remove horizontal stripe
-        if remove_stripe_sigma is not None:
+        # RV prep.stripe.remove_stripe_fw seems flawed for hollow brick
+        #     accross multiple stacks
+        if remove_stripe_sigma is not None and remove_stripe_sigma:
+            self._logger.warning('Ignoring remove_stripe_sigma')
             if num_core > NUM_CORE_TOMOPY_LIMIT:
                 tomo_stack = prep.stripe.remove_stripe_fw(
                     tomo_stack, sigma=remove_stripe_sigma,
@@ -2417,7 +2472,7 @@ class Tomo:
             algorithm=algorithm, ncore=num_core)
         self._logger.info(
             f'Performing initial image reconstruction took {time()-t0:.2f} '
-            + 'seconds')
+            'seconds')
 
         # Run optional secondary iterations
         if secondary_iters > 0:
@@ -2456,10 +2511,10 @@ class Tomo:
                 sinogram_order=True, algorithm=astra, ncore=num_core)
             self._logger.info(
                 f'Performing secondary iterations took {time()-t0:.2f} '
-                + 'seconds')
+                'seconds')
 
         # Remove ring artifacts
-        if ring_width is not None:
+        if ring_width is not None and ring_width:
             misc.corr.remove_ring(
                 tomo_recon_stack, rwidth=ring_width, out=tomo_recon_stack,
                 ncore=num_core)
@@ -2592,7 +2647,7 @@ class TomoSimFieldProcessor(Processor):
         )
 
         # Get and validate the relevant configuration object in data
-        config = self.get_configs(data)
+        config = self.get_config(data, 'tomo.models.TomoSimConfig')
 
         station = config.station
         sample_type = config.sample_type
@@ -2768,34 +2823,6 @@ class TomoSimFieldProcessor(Processor):
 
         return nxroot
 
-    def get_configs(self, data):
-        """
-        Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimConfig'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of the configuration object with field
-            values taken from `data`.
-        :rtype: TomoSimConfig
-        """
-        # Local modules
-        from CHAP.tomo.models import TomoSimConfig
-
-        tomo_sim_data = None
-        if isinstance(data, list):
-            for item in data:
-                if (isinstance(item, dict) and item.get('data') is not None
-                        and item.get('schema') == 'TomoSimConfig'):
-                    tomo_sim_data = item.get('data')
-        if tomo_sim_data is None:
-            raise ValueError(f'Invalid parameter data ({data})')
-
-        return TomoSimConfig(**tomo_sim_data)
-
     def _create_pathlength_solid_square(self, dim, thetas, pixel_size,
             detector_size):
         """
@@ -2867,8 +2894,8 @@ class TomoDarkFieldProcessor(Processor):
             NXdetector,
         )
 
-        # Get the TomoSimField configuration object in data
-        nxroot = self.get_config(data)
+        # Get and validate the TomoSimField configuration object in data
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         background_intensity = source.background_intensity
@@ -2903,32 +2930,6 @@ class TomoDarkFieldProcessor(Processor):
 
         return nxdark
 
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: nexusformat.nexus.NXroot
-        """
-        nxroot = None
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'TomoSimField':
-                        nxroot = item.get('data')
-                        break
-        if nxroot is None:
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return nxroot
-
 
 class TomoBrightFieldProcessor(Processor):
     """
@@ -2959,7 +2960,7 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = self.get_config(data)
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         beam_intensity = source.beam_intensity
@@ -3004,32 +3005,6 @@ class TomoBrightFieldProcessor(Processor):
 
         return nxbright
 
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If a valid config object cannot be
-            constructed from `data`.
-        :return: Valid instance of a configuration object with field
-            values taken from `data`.
-        :rtype: nexusformat.nexus.NXroot
-        """
-        nxroot = None
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'TomoSimField':
-                        nxroot = item.get('data')
-                        break
-        if nxroot is None:
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return nxroot
-
 
 class TomoSpecProcessor(Processor):
     """
@@ -3061,8 +3036,23 @@ class TomoSpecProcessor(Processor):
 
         # Get and validate the TomoSimField, TomoDarkField, or
         #     TomoBrightField configuration object in data
+        configs = {}
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoDarkField')
+            configs['tomo.models.TomoDarkField'] = nxroot
+        except:
+            pass
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoBrightField')
+            configs['tomo.models.TomoBrightField'] = nxroot
+        except:
+            pass
+        try:
+            nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+            configs['tomo.models.TomoSimField'] = nxroot
+        except:
+            pass
         scan_numbers = list(set(scan_numbers))
-        configs = self.get_config(data)
         station = None
         sample_type = None
         num_scan = 0
@@ -3135,21 +3125,21 @@ class TomoSpecProcessor(Processor):
             frame_start_number = int(detector.frame_start_number)
             thetas = np.asarray(detector.thetas)[frame_start_number:]
             num_theta = thetas.size
-            if schema == 'TomoDarkField':
+            if schema == 'tomo.models.TomoDarkField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time} darkfield'
                     scan_type = 'df1'
                 else:
                     macro = f'flyscan {num_theta} {count_time}'
-            elif schema == 'TomoBrightField':
+            elif schema == 'tomo.models.TomoBrightField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time}'
                     scan_type = 'bf1'
                 else:
                     macro = f'flyscan {num_theta} {count_time}'
-            elif schema == 'TomoSimField':
+            elif schema == 'tomo.models.TomoSimField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
                         f'{num_theta} {count_time}'
@@ -3187,11 +3177,12 @@ class TomoSpecProcessor(Processor):
                 else:
                     spec_file.append(f'#P0 0.0 {z_translation} 0.0')
                     spec_file.append('#N 1')
-                    if schema in ('TomoDarkField', 'TomoBrightField'):
+                    if schema in ('tomo.models.TomoDarkField',
+                                  'tomo.models.TomoBrightField'):
                         spec_file.append('#L Time')
                         spec_file += [str(count_time*time)
                             for time in range(num_theta)]
-                    elif schema == 'TomoSimField':
+                    elif schema == 'tomo.models.TomoSimField':
                         spec_file.append('#L GI_samphi')
                         spec_file += [str(theta) for theta in thetas]
                 spec_file.append('')
@@ -3242,38 +3233,6 @@ class TomoSpecProcessor(Processor):
                 self._write_tiffs(image_set, image_folder)
 
         return spec_file
-
-    def get_config(self, data):
-        """Get an instance of the configuration object needed by this
-        `Processor` from a list of `PipelineData` objects.
-
-        :param data: Input list of `PipelineData` objects, where at
-            least one item has `'TomoDarkField'` for the `'schema'` key,
-            one item has `'TomoBrightField'` for the `'schema'` key, and
-            one item has `'TomoSimField'` for the `'schema'` key.
-        :type data: list[PipelineData]
-        :raises ValueError: If valid config objects cannot be
-            constructed from `data`.
-        :return: Valid instances of configuration objects with field
-            values taken from `data`.
-        :rtype: dict
-        """
-        configs = {}
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'TomoDarkField':
-                        configs[schema] = item.get('data')
-                    elif schema == 'TomoBrightField':
-                        configs[schema] = item.get('data')
-                    elif schema == 'TomoSimField':
-                        configs[schema] = item.get('data')
-        if not len(configs):
-            raise ValueError(
-                'No tomography data set found in input data')
-
-        return configs
 
     def _write_tiffs(self, data, image_folder):
         """Write a set of images to individual tiff files."""
