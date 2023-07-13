@@ -103,8 +103,8 @@ class MapReader(Reader):
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
         # Fill in the empty NXfields with maps of raw scan data
-        for map_index in np.ndindex(map_config.shape):
-            for data in map_config.all_scalar_data:
+        for data in map_config.all_scalar_data:
+            for map_index in np.ndindex(map_config.shape):
                 nxentry.data[data.label][map_index] = map_config.get_value(
                     data, map_index)
 

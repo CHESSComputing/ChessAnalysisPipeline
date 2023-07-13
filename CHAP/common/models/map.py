@@ -404,6 +404,43 @@ def validate_data_source_for_map_config(data_source, values):
     return data_source
 
 
+class IndependentDimension(PointByPointScanData):
+    """Class representing the source of data to identify the
+    coordinate values along one dimension of a `MapConfig`
+
+    :ivar label: A user-defined label for referring to this data in
+        the NeXus file and in other tools.
+    :type label: str
+    :ivar units: The units in which the data were recorded.
+    :type units: str
+    :ivar data_type: Represents how these data were recorded at time
+        of data collection.
+    :type data_type: Literal['spec_motor', 'scan_column', 'smb_par']
+    :ivar name: Represents the name with which these raw data were
+        recorded at time of data collection.
+    :type name: str
+    :param start: Sarting index for slicing all datasets of a
+        `MapConfig` along this axis, defaults to 0
+    :type start: int, optional
+    :param end: Ending index for slicing all datasets of a `MapConfig`
+        along this axis, defaults to the total number of unique values
+        along this axis in the associated `MapConfig`
+    :type end: int, optional
+    :param step: Step for slicing all datasets of a `MapConfig` along
+        this axis, defaults to 1
+    :type step: int, optional
+    """
+    start: Optional[int] = 0
+    end: Optional[int] = None
+    step: Optional[int] = 1
+
+    @validator('step')
+    def validate_step(cls, value):
+        if value == 0 :
+            raise ValueError('slice step cannot be zero')
+        return value
+
+
 class CorrectionsData(PointByPointScanData):
     """Class representing the special instances of
     `PointByPointScanData` that are used by certain kinds of
@@ -538,7 +575,7 @@ class MapConfig(BaseModel):
     experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
-    independent_dimensions: conlist(item_type=PointByPointScanData,
+    independent_dimensions: conlist(item_type=IndependentDimension,
                                     min_items=1)
     presample_intensity: Optional[PresampleIntensity]
     dwell_time_actual: Optional[DwellTimeActual]
@@ -597,19 +634,19 @@ class MapConfig(BaseModel):
             coords = self._coords
         except:
             coords = {}
-            for independent_dimension in self.independent_dimensions:
-                coords[independent_dimension.label] = []
+            for dim in self.independent_dimensions:
+                coords[dim.label] = []
                 for scans in self.spec_scans:
                     for scan_number in scans.scan_numbers:
                         scanparser = scans.get_scanparser(scan_number)
-                        for scan_step_index in range(
-                                scanparser.spec_scan_npts):
-                            coords[independent_dimension.label].append(
-                                independent_dimension.get_value(
+                        for scan_step_index in range(scanparser.spec_scan_npts):
+                            coords[dim.label].append(dim.get_value(
                                     scans, scan_number, scan_step_index))
-                coords[independent_dimension.label] = np.unique(
-                    coords[independent_dimension.label])
-                self._coords = coords
+                coords[dim.label] = np.unique(coords[dim.label])
+                if dim.end is None:
+                    dim.end = len(coords[dim.label])
+                coords[dim.label] = coords[dim.label][slice(dim.start, dim.end, dim.step)]
+            self._coords = coords
         return coords
 
     @property
