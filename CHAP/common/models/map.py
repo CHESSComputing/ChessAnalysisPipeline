@@ -642,6 +642,42 @@ class MapConfig(BaseModel):
                 for label in CorrectionsData.reserved_labels()
                 if getattr(self, label, None) is not None] + self.scalar_data
 
+    def get_scan_step_index(self, map_index):
+        """Return parameters to identify a single spec scan step that
+        corresponds to the map point at the index provided.
+
+        :param map_index: The index of a map point to identify as a
+            specific spec scan step index
+        :type map_index: tuple
+        :return: A `SpecScans` configuration, scan number, and scan
+            step index
+        :rtype: tuple[SpecScans, int, int]
+        """
+        coords = {dim: self.coords[dim][i] for dim,i in zip(self.dims, map_index)}
+        for scans in self.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    _coords = {dim.label:
+                               dim.get_value(scans, scan_number, scan_step_index) \
+                               for dim in self.independent_dimensions}
+                    if _coords == coords:
+                        return scans, scan_number, scan_step_index
+
+    def get_value(self, data, map_index):
+        """Return the raw data collected by a single device at a
+        single point in the map.
+
+        :param data: The device configuration to return a value of raw
+            data for
+        :type data: PointByPointScanData
+        :param map_index: The map index to return raw data for
+        :type map_index: tuple
+        :return: Raw data value
+        """
+        scans, scan_number, scan_step_index = self.get_scan_step_index(map_index)
+        return data.get_value(scans, scan_number, scan_step_index)
+
 
 def import_scanparser(station, experiment):
     """Given the name of a CHESS station and experiment type, import
