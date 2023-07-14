@@ -345,19 +345,20 @@ class MapProcessor(Processor):
             nxentry.data.attrs['signal'] = signal
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    map_index = scans.get_index(
-                        scan_number,
-                        scan_step_index,
-                        map_config)
-                    for data in map_config.all_scalar_data:
-                        nxentry.data[data.label][map_index] = data.get_value(
-                            scans,
+        if len(map_config.all_scalar_data):
+            for scans in map_config.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        map_index = scans.get_index(
                             scan_number,
-                            scan_step_index)
+                            scan_step_index,
+                            map_config)
+                        for data in map_config.all_scalar_data:
+                            nxentry.data[data.label][map_index] = data.get_value(
+                                scans,
+                                scan_number,
+                                scan_step_index)
 
         return nxentry
 

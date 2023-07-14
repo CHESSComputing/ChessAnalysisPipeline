@@ -269,7 +269,7 @@ class PointByPointScanData(BaseModel):
                             f'in spec file {scans.spec_file}')
 
     def get_value(self, spec_scans:SpecScans,
-                  scan_number:int, scan_step_index:int):
+                  scan_number:int, scan_step_index:int=0):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -323,7 +323,8 @@ def get_spec_motor_value(spec_file:str, scan_number:int,
     :rtype: float
     """
     scanparser = get_scanparser(spec_file, scan_number)
-    if spec_mnemonic in scanparser.spec_scan_motor_mnes:
+    if (hasattr(scanparser, 'spec_scan_motor_mnes')
+            and spec_mnemonic in scanparser.spec_scan_motor_mnes):
         motor_i = scanparser.spec_scan_motor_mnes.index(spec_mnemonic)
         if scan_step_index >= 0:
             scan_step = np.unravel_index(
