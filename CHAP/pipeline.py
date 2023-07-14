@@ -142,7 +142,7 @@ class PipelineItem():
         if hasattr(self, 'read'):
             method_name = 'read'
             inputdir = kwargs.get('inputdir')
-            if inputdir is not None:
+            if inputdir is not None and 'filename' in kwargs:
                 kwargs['filename'] = os.path.join(inputdir,
                                                   kwargs['filename'])
         elif hasattr(self, 'process'):
@@ -150,7 +150,7 @@ class PipelineItem():
         elif hasattr(self, 'write'):
             method_name = 'write'
             outputdir = kwargs.get('outputdir')
-            if outputdir is not None:
+            if outputdir is not None and 'filename' in kwargs:
                 kwargs['filename'] = os.path.join(outputdir,
                                                   kwargs['filename'])
 
