@@ -231,27 +231,23 @@ class IntegrateMapProcessor(Processor):
         integration_processor.logger.setLevel(self.logger.getEffectiveLevel())
         for handler in self.logger.handlers:
             integration_processor.logger.addHandler(handler)
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    map_index = scans.get_index(
-                        scan_number,
-                        scan_step_index,
-                        map_config)
-                    detector_data = scans.get_detector_data(
-                        integration_config.detectors,
-                        scan_number,
-                        scan_step_index)
-                    result = integration_processor.process(
-                        (detector_data,
-                         integration_method, integration_kwargs))
-                    nxprocess.data.I[map_index] = result.intensity
+        for map_index in np.ndindex(map_config.shape):
+            scans, scan_number, scan_step_index = \
+                map_config.get_scan_step_index(map_index)
+            detector_data = scans.get_detector_data(
+                integration_config.detectors,
+                scan_number,
+                scan_step_index)
+            result = integration_processor.process(
+                (detector_data,
+                 integration_method, integration_kwargs))
+            nxprocess.data.I[map_index] = result.intensity
 
-                    for detector in integration_config.detectors:
-                        nxprocess[detector.prefix].raw_data_files[map_index] =\
-                            scanparser.get_detector_data_file(
-                                detector.prefix, scan_step_index)
+            scanparser = scans.get_scanparser(scan_number)
+            for detector in integration_config.detectors:
+                nxprocess[detector.prefix].raw_data_files[map_index] =\
+                    scanparser.get_detector_data_file(
+                        detector.prefix, scan_step_index)
 
         self.logger.debug(f'Constructed NXprocess in {time()-t0:.3f} seconds')
 
@@ -345,20 +341,10 @@ class MapProcessor(Processor):
             nxentry.data.attrs['signal'] = signal
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
-        if len(map_config.all_scalar_data):
-            for scans in map_config.spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(scanparser.spec_scan_npts):
-                        map_index = scans.get_index(
-                            scan_number,
-                            scan_step_index,
-                            map_config)
-                        for data in map_config.all_scalar_data:
-                            nxentry.data[data.label][map_index] = data.get_value(
-                                scans,
-                                scan_number,
-                                scan_step_index)
+        for data in map_config.all_scalar_data:
+            for map_index in np.ndindex(map_config.shape):
+                nxentry.data[data.label][map_index] = map_config.get_value(
+                    data, map_index)
 
         return nxentry
 
@@ -584,19 +570,15 @@ class RawDetectorDataMapProcessor(Processor):
         for i, det_axis_size in enumerate(detector_shape):
             nxdata[f'detector_axis_{i}_index'] = np.arange(det_axis_size)
 
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    map_index = scans.get_index(
-                        scan_number,
-                        scan_step_index,
-                        map_config)
-                    self.logger.debug(
-                        f'Adding data to nxroot for map point {map_index}')
-                    nxdata.raw[map_index] = scanparser.get_detector_data(
-                        detector_name,
-                        scan_step_index)
+        for map_index in np.ndindex(map_config.shape):
+            scans, scan_number, scan_step_index = \
+                map_config.get_scan_step_index(map_index)
+            scanparser = scans.get_scanparser(scan_number)
+            self.logger.debug(
+                f'Adding data to nxroot for map point {map_index}')
+            nxdata.raw[map_index] = scanparser.get_detector_data(
+                detector_name,
+                scan_step_index)
 
         nxentry.data.makelink(
             nxdata.raw,
