@@ -31,7 +31,7 @@ class BinaryFileReader(Reader):
 
 class MapReader(Reader):
     """Reader for CHESS sample maps"""
-    def read(self, map_config):
+    def read(self, map_config, detector_names=[]):
         """Take a map configuration dictionary and return a
         representation of the map as an NXentry. The NXentry's default
         data group will contain the raw data collected over the course
@@ -40,6 +40,9 @@ class MapReader(Reader):
         :param map_config: map configurationto be passed directly to
             the constructor of `CHAP.common.models.map.MapConfig`
         :type map_config: dict
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NXentry
+        :type detector_names: list[str]
         :return: Data from the map configuration provided
         :rtype: nexusformat.nexus.NXentry
         """
@@ -102,11 +105,25 @@ class MapReader(Reader):
             nxentry.data.attrs['signal'] = signal
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
-        # Fill in the empty NXfields with maps of raw scan data
-        for data in map_config.all_scalar_data:
-            for map_index in np.ndindex(map_config.shape):
-                nxentry.data[data.label][map_index] = map_config.get_value(
-                    data, map_index)
+        # Fill in maps of raw data
+        if len(map_config.all_scalar_data) > 0 or len(detector_names) > 0:
+            for i, map_index in enumerate(np.ndindex(map_config.shape)):
+                if i == 0:
+                    # Create empty NXfields of appropriate shapes for
+                    # raw detector data
+                    for detector_name in detector_names:
+                        detector_data = map_config.get_detector_data(
+                            detector_name, (0,) * len(map_config.shape))
+                        detector_shape = detector_data.shape
+                        nxentry.data[detector_name] = NXfield(
+                            value=np.empty((*map_config.shape, *detector_shape)))
+                        nxentry.data[detector_name][map_index] = detector_data
+                for detector_name in detector_names:
+                    nxentry.data[detector_name][map_index] = map_config.get_detector_data(
+                        detector_name, map_index)
+                for data in map_config.all_scalar_data:
+                    nxentry.data[data.label][map_index] = map_config.get_value(
+                        data, map_index)
 
         return nxentry
 

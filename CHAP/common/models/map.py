@@ -715,6 +715,21 @@ class MapConfig(BaseModel):
         scans, scan_number, scan_step_index = self.get_scan_step_index(map_index)
         return data.get_value(scans, scan_number, scan_step_index)
 
+    def get_detector_data(self, detector_name, map_index):
+        """Return detector data collected by this map.
+
+        :param detector_name: Name of the detector for which to return
+            data. Usually the value of the detector's EPICS
+            areaDetector prefix macro, $P.
+        :type detector_name: str
+        :param map_index: The map index to return detector data for.
+        :return: One frame of raw detector data
+        :rtype: np.ndarray
+        """
+        scans, scan_number, scan_step_index = self.get_scan_step_index(map_index)
+        scanparser = scans.get_scanparser(scan_number)
+        return scanparser.get_detector_data(detector_name, scan_step_index)
+
 
 def import_scanparser(station, experiment):
     """Given the name of a CHESS station and experiment type, import
