@@ -20,8 +20,8 @@ class RunConfig():
             'profile': False,
             'interactive': False,
             'log_level': 'INFO',
-            'inputdir': os.getcwd(),
-            'outputdir': os.getcwd()}
+            'inputdir': '.',
+            'outputdir': '.'}
 
     def __init__(self, config={}):
         """RunConfig constructor
@@ -29,13 +29,40 @@ class RunConfig():
         :param config: Pipeline configuration options
         :type config: dict
         """
+        # System modules
+        from tempfile import NamedTemporaryFile
+
         for opt in self.opts:
             setattr(self, opt, config.get(opt, self.opts[opt]))
 
+        # Check if root exists (create it if not) and is readable
+        if not os.path.isdir(self.root):
+            os.mkdir(self.root)
+        if not os.access(self.root, os.R_OK):
+            raise OSError('root directory is not accessible for reading '
+                          f'({self.root})')
+
+        # Check if input exists and is readable
         if not os.path.isabs(self.inputdir):
-            self.inputdir = os.path.join(self.root, self.inputdir)
+            self.inputdir = os.path.realpath(
+                os.path.join(self.root, self.inputdir))
+        if not os.path.isdir(self.inputdir):
+            raise OSError(f'input directory does not exist ({self.inputdir})')
+        if not os.access(self.inputdir, os.R_OK):
+            raise OSError('input directory is not accessible for reading '
+                          f'({self.inputdir})')
+
+        # Check if output exists (create it if not) and is writable
         if not os.path.isabs(self.outputdir):
-            self.outputdir = os.path.join(self.root, self.outputdir)
+            self.outputdir = os.path.realpath(
+                os.path.join(self.root, self.outputdir))
+        if not os.path.isdir(self.outputdir):
+            os.mkdir(self.outputdir)
+        try:
+            tmpfile = NamedTemporaryFile(dir=self.outputdir)
+        except:
+            raise OSError('output directory is not accessible for writing '
+                          f'({self.outputdir})')
 
         self.log_level = self.log_level.upper()
 

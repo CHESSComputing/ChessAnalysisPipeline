@@ -101,17 +101,19 @@ class TomoDataProcessor(Processor):
         tomo = Tomo(
             interactive=interactive, output_folder=output_folder,
             save_figs=save_figs)
-        nxroot = None
-        center_config = None
         
-        # Setup the pipeline for a tomography reconstruction
+        nxroot = None
+        have_config = False
         try:
             tool_config = self.get_config(
                 data, 'tomo.models.TomoSetupConfig', False)
             map_config = self.get_config(
                 data, 'common.models.map.MapConfig', False)
+            have_config = True
             nxroot = self.get_nxroot(map_config, tool_config)
         except:
+            if have_config:
+                raise
             if isinstance(data, list):
                 for item in data:
                     if (isinstance(item, dict) and item.get('data') is not None
@@ -136,6 +138,7 @@ class TomoDataProcessor(Processor):
             nxroot = tomo.gen_reduced_data(nxroot, tool_config)
 
         # Find rotation axis centers for the tomography stacks
+        center_config = None
         try:
             tool_config = self.get_config(
                 data, 'tomo.models.TomoFindCenterConfig', False)
@@ -208,7 +211,6 @@ class TomoDataProcessor(Processor):
         """
         # System modules
         from copy import deepcopy
-        from logging import getLogger
 
         # Third party modules
         from nexusformat.nexus import (
@@ -230,9 +232,6 @@ class TomoDataProcessor(Processor):
             TomoReduceConfig,
         )
         from CHAP.utils.general import index_nearest
-
-        logger = getLogger(self.__name__)
-        logger.propagate = False
 
         if not isinstance(tool_config, (TomoSetupConfig, TomoReduceConfig)):
             raise ValueError(f'Invalid parameter tool_config ({tool_config})')
@@ -361,32 +360,30 @@ class TomoDataProcessor(Processor):
                     nxcollection.attrs['date'] = scanparser.spec_scan.file_date
 
                 # Get thetas
-                image_offset = scanparser.starting_image_offset
-                if map_config.station in ('id1a3', 'id3a'):
-                    thetas = scanparser.rotation_angles
-                else:
-                    try:
-                        thetas = []
-                        num_theta = scanparser.spec_scan_npts
-                        for dim in map_config.independent_dimensions:
-                            if dim.label != 'theta':
-                                continue
-                            for index in range(num_theta):
-                                thetas.append(dim.get_value(
-                                    scans, scan_number, index+image_offset))
-                        thetas = np.asarray(thetas)
-                        assert thetas == scanparser.rotation_angles
-                    except:
-                        thetas = scanparser.rotation_angles
-                    if thetas[-1]-thetas[0] > 180.:
-                        image_end = index_nearest(thetas, thetas[0]+180)
-                        thetas = thetas[:image_end]
+                theta_offset = scanparser.starting_theta_offset
+                thetas = []
+                num_theta = scanparser.spec_scan_npts
+                for dim in map_config.independent_dimensions:
+                    if dim.label == 'rotation_angles':
+                        for index in range(num_theta):
+                            thetas.append(dim.get_value(
+                                scans, scan_number, index+theta_offset))
+                thetas = np.asarray(thetas)
+                if len(thetas) and thetas[-1]-thetas[0] > 180.:
+                    image_end = index_nearest(thetas, thetas[0]+180)
+                    thetas = thetas[:image_end]
 
                 # x and z translations
-                x_translation = scanparser.horizontal_shift
-                z_translation = scanparser.vertical_shift
+                x_translation = 0.0
+                z_translation = 0.0
+                for dim in map_config.independent_dimensions:
+                    if dim.label == 'x_translation':
+                        x_translation =  dim.get_value(scans, scan_number)
+                    elif dim.label == 'z_translation':
+                        z_translation =  dim.get_value(scans, scan_number)
 
                 # Add an NXsubentry to the NXcollection for each scan
+                image_offset = scanparser.starting_image_offset
                 entry_name = f'scan_{scan_number}'
                 nxsubentry = NXsubentry()
                 nxcollection[entry_name] = nxsubentry
@@ -3177,14 +3174,8 @@ class TomoSpecProcessor(Processor):
                 else:
                     spec_file.append(f'#P0 0.0 {z_translation} 0.0')
                     spec_file.append('#N 1')
-                    if schema in ('tomo.models.TomoDarkField',
-                                  'tomo.models.TomoBrightField'):
-                        spec_file.append('#L Time')
-                        spec_file += [str(count_time*time)
-                            for time in range(num_theta)]
-                    elif schema == 'tomo.models.TomoSimField':
-                        spec_file.append('#L GI_samphi')
-                        spec_file += [str(theta) for theta in thetas]
+                    spec_file.append('#L theta')
+                    spec_file += [str(theta) for theta in thetas]
                 spec_file.append('')
                 num_scan += 1
         

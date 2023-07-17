@@ -1,44 +1,47 @@
+config:
+  root: examples/tomo/hollow_brick
+
 pipeline:
 
   # Create a simulated stack of tomography images
   - common.YAMLReader:
-      filename: examples/tomo/tomo_sim_id3a.yaml
+      filename: ../tomo_sim_id3a.yaml
       schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor
   - common.NexusWriter:
-      filename: examples/tomo/hollow_brick_SIM_001.h5
+      filename: hollow_brick_SIM_001.h5
       force_overwrite: true
 
   # Create the dark field for the simulation
   - common.NexusReader:
-      filename: examples/tomo/hollow_brick_SIM_001.h5
+      filename: hollow_brick_SIM_001.h5
       schema: tomo.models.TomoSimField
   - tomo.TomoDarkFieldProcessor
   - common.NexusWriter:
-      filename: examples/tomo/hollow_brick_dark_SIM_001.h5
+      filename: hollow_brick_dark_SIM_001.h5
       force_overwrite: true
 
   # Create the bright field for the simulation
   - common.NexusReader:
-      filename: examples/tomo/hollow_brick_SIM_001.h5
+      filename: hollow_brick_SIM_001.h5
       schema: tomo.models.TomoSimField
   - tomo.TomoBrightFieldProcessor:
       num_image: 10
   - common.NexusWriter:
-      filename: examples/tomo/hollow_brick_flat_SIM_001.h5
+      filename: hollow_brick_flat_SIM_001.h5
       force_overwrite: true
 
   # Create the SPEC file for the simulation
   - pipeline.MultiplePipelineItem:
       items:
         - common.NexusReader:
-            filename: examples/tomo/hollow_brick_dark_SIM_001.h5
+            filename: hollow_brick_dark_SIM_001.h5
             schema: tomo.models.TomoDarkField
         - common.NexusReader:
-            filename: examples/tomo/hollow_brick_flat_SIM_001.h5
+            filename: hollow_brick_flat_SIM_001.h5
             schema: tomo.models.TomoBrightField
         - common.NexusReader:
-            filename: examples/tomo/hollow_brick_SIM_001.h5
+            filename: hollow_brick_SIM_001.h5
             schema: tomo.models.TomoSimField
   - tomo.TomoSpecProcessor:
       spec_folder: examples/tomo/hollow_brick
@@ -49,24 +52,24 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
         - common.YAMLReader:
-            filename: examples/tomo/map_id3a.yaml
+            filename: ../map_id3a.yaml
             schema: common.models.map.MapConfig
         - common.YAMLReader:
-            filename: examples/tomo/reduce_data_id3a.yaml
+            filename: ../reduce_data_id3a.yaml
             schema: tomo.models.TomoReduceConfig
         - common.YAMLReader:
-            filename: examples/tomo/find_center_data_id3a.yaml
+            filename: ../find_center_data_id3a.yaml
             schema: tomo.models.TomoFindCenterConfig
         - common.YAMLReader:
-            filename: examples/tomo/reconstruct_data.yaml
+            filename: ../reconstruct_data.yaml
             schema: tomo.models.TomoReconstructConfig
         - common.YAMLReader:
-            filename: examples/tomo/combine_data_id3a.yaml
+            filename: ../combine_data_id3a.yaml
             schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
-      output_folder: examples/tomo/output
+      output_folder: examples/tomo/hollow_brick/output
       save_figs: 'only'
   - common.NexusWriter:
-      filename: examples/tomo/reconstruct_hollow_brick.nxs
+      filename: reconstruct_hollow_brick.nxs
       force_overwrite: true
 
