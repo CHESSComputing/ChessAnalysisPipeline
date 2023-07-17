@@ -4,7 +4,7 @@ experiment_type: TOMO
 sample:
   name: hollow_cube
 spec_scans:
-- spec_file: examples/tomo/hollow_cube
+- spec_file: examples/tomo/hollow_cube/hollow_cube
   scan_numbers:
   - 3
 independent_dimensions:
