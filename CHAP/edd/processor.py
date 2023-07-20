@@ -9,6 +9,7 @@ Description: Module for Processors used only by EDD experiments
 
 # system modules
 from json import dumps
+import os
 
 # third party modules
 import numpy as np
@@ -184,7 +185,7 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             if save_figures:
                 plt.savefig(
-                    os.path.join(outputdir,f'{detector.detector_name}_dvl.png')
+                    os.path.join(outputdir,f'{detector.detector_name}_dvl.png'))
             if interactive:
                 plt.show()
 

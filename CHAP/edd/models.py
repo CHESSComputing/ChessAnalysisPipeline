@@ -313,7 +313,7 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
             else:
                 data = data[0]
         else:
-            data = super().mca_data(detector_confg,
+            data = super().mca_data(detector_config,
                                     scan_step_index=self.scan_step_index)
         return data
 
