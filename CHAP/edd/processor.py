@@ -531,47 +531,47 @@ class MCADataProcessor(Processor):
         nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
         nxentry = nxroot[map_config.title]
 
-        nxentry.instrument = NXinstrument()
-        nxentry.instrument.detector = NXdetector()
-        nxentry.instrument.detector.calibration_configuration = dumps(
-            calibration_config.dict())
+        for detector in calibration_config.detectors:
+            nxentry.instrument = NXinstrument()
+            nxentry.instrument[detector.detector_name] = NXdetector()
+            nxentry.instrument[detector.detector_name].calibration = dumps(
+                detector.dict())
 
-        nxentry.instrument.detector.data = NXdata()
-        nxdata = nxentry.instrument.detector.data
-        nxdata.raw = np.empty((*map_config.shape, calibration_config.num_bins))
-        nxdata.raw.attrs['units'] = 'counts'
-        nxdata.channel_energy = calibration_config.slope_calibrated \
-            * np.arange(0, calibration_config.num_bins) \
-            * (calibration_config.max_energy_kev/calibration_config.num_bins) \
-            + calibration_config.intercept_calibrated
-        nxdata.channel_energy.attrs['units'] = 'keV'
+            nxentry.instrument[detector.detector_name].data = NXdata()
+            nxdata = nxentry.instrument[detector.detector_name].data
+            nxdata.raw = np.empty((*map_config.shape,
+                                   detector.num_bins))
+            nxdata.raw.attrs['units'] = 'counts'
+            nxdata.channel_energy = detector.slope_calibrated \
+                * np.arange(0, detector.num_bins) \
+                * (detector.max_energy_kev / detector.num_bins) \
+                + detector.intercept_calibrated
+            nxdata.channel_energy.attrs['units'] = 'keV'
 
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    map_index = scans.get_index(
-                        scan_number,
-                        scan_step_index,
-                        map_config)
-                    nxdata.raw[map_index] = scanparser.get_detector_data(
-                        calibration_config.detector_name,
-                        scan_step_index)
+            for scans in map_config.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        map_index = scans.get_index(
+                            scan_number,
+                            scan_step_index,
+                            map_config)
+                        nxdata.raw[map_index] = scanparser.get_detector_data(
+                            detector.detector_name,
+                            scan_step_index)
 
-        nxentry.data.makelink(
-            nxdata.raw,
-            name=calibration_config.detector_name)
-        nxentry.data.makelink(
-            nxdata.channel_energy,
-            name=f'{calibration_config.detector_name}_channel_energy')
-        if isinstance(nxentry.data.attrs['axes'], str):
-            nxentry.data.attrs['axes'] = [
-                nxentry.data.attrs['axes'],
-                f'{calibration_config.detector_name}_channel_energy']
-        else:
-            nxentry.data.attrs['axes'] += [
-                f'{calibration_config.detector_name}_channel_energy']
-        nxentry.data.attrs['signal'] = calibration_config.detector_name
+            nxentry.data.makelink(nxdata.raw, name=detector.detector_name)
+            nxentry.data.makelink(
+                nxdata.channel_energy,
+                name=f'{detector.detector_name}_channel_energy')
+            if isinstance(nxentry.data.attrs['axes'], str):
+                nxentry.data.attrs['axes'] = [
+                    nxentry.data.attrs['axes'],
+                    f'{detector.detector_name}_channel_energy']
+            else:
+                nxentry.data.attrs['axes'] += [
+                    f'{detector.detector_name}_channel_energy']
+            nxentry.data.attrs['signal'] = detector.detector_name
 
         return nxroot
 
