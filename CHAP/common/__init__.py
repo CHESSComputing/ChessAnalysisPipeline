@@ -9,6 +9,7 @@ validating input data in some `Processor`s.
 
 from CHAP.common.reader import (
     BinaryFileReader,
+    SpecReader,
     MapReader,
     NexusReader,
     URLReader,

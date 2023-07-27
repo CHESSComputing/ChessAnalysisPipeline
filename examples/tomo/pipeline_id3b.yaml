@@ -49,15 +49,49 @@ pipeline:
       filename: hollow_cube
       force_overwrite: true
 
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3b
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_cube/hollow_cube
+                scan_numbers:
+                - 1
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3b
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_cube/hollow_cube
+                scan_numbers:
+                - 2
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: ../map_id3b.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: ../detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: tomo_map.nxs
+      force_overwrite: true
+
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
-        - common.YAMLReader:
-            filename: ../map_id3b.yaml
-            schema: common.models.map.MapConfig
-        - common.YAMLReader:
-            filename: ../reduce_data_id3b.yaml
-            schema: tomo.models.TomoReduceConfig
+        - common.NexusReader:
+            filename: tomo_map.nxs
         - common.YAMLReader:
             filename: ../find_center_data_id3b.yaml
             schema: tomo.models.TomoFindCenterConfig
@@ -65,9 +99,10 @@ pipeline:
             filename: ../reconstruct_data.yaml
             schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
+      reduce_data: True
       output_folder: examples/tomo/hollow_cube/output
       save_figs: 'only'
   - common.NexusWriter:
-      filename: reconstruct_hollow_cube.nxs
+      filename: reconstructed_data.nxs
       force_overwrite: true
 

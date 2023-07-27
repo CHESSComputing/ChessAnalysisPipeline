@@ -744,15 +744,8 @@ class RotationScanParser(ScanParser):
 
     def __init__(self, spec_file_name, scan_number):
         super().__init__(spec_file_name, scan_number)
-        self._starting_theta_offset = None
         self._starting_image_index = None
         self._starting_image_offset = None
-
-    @property
-    def starting_theta_offset(self):
-        if self._starting_theta_offset is None:
-            self._starting_theta_offset = self.get_starting_theta_offset()
-        return self._starting_theta_offset
 
     @property
     def starting_image_index(self):
@@ -766,18 +759,9 @@ class RotationScanParser(ScanParser):
             self._starting_image_offset = self.get_starting_image_offset()
         return self._starting_image_offset
 
-    def get_starting_theta_offset(self):
-        """Return the offet of the index of the theta corresponding
-        to the first "good" frame of detector data collected by this
-        scan from the index of the first frame of detector data
-        collected by this scan.
-
-        :rtype: int
-        """
-        raise NotImplementedError
-
     def get_starting_image_index(self):
-        """Return the index of the first frame of detector data
+        """Return the first frame of the detector data collected by
+        this scan from the index of the first frame of detector data
         collected by this scan.
 
         :rtype: int
@@ -804,7 +788,7 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             if len(self.spec_args) == 2:
                 return int(self.spec_args[0])
             if len(self.spec_args) == 5:
-                return int(self.spec_args[3])
+                return 1+int(self.spec_args[3])
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
                                f'points from {self.spec_macro} with arguments '
                                f'{self.spec_args}')
@@ -817,28 +801,25 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         raise RuntimeError(f'{self.scan_title}: cannot determine rotation '
                            f' angles for scans of type {self.spec_macro}')
 
-    def get_starting_theta_offset(self):
-        return self.starting_image_offset
-
     def get_starting_image_index(self):
         return 0
 
     def get_starting_image_offset(self):
         if self.spec_macro == 'flyscan':
-            if len(self.spec_args) == 2:
-                # Flat field (dark or bright)
-                return 0
-            if len(self.spec_args) == 5:
-                return 1
-            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-                               f'image offset {self.spec_macro} with arguments'
-                               f' {self.spec_args}')
-        elif self.spec_macro == 'ascan':
-            if len(self.spec_args) == 5:
-                return 0
-            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-                               f'image offset {self.spec_macro} with arguments'
-                               f' {self.spec_args}')
+#            if len(self.spec_args) == 2:
+#                return 1
+#            if len(self.spec_args) == 5:
+#                return 1
+            return 1
+#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
+#                               f'image offset {self.spec_macro} with arguments'
+#                               f' {self.spec_args}')
+#        elif self.spec_macro == 'ascan':
+#            if len(self.spec_args) == 5:
+#                return 0
+#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
+#                               f'image offset {self.spec_macro} with arguments'
+#                               f' {self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine starting '
                            f'image offset for scans of type {self.spec_macro}')
 
@@ -863,15 +844,17 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         with File(detector_file) as h5_file:
             if scan_step_index is None:
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                    self.starting_image_index:-1-self.starting_image_offset]
+                    self.starting_image_offset:]
+                sum_det = list(np.sum(detector_data, (1,2)))
+#                print(f'\n\nsum scanparser ({len(sum_det)}):\n{sum_det}')
             elif isinstance(scan_step_index, int):
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                    self.starting_image_index+scan_step_index]
+                    self.starting_image_offset+scan_step_index]
             elif (isinstance(scan_step_index, (list, tuple))
                     and len(scan_step_index) == 2):
                 detector_data = h5_file['/entry/instrument/detector/data'][
-                    self.starting_image_index+scan_step_index[0]:
-                    self.starting_image_index+scan_step_index[1]]
+                    self.starting_image_offset+scan_step_index[0]:
+                    self.starting_image_offset+scan_step_index[1]]
             else:
                 raise ValueError('Invalid parameter scan_step_index '
                                  f'({scan_step_index})')
@@ -880,13 +863,15 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         try:
             # Detector files in h5 format
+#            print('data in h5 file')
             detector_data = self.get_all_detector_data_in_file(
                 detector_prefix, scan_step_index)
+#            print(f'detector_data {detector_prefix} {scan_step_index}:\n{detector_data.shape}')
         except:
             # Detector files in tiff format
             if scan_step_index is None:
                 detector_data = []
-                for index in range(len(self.spec_scan_npts)):
+                for index in range(self.spec_scan_npts):
                     detector_data.append(
                         self.get_detector_data(detector_prefix, index))
                 detector_data = np.asarray(detector_data)
@@ -908,13 +893,12 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             else:
                 raise ValueError('Invalid parameter scan_step_index '
                                  f'({scan_step_index})')
-
         return detector_data
 
     def _get_detector_tiff_file(self, detector_prefix, scan_step_index):
         file_name_full = f'{self.spec_file_name}_{detector_prefix.upper()}_' \
             f'{self.scan_number:03d}_' \
-            f'{self.starting_image_index+scan_step_index:03d}.tiff'
+            f'{self.starting_image_offset+scan_step_index:03d}.tiff'
         if os.path.isfile(file_name_full):
             return file_name_full
         return None
@@ -931,8 +915,8 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         self._scan_type = None
         super().__init__(spec_file_name, scan_number)
 
-        self._par_file_pattern = f'id*-*tomo*-{self.scan_name}'
         self._katefix = 0  # RV remove when no longer needed
+        self._par_file_pattern = f'id*-*tomo*-{self.scan_name}'
 
     @property
     def scan_type(self):
@@ -959,9 +943,6 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                 f'{self.scan_title}: cannot determine the scan_type')
         return scan_type
 
-    def get_starting_theta_offset(self):
-        return 0
-
     def get_starting_image_index(self):
         try:
             junkstart = int(self.pars['junkstart'])
@@ -982,8 +963,7 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
 
     def get_starting_image_offset(self):
         try:
-            return (int(self.pars['goodstart'])
-                    - self.get_starting_image_index())
+            return (int(self.pars['goodstart'])-self.starting_image_index)
         except:
             raise RuntimeError(f'{self.scan_title}: cannot determine index '
                                'offset of first good detector image')
@@ -992,13 +972,18 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         return os.path.join(self.scan_path, str(self.scan_number), 'nf')
 
     def get_detector_data_file(self, scan_step_index:int):
-        file_name = f'nf_{self.starting_image_index+scan_step_index:06d}.tif'
+#        print(f'self.starting_image_index: {self.starting_image_index}')
+#        print(f'self.starting_image_offset: {self.starting_image_offset}')
+        index = self.starting_image_index + self.starting_image_offset \
+            + scan_step_index
+        file_name = f'nf_{index:06d}.tif'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
         #RV temp fix for error in par files at Kate's beamline
         #Remove this and self._katefix when no longer needed
-        file_name = f'nf_{self.starting_image_index+scan_step_index+self._katefix:06d}.tif'
+        index += self._katefix
+        file_name = f'nf_{index:06d}.tif'
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
@@ -1006,16 +991,19 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                            f'file for scan step ({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
+#        print(f'\n\nin get_detector_data: {detector_prefix} {scan_step_index}')
         if scan_step_index is None:
             detector_data = []
-            for index in range(len(self.spec_scan_npts)):
+            for index in range(self.spec_scan_npts):
                 detector_data.append(
                     self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)
+#            print(f'detector_data shape {type(detector_data)} {detector_data.shape}:\n{detector_data}')
         elif isinstance(scan_step_index, int):
             image_file = self.get_detector_data_file(scan_step_index)
             with TiffFile(image_file) as tiff_file:
                 detector_data = tiff_file.asarray()
+#            print(f'\t{scan_step_index} {image_file} {np.sum(np.asarray(detector_data))}')
         elif (isinstance(scan_step_index, (list, tuple))
                 and len(scan_step_index) == 2):
             detector_data = []

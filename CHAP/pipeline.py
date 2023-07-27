@@ -143,17 +143,16 @@ class PipelineItem():
             method_name = 'read'
             inputdir = kwargs.get('inputdir')
             if inputdir is not None and 'filename' in kwargs:
-                kwargs['filename'] = os.path.join(inputdir,
-                                                  kwargs['filename'])
+                kwargs['filename'] = os.path.realpath(
+                    os.path.join(inputdir, kwargs['filename']))
         elif hasattr(self, 'process'):
             method_name = 'process'
         elif hasattr(self, 'write'):
             method_name = 'write'
             outputdir = kwargs.get('outputdir')
             if outputdir is not None and 'filename' in kwargs:
-                kwargs['filename'] = os.path.join(outputdir,
-                                                  kwargs['filename'])
-
+                kwargs['filename'] = os.path.realpath(
+                    os.path.join(outputdir, kwargs['filename']))
         else:
             self.logger.error('No implementation of read, write, or process')
 
