@@ -464,7 +464,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
         if interactive or save_figures:
             import matplotlib.pyplot as plt
-            fig, axs = plt.subplots(2, 2, sharex='all')
+            fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
 
             # Upper left axes: Input data & best fits
             axs[0,0].set_title('Ceria Calibration Fits')
