@@ -23,45 +23,62 @@ class DiffractionVolumeLengthProcessor(Processor):
     length of the diffraction volume for an EDD setup.
     """
 
-    def process(self, data, save_figures=False,
-                interactive=False, outputdir='.'):
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                interactive=False):
         """Return calculated value of the DV length.
 
         :param data: input configuration for the raw scan data & DVL
             calculation procedure.
         :type data: list[PipelineData]
-        :param dvl_model: method to use for calculating DVL. Choices:
-            one of three acceptable scalars which will be multiplied
-            by the standard deviation of a gauusian fit to the raster
-            scan data, or "manual" (in which case the user is
-            presented with a plot of the fit and unfit data, and they
-            select the accepatble DVL by eye).
-        :type dvl_model: Literal[1.0, 1.75, 2.0, "manual"]
+        :param config: initialization parameters for an instance of
+            CHAP.edd.models.DiffractionVolumeLengthConfig, defaults to
+            None
+        :type config: dict, optional
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
-        :param outputdir: directory to which any output figures will
-            be saved, defaults to '.'
         :return: complete DVL configuraiton dictionary
         :rtype: dict
         """
 
-        dvl_config = self.get_config(
-            data, 'edd.models.DiffractionVolumeLengthConfig')
+        try:
+            dvl_config = self.get_config(
+                data, 'edd.models.DiffractionVolumeLengthConfig')
+        except Exception as data_exc:
+            self.logger.info('No valid DVL config in input pipeline data, '
+                             + 'using config parameter instead.')
+            try:
+                from CHAP.edd.models import DiffractionVolumeLengthConfig
+                dvl_config = DiffractionVolumeLengthConfig(**config)
+            except Exception as dict_exc:
+                self.logger.error('Could not get a valid DVL config')
+                raise RuntimeError from dict_exc
 
         for detector in dvl_config.detectors:
             dvl = self.measure_dvl(dvl_config, detector,
                                    save_figures=save_figures,
-                                   interactive=interactive)
+                                   interactive=interactive,
+                                   outputdir=outputdir)
             detector.dvl_measured = dvl
 
         return dvl_config.dict()
 
-    def measure_dvl(self, dvl_config, detector, save_figures=False,
-                    interactive=False, outputdir='.'):
+    def measure_dvl(self,
+                    dvl_config,
+                    detector,
+                    save_figures=False,
+                    outputdir='.',
+                    interactive=False):
         """Return a measured value for the length of the diffraction
         volume. Use the iron foil raster scan data provided in
         `dvl_config` and fit a gaussian to the sum of all MCA channel
@@ -77,11 +94,12 @@ class DiffractionVolumeLengthProcessor(Processor):
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
-        :param outputdir: directory to which any output figures will
-            be saved, defaults to '.'
         :return: calculated diffraction volume length
         :rtype: float
         """
@@ -94,6 +112,8 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         # Interactively set mask, if needed & possible.
         if interactive:
+            self.logger.info(
+                'Interactively select a mask in the matplotlib figure')
             mask, include_bin_ranges = draw_mask_1d(
                 np.sum(mca_data, axis=0),
                 xdata = np.arange(detector.num_bins),
@@ -105,6 +125,8 @@ class DiffractionVolumeLengthProcessor(Processor):
                 ylabel='MCA intensity (counts)'
             )
             detector.include_bin_ranges = include_bin_ranges
+            self.logger.debug('Mask selected. Including detector bin ranges: '
+                              + str(detector.include_bin_ranges))
         if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
@@ -137,13 +159,8 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         # Calculate / manually select diffraction volume length
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
-        if interactive:
-            from CHAP.utils.general import input_yesno
-            manual_dvl = input_yesno(
-                'Indicate the diffraction volume length manually? (y/n)',
-                default='y')
-            if manual_dvl:
-                detector.measurement_mode = 'manual'
+        if detector.measurement_mode == 'manual':
+            if interactive:
                 mask, dvl_bounds = draw_mask_1d(
                     y, xdata=x,
                     label='total (masked & normalized)',
@@ -163,6 +180,11 @@ class DiffractionVolumeLengthProcessor(Processor):
                     ylabel='MCA intensity (normalized)')
                 dvl_bounds = dvl_bounds[0]
                 dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
+            else:
+                self.logger.warning(
+                    'Cannot manually indicate DVL when running CHAP '
+                    + 'non-interactively. '
+                    + 'Using default DVL calcluation instead.')
 
         if interactive or save_figures:
             import matplotlib.pyplot as plt
@@ -184,8 +206,10 @@ class DiffractionVolumeLengthProcessor(Processor):
             ax.legend()
 
             if save_figures:
-                plt.savefig(
-                    os.path.join(outputdir,f'{detector.detector_name}_dvl.png'))
+                figfile = os.path.join(outputdir,
+                                       f'{detector.detector_name}_dvl.png')
+                plt.savefig(figfile)
+                self.logger.info(f'Saved figure to {figfile}')
             if interactive:
                 plt.show()
 
@@ -197,30 +221,47 @@ class MCACeriaCalibrationProcessor(Processor):
     channel energies for an EDD experimental setup.
     """
 
-    def process(self, data, save_figures=False,
-                interactive=False, outputdir='.'):
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                interactive=False):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
 
         :param data: input configuration for the raw data & tuning
             procedure
         :type data: list[dict[str,object]]
+        :param config: initialization parameters for an instance of
+            CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
+            None
+        :type config: dict, optional
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
-        :param interactive: allow for user interactions, defaults to
-            False
-        :type interactive: bool, optional
         :param outputdir: directory to which any output figures will
             be saved, defaults to '.'
         :type outputdir: str, optional
+        :param interactive: allow for user interactions, defaults to
+            False
+        :type interactive: bool, optional
         :return: original configuration dictionary with tuned values
             added
         :rtype: dict[str,float]
         """
 
-        calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig')
+        try:
+            calibration_config = self.get_config(
+                data, 'edd.models.MCACeriaCalibrationConfig')
+        except Exception as data_exc:
+            self.logger.info('No valid calibration config in input pipeline '
+                             + 'data, using config parameter instead.')
+            try:
+                from CHAP.edd.models import MCACeriaCalibrationConfig
+                calibration_config = MCACeriaCalibrationConfig(**config)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
 
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
@@ -234,8 +275,12 @@ class MCACeriaCalibrationProcessor(Processor):
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config, detector, save_figures=False,
-                  interactive=False, outputdir='.'):
+    def calibrate(self,
+                  calibration_config,
+                  detector,
+                  save_figures=False,
+                  outputdir='.',
+                  interactive=False):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
         small. Use the fitted peak locations to determine linear
@@ -249,11 +294,12 @@ class MCACeriaCalibrationProcessor(Processor):
         :param save_figures: save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False
         :type save_figures: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
-        :param outputdir: directory to which any output figures will
-            be saved, defaults to '.'
         :return: calibrated values of 2&theta and linear correction
             parameters for MCA channel energies : tth, slope,
             intercept
@@ -277,6 +323,8 @@ class MCACeriaCalibrationProcessor(Processor):
         # Mask out the corrected MCA data for fitting
         if interactive:
             from CHAP.utils.general import draw_mask_1d
+            self.logger.info(
+                'Interactively select a mask in the matplotlib figure')
             mask, include_bin_ranges = draw_mask_1d(
                 mca_data,
                 xdata=mca_bin_energies,
@@ -286,6 +334,8 @@ class MCACeriaCalibrationProcessor(Processor):
                 xlabel='MCA channel energy (keV)',
                 ylabel='MCA intensity (counts)')
             detector.include_bin_ranges = include_bin_ranges
+            self.logger.debug('Mask selected. Including detector bin ranges: '
+                              + str(detector.include_bin_ranges))
         if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
@@ -311,6 +361,8 @@ class MCACeriaCalibrationProcessor(Processor):
             peak_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
             pre_selected_peak_indices = detector.fit_hkls \
                                         if detector.fit_hkls else []
+            self.logger.info(
+                'Interactively select HKLs in the matplotlib figure')
             selected_peaks = select_peaks(
                 mca_data, mca_bin_energies, peak_locations,
                 pre_selected_peak_indices=pre_selected_peak_indices,
@@ -318,6 +370,8 @@ class MCACeriaCalibrationProcessor(Processor):
             fit_hkls = [np.where(peak_locations == peak)[0][0]
                         for peak in selected_peaks]
             detector.fit_hkls = fit_hkls
+            self.logger.debug('HKLs selected. Including HKLs: '
+                              + str(detector.fit_hkls))
         if detector.fit_hkls is None:
             raise ValueError(
                 'No value provided for fit_hkls. Provide them in '
@@ -327,6 +381,8 @@ class MCACeriaCalibrationProcessor(Processor):
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
 
         for iter_i in range(calibration_config.max_iter):
+            self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
+                              + f'starting tth value = {tth} ')
 
             # Perform the uniform fit first
 
@@ -449,8 +505,6 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[0,1].axhline(unconstrained_strain * 1e6,
                              color='C1', linestyle='--',
                              label='Unconstrained: Unweighted Mean')
-            self.logger.debug(f'uniform_strain: {uniform_strain}')
-            self.logger.debug(f'unconsrained_strains: {unconstrained_strains}')
             axs[0,1].legend()
 
             # Lower right axes: theoretical HKL E vs fit HKL E for
@@ -469,8 +523,9 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                plt.savefig(
-                    os.path.join(outputdir, 'ceria_calibration_fits.png'))
+                figfile = os.path.join(outputdir, 'ceria_calibration_fits.png')
+                plt.savefig(figfile)
+                self.logger.info(f'Saved figure to {figfile}')
             if interactive:
                 plt.show()
 
