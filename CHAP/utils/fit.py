@@ -64,6 +64,7 @@ except ImportError:
 from CHAP.utils.general import (
     is_int,
     is_num,
+    is_str_series,
     is_dict_series,
     is_index,
     index_nearest,
@@ -115,6 +116,9 @@ class Fit:
         self._nonlinear_parameters = []
         self._result = None
         self._try_linear_fit = True
+        self._param_constraint = None
+        self._fwhm_max = None
+        self._sigma_max = None
         self._y = None
         self._y_norm = None
         self._y_range = None
@@ -488,9 +492,10 @@ class Fit:
         if parameters is not None:
             if isinstance(parameters, dict):
                 parameters = (parameters, )
-            elif not is_dict_series(parameters):
+            elif is_dict_series(parameters):
+                parameters = deepcopy(parameters)
+            else:
                 raise ValueError('Invalid parameter parameters ({parameters})')
-            parameters = deepcopy(parameters)
         if parameter_norms is not None:
             if isinstance(parameter_norms, dict):
                 parameter_norms = (parameter_norms, )
@@ -843,6 +848,200 @@ class Fit:
 
         return kwargs
 
+    def create_multipeak_model(
+            self, centers, fit_type=None, peak_models=None, center_exprs=None,
+            background=None, param_constraint=False, fwhm_max=None):
+        """Create a multipeak model."""
+        if self._model is not None:
+            logger.warning('Existing model cleared before creating a new '
+                           'multipeak model')
+            self._model = None
+        if len(self._parameters):
+            logger.warning('Existing fit parameters cleared before creating a '
+                           'new multipeak model')
+            self._parameters = Parameters()
+        if isinstance(centers, (int, float)):
+            centers = [centers]
+        elif not isinstance(centers, (tuple, list, np.ndarray)):
+            raise ValueError(f'Invalid parameter centers ({centers})')
+        num_peaks = len(centers)
+        if peak_models is None:
+            peak_models = num_peaks*['gaussian']
+        elif (isinstance(peak_models, str)
+                and peak_models in ('gaussian', 'lorentzian')):
+            peak_models = num_peaks*[peak_models]
+        else:
+            raise ValueError(f'Invalid parameter peak model ({peak_models})')
+        if len(peak_models) != num_peaks:
+            raise ValueError(
+                'Inconsistent number of peaks in peak_models '
+                f'({len(peak_models)} vs {num_peaks})')
+        if num_peaks == 1:
+            if fit_type is not None:
+                logger.debug('Ignoring fit_type input for fitting one peak')
+            fit_type = None
+            if center_exprs is not None:
+                logger.debug(
+                    'Ignoring center_exprs input for fitting one peak')
+                center_exprs = None
+        else:
+            if fit_type == 'uniform':
+                if center_exprs is None:
+                    center_exprs = [f'scale_factor*{cen}' for cen in centers]
+                if len(center_exprs) != num_peaks:
+                    raise ValueError(
+                        'Inconsistent number of peaks in center_exprs '
+                        f'({len(center_exprs)} vs {num_peaks})')
+            elif fit_type == 'unconstrained' or fit_type is None:
+                if center_exprs is not None:
+                    logger.warning(
+                        'Ignoring center_exprs input for unconstrained fit')
+                    center_exprs = None
+            else:
+                raise ValueError(
+                    f'Invalid parameter fit_type ({fit_type})')
+        self._fwhm_max = fwhm_max
+        self._sigma_max = None
+        if param_constraint:
+            self._param_constraint = True
+            min_value = FLOAT_MIN
+            if self._fwhm_max is not None:
+                self._sigma_max = np.zeros(num_peaks)
+        else:
+            min_value = None
+
+        # Reset the fit
+        self._result = None
+
+        # Add background model(s)
+        if background is not None:
+            if isinstance(background, str):
+                background = [{'model': background}]
+            elif isinstance(background, dict):
+                background = [background]
+            elif is_str_series(background):
+                background = [{'model': model}
+                              for model in deepcopy(background)]
+            if is_dict_series(background):
+                num_background = len(background)
+                for model in deepcopy(background):
+                    if 'model' not in model:
+                        raise KeyError(
+                            'Missing keyword "model" in model in background '
+                            f'({model})')
+                    name = model.pop('model')
+                    if num_background == 1:
+                        prefix = f'bkgd_'
+                    else:
+                        prefix = f'bkgd_{name}_'
+                    parameters = model.pop('parameters', None)
+                    if parameters is not None:
+                        if isinstance(parameters, dict):
+                            parameters = [parameters, ]
+                        elif is_dict_series(parameters):
+                            parameters = list(parameters)
+                        else:
+                            raise ValueError('Invalid parameters value in '
+                                f'background model {name} ({parameters})')
+                    if min_value is not None and name == 'exponential':
+                        if parameters is None:
+                            parameters = (
+                                {'name': 'amplitude', 'min': min_value},
+                                {'name': 'decay', 'min': min_value},
+                            )
+                        else:
+                            for par_name in ('amplitude', 'decay'):
+                                index = [i for i, par in enumerate(parameters)
+                                         if par['name'] == par_name]
+                                if not len(index):
+                                    parameters.append(
+                                        {'name': par_name, 'min': min_value})
+                                elif len(index) == 1:
+                                    parameter = parameters[index[0]]
+                                    _min = parameter.get('min', None)
+                                    if _min is None or _min < min_value:
+                                        parameter['min'] = min_value
+                                else:
+                                    raise ValueError(
+                                        'Invalid parameters value in '
+                                        f'background model {name} '
+                                        f'({parameters})')
+                    if min_value is not None and name == 'gaussian':
+                        if parameters is None:
+                            parameters = (
+                                {'name': 'amplitude', 'min': min_value},
+                                {'name': 'center', 'min': min_value},
+                                {'name': 'sigma', 'min': min_value},
+                            )
+                        else:
+                            for par_name in ('amplitude', 'center', 'sigma'):
+                                index = [i for i, par in enumerate(parameters)
+                                         if par['name'] == par_name]
+                                if not len(index):
+                                    parameters.append(
+                                        {'name': par_name, 'min': min_value})
+                                elif len(index) == 1:
+                                    parameter = parameters[index[0]]
+                                    _min = parameter.get('min', None)
+                                    if _min is None or _min < min_value:
+                                        parameter['min'] = min_value
+                                else:
+                                    raise ValueError(
+                                        'Invalid parameters value in '
+                                        f'background model {name} '
+                                        f'({parameters})')
+                    self.add_model(
+                        name, prefix=prefix, parameters=parameters,
+                        **model)
+            else:
+                raise ValueError(
+                    f'Invalid parameter background ({background})')
+
+        # Add peaks and guess initial fit parameters
+        if num_peaks == 1:
+            sig_max = None
+            if self._sigma_max is not None:
+                ast(f'fwhm = {self._fwhm_max}')
+                sig_max = ast(fwhm_factor[peak_models[0]])
+                self._sigma_max[0] = sig_max
+            self.add_model(
+                peak_models[0],
+                parameters=(
+                    {'name': 'amplitude', 'min': min_value},
+                    {'name': 'center', 'value': centers[0], 'min': min_value},
+                    {'name': 'sigma', 'min': min_value, 'max': sig_max},
+                ))
+        else:
+            if fit_type == 'uniform':
+                self.add_parameter(
+                    name='scale_factor', value=1.0, min=min_value)
+            for i in range(num_peaks):
+                sig_max = None
+                if self._sigma_max is not None:
+                    ast(f'fwhm = {self._fwhm_max}')
+                    sig_max = ast(fwhm_factor[peak_models[i]])
+                    self._sigma_max[i] = sig_max
+                if fit_type == 'uniform':
+                    self.add_model(
+                        peak_models[i], prefix=f'peak{i+1}_',
+                        parameters=(
+                            {'name': 'amplitude', 'min': min_value},
+                            {'name': 'center', 'expr': center_exprs[i]},
+                            {'name': 'sigma', 'min': min_value,
+                             'max': sig_max},
+                        ))
+                else:
+                    self.add_model(
+                        'gaussian',
+                        prefix=f'peak{i+1}_',
+                        parameters=(
+                            {'name': 'amplitude', 'min': min_value},
+                            {'name': 'center', 'value': centers[i],
+                             'min': min_value},
+                            {'name': 'sigma', 'min': min_value,
+                             'max': sig_max},
+                        ))
+
     def eval(self, x, result=None):
         """Evaluate the best fit."""
         if result is None:
@@ -853,6 +1052,9 @@ class Fit:
 
     def fit(self, **kwargs):
         """Fit the model to the input data."""
+        # Third party modules
+        from asteval import Interpreter
+
         # Check inputs
         if self._model is None:
             logger.error('Undefined fit model')
@@ -909,7 +1111,34 @@ class Fit:
         # (only mplemented for a single model)
         if guess:
             if self._mask is None:
-                self._parameters = self._model.guess(self._y, x=self._x)
+                try:
+                    self._parameters = self._model.guess(self._y, x=self._x)
+                except:
+                    ast = Interpreter()
+                    # Should work for other peak-like models,
+                    #   but will need tests first
+                    for component in self._model.components:
+                        if component._name == 'gaussian':
+                            center = self._parameters[
+                                f"{component.prefix}center"].value
+                            height_init, cen_init, fwhm_init = \
+                                self.guess_init_peak(
+                                    self._x, self._y, center_guess=center,
+                                    use_max_for_center=False)
+                            if (self._fwhm_max is not None
+                                    and fwhm_init > self._fwhm_max):
+                                fwhm_init = self._fwhm_max
+                            ast(f'fwhm = {fwhm_init}')
+                            ast(f'height = {height_init}')
+                            sig_init = ast(fwhm_factor[component._name])
+                            amp_init = ast(height_factor[component._name])
+                            self._parameters[
+                                f"{component.prefix}amplitude"].set(
+                                    value=amp_init)
+                            self._parameters[f"{component.prefix}center"].set(
+                                value=cen_init)
+                            self._parameters[f"{component.prefix}sigma"].set(
+                                value=sig_init)
             else:
                 self._parameters = self._model.guess(
                     np.asarray(self._y)[~self._mask], x=self._x[~self._mask])
@@ -1013,19 +1242,22 @@ class Fit:
                     par.set(value=self._reset_par_at_boundary(par, par.value))
 
             # Perform the fit
-#            fit_kws = None
+            fit_kws = None
 #            if 'Dfun' in kwargs:
 #                fit_kws = {'Dfun': kwargs.pop('Dfun')}
 #            self._result = self._model.fit(
 #                self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
 #                **kwargs)
+            if self._param_constraint:
+                fit_kws = {'xtol': 1.e-5, 'ftol': 1.e-5, 'gtol': 1.e-5}
             if self._mask is None:
                 self._result = self._model.fit(
-                    self._y_norm, self._parameters, x=self._x, **kwargs)
+                    self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
+                    **kwargs)
             else:
                 self._result = self._model.fit(
                     np.asarray(self._y_norm)[~self._mask], self._parameters,
-                    x=self._x[~self._mask], **kwargs)
+                    x=self._x[~self._mask], fit_kws=fit_kws, **kwargs)
 
         # Set internal parameter values to fit results upon success
         if self.success:
@@ -1125,7 +1357,6 @@ class Fit:
                 logger.warning(
                     'Ignoring additional arguments for single center_guess '
                     'value')
-            center_guesses = [center_guess]
         elif isinstance(center_guess, (tuple, list, np.ndarray)):
             if len(center_guess) == 1:
                 logger.warning(
@@ -1211,6 +1442,11 @@ class Fit:
             fwhm = 2 * (center-x[fwhm_index1])
         else:
             fwhm = x[fwhm_index2]-x[fwhm_index1]
+
+        if center_guess is not None and not use_max_for_center:
+            index = fwhm_index1+np.argmax(y[fwhm_index1:fwhm_index2])
+            center = x[index]
+            height = y[index]-miny
 
         return height, center, fwhm
 
@@ -1584,284 +1820,6 @@ class Fit:
                 if value >= upp:
                     return upp
         return value
-
-
-class FitMultipeak(Fit):
-    """
-    Wrapper to the Fit class to fit data with multiple peaks
-    """
-    def __init__(self, y, x=None, normalize=True):
-        """Initialize FitMultipeak."""
-        super().__init__(y, x=x, normalize=normalize)
-        self._fwhm_max = None
-        self._sigma_max = None
-
-    @classmethod
-    def fit_multipeak(
-            cls, y, centers, x=None, normalize=True, peak_models='gaussian',
-            center_exprs=None, fit_type=None, background=None, fwhm_max=None,
-            print_report=False, plot=False, x_eval=None):
-        """Class method for FitMultipeak.
-
-        Make sure that centers and fwhm_max are in the correct units
-        and consistent with expr for a uniform fit (fit_type ==
-        'uniform').
-        """
-        if (x_eval is not None
-                and not isinstance(x_eval, (tuple, list, np.ndarray))):
-            raise ValueError(f'Invalid parameter x_eval ({x_eval})')
-        fit = cls(y, x=x, normalize=normalize)
-        success = fit.fit(
-            centers=centers, fit_type=fit_type, peak_models=peak_models,
-            fwhm_max=fwhm_max, center_exprs=center_exprs,
-            background=background, print_report=print_report, plot=plot)
-        if x_eval is None:
-            best_fit = fit.best_fit
-        else:
-            best_fit = fit.eval(x_eval)
-        if success:
-            return (
-                best_fit, fit.residual, fit.best_values, fit.best_errors,
-                fit.redchi, fit.success)
-        return np.array([]), np.array([]), {}, {}, FLOAT_MAX, False
-
-    def fit(
-            self, centers=None, fit_type=None, peak_models=None,
-            center_exprs=None, fwhm_max=None, background=None,
-            print_report=False, plot=True, param_constraint=False, **kwargs):
-        """Fit the model to the input data."""
-        if centers is None:
-            raise ValueError('Missing required parameter centers')
-        if not isinstance(centers, (int, float, tuple, list, np.ndarray)):
-            raise ValueError(f'Invalid parameter centers ({centers})')
-        self._fwhm_max = fwhm_max
-        self._create_model(
-            centers, fit_type, peak_models, center_exprs, background,
-            param_constraint)
-
-        # Perform the fit
-        try:
-            if param_constraint:
-                super().fit(
-                    fit_kws={'xtol': 1.e-5, 'ftol': 1.e-5, 'gtol': 1.e-5})
-            else:
-                super().fit()
-        except:
-            return False
-
-        # Check for valid fit parameter results
-        fit_failure = self._check_validity()
-        success = True
-        if fit_failure:
-            if param_constraint:
-                logger.warning(
-                    '  -> Should not happen with param_constraint set, '
-                    'fail the fit')
-                success = False
-            else:
-                logger.info('  -> Retry fitting with constraints')
-                self.fit(
-                    centers, fit_type, peak_models, center_exprs,
-                    fwhm_max=fwhm_max, background=background,
-                    print_report=print_report, plot=plot,
-                    param_constraint=True)
-        else:
-            # Print report and plot components if requested
-            if print_report:
-                self.print_fit_report()
-            if plot:
-                self.plot(
-                    skip_init=True, plot_comp=True, plot_comp_legends=True,
-                    plot_residual=True)
-
-        return success
-
-    def _create_model(
-            self, centers, fit_type=None, peak_models=None, center_exprs=None,
-            background=None, param_constraint=False):
-        """Create the multipeak model."""
-        # Third party modules
-        from asteval import Interpreter
-
-        if isinstance(centers, (int, float)):
-            centers = [centers]
-        num_peaks = len(centers)
-        if peak_models is None:
-            peak_models = num_peaks*['gaussian']
-        elif (isinstance(peak_models, str)
-                and peak_models in ('gaussian', 'lorentzian')):
-            peak_models = num_peaks*[peak_models]
-        else:
-            raise ValueError(f'Invalid parameter peak model ({peak_models})')
-        if len(peak_models) != num_peaks:
-            raise ValueError(
-                'Inconsistent number of peaks in peak_models '
-                f'({len(peak_models)} vs {num_peaks})')
-        if num_peaks == 1:
-            if fit_type is not None:
-                logger.debug('Ignoring fit_type input for fitting one peak')
-            fit_type = None
-            if center_exprs is not None:
-                logger.debug(
-                    'Ignoring center_exprs input for fitting one peak')
-                center_exprs = None
-        else:
-            if fit_type == 'uniform':
-                if center_exprs is None:
-                    center_exprs = [f'scale_factor*{cen}' for cen in centers]
-                if len(center_exprs) != num_peaks:
-                    raise ValueError(
-                        'Inconsistent number of peaks in center_exprs '
-                        f'({len(center_exprs)} vs {num_peaks})')
-            elif fit_type == 'unconstrained' or fit_type is None:
-                if center_exprs is not None:
-                    logger.warning(
-                        'Ignoring center_exprs input for unconstrained fit')
-                    center_exprs = None
-            else:
-                raise ValueError(
-                    f'Invalid parameter fit_type ({fit_type})')
-        self._sigma_max = None
-        if param_constraint:
-            min_value = FLOAT_MIN
-            if self._fwhm_max is not None:
-                self._sigma_max = np.zeros(num_peaks)
-        else:
-            min_value = None
-
-        # Reset the fit
-        self._model = None
-        self._parameters = Parameters()
-        self._result = None
-
-        # Add background model(s)
-        if background is not None:
-            if isinstance(background, dict):
-                background = [background]
-            if isinstance(background, str):
-                self.add_model(background, prefix='bkgd_')
-            elif is_dict_series(background):
-                for model in deepcopy(background):
-                    if 'model' not in model:
-                        raise KeyError(
-                            'Missing keyword "model" in model in background '
-                            f'({model})')
-                    name = model.pop('model')
-                    parameters = model.pop('parameters', None)
-                    self.add_model(
-                        name, prefix=f'bkgd_{name}_', parameters=parameters,
-                        **model)
-            else:
-                raise ValueError(
-                    f'Invalid parameter background ({background})')
-
-        # Add peaks and guess initial fit parameters
-        ast = Interpreter()
-        if num_peaks == 1:
-            height_init, cen_init, fwhm_init = self.guess_init_peak(
-                self._x, self._y)
-            if self._fwhm_max is not None and fwhm_init > self._fwhm_max:
-                fwhm_init = self._fwhm_max
-            ast(f'fwhm = {fwhm_init}')
-            ast(f'height = {height_init}')
-            sig_init = ast(fwhm_factor[peak_models[0]])
-            amp_init = ast(height_factor[peak_models[0]])
-            sig_max = None
-            if self._sigma_max is not None:
-                ast(f'fwhm = {self._fwhm_max}')
-                sig_max = ast(fwhm_factor[peak_models[0]])
-                self._sigma_max[0] = sig_max
-            self.add_model(
-                peak_models[0],
-                parameters=(
-                    {'name': 'amplitude', 'value': amp_init, 'min': min_value},
-                    {'name': 'center', 'value': cen_init, 'min': min_value},
-                    {'name': 'sigma', 'value': sig_init, 'min': min_value,
-                     'max': sig_max},
-                ))
-        else:
-            if fit_type == 'uniform':
-                self.add_parameter(name='scale_factor', value=1.0)
-            for i in range(num_peaks):
-                height_init, cen_init, fwhm_init = self.guess_init_peak(
-                    self._x, self._y, i, center_guess=centers)
-                if self._fwhm_max is not None and fwhm_init > self._fwhm_max:
-                    fwhm_init = self._fwhm_max
-                ast(f'fwhm = {fwhm_init}')
-                ast(f'height = {height_init}')
-                sig_init = ast(fwhm_factor[peak_models[i]])
-                amp_init = ast(height_factor[peak_models[i]])
-                sig_max = None
-                if self._sigma_max is not None:
-                    ast(f'fwhm = {self._fwhm_max}')
-                    sig_max = ast(fwhm_factor[peak_models[i]])
-                    self._sigma_max[i] = sig_max
-                if fit_type == 'uniform':
-                    self.add_model(
-                        peak_models[i], prefix=f'peak{i+1}_',
-                        parameters=(
-                            {'name': 'amplitude', 'value': amp_init,
-                             'min': min_value},
-                            {'name': 'center', 'expr': center_exprs[i]},
-                            {'name': 'sigma', 'value': sig_init,
-                             'min': min_value, 'max': sig_max},
-                        ))
-                else:
-                    self.add_model(
-                        'gaussian',
-                        prefix=f'peak{i+1}_',
-                        parameters=(
-                            {'name': 'amplitude', 'value': amp_init,
-                             'min': min_value},
-                            {'name': 'center', 'value': cen_init,
-                             'min': min_value},
-                            {'name': 'sigma', 'value': sig_init,
-                             'min': min_value, 'max': sig_max},
-                        ))
-
-    def _check_validity(self):
-        """Check for valid fit parameter results."""
-        fit_failure = False
-        index = re_compile(r'\d+')
-        for name, par in self.best_parameters().items():
-            if 'bkgd' in name:
-                if ((name.endswith('amplitude') and par['value'] <= 0.0)
-                        or (name.endswith('decay') and par['value'] <= 0.0)):
-                    logger.info(
-                        f'Invalid fit result for {name} ({par["value"]})')
-                    fit_failure = True
-            elif (((name.endswith('amplitude') or name.endswith('height'))
-                    and par['value'] <= 0.0)
-                    or ((name.endswith('sigma') or name.endswith('fwhm'))
-                        and par['value'] <= 0.0)
-                    or (name.endswith('center') and par['value'] <= 0.0)
-                    or (name == 'scale_factor' and par['value'] <= 0.0)):
-                logger.info(f'Invalid fit result for {name} ({par["value"]})')
-                fit_failure = True
-            if ('bkgd' not in name and name.endswith('sigma')
-                    and self._sigma_max is not None):
-                if name == 'sigma':
-                    sigma_max = self._sigma_max[0]
-                else:
-                    sigma_max = self._sigma_max[
-                        int(index.search(name).group())-1]
-                if par['value'] > sigma_max:
-                    logger.info(
-                        f'Invalid fit result for {name} ({par["value"]})')
-                    fit_failure = True
-                elif par['value'] == sigma_max:
-                    logger.warning(
-                        f'Edge result on for {name} ({par["value"]})')
-            if ('bkgd' not in name and name.endswith('fwhm')
-                    and self._fwhm_max is not None):
-                if par['value'] > self._fwhm_max:
-                    logger.info(
-                        f'Invalid fit result for {name} ({par["value"]})')
-                    fit_failure = True
-                elif par['value'] == self._fwhm_max:
-                    logger.warning(
-                        f'Edge result on for {name} ({par["value"]})')
-        return fit_failure
 
 
 class FitMap(Fit):

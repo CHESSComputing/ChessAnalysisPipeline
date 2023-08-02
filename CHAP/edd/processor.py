@@ -417,17 +417,13 @@ class MCADataProcessor(Processor):
             + calibration_config.intercept_calibrated
         nxdata.channel_energy.attrs['units'] = 'keV'
 
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    map_index = scans.get_index(
-                        scan_number,
-                        scan_step_index,
-                        map_config)
-                    nxdata.raw[map_index] = scanparser.get_detector_data(
-                        calibration_config.detector_name,
-                        scan_step_index)
+        for map_index in np.ndindex(map_config.shape):
+            scans, scan_number, scan_step_index = \
+                map_config.get_scan_step_index(map_index)
+            scanparser = scans.get_scanparser(scan_number)
+            nxdata.raw[map_index] = scanparser.get_detector_data(
+                calibration_config.detector_name,
+                scan_step_index)
 
         nxentry.data.makelink(
             nxdata.raw,

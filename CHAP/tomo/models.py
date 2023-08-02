@@ -42,54 +42,20 @@ class Detector(BaseModel):
     lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
 
 
-class TomoSetupConfig(BaseModel):
-    """
-    Class representing the configuration for the tomography
-    reconstruction setup processor.
-
-    :ivar detector: Detector used in the tomography experiment.
-    :type detector: Detector
-    :ivar include_raw_data: Flag to designate whether raw data will be
-        included (True) or not (False), defaults to False.
-    :type include_raw_data: bool, optional
-    :ivar dark_field: A list of dark field spec scans (only required for
-        id3b style experiments).
-    :type dark_field: list[SpecScans], optional
-    :ivar bright_field: A list of bright field spec scans (only required
-        for id3b style experiments).
-    :type bright_field: list[SpecScans], optional
-    """
-    detector: Detector.construct()
-    include_raw_data: Optional[StrictBool] = False
-    dark_field: Optional[conlist(item_type=SpecScans, min_items=1)]
-    bright_field: Optional[conlist(item_type=SpecScans, min_items=1)]
-
-
 class TomoReduceConfig(BaseModel):
     """
     Class representing the configuration for the tomography image
     reduction processor.
 
-    :ivar detector: Detector used in the tomography experiment.
-    :type detector: Detector
     :ivar img_x_bounds: Detector image bounds in the x-direction.
     :type img_x_bounds: list[int], optional
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.
     :type delta_theta: float, optional
-    :ivar dark_field: A list of dark field spec scans (only required for
-        id3b style experiments).
-    :type dark_field: list[SpecScans], optional
-    :ivar bright_field: A list of bright field spec scans (only required
-        for id3b style experiments).
-    :type bright_field: list[SpecScans], optional
     """
-    detector: Detector = Detector.construct()
     img_x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
-    dark_field: Optional[conlist(item_type=SpecScans, min_items=1)]
-    bright_field: Optional[conlist(item_type=SpecScans, min_items=1)]
 
 
 class TomoFindCenterConfig(BaseModel):

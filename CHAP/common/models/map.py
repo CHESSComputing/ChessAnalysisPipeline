@@ -99,7 +99,7 @@ class SpecScans(BaseModel):
 
     def get_index(self, scan_number:int, scan_step_index:int, map_config):
         """This method returns a tuple representing the index of a
-        specific step in a specific spec scan within a map.
+        specific step in a specific SPEC scan within a map.
 
         :param scan_number: Scan number to get index for
         :type scan_number: int
@@ -405,6 +405,43 @@ def validate_data_source_for_map_config(data_source, values):
     return data_source
 
 
+class IndependentDimension(PointByPointScanData):
+    """Class representing the source of data to identify the
+    coordinate values along one dimension of a `MapConfig`
+
+    :ivar label: A user-defined label for referring to this data in
+        the NeXus file and in other tools.
+    :type label: str
+    :ivar units: The units in which the data were recorded.
+    :type units: str
+    :ivar data_type: Represents how these data were recorded at time
+        of data collection.
+    :type data_type: Literal['spec_motor', 'scan_column', 'smb_par']
+    :ivar name: Represents the name with which these raw data were
+        recorded at time of data collection.
+    :type name: str
+    :param start: Sarting index for slicing all datasets of a
+        `MapConfig` along this axis, defaults to 0
+    :type start: int, optional
+    :param end: Ending index for slicing all datasets of a `MapConfig`
+        along this axis, defaults to the total number of unique values
+        along this axis in the associated `MapConfig`
+    :type end: int, optional
+    :param step: Step for slicing all datasets of a `MapConfig` along
+        this axis, defaults to 1
+    :type step: int, optional
+    """
+    start: Optional[conint(ge=0)] = 0
+    end: Optional[int] = None
+    step: Optional[conint(gt=0)] = 1
+
+#    @validator('step')
+#    def validate_step(cls, value):
+#        if value == 0 :
+#            raise ValueError('slice step cannot be zero')
+#        return value
+
+
 class CorrectionsData(PointByPointScanData):
     """Class representing the special instances of
     `PointByPointScanData` that are used by certain kinds of
@@ -500,6 +537,42 @@ class DwellTimeActual(CorrectionsData):
     units: Literal['s'] = 's'
 
 
+class SpecConfig(BaseModel):
+    """Class representing the raw data for one or more SPEC scans.
+
+    :ivar station: The name of the station at which the data was
+        collected.
+    :type station: Literal['id1a3','id3a','id3b']
+    :ivar spec_scans: A list of the SPEC scans that compose the set.
+    :type spec_scans: list[SpecScans]
+    """
+    station: Literal['id1a3','id3a','id3b']
+    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
+    spec_scans: conlist(item_type=SpecScans, min_items=1)
+
+    @validator('experiment_type')
+    def validate_experiment_type(cls, value, values):
+        """Ensure values for the station and experiment_type fields are
+        compatible
+        """
+        station = values.get('station')
+        if station == 'id1a3':
+            allowed_experiment_types = ['SAXSWAXS', 'EDD', 'TOMO']
+        elif station == 'id3a':
+            allowed_experiment_types = ['EDD', 'TOMO']
+        elif station == 'id3b':
+            allowed_experiment_types = ['SAXSWAXS', 'XRF', 'TOMO']
+        else:
+            allowed_experiment_types = []
+        if value not in allowed_experiment_types:
+            raise ValueError(
+                f'For station {station}, allowed experiment types are '
+                f'{", ".join(allowed_experiment_types)}. '
+                f'Supplied experiment type {value} is not allowed.')
+        import_scanparser(station, value)
+        return value
+
+
 class MapConfig(BaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
@@ -509,7 +582,7 @@ class MapConfig(BaseModel):
     :ivar station: The name of the station at which the map was
         collected.
     :type station: Literal['id1a3','id3a','id3b']
-    :ivar spec_scans: A list of the spec scans that compose the map.
+    :ivar spec_scans: A list of the SPEC scans that compose the map.
     :type spec_scans: list[SpecScans]
     :ivar independent_dimensions: A list of the sources of data
         representing the raw values of each independent dimension of
@@ -520,7 +593,7 @@ class MapConfig(BaseModel):
         tool.
     :type presample_intensity: Optional[PresampleIntensity]
     :ivar dwell_time_actual: A source of point-by-point actual dwell
-        times for spec scans. Required when applying a
+        times for SPEC scans. Required when applying a
         CorrectionConfig tool.
     :type dwell_time_actual: Optional[DwellTimeActual]
     :ivar presample_intensity: A source of point-by-point postsample
@@ -529,7 +602,7 @@ class MapConfig(BaseModel):
         `correction_type="flux_absorption_background"`.
     :type presample_intensity: Optional[PresampleIntensity]
     :ivar scalar_data: A list of the sources of data representing
-        other scalar raw data values collected at each point ion the
+        other scalar raw data values collected at each point on the
         map. In the NeXus file representation of the map, datasets for
         these values will be included.
     :type scalar_values: Optional[list[PointByPointScanData]]
@@ -539,7 +612,7 @@ class MapConfig(BaseModel):
     experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
-    independent_dimensions: conlist(item_type=PointByPointScanData,
+    independent_dimensions: conlist(item_type=IndependentDimension,
                                     min_items=1)
     presample_intensity: Optional[PresampleIntensity]
     dwell_time_actual: Optional[DwellTimeActual]
@@ -598,19 +671,21 @@ class MapConfig(BaseModel):
             coords = self._coords
         except:
             coords = {}
-            for independent_dimension in self.independent_dimensions:
-                coords[independent_dimension.label] = []
+            for dim in self.independent_dimensions:
+                coords[dim.label] = []
                 for scans in self.spec_scans:
                     for scan_number in scans.scan_numbers:
                         scanparser = scans.get_scanparser(scan_number)
                         for scan_step_index in range(
                                 scanparser.spec_scan_npts):
-                            coords[independent_dimension.label].append(
-                                independent_dimension.get_value(
+                            coords[dim.label].append(dim.get_value(
                                     scans, scan_number, scan_step_index))
-                coords[independent_dimension.label] = np.unique(
-                    coords[independent_dimension.label])
-                self._coords = coords
+                coords[dim.label] = np.unique(coords[dim.label])
+                if dim.end is None:
+                    dim.end = len(coords[dim.label])
+                coords[dim.label] = coords[dim.label][slice(
+                    dim.start, dim.end, dim.step)]
+            self._coords = coords
         return coords
 
     @property
@@ -642,6 +717,61 @@ class MapConfig(BaseModel):
         return [getattr(self, label, None)
                 for label in CorrectionsData.reserved_labels()
                 if getattr(self, label, None) is not None] + self.scalar_data
+
+    def get_scan_step_index(self, map_index):
+        """Return parameters to identify a single SPEC scan step that
+        corresponds to the map point at the index provided.
+
+        :param map_index: The index of a map point to identify as a
+            specific SPEC scan step index
+        :type map_index: tuple
+        :return: A `SpecScans` configuration, scan number, and scan
+            step index
+        :rtype: tuple[SpecScans, int, int]
+        """
+        coords = {dim: self.coords[dim][i]
+            for dim,i in zip( self.dims, map_index)}
+        for scans in self.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    _coords = {dim.label:dim.get_value(
+                                   scans, scan_number, scan_step_index)
+                               for dim in self.independent_dimensions}
+                    if _coords == coords:
+                        return scans, scan_number, scan_step_index
+        raise RuntimeError(f'Unable to match coordinates {coords}')
+
+    def get_value(self, data, map_index):
+        """Return the raw data collected by a single device at a
+        single point in the map.
+
+        :param data: The device configuration to return a value of raw
+            data for
+        :type data: PointByPointScanData
+        :param map_index: The map index to return raw data for
+        :type map_index: tuple
+        :return: Raw data value
+        """
+        scans, scan_number, scan_step_index = \
+            self.get_scan_step_index(map_index)
+        return data.get_value(scans, scan_number, scan_step_index)
+
+    def get_detector_data(self, detector_name, map_index):
+        """Return detector data collected by this map.
+
+        :param detector_name: Name of the detector for which to return
+            data. Usually the value of the detector's EPICS
+            areaDetector prefix macro, $P.
+        :type detector_name: str
+        :param map_index: The map index to return detector data for.
+        :return: One frame of raw detector data
+        :rtype: np.ndarray
+        """
+        scans, scan_number, scan_step_index = \
+            self.get_scan_step_index(map_index)
+        scanparser = scans.get_scanparser(scan_number)
+        return scanparser.get_detector_data(detector_name, scan_step_index)
 
 
 def import_scanparser(station, experiment):
