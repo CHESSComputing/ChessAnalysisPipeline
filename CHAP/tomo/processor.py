@@ -184,7 +184,7 @@ class TomoCHESSMapConverter(Processor):
         nxroot[map_config.title] = nxentry
         nxroot.attrs['default'] = map_config.title
         nxentry.definition = 'NXtomo'
-        nxentry.attrs['map_config'] = tomofields.map_config
+        nxentry.map_config = tomofields.map_config
 
         # Add an NXinstrument to the NXentry
         nxinstrument = NXinstrument()
@@ -247,7 +247,6 @@ class TomoCHESSMapConverter(Processor):
             theta_offset = 0
 
         # Collect dark field data
-        print('\n\nCollecting dark fields')
         image_keys = []
         sequence_numbers = []
         image_stacks = []
@@ -255,12 +254,11 @@ class TomoCHESSMapConverter(Processor):
         x_translations = []
         z_translations = []
         if darkfield is not None:
-            nxentry.attrs['dark_field_config'] = darkfield.spec_config
+            nxentry.dark_field_config = darkfield.spec_config
             for scan_name, scan in darkfield.spec_scans.items():
                 for scan_number, nxcollection in scan.items():
                     scan_columns = loads(str(nxcollection.scan_columns))
                     data_shape = nxcollection.data[detector_prefix].shape
-                    print(f'\n\ndata_shape {tomofields.station}: {data_shape}')
                     assert len(data_shape) == 3
                     assert data_shape[1] == detector_config.rows
                     assert data_shape[2] == detector_config.columns
@@ -268,13 +266,8 @@ class TomoCHESSMapConverter(Processor):
                     num_image -= theta_offset #RV
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
-                    data = np.asarray(
-                        nxcollection.data[detector_prefix])[theta_offset:,:,:]
-                    sum_data = list(np.sum(data, (1,2)))
-                    print(f'\n\nsum ({len(sum_data)}):\n{sum_data}')
-                    image_stacks.append(data)
-#RV                    image_stacks.append(np.asarray(
-#RV                        nxcollection.data[detector_prefix]))
+                    image_stacks.append(np.asarray(
+                        nxcollection.data[detector_prefix])[theta_offset:,:,:])
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -302,13 +295,11 @@ class TomoCHESSMapConverter(Processor):
                                 num_image*[smb_pars[z_translation_name]]
 
         # Collect bright field data
-        print('\n\nCollecting bright fields')
-        nxentry.attrs['bright_field_config'] = brightfield.spec_config
+        nxentry.bright_field_config = brightfield.spec_config
         for scan_name, scan in brightfield.spec_scans.items():
             for scan_number, nxcollection in scan.items():
                 scan_columns = loads(str(nxcollection.scan_columns))
                 data_shape = nxcollection.data[detector_prefix].shape
-                print(f'\n\ndata_shape {tomofields.station}: {data_shape}')
                 assert len(data_shape) == 3
                 assert data_shape[1] == detector_config.rows
                 assert data_shape[2] == detector_config.columns
@@ -316,13 +307,8 @@ class TomoCHESSMapConverter(Processor):
                 num_image -= theta_offset #RV
                 image_keys += num_image*[1]
                 sequence_numbers += list(range(num_image))
-                data = np.asarray(
-                    nxcollection.data[detector_prefix])[theta_offset:,:,:]
-                sum_data = list(np.sum(data, (1,2)))
-                print(f'\n\nsum ({len(sum_data)}):\n{sum_data}')
-                image_stacks.append(data)
-#RV                image_stacks.append(np.asarray(
-#RV                    nxcollection.data[detector_prefix]))
+                image_stacks.append(np.asarray(
+                    nxcollection.data[detector_prefix])[theta_offset:,:,:])
                 rotation_angles += num_image*[0.0]
                 if (x_translation_data_type == 'spec_motor' or
                         z_translation_data_type == 'spec_motor'):
@@ -350,7 +336,6 @@ class TomoCHESSMapConverter(Processor):
                             num_image*[smb_pars[z_translation_name]]
 
         # Collect tomography fields data
-        print('\n\nCollecting tomo fields')
         if x_translation_data_type is None:
             x_trans = [0.0]
             if z_translation_data_type is None:
@@ -392,33 +377,21 @@ class TomoCHESSMapConverter(Processor):
         # Restrict to 180 degrees set of data for now to match old code
         thetas = np.asarray(tomofields.data.rotation_angles)
 #RV        num_image = len(tomofields.data.rotation_angles)
-        print(f'\n\ntheta_offset: {theta_offset}')
-        print(f'\n\nthetas in map ({len(thetas)}):\n{thetas}')
         thetas = thetas[theta_offset:]
-        print(f'\n\nthetas after theta_offset ({len(thetas)}):\n{thetas}')
         from CHAP.utils.general import index_nearest
         if len(thetas) and thetas[-1]-thetas[0] > 180.:
             image_end = index_nearest(thetas, thetas[0]+180)
             thetas = thetas[:image_end]
         else:
             image_end = len(thetas)
-        print(f'\n\nselected thetas in map ({len(thetas)}):\n{thetas}')
         num_image = len(thetas)
         for i, z in enumerate(z_trans):
             for j, x in enumerate(x_trans):
                 image_keys += num_image*[0]
                 sequence_numbers += list(range(num_image))
-                print(f'\n\ntomo stack shape {tomofields.station} {i} {j}: {tomo_stacks[i,j].shape}')
-
-                data = np.asarray(
-                    tomo_stacks[i,j][theta_offset:theta_offset+image_end,:,:])
-                print(f'\n\ndata shape: {data.shape} {data.dtype}')
-                sum_data = list(np.sum(data, (1,2)))
-                print(f'\n\nsum ({len(sum_data)}):\n\t[{sum_data[0]}, {sum_data[1]}, ..., {sum_data[-2]}, {sum_data[-1]}]')
-                image_stacks.append(data)
-
+                image_stacks.append(np.asarray(
+                    tomo_stacks[i,j][theta_offset:theta_offset+image_end,:,:]))
                 rotation_angles += list(thetas)
-#RV                image_stacks.append(tomo_stacks[i,j])
 #RV                rotation_angles += list(tomofields.data.rotation_angles)
                 x_translations += num_image*[x]
                 z_translations += num_image*[z]
@@ -504,7 +477,6 @@ class TomoDataProcessor(Processor):
             TomoCombineConfig,
         )
 
-        exit(f'\n\ndata:\n{data[0]["data"].tree}')
         if not isinstance(reduce_data, bool):
             raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
         if not isinstance(find_center, bool):
@@ -772,9 +744,6 @@ class Tomo:
         :return: Reduced tomography data
         :rtype: nexusformat.nexus.NXroot
         """
-        print(f'\n\nnxroot:\n{nxroot}')
-        print(f'\n\nnxroot:\n{nxroot.tree}')
-        print(f'\n\ntool_config:\n{tool_config}')
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
@@ -812,7 +781,6 @@ class Tomo:
 
         # Get rotation angles for image stacks
         thetas = self._gen_thetas(nxentry)
-        print(f'\n\nthetas ({len(thetas)}):\n{thetas}')
 
         # Get the image stack mask to remove bad images from stack
         image_mask = None
@@ -1226,16 +1194,7 @@ class Tomo:
         for i, stack in enumerate(tomo_recon_stacks):
             tomo_recon_stacks[i] = stack[
                 z_range[0]:z_range[1],x_range[0]:x_range[1],y_range[0]:y_range[1]]
-            print(f'\n\nreconstructed tomo_stack shape {i}: {tomo_recon_stacks[i].shape}')
-            sum_data = list(np.sum(tomo_recon_stacks[i], (1,2)))
-            print(f'\n\nsum reconstructed tomo {i} ({len(sum_data)}):\n\t[{sum_data[0]}, {sum_data[1]}, ..., {sum_data[-2]}, {sum_data[-1]}]')
-
         tomo_recon_stacks = np.asarray(tomo_recon_stacks)
-#        print(f'tomo_recon_stacks {tomo_recon_stacks.shape}: {np.amin(tomo_recon_stacks)} {np.amax(tomo_recon_stacks)}')
-#        _min = np.amin(tomo_recon_stacks)
-#        _max = np.amax(tomo_recon_stacks)
-#        tomo_recon_stacks = (tomo_recon_stacks-_min) / (_max-_min)
-#        print(f'tomo_recon_stacks {tomo_recon_stacks.shape}: {np.amin(tomo_recon_stacks)} {np.amax(tomo_recon_stacks)}')
 
         # Plot a few reconstructed image slices
         if self._save_figs:
@@ -1585,8 +1544,6 @@ class Tomo:
                 nxentry.instrument.detector.data[field_indices,:,:])
         else:
             raise ValueError('Bright field unavailable')
-        print(f'\n\ntbf_stack shape: {tbf_stack.shape}')
-        print(f'\n\nsum:\n{list(np.sum(tbf_stack, (1,2)))}')
 
         # Take median if more than one image
         #
@@ -1658,22 +1615,25 @@ class Tomo:
             image_mask = np.asarray(image_mask)
             first_image_index = int(np.argmax(image_mask))
         image_key = nxentry.instrument.detector.get('image_key', None)
-        field_indices = [
+        field_indices_all = [
             index for index, key in enumerate(image_key) if key == 0]
-        if not field_indices:
+        if not field_indices_all:
             raise ValueError('Tomography field(s) unavailable')
-        first_image = np.asarray(nxentry.instrument.detector.data[
-            field_indices[first_image_index]])
-        assert theta == float(nxentry.sample.rotation_angle[
-            field_indices[first_image_index]])
-        if image_mask is None:
-            z_translation_all = nxentry.sample.z_translation[field_indices]
-        else:
-            z_translation_all = \
-                nxentry.sample.z_translation[field_indices[image_mask]]
-        vertical_shifts = sorted(list(set(z_translation_all)))
-        num_tomo_stacks = len(vertical_shifts)
-        print(f'\n\nfirst_image sum: {np.sum(first_image)}')
+        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_levels = sorted(list(set(z_translation_all)))
+        num_tomo_stacks = len(z_translation_levels)
+        center_stack_index = int(num_tomo_stacks/2)
+        z_translation = z_translation_levels[center_stack_index]
+        try:
+            field_indices = [
+                field_indices_all[index]
+                for index, z in enumerate(z_translation_all)
+                if z == z_translation]
+            first_image = np.asarray(nxentry.instrument.detector.data[
+                field_indices[first_image_index]])
+        except:
+            raise RuntimeError('Unable to load the tomography images'
+                               f'for stack {i}')
 
         # Select image bounds
         title = f'tomography image at theta={round(theta, 2)+0}'
@@ -1928,7 +1888,6 @@ class Tomo:
                 reduced_data.data.dark_field[
                     img_x_bounds[0]:img_x_bounds[1],
                     img_y_bounds[0]:img_y_bounds[1]])
-            print(f'\n\ndark field sum: {np.sum(tdf)}')
         else:
             self._logger.warning('Dark field unavailable')
             tdf = None
@@ -1939,11 +1898,9 @@ class Tomo:
             tbf = tbf[
                 img_x_bounds[0]:img_x_bounds[1],
                 img_y_bounds[0]:img_y_bounds[1]]
-        print(f'\n\nbright field sum: {np.sum(tbf)}')
 
         # Get thetas (in degrees)
         thetas = np.asarray(reduced_data.rotation_angle)
-        print(f'\n\nthetas in gen_tomo: {thetas}')
 
         # Get or create image mask
         image_mask = reduced_data.get('image_mask')
@@ -1987,9 +1944,6 @@ class Tomo:
                         == list(range((len(sequence_numbers)))))
                 tomo_stack = np.asarray(
                     nxentry.instrument.detector.data[field_indices_masked])
-                print(f'\n\ntomo_stack shape: {tomo_stack.shape}')
-                sum_data = list(np.sum(np.asarray(tomo_stack), (1,2)))
-                print(f'\n\nsum tomo ({len(sum_data)}):\n\t[{sum_data[0]}, {sum_data[1]}, ..., {sum_data[-2]}, {sum_data[-1]}]')
             except:
                 raise RuntimeError('Unable to load the tomography images'
                                    f'for stack {i}')
@@ -2102,10 +2056,6 @@ class Tomo:
         reduced_data['x_translation'] = np.asarray(horizontal_shifts)
         reduced_data['z_translation'] = np.asarray(vertical_shifts)
         reduced_data.data['tomo_fields'] = np.asarray(reduced_tomo_stacks)
-
-        print(f'\n\nreduced tomo_stack shape: {np.asarray(reduced_tomo_stacks)[0].shape}')
-        sum_data = list(np.sum(np.asarray(reduced_tomo_stacks)[0], (1,2)))
-        print(f'\n\nsum reduced tomo ({len(sum_data)}):\n\t[{sum_data[0]}, {sum_data[1]}, ..., {sum_data[-2]}, {sum_data[-1]}]')
 
         if tdf is not None:
             del tdf
@@ -2773,7 +2723,6 @@ class TomoSimFieldProcessor(Processor):
                     (tomo_field, dummy_fields))
         if num_tomo_stack == 1:
             tomo_fields_stack = tomo_fields_stack[0]
-        print(f'\n\n\ntomo_fields_stack: {tomo_fields_stack.shape}\n')
 
         # Create Nexus object and write to file
         nxroot = NXroot()
@@ -3047,15 +2996,12 @@ class TomoSpecProcessor(Processor):
         #     TomoBrightField configuration object in data
         configs = {}
         nxroot = get_nxroot(data, 'tomo.models.TomoDarkField')
-        print(f'\n\ndarkfield:\n{nxroot.tree}')
         if nxroot is not None:
             configs['tomo.models.TomoDarkField'] = nxroot
         nxroot = get_nxroot(data, 'tomo.models.TomoBrightField')
-        print(f'\n\nbrightfield:\n{nxroot.tree}')
         if nxroot is not None:
             configs['tomo.models.TomoBrightField'] = nxroot
         nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
-        print(f'\n\ntomofields:\n{nxroot.tree}')
         if nxroot is not None:
             configs['tomo.models.TomoSimField'] = nxroot
         scan_numbers = list(set(scan_numbers))
@@ -3130,7 +3076,6 @@ class TomoSpecProcessor(Processor):
                 z_translations = [0.]
             thetas = np.asarray(detector.thetas)
             num_theta = thetas.size
-            print(f'\n\n{schema}: {num_theta} {thetas}')
             if schema == 'tomo.models.TomoDarkField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \

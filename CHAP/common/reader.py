@@ -86,7 +86,7 @@ class SpecReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         # as well as all spec_motors, scan_columns, and smb_pars
         nxentry = NXentry(name=spec_config.experiment_type)
-        nxentry.attrs['spec_config'] = dumps(spec_config.dict())
+        nxentry.spec_config = dumps(spec_config.dict())
         nxentry.attrs['station'] = spec_config.station
         nxentry.spec_scans = NXcollection()
         for scans in spec_config.spec_scans:
@@ -98,15 +98,15 @@ class SpecReader(Reader):
                 scanparser = scans.get_scanparser(scan_number)
                 nxscans[scan_number] = NXcollection()
                 if hasattr(scanparser, 'spec_positioner_values'):
-                    nxscans[scan_number].attrs['spec_motors'] = dumps(
+                    nxscans[scan_number].spec_motors = dumps(
                         {k:float(v) for k,v
                          in scanparser.spec_positioner_values.items()})
                 if hasattr(scanparser, 'spec_scan_data'):
-                    nxscans[scan_number].attrs['scan_columns'] = dumps(
+                    nxscans[scan_number].scan_columns = dumps(
                         {k:list(v) for k,v
                          in scanparser.spec_scan_data.items() if len(v)})
                 if hasattr(scanparser, 'pars'):
-                    nxscans[scan_number].attrs['smb_pars'] = dumps(
+                    nxscans[scan_number].smb_pars = dumps(
                         {k:v for k,v in scanparser.pars.items()})
                 if detector_names:
                     nxdata = NXdata()
@@ -173,7 +173,7 @@ class MapReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
-        nxentry.attrs['map_config'] = dumps(map_config.dict())
+        nxentry.map_config = dumps(map_config.dict())
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
@@ -237,7 +237,6 @@ class MapReader(Reader):
                     nxentry.data[detector_name][map_index] = \
                         map_config.get_detector_data(detector_name, map_index)
 
-        print(f'\n\nnxentry.tree:\n{nxentry.tree}')
         return nxentry
 
 
