@@ -13,6 +13,7 @@ from scipy.interpolate import interp1d
 from typing import Literal, Optional
 
 # local modules
+from CHAP.utils.material import Material
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
@@ -147,6 +148,65 @@ class MCAScanDataConfig(BaseModel):
         return d
 
 
+class MaterialConfig(BaseModel):
+    """Model for parameters to characterize a sample material
+
+    :ivar hexrd_h5_material_file: path to a HEXRD materials.h5 file containing
+        an entry for the material properties.
+    :ivar hexrd_h5_material_name: Name of the material entry in
+        `hexrd_h5_material_file`.
+    :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
+        a cubic crystal.
+    """
+    material_file: Optional[FilePath]
+    material_name: Optional[constr(strip_whitespace=True, min_length=1)]
+    lattice_parameters_angstroms: Optional[confloat(gt=0)]
+    sgnum: Optional[int]
+    atoms: Optional[list[str]]
+    pos: Optional[list]
+
+    _material: Optional[Material]
+
+    class Config:
+        underscore_attrs_are_private = False
+
+    @root_validator
+    def validate_material(cls, values):
+        from CHAP.utils.material import Material
+        values['_material'] = Material(**values)
+        return values
+
+    def unique_ds(self, tth_tol=0.15, tth_max=90.0):
+        """Get a list of unique HKLs and their lattice spacings
+
+        :param tth_tol: minimum resolvable difference in 2&theta
+            between two unique HKL peaks, defaults to `0.15`.
+        :type tth_tol: float, optional
+        :param tth_max: detector rotation about hutch x axis, defaults
+            to `90.0`.
+        :type tth_max: float, optional
+        :return: unique HKLs and their lattice spacings in angstroms
+        :rtype: np.ndarray, np.ndarray
+        """
+        return self._material.get_ds_unique(tth_tol=tth_tol,
+                                            tth_max=tth_max)
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        for k,v in d.items():
+            if isinstance(v, PosixPath):
+                d[k] = str(v)
+        if '_material' in d:
+            del d['_material']
+        return d
+
+
 class MCAElementCalibrationConfig(MCAElementConfig):
     """Class representing metadata & parameters required for
     calibrating a single MCA detector element.
@@ -187,7 +247,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         :rtype: np.ndarray, np.ndarray
         """
 
-        unique_hkls, unique_ds = material.get_ds_unique(
+        unique_hkls, unique_ds = material.unique_ds(
             tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
 
         fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
@@ -255,6 +315,18 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         return self.scanparser.spec_scan_motor_mnes[0]
 
 
+class CeriaConfig(MaterialConfig):
+    """Model for a Material representing CeO2 used in calibrations.
+
+    :ivar hexrd_h5_material_name: Name of the material entry in
+        `hexrd_h5_material_file`, defaults to `'CeO2'`.
+    :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
+        the cubic CeO2 crystal, defaults to `5.41153`.
+    """
+    material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
+    lattice_parameters_angstroms: confloat(gt=0) = 5.41153
+
+
 class MCACeriaCalibrationConfig(MCAScanDataConfig):
     """
     Class representing metadata required to perform a Ceria calibration for an
@@ -267,12 +339,8 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
     :ivar flux_file: csv file containing station beam energy in eV (column 0)
         and flux (column 1)
 
-    :ivar hexrd_h5_material_file: path to a HEXRD materials.h5 file containing
-        an entry for the material properties.
-    :ivar hexrd_h5_material_name: Name of the material entry in
-        `hexrd_h5_material_file`, defaults to `'CeO2'`.
-    :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
-        the cubic CeO2 crystal, defaults to `5.41153`.
+    :ivar material: material configuration for Ceria
+    :type material: CeriaConfig
 
     :ivar detectors: list of individual detector element calibration
         configurations
@@ -288,10 +356,7 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
 
     flux_file: FilePath
 
-    hexrd_h5_material_file: FilePath
-    hexrd_h5_material_name: constr(
-        strip_whitespace=True, min_length=1) = 'CeO2'
-    lattice_parameter_angstrom: confloat(gt=0) = 5.41153
+    material: CeriaConfig
 
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
 
@@ -332,44 +397,123 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
 
-    def material(self):
-        """Get CeO2 as a `CHAP.utils.material.Material` object.
 
-        :return: CeO2 material
-        :rtype: CHAP.utils.material.Material
-        """
-        # local modules
-        from CHAP.utils.material import Material
+def select_hkls(detector, material, tth, y, x, interactive):
+    """Return a plot of `detector.fit_hkls` as a matplotlib
+    figure. Optionally modify `detector.fit_hkls` by interacting with
+    a matplotlib figure.
 
-        material = Material(
-            material_name=self.hexrd_h5_material_name,
-            material_file=self.hexrd_h5_material_file,
-            lattice_parameters_angstroms=self.lattice_parameter_angstrom)
-        # The following kwargs will be needed if we allow the material to be
-        # built using xrayutilities (for now, we only allow hexrd to make the
-        # material):
-        #   sgnum=225,
-        #   atoms=['Ce4p', 'O2mdot'],
-        #   pos=[(0.,0.,0.), (0.25,0.75,0.75)],
-        #   enrgy=50000.)
-        # Why do we need to specify an energy to get HKLs when using
-        # xrayutilities?
-        return material
+    :param detector: the detector to set `fit_hkls` on
+    :type detector: MCAElementConfig
+    :param material: the material to pick HKLs for
+    :type material: MaterialConfig
+    :param tth: diffraction angle two-theta
+    :type tth: float
+    :param y: reference y data to plot
+    :type y: np.ndarray
+    :param x: reference x data to plot
+    :type x: np.ndarray
+    :param interactive: show the plot and allow user interactions with
+        the matplotlib figure
+    :type interactive: bool
+    :return: plot showing the user-selected HKLs
+    :rtype: matplotlib.figure.Figure
+    """
+    import numpy as np
+    from scipy.constants import physical_constants
+    hkls, ds = material.unique_ds(
+        tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
+    peak_locations = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
+                     * physical_constants['speed of light in vacuum'][0] \
+                     / (2. * ds * np.sin(0.5 * np.radians(tth)))
+    pre_selected_peak_indices = detector.fit_hkls \
+                                if detector.fit_hkls else []
+    from CHAP.utils.general import select_peaks
+    selected_peaks, figure = select_peaks(
+        y, x, peak_locations,
+        peak_labels=[str(hkl)[1:-1] for hkl in hkls],
+        pre_selected_peak_indices=pre_selected_peak_indices,
+        mask=detector.mca_mask(),
+        interactive=interactive,
+        xlabel='MCA channel energy (keV)',
+        ylabel='MCA intensity (counts)',
+        title='Mask and HKLs for fitting')
 
-    def unique_ds(self, hkl_tth_tol=0.15, tth_max=90.0):
-        """Get a list of unique HKLs and their lattice spacings
+    selected_hkl_indices = [int(np.where(peak_locations == peak)[0][0]) \
+                            for peak in selected_peaks]
+    detector.fit_hkls = selected_hkl_indices
 
-        :param hkl_tth_tol: minimum resolvable difference in 2&theta
-            between two unique HKL peaks, defaults to `0.15`.
-        :type hkl_tth_tol: float, optional
-        :param tth_max: detector rotation about hutch x axis, defaults
-            to `90.0`.
-        :type tth_max: float, optional
-        :return: unique HKLs and their lattice spacings in angstroms
-        :rtype: np.ndarray, np.ndarray
-        """
+    return figure
 
-        unique_hkls, unique_ds = self.material().get_ds_unique(
-            tth_tol=hkl_tth_tol, tth_max=tth_max)
 
-        return unique_hkls, unique_ds
+def select_tth_initial_guess(detector, material, y, x):
+    """Show a matplotlib figure of a reference MCA spectrum on top of
+    HKL locations. The figure includes an input field to adjust the
+    initial tth guess and responds by updating the HKL locations based
+    on the adjusted value of the initial tth guess.
+
+    :param detector: the detector to set `tth_inital_guess` on
+    :type detector: MCAElementConfig
+    :param material: the material to show HKLs for
+    :type material: MaterialConfig
+    :param y: reference y data to plot
+    :type y: np.ndarray
+    :param x: reference x data to plot
+    :type x: np.ndarray
+    :return: None
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.widgets import Button, TextBox
+    import numpy as np
+    from scipy.constants import physical_constants
+
+    tth_initial_guess = detector.tth_initial_guess \
+                        if detector.tth_initial_guess is not None \
+                        else 5.0
+    hkls, ds = material.unique_ds(
+        tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
+    hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
+         * physical_constants['speed of light in vacuum'][0]
+    def get_peak_locations(tth):
+        return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
+
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.set_xlabel('MCA channel energy (keV)')
+    ax.set_ylabel('MCA intensity (counts)')
+    ax.set_title('Adjust initial guess for $2\\theta$')
+    hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
+                 for loc in get_peak_locations(tth_initial_guess)]
+
+    # Callback for tth input
+    def new_guess(tth):
+        try:
+            tth = float(tth)
+        except:
+            raise ValueError(f'Cannot convert {new_tth} to float')
+        for i, (line, loc) in enumerate(zip(hkl_lines,
+                                            get_peak_locations(tth))):
+            line.remove()
+            hkl_lines[i] = ax.axvline(loc, c='k', ls='--', lw=1)
+        ax.get_figure().canvas.draw()
+        detector.tth_initial_guess = tth
+
+    # Setup tth input
+    plt.subplots_adjust(bottom=0.25)
+    tth_input = TextBox(plt.axes([0.125, 0.05, 0.15, 0.075]),
+                        '$2\\theta$: ',
+                        initial=tth_initial_guess)
+    cid_update_tth = tth_input.on_submit(new_guess)
+
+    # Setup "Confirm" button
+    def confirm_selection(event):
+        plt.close()
+    confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+    cid_confirm = confirm_b.on_clicked(confirm_selection)
+
+    # Show figure for user interaction
+    plt.show()
+
+    # Disconnect all widget callbacks when figure is closed
+    tth_input.disconnect(cid_update_tth)
+    confirm_b.disconnect(cid_confirm)

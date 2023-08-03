@@ -320,6 +320,13 @@ class MCACeriaCalibrationProcessor(Processor):
         mca_bin_energies = np.arange(0, detector.num_bins) \
             * (detector.max_energy_kev / detector.num_bins)
 
+        if interactive:
+            # Interactively adjust initial tth guess
+            from CHAP.edd.models import select_tth_initial_guess
+            select_tth_initial_guess(detector, calibration_config.material,
+                                     mca_data, mca_bin_energies)
+        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
+
         # Mask out the corrected MCA data for fitting
         if interactive:
             from CHAP.utils.general import draw_mask_1d
@@ -354,30 +361,21 @@ class MCACeriaCalibrationProcessor(Processor):
         # Get the HKLs and lattice spacings that will be used for
         # fitting
         tth = detector.tth_initial_guess
-        if interactive:
-            from CHAP.utils.general import select_peaks
-            hkls, ds = calibration_config.unique_ds(
-                hkl_tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
-            peak_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
-            pre_selected_peak_indices = detector.fit_hkls \
-                                        if detector.fit_hkls else []
-            self.logger.info(
-                'Interactively select HKLs in the matplotlib figure')
-            selected_peaks = select_peaks(
-                mca_data, mca_bin_energies, peak_locations,
-                pre_selected_peak_indices=pre_selected_peak_indices,
-                mask=mca_mask)
-            fit_hkls = [np.where(peak_locations == peak)[0][0]
-                        for peak in selected_peaks]
-            detector.fit_hkls = fit_hkls
-            self.logger.debug('HKLs selected. Including HKLs: '
-                              + str(detector.fit_hkls))
+        if interactive or save_figures:
+            from CHAP.edd.models import select_hkls
+            fig = select_hkls(detector, calibration_config.material, tth,
+                              mca_data, mca_bin_energies, interactive)
+            if save_figures:
+                fig.savefig(os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_calibration_hkls.png'))
+        self.logger.debug(f'HKLs selected: {detector.fit_hkls}')
         if detector.fit_hkls is None:
             raise ValueError(
                 'No value provided for fit_hkls. Provide them in '
                 'the detector\'s MCA Ceria Calibration Configuration, or'
                 ' re-run the pipeline with the --interactive flag.')
-        fit_hkls, fit_ds = detector.fit_ds(calibration_config.material())
+        fit_hkls, fit_ds = detector.fit_ds(calibration_config.material)
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
 
         for iter_i in range(calibration_config.max_iter):
@@ -409,7 +407,7 @@ class MCACeriaCalibrationProcessor(Processor):
             uniform_a = best_values['scale_factor']
             uniform_strain = np.log(
                 (uniform_a
-                 / calibration_config.lattice_parameter_angstrom))
+                 / calibration_config.material.lattice_parameters_angstroms))
             # uniform_tth = tth * (1.0 + uniform_strain)
             # uniform_rel_rms_error = (np.linalg.norm(residual)
             #                          / np.linalg.norm(fit_mca_intensities))
@@ -436,7 +434,8 @@ class MCACeriaCalibrationProcessor(Processor):
             unconstrained_a = 0.5*hc*np.sqrt(c_1) \
                 / (unconstrained_fit_centers*abs(np.sin(0.5*np.radians(tth))))
             unconstrained_strains = np.log(
-                unconstrained_a/calibration_config.lattice_parameter_angstrom)
+                (unconstrained_a
+                 / calibration_config.material.lattice_parameters_angstroms))
             unconstrained_strain = np.mean(unconstrained_strains)
             unconstrained_tth = tth * (1.0 + unconstrained_strain)
             unconstrained_rel_rms_error = (
