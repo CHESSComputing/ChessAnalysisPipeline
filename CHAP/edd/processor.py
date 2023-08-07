@@ -149,9 +149,9 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         # Find the motor position corresponding roughly to the center
         # of the diffraction volume
-        motor_vals = dvl_config.motor_vals
-        scan_center = np.sum(motor_vals * masked_sum) / np.sum(masked_sum)
-        x = motor_vals - scan_center
+        scanned_vals = dvl_config.scanned_vals
+        scan_center = np.sum(scanned_vals * masked_sum) / np.sum(masked_sum)
+        x = scanned_vals - scan_center
 
         # "Normalize" the masked summed data and fit a gaussian to it
         y = (masked_sum - min(masked_sum)) / max(masked_sum)
@@ -175,7 +175,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                     num_index_ranges_max=1,
                     title=('Click and drag to indicate the\n'
                            + 'boundary of the diffraction volume'),
-                    xlabel=(dvl_config.motor_mne
+                    xlabel=(dvl_config.scanned_dim_lbl
                             + ' (offset from scan "center")'),
                     ylabel='MCA intensity (normalized)')
                 dvl_bounds = dvl_bounds[0]
@@ -190,7 +190,7 @@ class DiffractionVolumeLengthProcessor(Processor):
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.detector_name})')
-            ax.set_xlabel(dvl_config.motor_mne \
+            ax.set_xlabel(dvl_config.scanned_dim_lbl \
                           + ' (offset from scan "center")')
             ax.set_ylabel('MCA intensity (normalized)')
             ax.plot(x, y, label='total (masked & normalized)')

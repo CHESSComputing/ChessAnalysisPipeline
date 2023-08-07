@@ -14,6 +14,7 @@ from typing import Literal, Optional
 
 # local modules
 from CHAP.utils.material import Material
+from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
@@ -60,6 +61,19 @@ class MCAElementConfig(BaseModel):
             mask = np.logical_or(mask, _mask)
         return mask
 
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        d['include_bin_ranges'] = [
+            list(d['include_bin_ranges'][i]) \
+            for i in range(len(d['include_bin_ranges']))]
+        return d
+
 
 class MCAScanDataConfig(BaseModel):
     """Class representing metadata required to locate raw MCA data for
@@ -75,11 +89,14 @@ class MCAScanDataConfig(BaseModel):
     :ivar include_bin_ranges: list of MCA channel index ranges whose
         data should be included after applying a mask
     """
-    spec_file: FilePath
-    scan_number: conint(gt=0)
+    spec_file: Optional[FilePath]
+    scan_number: Optional[conint(gt=0)]
+    par_file: Optional[FilePath]
+    scan_column: Optional[Union[conint(ge=0), str]]
 
     detectors: conlist(min_items=1, item_type=MCAElementConfig)
 
+    _parfile: Optional[ParFile]
     _scanparser: Optional[ScanParser]
 
     class Config:
@@ -96,14 +113,38 @@ class MCAScanDataConfig(BaseModel):
         :return: the validated form of `values`
         :rtype: dict
         """
-        values['_scanparser'] = ScanParser(values.get('spec_file'),
-                                           values.get('scan_number'))
+        spec_file = values.get('spec_file')
+        par_file = values.get('par_file')
+        if spec_file and par_file:
+            raise ValueError('Use either spec_file or par_file, not both')
+        elif spec_file:
+            values['_scanparser'] = ScanParser(values.get('spec_file'),
+                                               values.get('scan_number'))
+            values['_parfile'] = None
+        elif par_file:
+            if 'scan_column' not in values:
+                raise ValueError(
+                    'When par_file is used, scan_column must be used, too')
+            values['_parfile'] = ParFile(values.get('par_file'))
+            if isinstance(values['scan_column'], str):
+                if values['scan_column'] not in values['_parfile'].column_names:
+                    raise ValueError(
+                        f'No column named {values["scan_column"]} in '
+                        + '{values["par_file"]}. Options: '
+                        + ', '.join(values['_parfile'].column_names))
+            #values['spec_file'] = values['_parfile'].spec_file
+            values['_scanparser'] = ScanParser(
+                values['_parfile'].spec_file,
+                values['_parfile'].good_scan_numbers()[0])
+        else:
+            raise ValueError('Must use either spec_file or par_file')
+
         for detector in values.get('detectors'):
             if detector.num_bins is None:
                 try:
                     detector.num_bins = values['_scanparser']\
                         .get_detector_num_bins(detector.detector_name)
-                except exc:
+                except Exception as exc:
                     raise ValueError('No value found for num_bins') from exc
         return values
 
@@ -124,12 +165,26 @@ class MCAScanDataConfig(BaseModel):
         :return: MCA data
         :rtype: np.ndarray
         """
-        if scan_step_index is None:
-            data = self.scanparser.get_all_detector_data(
-                detector_config.detector_name)
+        detector_name = detector_config.detector_name
+        if self._parfile is not None:
+            if scan_step_index is None:
+                import numpy as np
+                data = np.asarray(
+                    [ScanParser(self._parfile.spec_file, scan_number)\
+                     .get_all_detector_data(detector_name)[0] \
+                     for scan_number in self._parfile.good_scan_numbers()])
+            else:
+                data = ScanParser(
+                    self._parfile.spec_file,
+                    self._parfile.good_scan_numbers()[scan_step_index])\
+                    .get_all_detector_data(detector_name)
         else:
-            data = self.scanparser.get_detector_data(
-                detector_config.detector_name, self.scan_step_index)
+            if scan_step_index is None:
+                data = self.scanparser.get_all_detector_data(
+                    detector_name)
+            else:
+                data = self.scanparser.get_detector_data(
+                    detector_config.detector_name, self.scan_step_index)
         return data
 
     def dict(self, *args, **kwargs):
@@ -143,8 +198,15 @@ class MCAScanDataConfig(BaseModel):
         for k,v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
-        if '_scanparser' in d:
-            del d['_scanparser']
+        if d.get('_parfile') is None:
+            del d['par_file']
+            del d['scan_column']
+        else:
+            del d['spec_file']
+            del d['scan_number']                
+        for k in ('_scanparser', '_parfile'):
+            if k in d:
+                del d[k]
         return d
 
 
@@ -300,20 +362,29 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
                        item_type=MCAElementDiffractionVolumeLengthConfig)
 
     @property
-    def motor_vals(self):
+    def scanned_vals(self):
         """Return the list of values visited by the scanning motor
         over the course of the raster scan.
 
         :return: list of scanned motor values
         :rtype: np.ndarray
         """
+        if self._parfile is not None:
+            return self._parfile.get_values(
+                self.scan_column,
+                scan_numbers=self._parfile.good_scan_numbers())
         return self.scanparser.spec_scan_motor_vals[0]
 
     @property
-    def motor_mne(self):
-        """Return the mnenomic of the raster scan's motor"""
-        return self.scanparser.spec_scan_motor_mnes[0]
+    def scanned_dim_lbl(self):
+        """Return a label for plot axes corresponding to the scanned
+        dimension
 
+        :rtype: str
+        """
+        if self._parfile is not None:
+            return self.scan_column
+        return self.scanparser.spec_scan_motor_mnes[0]
 
 class CeriaConfig(MaterialConfig):
     """Model for a Material representing CeO2 used in calibrations.
