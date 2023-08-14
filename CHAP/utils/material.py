@@ -117,7 +117,10 @@ class Material:
             material_class_valid = False
             if HAVE_XU:
                 if isinstance(m, materials.material.Crystal):
-                    powder = simpack.PowderDiffraction(m, en=self._enrgy)
+                    if self._enrgy is None:
+                        powder = simpack.PowderDiffraction(m)
+                    else:
+                        powder = simpack.PowderDiffraction(m, en=self._enrgy)
                     hklsi = [hkl for hkl in powder.data
                              if powder.data[hkl]['active']]
                     ds_i = [m.planeDistance(hkl) for hkl in powder.data
