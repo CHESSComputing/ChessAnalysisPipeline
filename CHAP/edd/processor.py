@@ -305,15 +305,8 @@ class MCACeriaCalibrationProcessor(Processor):
             intercept
         :rtype: float, float, float
         """
-        # third party modules
-        from scipy.constants import physical_constants
-
-        # local modules
+        from CHAP.edd.utils import hc
         from CHAP.utils.fit import Fit, FitMultipeak
-
-        # We'll work in keV and A, not eV and m.
-        hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
-            * physical_constants['speed of light in vacuum'][0]
 
         # Collect raw MCA data of interest
         mca_data = calibration_config.mca_data(detector)
@@ -322,7 +315,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
         if interactive:
             # Interactively adjust initial tth guess
-            from CHAP.edd.models import select_tth_initial_guess
+            from CHAP.edd.utils import select_tth_initial_guess
             select_tth_initial_guess(detector, calibration_config.material,
                                      mca_data, mca_bin_energies)
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
@@ -362,13 +355,15 @@ class MCACeriaCalibrationProcessor(Processor):
         # fitting
         tth = detector.tth_initial_guess
         if interactive or save_figures:
-            from CHAP.edd.models import select_hkls
-            fig = select_hkls(detector, calibration_config.material, tth,
+            import matplotlib.pyplot as plt
+            from CHAP.edd.utils import select_hkls
+            fig = select_hkls(detector, [calibration_config.material], tth,
                               mca_data, mca_bin_energies, interactive)
             if save_figures:
                 fig.savefig(os.path.join(
                     outputdir,
                     f'{detector.detector_name}_calibration_hkls.png'))
+            plt.close()
         self.logger.debug(f'HKLs selected: {detector.fit_hkls}')
         if detector.fit_hkls is None:
             raise ValueError(
@@ -407,7 +402,7 @@ class MCACeriaCalibrationProcessor(Processor):
             uniform_a = best_values['scale_factor']
             uniform_strain = np.log(
                 (uniform_a
-                 / calibration_config.material.lattice_parameters_angstroms))
+                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
             # uniform_tth = tth * (1.0 + uniform_strain)
             # uniform_rel_rms_error = (np.linalg.norm(residual)
             #                          / np.linalg.norm(fit_mca_intensities))
@@ -435,7 +430,7 @@ class MCACeriaCalibrationProcessor(Processor):
                 / (unconstrained_fit_centers*abs(np.sin(0.5*np.radians(tth))))
             unconstrained_strains = np.log(
                 (unconstrained_a
-                 / calibration_config.material.lattice_parameters_angstroms))
+                 / calibration_config.material.lattice_parameters))
             unconstrained_strain = np.mean(unconstrained_strains)
             unconstrained_tth = tth * (1.0 + unconstrained_strain)
             unconstrained_rel_rms_error = (
@@ -462,7 +457,6 @@ class MCACeriaCalibrationProcessor(Processor):
         intercept = fit.best_values['intercept']
 
         if interactive or save_figures:
-            import matplotlib.pyplot as plt
             fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
 
             # Upper left axes: Input data & best fits
@@ -472,6 +466,9 @@ class MCACeriaCalibrationProcessor(Processor):
             for i, hkl_E in enumerate(fit_E0):
                 # KLS: annotate indicated HKLs w millier indices
                 axs[0,0].axvline(hkl_E, color='k', linestyle='--')
+                axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
+                              ha='right', va='top', rotation=90,
+                              transform=axs[0,0].get_xaxis_transform())
             axs[0,0].plot(fit_mca_energies, uniform_best_fit,
                         label='Single Strain')
             axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
@@ -629,6 +626,292 @@ class MCADataProcessor(Processor):
 
         return nxroot
 
+
+class StrainAnalysisProcessor(Processor):
+    """Processor that takes a map of MCA data and returns a map of
+    sample strains
+    """
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                interactive=False):
+        """Return strain analysis maps & associated metadata in an NXprocess.
+
+        :param data: input data containing configurations for a map,
+            completed ceria calibration, and parameters for strain
+            analysis
+        :type data: list[PipelineData]
+        :param config: initialization parameters for an instance of
+            CHAP.edd.models.StrainAnalysisConfig, defaults to
+            None
+        :type config: dict, optional
+        :param save_figures: save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False
+        :type save_figures: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
+        :param interactive: allow for user interactions, defaults to
+            False
+        :type interactive: bool, optional
+        :return: NXprocess containing metadata about strain analysis
+            processing parameters and empty datasets for strain maps
+            to be filled in later.
+        :rtype: nexusformat.nexus.NXprocess
+
+        """
+        # Get required configuration models from input data
+        # map_config = self.get_config(
+        #     data, 'common.models.map.MapConfig')
+        ceria_calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig')
+        try:
+            strain_analysis_config = self.get_config(
+                data, 'edd.models.StrainAnalysisConfig')
+        except Exception as data_exc:
+            self.logger.info('No valid strain analysis config in input '
+                             + 'pipeline data, using config parameter instead')
+            from CHAP.edd.models import StrainAnalysisConfig
+            try:
+                strain_analysis_config = StrainAnalysisConfig(**config)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
+
+        nxroot = self.get_nxroot(
+            #map_config,
+            strain_analysis_config.map_config,
+            ceria_calibration_config,
+            strain_analysis_config,
+            save_figures=save_figures,
+            outputdir=outputdir,
+            interactive=interactive)
+        self.logger.debug(nxroot.tree)
+        return nxroot
+
+
+    def get_nxroot(self,
+                   map_config,
+                   ceria_calibration_config,
+                   strain_analysis_config,
+                   save_figures=False,
+                   outputdir='.',
+                   interactive=False):
+        """Return NXroot containing strain maps.
+
+
+        :param map_config: Input map configuration
+        :type map_config: CHAP.common.models.map.MapConfig
+        :param ceria_calibration_config: Results of ceria calibration
+        :type ceria_calibration_config:
+            'CHAP.edd.models.MCACeriaCalibrationConfig'
+        :param strain_analysis_config: Strain analysis processing
+            configuration
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param save_figures: save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False
+        :type save_figures: bool, optional
+        :param outputdir: directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
+        :param interactive: allow for user interactions, defaults to
+            False
+        :type interactive: bool, optional
+        :return: NXroot containing strain maps
+        :rtype: nexusformat.nexus.NXroot
+        """
+        from nexusformat.nexus import (NXdata,
+                                       NXdetector,
+                                       NXfield,
+                                       NXprocess,
+                                       NXroot)
+        import numpy as np
+        from CHAP.common import MapProcessor
+        from CHAP.edd.utils import hc
+
+        for detector in strain_analysis_config.detectors:
+            calibration = [
+                d for d in ceria_calibration_config.detectors \
+                if d.detector_name == detector.detector_name][0]
+            detector.add_calibration(calibration)
+
+        nxroot = NXroot()
+        nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
+        nxentry = nxroot[map_config.title]
+        nxroot[f'{map_config.title}_strains'] = NXprocess()
+        nxprocess = nxroot[f'{map_config.title}_strains']
+        nxprocess.strain_analysis_config = dumps(strain_analysis_config.dict())
+
+        # Setup plottable data group
+        nxprocess.data = NXdata()
+        nxprocess.default = 'data'
+        nxdata = nxprocess.data
+        nxdata.attrs['axes'] = map_config.dims
+        for dim in map_config.dims:
+            nxdata.makelink(nxentry.data[dim])
+            nxdata.attrs[f'{dim}_indices'] = \
+                nxentry.data.attrs[f'{dim}_indices']
+
+        # Select interactive params / save figures
+        if save_figures or interactive:
+            import matplotlib.pyplot as plt
+            from CHAP.edd.utils import select_hkls
+            for detector in strain_analysis_config.detectors:
+                x = np.linspace(detector.intercept_calibrated,
+                                detector.max_energy_kev \
+                                * detector.slope_calibrated,
+                                detector.num_bins)
+                y = strain_analysis_config.mca_data(
+                    detector,
+                    (0,) * len(strain_analysis_config.map_config.shape))
+                fig = select_hkls(detector,
+                                  strain_analysis_config.materials,
+                                  detector.tth_calibrated,
+                                  y, x, interactive)
+                if save_figures:
+                    fig.savefig(os.path.join(
+                        outputdir,
+                        f'{detector.detector_name}_strainanalysis_hkls.png'))
+                plt.close()
+            if interactive:
+                from CHAP.edd.utils import select_material_params
+                x = np.linspace(
+                    strain_analysis_config.detectors[0].intercept_calibrated,
+                    detector.max_energy_kev \
+                    * detector.slope_calibrated,
+                    detector.num_bins)
+                y = strain_analysis_config.mca_data(
+                    strain_analysis_config.detectors[0],
+                    (0,) * len(strain_analysis_config.map_config.shape))
+                tth = strain_analysis_config.detectors[0].tth_calibrated
+                strain_analysis_config.materials = select_material_params(
+                    x, y, tth, materials=strain_analysis_config.materials)
+
+        for detector in strain_analysis_config.detectors:
+            # Setup NXdata group
+            self.logger.debug(
+                f'Setting up NXdata group for {detector.detector_name}')
+            nxprocess[detector.detector_name] = NXdetector()
+            nxdetector = nxprocess[detector.detector_name]
+            nxdetector.local_name = detector.detector_name
+            # KLS: add calibration metadata here!
+            nxdetector.data = NXdata()
+            det_nxdata = nxdetector.data
+            det_nxdata.attrs['axes'] = map_config.dims + ['energy']
+            for dim in map_config.dims:
+                det_nxdata.makelink(nxdata[dim].nxlink)
+                det_nxdata.attrs[f'{dim}_indices'] = \
+                    nxdata.attrs[f'{dim}_indices']
+            all_energies = np.arange(0, detector.num_bins) \
+                * (detector.max_energy_kev / detector.num_bins) \
+                * detector.slope_calibrated \
+                + detector.intercept_calibrated
+            mask = detector.mca_mask()
+            energies = all_energies[mask]
+            det_nxdata.energy = NXfield(value=energies,
+                                        attrs={'units': 'keV'})
+            det_nxdata.attrs['energy_indices'] = len(map_config.dims)
+            det_nxdata.intensity = NXfield(
+                dtype='uint16',
+                shape=(*map_config.shape, len(energies)),
+                attrs={'units': 'counts'})
+            det_nxdata.microstrain = NXfield(
+                dtype='float64',
+                shape=map_config.shape,
+                attrs={'long_name': 'Strain (\u03BC\u03B5)'})
+
+            # Do strain analysis
+            self.logger.debug(
+                f'Beginning strain analysis for {detector.detector_name}')
+            fit_hkls, fit_ds = detector.fit_ds(
+                strain_analysis_config.materials)
+            peak_locations = hc / (
+                2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
+            for scans in map_config.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        map_index = scans.get_index(
+                            scan_number,
+                            scan_step_index,
+                            map_config)
+                        intensity = scanparser.get_detector_data(
+                                detector.detector_name, scan_step_index)\
+                                             .astype('uint16')[mask]
+                        det_nxdata.intensity[map_index] = intensity
+                        self.logger.debug(
+                            'Performing strain analysis for '
+                            + detector.detector_name
+                            + f' at map coordinate {map_index}')
+                        det_nxdata.microstrain[map_index] = \
+                            self.analyze_strain(
+                                intensity, energies, peak_locations,
+                                detector.peak_models, None)
+
+        return nxroot
+
+    def analyze_strain(self,
+                       intensity,
+                       energy,
+                       hkl_centers,
+                       peak_models,
+                       background):
+        """Return strain measured by a single detector element.
+
+        :param instensity: flux-corrected and masked MCA spectra
+        :type intensity:
+        :param energy: calibrated MCA bin energies corresponding to
+            the values in `intensity`
+        :type energy:
+        :param hkl_centers: theoretical HKL peak locations
+        :type hkl_centers:
+        :param peak_models:
+        :type peak_models:
+        :param background:
+        :type background:
+        :return:
+        :rtype:
+        """
+        from CHAP.edd.utils import hc
+        from CHAP.utils.fit import FitMultipeak
+
+        # Perform initial fit: assume uniform strain for all HKLs
+        uniform_best_fit, uniform_residual, best_values, \
+            best_errors, redchi, success = \
+                FitMultipeak.fit_multipeak(
+                    intensity,
+                    hkl_centers,
+                    x=energy,
+                    peak_models=peak_models,
+                    background=background,
+                    fit_type='uniform',
+                    plot=False)
+        uniform_fit_centers = [
+            best_values[f'peak{i+1}_center']
+            for i in range(len(hkl_centers))]
+
+        # Perform second fit: do not assume uniform strain for all
+        # HKLs, and use the fit peak centers from the uniform fit as
+        # inital guesses
+        unconstrained_best_fit, unconstrained_residual, best_values, \
+            best_errors, redchi, success = \
+                FitMultipeak.fit_multipeak(
+                    intensity,
+                    uniform_fit_centers,
+                    x=energy,
+                    peak_models=peak_models,
+                    background=background,
+                    fit_type='unconstrained',
+                    plot=False)
+
+        unconstrained_fit_centers = np.array(
+            [best_values[f'peak{i+1}_center']
+             for i in range(len(hkl_centers))])
+        unconstrained_strains = np.log(hkl_centers / unconstrained_fit_centers)
+        unconstrained_strain = np.mean(unconstrained_strains)
+
+        return unconstrained_strain
 
 if __name__ == '__main__':
     # local modules

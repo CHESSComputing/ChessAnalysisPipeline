@@ -58,7 +58,7 @@ class ParFile():
         self.scann_i = self.column_names.index(scann_col_name)
         self.scan_numbers = [data[self.scann_i] for data in self.data]
 
-    def get_map(self, experiment_type,
+    def get_map(self, experiment_type, station,
                 dim_names, dim_units, dim_labels=None):
         """Return a map configuration based on this par file.
 
@@ -77,12 +77,12 @@ class ParFile():
         scanparser = SMBScanParser(self.spec_file, 1)
         map_config = {
             'title': scanparser.scan_name,
-            'station': scanparser.station,
+            'station': station, #scanparser.station,
             'experiment_type': experiment_type,
             'sample': {'name': scanparser.scan_name},
             'spec_scans': [
-                {'spec_file': spec_file,
-                 'scan_numbers': [self.good_scan_numbers()]}],
+                {'spec_file': self.spec_file,
+                 'scan_numbers': self.good_scan_numbers()}],
             'independent_dimensions': [
                 {'label': label, 
                  'units': units, 

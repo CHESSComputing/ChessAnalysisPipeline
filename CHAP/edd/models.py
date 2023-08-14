@@ -10,9 +10,10 @@ from pydantic import (BaseModel,
                       root_validator,
                       validator)
 from scipy.interpolate import interp1d
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 # local modules
+from CHAP.common.models.map import MapConfig
 from CHAP.utils.material import Material
 from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
@@ -220,12 +221,11 @@ class MaterialConfig(BaseModel):
     :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
         a cubic crystal.
     """
-    material_file: Optional[FilePath]
     material_name: Optional[constr(strip_whitespace=True, min_length=1)]
-    lattice_parameters_angstroms: Optional[confloat(gt=0)]
-    sgnum: Optional[int]
-    atoms: Optional[list[str]]
-    pos: Optional[list]
+    lattice_parameters: Optional[Union[
+        confloat(gt=0),
+        conlist(item_type=confloat(gt=0), min_items=1, max_items=6)]]
+    sgnum: Optional[conint(ge=0)]
 
     _material: Optional[Material]
 
@@ -234,8 +234,10 @@ class MaterialConfig(BaseModel):
 
     @root_validator
     def validate_material(cls, values):
-        from CHAP.utils.material import Material
-        values['_material'] = Material(**values)
+        from CHAP.edd.utils import make_material
+        values['_material'] = make_material(values.get('material_name'),
+                                            values.get('sgnum'),
+                                            values.get('lattice_parameters'))
         return values
 
     def unique_ds(self, tth_tol=0.15, tth_max=90.0):
@@ -250,8 +252,8 @@ class MaterialConfig(BaseModel):
         :return: unique HKLs and their lattice spacings in angstroms
         :rtype: np.ndarray, np.ndarray
         """
-        return self._material.get_ds_unique(tth_tol=tth_tol,
-                                            tth_max=tth_max)
+        from CHAP.edd.utils import get_unique_hkls_ds
+        return get_unique_hkls_ds([self._material])
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -301,16 +303,17 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
 
-    def fit_ds(self, material):
+    def fit_ds(self, materials):
         """Get a list of HKLs and their lattice spacings that will be
         fit in the calibration routine
 
         :return: HKLs to fit and their lattice spacings in angstroms
         :rtype: np.ndarray, np.ndarray
         """
-
-        unique_hkls, unique_ds = material.unique_ds(
-            tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+        if not isinstance(materials, list):
+            materials = [materials]
+        from CHAP.edd.utils import get_unique_hkls_ds
+        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
 
         fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
         fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
@@ -395,7 +398,8 @@ class CeriaConfig(MaterialConfig):
         the cubic CeO2 crystal, defaults to `5.41153`.
     """
     material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
-    lattice_parameters_angstroms: confloat(gt=0) = 5.41153
+    sgnum: Optional[conint(ge=0)] = 225
+    lattice_parameters: confloat(gt=0) = 5.41153
 
 
 class MCACeriaCalibrationConfig(MCAScanDataConfig):
@@ -427,7 +431,7 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
 
     flux_file: FilePath
 
-    material: CeriaConfig
+    material: CeriaConfig = CeriaConfig()
 
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
 
@@ -469,122 +473,116 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         return interpolation_function
 
 
-def select_hkls(detector, material, tth, y, x, interactive):
-    """Return a plot of `detector.fit_hkls` as a matplotlib
-    figure. Optionally modify `detector.fit_hkls` by interacting with
-    a matplotlib figure.
-
-    :param detector: the detector to set `fit_hkls` on
-    :type detector: MCAElementConfig
-    :param material: the material to pick HKLs for
-    :type material: MaterialConfig
-    :param tth: diffraction angle two-theta
-    :type tth: float
-    :param y: reference y data to plot
-    :type y: np.ndarray
-    :param x: reference x data to plot
-    :type x: np.ndarray
-    :param interactive: show the plot and allow user interactions with
-        the matplotlib figure
-    :type interactive: bool
-    :return: plot showing the user-selected HKLs
-    :rtype: matplotlib.figure.Figure
+class MCAElementStrainAnalysisConfig(MCAElementConfig):
+    """Model for parameters need to perform strain analysis fitting
+    for one MCA element.
     """
-    import numpy as np
-    from scipy.constants import physical_constants
-    hkls, ds = material.unique_ds(
-        tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
-    peak_locations = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
-                     * physical_constants['speed of light in vacuum'][0] \
-                     / (2. * ds * np.sin(0.5 * np.radians(tth)))
-    pre_selected_peak_indices = detector.fit_hkls \
-                                if detector.fit_hkls else []
-    from CHAP.utils.general import select_peaks
-    selected_peaks, figure = select_peaks(
-        y, x, peak_locations,
-        peak_labels=[str(hkl)[1:-1] for hkl in hkls],
-        pre_selected_peak_indices=pre_selected_peak_indices,
-        mask=detector.mca_mask(),
-        interactive=interactive,
-        xlabel='MCA channel energy (keV)',
-        ylabel='MCA intensity (counts)',
-        title='Mask and HKLs for fitting')
+    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
+    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
+    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
+    background_order: Optional[conint(gt=0)] = 0
+    peak_models: Union[
+        conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
+        Literal['gaussian', 'lorentzian']] = 'gaussian'
 
-    selected_hkl_indices = [int(np.where(peak_locations == peak)[0][0]) \
-                            for peak in selected_peaks]
-    detector.fit_hkls = selected_hkl_indices
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
+    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
+    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+    max_energy_kev: Optional[confloat(gt=0)]
+    num_bins: Optional[conint(gt=0)]
 
-    return figure
+    def add_calibration(self, calibration):
+        """Finalize values for some fields using a completed
+        MCAElementCalibrationConfig that corresponds to the same
+        detector.
+
+        :param calibration: MCAElementCalibrationConfig
+        :return: None
+        """
+        add_fields = ['tth_calibrated', 'slope_calibrated',
+                      'intercept_calibrated', 'num_bins', 'max_energy_kev']
+        for field in add_fields:
+            setattr(self, field, getattr(calibration, field))
+
+    def fit_ds(self, materials):
+        """Get a list of HKLs and their lattice spacings that will be
+        fit in the strain analysis routine
+
+        :return: HKLs to fit and their lattice spacings in angstroms
+        :rtype: np.ndarray, np.ndarray
+        """
+        if not isinstance(materials, list):
+            materials = [materials]
+        from CHAP.edd.utils import get_unique_hkls_ds
+        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
+
+        # unique_hkls, unique_ds = material.unique_ds(
+        #     tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+
+        fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
+        fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
+
+        return fit_hkls, fit_ds
 
 
-def select_tth_initial_guess(detector, material, y, x):
-    """Show a matplotlib figure of a reference MCA spectrum on top of
-    HKL locations. The figure includes an input field to adjust the
-    initial tth guess and responds by updating the HKL locations based
-    on the adjusted value of the initial tth guess.
+class StrainAnalysisConfig(BaseModel):
+    """Model for inputs to CHAP.edd.StrainAnalysisProcessor"""
+    map_config: Optional[MapConfig]
+    par_file: Optional[FilePath]
+    scan_columns: Optional[list[str]]
+    flux_file: FilePath
+    detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
+    materials: list[MaterialConfig]
 
-    :param detector: the detector to set `tth_inital_guess` on
-    :type detector: MCAElementConfig
-    :param material: the material to show HKLs for
-    :type material: MaterialConfig
-    :param y: reference y data to plot
-    :type y: np.ndarray
-    :param x: reference x data to plot
-    :type x: np.ndarray
-    :return: None
-    """
-    import matplotlib.pyplot as plt
-    from matplotlib.widgets import Button, TextBox
-    import numpy as np
-    from scipy.constants import physical_constants
+    @root_validator
+    def validate_map(cls, values):
+        if values.get('par_file') is not None:
+            if 'scan_columns' not in values:
+                raise ValueError(
+                    'If using par_file, must also use scan_columns')
+            values['map_config'] = ParFile(values['par_file'])\
+                .get_map('EDD', 'id1a3',
+                         values['scan_columns'],
+                         ['units'] * len(values['scan_columns']))
+        return values
 
-    tth_initial_guess = detector.tth_initial_guess \
-                        if detector.tth_initial_guess is not None \
-                        else 5.0
-    hkls, ds = material.unique_ds(
-        tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
-    hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
-         * physical_constants['speed of light in vacuum'][0]
-    def get_peak_locations(tth):
-        return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
 
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set_xlabel('MCA channel energy (keV)')
-    ax.set_ylabel('MCA intensity (counts)')
-    ax.set_title('Adjust initial guess for $2\\theta$')
-    hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
-                 for loc in get_peak_locations(tth_initial_guess)]
+        :return: dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        for k,v in d.items():
+            if isinstance(v, PosixPath):
+                d[k] = str(v)
+        if '_scanparser' in d:
+            del d['_scanparser']
+        return d
 
-    # Callback for tth input
-    def new_guess(tth):
-        try:
-            tth = float(tth)
-        except:
-            raise ValueError(f'Cannot convert {new_tth} to float')
-        for i, (line, loc) in enumerate(zip(hkl_lines,
-                                            get_peak_locations(tth))):
-            line.remove()
-            hkl_lines[i] = ax.axvline(loc, c='k', ls='--', lw=1)
-        ax.get_figure().canvas.draw()
-        detector.tth_initial_guess = tth
+    def mca_data(self, detector_config, map_index):
+        """Get MCA data for a single detector element.
 
-    # Setup tth input
-    plt.subplots_adjust(bottom=0.25)
-    tth_input = TextBox(plt.axes([0.125, 0.05, 0.15, 0.075]),
-                        '$2\\theta$: ',
-                        initial=tth_initial_guess)
-    cid_update_tth = tth_input.on_submit(new_guess)
-
-    # Setup "Confirm" button
-    def confirm_selection(event):
-        plt.close()
-    confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
-    cid_confirm = confirm_b.on_clicked(confirm_selection)
-
-    # Show figure for user interaction
-    plt.show()
-
-    # Disconnect all widget callbacks when figure is closed
-    tth_input.disconnect(cid_update_tth)
-    confirm_b.disconnect(cid_confirm)
+        :param detector_config: the detector to get data for
+        :type detector_config: MCAElementStrainAnalysisConfig
+        :param map_index: index of a single point in the map
+        :type map_index: tuple
+        :return: one spectrum of MCA data
+        :rtype: np.ndarray
+        """
+        map_coords = {dim: self.map_config.coords[dim][i]
+                      for dim,i in zip(self.map_config.dims, map_index)}
+        for scans in self.map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    _coords = {
+                        dim.label:dim.get_value(
+                            scans, scan_number, scan_step_index)
+                        for dim in self.map_config.independent_dimensions}
+                    if _coords == map_coords:
+                        break
+        scanparser = scans.get_scanparser(scan_number)
+        return scanparser.get_detector_data(detector_config.detector_name,
+                                            scan_step_index)
