@@ -764,6 +764,7 @@ class StrainAnalysisProcessor(Processor):
         if save_figures or interactive:
             import matplotlib.pyplot as plt
             from CHAP.edd.utils import select_hkls
+            from CHAP.utils.general import draw_mask_1d
             for detector in strain_analysis_config.detectors:
                 x = np.linspace(detector.intercept_calibrated,
                                 detector.max_energy_kev \
@@ -781,6 +782,27 @@ class StrainAnalysisProcessor(Processor):
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_hkls.png'))
                 plt.close()
+
+                self.logger.info(
+                    'Interactively select a mask in the matplotlib figure')
+                mask, include_bin_ranges, figure = draw_mask_1d(
+                    y, xdata=x,
+                    current_index_ranges=detector.include_bin_ranges,
+                    label='reference spectrum',
+                    title='Click and drag to select ranges of MCA data to\n'
+                    + 'include when analyzing strain.',
+                    xlabel='MCA channel (index)',
+                    ylabel='MCA intensity (counts)',
+                    test_mode=not interactive,
+                    return_figure=True
+                )
+                detector.include_bin_ranges = include_bin_ranges
+                if save_figures:
+                    figure.savefig(os.path.join(
+                        outputdir,
+                        f'{detector.detector_name}_strainanalysis_mask.png'))
+                plt.close()
+
             if interactive:
                 from CHAP.edd.utils import select_material_params
                 x = np.linspace(
