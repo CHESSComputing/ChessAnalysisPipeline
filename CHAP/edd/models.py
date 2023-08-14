@@ -339,7 +339,7 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
         volume length before writing data to file.
     """
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
-    sigma_to_dvl_factor: Optional[Literal[1.75, 1., 2.]] = 1.75
+    sigma_to_dvl_factor: Optional[Literal[3.5, 2., 4.]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
 
     def dict(self, *args, **kwargs):
