@@ -111,10 +111,10 @@ class DiffractionVolumeLengthProcessor(Processor):
         mca_data = dvl_config.mca_data(detector)
 
         # Interactively set mask, if needed & possible.
-        if interactive:
+        if interactive or save_figures:
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
-            mask, include_bin_ranges = draw_mask_1d(
+            mask, include_bin_ranges, figure = draw_mask_1d(
                 np.sum(mca_data, axis=0),
                 xdata = np.arange(detector.num_bins),
                 current_index_ranges=detector.include_bin_ranges,
@@ -122,11 +122,18 @@ class DiffractionVolumeLengthProcessor(Processor):
                 title='Click and drag to select ranges of MCA data to\n'
                 + 'include when measuring the diffraction volume length.',
                 xlabel='MCA channel (index)',
-                ylabel='MCA intensity (counts)'
+                ylabel='MCA intensity (counts)',
+                test_mode=not interactive,
+                return_figure=True
             )
             detector.include_bin_ranges = include_bin_ranges
             self.logger.debug('Mask selected. Including detector bin ranges: '
                               + str(detector.include_bin_ranges))
+            if save_figures:
+                figure.savefig(os.path.join(
+                    outputdir, f'{detector.detector_name}_dvl_mask.png'))
+            import matplotlib.pyplot as plt
+            plt.close()
         if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
