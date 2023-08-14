@@ -58,22 +58,24 @@ class ParFile():
         self.scann_i = self.column_names.index(scann_col_name)
         self.scan_numbers = [data[self.scann_i] for data in self.data]
 
-    def get_map(self, experiment_type, station,
-                dim_names, dim_units, dim_labels=None):
+    def get_map(self, experiment_type, station, dim_columns):
         """Return a map configuration based on this par file.
 
         :param experiment_type: name of the experiment type for the
             map that this .par file represents
         :type experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
-        :param dim_names:
+        :param station: name of the station at which the data were
+            collected
+        :type station: Literal['id1a3','id3a','id3b']
+        :param dim_columns: list of dictionaries configuring the map's
+            independent dimensions.
+        :type dim_columns: list[dict[str, str]]
         :return: a map configuration
         :rtype: CHAP.common.models.map.MapConfig
         """
         from CHAP.common.models.map import MapConfig
         from CHAP.utils.scanparsers import SMBScanParser
 
-        if dim_labels is None:
-            dim_labels = dim_names
         scanparser = SMBScanParser(self.spec_file, 1)
         map_config = {
             'title': scanparser.scan_name,
@@ -84,12 +86,11 @@ class ParFile():
                 {'spec_file': self.spec_file,
                  'scan_numbers': self.good_scan_numbers()}],
             'independent_dimensions': [
-                {'label': label, 
-                 'units': units, 
-                 'name': name, 
+                {'label': col['label'],
+                 'units': col['units'],
+                 'name': col['name'],
                  'data_type': 'smb_par'}
-                for (label, units, name) in \
-                zip(dim_labels, dim_units, dim_names)]
+                for col in dim_columns]
         }
         return MapConfig(**map_config)
 

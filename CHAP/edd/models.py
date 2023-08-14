@@ -529,7 +529,7 @@ class StrainAnalysisConfig(BaseModel):
     """Model for inputs to CHAP.edd.StrainAnalysisProcessor"""
     map_config: Optional[MapConfig]
     par_file: Optional[FilePath]
-    scan_columns: Optional[list[str]]
+    scan_columns: Optional[list[dict[str,str]]]
     flux_file: FilePath
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
@@ -541,9 +541,7 @@ class StrainAnalysisConfig(BaseModel):
                 raise ValueError(
                     'If using par_file, must also use scan_columns')
             values['map_config'] = ParFile(values['par_file'])\
-                .get_map('EDD', 'id1a3',
-                         values['scan_columns'],
-                         ['units'] * len(values['scan_columns']))
+                .get_map('EDD', 'id1a3', values['scan_columns'])
         return values
 
     def dict(self, *args, **kwargs):
