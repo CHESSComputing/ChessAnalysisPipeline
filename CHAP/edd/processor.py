@@ -853,26 +853,20 @@ class StrainAnalysisProcessor(Processor):
                 strain_analysis_config.materials)
             peak_locations = hc / (
                 2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
-            for scans in map_config.spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(scanparser.spec_scan_npts):
-                        map_index = scans.get_index(
-                            scan_number,
-                            scan_step_index,
-                            map_config)
-                        intensity = scanparser.get_detector_data(
-                                detector.detector_name, scan_step_index)\
-                                             .astype('uint16')[mask]
-                        det_nxdata.intensity[map_index] = intensity
-                        self.logger.debug(
-                            'Performing strain analysis for '
-                            + detector.detector_name
-                            + f' at map coordinate {map_index}')
-                        det_nxdata.microstrain[map_index] = \
-                            self.analyze_strain(
-                                intensity, energies, peak_locations,
-                                detector.peak_models, None)
+            for map_index in np.ndindex(map_config.shape):
+                scans, scan_number, scan_step_index = \
+                    map_config.get_scan_step_index(map_index)
+                scanparser = scans.get_scanparser(scan_number)
+                det_nxdata.intensity[map_index] = scanparser.get_detector_data(
+                    detector.detector_name, scan_step_index)\
+                    .astype('uint16')[mask]
+                self.logger.debug(
+                    'Performing strain analysis for '
+                    + detector.detector_name
+                    + f' at map coordinate {map_index}')
+                det_nxdata.microstrain[map_index] = self.analyze_strain(
+                    intensity, energies, peak_locations,
+                    detector.peak_models, None)
 
         return nxroot
 
