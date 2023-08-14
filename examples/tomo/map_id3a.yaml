@@ -5,13 +5,17 @@ sample:
   name: hollow_brick
 spec_scans:
 - spec_file: examples/tomo/hollow_brick/spec.log
-  scan_numbers: [1, 2, 3, 4, 5]
+  scan_numbers: [3, 4, 5]
 independent_dimensions:
-- label: horizontal_shift
+- label: rotation_angles
+  units: degrees
+  data_type: scan_column
+  name: theta
+- label: x_translation
   units: mm
   data_type: smb_par
   name: ramsx
-- label: vertical_shift
+- label: z_translation
   units: mm
   data_type: smb_par
   name: ramsz

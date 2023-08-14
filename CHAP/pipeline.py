@@ -10,6 +10,7 @@ Description:
 # system modules
 import inspect
 import logging
+import os
 from time import time
 
 
@@ -107,8 +108,7 @@ class PipelineItem():
 
         matching_config = False
         for i, d in enumerate(data):
-            _schema = d.get('schema')
-            if _schema == schema:
+            if d.get('schema') == schema:
                 matching_config = d.get('data')
                 if remove:
                     data.pop(i)
@@ -141,10 +141,18 @@ class PipelineItem():
 
         if hasattr(self, 'read'):
             method_name = 'read'
+            inputdir = kwargs.get('inputdir')
+            if inputdir is not None and 'filename' in kwargs:
+                kwargs['filename'] = os.path.realpath(
+                    os.path.join(inputdir, kwargs['filename']))
         elif hasattr(self, 'process'):
             method_name = 'process'
         elif hasattr(self, 'write'):
             method_name = 'write'
+            outputdir = kwargs.get('outputdir')
+            if outputdir is not None and 'filename' in kwargs:
+                kwargs['filename'] = os.path.realpath(
+                    os.path.join(outputdir, kwargs['filename']))
         else:
             self.logger.error('No implementation of read, write, or process')
 

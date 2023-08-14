@@ -4,11 +4,19 @@ experiment_type: TOMO
 sample:
   name: hollow_cube
 spec_scans:
-- spec_file: examples/tomo/hollow_cube
+- spec_file: examples/tomo/hollow_cube/hollow_cube
   scan_numbers:
   - 3
 independent_dimensions:
-- label: theta
+- label: rotation_angles
   units: degrees
   data_type: scan_column
-  name: GI_samphi
+  name: theta
+- label: x_translation
+  units: mm
+  data_type: spec_motor
+  name: GI_samx
+- label: z_translation
+  units: mm
+  data_type: spec_motor
+  name: GI_samz

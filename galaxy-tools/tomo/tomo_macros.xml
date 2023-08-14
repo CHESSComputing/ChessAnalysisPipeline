@@ -2,7 +2,6 @@
     <xml name="requirements">
         <requirements>
 	    <expand macro="chap-requirement" />
-	    <requirement type="package" version="0.0.8">chessanalysispipeline</requirement>
             <requirement type="package" version="1.1.0">lmfit</requirement>
             <requirement type="package" version="3.7.1">matplotlib</requirement>
             <requirement type="package" version="1.0.1">nexusformat</requirement>

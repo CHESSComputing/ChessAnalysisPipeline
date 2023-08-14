@@ -1,70 +1,108 @@
+config:
+  root: examples/tomo/hollow_cube
+
 pipeline:
 
   # Create a simulated stack of tomography images
   - common.YAMLReader:
-      filename: examples/tomo/tomo_sim_id3b.yaml
-      schema: TomoSimConfig
+      filename: ../tomo_sim_id3b.yaml
+      schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor
   - common.NexusWriter:
-      filename: examples/tomo/hollow_cube_SIM_003.h5
+      filename: hollow_cube_SIM_003.h5
       force_overwrite: true
 
   # Create the dark field for the simulation
   - common.NexusReader:
-      filename: examples/tomo/hollow_cube_SIM_003.h5
-      schema: TomoSimField
+      filename: hollow_cube_SIM_003.h5
+      schema: tomo.models.TomoSimField
   - tomo.TomoDarkFieldProcessor
   - common.NexusWriter:
-      filename: examples/tomo/hollow_cube_SIM_001.h5
+      filename: hollow_cube_SIM_001.h5
       force_overwrite: true
 
   # Create the bright field for the simulation
   - common.NexusReader:
-      filename: examples/tomo/hollow_cube_SIM_003.h5
-      schema: TomoSimField
+      filename: hollow_cube_SIM_003.h5
+      schema: tomo.models.TomoSimField
   - tomo.TomoBrightFieldProcessor:
       num_image: 10
   - common.NexusWriter:
-      filename: examples/tomo/hollow_cube_SIM_002.h5
+      filename: hollow_cube_SIM_002.h5
       force_overwrite: true
 
   # Create the SPEC file for the simulation
   - pipeline.MultiplePipelineItem:
       items:
         - common.NexusReader:
-            filename: examples/tomo/hollow_cube_SIM_001.h5
-            schema: TomoDarkField
+            filename: hollow_cube_SIM_001.h5
+            schema: tomo.models.TomoDarkField
         - common.NexusReader:
-            filename: examples/tomo/hollow_cube_SIM_002.h5
-            schema: TomoBrightField
+            filename: hollow_cube_SIM_002.h5
+            schema: tomo.models.TomoBrightField
         - common.NexusReader:
-            filename: examples/tomo/hollow_cube_SIM_003.h5
-            schema: TomoSimField
+            filename: hollow_cube_SIM_003.h5
+            schema: tomo.models.TomoSimField
   - tomo.TomoSpecProcessor:
       scan_numbers: [1, 2, 3]
   - common.TXTWriter:
-      filename: examples/tomo/hollow_cube
+      filename: hollow_cube
+      force_overwrite: true
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3b
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_cube/hollow_cube
+                scan_numbers:
+                - 1
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3b
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_cube/hollow_cube
+                scan_numbers:
+                - 2
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: ../map_id3b.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: ../detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: tomo_map.nxs
       force_overwrite: true
 
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
+        - common.NexusReader:
+            filename: tomo_map.nxs
         - common.YAMLReader:
-            filename: examples/tomo/map_id3b.yaml
-            schema: MapConfig
+            filename: ../find_center_data_id3b.yaml
+            schema: tomo.models.TomoFindCenterConfig
         - common.YAMLReader:
-            filename: examples/tomo/reduce_data_id3b.yaml
-            schema: TomoReduceConfig
-        - common.YAMLReader:
-            filename: examples/tomo/find_center_data_id3b.yaml
-            schema: TomoFindCenterConfig
-        - common.YAMLReader:
-            filename: examples/tomo/reconstruct_data.yaml
-            schema: TomoReconstructConfig
+            filename: ../reconstruct_data.yaml
+            schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
-      output_folder: examples/tomo/output
+      reduce_data: True
+      output_folder: examples/tomo/hollow_cube/output
       save_figs: 'only'
   - common.NexusWriter:
-      filename: examples/tomo/reconstruct_hollow_cube.nxs
+      filename: reconstructed_data.nxs
       force_overwrite: true
 
