@@ -912,6 +912,11 @@ class Fit:
 
         # Reset the fit
         self._result = None
+        self._parameter_norms = {}
+        self._linear_parameters = []
+        self._nonlinear_parameters = []
+        if hasattr(self, "_best_parameters"):
+            self._best_parameters = None
 
         # Add background model(s)
         if background is not None:
