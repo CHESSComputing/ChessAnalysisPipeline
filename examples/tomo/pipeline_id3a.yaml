@@ -48,15 +48,49 @@ pipeline:
       scan_numbers: [1, 2, 3, 4, 5]
       force_overwrite: true
 
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_brick/spec.log
+                scan_numbers:
+                - 1
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: examples/tomo/hollow_brick/spec.log
+                scan_numbers:
+                - 2
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: ../map_id3a.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: ../detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: tomo_map.nxs
+      force_overwrite: true
+
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
-        - common.YAMLReader:
-            filename: ../map_id3a.yaml
-            schema: common.models.map.MapConfig
-        - common.YAMLReader:
-            filename: ../reduce_data_id3a.yaml
-            schema: tomo.models.TomoReduceConfig
+        - common.NexusReader:
+            filename: tomo_map.nxs
         - common.YAMLReader:
             filename: ../find_center_data_id3a.yaml
             schema: tomo.models.TomoFindCenterConfig
@@ -67,6 +101,7 @@ pipeline:
             filename: ../combine_data_id3a.yaml
             schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
+      reduce_data: True
       output_folder: examples/tomo/hollow_brick/output
       save_figs: 'only'
   - common.NexusWriter:

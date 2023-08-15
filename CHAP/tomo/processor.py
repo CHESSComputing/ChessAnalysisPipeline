@@ -112,6 +112,9 @@ class TomoCHESSMapConverter(Processor):
         # Local modules
         from CHAP.common.models.map import MapConfig
 
+        print('\n\nTomoCHESSMapConverter:')
+        print(f'\n\ndata: {data}')
+
         darkfield = get_nxroot(data, 'darkfield')
         brightfield = get_nxroot(data, 'brightfield')
         tomofields = get_nxroot(data, 'tomofields')
@@ -240,12 +243,6 @@ class TomoCHESSMapConverter(Processor):
         nxsample.name = map_config.sample.name
         nxsample.description = map_config.sample.description
 
-        # Skip first theta to test with old FMB code
-        if tomofields.station == 'id3b':
-            theta_offset = 1
-        else:
-            theta_offset = 0
-
         # Collect dark field data
         image_keys = []
         sequence_numbers = []
@@ -259,15 +256,15 @@ class TomoCHESSMapConverter(Processor):
                 for scan_number, nxcollection in scan.items():
                     scan_columns = loads(str(nxcollection.scan_columns))
                     data_shape = nxcollection.data[detector_prefix].shape
+                    print(f'\n\ndark field shape: {data_shape}')
                     assert len(data_shape) == 3
                     assert data_shape[1] == detector_config.rows
                     assert data_shape[2] == detector_config.columns
                     num_image = data_shape[0]
-                    num_image -= theta_offset #RV
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
                     image_stacks.append(np.asarray(
-                        nxcollection.data[detector_prefix])[theta_offset:,:,:])
+                        nxcollection.data[detector_prefix]))
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -300,15 +297,15 @@ class TomoCHESSMapConverter(Processor):
             for scan_number, nxcollection in scan.items():
                 scan_columns = loads(str(nxcollection.scan_columns))
                 data_shape = nxcollection.data[detector_prefix].shape
+                print(f'\n\nbright field shape: {data_shape}')
                 assert len(data_shape) == 3
                 assert data_shape[1] == detector_config.rows
                 assert data_shape[2] == detector_config.columns
                 num_image = data_shape[0]
-                num_image -= theta_offset #RV
                 image_keys += num_image*[1]
                 sequence_numbers += list(range(num_image))
                 image_stacks.append(np.asarray(
-                    nxcollection.data[detector_prefix])[theta_offset:,:,:])
+                    nxcollection.data[detector_prefix]))
                 rotation_angles += num_image*[0.0]
                 if (x_translation_data_type == 'spec_motor' or
                         z_translation_data_type == 'spec_motor'):
@@ -377,20 +374,21 @@ class TomoCHESSMapConverter(Processor):
         # Restrict to 180 degrees set of data for now to match old code
         thetas = np.asarray(tomofields.data.rotation_angles)
 #RV        num_image = len(tomofields.data.rotation_angles)
-        thetas = thetas[theta_offset:]
+        assert len(thetas) > 2
         from CHAP.utils.general import index_nearest
-        if len(thetas) and thetas[-1]-thetas[0] > 180.:
+        delta_theta = thetas[1]-thetas[0]
+        if thetas[-1]-thetas[0] > 180-delta_theta:
             image_end = index_nearest(thetas, thetas[0]+180)
-            thetas = thetas[:image_end]
         else:
             image_end = len(thetas)
+        thetas = thetas[:image_end]
         num_image = len(thetas)
         for i, z in enumerate(z_trans):
             for j, x in enumerate(x_trans):
                 image_keys += num_image*[0]
                 sequence_numbers += list(range(num_image))
                 image_stacks.append(np.asarray(
-                    tomo_stacks[i,j][theta_offset:theta_offset+image_end,:,:]))
+                    tomo_stacks[i,j][:image_end,:,:]))
                 rotation_angles += list(thetas)
 #RV                rotation_angles += list(tomofields.data.rotation_angles)
                 x_translations += num_image*[x]
@@ -422,6 +420,7 @@ class TomoCHESSMapConverter(Processor):
 #        nxdata.attrs['row_indices'] = 1
 #        nxdata.attrs['column_indices'] = 2
 
+        print(f'\n\nnxroot.tree: {nxroot.tree}')
         return nxroot
 
 
@@ -476,6 +475,10 @@ class TomoDataProcessor(Processor):
             TomoReconstructConfig,
             TomoCombineConfig,
         )
+
+        print('\n\nTomoDataProcessor:')
+        print(f'\n\ndata: {data}')
+        print(f'\n\ninteractive: {interactive}')
 
         if not isinstance(reduce_data, bool):
             raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
@@ -756,7 +759,7 @@ class Tomo:
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.attrs['default']]
         else:
-            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+            raise ValueError(f'Invalid parameter nxroot {type(nxroot)}:\n{nxroot}')
         if tool_config is None:
             delta_theta = None
             img_x_bounds = None
@@ -1688,10 +1691,11 @@ class Tomo:
                     x_upp = x_low+num_x_min
             else:
                 # Get the default range from the reference heights
-                delta_z = vertical_shifts[1]-vertical_shifts[0]
+                delta_z = z_translation_levels[1]-z_translation_levels[0]
                 for i in range(2, num_tomo_stacks):
                     delta_z = min(
-                        delta_z, vertical_shifts[i]-vertical_shifts[i-1])
+                        delta_z,
+                        z_translation_levels[i]-z_translation_levels[i-1])
                 self._logger.debug(f'delta_z = {delta_z}')
                 num_x_min = int((delta_z + 0.5*pixel_size) / pixel_size)
                 self._logger.debug(f'num_x_min = {num_x_min}')
@@ -2694,30 +2698,30 @@ class TomoSimFieldProcessor(Processor):
             tomo_fields_stack.append(tomo_field.astype(np.int64))
             if num_tomo_stack > 1:
                 img_x_coords += slit_size
-            
+
         # Add dummy snapshots at each end to mimic FMB/SMB
         if station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
-            num_theta_dummy_end = 0
+            num_dummy_start = 5
+            num_dummy_end = 0
             starting_image_index = 345000
         else:
-            num_theta_dummy_start = 1
-            num_theta_dummy_end = 1
+            num_dummy_start = 1
+            num_dummy_end = 0
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
-        thetas = [theta_start-n*theta_step
-            for n in range(num_theta_dummy_start, 0, -1)] + thetas
-        thetas += [theta_end+n*theta_step
-            for n in range(1, num_theta_dummy_end+1)]
-        if num_theta_dummy_start:
+        starting_image_offset = num_dummy_start
+#        thetas = [theta_start-n*theta_step
+#            for n in range(num_dummy_start, 0, -1)] + thetas
+#        thetas += [theta_end+n*theta_step
+#            for n in range(1, num_dummy_end+1)]
+        if num_dummy_start:
             dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_start, *img_dim), dtype=np.int64)
+                (num_dummy_start, *img_dim), dtype=np.int64)
             for n, tomo_field in enumerate(tomo_fields_stack):
                 tomo_fields_stack[n] = np.concatenate(
                     (dummy_fields, tomo_field))
-        if num_theta_dummy_end:
+        if num_dummy_end:
             dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_end, *img_dim), dtype=np.int64)
+                (num_dummy_end, *img_dim), dtype=np.int64)
             for n, tomo_field in enumerate(tomo_fields_stack):
                 tomo_fields_stack[n] = np.concatenate(
                     (tomo_field, dummy_fields))
@@ -2845,13 +2849,13 @@ class TomoDarkFieldProcessor(Processor):
 
         # Add dummy snapshots at start to mimic SMB
         if source.station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
+            num_dummy_start = 5
             starting_image_index = 123000
         else:
-            num_theta_dummy_start = 1
+            num_dummy_start = 1
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
-        num_image += num_theta_dummy_start
+        starting_image_offset = num_dummy_start
+        num_image += num_dummy_start
 
         # Create the dark field
         dark_field = int(background_intensity) * np.ones(
@@ -2870,7 +2874,7 @@ class TomoDarkFieldProcessor(Processor):
         nxdetector.x_pixel_size = detector.x_pixel_size
         nxdetector.y_pixel_size = detector.y_pixel_size
         nxdetector.data = dark_field
-        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -2918,22 +2922,22 @@ class TomoBrightFieldProcessor(Processor):
 
         # Add dummy snapshots at start to mimic SMB
         if source.station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
+            num_dummy_start = 5
             starting_image_index = 234000
         else:
-            num_theta_dummy_start = 1
+            num_dummy_start = 1
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
+        starting_image_offset = num_dummy_start
 
         # Create the bright field
         bright_field = int(background_intensity+beam_intensity) * np.ones(
             (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
-        if num_theta_dummy_start:
+        if num_dummy_start:
             dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_start, detector_size[0], detector_size[1]),
+                (num_dummy_start, detector_size[0], detector_size[1]),
                 dtype=np.int64)
             bright_field = np.concatenate((dummy_fields, bright_field))
-            num_image += num_theta_dummy_start
+            num_image += num_dummy_start
         # Add 10% to slit size to make the bright beam slightly taller
         #     than the vertical displacements between stacks
         slit_size = 1.10*source.slit_size
@@ -2957,7 +2961,7 @@ class TomoBrightFieldProcessor(Processor):
         nxdetector.x_pixel_size = detector.x_pixel_size
         nxdetector.y_pixel_size = detector.y_pixel_size
         nxdetector.data = bright_field
-        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -3066,6 +3070,7 @@ class TomoSpecProcessor(Processor):
         # Create the SPEC file scan info (and image and parfile data for SMB)
         par_file = []
         image_sets = []
+        starting_image_indices = []
         num_scan = 0
         count_time = 1
         for schema, nxroot in configs.items():
@@ -3100,7 +3105,7 @@ class TomoSpecProcessor(Processor):
                         f'{thetas[-1]} {num_theta-1} {count_time}'
             starting_image_index = int(detector.starting_image_index)
             starting_image_offset = int(detector.starting_image_offset)
-            for  n, z_translation in enumerate(z_translations):
+            for n, z_translation in enumerate(z_translations):
                 spec_file.append(f'#S {scan_numbers[num_scan]}  {macro}')
                 spec_file.append(
                     f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
@@ -3132,9 +3137,10 @@ class TomoSpecProcessor(Processor):
                     spec_file.append('#N 1')
                     spec_file.append('#L theta')
                     spec_file += [str(theta) for theta in thetas]
+                starting_image_indices.append(starting_image_index)
                 spec_file.append('')
                 num_scan += 1
-        
+
         if station in ('id1a3', 'id3a'):
 
             # Write the SPEC file
@@ -3170,24 +3176,27 @@ class TomoSpecProcessor(Processor):
             self._write_txt(par_file, par_filename)
 
             # Write image files as individual tiffs
-            for scan_number, image_set in zip(scan_numbers, image_sets):
+            for scan_number, image_set, starting_image_index in zip(
+                    scan_numbers, image_sets, starting_image_indices):
                 image_folder = os_path.join(spec_folder, str(scan_number))
                 if not os_path.isdir(image_folder):
                     mkdir(image_folder)
                 image_folder = os_path.join(image_folder, 'nf')
                 if not os_path.isdir(image_folder):
                     mkdir(image_folder)
-                self._write_tiffs(image_set, image_folder)
+                self._write_tiffs(
+                    image_set, image_folder, starting_image_index)
 
         return spec_file
 
-    def _write_tiffs(self, data, image_folder):
+    def _write_tiffs(self, data, image_folder, starting_image_index):
         """Write a set of images to individual tiff files."""
         # Third party modules
         from imageio import imwrite
         for n in range(data.shape[0]):
-            imwrite(
-                os_path.join(image_folder, f'nf_{n:06d}.tif'), data[n])
+            imwrite(os_path.join(
+                image_folder, f'nf_{(n+starting_image_index):06d}.tif'),
+                data[n])
 
     def _write_txt(self, data, filepath, force_overwrite=True):
         """Local wrapper for the text file writer."""
