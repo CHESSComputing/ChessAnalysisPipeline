@@ -38,7 +38,7 @@ class Writer(PipelineItem):
         :rtype: object
         """
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
         with open(filename, 'a') as file:
             file.write(data)
         return data

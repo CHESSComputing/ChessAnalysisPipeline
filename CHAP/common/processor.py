@@ -368,7 +368,7 @@ class NexusToNumpyProcessor(Processor):
 
         from nexusformat.nexus import NXdata
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         if isinstance(data, NXdata):
             default_data = data
@@ -411,7 +411,7 @@ class NexusToXarrayProcessor(Processor):
         from nexusformat.nexus import NXdata
         from xarray import DataArray
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         if isinstance(data, NXdata):
             default_data = data
@@ -668,7 +668,7 @@ class XarrayToNexusProcessor(Processor):
 
         from nexusformat.nexus import NXdata, NXfield
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
 
@@ -695,7 +695,7 @@ class XarrayToNumpyProcessor(Processor):
         :rtype: numpy.ndarray
         """
 
-        return self.unwrap_pipelinedata(data).data
+        return self.unwrap_pipelinedata(data).data[-1]
 
 
 if __name__ == '__main__':

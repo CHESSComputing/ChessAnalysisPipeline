@@ -2829,7 +2829,7 @@ class TomoDarkFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -2901,7 +2901,7 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')

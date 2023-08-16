@@ -25,11 +25,11 @@ class ExtractArchiveWriter(Writer):
         :return: the original `data`
         :rtype: bytes
         """
-
+        # System modules
         from io import BytesIO
         import tarfile
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         with tarfile.open(fileobj=BytesIO(data)) as tar:
             tar.extractall(path=filename)
@@ -53,13 +53,14 @@ class MatplotlibFigureWriter(Writer):
             overwritten, if it already exists.
         :return: the original input data
         """
+        # Third party modules
+        from matplotlib.figure import Figure
 
         if os.path.isfile(filename) and not force_overwrite:
             raise FileExistsError(f'{filename} already exists')
 
-        figure = self.unwrap_pipelinedata(data)
+        figure = self.unwrap_pipelinedata(data)[-1]
 
-        from matplotlib.figure import Figure
         if not isinstance(figure, Figure):
             raise TypeError('Cannot write object of type'
                             f'{type(figure)} as a matplotlib Figure.')
@@ -80,14 +81,14 @@ class NexusWriter(Writer):
             overwritten, if it already exists.
         :return: the original input data
         """
-
+        # Third party modules
         from nexusformat.nexus import NXobject
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         if not isinstance(data, NXobject):
-            raise TypeError('Cannot write object of type '
-                            f'{type(data).__name__} to a NeXus file.')
+            raise TypeError('Cannot write object of type'
+                            f'{type(data).__name__} as a NeXus file.')
 
         mode = 'w' if force_overwrite else 'w-'
         data.save(filename, mode=mode)
@@ -113,10 +114,10 @@ class YAMLWriter(Writer):
         :return: the original input data
         :rtype: dict
         """
-
+        # Third party modules
         import yaml
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         if not isinstance(data, (dict, list)):
             raise TypeError(
@@ -157,7 +158,7 @@ class TXTWriter(Writer):
         # Local modules
         from CHAP.utils.general import is_str_series
 
-        data = self.unwrap_pipelinedata(data)
+        data = self.unwrap_pipelinedata(data)[-1]
 
         if not isinstance(data, str) and not is_str_series(data, log=False):
             raise TypeError(
