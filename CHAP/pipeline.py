@@ -36,7 +36,7 @@ class Pipeline():
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        data = PipelineData()
+        data = [PipelineData()]
         for item, kwargs in zip(self.items, self.kwds):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
@@ -193,7 +193,7 @@ class MultiplePipelineItem(PipelineItem):
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
-        results = []
+        data = kwargs['data']
         for item_config in items:
             if isinstance(item_config, dict):
                 item_name = list(item_config.keys())[0]
@@ -208,9 +208,10 @@ class MultiplePipelineItem(PipelineItem):
             mod_name, cls_name = item_name.rsplit('.', 1)
             module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
             item = getattr(module, cls_name)()
-            results.append(item.execute(**item_args, **kwargs)[0])
+            data.append(item.execute(**item_args, **kwargs)[0])
 
         self.logger.info(
             f'Finished executing {len(items)} PipelineItems in {time()-t0:.0f}'
             ' seconds\n')
-        return results
+
+        return data

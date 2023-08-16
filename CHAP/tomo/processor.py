@@ -37,7 +37,7 @@ from CHAP.reader import main
 NUM_CORE_TOMOPY_LIMIT = 24
 
 
-def get_nxroot(data, schema, remove=True):
+def get_nxroot(data, schema=None, remove=True):
     """Look through `data` for an item whose value for the `'schema'`
     key matches `schema` and whose value for the `'data'` key matches
     an nexusformat.nexus.NXobject object and return this object.
@@ -46,7 +46,7 @@ def get_nxroot(data, schema, remove=True):
     :type data: list[PipelineData]
     :param schema: name associated with the nexusformat.nexus.NXobject
          object to match in `data`
-    :type schema: str
+    :type schema: str, optional
     :param remove: if there is a matching entry in `data`, remove
        it from the list, defaults to `True`.
     :type remove: bool, optional
@@ -54,23 +54,28 @@ def get_nxroot(data, schema, remove=True):
     :return: object matching with `schema`
     :rtype: nexusformat.nexus.NXroot
     """
+    # System modules
+    from copy import deepcopy
+
     # Local modules
     from nexusformat.nexus import NXobject
     nxobject = None
     if isinstance(data, list):
-        for i, item in enumerate(data):
+        for i, item in enumerate(deepcopy(data)):
             if isinstance(item, dict):
-                if item.get('schema') == schema:
-                    if nxobject is isinstance(nxobject, NXobject):
+                if schema is None or item.get('schema') == schema:
+                    item_data = item.get('data')
+                    if isinstance(item_data, NXobject):
+                        if nxobject is not None:
+                            raise ValueError(
+                                'Multiple NXobject objects found in input'
+                                f' data matching schema = {schema}')
+                        nxobject = item_data
+                        if remove:
+                            data.pop(i)
+                    elif schema is not None:
                         raise ValueError(
-                            'Multiple NXobject objects with found in input data '
-                            f'matching schema = {schema}')
-                    nxobject = item.get('data')
-                    if remove:
-                        data.pop(i)
-
-    if nxobject is not None and not isinstance(nxobject, NXobject):
-        raise ValueError('Invalid NXobject object found in input data')
+                            'Invalid NXobject object found in input data')
 
     return nxobject
 
@@ -111,9 +116,6 @@ class TomoCHESSMapConverter(Processor):
 
         # Local modules
         from CHAP.common.models.map import MapConfig
-
-        print('\n\nTomoCHESSMapConverter:')
-        print(f'\n\ndata: {data}')
 
         darkfield = get_nxroot(data, 'darkfield')
         brightfield = get_nxroot(data, 'brightfield')
@@ -241,7 +243,8 @@ class TomoCHESSMapConverter(Processor):
         nxsample = NXsample()
         nxentry.sample = nxsample
         nxsample.name = map_config.sample.name
-        nxsample.description = map_config.sample.description
+        if map_config.sample.description is not None:
+            nxsample.description = map_config.sample.description
 
         # Collect dark field data
         image_keys = []
@@ -256,7 +259,6 @@ class TomoCHESSMapConverter(Processor):
                 for scan_number, nxcollection in scan.items():
                     scan_columns = loads(str(nxcollection.scan_columns))
                     data_shape = nxcollection.data[detector_prefix].shape
-                    print(f'\n\ndark field shape: {data_shape}')
                     assert len(data_shape) == 3
                     assert data_shape[1] == detector_config.rows
                     assert data_shape[2] == detector_config.columns
@@ -297,7 +299,6 @@ class TomoCHESSMapConverter(Processor):
             for scan_number, nxcollection in scan.items():
                 scan_columns = loads(str(nxcollection.scan_columns))
                 data_shape = nxcollection.data[detector_prefix].shape
-                print(f'\n\nbright field shape: {data_shape}')
                 assert len(data_shape) == 3
                 assert data_shape[1] == detector_config.rows
                 assert data_shape[2] == detector_config.columns
@@ -420,7 +421,6 @@ class TomoCHESSMapConverter(Processor):
 #        nxdata.attrs['row_indices'] = 1
 #        nxdata.attrs['column_indices'] = 2
 
-        print(f'\n\nnxroot.tree: {nxroot.tree}')
         return nxroot
 
 
@@ -476,10 +476,6 @@ class TomoDataProcessor(Processor):
             TomoCombineConfig,
         )
 
-        print('\n\nTomoDataProcessor:')
-        print(f'\n\ndata: {data}')
-        print(f'\n\ninteractive: {interactive}')
-
         if not isinstance(reduce_data, bool):
             raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
         if not isinstance(find_center, bool):
@@ -511,10 +507,7 @@ class TomoDataProcessor(Processor):
                 data, 'tomo.models.TomoCombineConfig')
         except:
             combine_data_config = None
-        try:
-            nxroot = PipelineItem.unwrap_pipelinedata(data)
-        except:
-            nxroot = None
+        nxroot = get_nxroot(data)
 
         tomo = Tomo(
             interactive=interactive, output_folder=output_folder,
@@ -607,10 +600,8 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
         exclude_nxpaths = []
     for k, v in nxobject.items():
         nxpath = os_path.join(nxpath_prefix, k)
-
         if nxpath in exclude_nxpaths:
             continue
-
         if isinstance(v, NXgroup):
             nxobject_copy[k] = nxcopy(
                 v, exclude_nxpaths=exclude_nxpaths,
@@ -964,7 +955,7 @@ class Tomo:
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 lower_row = select_one_image_bound(
-                    nxentry.reduced_data.data.tomo_fields[
+                    np.asarray(nxentry.reduced_data.data.tomo_fields)[
                         center_stack_index,0,:,:],
                     0, bound=0, title=f'theta={round(thetas[0], 2)+0}',
                     bound_name='row index to find lower center',
@@ -979,7 +970,7 @@ class Tomo:
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
         lower_center_offset = self._find_center_one_plane(
-            nxentry.reduced_data.data.tomo_fields[
+            np.asarray(nxentry.reduced_data.data.tomo_fields)[
                 center_stack_index,:,lower_row,:],
             lower_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
@@ -1002,7 +993,7 @@ class Tomo:
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 upper_row = select_one_image_bound(
-                    nxentry.reduced_data.data.tomo_fields[
+                    np.asarray(nxentry.reduced_data.data.tomo_fields)[
                         center_stack_index,0,:,:],
                     0, bound=tomo_fields_shape[2]-1,
                     title=f'theta = {round(thetas[0], 2)+0}',
@@ -1018,7 +1009,7 @@ class Tomo:
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
         upper_center_offset = self._find_center_one_plane(
-            nxentry.reduced_data.data.tomo_fields[
+            np.asarray(nxentry.reduced_data.data.tomo_fields)[
                 center_stack_index,:,upper_row,:],
             upper_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
@@ -1120,7 +1111,7 @@ class Tomo:
             # Convert reduced data stack from theta,row,column to
             #     row,theta,column
             t0 = time()
-            tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields[i])
+            tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields)[i]
             self._logger.info(
                 f'Reading reduced data stack {i} took {time()-t0:.2f} '
                 'seconds')
@@ -1635,7 +1626,7 @@ class Tomo:
             first_image = np.asarray(nxentry.instrument.detector.data[
                 field_indices[first_image_index]])
         except:
-            raise RuntimeError('Unable to load the tomography images'
+            raise RuntimeError('Unable to load the tomography images '
                                f'for stack {i}')
 
         # Select image bounds
@@ -1889,9 +1880,9 @@ class Tomo:
         # Get resized dark field
         if 'dark_field' in reduced_data.data:
             tdf = np.asarray(
-                reduced_data.data.dark_field[
+                reduced_data.data.dark_field)[
                     img_x_bounds[0]:img_x_bounds[1],
-                    img_y_bounds[0]:img_y_bounds[1]])
+                    img_y_bounds[0]:img_y_bounds[1]]
         else:
             self._logger.warning('Dark field unavailable')
             tdf = None
@@ -1947,7 +1938,7 @@ class Tomo:
                 assert (list(sequence_numbers)
                         == list(range((len(sequence_numbers)))))
                 tomo_stack = np.asarray(
-                    nxentry.instrument.detector.data[field_indices_masked])
+                    nxentry.instrument.detector.data)[field_indices_masked]
             except:
                 raise RuntimeError('Unable to load the tomography images'
                                    f'for stack {i}')
@@ -3114,9 +3105,9 @@ class TomoSpecProcessor(Processor):
                     spec_file.append('#N 1')
                     spec_file.append('#L  ome')
                     if scan_type == 'ts1':
-                        image_sets.append(detector.data[n])
+                        image_sets.append(np.asarray(detector.data)[n])
                     else:
-                        image_sets.append(detector.data)
+                        image_sets.append(np.asarray(detector.data))
                     par_file.append(
                         f'{datetime.now().strftime("%Y%m%d")} '
                         f'{datetime.now().strftime("%H%M%S")} '
@@ -3193,6 +3184,7 @@ class TomoSpecProcessor(Processor):
         """Write a set of images to individual tiff files."""
         # Third party modules
         from imageio import imwrite
+        data = np.asarray(data)
         for n in range(data.shape[0]):
             imwrite(os_path.join(
                 image_folder, f'nf_{(n+starting_image_index):06d}.tif'),
