@@ -83,15 +83,10 @@ pipeline:
             filename: ../detector.yaml
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-  - common.NexusWriter:
-      filename: tomo_map.nxs
-      force_overwrite: true
 
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
-        - common.NexusReader:
-            filename: tomo_map.nxs
         - common.YAMLReader:
             filename: ../find_center_data_id3b.yaml
             schema: tomo.models.TomoFindCenterConfig
