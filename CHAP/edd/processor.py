@@ -732,6 +732,7 @@ class StrainAnalysisProcessor(Processor):
         import numpy as np
         from CHAP.common import MapProcessor
         from CHAP.edd.utils import hc
+        from CHAP.utils.fit import FitMap
 
         for detector in strain_analysis_config.detectors:
             calibration = [
@@ -846,91 +847,66 @@ class StrainAnalysisProcessor(Processor):
                 shape=map_config.shape,
                 attrs={'long_name': 'Strain (\u03BC\u03B5)'})
 
-            # Do strain analysis
+            # Gather detector daya
             self.logger.debug(
-                f'Beginning strain analysis for {detector.detector_name}')
+                f'Gathering detector data for {detector.detector_name}')
             fit_hkls, fit_ds = detector.fit_ds(
                 strain_analysis_config.materials)
             peak_locations = hc / (
                 2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
             for map_index in np.ndindex(map_config.shape):
-                scans, scan_number, scan_step_index = \
-                    map_config.get_scan_step_index(map_index)
+                try:
+                    scans, scan_number, scan_step_index = \
+                        map_config.get_scan_step_index(map_index)
+                except:
+                    continue
                 scanparser = scans.get_scanparser(scan_number)
-                det_nxdata.intensity[map_index] = scanparser.get_detector_data(
+                intensity = scanparser.get_detector_data(
                     detector.detector_name, scan_step_index)\
                     .astype('uint16')[mask]
-                self.logger.debug(
-                    'Performing strain analysis for '
-                    + detector.detector_name
-                    + f' at map coordinate {map_index}')
-                det_nxdata.microstrain[map_index] = self.analyze_strain(
-                    intensity, energies, peak_locations,
-                    detector.peak_models, None)
+                det_nxdata.intensity[map_index] = intensity
+
+            # Perform strain analysis
+            self.logger.debug(
+                f'Beginning strain analysis for {detector.detector_name}')
+
+            # Perform initial fit: assume uniform strain for all HKLs
+            uniform_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
+            uniform_fit.create_multipeak_model(
+                peak_locations,
+                fit_type='uniform',
+                peak_models=detector.peak_models,
+                background=detector.background)
+            uniform_fit.fit()
+            uniform_fit_centers = [
+                uniform_fit.best_values[
+                    uniform_fit.best_parameters().index(f'peak{i+1}_center')]
+                for i in range(len(peak_locations))]
+
+            # Perform second fit: do not assume uniform strain for all
+            # HKLs, and use the fit peak centers from the uniform fit
+            # as inital guesses
+            unconstrained_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
+            unconstrained_fit.create_multipeak_model(
+                np.mean(uniform_fit_centers, axis=1),
+                fit_type='unconstrained',
+                peak_models=detector.peak_models,
+                background=detector.background)
+            unconstrained_fit.fit()
+            unconstrained_fit_centers = np.array(
+                [unconstrained_fit.best_values[
+                    unconstrained_fit.best_parameters()\
+                    .index(f'peak{i+1}_center')]
+                 for i in range(len(peak_locations))])
+            unconstrained_strains = np.empty_like(unconstrained_fit_centers)
+            for i, peak_loc in enumerate(peak_locations):
+                unconstrained_strains[i] = np.log(
+                    peak_loc / unconstrained_fit_centers[i])
+            unconstrained_strain = np.mean(unconstrained_strains, axis=0)
+            det_nxdata.microstrain.nxdata = unconstrained_strain * 1e6
 
         return nxroot
 
-    def analyze_strain(self,
-                       intensity,
-                       energy,
-                       hkl_centers,
-                       peak_models,
-                       background):
-        """Return strain measured by a single detector element.
-
-        :param instensity: flux-corrected and masked MCA spectra
-        :type intensity:
-        :param energy: calibrated MCA bin energies corresponding to
-            the values in `intensity`
-        :type energy:
-        :param hkl_centers: theoretical HKL peak locations
-        :type hkl_centers:
-        :param peak_models:
-        :type peak_models:
-        :param background:
-        :type background:
-        :return:
-        :rtype:
-        """
-        from CHAP.edd.utils import hc
-        from CHAP.utils.fit import FitMultipeak
-
-        # Perform initial fit: assume uniform strain for all HKLs
-        uniform_best_fit, uniform_residual, best_values, \
-            best_errors, redchi, success = \
-                FitMultipeak.fit_multipeak(
-                    intensity,
-                    hkl_centers,
-                    x=energy,
-                    peak_models=peak_models,
-                    background=background,
-                    fit_type='uniform',
-                    plot=False)
-        uniform_fit_centers = [
-            best_values[f'peak{i+1}_center']
-            for i in range(len(hkl_centers))]
-
-        # Perform second fit: do not assume uniform strain for all
-        # HKLs, and use the fit peak centers from the uniform fit as
-        # inital guesses
-        unconstrained_best_fit, unconstrained_residual, best_values, \
-            best_errors, redchi, success = \
-                FitMultipeak.fit_multipeak(
-                    intensity,
-                    uniform_fit_centers,
-                    x=energy,
-                    peak_models=peak_models,
-                    background=background,
-                    fit_type='unconstrained',
-                    plot=False)
-
-        unconstrained_fit_centers = np.array(
-            [best_values[f'peak{i+1}_center']
-             for i in range(len(hkl_centers))])
-        unconstrained_strains = np.log(hkl_centers / unconstrained_fit_centers)
-        unconstrained_strain = np.mean(unconstrained_strains)
-
-        return unconstrained_strain
 
 if __name__ == '__main__':
     # local modules
