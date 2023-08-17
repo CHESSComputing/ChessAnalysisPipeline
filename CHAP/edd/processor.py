@@ -724,9 +724,11 @@ class StrainAnalysisProcessor(Processor):
         :return: NXroot containing strain maps
         :rtype: nexusformat.nexus.NXroot
         """
-        from nexusformat.nexus import (NXdata,
+        from nexusformat.nexus import (NXcollection,
+                                       NXdata,
                                        NXdetector,
                                        NXfield,
+                                       NXparameters,
                                        NXprocess,
                                        NXroot)
         import numpy as np
@@ -743,8 +745,8 @@ class StrainAnalysisProcessor(Processor):
         nxroot = NXroot()
         nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
         nxentry = nxroot[map_config.title]
-        nxroot[f'{map_config.title}_strains'] = NXprocess()
-        nxprocess = nxroot[f'{map_config.title}_strains']
+        nxroot[f'{map_config.title}_strainanalysis'] = NXprocess()
+        nxprocess = nxroot[f'{map_config.title}_strainanalysis']
         nxprocess.strain_analysis_config = dumps(strain_analysis_config.dict())
 
         # Setup plottable data group
@@ -752,10 +754,12 @@ class StrainAnalysisProcessor(Processor):
         nxprocess.default = 'data'
         nxdata = nxprocess.data
         nxdata.attrs['axes'] = map_config.dims
-        for dim in map_config.dims:
-            nxdata.makelink(nxentry.data[dim])
-            nxdata.attrs[f'{dim}_indices'] = \
-                nxentry.data.attrs[f'{dim}_indices']
+        def linkdims(nxgroup):
+            for dim in map_config.dims:
+                nxgroup.makelink(nxentry.data[dim])
+                nxgroup.attrs[f'{dim}_indices'] = \
+                    nxentry.data.attrs[f'{dim}_indices']
+        linkdims(nxdata)
 
         # Select interactive params / save figures
         if save_figures or interactive:
@@ -780,8 +784,9 @@ class StrainAnalysisProcessor(Processor):
                         f'{detector.detector_name}_strainanalysis_hkls.png'))
                 plt.close()
 
-                self.logger.info(
-                    'Interactively select a mask in the matplotlib figure')
+                if interactive:
+                    self.logger.info(
+                        'Interactively select a mask in the matplotlib figure')
                 mask, include_bin_ranges, figure = draw_mask_1d(
                     y, xdata=x,
                     current_index_ranges=detector.include_bin_ranges,
@@ -821,14 +826,11 @@ class StrainAnalysisProcessor(Processor):
             nxprocess[detector.detector_name] = NXdetector()
             nxdetector = nxprocess[detector.detector_name]
             nxdetector.local_name = detector.detector_name
-            # KLS: add calibration metadata here!
+            nxdetector.detector_config = dumps(detector.dict())
             nxdetector.data = NXdata()
             det_nxdata = nxdetector.data
             det_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            for dim in map_config.dims:
-                det_nxdata.makelink(nxdata[dim].nxlink)
-                det_nxdata.attrs[f'{dim}_indices'] = \
-                    nxdata.attrs[f'{dim}_indices']
+            linkdims(det_nxdata)
             all_energies = np.arange(0, detector.num_bins) \
                 * (detector.max_energy_kev / detector.num_bins) \
                 * detector.slope_calibrated \
@@ -847,13 +849,9 @@ class StrainAnalysisProcessor(Processor):
                 shape=map_config.shape,
                 attrs={'long_name': 'Strain (\u03BC\u03B5)'})
 
-            # Gather detector daya
+            # Gather detector data
             self.logger.debug(
                 f'Gathering detector data for {detector.detector_name}')
-            fit_hkls, fit_ds = detector.fit_ds(
-                strain_analysis_config.materials)
-            peak_locations = hc / (
-                2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
             for map_index in np.ndindex(map_config.shape):
                 try:
                     scans, scan_number, scan_step_index = \
@@ -865,12 +863,18 @@ class StrainAnalysisProcessor(Processor):
                     detector.detector_name, scan_step_index)\
                     .astype('uint16')[mask]
                 det_nxdata.intensity[map_index] = intensity
+            det_nxdata.summed_intensity = det_nxdata.intensity.sum(axis=-1)
 
             # Perform strain analysis
             self.logger.debug(
                 f'Beginning strain analysis for {detector.detector_name}')
+            fit_hkls, fit_ds = detector.fit_ds(
+                strain_analysis_config.materials)
+            peak_locations = hc / (
+                2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
 
             # Perform initial fit: assume uniform strain for all HKLs
+            self.logger.debug('Performing uniform fit')
             uniform_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
             uniform_fit.create_multipeak_model(
                 peak_locations,
@@ -882,19 +886,60 @@ class StrainAnalysisProcessor(Processor):
                 uniform_fit.best_values[
                     uniform_fit.best_parameters().index(f'peak{i+1}_center')]
                 for i in range(len(peak_locations))]
+            uniform_fit_errors = [
+                uniform_fit.best_errors[
+                   uniform_fit.best_parameters().index(f'peak{i+1}_center')]
+                for i in range(len(peak_locations))]
+
+            # Add uniform fit results to the NeXus structure
+            nxdetector.uniform_fit = NXcollection()
+            fit_nxgroup = nxdetector.uniform_fit
+            fit_nxgroup.fit_hkl_centers = NXdata()
+            fit_nxdata = fit_nxgroup.fit_hkl_centers
+            fit_nxdata.attrs['axes'] = map_config.dims
+            linkdims(fit_nxdata)
+            for hkl, center_guessed, centers_fit, centers_errors in \
+                    zip(fit_hkls, peak_locations,
+                        uniform_fit_centers, uniform_fit_errors):
+                hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
+                fit_nxgroup[hkl_name] = NXparameters()
+                fit_nxgroup[hkl_name].initial_guess = center_guessed
+                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                fit_nxgroup[hkl_name].fit = NXdata()
+                fit_nxgroup[hkl_name].fit.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].fit)
+                fit_nxgroup[hkl_name].fit.values = NXfield(
+                    value=centers_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].fit.errors = NXfield(
+                    value=centers_errors)
+                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/fit/values'],
+                                    name=hkl_name)
 
             # Perform second fit: do not assume uniform strain for all
             # HKLs, and use the fit peak centers from the uniform fit
             # as inital guesses
+            self.logger.debug('Performing unconstrained fit')
+            unconstrained_center_guesses = np.mean(
+                uniform_fit_centers,
+                axis=tuple(i for i in range(1, len(map_config.shape)+1)))
+            # KLS: Use the below def of unconstrained_center_guesses
+            # when FitMap.create_multipeak_model can accept a list of
+            # maps for centers.
+            # unconstrained_center_guesses = uniform_fit_centers
             unconstrained_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
             unconstrained_fit.create_multipeak_model(
-                np.mean(uniform_fit_centers, axis=1),
+                unconstrained_center_guesses,
                 fit_type='unconstrained',
                 peak_models=detector.peak_models,
                 background=detector.background)
             unconstrained_fit.fit()
             unconstrained_fit_centers = np.array(
                 [unconstrained_fit.best_values[
+                    unconstrained_fit.best_parameters()\
+                    .index(f'peak{i+1}_center')]
+                 for i in range(len(peak_locations))])
+            unconstrained_fit_errors = np.array(
+                [unconstrained_fit.best_errors[
                     unconstrained_fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
@@ -905,6 +950,30 @@ class StrainAnalysisProcessor(Processor):
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
             det_nxdata.microstrain.nxdata = unconstrained_strain * 1e6
 
+            # Add unconstrained fit results to the NeXus structure
+            nxdetector.unconstrained_fit = NXcollection()
+            fit_nxgroup = nxdetector.unconstrained_fit
+            fit_nxgroup.fit_hkl_centers = NXdata()
+            fit_nxdata = fit_nxgroup.fit_hkl_centers
+            fit_nxdata.attrs['axes'] = map_config.dims
+            linkdims(fit_nxdata)
+            for (hkl, unconstrained_center_guesses,
+                 centers_fit, centers_errors) in \
+                    zip(fit_hkls, peak_locations,
+                        unconstrained_fit_centers, unconstrained_fit_errors):
+                hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
+                fit_nxgroup[hkl_name] = NXparameters()
+                fit_nxgroup[hkl_name].initial_guess = center_guessed
+                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                fit_nxgroup[hkl_name].fit = NXdata()
+                fit_nxgroup[hkl_name].fit.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].fit)
+                fit_nxgroup[hkl_name].fit.values = NXfield(
+                    value=centers_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].fit.errors = NXfield(
+                    value=centers_errors)
+                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/fit/values'],
+                                    name=hkl_name)
         return nxroot
 
 
