@@ -480,7 +480,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
-    background_order: Optional[conint(gt=0)] = 0
+    background: Optional[str]
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
