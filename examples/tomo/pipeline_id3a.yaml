@@ -11,26 +11,17 @@ pipeline:
             schema: tomo.models.TomoSimConfig
         - tomo.TomoSimFieldProcessor:
             schema: tomo.models.TomoSimField
-        - common.NexusWriter:
-            filename: hollow_brick_SIM_001.h5
-            force_overwrite: true
         # Create the dark field for the simulation
         - tomo.TomoDarkFieldProcessor:
             schema: tomo.models.TomoDarkField
-        - common.NexusWriter:
-            filename: hollow_brick_dark_SIM_001.h5
-            force_overwrite: true
         # Create the bright field for the simulation
         - tomo.TomoBrightFieldProcessor:
             schema: tomo.models.TomoBrightField
             num_image: 10
-        - common.NexusWriter:
-            filename: hollow_brick_flat_SIM_001.h5
-            force_overwrite: true
         # Create the SPEC file for the simulation
         - tomo.TomoSpecProcessor:
-            spec_folder: examples/tomo/hollow_brick
             scan_numbers: [1, 2, 3, 4, 5]
+        - common.FileTreeWriter:
             force_overwrite: true
 
   # Convert the CHESS style map

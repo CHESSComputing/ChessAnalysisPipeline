@@ -2965,27 +2965,30 @@ class TomoSpecProcessor(Processor):
     simulated tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, spec_folder='.', scan_numbers=[1], **kwargs):
+    def process(self, data, scan_numbers=[1], **kwargs):
         """
         Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param spec_folder: Output folder for the SPEC file(s), defaults
-            to '.'.
-        :type spec_folder: str, optional.
         :param scan_numbers: List of SPEC scan numbers, defaults to [1].
         :type scan_numbers: list[int]
         :return: Simulated SPEC file.
         :rtype: list[str]
         """
         # System modules
-        from json import dump
+        from json import dumps
         from datetime import datetime
 
         # Third party modules
-        from nexusformat.nexus import NeXusError
+        from nexusformat.nexus import (
+            NeXusError,
+            NXcollection,
+            NXentry,
+            NXroot,
+            NXsubentry,
+        )
 
         # Get and validate the TomoSimField, TomoDarkField, or
         #     TomoBrightField configuration object in data
@@ -3039,10 +3042,8 @@ class TomoSpecProcessor(Processor):
                 f'Inconsistent number of scans ({num_scan}), '
                 f'len(scan_numbers) = {len(scan_numbers)})')
 
-        # Create the SPEC output folder if needed
-        spec_folder = os_path.abspath(spec_folder)
-        if not os_path.isdir(spec_folder):
-            mkdir(spec_folder)
+        # Create the output data structure in Nexus format
+        nxentry = NXentry()
 
         # Create the SPEC file header
         spec_file = [f'#F {sample_type}']
@@ -3079,6 +3080,7 @@ class TomoSpecProcessor(Processor):
                     scan_type = 'df1'
                 else:
                     macro = f'flyscan {num_theta-1} {count_time}'
+                    field_type = 'dark_field'
             elif schema == 'tomo.models.TomoBrightField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
@@ -3086,6 +3088,7 @@ class TomoSpecProcessor(Processor):
                     scan_type = 'bf1'
                 else:
                     macro = f'flyscan {num_theta-1} {count_time}'
+                    field_type = 'bright_field'
             elif schema == 'tomo.models.TomoSimField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
@@ -3094,10 +3097,12 @@ class TomoSpecProcessor(Processor):
                 else:
                     macro = f'flyscan samphi {thetas[0]} ' \
                         f'{thetas[-1]} {num_theta-1} {count_time}'
+                    field_type = 'tomo_field'
             starting_image_index = int(detector.starting_image_index)
             starting_image_offset = int(detector.starting_image_offset)
             for n, z_translation in enumerate(z_translations):
-                spec_file.append(f'#S {scan_numbers[num_scan]}  {macro}')
+                scan_number = scan_numbers[num_scan]
+                spec_file.append(f'#S {scan_number}  {macro}')
                 spec_file.append(
                     f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
                 if station in ('id1a3', 'id3a'):
@@ -3111,7 +3116,7 @@ class TomoSpecProcessor(Processor):
                     par_file.append(
                         f'{datetime.now().strftime("%Y%m%d")} '
                         f'{datetime.now().strftime("%H%M%S")} '
-                        f'{scan_numbers[num_scan]} '
+                        f'{scan_number} '
 #                        '2.0 '
 #                        '1.0 '
                         f'{starting_image_index} '
@@ -3128,16 +3133,22 @@ class TomoSpecProcessor(Processor):
                     spec_file.append('#N 1')
                     spec_file.append('#L theta')
                     spec_file += [str(theta) for theta in thetas]
+                    # Add the h5 file to output
+                    prefix = str(detector.local_name).upper()
+                    field_name = f'{field_type}_{scan_number:03d}'
+                    nxentry[field_name] = nxroot.entry
+                    nxentry[field_name].attrs['schema'] = 'h5'
+                    nxentry[field_name].attrs['filename'] = \
+                        f'{sample_type}_{prefix}_{scan_number:03d}.h5'
                 starting_image_indices.append(starting_image_index)
                 spec_file.append('')
                 num_scan += 1
 
         if station in ('id1a3', 'id3a'):
 
-            # Write the SPEC file
-            self._write_txt(spec_file, os_path.join(spec_folder, 'spec.log'))
+            spec_filename = 'spec.log'
 
-            # Write the JSON file
+            # Add the JSON file to output
             parfile_header = {
                 '0': 'date',
                 '1': 'time',
@@ -3154,51 +3165,46 @@ class TomoSpecProcessor(Processor):
                 '10': 'count_time',
                 '11': 'tomotype',
             }
-            json_filename = os_path.join(
-                spec_folder,
-                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.json')
-            with open(json_filename, 'w') as f:
-                dump(parfile_header, f)
+            nxentry['json'] = NXsubentry()
+            nxentry['json'].data = dumps(parfile_header)
+            nxentry['json'].attrs['schema'] = 'json'
+            nxentry['json'].attrs['filename'] = \
+                f'{station}-tomo_sim-{sample_type}.json'
         
-            # Write the par file
-            par_filename = os_path.join(
-                spec_folder,
-                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.par')
-            self._write_txt(par_file, par_filename)
+            # Add the par file to output
+            nxentry['par'] = NXsubentry()
+            nxentry['par'].data = par_file
+            nxentry['par'].attrs['schema'] = 'txt'
+            nxentry['par'].attrs['filename'] = \
+                f'{station}-tomo_sim-{sample_type}.par'
 
-            # Write image files as individual tiffs
+            # Add image files as individual tiffs to output
             for scan_number, image_set, starting_image_index in zip(
                     scan_numbers, image_sets, starting_image_indices):
-                image_folder = os_path.join(spec_folder, str(scan_number))
-                if not os_path.isdir(image_folder):
-                    mkdir(image_folder)
-                image_folder = os_path.join(image_folder, 'nf')
-                if not os_path.isdir(image_folder):
-                    mkdir(image_folder)
-                self._write_tiffs(
-                    image_set, image_folder, starting_image_index)
+                nxentry[f'{scan_number}'] = NXsubentry()
+                nxsubentry = NXsubentry()
+                nxentry[f'{scan_number}']['nf'] = nxsubentry
+                for n in range(image_set.shape[0]):
+                    nxsubentry[f'tiff_{n}'] = NXsubentry()
+                    nxsubentry[f'tiff_{n}'].data = image_set[n]
+                    nxsubentry[f'tiff_{n}'].attrs['schema'] = 'tif'
+                    nxsubentry[f'tiff_{n}'].attrs['filename'] = \
+                        f'nf_{(n+starting_image_index):06d}.tif'
+        else:
 
-        return spec_file
+            spec_filename = sample_type
 
-    def _write_tiffs(self, data, image_folder, starting_image_index):
-        """Write a set of images to individual tiff files."""
-        # Third party modules
-        from imageio import imwrite
-        data = np.asarray(data)
-        for n in range(data.shape[0]):
-            imwrite(os_path.join(
-                image_folder, f'nf_{(n+starting_image_index):06d}.tif'),
-                data[n])
+        # Add spec file to output
+        nxentry['spec'] = NXsubentry()
+        nxentry['spec'].data = spec_file
+        nxentry['spec'].attrs['schema'] = 'txt'
+        nxentry['spec'].attrs['filename'] = spec_filename
 
-    def _write_txt(self, data, filepath, force_overwrite=True):
-        """Local wrapper for the text file writer."""
-        # Local modules
-        from CHAP.common import TXTWriter
-        from CHAP.pipeline import PipelineData
-        writer = TXTWriter()
-        writer.write(
-            [PipelineData(data=data)], filepath,
-            force_overwrite=force_overwrite)
+        nxroot = NXroot()
+        nxroot[sample_type] = nxentry
+        nxroot.attrs['default'] = sample_type
+
+        return nxroot
 
 
 if __name__ == '__main__':
