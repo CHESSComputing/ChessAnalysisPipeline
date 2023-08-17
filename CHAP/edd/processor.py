@@ -872,6 +872,12 @@ class StrainAnalysisProcessor(Processor):
                 strain_analysis_config.materials)
             peak_locations = hc / (
                 2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
+            # KLS: Use the below def of peak_locations when
+            # FitMap.create_multipeak_model can accept a list of maps
+            # for centers.
+            # tth = np.radians(detector.map_tth(map_config))
+            # peak_locations = [hc / (2. * d0 * np.sin(0.5*tth)) \
+            #                   for d0 in fit_ds]
 
             # Perform initial fit: assume uniform strain for all HKLs
             self.logger.debug('Performing uniform fit')

@@ -485,11 +485,14 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
 
+    tth_file: Optional[FilePath]
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
     max_energy_kev: Optional[confloat(gt=0)]
     num_bins: Optional[conint(gt=0)]
+
+    _tth_map: Optional[np.ndarray]
 
     def add_calibration(self, calibration):
         """Finalize values for some fields using a completed
@@ -524,25 +527,66 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
         return fit_hkls, fit_ds
 
+    def tth_map(self, map_config):
+        """Return a map of tth values to use -- may vary at each point
+        in the map.
+
+        :param map_config: the map configuration with which the
+            returned map of tth values will be used.
+        :type map_config: MapConfig
+        :return: map of thh values
+        :rtype: np.ndarray
+        """
+        if self._tth_map is not None:
+            return self._tth_map
+        return np.full(map_config.shape, self.tth_calibrated)
+
 
 class StrainAnalysisConfig(BaseModel):
     """Model for inputs to CHAP.edd.StrainAnalysisProcessor"""
     map_config: Optional[MapConfig]
     par_file: Optional[FilePath]
-    scan_columns: Optional[list[dict[str,str]]]
+    par_dims: Optional[list[dict[str,str]]]
+    other_dims: Optional[list[dict[str,str]]]
     flux_file: FilePath
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
 
-    @root_validator
+    _parfile: Optional[ParFile]
+
+    @root_validator(pre=True)
     def validate_map(cls, values):
+        """Ensure exactly one valid map configuration was provided."""
         if values.get('par_file') is not None:
-            if 'scan_columns' not in values:
+            if 'par_dims' not in values:
                 raise ValueError(
-                    'If using par_file, must also use scan_columns')
-            values['map_config'] = ParFile(values['par_file'])\
-                .get_map('EDD', 'id1a3', values['scan_columns'])
+                    'If using par_file, must also use par_dims')
+            values['_parfile'] = ParFile(values['par_file'])
+            values['map_config'] = values['_parfile'].get_map(
+                'EDD', 'id1a3', values['par_dims'],
+                other_dims=values.get('other_dims', []))
         return values
+
+    @validator('detectors', each_item=True)
+    def validate_tth(cls, detector, values):
+        """Validate detector element tth_file field. It may only be
+        used if StrainAnalysisConfig used par_file.
+        """
+        if detector.tth_file is not None:
+            if values['_par_file'] is None:
+                raise ValueError(
+                    'variable tth angles may only be used with a '
+                    + 'StrainAnalysisConfig that uses par_file.')
+            else:
+                tth = np.loadtxt(detector.tth_file)
+                try:
+                    detector._tth_map = values['_par_file'].map_values(
+                        values['map_config'], tth)
+                except Exception as e:
+                    raise ValueError(
+                        'Could not get map of tth angles from '
+                        + f'{detector.tth_file}') from e
+        return detector
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a

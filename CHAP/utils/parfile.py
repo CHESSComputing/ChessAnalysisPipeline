@@ -58,7 +58,7 @@ class ParFile():
         self.scann_i = self.column_names.index(scann_col_name)
         self.scan_numbers = [data[self.scann_i] for data in self.data]
 
-    def get_map(self, experiment_type, station, dim_columns):
+    def get_map(self, experiment_type, station, par_dims, other_dims=[]):
         """Return a map configuration based on this par file.
 
         :param experiment_type: name of the experiment type for the
@@ -67,9 +67,14 @@ class ParFile():
         :param station: name of the station at which the data were
             collected
         :type station: Literal['id1a3','id3a','id3b']
-        :param dim_columns: list of dictionaries configuring the map's
+        :param par_dims: list of dictionaries configuring the map's
             independent dimensions.
-        :type dim_columns: list[dict[str, str]]
+        :type par_dims: list[dict[str, str]]
+        :param other_dims: a list of other dimensions to include in
+            the returned MapConfig's independednt_dimensions. Use this
+            if each scans in thhis par ile captured more than one
+            frame of data. Defaults to []
+        :type other_dims: list[dict[str,str]], optional
         :return: a map configuration
         :rtype: CHAP.common.models.map.MapConfig
         """
@@ -86,11 +91,11 @@ class ParFile():
                 {'spec_file': self.spec_file,
                  'scan_numbers': self.good_scan_numbers()}],
             'independent_dimensions': [
-                {'label': col['label'],
-                 'units': col['units'],
-                 'name': col['name'],
+                {'label': dim['label'],
+                 'units': dim['units'],
+                 'name': dim['name'],
                  'data_type': 'smb_par'}
-                for col in dim_columns]
+                for dim in par_dims] + other_dims
         }
         return MapConfig(**map_config)
 
@@ -136,3 +141,34 @@ class ParFile():
             column_data = [column_data[self.scan_numbers.index(scan_n)] \
                            for scan_n in scan_numbers]
         return column_data
+
+    def map_values(self, map_config, values):
+        """Return a reshaped array of the 1D list `values` so that it
+        matches up with the coordinates of `map_config`.
+
+        :param map_config: the map configuration according to which
+            values will be reshaped
+        :type map_config: MapConfig
+        :param values: a 1D list of values to reshape
+        :type values: list or np.ndarray
+        :return: reshaped array of values
+        :rtype: np.ndarray
+        """
+        good_scans = self.good_scan_numbers()
+        if len(values) != len(good_scans):
+            raise ValueError('number of values provided ({len(values)}) does '
+                             + 'not match the number of good scans in '
+                             + f'{self.par_file} ({len(good_scans)})')
+        n_map_points = np.prod(map_config.shape)
+        if len(values) != n_map_points:
+            raise ValueError(
+                f'Cannot reshape {len(values)} values into an array of shape '
+                + f'{map_config.shape}')
+
+        map_values = np.empty(map_config.shape)
+        for map_index in np.ndindex(map_config.shape):
+            scans, scan_number, scan_step_index = \
+                map_config.get_scan_step_index(map_index)
+            value_index = good_scans.index(scan_number)
+            map_values[map_index] = values[value_index]
+        return map_values
