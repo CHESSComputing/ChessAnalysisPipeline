@@ -912,6 +912,11 @@ class Fit:
 
         # Reset the fit
         self._result = None
+        self._parameter_norms = {}
+        self._linear_parameters = []
+        self._nonlinear_parameters = []
+        if hasattr(self, "_best_parameters"):
+            self._best_parameters = None
 
         # Add background model(s)
         if background is not None:
@@ -1107,41 +1112,49 @@ class Fit:
                     f'Inconsistent x and mask dimensions ({self._x.size} vs '
                     f'{self._mask.size})')
 
-        # Estimate initial parameters with build-in lmfit guess method
-        # (only mplemented for a single model)
+        # Estimate initial parameters
         if guess:
             if self._mask is None:
-                try:
-                    self._parameters = self._model.guess(self._y, x=self._x)
-                except:
-                    ast = Interpreter()
-                    # Should work for other peak-like models,
-                    #   but will need tests first
-                    for component in self._model.components:
-                        if component._name == 'gaussian':
-                            center = self._parameters[
-                                f"{component.prefix}center"].value
-                            height_init, cen_init, fwhm_init = \
-                                self.guess_init_peak(
-                                    self._x, self._y, center_guess=center,
-                                    use_max_for_center=False)
-                            if (self._fwhm_max is not None
-                                    and fwhm_init > self._fwhm_max):
-                                fwhm_init = self._fwhm_max
-                            ast(f'fwhm = {fwhm_init}')
-                            ast(f'height = {height_init}')
-                            sig_init = ast(fwhm_factor[component._name])
-                            amp_init = ast(height_factor[component._name])
-                            self._parameters[
-                                f"{component.prefix}amplitude"].set(
-                                    value=amp_init)
-                            self._parameters[f"{component.prefix}center"].set(
-                                value=cen_init)
-                            self._parameters[f"{component.prefix}sigma"].set(
-                                value=sig_init)
+                xx = self._x
+                yy = self._y
             else:
-                self._parameters = self._model.guess(
-                    np.asarray(self._y)[~self._mask], x=self._x[~self._mask])
+                xx = self._x[~self._mask]
+                yy = np.asarray(self._y)[~self._mask]
+            try:
+                # Try with the build-in lmfit guess method
+                # (only implemented for a single model)
+                self._parameters = self._model.guess(yy, x=xx)
+            except:
+                ast = Interpreter()
+                # Should work for other peak-like models,
+                #   but will need tests first
+                for component in self._model.components:
+                    if component._name == 'gaussian':
+                        center = self._parameters[
+                            f"{component.prefix}center"].value
+                        height_init, cen_init, fwhm_init = \
+                            self.guess_init_peak(
+                                xx, yy, center_guess=center,
+                                use_max_for_center=False)
+                        if (self._fwhm_max is not None
+                                and fwhm_init > self._fwhm_max):
+                            fwhm_init = self._fwhm_max
+                        ast(f'fwhm = {fwhm_init}')
+                        ast(f'height = {height_init}')
+                        sig_init = ast(fwhm_factor[component._name])
+                        amp_init = ast(height_factor[component._name])
+                        par = self._parameters[
+                            f"{component.prefix}amplitude"]
+                        if par.vary:
+                            par.set(value=amp_init)
+                        par = self._parameters[
+                            f"{component.prefix}center"]
+                        if par.vary:
+                            par.set(value=cen_init)
+                        par = self._parameters[
+                            f"{component.prefix}sigma"]
+                        if par.vary:
+                            par.set(value=sig_init)
 
         # Add constant offset for a normalized model
         if self._result is None and self._norm is not None and self._norm[0]:
