@@ -861,6 +861,7 @@ class Fit:
             if self._fit_type == 'uniform' and fit_type != 'uniform':
                 logger.info('Use the existing multipeak model to refit a '
                     'uniform model with an unconstrained model')
+                min_value = FLOAT_MIN if self._param_constraint else None
                 if isinstance(self, FitMap):
                     scale_factor_index = \
                         self._best_parameters.index('scale_factor')
@@ -869,17 +870,26 @@ class Fit:
                         self._best_values, scale_factor_index, 0)
                     self._best_errors = np.delete(
                         self._best_errors, scale_factor_index, 0)
+                    for name, par in self._parameters.items():
+                        if re_search('peak\d+_center', name) is not None:
+                            par.set(min=min_value, vary=True, expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': min_value,
+                                'max': np.inf,
+                            }
+                else:
+                    for name, par in self._parameters.items():
+                        if re_search('peak\d+_center', name) is not None:
+                            par.set(
+                                value=self._result.params[name].value,
+                                min=min_value, vary=True, expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': min_value,
+                                'max': np.inf,
+                            }
                 self._parameters.pop('scale_factor')
                 self._parameter_bounds.pop('scale_factor')
                 self._parameter_norms.pop('scale_factor')
-                min_value = FLOAT_MIN if self._param_constraint else None
-                for name, par in self._parameters.items():
-                    if re_search('peak\d+_center', name) is not None:
-                        par.set(min=min_value, vary=True, expr=None)
-                        self._parameter_bounds[name] = {
-                            'min': min_value,
-                            'max': np.inf,
-                        }
                 return
             else:
                 logger.warning('Existing model cleared before creating a new '
