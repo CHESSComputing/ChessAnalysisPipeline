@@ -313,7 +313,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: float, float, float
         """
         from CHAP.edd.utils import hc
-        from CHAP.utils.fit import Fit, FitMultipeak
+        from CHAP.utils.fit import Fit
 
         # Collect raw MCA data of interest
         mca_data = calibration_config.mca_data(detector)
@@ -392,46 +392,34 @@ class MCACeriaCalibrationProcessor(Processor):
             fit_E0 = hc / fit_lambda
 
             # Run the uniform fit
-            uniform_best_fit, uniform_residual, best_values, \
-                best_errors, redchi, success = \
-                FitMultipeak.fit_multipeak(
-                    fit_mca_intensities,
-                    fit_E0,
-                    x=fit_mca_energies,
-                    fit_type='uniform',
-                    plot=False)
+            uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
+            uniform_fit.create_multipeak_model(fit_E0, fit_type='uniform')
+            uniform_fit.fit()
 
             # Extract values of interest from the best values for the
             # uniform fit parameters
             uniform_fit_centers = [
-                best_values[f'peak{i+1}_center']
+                uniform_fit.best_values[f'peak{i+1}_center']
                 for i in range(len(detector.fit_hkls))]
-            uniform_a = best_values['scale_factor']
+            uniform_a = uniform_fit.best_values['scale_factor']
             uniform_strain = np.log(
                 (uniform_a
                  / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
-            # uniform_tth = tth * (1.0 + uniform_strain)
-            # uniform_rel_rms_error = (np.linalg.norm(residual)
-            #                          / np.linalg.norm(fit_mca_intensities))
 
             # Next, perform the unconstrained fit
 
             # Use the peak locations found in the uniform fit as the
             # initial guesses for peak locations in the unconstrained
             # fit
-            unconstrained_best_fit, unconstrained_residual, best_values, \
-                best_errors, redchi, success = \
-                FitMultipeak.fit_multipeak(
-                    fit_mca_intensities,
-                    uniform_fit_centers,
-                    x=fit_mca_energies,
-                    fit_type='unconstrained',
-                    plot=False)
+            unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
+            unconstrained_fit.create_multipeak_model(
+                uniform_fit_centers, fit_type='unconstrained')
+            unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
             # unconstrained fit parameters
             unconstrained_fit_centers = np.array(
-                [best_values[f'peak{i+1}_center']
+                [unconstrained_fit.best_values[f'peak{i+1}_center']
                  for i in range(len(detector.fit_hkls))])
             unconstrained_a = 0.5*hc*np.sqrt(c_1) \
                 / (unconstrained_fit_centers*abs(np.sin(0.5*np.radians(tth))))
@@ -440,9 +428,6 @@ class MCACeriaCalibrationProcessor(Processor):
                  / calibration_config.material.lattice_parameters))
             unconstrained_strain = np.mean(unconstrained_strains)
             unconstrained_tth = tth * (1.0 + unconstrained_strain)
-            unconstrained_rel_rms_error = (
-                np.linalg.norm(unconstrained_residual) \
-                / np.linalg.norm(fit_mca_intensities))
 
             # Update tth for the next iteration of tuning
             prev_tth = tth
@@ -476,9 +461,9 @@ class MCACeriaCalibrationProcessor(Processor):
                 axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
                               ha='right', va='top', rotation=90,
                               transform=axs[0,0].get_xaxis_transform())
-            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
+            axs[0,0].plot(fit_mca_energies, uniform_fit.best_fit,
                         label='Single Strain')
-            axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
+            axs[0,0].plot(fit_mca_energies, unconstrained_fit.best_fit,
                         label='Unconstrained')
             #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
             axs[0,0].plot(fit_mca_energies, fit_mca_intensities,
@@ -490,10 +475,10 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,0].set_xlabel('Energy (keV)')
             axs[1,0].set_ylabel('Residual (a.u)')
             axs[1,0].plot(fit_mca_energies,
-                          uniform_residual,
+                          uniform_fit.residual,
                           label='Single Strain')
             axs[1,0].plot(fit_mca_energies,
-                          unconstrained_residual,
+                          unconstrained_fit.residual,
                           label='Unconstrained')
             axs[1,0].legend()
 
