@@ -467,7 +467,10 @@ class TomoDataProcessor(Processor):
         :rtype: Union[dict, nexusformat.nexus.NXroot]
         """
         # Local modules
-        from nexusformat.nexus import NXroot
+        from nexusformat.nexus import (
+            nxsetconfig,
+            NXroot,
+        )
         from CHAP.pipeline import PipelineItem
         from CHAP.tomo.models import (
             TomoReduceConfig,
@@ -512,6 +515,8 @@ class TomoDataProcessor(Processor):
         tomo = Tomo(
             interactive=interactive, output_folder=output_folder,
             save_figs=save_figs)
+
+        nxsetconfig(memory=100000)
 
         # Reduce tomography images
         if reduce_data or reduce_data_config is not None:
@@ -898,12 +903,9 @@ class Tomo:
         # Note: Nexus can't follow a link if the data it points to is
         #     too big get the data from the actual place, not from
         #     nxentry.data
-        tomo_fields_shape = nxentry.reduced_data.data.tomo_fields.shape
-        if (len(tomo_fields_shape) != 4
-                or any(True for dim in tomo_fields_shape if not dim)):
-            raise KeyError(
-                'Unable to load the required reduced tomography stack')
-        num_tomo_stacks = tomo_fields_shape[0]
+        num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
+        img_shape = nxentry.reduced_data.data.bright_field.shape
+        num_row = nxentry.reduced_data.img_x_bounds[1] - nxentry.reduced_data.img_x_bounds[0]
         if num_tomo_stacks == 1:
             center_stack_index = 0
             default = 'n'
@@ -927,7 +929,6 @@ class Tomo:
 
         # Get thetas (in degrees)
         thetas = np.asarray(nxentry.reduced_data.rotation_angle)
-        assert len(thetas) == tomo_fields_shape[1]
 
         # Get effective pixel_size
         if 'zoom_perc' in nxentry.reduced_data:
@@ -938,7 +939,7 @@ class Tomo:
             eff_pixel_size = nxentry.instrument.detector.x_pixel_size
 
         # Get cross sectional diameter
-        cross_sectional_dim = tomo_fields_shape[3]*eff_pixel_size
+        cross_sectional_dim = img_shape[1]*eff_pixel_size
         self._logger.debug(f'cross_sectional_dim = {cross_sectional_dim}')
 
         # Determine center offset at sample row boundaries
@@ -950,14 +951,15 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[0] is not None:
                 lower_row = center_rows[0]
-                if not 0 <= lower_row < tomo_fields_shape[2]-1:
+                if not 0 <= lower_row < num_row-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 lower_row = select_one_image_bound(
-                    np.asarray(nxentry.reduced_data.data.tomo_fields)[
+                    nxentry.reduced_data.data.tomo_fields[
                         center_stack_index,0,:,:],
-                    0, bound=0, title=f'theta={round(thetas[0], 2)+0}',
+                    0, bound=0,
+                    title=f'theta={round(thetas[0], 2)+0}',
                     bound_name='row index to find lower center',
                     default=default, raise_error=True)
         else:
@@ -965,12 +967,12 @@ class Tomo:
                 lower_row = 0
             else:
                 lower_row = center_rows[0]
-                if not 0 <= lower_row < tomo_fields_shape[2]-1:
+                if not 0 <= lower_row < num_row-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
         lower_center_offset = self._find_center_one_plane(
-            np.asarray(nxentry.reduced_data.data.tomo_fields)[
+            nxentry.reduced_data.data.tomo_fields[
                 center_stack_index,:,lower_row,:],
             lower_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
@@ -988,28 +990,28 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[1] is not None:
                 upper_row = center_rows[1]
-                if not lower_row < upper_row < tomo_fields_shape[2]:
+                if not lower_row < upper_row < num_row:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 upper_row = select_one_image_bound(
-                    np.asarray(nxentry.reduced_data.data.tomo_fields)[
+                    nxentry.reduced_data.data.tomo_fields[
                         center_stack_index,0,:,:],
-                    0, bound=tomo_fields_shape[2]-1,
+                    0, bound=num_row-1,
                     title=f'theta = {round(thetas[0], 2)+0}',
                     bound_name='row index to find upper center',
                     default=default, raise_error=True)
         else:
             if center_rows is None or center_rows[1] is None:
-                upper_row = tomo_fields_shape[2]-1
+                upper_row = num_row-1
             else:
                 upper_row = center_rows[1]
-                if not lower_row < upper_row < tomo_fields_shape[2]:
+                if not lower_row < upper_row < num_row:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
         upper_center_offset = self._find_center_one_plane(
-            np.asarray(nxentry.reduced_data.data.tomo_fields)[
+            nxentry.reduced_data.data.tomo_fields[
                 center_stack_index,:,upper_row,:],
             upper_row, thetas, eff_pixel_size, cross_sectional_dim,
             path=self._output_folder, num_core=self._num_core,
@@ -1053,6 +1055,7 @@ class Tomo:
         """
         # Third party modules
         from nexusformat.nexus import (
+            nxgetconfig,
             NXdata,
             NXentry,
             NXprocess,
@@ -1105,13 +1108,14 @@ class Tomo:
             res_title = f'{nxentry.reduced_data.attrs["zoom_perc"]}p'
         else:
             res_title = 'fullres'
-        num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
+        tomo_stacks = np.asarray(nxentry.reduced_data.data.tomo_fields)
+        num_tomo_stacks = tomo_stacks.shape[0]
         tomo_recon_stacks = num_tomo_stacks*[np.array([])]
         for i in range(num_tomo_stacks):
             # Convert reduced data stack from theta,row,column to
             #     row,theta,column
             t0 = time()
-            tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields)[i]
+            tomo_stack = tomo_stacks[i]
             self._logger.info(
                 f'Reading reduced data stack {i} took {time()-t0:.2f} '
                 'seconds')
@@ -1940,9 +1944,13 @@ class Tomo:
                 tomo_stack = np.asarray(
                     nxentry.instrument.detector.data)[field_indices_masked]
             except:
-                raise RuntimeError('Unable to load the tomography images'
+                raise RuntimeError('Unable to load the tomography images '
                                    f'for stack {i}')
             tomo_stacks.append(tomo_stack)
+            if not i:
+                tomo_stack_shape = tomo_stack.shape
+            else:
+                assert tomo_stack_shape == tomo_stack.shape
 
         x_pixel_size = nxentry.instrument.detector.x_pixel_size
         y_pixel_size = nxentry.instrument.detector.y_pixel_size
