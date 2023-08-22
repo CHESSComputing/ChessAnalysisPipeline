@@ -84,7 +84,7 @@ class PipelineItem():
 
         return values
 
-    def get_config(self, data, schema, remove=True):
+    def get_config(self, data, schema, remove=True, **kwargs):
         """Look through `data` for an item whose value for the
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration `BaseModel`
@@ -118,7 +118,7 @@ class PipelineItem():
 
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
-        model_config = getattr(module, cls_name)(**matching_config)
+        model_config = getattr(module, cls_name)(**matching_config, **kwargs)
 
         self.logger.debug(
             f'Got {schema} configuration in {time()-t0:.3f} seconds')

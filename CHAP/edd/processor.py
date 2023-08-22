@@ -28,6 +28,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                 config=None,
                 save_figures=False,
                 outputdir='.',
+                inputdir='.',
                 interactive=False):
         """Return calculated value of the DV length.
 
@@ -44,6 +45,10 @@ class DiffractionVolumeLengthProcessor(Processor):
         :param outputdir: directory to which any output figures will
             be saved, defaults to '.'
         :type outputdir: str, optional
+        :param inputdir: input directory, used only if files in the
+            input configuration are not absolute paths.
+            be saved, defaults to '.'
+        :type inputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
@@ -53,13 +58,15 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         try:
             dvl_config = self.get_config(
-                data, 'edd.models.DiffractionVolumeLengthConfig')
+                data, 'edd.models.DiffractionVolumeLengthConfig',
+                inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid DVL config in input pipeline data, '
                              + 'using config parameter instead.')
             try:
                 from CHAP.edd.models import DiffractionVolumeLengthConfig
-                dvl_config = DiffractionVolumeLengthConfig(**config)
+                dvl_config = DiffractionVolumeLengthConfig(
+                    **config, inputdir=inputdir)
             except Exception as dict_exc:
                 self.logger.error('Could not get a valid DVL config')
                 raise RuntimeError from dict_exc
@@ -233,6 +240,7 @@ class MCACeriaCalibrationProcessor(Processor):
                 config=None,
                 save_figures=False,
                 outputdir='.',
+                inputdir='.',
                 interactive=False):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
@@ -250,6 +258,10 @@ class MCACeriaCalibrationProcessor(Processor):
         :param outputdir: directory to which any output figures will
             be saved, defaults to '.'
         :type outputdir: str, optional
+        :param inputdir: input directory, used only if files in the
+            input configuration are not absolute paths.
+            be saved, defaults to '.'
+        :type inputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
@@ -260,13 +272,15 @@ class MCACeriaCalibrationProcessor(Processor):
 
         try:
             calibration_config = self.get_config(
-                data, 'edd.models.MCACeriaCalibrationConfig')
+                data, 'edd.models.MCACeriaCalibrationConfig',
+                inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid calibration config in input pipeline '
                              + 'data, using config parameter instead.')
             try:
                 from CHAP.edd.models import MCACeriaCalibrationConfig
-                calibration_config = MCACeriaCalibrationConfig(**config)
+                calibration_config = MCACeriaCalibrationConfig(
+                    **config, inputdir=inputdir)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
@@ -624,6 +638,7 @@ class StrainAnalysisProcessor(Processor):
                 config=None,
                 save_figures=False,
                 outputdir='.',
+                inputdir='.',
                 interactive=False):
         """Return strain analysis maps & associated metadata in an NXprocess.
 
@@ -641,6 +656,10 @@ class StrainAnalysisProcessor(Processor):
         :param outputdir: directory to which any output figures will
             be saved, defaults to '.'
         :type outputdir: str, optional
+        :param inputdir: input directory, used only if files in the
+            input configuration are not absolute paths.
+            be saved, defaults to '.'
+        :type inputdir: str, optional
         :param interactive: allow for user interactions, defaults to
             False
         :type interactive: bool, optional
@@ -654,7 +673,7 @@ class StrainAnalysisProcessor(Processor):
         # map_config = self.get_config(
         #     data, 'common.models.map.MapConfig')
         ceria_calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig')
+            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig')
@@ -663,7 +682,8 @@ class StrainAnalysisProcessor(Processor):
                              + 'pipeline data, using config parameter instead')
             from CHAP.edd.models import StrainAnalysisConfig
             try:
-                strain_analysis_config = StrainAnalysisConfig(**config)
+                strain_analysis_config = StrainAnalysisConfig(
+                    **config, inputdir=inputdir)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 

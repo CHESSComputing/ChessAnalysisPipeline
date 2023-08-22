@@ -1,11 +1,13 @@
 # third party modules
 import numpy as np
+import os
 from pathlib import PosixPath
 from pydantic import (BaseModel,
                       confloat,
                       conint,
                       conlist,
                       constr,
+                      DirectoryPath,
                       FilePath,
                       root_validator,
                       validator)
@@ -90,6 +92,7 @@ class MCAScanDataConfig(BaseModel):
     :ivar include_bin_ranges: list of MCA channel index ranges whose
         data should be included after applying a mask
     """
+    inputdir: Optional[DirectoryPath]
     spec_file: Optional[FilePath]
     scan_number: Optional[conint(gt=0)]
     par_file: Optional[FilePath]
@@ -103,43 +106,62 @@ class MCAScanDataConfig(BaseModel):
     class Config:
         underscore_attrs_are_private = False
 
-    @root_validator
-    def validate_root(cls, values):
-        """Validate the `values` dictionary. Fill in a value for
-        `_scanparser` and `num_bins` (if the latter was not already
-        provided)
+    @root_validator(pre=True)
+    def validate_scan(cls, values):
+        """Finalize file paths for spec_file/par_file and flux_file.
 
         :param values: dictionary of field values to validate
         :type values: dict
         :return: the validated form of `values`
         :rtype: dict
         """
+        inputdir = values.get('inputdir')
         spec_file = values.get('spec_file')
         par_file = values.get('par_file')
+        flux_file = values.get('flux_file')
+        if flux_file:
+            if not os.path.isabs(flux_file):
+                values['flux_file'] = os.path.join(inputdir, flux_file)
         if spec_file and par_file:
             raise ValueError('Use either spec_file or par_file, not both')
         elif spec_file:
-            values['_scanparser'] = ScanParser(values.get('spec_file'),
-                                               values.get('scan_number'))
-            values['_parfile'] = None
+            if inputdir is not None:
+                if not os.path.isabs(spec_file):
+                    values['spec_file'] = os.path.join(inputdir, spec_file)
         elif par_file:
+            if inputdir is not None:
+                if not os.path.isabs(par_file):
+                    values['par_file'] = os.path.join(inputdir, par_file)
             if 'scan_column' not in values:
                 raise ValueError(
                     'When par_file is used, scan_column must be used, too')
-            values['_parfile'] = ParFile(values.get('par_file'))
             if isinstance(values['scan_column'], str):
-                if values['scan_column'] not in values['_parfile'].column_names:
+                parfile = ParFile(values.get('par_file'))
+                if values['scan_column'] not in parfile.column_names:
                     raise ValueError(
                         f'No column named {values["scan_column"]} in '
                         + '{values["par_file"]}. Options: '
-                        + ', '.join(values['_parfile'].column_names))
-            #values['spec_file'] = values['_parfile'].spec_file
-            values['_scanparser'] = ScanParser(
-                values['_parfile'].spec_file,
-                values['_parfile'].good_scan_numbers()[0])
+                        + ', '.join(parfile.column_names))
         else:
             raise ValueError('Must use either spec_file or par_file')
 
+        return values
+
+    @root_validator
+    def validate_detectors(cls, values):
+        """Fill in values for _scanparser / _parfile (if
+        applicable). Fill in values for each detector's num_bins
+        field, if needed.
+        """
+        if values.get('spec_file', False):
+            values['_scanparser'] = ScanParser(values.get('spec_file'),
+                                               values.get('scan_number'))
+            values['_parfile'] = None
+        elif values.get('par_file', False):
+            values['_parfile'] = ParFile(values.get('par_file'))
+            values['_scanparser'] = ScanParser(
+                values['_parfile'].spec_file,
+                values['_parfile'].good_scan_numbers()[0])
         for detector in values.get('detectors'):
             if detector.num_bins is None:
                 try:
@@ -147,6 +169,7 @@ class MCAScanDataConfig(BaseModel):
                         .get_detector_num_bins(detector.detector_name)
                 except Exception as exc:
                     raise ValueError('No value found for num_bins') from exc
+
         return values
 
     @property
@@ -205,7 +228,7 @@ class MCAScanDataConfig(BaseModel):
         else:
             del d['spec_file']
             del d['scan_number']                
-        for k in ('_scanparser', '_parfile'):
+        for k in ('_scanparser', '_parfile', 'inputdir'):
             if k in d:
                 del d[k]
         return d
@@ -544,6 +567,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
 class StrainAnalysisConfig(BaseModel):
     """Model for inputs to CHAP.edd.StrainAnalysisProcessor"""
+    inputdir: Optional[DirectoryPath]
     map_config: Optional[MapConfig]
     par_file: Optional[FilePath]
     par_dims: Optional[list[dict[str,str]]]
@@ -556,8 +580,18 @@ class StrainAnalysisConfig(BaseModel):
 
     @root_validator(pre=True)
     def validate_map(cls, values):
-        """Ensure exactly one valid map configuration was provided."""
-        if values.get('par_file') is not None:
+        """Ensure exactly one valid map configuration was provided,
+        and finalize input filepaths
+        """
+        inputdir = values.get('inputdir')
+        flux_file = values.get('flux_file')
+        par_file = values.get('par_file')
+        if flux_file:
+            if not os.path.isabs(flux_file):
+                values['flux_file'] = os.path.join(inputdir, flux_file)
+        if par_file:
+            if not os.path.isabs(par_file):
+                values['par_file'] = os.path.join(inputdir, par_file)
             if 'par_dims' not in values:
                 raise ValueError(
                     'If using par_file, must also use par_dims')
@@ -565,7 +599,24 @@ class StrainAnalysisConfig(BaseModel):
             values['map_config'] = values['_parfile'].get_map(
                 'EDD', 'id1a3', values['par_dims'],
                 other_dims=values.get('other_dims', []))
+        map_config = values.get('map_config')
+        if isinstance(map_config, dict):
+            for i, scans in enumerate(map_config.get('spec_scans')):
+                spec_file = scans.get('spec_file')
+                if not os.path.isabs(spec_file):
+                    values['map_config']['spec_scans'][i]['spec_file'] = \
+                        os.path.join(inputdir, spec_file)
         return values
+
+    @validator('detectors', pre=True, each_item=True)
+    def validate_tth_file(cls, detector, values):
+        """Finalize value for tth_file for each detector"""
+        inputdir = values.get('inputdir')
+        tth_file = detector.get('tth_file')
+        if tth_file:
+            if not os.path.isabs(tth_file):
+                detector['tth_file'] = os.path.join(inputdir, tth_file)
+        return detector
 
     @validator('detectors', each_item=True)
     def validate_tth(cls, detector, values):
@@ -573,15 +624,14 @@ class StrainAnalysisConfig(BaseModel):
         used if StrainAnalysisConfig used par_file.
         """
         if detector.tth_file is not None:
-            if values['_par_file'] is None:
+            if not values.get('par_file'):
                 raise ValueError(
                     'variable tth angles may only be used with a '
                     + 'StrainAnalysisConfig that uses par_file.')
             else:
-                tth = np.loadtxt(detector.tth_file)
                 try:
-                    detector._tth_map = values['_par_file'].map_values(
-                        values['map_config'], tth)
+                    detector._tth_map = ParFile(values['par_file']).map_values(
+                        values['map_config'], np.loadtxt(detector.tth_file))
                 except Exception as e:
                     raise ValueError(
                         'Could not get map of tth angles from '

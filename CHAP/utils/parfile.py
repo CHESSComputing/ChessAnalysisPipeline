@@ -78,10 +78,12 @@ class ParFile():
         :return: a map configuration
         :rtype: CHAP.common.models.map.MapConfig
         """
+        import numpy as np
         from CHAP.common.models.map import MapConfig
         from CHAP.utils.scanparsers import SMBScanParser
 
         scanparser = SMBScanParser(self.spec_file, 1)
+        good_scans = self.good_scan_numbers()
         map_config = {
             'title': scanparser.scan_name,
             'station': station, #scanparser.station,
@@ -89,7 +91,7 @@ class ParFile():
             'sample': {'name': scanparser.scan_name},
             'spec_scans': [
                 {'spec_file': self.spec_file,
-                 'scan_numbers': self.good_scan_numbers()}],
+                 'scan_numbers': good_scans}],
             'independent_dimensions': [
                 {'label': dim['label'],
                  'units': dim['units'],
@@ -97,7 +99,15 @@ class ParFile():
                  'data_type': 'smb_par'}
                 for dim in par_dims] + other_dims
         }
-        return MapConfig(**map_config)
+        map_config = MapConfig(**map_config)
+        map_size = np.prod(map_config.shape)
+        if map_size != len(good_scans):
+            raise ValueError(
+                f'{self.par_file} has {len(good_scans)} good scans, '
+                + 'but size of map along '
+                + ', '.join([dim['name'] for dim in par_dims + other_dims])
+                + f' is {map_size}.')
+        return map_config
 
     def good_scan_numbers(self, good_col_name='1/0'):
         """Return the numbers of scans marked with a "1" in the
@@ -154,6 +164,7 @@ class ParFile():
         :return: reshaped array of values
         :rtype: np.ndarray
         """
+        import numpy as np
         good_scans = self.good_scan_numbers()
         if len(values) != len(good_scans):
             raise ValueError('number of values provided ({len(values)}) does '
