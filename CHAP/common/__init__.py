@@ -34,4 +34,5 @@ from CHAP.common.writer import (
     NexusWriter,
     YAMLWriter,
     TXTWriter,
+    FileTreeWriter,
 )
