@@ -695,7 +695,7 @@ class XarrayToNumpyProcessor(Processor):
         :rtype: numpy.ndarray
         """
 
-        return self.unwrap_pipelinedata(data).data[-1]
+        return self.unwrap_pipelinedata(data)[-1].data
 
 
 if __name__ == '__main__':
