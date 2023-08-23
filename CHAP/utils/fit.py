@@ -105,6 +105,7 @@ class Fit:
         # Third party modules
         if not isinstance(normalize, bool):
             raise ValueError(f'Invalid parameter normalize ({normalize})')
+        self._fit_type = None
         self._mask = None
         self._model = None
         self._norm = None
@@ -849,14 +850,53 @@ class Fit:
         return kwargs
 
     def create_multipeak_model(
-            self, centers, fit_type=None, peak_models=None, center_exprs=None,
-            background=None, param_constraint=False, fwhm_max=None):
+            self, centers=None, fit_type=None, peak_models=None,
+            center_exprs=None, background=None, param_constraint=False,
+            fwhm_max=None):
         """Create a multipeak model."""
+        # System modules
+        from re import search as re_search
+
         if self._model is not None:
-            logger.warning('Existing model cleared before creating a new '
-                           'multipeak model')
-            self._model = None
-        if len(self._parameters):
+            if self._fit_type == 'uniform' and fit_type != 'uniform':
+                logger.info('Use the existing multipeak model to refit a '
+                    'uniform model with an unconstrained model')
+                min_value = FLOAT_MIN if self._param_constraint else None
+                if isinstance(self, FitMap):
+                    scale_factor_index = \
+                        self._best_parameters.index('scale_factor')
+                    self._best_parameters.pop(scale_factor_index)
+                    self._best_values = np.delete(
+                        self._best_values, scale_factor_index, 0)
+                    self._best_errors = np.delete(
+                        self._best_errors, scale_factor_index, 0)
+                    for name, par in self._parameters.items():
+                        if re_search('peak\d+_center', name) is not None:
+                            par.set(min=min_value, vary=True, expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': min_value,
+                                'max': np.inf,
+                            }
+                else:
+                    for name, par in self._parameters.items():
+                        if re_search('peak\d+_center', name) is not None:
+                            par.set(
+                                value=self._result.params[name].value,
+                                min=min_value, vary=True, expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': min_value,
+                                'max': np.inf,
+                            }
+                self._parameters.pop('scale_factor')
+                self._parameter_bounds.pop('scale_factor')
+                self._parameter_norms.pop('scale_factor')
+                return
+            else:
+                logger.warning('Existing model cleared before creating a new '
+                               'multipeak model')
+                self._model = None
+
+        if self._model is None and len(self._parameters):
             logger.warning('Existing fit parameters cleared before creating a '
                            'new multipeak model')
             self._parameters = Parameters()
@@ -893,6 +933,7 @@ class Fit:
                         'Inconsistent number of peaks in center_exprs '
                         f'({len(center_exprs)} vs {num_peaks})')
             elif fit_type == 'unconstrained' or fit_type is None:
+                fit_type = 'unconstrained'
                 if center_exprs is not None:
                     logger.warning(
                         'Ignoring center_exprs input for unconstrained fit')
@@ -900,6 +941,7 @@ class Fit:
             else:
                 raise ValueError(
                     f'Invalid parameter fit_type ({fit_type})')
+        self._fit_type = fit_type
         self._fwhm_max = fwhm_max
         self._sigma_max = None
         if param_constraint:
@@ -1002,7 +1044,7 @@ class Fit:
                 raise ValueError(
                     f'Invalid parameter background ({background})')
 
-        # Add peaks and guess initial fit parameters
+        # Add peaks and set initial fit parameters
         if num_peaks == 1:
             sig_max = None
             if self._sigma_max is not None:
@@ -1112,41 +1154,49 @@ class Fit:
                     f'Inconsistent x and mask dimensions ({self._x.size} vs '
                     f'{self._mask.size})')
 
-        # Estimate initial parameters with build-in lmfit guess method
-        # (only mplemented for a single model)
+        # Estimate initial parameters
         if guess:
             if self._mask is None:
-                try:
-                    self._parameters = self._model.guess(self._y, x=self._x)
-                except:
-                    ast = Interpreter()
-                    # Should work for other peak-like models,
-                    #   but will need tests first
-                    for component in self._model.components:
-                        if component._name == 'gaussian':
-                            center = self._parameters[
-                                f"{component.prefix}center"].value
-                            height_init, cen_init, fwhm_init = \
-                                self.guess_init_peak(
-                                    self._x, self._y, center_guess=center,
-                                    use_max_for_center=False)
-                            if (self._fwhm_max is not None
-                                    and fwhm_init > self._fwhm_max):
-                                fwhm_init = self._fwhm_max
-                            ast(f'fwhm = {fwhm_init}')
-                            ast(f'height = {height_init}')
-                            sig_init = ast(fwhm_factor[component._name])
-                            amp_init = ast(height_factor[component._name])
-                            self._parameters[
-                                f"{component.prefix}amplitude"].set(
-                                    value=amp_init)
-                            self._parameters[f"{component.prefix}center"].set(
-                                value=cen_init)
-                            self._parameters[f"{component.prefix}sigma"].set(
-                                value=sig_init)
+                xx = self._x
+                yy = self._y
             else:
-                self._parameters = self._model.guess(
-                    np.asarray(self._y)[~self._mask], x=self._x[~self._mask])
+                xx = self._x[~self._mask]
+                yy = np.asarray(self._y)[~self._mask]
+            try:
+                # Try with the build-in lmfit guess method
+                # (only implemented for a single model)
+                self._parameters = self._model.guess(yy, x=xx)
+            except:
+                ast = Interpreter()
+                # Should work for other peak-like models,
+                #   but will need tests first
+                for component in self._model.components:
+                    if component._name == 'gaussian':
+                        center = self._parameters[
+                            f"{component.prefix}center"].value
+                        height_init, cen_init, fwhm_init = \
+                            self.guess_init_peak(
+                                xx, yy, center_guess=center,
+                                use_max_for_center=False)
+                        if (self._fwhm_max is not None
+                                and fwhm_init > self._fwhm_max):
+                            fwhm_init = self._fwhm_max
+                        ast(f'fwhm = {fwhm_init}')
+                        ast(f'height = {height_init}')
+                        sig_init = ast(fwhm_factor[component._name])
+                        amp_init = ast(height_factor[component._name])
+                        par = self._parameters[
+                            f"{component.prefix}amplitude"]
+                        if par.vary:
+                            par.set(value=amp_init)
+                        par = self._parameters[
+                            f"{component.prefix}center"]
+                        if par.vary:
+                            par.set(value=cen_init)
+                        par = self._parameters[
+                            f"{component.prefix}sigma"]
+                        if par.vary:
+                            par.set(value=sig_init)
 
         # Add constant offset for a normalized model
         if self._result is None and self._norm is not None and self._norm[0]:
@@ -2383,8 +2433,8 @@ class FitMap(Fit):
             self._new_parameters = [
                 name for name, par in self._parameters.items()
                 if name != 'tmp_normalization_offset_c'
-                and name not in self._best_parameters
-                and (par.vary or par.expr is not None)]
+                    and name not in self._best_parameters
+                    and (par.vary or par.expr is not None)]
             num_new_parameters = len(self._new_parameters)
         num_best_parameters = len(self._best_parameters)
 

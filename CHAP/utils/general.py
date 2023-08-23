@@ -884,7 +884,8 @@ def draw_mask_1d(
         ydata, xdata=None, label=None, ref_data=[],
         current_index_ranges=None, current_mask=None,
         select_mask=True, num_index_ranges_max=None,
-        title=None, xlabel=None, ylabel=None, test_mode=False):
+        title=None, xlabel=None, ylabel=None,
+        test_mode=False, return_figure=False):
     """Display a 2D plot and have the user select a mask.
 
     :param ydata: data array for which a mask will be constructed
@@ -921,9 +922,12 @@ def draw_mask_1d(
     :param test_mode: if True, run as a non-interactive test
         case. Defaults to False
     :type test_mode: bool, optional
+    :param return_figure: if True, also return a matplotlib figure of
+        the drawn mask, defaults to False
+    :type return_figure: bool, optional
     :return: a boolean mask array and the list of selected index
-        ranges
-    :rtype: numpy.ndarray, list[tuple[int, int]]
+        ranges (and a matplotlib figure, if `return_figure` was True).
+    :rtype: numpy.ndarray, list[tuple[int, int]] [, matplotlib.figure.Figure]
     """
     # RV make color blind friendly
     def draw_selections(
@@ -1109,15 +1113,14 @@ def draw_mask_1d(
         if current_include[-1][1] < num_data-1:
             current_exclude.append((1+current_include[-1][1], num_data-1))
 
+    # Set up matplotlib figure
+    plt.close('all')
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=0.2)
+    draw_selections(
+        ax, current_include, current_exclude, selected_index_ranges)
+
     if not test_mode:
-
-        # Set up matplotlib figure
-        plt.close('all')
-        fig, ax = plt.subplots()
-        plt.subplots_adjust(bottom=0.2)
-        draw_selections(
-            ax, current_include, current_exclude, selected_index_ranges)
-
         # Set up event handling for click-and-drag range selection
         cid_click = fig.canvas.mpl_connect('button_press_event', onclick)
         cid_release = fig.canvas.mpl_connect('button_release_event', onrelease)
@@ -1137,6 +1140,12 @@ def draw_mask_1d(
         confirm_b.disconnect(cid_confirm)
         clear_b.disconnect(cid_clear)
 
+        # Remove buttons & readjust axes before returning a figure
+        if return_figure:
+            confirm_b.ax.remove()
+            clear_b.ax.remove()
+            plt.subplots_adjust(bottom=0.0)
+
     # Swap selection depending on select_mask
     if not select_mask:
         selected_index_ranges, unselected_index_ranges = \
@@ -1149,14 +1158,18 @@ def draw_mask_1d(
     # Update the currently included index ranges (where mask is True)
     current_include = update_index_ranges(selected_mask)
 
+    if return_figure:
+        return selected_mask, current_include, fig
     return selected_mask, current_include
 
 def select_peaks(
         ydata, xdata, peak_locations,
+        peak_labels=None,
         mask=None,
         pre_selected_peak_indices=[],
         return_sorted=True,
-        title='', xlabel='', ylabel=''):
+        title='', xlabel='', ylabel='',
+        interactive=True):
     """
     Show a plot of the 1D data provided with user-selectable markers
     at the given locations. Return the locations of the markers that
@@ -1170,6 +1183,9 @@ def select_peaks(
     :param peak_locations: locations of selectable markers in the same
         units as xdata.
     :type peak_locations: list
+    :param peak_labels: list of annotations for each peak, defaults to
+        None
+    :type peak_labels: list[str], optional
     :param mask: boolean array representing a mask that will be
         applied to the data at some later point, defaults to None
     :type mask: np.ndarray, optional
@@ -1186,6 +1202,9 @@ def select_peaks(
     :type xlabel: str, optional
     :param ylabel: y-axis label for the plot, defaults to ''
     :type ylabel: str, optional
+    :param interactive: show the plot and allow user interactions with
+        the matplotlib figure, defults to True
+    :type interactive: bool, optional
     :return: the locations of the user-selected peaks
     :rtype: list
     """
@@ -1208,7 +1227,7 @@ def select_peaks(
     # Setup reference data & plot
     if mask is None:
         mask = np.full(ydata.shape, True, dtype=bool)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(11, 8.5))
     handles = ax.plot(xdata, ydata, label='Reference data')
     handles.append(mlines.Line2D(
         [], [], label='Excluded / unselected', **excluded_peak_props))
@@ -1216,13 +1235,16 @@ def select_peaks(
         [], [], label='Included / selected', **included_peak_props))
     handles.append(mlines.Line2D(
         [], [], label='In masked region (unselectable)', **masked_peak_props))
-    ax.legend(handles=handles, loc='upper right')
+    ax.legend(handles=handles, loc='center right')
     ax.set(title=title, xlabel=xlabel, ylabel=ylabel)
+    fig.tight_layout()
 
     # Plot a vertical line marker at each peak location
     peak_vlines = []
     x_indices = np.arange(ydata.size)
-    for i, loc in enumerate(peak_locations):
+    if peak_labels is None:
+        peak_labels = [''] * len(peak_locations)
+    for i, (loc, lbl) in enumerate(zip(peak_locations, peak_labels)):
         nearest_index = np.searchsorted(xdata, loc)
         if nearest_index in x_indices[mask]:
             if i in pre_selected_peak_indices:
@@ -1237,6 +1259,8 @@ def select_peaks(
                     'will not be selectable.')
                 pre_selected_peak_indices.remove(i)
             peak_vline = ax.axvline(loc, **masked_peak_props)
+        ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
+                transform=ax.get_xaxis_transform())
         peak_vlines.append(peak_vline)
 
     # Indicate masked regions by gray-ing out the axes facecolor
@@ -1255,42 +1279,47 @@ def select_peaks(
         xupp = xdata[upp]
         ax.axvspan(xlow, xupp, facecolor='gray', alpha=0.5)
 
-    # Setup interative peak selection
     selected_peak_indices = pre_selected_peak_indices
-    def onpick(event):
-        try:
-            peak_index = peak_vlines.index(event.artist)
-        except:
-            pass
-        else:
-            peak_vline = event.artist
-            if peak_index in selected_peak_indices:
-                peak_vline.set(**excluded_peak_props)
-                selected_peak_indices.remove(peak_index)
+    if interactive:
+        # Setup interative peak selection
+        def onpick(event):
+            try:
+                peak_index = peak_vlines.index(event.artist)
+            except:
+                pass
             else:
-                peak_vline.set(**included_peak_props)
-                selected_peak_indices.append(peak_index)
-            plt.draw()
-    cid_pick_peak = fig.canvas.mpl_connect('pick_event', onpick)
+                peak_vline = event.artist
+                if peak_index in selected_peak_indices:
+                    peak_vline.set(**excluded_peak_props)
+                    selected_peak_indices.remove(peak_index)
+                else:
+                    peak_vline.set(**included_peak_props)
+                    selected_peak_indices.append(peak_index)
+                plt.draw()
+        cid_pick_peak = fig.canvas.mpl_connect('pick_event', onpick)
 
-    # Setup "Confirm" button
-    def confirm_selection(event):
-        plt.close()
-    plt.subplots_adjust(bottom=0.2)
-    confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
-    cid_confirm = confirm_b.on_clicked(confirm_selection)
+        # Setup "Confirm" button
+        def confirm_selection(event):
+            plt.close()
+        plt.subplots_adjust(bottom=0.2)
+        confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        cid_confirm = confirm_b.on_clicked(confirm_selection)
 
-    # Show figure for user interaction
-    plt.show()
+        # Show figure for user interaction
+        plt.show()
 
-    # Disconnect all widget callbacks when figure is closed
-    fig.canvas.mpl_disconnect(cid_pick_peak)
-    confirm_b.disconnect(cid_confirm)
+        # Disconnect all widget callbacks when figure is closed
+        fig.canvas.mpl_disconnect(cid_pick_peak)
+        confirm_b.disconnect(cid_confirm)
+
+        # ...and remove the confirm button before returning the figure
+        confirm_b.ax.remove()
+        plt.subplots_adjust(bottom=0.0)
 
     selected_peaks = peak_locations[selected_peak_indices]
     if return_sorted:
         selected_peaks.sort()
-    return selected_peaks
+    return selected_peaks, fig
 
 
 def select_image_bounds(
