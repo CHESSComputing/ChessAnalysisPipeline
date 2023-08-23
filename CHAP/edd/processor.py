@@ -905,6 +905,19 @@ class StrainAnalysisProcessor(Processor):
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
             fit_nxgroup = nxdetector.uniform_fit
+            # Full map of results
+            fit_nxgroup.results = NXdata()
+            fit_nxdata = fit_nxgroup.results
+            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
+            linkdims(fit_nxdata)
+            fit_nxdata.makelink(det_nxdata.energy)
+            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
+            for d in uniform_fit.best_results:
+                if d.endswith('_fit'):
+                    fit_nxdata.fits = uniform_fit.best_results[d]
+            fit_nxdata.residuals = uniform_fit.residual
+
+            # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
@@ -916,14 +929,14 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name] = NXparameters()
                 fit_nxgroup[hkl_name].initial_guess = center_guessed
                 fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
-                fit_nxgroup[hkl_name].fit = NXdata()
-                fit_nxgroup[hkl_name].fit.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].fit)
-                fit_nxgroup[hkl_name].fit.values = NXfield(
+                fit_nxgroup[hkl_name].centers = NXdata()
+                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].centers)
+                fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
-                fit_nxgroup[hkl_name].fit.errors = NXfield(
+                fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_errors)
-                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/fit/values'],
+                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
 
             # Perform second fit: do not assume uniform strain for all
@@ -964,6 +977,18 @@ class StrainAnalysisProcessor(Processor):
             # Add unconstrained fit results to the NeXus structure
             nxdetector.unconstrained_fit = NXcollection()
             fit_nxgroup = nxdetector.unconstrained_fit
+            # Full map of results
+            fit_nxgroup.data = NXdata()
+            fit_nxdata = fit_nxgroup.data
+            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
+            linkdims(fit_nxdata)
+            fit_nxdata.makelink(det_nxdata.energy)
+            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
+            for d in unconstrained_fit.best_results:
+                if d.endswith('_fit'):
+                    fit_nxdata.fit_results = unconstrained_fit.best_results[d]
+            fit_nxdata.residuals = unconstrained_fit.residual
+            # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
@@ -976,14 +1001,14 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name] = NXparameters()
                 fit_nxgroup[hkl_name].initial_guess = center_guessed
                 fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
-                fit_nxgroup[hkl_name].fit = NXdata()
-                fit_nxgroup[hkl_name].fit.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].fit)
-                fit_nxgroup[hkl_name].fit.values = NXfield(
+                fit_nxgroup[hkl_name].centers = NXdata()
+                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].centers)
+                fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
-                fit_nxgroup[hkl_name].fit.errors = NXfield(
+                fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_errors)
-                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/fit/values'],
+                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
         return nxroot
 
