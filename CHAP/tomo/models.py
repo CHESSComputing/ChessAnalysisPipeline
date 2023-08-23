@@ -47,13 +47,13 @@ class TomoReduceConfig(BaseModel):
     Class representing the configuration for the tomography image
     reduction processor.
 
-    :ivar img_x_bounds: Detector image bounds in the x-direction.
-    :type img_x_bounds: list[int], optional
+    :ivar img_row_bounds: Detector image bounds in the row-direction.
+    :type img_row_bounds: list[int], optional
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.
     :type delta_theta: float, optional
     """
-    img_x_bounds: Optional[
+    img_row_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
 
