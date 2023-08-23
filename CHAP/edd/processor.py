@@ -886,20 +886,20 @@ class StrainAnalysisProcessor(Processor):
 
             # Perform initial fit: assume uniform strain for all HKLs
             self.logger.debug('Performing uniform fit')
-            uniform_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
-            uniform_fit.create_multipeak_model(
+            fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
+            fit.create_multipeak_model(
                 peak_locations,
                 fit_type='uniform',
                 peak_models=detector.peak_models,
                 background=detector.background)
-            uniform_fit.fit()
+            fit.fit()
             uniform_fit_centers = [
-                uniform_fit.best_values[
-                    uniform_fit.best_parameters().index(f'peak{i+1}_center')]
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_center')]
                 for i in range(len(peak_locations))]
             uniform_fit_errors = [
-                uniform_fit.best_errors[
-                   uniform_fit.best_parameters().index(f'peak{i+1}_center')]
+                fit.best_errors[
+                   fit.best_parameters().index(f'peak{i+1}_center')]
                 for i in range(len(peak_locations))]
 
             # Add uniform fit results to the NeXus structure
@@ -912,10 +912,10 @@ class StrainAnalysisProcessor(Processor):
             linkdims(fit_nxdata)
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
-            for d in uniform_fit.best_results:
+            for d in fit.best_results:
                 if d.endswith('_fit'):
-                    fit_nxdata.fits = uniform_fit.best_results[d]
-            fit_nxdata.residuals = uniform_fit.residual
+                    fit_nxdata.fits = fit.best_results[d]
+            fit_nxdata.residuals = fit.residual
 
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
@@ -943,28 +943,16 @@ class StrainAnalysisProcessor(Processor):
             # HKLs, and use the fit peak centers from the uniform fit
             # as inital guesses
             self.logger.debug('Performing unconstrained fit')
-            unconstrained_center_guesses = np.mean(
-                uniform_fit_centers,
-                axis=tuple(i for i in range(1, len(map_config.shape)+1)))
-            # KLS: Use the below def of unconstrained_center_guesses
-            # when FitMap.create_multipeak_model can accept a list of
-            # maps for centers.
-            # unconstrained_center_guesses = uniform_fit_centers
-            unconstrained_fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
-            unconstrained_fit.create_multipeak_model(
-                unconstrained_center_guesses,
-                fit_type='unconstrained',
-                peak_models=detector.peak_models,
-                background=detector.background)
-            unconstrained_fit.fit()
+            fit.create_multipeak_model(fit_type='unconstrained')
+            fit.fit()
             unconstrained_fit_centers = np.array(
-                [unconstrained_fit.best_values[
-                    unconstrained_fit.best_parameters()\
+                [fit.best_values[
+                    fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
             unconstrained_fit_errors = np.array(
-                [unconstrained_fit.best_errors[
-                    unconstrained_fit.best_parameters()\
+                [fit.best_errors[
+                    fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
             unconstrained_strains = np.empty_like(unconstrained_fit_centers)
@@ -984,10 +972,10 @@ class StrainAnalysisProcessor(Processor):
             linkdims(fit_nxdata)
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
-            for d in unconstrained_fit.best_results:
+            for d in fit.best_results:
                 if d.endswith('_fit'):
-                    fit_nxdata.fit_results = unconstrained_fit.best_results[d]
-            fit_nxdata.residuals = unconstrained_fit.residual
+                    fit_nxdata.fits = fit.best_results[d]
+            fit_nxdata.residuals = fit.residual
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
