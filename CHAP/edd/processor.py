@@ -676,7 +676,7 @@ class StrainAnalysisProcessor(Processor):
             data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
-                data, 'edd.models.StrainAnalysisConfig')
+                data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid strain analysis config in input '
                              + 'pipeline data, using config parameter instead')
