@@ -1195,7 +1195,8 @@ class Tomo:
             z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
         for i, stack in enumerate(tomo_recon_stacks):
             tomo_recon_stacks[i] = stack[
-                z_range[0]:z_range[1],x_range[0]:x_range[1],y_range[0]:y_range[1]]
+                z_range[0]:z_range[1],x_range[0]:x_range[1],
+                y_range[0]:y_range[1]]
         tomo_recon_stacks = np.asarray(tomo_recon_stacks)
 
         # Plot a few reconstructed image slices
@@ -1626,7 +1627,8 @@ class Tomo:
             index for index, key in enumerate(image_key) if key == 0]
         if not field_indices_all:
             raise ValueError('Tomography field(s) unavailable')
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         num_tomo_stacks = len(z_translation_levels)
         center_stack_index = int(num_tomo_stacks/2)
@@ -1808,7 +1810,8 @@ class Tomo:
         image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices_all = [
             index for index, key in enumerate(image_key) if key == 0]
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         thetas = None
         for i, z_translation in enumerate(z_translation_levels):
@@ -1822,12 +1825,13 @@ class Tomo:
                     == list(range((len(sequence_numbers)))))
             if thetas is None:
                 thetas = np.asarray(
-                    nxentry.sample.rotation_angle[
-                        field_indices])[sequence_numbers]
+                    nxentry.sample.rotation_angle)[
+                        field_indices][sequence_numbers]
             else:
                 assert all(
-                    thetas[i] == nxentry.sample.rotation_angle[
-                        field_indices[index]]
+                    thetas[i] == np.asarray(
+                        nxentry.sample.rotation_angle)[
+                            field_indices[index]]
                     for i, index in enumerate(sequence_numbers))
 
         return thetas
@@ -1924,7 +1928,8 @@ class Tomo:
             index for index, key in enumerate(image_key) if key == 0]
         if not field_indices_all:
             raise ValueError('Tomography field(s) unavailable')
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         num_tomo_stacks = len(z_translation_levels)
         tomo_stacks = num_tomo_stacks*[np.array([])]
@@ -1938,12 +1943,12 @@ class Tomo:
                     for index, z in enumerate(z_translation_all)
                     if z == z_translation]
                 field_indices_masked = np.asarray(field_indices)[image_mask]
-                horizontal_shift = list(set(
-                    nxentry.sample.x_translation[field_indices_masked]))
+                horizontal_shift = list(set(np.asarray(
+                    nxentry.sample.x_translation)[field_indices_masked]))
                 assert len(horizontal_shift) == 1
                 horizontal_shifts += horizontal_shift
-                vertical_shift = list(set(
-                    nxentry.sample.z_translation[field_indices_masked]))
+                vertical_shift = list(set(np.asarray(
+                    nxentry.sample.z_translation)[field_indices_masked]))
                 assert len(vertical_shift) == 1
                 vertical_shifts += vertical_shift
                 sequence_numbers = \
