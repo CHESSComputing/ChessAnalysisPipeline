@@ -63,13 +63,15 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
         - common.YAMLReader:
+            filename: ../reduce_data_id3b.yaml
+            schema: tomo.models.TomoReduceConfig
+        - common.YAMLReader:
             filename: ../find_center_data_id3b.yaml
             schema: tomo.models.TomoFindCenterConfig
         - common.YAMLReader:
             filename: ../reconstruct_data.yaml
             schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
-      reduce_data: True
       output_folder: examples/tomo/hollow_cube/output
       save_figs: 'only'
   - common.NexusWriter:
