@@ -1158,7 +1158,7 @@ class Tomo:
             tomo_recon_stacks[i] = tomo_recon_stack
 
         # Resize the reconstructed tomography data
-        #     reconstructed data order in each stack: x,y,z
+        #     reconstructed data order in each stack: row/-z,y,x
         if self._test_mode:
             x_bounds = tuple(self._test_config.get('x_bounds'))
             y_bounds = tuple(self._test_config.get('y_bounds'))
@@ -1229,13 +1229,12 @@ class Tomo:
         if num_tomo_stacks == 1:
             # Convert the reconstructed tomography data from internal
             #     coordinate frame row/-z,y,x with the origin on the
-            #     near-left-top corner to an x,y,z coordinate frame
+            #     near-left-top corner to an z,y,x coordinate frame
             #     with the origin on the par file x,z values, halfway
             #     in the y-dimension.
             #     Here x is to the right, y along the beam direction
             #     and z upwards in the lab frame of reference
-            tomo_recon_stack = np.flip(
-                np.swapaxes(tomo_recon_stacks[0], 0, 2), 2)
+            tomo_recon_stack = np.flip(tomo_recon_stacks[0], 0)
             z_range = (z_dim_org-z_range[1], z_dim_org-z_range[0])
 
             # Get coordinate axes
@@ -1268,7 +1267,7 @@ class Tomo:
                     z[0],
                     z[-1])
                 quick_imshow(
-                    np.transpose(tomo_recon_stack[x_index,:,:]),
+                    tomo_recon_stack[:,:,x_index], 
                     title=f'recon {res_title} x={x[x_index]:.4f}',
                     origin='lower', extent=extent, path=self._output_folder,
                     save_fig=True, save_only=True)
@@ -1279,7 +1278,7 @@ class Tomo:
                     z[0],
                     z[-1])
                 quick_imshow(
-                    np.transpose(tomo_recon_stack[:,y_index,:]),
+                    tomo_recon_stack[:,y_index,:],
                     title=f'recon {res_title} y={y[y_index]:.4f}',
                     origin='lower', extent=extent, path=self._output_folder,
                     save_fig=True, save_only=True)
@@ -1290,7 +1289,7 @@ class Tomo:
                     y[0],
                     y[-1])
                 quick_imshow(
-                    np.transpose(tomo_recon_stack[:,:,z_index]),
+                    tomo_recon_stack[z_index,:,:],
                     title=f'recon {res_title} z={z[z_index]:.4f}',
                     origin='lower', extent=extent, path=self._output_folder,
                     save_fig=True, save_only=True)
@@ -1300,7 +1299,7 @@ class Tomo:
             if self._test_mode:
                 np.savetxt(
                     f'{self._output_folder}/recon_stack.txt',
-                    tomo_recon_stacks[:,:,z_slice-z_range[0]],
+                    tomo_recon_stacks[z_slice-z_range[0],:,:],
                     fmt='%.6e')
         else:
             # Plot a few reconstructed image slices
@@ -1310,18 +1309,18 @@ class Tomo:
                     title = f'{basetitle} {res_title} xslice{x_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,:,:,x_slice-x_range[0]],
-                        title=title, path=self._output_folder, save_fig=True,
-                        save_only=True)
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
                     title = f'{basetitle} {res_title} yslice{y_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,:,y_slice-y_range[0],:],
-                        title=title, path=self._output_folder, save_fig=True,
-                        save_only=True)
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
                     title = f'{basetitle} {res_title} zslice{z_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,z_slice-z_range[0],:,:],
-                        title=title, path=self._output_folder, save_fig=True,
-                        save_only=True)
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
 
             # Save test data to file
             #     reconstructed data order in each stack: row/-z,y,x
@@ -1334,7 +1333,7 @@ class Tomo:
 
         # Add image reconstruction to reconstructed data NXprocess
         #     reconstructed data order:
-        #     - for one stack: x,y,z
+        #     - for one stack: z,y,x
         #     - for multiple stacks: row/-z,y,x
         nxprocess.data = NXdata()
         nxprocess.attrs['default'] = 'data'
@@ -1354,10 +1353,10 @@ class Tomo:
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
         if num_tomo_stacks == 1:
             nxprocess.data.reconstructed_data = tomo_recon_stack
-            nxprocess.data.attrs['axes'] = ['x', 'y', 'z']
-            nxprocess.data.attrs['x_indices'] = 0
+            nxprocess.data.attrs['axes'] = ['z', 'y', 'x']
+            nxprocess.data.attrs['x_indices'] = 2
             nxprocess.data.attrs['y_indices'] = 1
-            nxprocess.data.attrs['z_indices'] = 2
+            nxprocess.data.attrs['z_indices'] = 0
             nxprocess.data.x = x
             nxprocess.data.x.units = \
                 nxentry.instrument.detector.column_pixel_size.units
@@ -1375,6 +1374,7 @@ class Tomo:
         exclude_items = [
             f'{nxentry.nxname}/reduced_data/data',
             f'{nxentry.nxname}/data/reduced_data',
+            f'{nxentry.nxname}/data/rotation_angle',
         ]
         nxroot_copy = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
@@ -1387,6 +1387,14 @@ class Tomo:
         nxentry_copy.data.makelink(
             nxprocess.data.reconstructed_data, name='reconstructed_data')
         nxentry_copy.data.attrs['signal'] = 'reconstructed_data'
+        if num_tomo_stacks == 1:
+            nxentry_copy.data.attrs['axes'] = ['z', 'y', 'x']
+            nxentry_copy.data.attrs['x_indices'] = 2
+            nxentry_copy.data.attrs['y_indices'] = 1
+            nxentry_copy.data.attrs['z_indices'] = 0
+            nxentry_copy.data.makelink(nxprocess.data.x, name='x')
+            nxentry_copy.data.makelink(nxprocess.data.y, name='y')
+            nxentry_copy.data.makelink(nxprocess.data.z, name='z')
 
         return nxroot_copy
 
@@ -1500,11 +1508,10 @@ class Tomo:
 
         # Convert the reconstructed tomography data from internal
         #     coordinate frame row/-z,y,x with the origin on the
-        #     near-left-top corner to an x,y,z coordinate frame.
+        #     near-left-top corner to an z,y,x coordinate frame.
         #     Here x is to the right, y along the beam direction
         #     and z upwards in the lab frame of reference
-        tomo_recon_combined = np.flip(
-            np.swapaxes(tomo_recon_combined, 0, 2), 2)
+        tomo_recon_combined = np.flip(tomo_recon_combined, 0)
         z_range = (z_dim_org-z_range[1], z_dim_org-z_range[0])
 
         # Get coordinate axes
@@ -1540,9 +1547,9 @@ class Tomo:
                 y[-1],
                 z[0],
                 z[-1])
-            x_slice = int(tomo_recon_combined.shape[0]/2)
+            x_slice = int(tomo_recon_combined.shape[2]/2)
             quick_imshow(
-                np.transpose(tomo_recon_combined[x_slice,:,:]),
+                tomo_recon_combined[:,:,x_slice],
                 title=f'recon combined x={x[x_slice]:.4f}', origin='lower',
                 extent=extent, path=self._output_folder, save_fig=True,
                 save_only=True)
@@ -1553,7 +1560,7 @@ class Tomo:
                 z[-1])
             y_slice = int(tomo_recon_combined.shape[1]/2)
             quick_imshow(
-                np.transpose(tomo_recon_combined[:,y_slice,:]),
+                tomo_recon_combined[:,y_slice,:],
                 title=f'recon combined y={y[y_slice]:.4f}', origin='lower',
                 extent=extent, path=self._output_folder, save_fig=True,
                 save_only=True)
@@ -1562,23 +1569,23 @@ class Tomo:
                 x[-1],
                 y[0],
                 y[-1])
-            z_slice = int(tomo_recon_combined.shape[2]/2)
+            z_slice = int(tomo_recon_combined.shape[0]/2)
             quick_imshow(
-                np.transpose(tomo_recon_combined[:,:,z_slice]),
+                tomo_recon_combined[z_slice,:,:],
                 title=f'recon combined z={z[z_slice]:.4f}', origin='lower',
                 extent=extent, path=self._output_folder, save_fig=True,
                 save_only=True)
 
         # Save test data to file
-        #     combined data order: x,y,z
+        #     combined data order: z,y,x
         if self._test_mode:
-            z_slice = int(tomo_recon_combined.shape[2]/2)
+            z_slice = int(tomo_recon_combined.shape[0]/2)
             np.savetxt(
                 f'{self._output_folder}/recon_combined.txt',
-                tomo_recon_combined[:,:,z_slice], fmt='%.6e')
+                tomo_recon_combined[z_slice,:,:], fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
-        #     combined data order: x,y,z
+        #     combined data order: z,y,x
         nxprocess.data = NXdata()
         nxprocess.attrs['default'] = 'data'
         if x_bounds is not None:
@@ -1592,10 +1599,10 @@ class Tomo:
             nxprocess.z_bounds.units = 'pixels'
         nxprocess.data.combined_data = tomo_recon_combined
         nxprocess.data.attrs['signal'] = 'combined_data'
-        nxprocess.data.attrs['axes'] = ['x', 'y', 'z']
-        nxprocess.data.attrs['x_indices'] = 0
+        nxprocess.data.attrs['axes'] = ['z', 'y', 'x']
+        nxprocess.data.attrs['x_indices'] = 2
         nxprocess.data.attrs['y_indices'] = 1
-        nxprocess.data.attrs['z_indices'] = 2
+        nxprocess.data.attrs['z_indices'] = 0
         nxprocess.data.x = x
         nxprocess.data.x.units = \
             nxentry.instrument.detector.column_pixel_size.units
@@ -1623,6 +1630,13 @@ class Tomo:
         nxentry_copy.data.makelink(
             nxprocess.data.combined_data, name='combined_data')
         nxentry_copy.data.attrs['signal'] = 'combined_data'
+        nxentry_copy.data.attrs['axes'] = ['z', 'y', 'x']
+        nxentry_copy.data.attrs['x_indices'] = 2
+        nxentry_copy.data.attrs['y_indices'] = 1
+        nxentry_copy.data.attrs['z_indices'] = 0
+        nxentry_copy.data.makelink(nxprocess.data.x, name='x')
+        nxentry_copy.data.makelink(nxprocess.data.y, name='y')
+        nxentry_copy.data.makelink(nxprocess.data.z, name='z')
 
         return nxroot_copy
 
@@ -1927,8 +1941,8 @@ class Tomo:
             tmp[row_low,:] = tmp_max
             tmp[row_upp-1,:] = tmp_max
             quick_imshow(
-                tmp, title=title, path=self._output_folder, save_fig=True,
-                save_only=True)
+                tmp, title=title, path=self._output_folder,
+                save_fig=True, save_only=True)
             quick_plot(
                 (range(row_sum.size), row_sum),
                 ([row_low, row_low], [row_sum_min, row_sum_max], 'r-'),
@@ -2163,9 +2177,9 @@ class Tomo:
                     title = f'red stack {i} fullres theta ' \
                         f'{round(thetas[0], 2)+0}'
                 quick_imshow(
-                    tomo_stack[0,:,:], title=title, path=self._output_folder,
-                    save_fig=self._save_figs, save_only=self._save_only,
-                    block=self._block)
+                    tomo_stack[0,:,:], title=title, 
+                    path=self._output_folder, save_fig=self._save_figs,
+                    save_only=self._save_only, block=self._block)
 #                if not self._block:
 #                    clear_imshow(title)
             zoom_perc = 100
@@ -2183,7 +2197,7 @@ class Tomo:
                     title = f'red stack {zoom_perc}p theta ' \
                         f'{round(thetas[0], 2)+0}'
                     quick_imshow(
-                        tomo_stack[0,:,:], title=title,
+                        tomo_stack[0,:,:], title=title, 
                         path=self._output_folder, save_fig=self._save_figs,
                         save_only=self._save_only, block=self._block)
 #                    if not self._block:
@@ -2479,11 +2493,12 @@ class Tomo:
             path = self._output_folder
         quick_imshow(
             edges[0,:,:], f'{title} coolwarm', path=path, cmap='coolwarm',
-            save_fig=save_figs, save_only=save_only, block=self._block)
-        quick_imshow(
-            edges[0,:,:], f'{title} gray', path=path, cmap='gray', vmin=vmin,
-            vmax=vmax, save_fig=save_figs, save_only=save_only,
+            save_fig=save_figs, save_only=save_only,
             block=self._block)
+        quick_imshow(
+            edges[0,:,:], f'{title} gray', path=path, cmap='gray',
+            vmin=vmin, vmax=vmax, save_fig=save_figs,
+            save_only=save_only, block=self._block)
         del edges
 
     def _reconstruct_one_tomo_stack(
