@@ -341,27 +341,34 @@ class MCACeriaCalibrationProcessor(Processor):
                                      mca_data, mca_bin_energies)
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
 
-        # Mask out the corrected MCA data for fitting
-        if interactive:
-            from CHAP.utils.general import draw_mask_1d
-            self.logger.info(
-                'Interactively select a mask in the matplotlib figure')
-            mask, include_bin_ranges = draw_mask_1d(
-                mca_data,
-                xdata=mca_bin_energies,
-                current_index_ranges=detector.include_bin_ranges,
-                title='Click and drag to select ranges of Ceria'
-                +' calibration data to include',
-                xlabel='MCA channel energy (keV)',
-                ylabel='MCA intensity (counts)')
+        # Select mask & HKLs for fitting
+        if interactive or save_figures:
+            import matplotlib.pyplot as plt
+            from CHAP.edd.utils import select_mask_and_hkls
+            fig, include_bin_ranges, fit_hkls = select_mask_and_hkls(
+                detector, [calibration_config.material],
+                detector.tth_initial_guess, mca_data, mca_bin_energies,
+                interactive=interactive)
             detector.include_bin_ranges = include_bin_ranges
-            self.logger.debug('Mask selected. Including detector bin ranges: '
-                              + str(detector.include_bin_ranges))
+            detector.fit_hkls = fit_hkls
+            if save_figures:
+                fig.savefig(os.path.join(
+                   outputdir,
+                    f'{detector.detector_name}_calibration_fit_mask_hkls.png'))
+            plt.close()
+        self.logger.debug(
+            f'include_bin_ranges = {detector.include_bin_ranges}')
         if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration, '
                 'or re-run the pipeline with the --interactive flag.')
+        self.logger.debug(f'fit_hkls: {detector.fit_hkls}')
+        if detector.fit_hkls is None:
+            raise ValueError(
+                'No value provided for fit_hkls. Provide them in '
+                'the detector\'s MCA Ceria Calibration Configuration, or'
+                ' re-run the pipeline with the --interactive flag.')
         mca_mask = detector.mca_mask()
         fit_mca_energies = mca_bin_energies[mca_mask]
         fit_mca_intensities = mca_data[mca_mask]
@@ -374,26 +381,10 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Get the HKLs and lattice spacings that will be used for
         # fitting
-        tth = detector.tth_initial_guess
-        if interactive or save_figures:
-            import matplotlib.pyplot as plt
-            from CHAP.edd.utils import select_hkls
-            fig = select_hkls(detector, [calibration_config.material], tth,
-                              mca_data, mca_bin_energies, interactive)
-            if save_figures:
-                fig.savefig(os.path.join(
-                    outputdir,
-                    f'{detector.detector_name}_calibration_hkls.png'))
-            plt.close()
-        self.logger.debug(f'HKLs selected: {detector.fit_hkls}')
-        if detector.fit_hkls is None:
-            raise ValueError(
-                'No value provided for fit_hkls. Provide them in '
-                'the detector\'s MCA Ceria Calibration Configuration, or'
-                ' re-run the pipeline with the --interactive flag.')
+
         fit_hkls, fit_ds = detector.fit_ds(calibration_config.material)
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
-
+        tth = detector.tth_initial_guess
         for iter_i in range(calibration_config.max_iter):
             self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
                               + f'starting tth value = {tth} ')
@@ -769,8 +760,22 @@ class StrainAnalysisProcessor(Processor):
         # Select interactive params / save figures
         if save_figures or interactive:
             import matplotlib.pyplot as plt
-            from CHAP.edd.utils import select_hkls
-            from CHAP.utils.general import draw_mask_1d
+            from CHAP.edd.utils import select_mask_and_hkls
+            if interactive:
+                from CHAP.edd.utils import select_material_params
+                x = np.linspace(
+                    strain_analysis_config.detectors[0].intercept_calibrated,
+                    strain_analysis_config.detectors[0].max_energy_kev \
+                    * strain_analysis_config.detectors[0].slope_calibrated,
+                    strain_analysis_config.detectors[0].num_bins)
+                y = strain_analysis_config.mca_data(
+                    strain_analysis_config.detectors[0],
+                    (0,) * len(strain_analysis_config.map_config.shape))
+                tth = strain_analysis_config.detectors[0].tth_calibrated
+                strain_analysis_config.materials = select_material_params(
+                    x, y, tth, materials=strain_analysis_config.materials)
+                self.logger.debug(
+                    f'materials: {strain_analysis_config.materials}')
             for detector in strain_analysis_config.detectors:
                 x = np.linspace(detector.intercept_calibrated,
                                 detector.max_energy_kev \
@@ -779,50 +784,29 @@ class StrainAnalysisProcessor(Processor):
                 y = strain_analysis_config.mca_data(
                     detector,
                     (0,) * len(strain_analysis_config.map_config.shape))
-                fig = select_hkls(detector,
-                                  strain_analysis_config.materials,
-                                  detector.tth_calibrated,
-                                  y, x, interactive)
+                ref_map = np.empty((np.prod(map_config.shape), *y.shape))
+                for i, map_index in enumerate(np.ndindex(map_config.shape)):
+                    try:
+                        scans, scan_number, scan_step_index = \
+                            map_config.get_scan_step_index(map_index)
+                    except:
+                        continue
+                    scanparser = scans.get_scanparser(scan_number)
+                    ref_map[i] = scanparser.get_detector_data(
+                        detector.detector_name, scan_step_index)
+
+                fig, include_bin_ranges, fit_hkls = select_mask_and_hkls(
+                    detector, strain_analysis_config.materials,
+                    detector.tth_calibrated,
+                    y, x, ref_map=ref_map,
+                    interactive=interactive)
+                detector.include_bin_ranges = include_bin_ranges
+                detector.fit_hkls = fit_hkls
                 if save_figures:
                     fig.savefig(os.path.join(
                         outputdir,
-                        f'{detector.detector_name}_strainanalysis_hkls.png'))
+                        f'{detector.detector_name}_strainanalysis_fit_mask_hkls.png'))
                 plt.close()
-
-                if interactive:
-                    self.logger.info(
-                        'Interactively select a mask in the matplotlib figure')
-                mask, include_bin_ranges, figure = draw_mask_1d(
-                    y, xdata=x,
-                    current_index_ranges=detector.include_bin_ranges,
-                    label='reference spectrum',
-                    title='Click and drag to select ranges of MCA data to\n'
-                    + 'include when analyzing strain.',
-                    xlabel='MCA channel (index)',
-                    ylabel='MCA intensity (counts)',
-                    test_mode=not interactive,
-                    return_figure=True
-                )
-                detector.include_bin_ranges = include_bin_ranges
-                if save_figures:
-                    figure.savefig(os.path.join(
-                        outputdir,
-                        f'{detector.detector_name}_strainanalysis_mask.png'))
-                plt.close()
-
-            if interactive:
-                from CHAP.edd.utils import select_material_params
-                x = np.linspace(
-                    strain_analysis_config.detectors[0].intercept_calibrated,
-                    detector.max_energy_kev \
-                    * detector.slope_calibrated,
-                    detector.num_bins)
-                y = strain_analysis_config.mca_data(
-                    strain_analysis_config.detectors[0],
-                    (0,) * len(strain_analysis_config.map_config.shape))
-                tth = strain_analysis_config.detectors[0].tth_calibrated
-                strain_analysis_config.materials = select_material_params(
-                    x, y, tth, materials=strain_analysis_config.materials)
 
         for detector in strain_analysis_config.detectors:
             # Setup NXdata group

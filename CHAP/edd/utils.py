@@ -382,3 +382,159 @@ def select_material_params(x, y, tth, materials=[]):
         lattice_parameters=[m.latticeParameters[i].value for i in range(6)]) \
                      for m in _materials]
     return new_materials
+
+
+def select_mask_and_hkls(detector, materials,
+                         tth, ydata, xdata,
+                         ref_map=None,
+                         interactive=False):
+    """Return a matplotlib figure to indicate data ranges and HKLs to
+    include for fitting in EDD Ceria calibration and/or strain
+    analysis.
+
+    :param detector: detector element configuration
+    :type detector: CHAP.edd.models.MCAElementConfig
+    :param materials: material configurations
+    :type materials: list[CHAP.edd.models.MaterialConfig]
+    :param tth: two-theta angle to use
+    :type tth: float
+    :param ydata: reference y data for the interactive plot
+    :type ydata: np.ndarray
+    :param xdata: reference x data for the interactive plot
+    :type xdata: np.ndarray
+    :param ref_map: reference map of y data to show underneath t he
+        interactive plot, defaults to None
+    :type ref_map: np.ndarray, optional
+    :param interactive: show an interactive figure, defaults to False
+    :type interactive: bool, optional
+    :returns: a saveable matplotlib figure, the list of selected data
+        index ranges to include, and the list of HKL indices to
+        include
+    :rtype: matplotlib.figure.Figure, list[list[int]], list[int]
+    """
+    import matplotlib.lines as mlines
+    from matplotlib.patches import Patch
+    import matplotlib.pyplot as plt
+    from matplotlib.widgets import Button, SpanSelector
+    import numpy as np
+
+    preselected_bin_ranges = detector.include_bin_ranges \
+                             if detector.include_bin_ranges else []
+    hkls, ds = get_unique_hkls_ds(materials)
+    hkl_locations = hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
+    hkl_labels = [str(hkl)[1:-1] for hkl in hkls]
+    preselected_hkl_indices = detector.fit_hkls \
+                              if detector.fit_hkls else []
+    excluded_hkl_props = {
+        'color': 'black', 'linestyle': '--','linewidth': 1,
+        'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
+    included_hkl_props = {
+        'color': 'green', 'linestyle': '-', 'linewidth': 2,
+        'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
+    excluded_data_props = {
+        'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
+    included_data_props = {
+        'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
+
+    if ref_map is None:
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+    else:
+        fig, (ax, ax_map) = plt.subplots(
+            2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
+        ax_map.pcolormesh(xdata, np.arange(ref_map.shape[0]), ref_map)
+        ax_map.set_yticks([])
+        ax_map.set_xlabel('Energy (keV)')
+    handles = ax.plot(xdata, ydata, color='k', label='Reference Data')
+    handles.append(mlines.Line2D(
+        [], [], label='Excluded / unselected HKL', **excluded_hkl_props))
+    handles.append(mlines.Line2D(
+        [], [], label='Included / selected HKL', **included_hkl_props))
+    handles.append(Patch(
+        label='Excluded / unselected data', **excluded_data_props))
+    handles.append(Patch(
+        label='Included / selected data', **included_data_props))
+    ax.legend(handles=handles)
+    ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
+    fig.suptitle('Select data and HKLs to use in fitting '
+                 + f'({detector.detector_name})')
+    fig.subplots_adjust(bottom=0.2)
+
+    spans = []
+    def on_span_select(xmin, xmax):
+        # Un-select any HKLs now excluded from the new mask selections.
+        pass
+    def add_span(event, xrange_init=None):
+        spans.append(
+            SpanSelector(
+                ax, on_span_select, 'horizontal',
+                props=included_data_props,
+                useblit=True, interactive=interactive,
+                drag_from_anywhere=True, ignore_event_outside=True,
+                grab_range=5))
+        if xrange_init is None:
+            xmin_init, xmax_init = np.random.choice(
+                xdata, size=(2,), replace=False)
+        else:
+            xmin_init, xmax_init = xrange_init
+        spans[-1]._selection_completed = True
+        spans[-1].extents = (xmin_init, xmax_init)
+        spans[-1].onselect(xmin_init, xmax_init)
+    for bin_range in preselected_bin_ranges:
+        add_span(None, xrange_init=xdata[bin_range])
+
+    selected_hkl_indices = preselected_hkl_indices
+    hkl_vlines = []
+    for i, (loc, lbl) in enumerate(zip(hkl_locations, hkl_labels)):
+        nearest_index = np.searchsorted(xdata, loc)
+        if i in selected_hkl_indices:
+            hkl_vline = ax.axvline(loc, **included_hkl_props)
+        else:
+            hkl_vline = ax.axvline(loc, **excluded_hkl_props)
+        ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
+                transform=ax.get_xaxis_transform())
+        hkl_vlines.append(hkl_vline)
+
+    if interactive:
+        add_span_btn = Button(plt.axes([0.15, 0.05, 0.1, 0.075]), 'Add span')
+        add_span_cid = add_span_btn.on_clicked(add_span)
+
+        for vline in hkl_vlines: vline.set_picker(5)
+        def pick_hkl(event):
+            try:
+                hkl_index = hkl_vlines.index(event.artist)
+            except:
+                pass
+            else:
+                hkl_vline = event.artist
+                if hkl_index in selected_hkl_indices:
+                    hkl_vline.set(**excluded_hkl_props)
+                    selected_hkl_indices.remove(hkl_index)
+                else:
+                    hkl_vline.set(**included_hkl_props)
+                    selected_hkl_indices.append(hkl_index)
+                plt.draw()
+        pick_hkl_cid = fig.canvas.mpl_connect('pick_event', pick_hkl)
+
+        def confirm(event):
+            plt.close()
+        confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
+
+        # Show figure for user interaction
+        plt.show()
+
+        # Disconnect all widget callbacks when figure is closed
+        add_span_btn.disconnect(add_span_cid)
+        fig.canvas.mpl_disconnect(pick_hkl_cid)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ...and remove the confirm button before returning the figure
+        add_span_btn.ax.remove()
+        confirm_btn.ax.remove()
+        plt.subplots_adjust(bottom=0.0)
+
+
+    include_index_ranges = [np.searchsorted(xdata, span.extents).tolist() \
+                            for span in spans]
+    selected_hkl_indices = sorted(selected_hkl_indices)
+    return fig, include_index_ranges, selected_hkl_indices
