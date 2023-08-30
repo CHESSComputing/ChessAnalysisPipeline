@@ -39,20 +39,22 @@ NUM_CORE_TOMOPY_LIMIT = 24
 
 def get_nxroot(data, schema=None, remove=True):
     """Look through `data` for an item whose value for the `'schema'`
-    key matches `schema` and whose value for the `'data'` key matches
-    an nexusformat.nexus.NXobject object and return this object.
+    key matches `schema` (if supplied) and whose value for the `'data'`
+    key matches a nexusformat.nexus.NXobject object and return this
+    object.
 
-    :param data: Input list of `PipelineData` objects
+    :param data: Input list of `PipelineData` objects.
     :type data: list[PipelineData]
-    :param schema: name associated with the nexusformat.nexus.NXobject
-         object to match in `data`
+    :param schema: Name associated with the nexusformat.nexus.NXobject
+        object to match in `data`.
     :type schema: str, optional
-    :param remove: if there is a matching entry in `data`, remove
-       it from the list, defaults to `True`.
+    :param remove: Removes the matching entry in `data` when found,
+        defaults to `True`.
     :type remove: bool, optional
-    :raises ValueError: if there's no match for `schema` in `data`
-    :return: object matching with `schema`
-    :rtype: nexusformat.nexus.NXroot
+    :raises ValueError: Found an invalid matching object or multiple
+        matching objects.
+    :return: Object matching with `schema` or None when not found.
+    :rtype: None, nexusformat.nexus.NXroot
     """
     # System modules
     from copy import deepcopy
@@ -94,9 +96,11 @@ class TomoCHESSMapConverter(Processor):
         nexusformat.nexus.NXtomo style format.
 
         :param data: Input map and configuration for tomographic image
-            reduction.
+            reduction/reconstruction.
         :type data: list[PipelineData]
-        :return: NXtomo style tomography input configuration.
+        :raises ValueError: Invalid input or configuration parameter.
+        :return: nexusformat.nexus.NXtomo style tomography input
+            configuration.
         :rtype: nexusformat.nexus.NXroot
         """
         # System modules
@@ -468,6 +472,9 @@ class TomoDataProcessor(Processor):
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
+        :raises ValueError: Invalid input or configuration parameter.
+        :raises RuntimeError: Missing map configuration to generate
+            reduced tomography images.
         :return: Processed (meta)data of the last step.
         :rtype: Union[dict, nexusformat.nexus.NXroot]
         """
@@ -583,13 +590,13 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
     Function that returns a copy of a nexus object, optionally exluding
     certain child items.
 
-    :param nxobject: the original nexus object to return a "copy" of
+    :param nxobject: The input nexus object to "copy".
     :type nxobject: nexusformat.nexus.NXobject
-    :param exlude_nxpaths: a list of paths to child nexus objects that
-        should be excluded from the returned "copy", defaults to `[]`
+    :param exlude_nxpaths: A list of paths to child nexus objects that
+        should be excluded from the returned "copy", defaults to `[]`.
     :type exclude_nxpaths: list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
-        function only!
+        function only.
     :type nxpath_prefix: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
@@ -633,7 +640,7 @@ class SetNumexprThreads:
         Initialize SetNumexprThreads.
 
         :param num_core: Number of processors used by the num_expr
-            package
+            package.
         :type num_core: int
         """
         # System modules
@@ -674,7 +681,7 @@ class Tomo:
         :param interactive: Allows for user interactions,
             defaults to False.
         :type interactive: bool, optional
-        :param num_core: Number of processors
+        :param num_core: Number of processors.
         :type num_core: int
         :param output_folder: Output folder name, defaults to '.'.
         :type output_folder:: str, optional
@@ -682,8 +689,9 @@ class Tomo:
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
         :param test_mode: Run in test mode (non-interactively), defaults
-            to False
+            to False.
         :type test_mode: bool, optional
+        :raises ValueError: Invalid input parameter.
         """
         # System modules
         from logging import getLogger
@@ -741,11 +749,12 @@ class Tomo:
         Generate the reduced tomography images.
 
         :param nxroot: Data object containing the raw data info and
-            metadata required for a tomography data reduction
+            metadata required for a tomography data reduction.
         :type nxroot: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoReduceConfig, optional
-        :return: Reduced tomography data
+        :raises ValueError: Invalid input or configuration parameter.
+        :return: Reduced tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -872,11 +881,13 @@ class Tomo:
         Find the calibrated center axis info
 
         :param nxroot: Data object containing the reduced data and
-            metadata required to find the calibrated center axis info
+            metadata required to find the calibrated center axis info.
         :type data: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoFindCenterConfig
-        :return: Calibrated center axis info
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Calibrated center axis info.
         :rtype: dict
         """
         # Third party modules
@@ -907,7 +918,7 @@ class Tomo:
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
                 or 'reduced_data' not in nxentry.data):
-            raise KeyError(f'Unable to find valid reduced data in {nxentry}.')
+            raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
         # Select the image stack to calibrate the center axis
         #     reduced data axes order: stack,theta,row,column
@@ -1056,13 +1067,16 @@ class Tomo:
         """
         Reconstruct the tomography data.
 
-        :param nxroot: Reduced data
+        :param nxroot: Data object containing the reduced data and
+            metadata required for a tomography data reconstruction.
         :type data: nexusformat.nexus.NXroot
-        :param center_info: Calibrated center axis info
+        :param center_info: Calibrated center axis info.
         :type center_info: dict
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoReconstructConfig
-        :return: Reconstructed tomography data
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Reconstructed tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -1089,7 +1103,7 @@ class Tomo:
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
                 or 'reduced_data' not in nxentry.data):
-            raise KeyError(f'Unable to find valid reduced data in {nxentry}.')
+            raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
         # Create an NXprocess to store image reconstruction (meta)data
         nxprocess = NXprocess()
@@ -1401,11 +1415,14 @@ class Tomo:
     def combine_data(self, nxroot, tool_config):
         """Combine the reconstructed tomography stacks.
 
-        :param nxroot: A stack of reconstructed tomography datasets
+        :param nxroot: Data object containing the reconstructed data
+            and metadata required to combine the tomography stacks.
         :type data: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoCombineConfig
-        :return: Combined reconstructed tomography data
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Combined reconstructed tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -2734,6 +2751,7 @@ class TomoSimFieldProcessor(Processor):
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
+        :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated tomographic images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2990,6 +3008,8 @@ class TomoDarkFieldProcessor(Processor):
         :type data: list[PipelineData]
         :param num_image: Number of dark field images, defaults to 5.
         :type num_image: int, optional.
+        :raises ValueError: Missing or invalid input or configuration
+            parameter.
         :return: Simulated dark field images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -3061,6 +3081,8 @@ class TomoBrightFieldProcessor(Processor):
         :type data: list[PipelineData]
         :param num_image: Number of bright field images, defaults to 5.
         :type num_image: int, optional.
+        :raises ValueError: Missing or invalid input or configuration
+            parameter.
         :return: Simulated bright field images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -3145,8 +3167,10 @@ class TomoSpecProcessor(Processor):
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param scan_numbers: List of SPEC scan numbers, defaults to [1].
+        :param scan_numbers: List of SPEC scan numbers,
+            defaults to [1].
         :type scan_numbers: list[int]
+        :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
         :rtype: list[str]
         """
