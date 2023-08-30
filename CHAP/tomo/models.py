@@ -14,12 +14,11 @@ from pydantic import (
     constr,
 )
 
-# Local modules
-from CHAP.common.models.map import SpecScans
-
 class Detector(BaseModel):
     """
     Detector class to represent the detector used in the experiment.
+    The image origin is assumed to be in the top-left corner, with
+    rows down (-z in lab frame) and columns sideways (+x in lab frame).
 
     :ivar prefix: Prefix of the detector in the SPEC file.
     :type prefix: str
@@ -47,13 +46,13 @@ class TomoReduceConfig(BaseModel):
     Class representing the configuration for the tomography image
     reduction processor.
 
-    :ivar img_x_bounds: Detector image bounds in the x-direction.
-    :type img_x_bounds: list[int], optional
+    :ivar img_row_bounds: Detector image bounds in the row-direction.
+    :type img_row_bounds: list[int], optional
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.
     :type delta_theta: float, optional
     """
-    img_x_bounds: Optional[
+    img_row_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
 
@@ -68,12 +67,18 @@ class TomoFindCenterConfig(BaseModel):
     :type center_stack_index: int, optional
     :ivar lower_row: Lower row index for the center finding processor.
     :type lower_row: int, optional
-    :ivar lower_center_offset: Center at the lower row index.
+    :ivar lower_center_offset: Center at the lower row index in pixels.
     :type lower_center_offset: float, optional
     :ivar upper_row: Upper row index for the center finding processor.
     :type upper_row: int, optional
-    :ivar upper_center_offset: Center at the upper row index.
+    :ivar upper_center_offset: Center at the upper row index in pixels.
     :type upper_center_offset: float, optional
+    :ivar search_range: Search range to perform center finding search
+        in pixels
+    :type search_range: float, optional
+    :ivar search_step: Search step size in the center finding search
+        in pixels
+    :type search_step: float, optional
     :ivar gaussian_sigma: Standard deviation for the Gaussian filter
         applied to image reconstruction visualizations, defaults to no
         filtering performed.

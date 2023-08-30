@@ -786,7 +786,7 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     def get_spec_scan_npts(self):
         if self.spec_macro == 'flyscan':
             if len(self.spec_args) == 2:
-                return int(self.spec_args[0])
+                return 1+int(self.spec_args[0])
             if len(self.spec_args) == 5:
                 return 1+int(self.spec_args[3])
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
@@ -845,7 +845,7 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             if scan_step_index is None:
                 detector_data = h5_file['/entry/instrument/detector/data'][
                     self.starting_image_offset:]
-                sum_det = list(np.sum(detector_data, (1,2)))
+#                sum_det = list(np.sum(detector_data, (1,2)))
 #                print(f'\n\nsum scanparser ({len(sum_det)}):\n{sum_det}')
             elif isinstance(scan_step_index, int):
                 detector_data = h5_file['/entry/instrument/detector/data'][
@@ -972,8 +972,6 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         return os.path.join(self.scan_path, str(self.scan_number), 'nf')
 
     def get_detector_data_file(self, scan_step_index:int):
-#        print(f'self.starting_image_index: {self.starting_image_index}')
-#        print(f'self.starting_image_offset: {self.starting_image_offset}')
         index = self.starting_image_index + self.starting_image_offset \
             + scan_step_index
         file_name = f'nf_{index:06d}.tif'

@@ -3,51 +3,26 @@ config:
 
 pipeline:
 
-  # Create a simulated stack of tomography images
-  - common.YAMLReader:
-      filename: ../tomo_sim_id3b.yaml
-      schema: tomo.models.TomoSimConfig
-  - tomo.TomoSimFieldProcessor
-  - common.NexusWriter:
-      filename: hollow_cube_SIM_003.h5
-      force_overwrite: true
-
-  # Create the dark field for the simulation
-  - common.NexusReader:
-      filename: hollow_cube_SIM_003.h5
-      schema: tomo.models.TomoSimField
-  - tomo.TomoDarkFieldProcessor
-  - common.NexusWriter:
-      filename: hollow_cube_SIM_001.h5
-      force_overwrite: true
-
-  # Create the bright field for the simulation
-  - common.NexusReader:
-      filename: hollow_cube_SIM_003.h5
-      schema: tomo.models.TomoSimField
-  - tomo.TomoBrightFieldProcessor:
-      num_image: 10
-  - common.NexusWriter:
-      filename: hollow_cube_SIM_002.h5
-      force_overwrite: true
-
-  # Create the SPEC file for the simulation
   - pipeline.MultiplePipelineItem:
       items:
-        - common.NexusReader:
-            filename: hollow_cube_SIM_001.h5
-            schema: tomo.models.TomoDarkField
-        - common.NexusReader:
-            filename: hollow_cube_SIM_002.h5
-            schema: tomo.models.TomoBrightField
-        - common.NexusReader:
-            filename: hollow_cube_SIM_003.h5
+        # Create a simulated stack of tomography images
+        - common.YAMLReader:
+            filename: ../tomo_sim_id3b.yaml
+            schema: tomo.models.TomoSimConfig
+        - tomo.TomoSimFieldProcessor:
             schema: tomo.models.TomoSimField
-  - tomo.TomoSpecProcessor:
-      scan_numbers: [1, 2, 3]
-  - common.TXTWriter:
-      filename: hollow_cube
-      force_overwrite: true
+        # Create the dark field for the simulation
+        - tomo.TomoDarkFieldProcessor:
+            schema: tomo.models.TomoDarkField
+        # Create the bright field for the simulation
+        - tomo.TomoBrightFieldProcessor:
+            schema: tomo.models.TomoBrightField
+            num_image: 10
+        # Create the SPEC file for the simulation
+        - tomo.TomoSpecProcessor:
+            scan_numbers: [1, 2, 3]
+        - common.FileTreeWriter:
+            force_overwrite: true
 
   # Convert the CHESS style map
   - pipeline.MultiplePipelineItem:
@@ -83,15 +58,13 @@ pipeline:
             filename: ../detector.yaml
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-  - common.NexusWriter:
-      filename: tomo_map.nxs
-      force_overwrite: true
 
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
-        - common.NexusReader:
-            filename: tomo_map.nxs
+        - common.YAMLReader:
+            filename: ../reduce_data_id3b.yaml
+            schema: tomo.models.TomoReduceConfig
         - common.YAMLReader:
             filename: ../find_center_data_id3b.yaml
             schema: tomo.models.TomoFindCenterConfig
@@ -99,7 +72,6 @@ pipeline:
             filename: ../reconstruct_data.yaml
             schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
-      reduce_data: True
       output_folder: examples/tomo/hollow_cube/output
       save_figs: 'only'
   - common.NexusWriter:

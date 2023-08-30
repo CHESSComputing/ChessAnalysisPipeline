@@ -37,40 +37,47 @@ from CHAP.reader import main
 NUM_CORE_TOMOPY_LIMIT = 24
 
 
-def get_nxroot(data, schema, remove=True):
+def get_nxroot(data, schema=None, remove=True):
     """Look through `data` for an item whose value for the `'schema'`
-    key matches `schema` and whose value for the `'data'` key matches
-    an nexusformat.nexus.NXobject object and return this object.
+    key matches `schema` (if supplied) and whose value for the `'data'`
+    key matches a nexusformat.nexus.NXobject object and return this
+    object.
 
-    :param data: Input list of `PipelineData` objects
+    :param data: Input list of `PipelineData` objects.
     :type data: list[PipelineData]
-    :param schema: name associated with the nexusformat.nexus.NXobject
-         object to match in `data`
-    :type schema: str
-    :param remove: if there is a matching entry in `data`, remove
-       it from the list, defaults to `True`.
+    :param schema: Name associated with the nexusformat.nexus.NXobject
+        object to match in `data`.
+    :type schema: str, optional
+    :param remove: Removes the matching entry in `data` when found,
+        defaults to `True`.
     :type remove: bool, optional
-    :raises ValueError: if there's no match for `schema` in `data`
-    :return: object matching with `schema`
-    :rtype: nexusformat.nexus.NXroot
+    :raises ValueError: Found an invalid matching object or multiple
+        matching objects.
+    :return: Object matching with `schema` or None when not found.
+    :rtype: None, nexusformat.nexus.NXroot
     """
+    # System modules
+    from copy import deepcopy
+
     # Local modules
     from nexusformat.nexus import NXobject
     nxobject = None
     if isinstance(data, list):
-        for i, item in enumerate(data):
+        for i, item in enumerate(deepcopy(data)):
             if isinstance(item, dict):
-                if item.get('schema') == schema:
-                    if nxobject is isinstance(nxobject, NXobject):
+                if schema is None or item.get('schema') == schema:
+                    item_data = item.get('data')
+                    if isinstance(item_data, NXobject):
+                        if nxobject is not None:
+                            raise ValueError(
+                                'Multiple NXobject objects found in input'
+                                f' data matching schema = {schema}')
+                        nxobject = item_data
+                        if remove:
+                            data.pop(i)
+                    elif schema is not None:
                         raise ValueError(
-                            'Multiple NXobject objects with found in input data '
-                            f'matching schema = {schema}')
-                    nxobject = item.get('data')
-                    if remove:
-                        data.pop(i)
-
-    if nxobject is not None and not isinstance(nxobject, NXobject):
-        raise ValueError('Invalid NXobject object found in input data')
+                            'Invalid NXobject object found in input data')
 
     return nxobject
 
@@ -89,9 +96,11 @@ class TomoCHESSMapConverter(Processor):
         nexusformat.nexus.NXtomo style format.
 
         :param data: Input map and configuration for tomographic image
-            reduction.
+            reduction/reconstruction.
         :type data: list[PipelineData]
-        :return: NXtomo style tomography input configuration.
+        :raises ValueError: Invalid input or configuration parameter.
+        :return: nexusformat.nexus.NXtomo style tomography input
+            configuration.
         :rtype: nexusformat.nexus.NXroot
         """
         # System modules
@@ -221,30 +230,29 @@ class TomoCHESSMapConverter(Processor):
         nxdetector.local_name = detector_prefix
         pixel_size = detector_config.pixel_size
         if len(pixel_size) == 1:
-            nxdetector.x_pixel_size = \
+            nxdetector.row_pixel_size = \
                 pixel_size[0]/detector_config.lens_magnification
-            nxdetector.y_pixel_size = \
+            nxdetector.column_pixel_size = \
                 pixel_size[0]/detector_config.lens_magnification
         else:
-            nxdetector.x_pixel_size = \
+            nxdetector.row_pixel_size = \
                 pixel_size[0]/detector_config.lens_magnification
-            nxdetector.y_pixel_size = \
+            nxdetector.column_pixel_size = \
                 pixel_size[1]/detector_config.lens_magnification
-        nxdetector.x_pixel_size.attrs['units'] = 'mm'
-        nxdetector.y_pixel_size.attrs['units'] = 'mm'
+        nxdetector.row_pixel_size.units = 'mm'
+        nxdetector.column_pixel_size.units = 'mm'
+        nxdetector.rows = detector_config.rows
+        nxdetector.columns = detector_config.columns
+        nxdetector.rows.units = 'pixels'
+        nxdetector.columns.units = 'pixels'
 
         # Add an NXsample to NXentry
         # (do not fill in data fields yet)
         nxsample = NXsample()
         nxentry.sample = nxsample
         nxsample.name = map_config.sample.name
-        nxsample.description = map_config.sample.description
-
-        # Skip first theta to test with old FMB code
-        if tomofields.station == 'id3b':
-            theta_offset = 1
-        else:
-            theta_offset = 0
+        if map_config.sample.description is not None:
+            nxsample.description = map_config.sample.description
 
         # Collect dark field data
         image_keys = []
@@ -263,11 +271,10 @@ class TomoCHESSMapConverter(Processor):
                     assert data_shape[1] == detector_config.rows
                     assert data_shape[2] == detector_config.columns
                     num_image = data_shape[0]
-                    num_image -= theta_offset #RV
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
                     image_stacks.append(np.asarray(
-                        nxcollection.data[detector_prefix])[theta_offset:,:,:])
+                        nxcollection.data[detector_prefix]))
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -304,11 +311,10 @@ class TomoCHESSMapConverter(Processor):
                 assert data_shape[1] == detector_config.rows
                 assert data_shape[2] == detector_config.columns
                 num_image = data_shape[0]
-                num_image -= theta_offset #RV
                 image_keys += num_image*[1]
                 sequence_numbers += list(range(num_image))
                 image_stacks.append(np.asarray(
-                    nxcollection.data[detector_prefix])[theta_offset:,:,:])
+                    nxcollection.data[detector_prefix]))
                 rotation_angles += num_image*[0.0]
                 if (x_translation_data_type == 'spec_motor' or
                         z_translation_data_type == 'spec_motor'):
@@ -377,20 +383,21 @@ class TomoCHESSMapConverter(Processor):
         # Restrict to 180 degrees set of data for now to match old code
         thetas = np.asarray(tomofields.data.rotation_angles)
 #RV        num_image = len(tomofields.data.rotation_angles)
-        thetas = thetas[theta_offset:]
+        assert len(thetas) > 2
         from CHAP.utils.general import index_nearest
-        if len(thetas) and thetas[-1]-thetas[0] > 180.:
+        delta_theta = thetas[1]-thetas[0]
+        if thetas[-1]-thetas[0] > 180-delta_theta:
             image_end = index_nearest(thetas, thetas[0]+180)
-            thetas = thetas[:image_end]
         else:
             image_end = len(thetas)
+        thetas = thetas[:image_end]
         num_image = len(thetas)
         for i, z in enumerate(z_trans):
             for j, x in enumerate(x_trans):
                 image_keys += num_image*[0]
                 sequence_numbers += list(range(num_image))
                 image_stacks.append(np.asarray(
-                    tomo_stacks[i,j][theta_offset:theta_offset+image_end,:,:]))
+                    tomo_stacks[i,j][:image_end,:,:]))
                 rotation_angles += list(thetas)
 #RV                rotation_angles += list(tomofields.data.rotation_angles)
                 x_translations += num_image*[x]
@@ -403,11 +410,11 @@ class TomoCHESSMapConverter(Processor):
 
         # Add image data to NXsample
         nxsample.rotation_angle = rotation_angles
-        nxsample.rotation_angle.attrs['units'] = 'degrees'
+        nxsample.rotation_angle.units = 'degrees'
         nxsample.x_translation = x_translations
-        nxsample.x_translation.attrs['units'] = 'mm'
+        nxsample.x_translation.units = 'mm'
         nxsample.z_translation = z_translations
-        nxsample.z_translation.attrs['units'] = 'mm'
+        nxsample.z_translation.units = 'mm'
 
         # Add an NXdata to NXentry
         nxdata = NXdata()
@@ -417,6 +424,7 @@ class TomoCHESSMapConverter(Processor):
         nxdata.makelink(nxentry.sample.rotation_angle)
         nxdata.makelink(nxentry.sample.x_translation)
         nxdata.makelink(nxentry.sample.z_translation)
+        nxdata.attrs['signal'] = 'data'
 #        nxdata.attrs['axes'] = ['field', 'row', 'column']
 #        nxdata.attrs['field_indices'] = 0
 #        nxdata.attrs['row_indices'] = 1
@@ -464,11 +472,17 @@ class TomoDataProcessor(Processor):
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
+        :raises ValueError: Invalid input or configuration parameter.
+        :raises RuntimeError: Missing map configuration to generate
+            reduced tomography images.
         :return: Processed (meta)data of the last step.
         :rtype: Union[dict, nexusformat.nexus.NXroot]
         """
         # Local modules
-        from nexusformat.nexus import NXroot
+        from nexusformat.nexus import (
+            nxsetconfig,
+            NXroot,
+        )
         from CHAP.pipeline import PipelineItem
         from CHAP.tomo.models import (
             TomoReduceConfig,
@@ -508,14 +522,13 @@ class TomoDataProcessor(Processor):
                 data, 'tomo.models.TomoCombineConfig')
         except:
             combine_data_config = None
-        try:
-            nxroot = PipelineItem.unwrap_pipelinedata(data)
-        except:
-            nxroot = None
+        nxroot = get_nxroot(data)
 
         tomo = Tomo(
             interactive=interactive, output_folder=output_folder,
             save_figs=save_figs)
+
+        nxsetconfig(memory=100000)
 
         # Reduce tomography images
         if reduce_data or reduce_data_config is not None:
@@ -577,13 +590,13 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
     Function that returns a copy of a nexus object, optionally exluding
     certain child items.
 
-    :param nxobject: the original nexus object to return a "copy" of
+    :param nxobject: The input nexus object to "copy".
     :type nxobject: nexusformat.nexus.NXobject
-    :param exlude_nxpaths: a list of paths to child nexus objects that
-        should be excluded from the returned "copy", defaults to `[]`
+    :param exlude_nxpaths: A list of paths to child nexus objects that
+        should be excluded from the returned "copy", defaults to `[]`.
     :type exclude_nxpaths: list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
-        function only!
+        function only.
     :type nxpath_prefix: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
@@ -604,10 +617,8 @@ def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
         exclude_nxpaths = []
     for k, v in nxobject.items():
         nxpath = os_path.join(nxpath_prefix, k)
-
         if nxpath in exclude_nxpaths:
             continue
-
         if isinstance(v, NXgroup):
             nxobject_copy[k] = nxcopy(
                 v, exclude_nxpaths=exclude_nxpaths,
@@ -629,7 +640,7 @@ class SetNumexprThreads:
         Initialize SetNumexprThreads.
 
         :param num_core: Number of processors used by the num_expr
-            package
+            package.
         :type num_core: int
         """
         # System modules
@@ -670,7 +681,7 @@ class Tomo:
         :param interactive: Allows for user interactions,
             defaults to False.
         :type interactive: bool, optional
-        :param num_core: Number of processors
+        :param num_core: Number of processors.
         :type num_core: int
         :param output_folder: Output folder name, defaults to '.'.
         :type output_folder:: str, optional
@@ -678,8 +689,9 @@ class Tomo:
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
         :param test_mode: Run in test mode (non-interactively), defaults
-            to False
+            to False.
         :type test_mode: bool, optional
+        :raises ValueError: Invalid input parameter.
         """
         # System modules
         from logging import getLogger
@@ -737,11 +749,12 @@ class Tomo:
         Generate the reduced tomography images.
 
         :param nxroot: Data object containing the raw data info and
-            metadata required for a tomography data reduction
+            metadata required for a tomography data reduction.
         :type nxroot: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoReduceConfig, optional
-        :return: Reduced tomography data
+        :raises ValueError: Invalid input or configuration parameter.
+        :return: Reduced tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -756,31 +769,35 @@ class Tomo:
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.attrs['default']]
         else:
-            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+            raise ValueError(
+                f'Invalid parameter nxroot {type(nxroot)}:\n{nxroot}')
         if tool_config is None:
             delta_theta = None
-            img_x_bounds = None
+            img_row_bounds = None
         else:
             delta_theta = tool_config.delta_theta
-            img_x_bounds = tool_config.img_x_bounds
+            img_row_bounds = tool_config.img_row_bounds
+            if img_row_bounds is not None:
+                img_row_bounds = tuple(img_row_bounds)
 
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key is None or 'data' not in nxentry.instrument.detector:
             raise ValueError(f'Unable to find image_key or data in '
                              'instrument.detector '
                              f'({nxentry.instrument.detector.tree})')
+        image_key = np.asarray(image_key)
 
         # Create an NXprocess to store data reduction (meta)data
         reduced_data = NXprocess()
 
         # Generate dark field
-        reduced_data = self._gen_dark(nxentry, reduced_data)
+        reduced_data = self._gen_dark(nxentry, reduced_data, image_key)
 
         # Generate bright field
-        reduced_data = self._gen_bright(nxentry, reduced_data)
+        reduced_data = self._gen_bright(nxentry, reduced_data, image_key)
 
         # Get rotation angles for image stacks
-        thetas = self._gen_thetas(nxentry)
+        thetas = self._gen_thetas(nxentry, image_key)
 
         # Get the image stack mask to remove bad images from stack
         image_mask = None
@@ -809,19 +826,22 @@ class Tomo:
                 reduced_data.attrs['zoom_perc'] = zoom_perc
         if image_mask is not None:
             self._logger.debug(f'image_mask = {image_mask}')
-            reduced_data['image_mask'] = image_mask
+            reduced_data.image_mask = image_mask
             thetas = thetas[image_mask]
         self._logger.debug(f'thetas = {thetas}')
-        reduced_data['rotation_angle'] = thetas
+        reduced_data.rotation_angle = thetas
+        reduced_data.rotation_angle.units = 'degrees'
 
         # Set vertical detector bounds for image stack
-        img_x_bounds = self._set_detector_bounds(
-            nxentry, reduced_data, thetas[0], img_x_bounds=img_x_bounds)
-        self._logger.info(f'img_x_bounds = {img_x_bounds}')
-        reduced_data['img_x_bounds'] = img_x_bounds
+        img_row_bounds = self._set_detector_bounds(
+            nxentry, reduced_data, image_key, thetas[0],
+            img_row_bounds=img_row_bounds)
+        self._logger.info(f'img_row_bounds = {img_row_bounds}')
+        reduced_data.img_row_bounds = img_row_bounds
+        reduced_data.img_row_bounds.units = 'pixels'
 
         # Generate reduced tomography fields
-        reduced_data = self._gen_tomo(nxentry, reduced_data)
+        reduced_data = self._gen_tomo(nxentry, reduced_data, image_key)
 
         # Create a copy of the input Nexus object and remove raw and
         #     any existing reduced data
@@ -848,7 +868,6 @@ class Tomo:
 
         if 'data' not in nxentry:
             nxentry.data = NXdata()
-        nxentry.attrs['default'] = 'data'
         nxentry.data.makelink(
             nxentry.reduced_data.data.tomo_fields, name='reduced_data')
         nxentry.data.makelink(
@@ -862,11 +881,13 @@ class Tomo:
         Find the calibrated center axis info
 
         :param nxroot: Data object containing the reduced data and
-            metadata required to find the calibrated center axis info
+            metadata required to find the calibrated center axis info.
         :type data: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoFindCenterConfig
-        :return: Calibrated center axis info
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Calibrated center axis info.
         :rtype: dict
         """
         # Third party modules
@@ -897,19 +918,17 @@ class Tomo:
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
                 or 'reduced_data' not in nxentry.data):
-            raise KeyError(f'Unable to find valid reduced data in {nxentry}.')
+            raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
         # Select the image stack to calibrate the center axis
         #     reduced data axes order: stack,theta,row,column
         # Note: Nexus can't follow a link if the data it points to is
         #     too big get the data from the actual place, not from
         #     nxentry.data
-        tomo_fields_shape = nxentry.reduced_data.data.tomo_fields.shape
-        if (len(tomo_fields_shape) != 4
-                or any(True for dim in tomo_fields_shape if not dim)):
-            raise KeyError(
-                'Unable to load the required reduced tomography stack')
-        num_tomo_stacks = tomo_fields_shape[0]
+        num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
+        img_shape = nxentry.reduced_data.data.bright_field.shape
+        num_row = int(nxentry.reduced_data.img_row_bounds[1]
+                   - nxentry.reduced_data.img_row_bounds[0])
         if num_tomo_stacks == 1:
             center_stack_index = 0
             default = 'n'
@@ -933,18 +952,17 @@ class Tomo:
 
         # Get thetas (in degrees)
         thetas = np.asarray(nxentry.reduced_data.rotation_angle)
-        assert len(thetas) == tomo_fields_shape[1]
 
         # Get effective pixel_size
         if 'zoom_perc' in nxentry.reduced_data:
-            eff_pixel_size = \
-                100. * (nxentry.instrument.detector.x_pixel_size
-                         / nxentry.reduced_data.attrs['zoom_perc'])
+            eff_pixel_size = float(
+                100. * (nxentry.instrument.detector.row_pixel_size
+                         / nxentry.reduced_data.attrs['zoom_perc']))
         else:
-            eff_pixel_size = nxentry.instrument.detector.x_pixel_size
+            eff_pixel_size = float(nxentry.instrument.detector.row_pixel_size)
 
         # Get cross sectional diameter
-        cross_sectional_dim = tomo_fields_shape[3]*eff_pixel_size
+        cross_sectional_dim = img_shape[1]*eff_pixel_size
         self._logger.debug(f'cross_sectional_dim = {cross_sectional_dim}')
 
         # Determine center offset at sample row boundaries
@@ -956,14 +974,15 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[0] is not None:
                 lower_row = center_rows[0]
-                if not 0 <= lower_row < tomo_fields_shape[2]-1:
+                if not 0 <= lower_row < num_row-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 lower_row = select_one_image_bound(
                     nxentry.reduced_data.data.tomo_fields[
                         center_stack_index,0,:,:],
-                    0, bound=0, title=f'theta={round(thetas[0], 2)+0}',
+                    0, bound=0,
+                    title=f'theta={round(thetas[0], 2)+0}',
                     bound_name='row index to find lower center',
                     default=default, raise_error=True)
         else:
@@ -971,7 +990,7 @@ class Tomo:
                 lower_row = 0
             else:
                 lower_row = center_rows[0]
-                if not 0 <= lower_row < tomo_fields_shape[2]-1:
+                if not 0 <= lower_row < num_row-1:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
@@ -994,23 +1013,23 @@ class Tomo:
         elif self._interactive:
             if center_rows is not None and center_rows[1] is not None:
                 upper_row = center_rows[1]
-                if not lower_row < upper_row < tomo_fields_shape[2]:
+                if not lower_row < upper_row < num_row:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
             else:
                 upper_row = select_one_image_bound(
                     nxentry.reduced_data.data.tomo_fields[
                         center_stack_index,0,:,:],
-                    0, bound=tomo_fields_shape[2]-1,
+                    0, bound=num_row-1,
                     title=f'theta = {round(thetas[0], 2)+0}',
                     bound_name='row index to find upper center',
                     default=default, raise_error=True)
         else:
             if center_rows is None or center_rows[1] is None:
-                upper_row = tomo_fields_shape[2]-1
+                upper_row = num_row-1
             else:
                 upper_row = center_rows[1]
-                if not lower_row < upper_row < tomo_fields_shape[2]:
+                if not lower_row < upper_row < num_row:
                     raise ValueError(
                         f'Invalid parameter center_rows ({center_rows})')
         t0 = time()
@@ -1048,17 +1067,21 @@ class Tomo:
         """
         Reconstruct the tomography data.
 
-        :param nxroot: Reduced data
+        :param nxroot: Data object containing the reduced data and
+            metadata required for a tomography data reconstruction.
         :type data: nexusformat.nexus.NXroot
-        :param center_info: Calibrated center axis info
+        :param center_info: Calibrated center axis info.
         :type center_info: dict
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoReconstructConfig
-        :return: Reconstructed tomography data
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Reconstructed tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from nexusformat.nexus import (
+            nxgetconfig,
             NXdata,
             NXentry,
             NXprocess,
@@ -1080,7 +1103,7 @@ class Tomo:
         # Check if reduced data is available
         if ('reduced_data' not in nxentry
                 or 'reduced_data' not in nxentry.data):
-            raise KeyError(f'Unable to find valid reduced data in {nxentry}.')
+            raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
         # Create an NXprocess to store image reconstruction (meta)data
         nxprocess = NXprocess()
@@ -1103,7 +1126,7 @@ class Tomo:
 
         # Reconstruct tomography data
         #     reduced data axes order: stack,theta,row,column
-        #     reconstructed data order in each stack: row/z,x,y
+        #     reconstructed data: row/-z,y,x
         # Note: Nexus can't follow a link if the data it points to is
         #     too big get the data from the actual place, not from
         #     nxentry.data
@@ -1111,13 +1134,14 @@ class Tomo:
             res_title = f'{nxentry.reduced_data.attrs["zoom_perc"]}p'
         else:
             res_title = 'fullres'
-        num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
+        tomo_stacks = np.asarray(nxentry.reduced_data.data.tomo_fields)
+        num_tomo_stacks = tomo_stacks.shape[0]
         tomo_recon_stacks = num_tomo_stacks*[np.array([])]
         for i in range(num_tomo_stacks):
             # Convert reduced data stack from theta,row,column to
             #     row,theta,column
             t0 = time()
-            tomo_stack = np.asarray(nxentry.reduced_data.data.tomo_fields[i])
+            tomo_stack = tomo_stacks[i]
             self._logger.info(
                 f'Reading reduced data stack {i} took {time()-t0:.2f} '
                 'seconds')
@@ -1148,7 +1172,7 @@ class Tomo:
             tomo_recon_stacks[i] = tomo_recon_stack
 
         # Resize the reconstructed tomography data
-        #     reconstructed data order in each stack: row/z,x,y
+        #     reconstructed data order in each stack: row/-z,y,x
         if self._test_mode:
             x_bounds = tuple(self._test_config.get('x_bounds'))
             y_bounds = tuple(self._test_config.get('y_bounds'))
@@ -1163,24 +1187,38 @@ class Tomo:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(x_bounds, ge=0,
-                                 lt=tomo_recon_stacks[0].shape[1]):
+                                 le=tomo_recon_stacks[0].shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
             elif not is_int_pair(
-                    y_bounds, ge=0, lt=tomo_recon_stacks[0].shape[2]):
+                    y_bounds, ge=0, le=tomo_recon_stacks[0].shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            z_bounds = None
+            z_bounds = tool_config.z_bounds
+            if num_tomo_stacks == 1:
+                if z_bounds is None:
+                    self._logger.warning(
+                        'z_bounds unspecified, reconstruct data for full '
+                        'z-range')
+                elif not is_int_pair(
+                        z_bounds, ge=0, le=tomo_recon_stacks[0].shape[0]):
+                    raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
+            else:
+                if z_bounds is not None:
+                    self._logger.warning(
+                        'Ignoring z_bounds for reconstruction of multiple '
+                        f'stacks({z_bounds})')
+                z_bounds = None
         if x_bounds is None:
-            x_range = (0, tomo_recon_stacks[0].shape[1])
+            x_range = (0, tomo_recon_stacks[0].shape[2])
             x_slice = int(x_range[1]/2)
         else:
             x_range = (min(x_bounds), max(x_bounds))
             x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
         if y_bounds is None:
-            y_range = (0, tomo_recon_stacks[0].shape[2])
+            y_range = (0, tomo_recon_stacks[0].shape[1])
             y_slice = int(y_range[1] / 2)
         else:
             y_range = (min(y_bounds), max(y_bounds))
@@ -1191,80 +1229,166 @@ class Tomo:
         else:
             z_range = (min(z_bounds), max(z_bounds))
             z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
+        z_dim_org = tomo_recon_stacks[0].shape[0]
         for i, stack in enumerate(tomo_recon_stacks):
             tomo_recon_stacks[i] = stack[
-                z_range[0]:z_range[1],x_range[0]:x_range[1],y_range[0]:y_range[1]]
+                z_range[0]:z_range[1],y_range[0]:y_range[1],
+                x_range[0]:x_range[1]]
         tomo_recon_stacks = np.asarray(tomo_recon_stacks)
 
-        # Plot a few reconstructed image slices
-        if self._save_figs:
-            for i in range(tomo_recon_stacks.shape[0]):
-                if num_tomo_stacks == 1:
-                    basetitle = 'recon'
-                else:
-                    basetitle = f'recon stack {i}'
-                title = f'{basetitle} {res_title} xslice{x_slice}'
-                x_pixel_size = nxentry.instrument.detector.x_pixel_size
-                y_pixel_size = nxentry.instrument.detector.y_pixel_size
-                extent = (
-                    0,
-                    float(y_pixel_size*tomo_recon_stacks.shape[3]),
-                    float(x_pixel_size*tomo_recon_stacks.shape[1]),
-                    0)
-                quick_imshow(
-                    tomo_recon_stacks[i,:,x_slice-x_range[0],:],
-                    title=title, path=self._output_folder, save_fig=True,
-                    save_only=True, extent=extent)
-                title = f'{basetitle} {res_title} yslice{y_slice}'
-                extent = (
-                    0,
-                    float(y_pixel_size*tomo_recon_stacks.shape[2]),
-                    float(x_pixel_size*tomo_recon_stacks.shape[1]),
-                    0)
-                quick_imshow(
-                    tomo_recon_stacks[i,:,:,y_slice-y_range[0]],
-                    title=title, path=self._output_folder, save_fig=True,
-                    save_only=True, extent=extent)
-                title = f'{basetitle} {res_title} zslice{z_slice}'
-                extent = (
-                    0,
-                    float(y_pixel_size*tomo_recon_stacks.shape[3]),
-                    float(y_pixel_size*tomo_recon_stacks.shape[2]),
-                    0)
-                quick_imshow(
-                    tomo_recon_stacks[i,z_slice-z_range[0],:,:],
-                    title=title, path=self._output_folder, save_fig=True,
-                    save_only=True, extent=extent)
+        row_pixel_size = float(
+            nxentry.instrument.detector.row_pixel_size)
+        column_pixel_size = float(
+            nxentry.instrument.detector.column_pixel_size)
+        if num_tomo_stacks == 1:
+            # Convert the reconstructed tomography data from internal
+            #     coordinate frame row/-z,y,x with the origin on the
+            #     near-left-top corner to an z,y,x coordinate frame
+            #     with the origin on the par file x,z values, halfway
+            #     in the y-dimension.
+            #     Here x is to the right, y along the beam direction
+            #     and z upwards in the lab frame of reference
+            tomo_recon_stack = np.flip(tomo_recon_stacks[0], 0)
+            z_range = (z_dim_org-z_range[1], z_dim_org-z_range[0])
 
-        # Save test data to file
-        #     reconstructed data order in each stack: row/z,x,y
-        if self._test_mode:
-            for i in range(tomo_recon_stacks.shape[0]):
+            # Get coordinate axes
+            x = column_pixel_size * (
+                np.linspace(
+                    x_range[0], x_range[1], x_range[1]-x_range[0], False)
+                - 0.5*nxentry.instrument.detector.columns
+                + 0.5)
+            x = np.asarray(x + nxentry.reduced_data.x_translation[0])
+            y = np.asarray(
+                    column_pixel_size * (
+                    np.linspace(
+                        y_range[0], y_range[1], y_range[1]-y_range[0], False)
+                    - 0.5*nxentry.instrument.detector.columns
+                    + 0.5))
+            z = row_pixel_size*(
+                np.linspace(
+                    z_range[0], z_range[1], z_range[1]-z_range[0], False)
+                + nxentry.instrument.detector.rows
+                - int(nxentry.reduced_data.img_row_bounds[1])
+                + 0.5)
+            z = np.asarray(z + nxentry.reduced_data.z_translation[0])
+
+            # Plot a few reconstructed image slices
+            if self._save_figs:
+                x_index = x_slice-x_range[0]
+                extent = (
+                    y[0],
+                    y[-1],
+                    z[0],
+                    z[-1])
+                quick_imshow(
+                    tomo_recon_stack[:,:,x_index], 
+                    title=f'recon {res_title} x={x[x_index]:.4f}',
+                    origin='lower', extent=extent, path=self._output_folder,
+                    save_fig=True, save_only=True)
+                y_index = y_slice-y_range[0]
+                extent = (
+                    x[0],
+                    x[-1],
+                    z[0],
+                    z[-1])
+                quick_imshow(
+                    tomo_recon_stack[:,y_index,:],
+                    title=f'recon {res_title} y={y[y_index]:.4f}',
+                    origin='lower', extent=extent, path=self._output_folder,
+                    save_fig=True, save_only=True)
+                z_index = z_slice-z_range[0]
+                extent = (
+                    x[0],
+                    x[-1],
+                    y[0],
+                    y[-1])
+                quick_imshow(
+                    tomo_recon_stack[z_index,:,:],
+                    title=f'recon {res_title} z={z[z_index]:.4f}',
+                    origin='lower', extent=extent, path=self._output_folder,
+                    save_fig=True, save_only=True)
+
+            # Save test data to file
+            #     reconstructed data order in each stack: x,y,z
+            if self._test_mode:
                 np.savetxt(
-                    f'{self._output_folder}/recon_stack_{i}.txt',
-                    tomo_recon_stacks[i,z_slice,:,:],
+                    f'{self._output_folder}/recon_stack.txt',
+                    tomo_recon_stacks[z_slice-z_range[0],:,:],
                     fmt='%.6e')
+        else:
+            # Plot a few reconstructed image slices
+            if self._save_figs:
+                for i in range(tomo_recon_stacks.shape[0]):
+                    basetitle = f'recon stack {i}'
+                    title = f'{basetitle} {res_title} xslice{x_slice}'
+                    quick_imshow(
+                        tomo_recon_stacks[i,:,:,x_slice-x_range[0]],
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
+                    title = f'{basetitle} {res_title} yslice{y_slice}'
+                    quick_imshow(
+                        tomo_recon_stacks[i,:,y_slice-y_range[0],:],
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
+                    title = f'{basetitle} {res_title} zslice{z_slice}'
+                    quick_imshow(
+                        tomo_recon_stacks[i,z_slice-z_range[0],:,:],
+                        title=title, path=self._output_folder,
+                        save_fig=True, save_only=True)
+
+            # Save test data to file
+            #     reconstructed data order in each stack: row/-z,y,x
+            if self._test_mode:
+                for i in range(tomo_recon_stacks.shape[0]):
+                    np.savetxt(
+                        f'{self._output_folder}/recon_stack_{i}.txt',
+                        tomo_recon_stacks[i,:,:,z_slice-z_range[0]],
+                        fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
-        #     reconstructed data order in each stack: row/z,x,y
+        #     reconstructed data order:
+        #     - for one stack: z,y,x
+        #     - for multiple stacks: row/-z,y,x
         nxprocess.data = NXdata()
         nxprocess.attrs['default'] = 'data'
         for k, v in center_info.items():
             nxprocess[k] = v
+            if 'lower_' in k or 'upper_' in k:
+                nxprocess[k].units = 'pixels'
         if x_bounds is not None:
             nxprocess.x_bounds = x_bounds
+            nxprocess.x_bounds.units = 'pixels'
         if y_bounds is not None:
             nxprocess.y_bounds = y_bounds
+            nxprocess.y_bounds.units = 'pixels'
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
-        nxprocess.data['reconstructed_data'] = tomo_recon_stacks
+            nxprocess.z_bounds.units = 'pixels'
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
+        if num_tomo_stacks == 1:
+            nxprocess.data.reconstructed_data = tomo_recon_stack
+            nxprocess.data.attrs['axes'] = ['z', 'y', 'x']
+            nxprocess.data.attrs['x_indices'] = 2
+            nxprocess.data.attrs['y_indices'] = 1
+            nxprocess.data.attrs['z_indices'] = 0
+            nxprocess.data.x = x
+            nxprocess.data.x.units = \
+                nxentry.instrument.detector.column_pixel_size.units
+            nxprocess.data.y = y
+            nxprocess.data.y.units = \
+                nxentry.instrument.detector.column_pixel_size.units
+            nxprocess.data.z = z
+            nxprocess.data.z.units = \
+                nxentry.instrument.detector.row_pixel_size.units
+        else:
+            nxprocess.data.reconstructed_data = tomo_recon_stacks
 
         # Create a copy of the input Nexus object and remove reduced
         #     data
         exclude_items = [
             f'{nxentry.nxname}/reduced_data/data',
             f'{nxentry.nxname}/data/reduced_data',
+            f'{nxentry.nxname}/data/rotation_angle',
         ]
         nxroot_copy = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
@@ -1277,17 +1401,28 @@ class Tomo:
         nxentry_copy.data.makelink(
             nxprocess.data.reconstructed_data, name='reconstructed_data')
         nxentry_copy.data.attrs['signal'] = 'reconstructed_data'
+        if num_tomo_stacks == 1:
+            nxentry_copy.data.attrs['axes'] = ['z', 'y', 'x']
+            nxentry_copy.data.attrs['x_indices'] = 2
+            nxentry_copy.data.attrs['y_indices'] = 1
+            nxentry_copy.data.attrs['z_indices'] = 0
+            nxentry_copy.data.makelink(nxprocess.data.x, name='x')
+            nxentry_copy.data.makelink(nxprocess.data.y, name='y')
+            nxentry_copy.data.makelink(nxprocess.data.z, name='z')
 
         return nxroot_copy
 
     def combine_data(self, nxroot, tool_config):
         """Combine the reconstructed tomography stacks.
 
-        :param nxroot: A stack of reconstructed tomography datasets
+        :param nxroot: Data object containing the reconstructed data
+            and metadata required to combine the tomography stacks.
         :type data: nexusformat.nexus.NXroot
-        :param tool_config: Tool configuration
+        :param tool_config: Tool configuration.
         :type tool_config: CHAP.tomo.models.TomoCombineConfig
-        :return: Combined reconstructed tomography data
+        :raises ValueError: Invalid or missing input or configuration
+            parameter.
+        :return: Combined reconstructed tomography data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -1318,38 +1453,31 @@ class Tomo:
         #     (meta)data
         nxprocess = NXprocess()
 
-        # Get the reconstructed data
-        #     reconstructed data order: stack,row(z),x,y
-        # Note: Nexus can't follow a link if the data it points to is
-        #     too big get the data from the actual place, not from
-        #     nxentry.data
         num_tomo_stacks = \
             nxentry.reconstructed_data.data.reconstructed_data.shape[0]
         if num_tomo_stacks == 1:
             self._logger.info('Only one stack available: leaving combine_data')
-            return None
+            return nxroot
 
-        # Combine the reconstructed stacks
+        # Get and combine the reconstructed stacks
+        #     reconstructed data order: stack,row/-z,y,x
+        # Note: Nexus can't follow a link if the data it points to is
+        #     too big. So get the data from the actual place, not from
+        #     nxentry.data
         # (load one stack at a time to reduce risk of hitting Nexus
         #     data access limit)
         t0 = time()
-        tomo_recon_combined = np.asarray(
-            nxentry.reconstructed_data.data.reconstructed_data[0])
-        if num_tomo_stacks > 2:
-            tomo_recon_combined = np.concatenate(
-                [tomo_recon_combined]
-                + [nxentry.reconstructed_data.data.reconstructed_data[i]
-                   for i in range(1, num_tomo_stacks-1)])
-        if num_tomo_stacks > 1:
-            tomo_recon_combined = np.concatenate(
-                [tomo_recon_combined]
-                + [nxentry.reconstructed_data.data.reconstructed_data[
-                   num_tomo_stacks-1]])
+        tomo_recon_combined = \
+            nxentry.reconstructed_data.data.reconstructed_data[0,:,:,:]
+        tomo_recon_combined = np.concatenate(
+            [nxentry.reconstructed_data.data.reconstructed_data[i,:,:,:]
+               for i in range(num_tomo_stacks-1,0,-1)]
+            + [tomo_recon_combined])
         self._logger.info(
             f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
 
         # Resize the combined tomography data stacks
-        #     combined data order: row/z,x,y
+        #     combined data order: row/-z,y,x
         if self._test_mode:
             x_bounds = None
             y_bounds = None
@@ -1363,92 +1491,144 @@ class Tomo:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(
-                    x_bounds, ge=0, lt=tomo_recon_combined.shape[1]):
+                    x_bounds, ge=0, le=tomo_recon_combined.shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
             elif not is_int_pair(
-                    y_bounds, ge=0, lt=tomo_recon_combined.shape[2]):
+                    y_bounds, ge=0, le=tomo_recon_combined.shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            z_bounds = None
+            z_bounds = tool_config.z_bounds
+            if z_bounds is None:
+                self._logger.warning(
+                    'z_bounds unspecified, reconstruct data for full z-range')
+            elif not is_int_pair(
+                    z_bounds, ge=0, le=tomo_recon_combined.shape[0]):
+                raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
         if x_bounds is None:
-            x_range = (0, tomo_recon_combined.shape[1])
-            x_slice = int(x_range[1]/2)
+            x_range = (0, tomo_recon_combined.shape[2])
         else:
             x_range = x_bounds
-            x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
         if y_bounds is None:
-            y_range = (0, tomo_recon_combined.shape[2])
-            y_slice = int(y_range[1]/2)
+            y_range = (0, tomo_recon_combined.shape[1])
         else:
             y_range = y_bounds
-            y_slice = int((y_bounds[0]+y_bounds[1]) / 2)
         if z_bounds is None:
             z_range = (0, tomo_recon_combined.shape[0])
-            z_slice = int(z_range[1]/2)
         else:
             z_range = z_bounds
-            z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
+        z_dim_org = tomo_recon_combined.shape[0]
+        tomo_recon_combined = tomo_recon_combined[
+            z_range[0]:z_range[1],y_range[0]:y_range[1],x_range[0]:x_range[1]]
+
+        # Convert the reconstructed tomography data from internal
+        #     coordinate frame row/-z,y,x with the origin on the
+        #     near-left-top corner to an z,y,x coordinate frame.
+        #     Here x is to the right, y along the beam direction
+        #     and z upwards in the lab frame of reference
+        tomo_recon_combined = np.flip(tomo_recon_combined, 0)
+        z_range = (z_dim_org-z_range[1], z_dim_org-z_range[0])
+
+        # Get coordinate axes
+        row_pixel_size = float(
+            nxentry.instrument.detector.row_pixel_size)
+        column_pixel_size = float(
+            nxentry.instrument.detector.column_pixel_size)
+        x = column_pixel_size * (
+            np.linspace(x_range[0], x_range[1], x_range[1]-x_range[0], False)
+            - 0.5*nxentry.instrument.detector.columns
+            + 0.5)
+        if nxentry.reconstructed_data.get('x_bounds', None) is not None:
+            x += column_pixel_size*nxentry.reconstructed_data.x_bounds[0]
+        x = np.asarray(x + nxentry.reduced_data.x_translation[0])
+        y = column_pixel_size * (
+            np.linspace(y_range[0], y_range[1], y_range[1]-y_range[0], False)
+            - 0.5*nxentry.instrument.detector.columns
+            + 0.5)
+        if nxentry.reconstructed_data.get('y_bounds', None) is not None:
+            y += column_pixel_size*nxentry.reconstructed_data.y_bounds[0]
+        y = np.asarray(y)
+        z = row_pixel_size*(
+            np.linspace(z_range[0], z_range[1], z_range[1]-z_range[0], False)
+            - int(nxentry.reduced_data.img_row_bounds[0])
+            + 0.5*(nxentry.instrument.detector.rows)
+            -0.5)
+        z = np.asarray(z + nxentry.reduced_data.z_translation[0])
 
         # Plot a few combined image slices
         if self._save_figs:
-            x_pixel_size = nxentry.instrument.detector.x_pixel_size
-            y_pixel_size = nxentry.instrument.detector.y_pixel_size
             extent = (
-                0,
-                float(y_pixel_size*tomo_recon_combined.shape[2]),
-                float(x_pixel_size*tomo_recon_combined.shape[0]),
-                0)
+                y[0],
+                y[-1],
+                z[0],
+                z[-1])
+            x_slice = int(tomo_recon_combined.shape[2]/2)
             quick_imshow(
-                tomo_recon_combined[
-                    z_range[0]:z_range[1],x_slice,y_range[0]:y_range[1]],
-                title=f'recon combined xslice{x_slice}', extent=extent,
-                path=self._output_folder, save_fig=True, save_only=True)
+                tomo_recon_combined[:,:,x_slice],
+                title=f'recon combined x={x[x_slice]:.4f}', origin='lower',
+                extent=extent, path=self._output_folder, save_fig=True,
+                save_only=True)
             extent = (
-                0,
-                float(y_pixel_size*tomo_recon_combined.shape[1]),
-                float(x_pixel_size*tomo_recon_combined.shape[0]),
-                0)
+                x[0],
+                x[-1],
+                z[0],
+                z[-1])
+            y_slice = int(tomo_recon_combined.shape[1]/2)
             quick_imshow(
-                tomo_recon_combined[
-                    z_range[0]:z_range[1],x_range[0]:x_range[1],y_slice],
-                title=f'recon combined yslice{y_slice}', extent=extent,
-                path=self._output_folder, save_fig=True, save_only=True)
+                tomo_recon_combined[:,y_slice,:],
+                title=f'recon combined y={y[y_slice]:.4f}', origin='lower',
+                extent=extent, path=self._output_folder, save_fig=True,
+                save_only=True)
             extent = (
-                0,
-                float(y_pixel_size*tomo_recon_combined.shape[2]),
-                float(y_pixel_size*tomo_recon_combined.shape[1]),
-                0)
+                x[0],
+                x[-1],
+                y[0],
+                y[-1])
+            z_slice = int(tomo_recon_combined.shape[0]/2)
             quick_imshow(
-                tomo_recon_combined[
-                    z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
-                title=f'recon combined zslice{z_slice}', extent=extent,
-                path=self._output_folder, save_fig=True, save_only=True)
+                tomo_recon_combined[z_slice,:,:],
+                title=f'recon combined z={z[z_slice]:.4f}', origin='lower',
+                extent=extent, path=self._output_folder, save_fig=True,
+                save_only=True)
 
         # Save test data to file
-        #     combined data order: row/z,x,y
+        #     combined data order: z,y,x
         if self._test_mode:
+            z_slice = int(tomo_recon_combined.shape[0]/2)
             np.savetxt(
                 f'{self._output_folder}/recon_combined.txt',
-                tomo_recon_combined[
-                    z_slice,x_range[0]:x_range[1],y_range[0]:y_range[1]],
-                fmt='%.6e')
+                tomo_recon_combined[z_slice,:,:], fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
-        #     combined data order: row/z,x,y
+        #     combined data order: z,y,x
         nxprocess.data = NXdata()
         nxprocess.attrs['default'] = 'data'
         if x_bounds is not None:
             nxprocess.x_bounds = x_bounds
+            nxprocess.x_bounds.units = 'pixels'
         if y_bounds is not None:
             nxprocess.y_bounds = y_bounds
+            nxprocess.y_bounds.units = 'pixels'
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
-        nxprocess.data['combined_data'] = tomo_recon_combined[
-            z_range[0]:z_range[1],x_range[0]:x_range[1],y_range[0]:y_range[1]]
+            nxprocess.z_bounds.units = 'pixels'
+        nxprocess.data.combined_data = tomo_recon_combined
         nxprocess.data.attrs['signal'] = 'combined_data'
+        nxprocess.data.attrs['axes'] = ['z', 'y', 'x']
+        nxprocess.data.attrs['x_indices'] = 2
+        nxprocess.data.attrs['y_indices'] = 1
+        nxprocess.data.attrs['z_indices'] = 0
+        nxprocess.data.x = x
+        nxprocess.data.x.units = \
+            nxentry.instrument.detector.column_pixel_size.units
+        nxprocess.data.y = y
+        nxprocess.data.y.units = \
+            nxentry.instrument.detector.column_pixel_size.units
+        nxprocess.data.z = z
+        nxprocess.data.z.units = \
+            nxentry.instrument.detector.row_pixel_size.units
 
         # Create a copy of the input Nexus object and remove
         #     reconstructed data
@@ -1467,16 +1647,22 @@ class Tomo:
         nxentry_copy.data.makelink(
             nxprocess.data.combined_data, name='combined_data')
         nxentry_copy.data.attrs['signal'] = 'combined_data'
+        nxentry_copy.data.attrs['axes'] = ['z', 'y', 'x']
+        nxentry_copy.data.attrs['x_indices'] = 2
+        nxentry_copy.data.attrs['y_indices'] = 1
+        nxentry_copy.data.attrs['z_indices'] = 0
+        nxentry_copy.data.makelink(nxprocess.data.x, name='x')
+        nxentry_copy.data.makelink(nxprocess.data.y, name='y')
+        nxentry_copy.data.makelink(nxprocess.data.z, name='z')
 
         return nxroot_copy
 
-    def _gen_dark(self, nxentry, reduced_data):
+    def _gen_dark(self, nxentry, reduced_data, image_key):
         """Generate dark field."""
         # Third party modules
         from nexusformat.nexus import NXdata
 
         # Get the dark field images
-        image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices = [
             index for index, key in enumerate(image_key) if key == 2]
         if field_indices:
@@ -1515,28 +1701,22 @@ class Tomo:
 
         # Plot dark field
         if self._save_figs:
-            extent = (
-                0,
-                float(nxentry.instrument.detector.y_pixel_size*tdf.shape[1]),
-                float(nxentry.instrument.detector.x_pixel_size*tdf.shape[0]),
-                0)
             quick_imshow(
                 tdf, title='dark field', path=self._output_folder,
-                extent=extent, save_fig=True, save_only=True)
+                save_fig=True, save_only=True)
 
         # Add dark field to reduced data NXprocess
         reduced_data.data = NXdata()
-        reduced_data.data['dark_field'] = tdf
+        reduced_data.data.dark_field = tdf
 
         return reduced_data
 
-    def _gen_bright(self, nxentry, reduced_data):
+    def _gen_bright(self, nxentry, reduced_data, image_key):
         """Generate bright field."""
         # Third party modules
         from nexusformat.nexus import NXdata
 
         # Get the bright field images
-        image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices = [
             index for index, key in enumerate(image_key) if key == 1]
         if field_indices:
@@ -1568,7 +1748,7 @@ class Tomo:
 
         # Subtract dark field
         if 'data' in reduced_data and 'dark_field' in reduced_data.data:
-            tbf -= reduced_data.data.dark_field
+            tbf -= np.asarray(reduced_data.data.dark_field)
         else:
             self._logger.warning('Dark field unavailable')
 
@@ -1578,24 +1758,19 @@ class Tomo:
 
         # Plot bright field
         if self._save_figs:
-            extent = (
-                0,
-                float(nxentry.instrument.detector.y_pixel_size*tbf.shape[1]),
-                float(nxentry.instrument.detector.x_pixel_size*tbf.shape[0]),
-                0)
             quick_imshow(
                 tbf, title='bright field', path=self._output_folder,
-                extent=extent, save_fig=True, save_only=True)
+                save_fig=True, save_only=True)
 
         # Add bright field to reduced data NXprocess
         if 'data' not in reduced_data:
             reduced_data.data = NXdata()
-        reduced_data.data['bright_field'] = tbf
+        reduced_data.data.bright_field = tbf
 
         return reduced_data
 
-    def _set_detector_bounds(self, nxentry, reduced_data, theta,
-            img_x_bounds=None):
+    def _set_detector_bounds(self, nxentry, reduced_data, image_key, theta,
+            img_row_bounds=None):
         """
         Set vertical detector bounds for each image stack.Right now the
         range is the same for each set in the image stack.
@@ -1604,7 +1779,7 @@ class Tomo:
         from CHAP.utils.general import is_index_range
 
         if self._test_mode:
-            return tuple(self._test_config['img_x_bounds'])
+            return tuple(self._test_config['img_row_bounds'])
 
         # Get the first tomography image and the reference heights
         image_mask = reduced_data.get('image_mask')
@@ -1614,12 +1789,12 @@ class Tomo:
             raise RuntimeError('image_mask not tested yet')
             image_mask = np.asarray(image_mask)
             first_image_index = int(np.argmax(image_mask))
-        image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices_all = [
             index for index, key in enumerate(image_key) if key == 0]
         if not field_indices_all:
             raise ValueError('Tomography field(s) unavailable')
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         num_tomo_stacks = len(z_translation_levels)
         center_stack_index = int(num_tomo_stacks/2)
@@ -1632,120 +1807,121 @@ class Tomo:
             first_image = np.asarray(nxentry.instrument.detector.data[
                 field_indices[first_image_index]])
         except:
-            raise RuntimeError('Unable to load the tomography images'
+            raise RuntimeError('Unable to load the tomography images '
                                f'for stack {i}')
 
         # Select image bounds
         title = f'tomography image at theta={round(theta, 2)+0}'
-        if img_x_bounds is not None:
-            if is_index_range(img_x_bounds, ge=0, le=first_image.shape[0]):
-                return img_x_bounds
+        if img_row_bounds is not None:
+            if is_index_range(img_row_bounds, ge=0, le=first_image.shape[0]):
+                return img_row_bounds
             if self._interactive:
                 self._logger.warning(
-                    f'Invalid parameter img_x_bounds ({img_x_bounds}), '
-                    'ignoring img_x_bounds')
-                img_x_bounds = None
+                    f'Invalid parameter img_row_bounds ({img_row_bounds}), '
+                    'ignoring img_row_bounds')
+                img_row_bounds = None
             else:
                 raise ValueError(
-                    f'Invalid parameter img_x_bounds ({img_x_bounds})')
+                    f'Invalid parameter img_row_bounds ({img_row_bounds})')
         if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
-            pixel_size = nxentry.instrument.detector.x_pixel_size
+            pixel_size = float(nxentry.instrument.detector.row_pixel_size)
             # Try to get a fit from the bright field
             tbf = np.asarray(reduced_data.data.bright_field)
             tbf_shape = tbf.shape
-            x_sum = np.sum(tbf, 1)
-            x_sum_min = x_sum.min()
-            x_sum_max = x_sum.max()
+            row_sum = np.sum(tbf, 1)
+            row_sum_min = row_sum.min()
+            row_sum_max = row_sum.max()
             fit = Fit.fit_data(
-                x_sum, 'rectangle', x=np.array(range(len(x_sum))),
+                row_sum, 'rectangle', x=np.array(range(len(row_sum))),
                 form='atan', guess=True)
             parameters = fit.best_values
-            x_low_fit = parameters.get('center1', None)
-            x_upp_fit = parameters.get('center2', None)
+            row_low_fit = parameters.get('center1', None)
+            row_upp_fit = parameters.get('center2', None)
             sig_low = parameters.get('sigma1', None)
             sig_upp = parameters.get('sigma2', None)
-            have_fit = (fit.success and x_low_fit is not None
-                        and x_upp_fit is not None and sig_low is not None
+            have_fit = (fit.success and row_low_fit is not None
+                        and row_upp_fit is not None and sig_low is not None
                         and sig_upp is not None
-                        and 0 <= x_low_fit < x_upp_fit <= x_sum.size
-                        and (sig_low+sig_upp) / (x_upp_fit-x_low_fit) < 0.1)
+                        and 0 <= row_low_fit < row_upp_fit <= row_sum.size
+                        and (sig_low+sig_upp) / (row_upp_fit-row_low_fit) < 0.1)
             if have_fit:
                 # Set a 5% margin on each side
-                margin = 0.05 * (x_upp_fit-x_low_fit)
-                x_low_fit = max(0, x_low_fit-margin)
-                x_upp_fit = min(tbf_shape[0], x_upp_fit+margin)
+                margin = 0.05 * (row_upp_fit-row_low_fit)
+                row_low_fit = max(0, row_low_fit-margin)
+                row_upp_fit = min(tbf_shape[0], row_upp_fit+margin)
             if num_tomo_stacks == 1:
                 if have_fit:
                     # Set the default range to enclose the full fitted
                     #     window
-                    x_low = int(x_low_fit)
-                    x_upp = int(x_upp_fit)
+                    row_low = int(row_low_fit)
+                    row_upp = int(row_upp_fit)
                 else:
                     # Center a default range of 1 mm
                     # RV can we get this from the slits?
-                    num_x_min = int((1. + 0.5*pixel_size) / pixel_size)
-                    x_low = int((tbf_shape[0]-num_x_min) / 2)
-                    x_upp = x_low+num_x_min
+                    num_row_min = int((1. + 0.5*pixel_size) / pixel_size)
+                    row_low = int((tbf_shape[0]-num_row_min) / 2)
+                    row_upp = row_low+num_row_min
             else:
                 # Get the default range from the reference heights
-                delta_z = vertical_shifts[1]-vertical_shifts[0]
+                delta_z = z_translation_levels[1]-z_translation_levels[0]
                 for i in range(2, num_tomo_stacks):
                     delta_z = min(
-                        delta_z, vertical_shifts[i]-vertical_shifts[i-1])
+                        delta_z,
+                        z_translation_levels[i]-z_translation_levels[i-1])
                 self._logger.debug(f'delta_z = {delta_z}')
-                num_x_min = int((delta_z + 0.5*pixel_size) / pixel_size)
-                self._logger.debug(f'num_x_min = {num_x_min}')
-                if num_x_min > tbf_shape[0]:
+                num_row_min = int((delta_z + 0.5*pixel_size) / pixel_size)
+                self._logger.debug(f'num_row_min = {num_row_min}')
+                if num_row_min > tbf_shape[0]:
                     self._logger.warning(
                         'Image bounds and pixel size prevent seamless '
                         'stacking')
                 if have_fit:
                     # Center the default range relative to the fitted
                     #     window
-                    x_low = int((x_low_fit+x_upp_fit-num_x_min) / 2)
-                    x_upp = x_low+num_x_min
+                    row_low = int((row_low_fit+row_upp_fit-num_row_min) / 2)
+                    row_upp = row_low+num_row_min
                 else:
                     # Center the default range
-                    x_low = int((tbf_shape[0]-num_x_min) / 2)
-                    x_upp = x_low+num_x_min
+                    row_low = int((tbf_shape[0]-num_row_min) / 2)
+                    row_upp = row_low+num_row_min
             if not self._interactive:
-                img_x_bounds = (x_low, x_upp)
+                img_row_bounds = (row_low, row_upp)
             else:
                 tmp = np.copy(tbf)
                 tmp_max = tmp.max()
-                tmp[x_low,:] = tmp_max
-                tmp[x_upp-1,:] = tmp_max
+                tmp[row_low,:] = tmp_max
+                tmp[row_upp-1,:] = tmp_max
                 quick_imshow(tmp, title='bright field')
                 tmp = np.copy(first_image)
                 tmp_max = tmp.max()
-                tmp[x_low,:] = tmp_max
-                tmp[x_upp-1,:] = tmp_max
+                tmp[row_low,:] = tmp_max
+                tmp[row_upp-1,:] = tmp_max
                 quick_imshow(tmp, title=title)
                 del tmp
                 quick_plot(
-                    (range(x_sum.size), x_sum),
-                    ([x_low, x_low], [x_sum_min, x_sum_max], 'r-'),
-                    ([x_upp, x_upp], [x_sum_min, x_sum_max], 'r-'),
+                    (range(row_sum.size), row_sum),
+                    ([row_low, row_low], [row_sum_min, row_sum_max], 'r-'),
+                    ([row_upp, row_upp], [row_sum_min, row_sum_max], 'r-'),
                     title='sum over theta and y')
-                print(f'lower bound = {x_low} (inclusive)')
-                print(f'upper bound = {x_upp} (exclusive)]')
+                print(f'lower bound = {row_low} (inclusive)')
+                print(f'upper bound = {row_upp} (exclusive)]')
                 accept = input_yesno('Accept these bounds (y/n)?', 'y')
                 clear_imshow('bright field')
                 clear_imshow(title)
                 clear_plot('sum over theta and y')
                 if accept:
-                    img_x_bounds = (x_low, x_upp)
+                    img_row_bounds = (row_low, row_upp)
                 else:
                     while True:
-                        _, img_x_bounds = draw_mask_1d(
-                            x_sum, title='select x data range',
+                        _, img_row_bounds = draw_mask_1d(
+                            row_sum, title='select x data range',
                             ylabel='sum over theta and y')
-                        if len(img_x_bounds) == 1:
+                        if len(img_row_bounds) == 1:
                             break
                         print('Choose a single connected data range')
-                    img_x_bounds = tuple(img_x_bounds[0])
+                    img_row_bounds = tuple(img_row_bounds[0])
             if (num_tomo_stacks > 1
-                    and (img_x_bounds[1]-img_x_bounds[0]+1)
+                    and (img_row_bounds[1]-img_row_bounds[0]+1)
                          < int((delta_z - 0.5*pixel_size) / pixel_size)):
                 self._logger.warning(
                     'Image bounds and pixel size prevent seamless stacking')
@@ -1755,51 +1931,52 @@ class Tomo:
                     'Selecting image bounds for multiple stacks on FMB')
             # For FMB: use the first tomography image to select range
             # RV revisit if they do tomography with multiple stacks
-            x_sum = np.sum(first_image, 1)
-            x_sum_min = x_sum.min()
-            x_sum_max = x_sum.max()
+            row_sum = np.sum(first_image, 1)
+            row_sum_min = row_sum.min()
+            row_sum_max = row_sum.max()
             if self._interactive:
                 print(
                     'Select vertical data reduction range from first '
                     'tomography image')
-                img_x_bounds = select_image_bounds(first_image, 0, title=title)
-                if img_x_bounds is None:
+                img_row_bounds = select_image_bounds(
+                    first_image, 0, title=title)
+                if img_row_bounds is None:
                     raise RuntimeError('Unable to select image bounds')
             else:
-                if img_x_bounds is None:
+                if img_row_bounds is None:
                     self._logger.warning(
-                        'img_x_bounds unspecified, reduce data for entire '
+                        'img_row_bounds unspecified, reduce data for entire '
                         'detector range')
-                    img_x_bounds = (0, first_image.shape[0])
+                    img_row_bounds = (0, first_image.shape[0])
 
         # Plot results
         if self._save_figs:
-            x_low = img_x_bounds[0]
-            x_upp = img_x_bounds[1]
+            row_low = img_row_bounds[0]
+            row_upp = img_row_bounds[1]
             tmp = np.copy(first_image)
             tmp_max = tmp.max()
-            tmp[x_low,:] = tmp_max
-            tmp[x_upp-1,:] = tmp_max
+            tmp[row_low,:] = tmp_max
+            tmp[row_upp-1,:] = tmp_max
             quick_imshow(
-                tmp, title=title, path=self._output_folder, save_fig=True,
-                save_only=True)
+                tmp, title=title, path=self._output_folder,
+                save_fig=True, save_only=True)
             quick_plot(
-                (range(x_sum.size), x_sum),
-                ([x_low, x_low], [x_sum_min, x_sum_max], 'r-'),
-                ([x_upp, x_upp], [x_sum_min, x_sum_max], 'r-'),
+                (range(row_sum.size), row_sum),
+                ([row_low, row_low], [row_sum_min, row_sum_max], 'r-'),
+                ([row_upp, row_upp], [row_sum_min, row_sum_max], 'r-'),
                 title='sum over theta and y', path=self._output_folder,
                 save_fig=True, save_only=True)
             del tmp
 
-        return img_x_bounds
+        return img_row_bounds
 
-    def _gen_thetas(self, nxentry):
+    def _gen_thetas(self, nxentry, image_key):
         """Get the rotation angles for the image stacks."""
         # Get the rotation angles
-        image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices_all = [
             index for index, key in enumerate(image_key) if key == 0]
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         thetas = None
         for i, z_translation in enumerate(z_translation_levels):
@@ -1807,18 +1984,19 @@ class Tomo:
                 field_indices_all[index]
                 for index, z in enumerate(z_translation_all)
                 if z == z_translation]
-            sequence_numbers = \
-                nxentry.instrument.detector.sequence_number[field_indices]
+            sequence_numbers = np.asarray(
+                nxentry.instrument.detector.sequence_number)[field_indices]
             assert (list(sequence_numbers)
                     == list(range((len(sequence_numbers)))))
             if thetas is None:
                 thetas = np.asarray(
-                    nxentry.sample.rotation_angle[
-                        field_indices])[sequence_numbers]
+                    nxentry.sample.rotation_angle)[
+                        field_indices][sequence_numbers]
             else:
                 assert all(
-                    thetas[i] == nxentry.sample.rotation_angle[
-                        field_indices[index]]
+                    thetas[i] == np.asarray(
+                        nxentry.sample.rotation_angle)[
+                            field_indices[index]]
                     for i, index in enumerate(sequence_numbers))
 
         return thetas
@@ -1866,7 +2044,7 @@ class Tomo:
 
         return zoom_perc, delta_theta
 
-    def _gen_tomo(self, nxentry, reduced_data):
+    def _gen_tomo(self, nxentry, reduced_data, image_key):
         """Generate tomography fields."""
         # Third party modules
         from numexpr import evaluate
@@ -1877,27 +2055,27 @@ class Tomo:
         tbf_shape = tbf.shape
 
         # Get image bounds
-        img_x_bounds = tuple(
-            reduced_data.get('img_x_bounds', (0, tbf_shape[0])))
-        img_y_bounds = tuple(
-            reduced_data.get('img_y_bounds', (0, tbf_shape[1])))
+        img_row_bounds = tuple(
+            reduced_data.get('img_row_bounds', (0, tbf_shape[0])))
+        img_column_bounds = tuple(
+            reduced_data.get('img_column_bounds', (0, tbf_shape[1])))
 
         # Get resized dark field
         if 'dark_field' in reduced_data.data:
             tdf = np.asarray(
-                reduced_data.data.dark_field[
-                    img_x_bounds[0]:img_x_bounds[1],
-                    img_y_bounds[0]:img_y_bounds[1]])
+                reduced_data.data.dark_field)[
+                    img_row_bounds[0]:img_row_bounds[1],
+                    img_column_bounds[0]:img_column_bounds[1]]
         else:
             self._logger.warning('Dark field unavailable')
             tdf = None
 
         # Resize bright field
-        if (img_x_bounds != (0, tbf.shape[0])
-                or img_y_bounds != (0, tbf.shape[1])):
+        if (img_row_bounds != (0, tbf.shape[0])
+                or img_column_bounds != (0, tbf.shape[1])):
             tbf = tbf[
-                img_x_bounds[0]:img_x_bounds[1],
-                img_y_bounds[0]:img_y_bounds[1]]
+                img_row_bounds[0]:img_row_bounds[1],
+                img_column_bounds[0]:img_column_bounds[1]]
 
         # Get thetas (in degrees)
         thetas = np.asarray(reduced_data.rotation_angle)
@@ -1910,12 +2088,12 @@ class Tomo:
             image_mask = np.asarray(image_mask)
 
         # Get the tomography images
-        image_key = nxentry.instrument.detector.get('image_key', None)
         field_indices_all = [
             index for index, key in enumerate(image_key) if key == 0]
         if not field_indices_all:
             raise ValueError('Tomography field(s) unavailable')
-        z_translation_all = nxentry.sample.z_translation[field_indices_all]
+        z_translation_all = np.asarray(
+            nxentry.sample.z_translation)[field_indices_all]
         z_translation_levels = sorted(list(set(z_translation_all)))
         num_tomo_stacks = len(z_translation_levels)
         tomo_stacks = num_tomo_stacks*[np.array([])]
@@ -1929,41 +2107,46 @@ class Tomo:
                     for index, z in enumerate(z_translation_all)
                     if z == z_translation]
                 field_indices_masked = np.asarray(field_indices)[image_mask]
-                horizontal_shift = list(set(
-                    nxentry.sample.x_translation[field_indices_masked]))
+                horizontal_shift = list(set(np.asarray(
+                    nxentry.sample.x_translation)[field_indices_masked]))
                 assert len(horizontal_shift) == 1
                 horizontal_shifts += horizontal_shift
-                vertical_shift = list(set(
-                    nxentry.sample.z_translation[field_indices_masked]))
+                vertical_shift = list(set(np.asarray(
+                    nxentry.sample.z_translation)[field_indices_masked]))
                 assert len(vertical_shift) == 1
                 vertical_shifts += vertical_shift
-                sequence_numbers = \
-                    nxentry.instrument.detector.sequence_number[
+                sequence_numbers = np.asarray(
+                    nxentry.instrument.detector.sequence_number)[
                         field_indices]
                 assert (list(sequence_numbers)
                         == list(range((len(sequence_numbers)))))
                 tomo_stack = np.asarray(
-                    nxentry.instrument.detector.data[field_indices_masked])
+                    nxentry.instrument.detector.data)[field_indices_masked]
             except:
-                raise RuntimeError('Unable to load the tomography images'
+                raise RuntimeError('Unable to load the tomography images '
                                    f'for stack {i}')
             tomo_stacks.append(tomo_stack)
+            if not i:
+                tomo_stack_shape = tomo_stack.shape
+            else:
+                assert tomo_stack_shape == tomo_stack.shape
 
-        x_pixel_size = nxentry.instrument.detector.x_pixel_size
-        y_pixel_size = nxentry.instrument.detector.y_pixel_size
+        row_pixel_size = float(nxentry.instrument.detector.row_pixel_size)
+        column_pixel_size = float(
+            nxentry.instrument.detector.column_pixel_size)
         reduced_tomo_stacks = []
         for i, tomo_stack in enumerate(tomo_stacks):
             # Resize the tomography images
             # Right now the range is the same for each set in the stack
             assert len(thetas) == tomo_stack.shape[0]
-            if (img_x_bounds == (0, tbf.shape[0])
-                    and img_y_bounds == (0, tbf.shape[1])):
-                tomo_stack = tomo_stack.astype('float64', copy=False)
-            else:
+            if (img_row_bounds != (0, tomo_stack.shape[1])
+                    or img_column_bounds != (0, tomo_stack.shape[2])):
                 tomo_stack = tomo_stack[
-                    :,img_x_bounds[0]:img_x_bounds[1],
-                    img_y_bounds[0]:img_y_bounds[1]].astype(
+                    :,img_row_bounds[0]:img_row_bounds[1],
+                    img_column_bounds[0]:img_column_bounds[1]].astype(
                         'float64', copy=False)
+            else:
+                tomo_stack = tomo_stack.astype('float64', copy=False)
 
             # Subtract dark field
             if tdf is not None:
@@ -1975,8 +2158,8 @@ class Tomo:
                         f'\nA {type(e).__name__} occured while subtracting '
                         'the dark field with num_expr.evaluate()'
                         '\nTry reducing the detector range'
-                        f'\n(currently img_x_bounds = {img_x_bounds}, and '
-                        f'img_y_bounds = {img_y_bounds})\n')
+                        f'\n(currently img_row_bounds = {img_row_bounds}, and '
+                        f'img_column_bounds = {img_column_bounds})\n')
 
             # Normalize
             try:
@@ -1987,8 +2170,8 @@ class Tomo:
                     f'\nA {type(e).__name__} occured while normalizing the '
                     'tomography data with num_expr.evaluate()'
                     '\nTry reducing the detector range'
-                    f'\n(currently img_x_bounds = {img_x_bounds}, and '
-                    f'img_y_bounds = {img_y_bounds})\n')
+                    f'\n(currently img_row_bounds = {img_row_bounds}, and '
+                    f'img_column_bounds = {img_column_bounds})\n')
 
             # Remove non-positive values and linearize data
             # RV make input argument? cutoff = 1.e-6
@@ -2004,21 +2187,16 @@ class Tomo:
 
             # Downsize tomography stack to smaller size
             tomo_stack = tomo_stack.astype('float32', copy=False)
-            if not self._test_mode:
+            if not self._test_mode and (self._save_figs or self._save_only):
                 if len(tomo_stacks) == 1:
                     title = f'red fullres theta {round(thetas[0], 2)+0}'
                 else:
                     title = f'red stack {i} fullres theta ' \
                         f'{round(thetas[0], 2)+0}'
-                extent = (
-                    0,
-                    float(y_pixel_size*tomo_stack.shape[2]),
-                    float(x_pixel_size*tomo_stack.shape[1]),
-                    0)
                 quick_imshow(
-                    tomo_stack[0,:,:], title=title, path=self._output_folder,
-                    save_fig=self._save_figs, save_only=self._save_only,
-                    extent=extent, block=self._block)
+                    tomo_stack[0,:,:], title=title, 
+                    path=self._output_folder, save_fig=self._save_figs,
+                    save_only=self._save_only, block=self._block)
 #                if not self._block:
 #                    clear_imshow(title)
             zoom_perc = 100
@@ -2036,7 +2214,7 @@ class Tomo:
                     title = f'red stack {zoom_perc}p theta ' \
                         f'{round(thetas[0], 2)+0}'
                     quick_imshow(
-                        tomo_stack[0,:,:], title=title,
+                        tomo_stack[0,:,:], title=title, 
                         path=self._output_folder, save_fig=self._save_figs,
                         save_only=self._save_only, block=self._block)
 #                    if not self._block:
@@ -2053,9 +2231,12 @@ class Tomo:
             reduced_tomo_stacks.append(tomo_stack)
 
         # Add tomo field info to reduced data NXprocess
-        reduced_data['x_translation'] = np.asarray(horizontal_shifts)
-        reduced_data['z_translation'] = np.asarray(vertical_shifts)
-        reduced_data.data['tomo_fields'] = np.asarray(reduced_tomo_stacks)
+        reduced_data.x_translation = np.asarray(horizontal_shifts)
+        reduced_data.x_translation.units = 'mm'
+        reduced_data.z_translation = np.asarray(vertical_shifts)
+        reduced_data.z_translation.units = 'mm'
+        reduced_data.data.tomo_fields = np.asarray(reduced_tomo_stacks)
+        reduced_data.data.attrs['signal'] = 'tomo_fields'
 
         if tdf is not None:
             del tdf
@@ -2105,6 +2286,7 @@ class Tomo:
             f'Center at row {row} using Nghia Vo’s method = '
             f'{center_offset_vo:.2f}')
 
+        recon_plane = None
         if self._save_figs:
             t0 = time()
             recon_plane = self._reconstruct_one_plane(
@@ -2235,7 +2417,8 @@ class Tomo:
             center_offset = center_offset_vo
 
         del sinogram_t
-        del recon_plane
+        if recon_plane is not None:
+            del recon_plane
 
         return float(center_offset)
 
@@ -2327,11 +2510,12 @@ class Tomo:
             path = self._output_folder
         quick_imshow(
             edges[0,:,:], f'{title} coolwarm', path=path, cmap='coolwarm',
-            save_fig=save_figs, save_only=save_only, block=self._block)
-        quick_imshow(
-            edges[0,:,:], f'{title} gray', path=path, cmap='gray', vmin=vmin,
-            vmax=vmax, save_fig=save_figs, save_only=save_only,
+            save_fig=save_figs, save_only=save_only,
             block=self._block)
+        quick_imshow(
+            edges[0,:,:], f'{title} gray', path=path, cmap='gray',
+            vmin=vmin, vmax=vmax, save_fig=save_figs,
+            save_only=save_only, block=self._block)
         del edges
 
     def _reconstruct_one_tomo_stack(
@@ -2459,7 +2643,7 @@ class Tomo:
             self, data, x_bounds=None, y_bounds=None, z_bounds=None,
             z_only=False):
         """Resize the reconstructed tomography data."""
-        # Data order: row(z),x,y or stack,row(z),x,y
+        # Data order: x,y,z or stack,x,y,z
         if isinstance(data, list):
             for stack in data:
                 assert stack.ndim == 3
@@ -2474,7 +2658,7 @@ class Tomo:
             # Selecting x bounds (in yz-plane)
             tomosum = 0
             for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,2))
+                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
             select_x_bounds = input_yesno(
                 '\nDo you want to change the image x-bounds (y/n)?', 'y')
             if not select_x_bounds:
@@ -2500,7 +2684,7 @@ class Tomo:
             # Selecting y bounds (in xz-plane)
             tomosum = 0
             for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,1))
+                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,2))
             select_y_bounds = input_yesno(
                 '\nDo you want to change the image y-bounds (y/n)?', 'y')
             if not select_y_bounds:
@@ -2527,7 +2711,7 @@ class Tomo:
         if z_bounds is None and num_tomo_stacks != 1:
             tomosum = 0
             for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
+                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,1))
             select_z_bounds = input_yesno(
                 'Do you want to change the image z-bounds (y/n)?', 'n')
             if not select_z_bounds:
@@ -2567,6 +2751,7 @@ class TomoSimFieldProcessor(Processor):
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
+        :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated tomographic images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2649,20 +2834,21 @@ class TomoSimFieldProcessor(Processor):
             raise ValueError('Sample is to tall for the detector')
 
         # Get the column coordinates
-        img_x_offset = -0.5 * (detector_size[0]*pixel_size[0]
+        img_row_offset = -0.5 * (detector_size[0]*pixel_size[0]
                                + slit_size * (num_tomo_stack-1))
-        img_x_coords = (img_x_offset
+        img_row_coords = np.flip(img_row_offset
             + pixel_size[0] * (0.5 + np.asarray(range(int(detector_size[0])))))
 
         # Get the transmitted intensities
         num_theta = len(thetas)
         vertical_shifts = []
         tomo_fields_stack = []
-        img_dim = (len(img_x_coords), path_lengths_solid.shape[1])
+        img_dim = (len(img_row_coords), path_lengths_solid.shape[1])
         intensities_solid = None
         intensities_hollow = None
         for n in range(num_tomo_stack):
-            vertical_shifts.append(img_x_offset + n*slit_size)
+            vertical_shifts.append(img_row_offset + n*slit_size
+                                   + 0.5*detector_size[0]*pixel_size[0])
             tomo_field = beam_intensity * np.ones((num_theta, *img_dim))
             if sample_type == 'square_rod':
                 intensities_solid = \
@@ -2680,9 +2866,9 @@ class TomoSimFieldProcessor(Processor):
                 intensities_hollow = \
                     beam_intensity * np.exp(-mu*path_lengths_hollow)
                 outer_indices = \
-                    np.where(abs(img_x_coords) <= sample_size[0]/2)[0]
+                    np.where(abs(img_row_coords) <= sample_size[0]/2)[0]
                 inner_indices = np.where(
-                    abs(img_x_coords) < sample_size[0]/2 - wall_thickness)[0]
+                    abs(img_row_coords) < sample_size[0]/2 - wall_thickness)[0]
                 wall_indices = list(set(outer_indices)-set(inner_indices))
                 for i in wall_indices:
                     for n in range(num_theta):
@@ -2693,31 +2879,31 @@ class TomoSimFieldProcessor(Processor):
             tomo_field += background_intensity
             tomo_fields_stack.append(tomo_field.astype(np.int64))
             if num_tomo_stack > 1:
-                img_x_coords += slit_size
-            
+                img_row_coords += slit_size
+
         # Add dummy snapshots at each end to mimic FMB/SMB
         if station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
-            num_theta_dummy_end = 0
+            num_dummy_start = 5
+            num_dummy_end = 0
             starting_image_index = 345000
         else:
-            num_theta_dummy_start = 1
-            num_theta_dummy_end = 1
+            num_dummy_start = 1
+            num_dummy_end = 0
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
-        thetas = [theta_start-n*theta_step
-            for n in range(num_theta_dummy_start, 0, -1)] + thetas
-        thetas += [theta_end+n*theta_step
-            for n in range(1, num_theta_dummy_end+1)]
-        if num_theta_dummy_start:
+        starting_image_offset = num_dummy_start
+#        thetas = [theta_start-n*theta_step
+#            for n in range(num_dummy_start, 0, -1)] + thetas
+#        thetas += [theta_end+n*theta_step
+#            for n in range(1, num_dummy_end+1)]
+        if num_dummy_start:
             dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_start, *img_dim), dtype=np.int64)
+                (num_dummy_start, *img_dim), dtype=np.int64)
             for n, tomo_field in enumerate(tomo_fields_stack):
                 tomo_fields_stack[n] = np.concatenate(
                     (dummy_fields, tomo_field))
-        if num_theta_dummy_end:
+        if num_dummy_end:
             dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_end, *img_dim), dtype=np.int64)
+                (num_dummy_end, *img_dim), dtype=np.int64)
             for n, tomo_field in enumerate(tomo_fields_stack):
                 tomo_fields_stack[n] = np.concatenate(
                     (tomo_field, dummy_fields))
@@ -2746,10 +2932,10 @@ class TomoSimFieldProcessor(Processor):
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = config.detector.prefix
-        nxdetector.x_pixel_size = pixel_size[0]
-        nxdetector.y_pixel_size = pixel_size[1]
-        nxdetector.x_pixel_size.attrs['units'] = 'mm'
-        nxdetector.y_pixel_size.attrs['units'] = 'mm'
+        nxdetector.row_pixel_size = pixel_size[0]
+        nxdetector.column_pixel_size = pixel_size[1]
+        nxdetector.row_pixel_size.units = 'mm'
+        nxdetector.column_pixel_size.units = 'mm'
         nxdetector.data = tomo_fields_stack
         nxdetector.thetas = thetas
         nxdetector.z_translation = vertical_shifts
@@ -2822,6 +3008,8 @@ class TomoDarkFieldProcessor(Processor):
         :type data: list[PipelineData]
         :param num_image: Number of dark field images, defaults to 5.
         :type num_image: int, optional.
+        :raises ValueError: Missing or invalid input or configuration
+            parameter.
         :return: Simulated dark field images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2834,7 +3022,7 @@ class TomoDarkFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -2845,13 +3033,13 @@ class TomoDarkFieldProcessor(Processor):
 
         # Add dummy snapshots at start to mimic SMB
         if source.station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
+            num_dummy_start = 5
             starting_image_index = 123000
         else:
-            num_theta_dummy_start = 1
+            num_dummy_start = 1
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
-        num_image += num_theta_dummy_start
+        starting_image_offset = num_dummy_start
+        num_image += num_dummy_start
 
         # Create the dark field
         dark_field = int(background_intensity) * np.ones(
@@ -2863,14 +3051,14 @@ class TomoDarkFieldProcessor(Processor):
         nxdark.entry.sample = nxroot.entry.sample
         nxinstrument = NXinstrument()
         nxdark.entry.instrument = nxinstrument
-        nxinstrument.source = nxroot.entry.instrument.source
+        nxinstrument.source = source
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = detector.local_name
-        nxdetector.x_pixel_size = detector.x_pixel_size
-        nxdetector.y_pixel_size = detector.y_pixel_size
+        nxdetector.row_pixel_size = detector.row_pixel_size
+        nxdetector.column_pixel_size = detector.column_pixel_size
         nxdetector.data = dark_field
-        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -2893,6 +3081,8 @@ class TomoBrightFieldProcessor(Processor):
         :type data: list[PipelineData]
         :param num_image: Number of bright field images, defaults to 5.
         :type num_image: int, optional.
+        :raises ValueError: Missing or invalid input or configuration
+            parameter.
         :return: Simulated bright field images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -2906,7 +3096,7 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -2918,30 +3108,30 @@ class TomoBrightFieldProcessor(Processor):
 
         # Add dummy snapshots at start to mimic SMB
         if source.station in ('id1a3', 'id3a'):
-            num_theta_dummy_start = 5
+            num_dummy_start = 5
             starting_image_index = 234000
         else:
-            num_theta_dummy_start = 1
+            num_dummy_start = 1
             starting_image_index = 0
-        starting_image_offset = num_theta_dummy_start
+        starting_image_offset = num_dummy_start
 
         # Create the bright field
         bright_field = int(background_intensity+beam_intensity) * np.ones(
             (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
-        if num_theta_dummy_start:
-            dummy_fields = background_intensity * np.ones(
-                (num_theta_dummy_start, detector_size[0], detector_size[1]),
+        if num_dummy_start:
+            dummy_fields = int(background_intensity) * np.ones(
+                (num_dummy_start, detector_size[0], detector_size[1]),
                 dtype=np.int64)
             bright_field = np.concatenate((dummy_fields, bright_field))
-            num_image += num_theta_dummy_start
+            num_image += num_dummy_start
         # Add 10% to slit size to make the bright beam slightly taller
         #     than the vertical displacements between stacks
         slit_size = 1.10*source.slit_size
-        if slit_size < detector.x_pixel_size*detector_size[0]:
-            img_x_coords = detector.x_pixel_size \
+        if slit_size < float(detector.row_pixel_size*detector_size[0]):
+            img_row_coords = float(detector.row_pixel_size) \
                 * (0.5 + np.asarray(range(int(detector_size[0])))
                    - 0.5*detector_size[0])
-            outer_indices = np.where(abs(img_x_coords) > slit_size/2)[0]
+            outer_indices = np.where(abs(img_row_coords) > slit_size/2)[0]
             bright_field[:,outer_indices,:] = 0
 
         # Create Nexus object and write to file
@@ -2950,14 +3140,14 @@ class TomoBrightFieldProcessor(Processor):
         nxbright.entry.sample = nxroot.entry.sample
         nxinstrument = NXinstrument()
         nxbright.entry.instrument = nxinstrument
-        nxinstrument.source = nxroot.entry.instrument.source
+        nxinstrument.source = source
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = detector.local_name
-        nxdetector.x_pixel_size = detector.x_pixel_size
-        nxdetector.y_pixel_size = detector.y_pixel_size
+        nxdetector.row_pixel_size = detector.row_pixel_size
+        nxdetector.column_pixel_size = detector.column_pixel_size
         nxdetector.data = bright_field
-        nxdetector.thetas = np.asarray(num_image*[0])
+        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -2970,27 +3160,32 @@ class TomoSpecProcessor(Processor):
     simulated tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, spec_folder='.', scan_numbers=[1], **kwargs):
+    def process(self, data, scan_numbers=[1], **kwargs):
         """
         Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param spec_folder: Output folder for the SPEC file(s), defaults
-            to '.'.
-        :type spec_folder: str, optional.
-        :param scan_numbers: List of SPEC scan numbers, defaults to [1].
+        :param scan_numbers: List of SPEC scan numbers,
+            defaults to [1].
         :type scan_numbers: list[int]
+        :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
         :rtype: list[str]
         """
         # System modules
-        from json import dump
+        from json import dumps
         from datetime import datetime
 
         # Third party modules
-        from nexusformat.nexus import NeXusError
+        from nexusformat.nexus import (
+            NeXusError,
+            NXcollection,
+            NXentry,
+            NXroot,
+            NXsubentry,
+        )
 
         # Get and validate the TomoSimField, TomoDarkField, or
         #     TomoBrightField configuration object in data
@@ -3044,10 +3239,8 @@ class TomoSpecProcessor(Processor):
                 f'Inconsistent number of scans ({num_scan}), '
                 f'len(scan_numbers) = {len(scan_numbers)})')
 
-        # Create the SPEC output folder if needed
-        spec_folder = os_path.abspath(spec_folder)
-        if not os_path.isdir(spec_folder):
-            mkdir(spec_folder)
+        # Create the output data structure in Nexus format
+        nxentry = NXentry()
 
         # Create the SPEC file header
         spec_file = [f'#F {sample_type}']
@@ -3066,6 +3259,7 @@ class TomoSpecProcessor(Processor):
         # Create the SPEC file scan info (and image and parfile data for SMB)
         par_file = []
         image_sets = []
+        starting_image_indices = []
         num_scan = 0
         count_time = 1
         for schema, nxroot in configs.items():
@@ -3083,6 +3277,7 @@ class TomoSpecProcessor(Processor):
                     scan_type = 'df1'
                 else:
                     macro = f'flyscan {num_theta-1} {count_time}'
+                    field_type = 'dark_field'
             elif schema == 'tomo.models.TomoBrightField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
@@ -3090,6 +3285,7 @@ class TomoSpecProcessor(Processor):
                     scan_type = 'bf1'
                 else:
                     macro = f'flyscan {num_theta-1} {count_time}'
+                    field_type = 'bright_field'
             elif schema == 'tomo.models.TomoSimField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \
@@ -3098,10 +3294,12 @@ class TomoSpecProcessor(Processor):
                 else:
                     macro = f'flyscan samphi {thetas[0]} ' \
                         f'{thetas[-1]} {num_theta-1} {count_time}'
+                    field_type = 'tomo_field'
             starting_image_index = int(detector.starting_image_index)
             starting_image_offset = int(detector.starting_image_offset)
-            for  n, z_translation in enumerate(z_translations):
-                spec_file.append(f'#S {scan_numbers[num_scan]}  {macro}')
+            for n, z_translation in enumerate(z_translations):
+                scan_number = scan_numbers[num_scan]
+                spec_file.append(f'#S {scan_number}  {macro}')
                 spec_file.append(
                     f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
                 if station in ('id1a3', 'id3a'):
@@ -3109,13 +3307,13 @@ class TomoSpecProcessor(Processor):
                     spec_file.append('#N 1')
                     spec_file.append('#L  ome')
                     if scan_type == 'ts1':
-                        image_sets.append(detector.data[n])
+                        image_sets.append(np.asarray(detector.data)[n])
                     else:
-                        image_sets.append(detector.data)
+                        image_sets.append(np.asarray(detector.data))
                     par_file.append(
                         f'{datetime.now().strftime("%Y%m%d")} '
                         f'{datetime.now().strftime("%H%M%S")} '
-                        f'{scan_numbers[num_scan]} '
+                        f'{scan_number} '
 #                        '2.0 '
 #                        '1.0 '
                         f'{starting_image_index} '
@@ -3132,15 +3330,22 @@ class TomoSpecProcessor(Processor):
                     spec_file.append('#N 1')
                     spec_file.append('#L theta')
                     spec_file += [str(theta) for theta in thetas]
+                    # Add the h5 file to output
+                    prefix = str(detector.local_name).upper()
+                    field_name = f'{field_type}_{scan_number:03d}'
+                    nxentry[field_name] = nxroot.entry
+                    nxentry[field_name].attrs['schema'] = 'h5'
+                    nxentry[field_name].attrs['filename'] = \
+                        f'{sample_type}_{prefix}_{scan_number:03d}.h5'
+                starting_image_indices.append(starting_image_index)
                 spec_file.append('')
                 num_scan += 1
-        
+
         if station in ('id1a3', 'id3a'):
 
-            # Write the SPEC file
-            self._write_txt(spec_file, os_path.join(spec_folder, 'spec.log'))
+            spec_filename = 'spec.log'
 
-            # Write the JSON file
+            # Add the JSON file to output
             parfile_header = {
                 '0': 'date',
                 '1': 'time',
@@ -3157,47 +3362,46 @@ class TomoSpecProcessor(Processor):
                 '10': 'count_time',
                 '11': 'tomotype',
             }
-            json_filename = os_path.join(
-                spec_folder,
-                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.json')
-            with open(json_filename, 'w') as f:
-                dump(parfile_header, f)
+            nxentry.json = NXsubentry()
+            nxentry.json.data = dumps(parfile_header)
+            nxentry.json.attrs['schema'] = 'json'
+            nxentry.json.attrs['filename'] = \
+                f'{station}-tomo_sim-{sample_type}.json'
         
-            # Write the par file
-            par_filename = os_path.join(
-                spec_folder,
-                f'{station}-tomo_sim-{os_path.basename(spec_folder)}.par')
-            self._write_txt(par_file, par_filename)
+            # Add the par file to output
+            nxentry.par = NXsubentry()
+            nxentry.par.data = par_file
+            nxentry.par.attrs['schema'] = 'txt'
+            nxentry.par.attrs['filename'] = \
+                f'{station}-tomo_sim-{sample_type}.par'
 
-            # Write image files as individual tiffs
-            for scan_number, image_set in zip(scan_numbers, image_sets):
-                image_folder = os_path.join(spec_folder, str(scan_number))
-                if not os_path.isdir(image_folder):
-                    mkdir(image_folder)
-                image_folder = os_path.join(image_folder, 'nf')
-                if not os_path.isdir(image_folder):
-                    mkdir(image_folder)
-                self._write_tiffs(image_set, image_folder)
+            # Add image files as individual tiffs to output
+            for scan_number, image_set, starting_image_index in zip(
+                    scan_numbers, image_sets, starting_image_indices):
+                nxentry[f'{scan_number}'] = NXsubentry()
+                nxsubentry = NXsubentry()
+                nxentry[f'{scan_number}']['nf'] = nxsubentry
+                for n in range(image_set.shape[0]):
+                    nxsubentry[f'tiff_{n}'] = NXsubentry()
+                    nxsubentry[f'tiff_{n}'].data = image_set[n]
+                    nxsubentry[f'tiff_{n}'].attrs['schema'] = 'tif'
+                    nxsubentry[f'tiff_{n}'].attrs['filename'] = \
+                        f'nf_{(n+starting_image_index):06d}.tif'
+        else:
 
-        return spec_file
+            spec_filename = sample_type
 
-    def _write_tiffs(self, data, image_folder):
-        """Write a set of images to individual tiff files."""
-        # Third party modules
-        from imageio import imwrite
-        for n in range(data.shape[0]):
-            imwrite(
-                os_path.join(image_folder, f'nf_{n:06d}.tif'), data[n])
+        # Add spec file to output
+        nxentry.spec = NXsubentry()
+        nxentry.spec.data = spec_file
+        nxentry.spec.attrs['schema'] = 'txt'
+        nxentry.spec.attrs['filename'] = spec_filename
 
-    def _write_txt(self, data, filepath, force_overwrite=True):
-        """Local wrapper for the text file writer."""
-        # Local modules
-        from CHAP.common import TXTWriter
-        from CHAP.pipeline import PipelineData
-        writer = TXTWriter()
-        writer.write(
-            [PipelineData(data=data)], filepath,
-            force_overwrite=force_overwrite)
+        nxroot = NXroot()
+        nxroot[sample_type] = nxentry
+        nxroot.attrs['default'] = sample_type
+
+        return nxroot
 
 
 if __name__ == '__main__':

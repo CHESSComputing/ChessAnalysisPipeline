@@ -1,2 +1,8 @@
+x_bounds:
+- 15
+- 390
+y_bounds:
+- 25
+- 380
 secondary_iters: 10
 ring_width: 1

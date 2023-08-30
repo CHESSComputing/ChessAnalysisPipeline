@@ -36,7 +36,8 @@ class Pipeline():
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        data = PipelineData()
+        #data = [PipelineData()]
+        data = []
         for item, kwargs in zip(self.items, self.kwds):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
@@ -67,22 +68,16 @@ class PipelineItem():
     @staticmethod
     def unwrap_pipelinedata(data):
         """Given a list of PipelineData objects, return a list of
-        their "data" values. If there is only one item in ``data``,
-        return only its "data" value (not in a list).
+        their "data" values.
 
         :param data: input data to read, write, or process that needs
             to be unrapped from PipelineData before use
         :type data: list[PipelineData]
         :return: just the "data" values of the items in ``data``
-        :rtype: Union[list[object], object]
+        :rtype: list[object]
         """
 
-        values = [d['data'] for d in data]
-
-        if len(values) == 1:
-            return values[0]
-
-        return values
+        return [d['data'] for d in data]
 
     def get_config(self, data, schema, remove=True, **kwargs):
         """Look through `data` for an item whose value for the
@@ -193,7 +188,7 @@ class MultiplePipelineItem(PipelineItem):
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
-        results = []
+        data = kwargs['data']
         for item_config in items:
             if isinstance(item_config, dict):
                 item_name = list(item_config.keys())[0]
@@ -208,9 +203,13 @@ class MultiplePipelineItem(PipelineItem):
             mod_name, cls_name = item_name.rsplit('.', 1)
             module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
             item = getattr(module, cls_name)()
-            results.append(item.execute(**item_args, **kwargs)[0])
+            if hasattr(item, 'write'):
+                item.execute(**item_args, **kwargs)[0]
+            else:
+                data.append(item.execute(**item_args, **kwargs)[0])
 
         self.logger.info(
             f'Finished executing {len(items)} PipelineItems in {time()-t0:.0f}'
             ' seconds\n')
-        return results
+
+        return data
