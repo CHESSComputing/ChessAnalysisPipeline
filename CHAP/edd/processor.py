@@ -929,6 +929,12 @@ class StrainAnalysisProcessor(Processor):
             self.logger.debug('Performing unconstrained fit')
             fit.create_multipeak_model(fit_type='unconstrained')
             fit.fit()
+            tth_map = detector.get_tth_map(map_config)
+            nominal_centers = np.empty(
+                (len(peak_locations), *map_config.shape))
+            for i, fit_d in enumerate(fit_ds):
+                nominal_centers = hc / (
+                    2. * fit_d * np.sin(0.5*np.radians(tth_map)))
             unconstrained_fit_centers = np.array(
                 [fit.best_values[
                     fit.best_parameters()\
@@ -939,10 +945,8 @@ class StrainAnalysisProcessor(Processor):
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
-            unconstrained_strains = np.empty_like(unconstrained_fit_centers)
-            for i, peak_loc in enumerate(peak_locations):
-                unconstrained_strains[i] = np.log(
-                    peak_loc / unconstrained_fit_centers[i])
+            unconstrained_strains = np.log(
+                nominal_centers / unconstrained_fit_centers)
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
             det_nxdata.microstrain.nxdata = unconstrained_strain * 1e6
 

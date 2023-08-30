@@ -515,7 +515,10 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     max_energy_kev: Optional[confloat(gt=0)]
     num_bins: Optional[conint(gt=0)]
 
-    _tth_map: Optional[np.ndarray]
+    tth_map: Optional[np.ndarray] = None
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def add_calibration(self, calibration):
         """Finalize values for some fields using a completed
@@ -550,7 +553,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
         return fit_hkls, fit_ds
 
-    def tth_map(self, map_config):
+    def get_tth_map(self, map_config):
         """Return a map of tth values to use -- may vary at each point
         in the map.
 
@@ -560,9 +563,24 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :return: map of thh values
         :rtype: np.ndarray
         """
-        if self._tth_map is not None:
-            return self._tth_map
+        if getattr(self, 'tth_map', None) is not None:
+            return self.tth_map
         return np.full(map_config.shape, self.tth_calibrated)
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        for k,v in d.items():
+            if isinstance(v, PosixPath):
+                d[k] = str(v)
+            if isinstance(v, np.ndarray):
+                d[k] = v.tolist()
+        return d
 
 
 class StrainAnalysisConfig(BaseModel):
@@ -630,7 +648,7 @@ class StrainAnalysisConfig(BaseModel):
                     + 'StrainAnalysisConfig that uses par_file.')
             else:
                 try:
-                    detector._tth_map = ParFile(values['par_file']).map_values(
+                    detector.tth_map = ParFile(values['par_file']).map_values(
                         values['map_config'], np.loadtxt(detector.tth_file))
                 except Exception as e:
                     raise ValueError(
