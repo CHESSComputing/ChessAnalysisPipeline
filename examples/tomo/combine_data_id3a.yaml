@@ -1,2 +1,3 @@
-x_bounds: 
-y_bounds: 
+z_bounds:
+- 2
+- 57

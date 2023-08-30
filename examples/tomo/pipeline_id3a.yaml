@@ -76,6 +76,6 @@ pipeline:
       output_folder: examples/tomo/hollow_brick/output
       save_figs: 'only'
   - common.NexusWriter:
-      filename: reconstruct_hollow_brick.nxs
+      filename: combine_hollow_brick.nxs
       force_overwrite: true
 
