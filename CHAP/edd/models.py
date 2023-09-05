@@ -16,7 +16,7 @@ from typing import Literal, Optional, Union
 
 # local modules
 from CHAP.common.models.map import MapConfig
-from CHAP.utils.material import Material
+from hexrd.material import Material
 from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
@@ -25,13 +25,15 @@ class MCAElementConfig(BaseModel):
     """Class representing metadata required to configure a single MCA
     detector element.
 
-    :ivar detector_name: name of the MCA used with the scan
+    :ivar detector_name: Name of the MCA detector element in the scan,
+        defaults to `'mca1'`.
     :type detector_name: str
-    :ivar num_bins: number of channels on the MCA
-    :type num_bins: int
-    :ivar include_bin_ranges: list of MCA channel index ranges whose
-        data should be included after applying a mask
-    :type include_bin_ranges: list[list[int]]
+    :ivar num_bins: Number of MCA channels.
+    :type num_bins: int, optional
+    :ivar include_bin_ranges: List of MCA channel index ranges whose
+        data should be included after applying a mask,
+        defaults to `[]`
+    :type include_bin_ranges: list[list[int]], optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)]
@@ -41,11 +43,21 @@ class MCAElementConfig(BaseModel):
             item_type=conlist(
                 item_type=conint(ge=0),
                 min_items=2,
-                max_items=2))] = None
+                max_items=2))] = []
 
     @validator('include_bin_ranges', each_item=True)
     def validate_include_bin_range(cls, value, values):
-        """Ensure no bin ranges are outside the boundary of the detector"""
+        """Ensure that no bin ranges are outside the boundary of the
+        detector.
+
+        :param value: Field value to validate (`include_bin_ranges`).
+        :type values: dict
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :return: The validated value of `include_bin_ranges`.
+        :rtype: dict
+        """
+        #RV test for more than one bin
         num_bins = values.get('num_bins')
         if num_bins is not None:
             value[1] = min(value[1], num_bins)
@@ -54,7 +66,7 @@ class MCAElementConfig(BaseModel):
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
 
-        :return: boolean mask array
+        :return: Boolean mask array.
         :rtype: numpy.ndarray
         """
         mask = np.asarray([False] * self.num_bins)
@@ -68,7 +80,7 @@ class MCAElementConfig(BaseModel):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
-        :return: dictionary representation of the configuration.
+        :return: Dictionary representation of the configuration.
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
@@ -82,22 +94,26 @@ class MCAScanDataConfig(BaseModel):
     """Class representing metadata required to locate raw MCA data for
     a single scan and construct a mask for it.
 
-    :ivar spec_file: Path to the SPEC file containing the scan
-    :ivar scan_number: Number of the scan in `spec_file`
-    :ivar detectors: list of detector element metadata configurations
-
-    :ivar detector_name: name of the MCA used with the scan
-    :ivar num_bins: number of channels on the MCA
-
-    :ivar include_bin_ranges: list of MCA channel index ranges whose
-        data should be included after applying a mask
+    :ivar inputdir: Input directory, used only if any file in the
+            configuration is not an absolute path.
+    :type inputdir: str, optional
+    :ivar spec_file: Path to the SPEC file containing the scan.
+    :type spec_file: str, optional
+    :ivar scan_number: Number of the scan in `spec_file`.
+    :type scan_number: int, optional
+    :ivar par_file: Path to the par file associated with the scan.
+    :type par_file: str, optional
+    :ivar scan_column: Required column name in `par_file`.
+    :type scan_column: str, optional
+    :ivar detectors: List of MCA detector element metadata
+        configurations.
+    :type detectors: list[MCAElementConfig]
     """
     inputdir: Optional[DirectoryPath]
     spec_file: Optional[FilePath]
     scan_number: Optional[conint(gt=0)]
     par_file: Optional[FilePath]
-    scan_column: Optional[Union[conint(ge=0), str]]
-
+    scan_column: Optional[str]
     detectors: conlist(min_items=1, item_type=MCAElementConfig)
 
     _parfile: Optional[ParFile]
@@ -110,9 +126,10 @@ class MCAScanDataConfig(BaseModel):
     def validate_scan(cls, values):
         """Finalize file paths for spec_file/par_file and flux_file.
 
-        :param values: dictionary of field values to validate
+        :param values: Dictionary of previously validated field values.
         :type values: dict
-        :return: the validated form of `values`
+        :raises ValueError: Invalid SPEC or par file.
+        :return: The validated list of `values`.
         :rtype: dict
         """
         inputdir = values.get('inputdir')
@@ -134,7 +151,7 @@ class MCAScanDataConfig(BaseModel):
                     values['par_file'] = os.path.join(inputdir, par_file)
             if 'scan_column' not in values:
                 raise ValueError(
-                    'When par_file is used, scan_column must be used, too')
+                    'scan_column is required when par_file is used')
             if isinstance(values['scan_column'], str):
                 parfile = ParFile(values.get('par_file'))
                 if values['scan_column'] not in parfile.column_names:
@@ -149,9 +166,14 @@ class MCAScanDataConfig(BaseModel):
 
     @root_validator
     def validate_detectors(cls, values):
-        """Fill in values for _scanparser / _parfile (if
-        applicable). Fill in values for each detector's num_bins
-        field, if needed.
+        """Fill in values for _scanparser / _parfile (if applicable).
+        Fill in values for each detector's num_bins field, if needed.
+
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :raises ValueError: Unable to obtain a value for num_bins.
+        :return: The validated list of `values`.
+        :rtype: dict
         """
         if values.get('spec_file', False):
             values['_scanparser'] = ScanParser(values.get('spec_file'),
@@ -167,13 +189,14 @@ class MCAScanDataConfig(BaseModel):
                 try:
                     detector.num_bins = values['_scanparser']\
                         .get_detector_num_bins(detector.detector_name)
-                except Exception as exc:
-                    raise ValueError('No value found for num_bins') from exc
+                except Exception as e:
+                    raise ValueError('No value found for num_bins') from e
 
         return values
 
     @property
     def scanparser(self):
+        """Return the scanparser."""
         try:
             scanparser = self._scanparser
         except:
@@ -184,9 +207,13 @@ class MCAScanDataConfig(BaseModel):
     def mca_data(self, detector_config, scan_step_index=None):
         """Get the array of MCA data collected by the scan.
 
-        :param detector_config: detector for which data will be returned
+        :param detector_config: Detector for which data is returned.
         :type detector_config: MCAElementConfig
-        :return: MCA data
+        :param scan_step_index: Only return the MCA spectrum for the
+            given scan step index, default to `None`, which returns
+            all the available MCA.
+        :type scan_step_index: int, optional
+        :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
         detector_name = detector_config.detector_name
@@ -215,7 +242,7 @@ class MCAScanDataConfig(BaseModel):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
-        :return: dictionary representation of the configuration.
+        :return: Dictionary representation of the configuration.
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
@@ -235,14 +262,14 @@ class MCAScanDataConfig(BaseModel):
 
 
 class MaterialConfig(BaseModel):
-    """Model for parameters to characterize a sample material
+    """Model for parameters to characterize a sample material.
 
-    :ivar hexrd_h5_material_file: path to a HEXRD materials.h5 file containing
-        an entry for the material properties.
-    :ivar hexrd_h5_material_name: Name of the material entry in
-        `hexrd_h5_material_file`.
-    :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
-        a cubic crystal.
+    :ivar material_name: Sample material name.
+    :type material_name: str, optional
+    :ivar lattice_parameters: Lattice spacing(s) in angstroms.
+    :type lattice_parameters: float, list[float], optional
+    :ivar sgnum: Space group of the material.
+    :type sgnum: int, optional
     """
     material_name: Optional[constr(strip_whitespace=True, min_length=1)]
     lattice_parameters: Optional[Union[
@@ -257,6 +284,13 @@ class MaterialConfig(BaseModel):
 
     @root_validator
     def validate_material(cls, values):
+        """Create and validate the private attribute _material.
+
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :return: The validated list of `values`.
+        :rtype: dict
+        """
         from CHAP.edd.utils import make_material
         values['_material'] = make_material(values.get('material_name'),
                                             values.get('sgnum'),
@@ -264,15 +298,15 @@ class MaterialConfig(BaseModel):
         return values
 
     def unique_ds(self, tth_tol=0.15, tth_max=90.0):
-        """Get a list of unique HKLs and their lattice spacings
+        """Get a list of unique HKLs and their lattice spacings.
 
-        :param tth_tol: minimum resolvable difference in 2&theta
+        :param tth_tol: Minimum resolvable difference in 2&theta.
             between two unique HKL peaks, defaults to `0.15`.
         :type tth_tol: float, optional
-        :param tth_max: detector rotation about hutch x axis, defaults
+        :param tth_max: Detector rotation about hutch x axis, defaults
             to `90.0`.
         :type tth_max: float, optional
-        :return: unique HKLs and their lattice spacings in angstroms
+        :return: Unique HKLs and their lattice spacings in angstroms.
         :rtype: np.ndarray, np.ndarray
         """
         from CHAP.edd.utils import get_unique_hkls_ds
@@ -282,7 +316,7 @@ class MaterialConfig(BaseModel):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
-        :return: dictionary representation of the configuration.
+        :return: Dictionary representation of the configuration.
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
@@ -295,79 +329,99 @@ class MaterialConfig(BaseModel):
 
 
 class MCAElementCalibrationConfig(MCAElementConfig):
-    """Class representing metadata & parameters required for
-    calibrating a single MCA detector element.
+    """Class representing metadata required to calibrate a single MCA
+    detector element.
 
-    :ivar max_energy_kev: maximum channel energy of the MCA in keV
-    :ivar tth_max: detector rotation about hutch x axis, defaults to `90`.
-    :ivar hkl_tth_tol: minimum resolvable difference in 2&theta between two
-        unique HKL peaks, defaults to `0.15`.
-    :ivar fit_hkls: list of unique HKL indices to fit peaks for in the
-        calibration routine
-    :ivar tth_initial_guess: initial guess for 2&theta
-    :ivar slope_initial_guess: initial guess for detector channel energy
-        correction linear slope, defaults to `1.0`.
-    :ivar intercept_initial_guess: initial guess for detector channel energy
-        correction y-intercept, defaults to `0.0`.
-    :ivar tth_calibrated: calibrated value for 2&theta, defaults to None
-    :ivar slope_calibrated: calibrated value for detector channel energy
-        correction linear slope, defaults to `None`
-    :ivar intercept_calibrated: calibrated value for detector channel energy
-        correction y-intercept, defaluts to None
+    :ivar max_energy_kev: Maximum channel energy of the MCA in keV.
+    :type max_energy_kev: float
+    :ivar tth_max: Detector rotation about lab frame x axis,
+       defaults to `90`.
+    :type tth_max: float, optional
+    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
+        two unique HKL peaks, defaults to `0.15`.
+    :type hkl_tth_tol: float, optional
+    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
+        the calibration routine, defaults to `[]`.
+    :type hkl_indices: list[int], optional
+    :ivar tth_initial_guess: Initial guess for 2&theta,
+        defaults to `5.0`.
+    :type tth_initial_guess: float, optional
+    :ivar slope_initial_guess: Initial guess for the detector channel
+        energy correction linear slope, defaults to `1.0`.
+    :type slope_initial_guess: float, optional
+    :ivar intercept_initial_guess: Initial guess for detector channel
+        energy correction y-intercept, defaults to `0.0`.
+    :type intercept_initial_guess: float, optional
+    :ivar tth_calibrated: Calibrated value for 2&theta.
+    :type tth_calibrated: float, optional
+    :ivar slope_calibrated: Calibrated value for detector channel
+        energy correction linear slope.
+    :type  slope_calibrated: float, optional
+    :ivar intercept_calibrated: Calibrated value for detector channel
+        energy correction y-intercept.
+    :type intercept_calibrated: float, optional
     """
     max_energy_kev: confloat(gt=0)
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
-    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False)
+    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     slope_initial_guess: float = 1.0
     intercept_initial_guess: float = 0.0
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
 
-    def fit_ds(self, materials):
-        """Get a list of HKLs and their lattice spacings that will be
-        fit in the calibration routine
-
-        :return: HKLs to fit and their lattice spacings in angstroms
-        :rtype: np.ndarray, np.ndarray
-        """
-        if not isinstance(materials, list):
-            materials = [materials]
-        from CHAP.edd.utils import get_unique_hkls_ds
-        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
-
-        fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
-        fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
-
-        return fit_hkls, fit_ds
+#    def fit_ds(self, materials):
+#        """Get a list of HKLs and their lattice spacings that will be
+#        fitted in the calibration routine.
+#
+#        :ivar materials: Material(s) to get HKLs and lattice spacings.
+#        :type materials: hexrd.material.Material,
+#            list[hexrd.material.Material]
+#        :return: HKLs to fit and their lattice spacings in angstroms.
+#        :rtype: np.ndarray, np.ndarray
+#        """
+#        if not isinstance(materials, list):
+#            materials = [materials]
+#        from CHAP.edd.utils import get_unique_hkls_ds
+#        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
+#
+#        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
+#        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
+#
+#        return fit_hkls, fit_ds
 
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
-    """Class representing input parameters required to perform a
-    diffraction volume length measurement for a single MCA detector
-    element.
+    """Class representing metadata required to perform a diffraction
+    volume length measurement for a single MCA detector element.
 
-    :ivar measurement_mode: placeholder for recording whether the
+    :ivar measurement_mode: Placeholder for recording whether the
         measured DVL value was obtained through the automated
-        calculation or a manual selection.
-    :type measurement_mode: Literal['manual', 'auto']
-    :ivar sigma_to_dvl_factor: to measure the DVL, a gaussian is fit
-        to a reduced from of the raster scan MCA data. This variable
-        is a scalar that converts the standard deviation of the
-        gaussian fit to the measured DVL.
-    :type sigma_to_dvl_factor: Optional[Literal[1.75, 1., 2.]]
-    :ivar dvl_measured: placeholder for the measured diffraction
-        volume length before writing data to file.
+        calculation or a manual selection, defaults to `'auto'`.
+    :type measurement_mode: Literal['manual', 'auto'], optional
+    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
+        form of the MCA detector data. `sigma_to_dvl_factor` is a
+        scalar value that converts the standard deviation of the
+        gaussian fit to the measured DVL, defaults to `3.5`.
+    :type sigma_to_dvl_factor: Literal[3.5, 2.0, 4.0], optional
+    :ivar dvl_measured: Placeholder for the measured diffraction
+        volume length before writing the data to file.
+    :type dvl_measured: float, optional
     """
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
-    sigma_to_dvl_factor: Optional[Literal[3.5, 2., 4.]] = 3.5
+    sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
 
     def dict(self, *args, **kwargs):
-        """If measurement_mode is 'manual', exclude
-        sigma_to_dvl_factor from the dict representation.
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+        Exclude `sigma_to_dvl_factor` from the dict representation if
+        `measurement_mode` is `'manual'`.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
         """
         d = super().dict(*args, **kwargs)
         if self.measurement_mode == 'manual':
@@ -380,7 +434,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     volume length calculation for an EDD setup using a steel-foil
     raster scan.
 
-    :ivar detectors: list of individual detector elmeent DVL
+    :ivar detectors: Individual detector element DVL
         measurement configurations
     :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     """
@@ -392,7 +446,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         """Return the list of values visited by the scanning motor
         over the course of the raster scan.
 
-        :return: list of scanned motor values
+        :return: List of scanned motor values
         :rtype: np.ndarray
         """
         if self._parfile is not None:
@@ -404,69 +458,74 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     @property
     def scanned_dim_lbl(self):
         """Return a label for plot axes corresponding to the scanned
-        dimension
+        dimension.
 
+        :return: Name of scanned motor.
         :rtype: str
         """
         if self._parfile is not None:
             return self.scan_column
         return self.scanparser.spec_scan_motor_mnes[0]
 
-class CeriaConfig(MaterialConfig):
-    """Model for a Material representing CeO2 used in calibrations.
 
-    :ivar hexrd_h5_material_name: Name of the material entry in
-        `hexrd_h5_material_file`, defaults to `'CeO2'`.
-    :ivar lattice_parameter_angstrom: lattice spacing in angstrom to use for
-        the cubic CeO2 crystal, defaults to `5.41153`.
+class CeriaConfig(MaterialConfig):
+    """Model for the sample material used in calibrations.
+
+    :ivar material_name: Calibration material name,
+        defaults to `'CeO2'`.
+    :type material_name: str, optional
+    :ivar lattice_parameters: Lattice spacing(s) for the calibration
+        material in angstroms, defaults to `5.41153`.
+    :type lattice_parameters: float, list[float], optional
+    :ivar sgnum: Space group of the calibration material,
+        defaults to `225`.
+    :type sgnum: int, optional
     """
+    #RV Name suggests it's always Ceria, why have material_name?
     material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
-    sgnum: Optional[conint(ge=0)] = 225
     lattice_parameters: confloat(gt=0) = 5.41153
+    sgnum: Optional[conint(ge=0)] = 225
 
 
 class MCACeriaCalibrationConfig(MCAScanDataConfig):
     """
-    Class representing metadata required to perform a Ceria calibration for an
-    MCA detector.
+    Class representing metadata required to perform a Ceria calibration
+    for an MCA detector.
 
-    :ivar scan_step_index: Index of the scan step to use for calibration,
-        optional. If not specified, the calibration routine will be performed
-        on the average of all MCA spectra for the scan.
-
-    :ivar flux_file: csv file containing station beam energy in eV (column 0)
-        and flux (column 1)
-
-    :ivar material: material configuration for Ceria
+    :ivar scan_step_index: Optional scan step index to use for the
+        calibration. If not specified, the calibration will be
+        performed on the average of all MCA spectra for the scan.
+    :type scan_step_index: int, optional
+    :ivar flux_file: File name of the csv flux file containing station
+        beam energy in eV (column 0) versus flux (column 1).
+    :type flux_file: str
+    :ivar material: Material configuration for Ceria.
     :type material: CeriaConfig
-
-    :ivar detectors: list of individual detector element calibration
-        configurations
+    :ivar detectors: List of individual MCA detector element
+        calibration configurations.
     :type detectors: list[MCAElementCalibrationConfig]
-
-    :ivar max_iter: maximum number of iterations of the calibration routine,
-        defaults to `10`.
-    :ivar tune_tth_tol: stop iteratively tuning 2&theta when an iteration
-        produces a change in the tuned value of 2&theta that is smaller than
-        this value, defaults to `1e-8`.
+    :ivar max_iter: Maximum number of iterations of the calibration
+        routine, defaults to `10`.
+    :type detectors: int, optional
+    :ivar tune_tth_tol: Cutoff error for tuning 2&theta. Stop iterating
+        the calibration routine after an iteration produces a change in
+        the tuned value of 2&theta that is smaller than this cutoff,
+        defaults to `1e-8`.
+    :ivar tune_tth_tol: float, optional
     """
     scan_step_index: Optional[conint(ge=0)]
-
     flux_file: FilePath
-
     material: CeriaConfig = CeriaConfig()
-
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
-
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 
     def mca_data(self, detector_config):
-        """Get the 1D array of MCA data to use for calibration.
+        """Get the array of MCA data to use for calibration.
 
-        :param detector_config: detector for which data will be returned
+        :param detector_config: Detector for which data is returned.
         :type detector_config: MCAElementConfig
-        :return: MCA data
+        :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
         if self.scan_step_index is None:
@@ -482,10 +541,10 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
 
     def flux_correction_interpolation_function(self):
         """
-        Get an interpolation function to correct MCA data for relative energy
-        flux of the incident beam.
+        Get an interpolation function to correct MCA data for the
+        relative energy flux of the incident beam.
 
-        :return: energy flux correction interpolation function
+        :return: Energy flux correction interpolation function.
         :rtype: scipy.interpolate._polyint._Interpolator1D
         """
 
@@ -497,25 +556,52 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
 
 
 class MCAElementStrainAnalysisConfig(MCAElementConfig):
-    """Model for parameters need to perform strain analysis fitting
-    for one MCA element.
+    """Class representing metadata required to perform a strain
+    analysis fitting for a single MCA detector element.
+
+    :ivar max_energy_kev: Maximum channel energy of the MCA in keV.
+    :type max_energy_kev: float
+    :ivar num_bins: Number of MCA channels.
+    :type num_bins: int, optional
+    :param tth_max: Detector rotation about hutch x axis, defaults
+            to `90.0`.
+    :type tth_max: float, optional
+    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
+        two unique HKL peaks, defaults to `0.15`.
+    :type hkl_tth_tol: float, optional
+    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
+        the calibration routine, defaults to `[]`.
+    :type hkl_indices: list[int], optional
+    :ivar background: Background model for peak fitting.
+    :type background: str, list[str], optional
+    :ivar peak_models: Peak model for peak fitting.
+    :type peak_models: Literal['gaussian', 'lorentzian']],
+        list[Literal['gaussian', 'lorentzian']]]
+    :ivar tth_calibrated: Calibrated value for 2&theta.
+    :type tth_calibrated: float, optional
+    :ivar slope_calibrated: Calibrated value for detector channel.
+        energy correction linear slope
+    :type  slope_calibrated: float, optional
+    :ivar intercept_calibrated: Calibrated value for detector channel
+        energy correction y-intercept.
+    :type intercept_calibrated: float, optional
+
     """
+    max_energy_kev: Optional[confloat(gt=0)]
+    num_bins: Optional[conint(gt=0)]
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    fit_hkls: Optional[conlist(item_type=conint(ge=0), min_items=1)] = None
+    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
     background: Optional[str]
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
 
-    tth_file: Optional[FilePath]
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-    max_energy_kev: Optional[confloat(gt=0)]
-    num_bins: Optional[conint(gt=0)]
-
-    tth_map: Optional[np.ndarray] = None
+#    tth_file: Optional[FilePath]
+#    tth_map: Optional[np.ndarray] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -525,7 +611,9 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         MCAElementCalibrationConfig that corresponds to the same
         detector.
 
-        :param calibration: MCAElementCalibrationConfig
+        :param calibration: Existing calibration configuration to use
+            by MCAElementStrainAnalysisConfig.
+        :type calibration: MCAElementCalibrationConfig
         :return: None
         """
         add_fields = ['tth_calibrated', 'slope_calibrated',
@@ -535,11 +623,15 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
     def fit_ds(self, materials):
         """Get a list of HKLs and their lattice spacings that will be
-        fit in the strain analysis routine
+        fit in the strain analysis routine.
 
-        :return: HKLs to fit and their lattice spacings in angstroms
+        :ivar materials: Material(s) to get HKLs and lattice spacings.
+        :type materials: hexrd.material.Material,
+            list[hexrd.material.Material]
+        :return: HKLs to fit and their lattice spacings in angstroms.
         :rtype: np.ndarray, np.ndarray
         """
+        exit('FIX fit_ds')
         if not isinstance(materials, list):
             materials = [materials]
         from CHAP.edd.utils import get_unique_hkls_ds
@@ -548,30 +640,30 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         # unique_hkls, unique_ds = material.unique_ds(
         #     tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
 
-        fit_hkls = np.array([unique_hkls[i] for i in self.fit_hkls])
-        fit_ds = np.array([unique_ds[i] for i in self.fit_hkls])
+        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
+        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
 
         return fit_hkls, fit_ds
 
     def get_tth_map(self, map_config):
-        """Return a map of tth values to use -- may vary at each point
-        in the map.
+        """Return a map of 2&theta values to use -- may vary at each
+        point in the map.
 
-        :param map_config: the map configuration with which the
-            returned map of tth values will be used.
+        :param map_config: The map configuration with which the
+            returned map of 2&theta values will be used.
         :type map_config: MapConfig
-        :return: map of thh values
+        :return: Map of 2&theta values.
         :rtype: np.ndarray
         """
-        if getattr(self, 'tth_map', None) is not None:
-            return self.tth_map
+#        if getattr(self, 'tth_map', None) is not None:
+#            return self.tth_map
         return np.full(map_config.shape, self.tth_calibrated)
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
-        :return: dictionary representation of the configuration.
+        :return: Dictionary representation of the configuration.
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
@@ -584,7 +676,27 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
 
 class StrainAnalysisConfig(BaseModel):
-    """Model for inputs to CHAP.edd.StrainAnalysisProcessor"""
+    """Class representing input parameters required to perform a
+    strain analysis.
+
+    :ivar inputdir: Input directory, used only if any file in the
+            configuration is not an absolute path.
+    :type inputdir: str, optional
+    :ivar map_config: The map configuration for the MCA data on which
+        the strain analysis is performed.
+    :type map_config: MapConfig, optional
+    :ivar par_file: Path to the par file associated with the scan.
+    :type par_file: str, optional
+    :ivar par_dims: List of independent dimensions.
+    :type par_dims: list[dict[str,str]], optional
+    :ivar other_dims: List of other column names from `par_file`.
+    :type other_dims: list[dict[str,str]], optional
+    :ivar detectors: List of individual detector element strain
+        analysis configurations
+    :type detectors: list[MCAElementStrainAnalysisConfig]
+    :ivar material_name: Sample material configurations.
+    :type material_name: list[MaterialConfig]
+    """
     inputdir: Optional[DirectoryPath]
     map_config: Optional[MapConfig]
     par_file: Optional[FilePath]
@@ -599,7 +711,13 @@ class StrainAnalysisConfig(BaseModel):
     @root_validator(pre=True)
     def validate_map(cls, values):
         """Ensure exactly one valid map configuration was provided,
-        and finalize input filepaths
+        and finalize input filepaths.
+
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :raises ValueError: Missing par_dims value.
+        :return: The validated list of `values`.
+        :rtype: dict
         """
         inputdir = values.get('inputdir')
         flux_file = values.get('flux_file')
@@ -612,7 +730,7 @@ class StrainAnalysisConfig(BaseModel):
                 values['par_file'] = os.path.join(inputdir, par_file)
             if 'par_dims' not in values:
                 raise ValueError(
-                    'If using par_file, must also use par_dims')
+                    'par_dims is required when using par_file')
             values['_parfile'] = ParFile(values['par_file'])
             values['map_config'] = values['_parfile'].get_map(
                 'EDD', 'id1a3', values['par_dims'],
@@ -626,41 +744,41 @@ class StrainAnalysisConfig(BaseModel):
                         os.path.join(inputdir, spec_file)
         return values
 
-    @validator('detectors', pre=True, each_item=True)
-    def validate_tth_file(cls, detector, values):
-        """Finalize value for tth_file for each detector"""
-        inputdir = values.get('inputdir')
-        tth_file = detector.get('tth_file')
-        if tth_file:
-            if not os.path.isabs(tth_file):
-                detector['tth_file'] = os.path.join(inputdir, tth_file)
-        return detector
+#    @validator('detectors', pre=True, each_item=True)
+#    def validate_tth_file(cls, detector, values):
+#        """Finalize value for tth_file for each detector"""
+#        inputdir = values.get('inputdir')
+#        tth_file = detector.get('tth_file')
+#        if tth_file:
+#            if not os.path.isabs(tth_file):
+#                detector['tth_file'] = os.path.join(inputdir, tth_file)
+#        return detector
 
-    @validator('detectors', each_item=True)
-    def validate_tth(cls, detector, values):
-        """Validate detector element tth_file field. It may only be
-        used if StrainAnalysisConfig used par_file.
-        """
-        if detector.tth_file is not None:
-            if not values.get('par_file'):
-                raise ValueError(
-                    'variable tth angles may only be used with a '
-                    + 'StrainAnalysisConfig that uses par_file.')
-            else:
-                try:
-                    detector.tth_map = ParFile(values['par_file']).map_values(
-                        values['map_config'], np.loadtxt(detector.tth_file))
-                except Exception as e:
-                    raise ValueError(
-                        'Could not get map of tth angles from '
-                        + f'{detector.tth_file}') from e
-        return detector
+#    @validator('detectors', each_item=True)
+#    def validate_tth(cls, detector, values):
+#        """Validate detector element tth_file field. It may only be
+#        used if StrainAnalysisConfig used par_file.
+#        """
+#        if detector.tth_file is not None:
+#            if not values.get('par_file'):
+#                raise ValueError(
+#                    'variable tth angles may only be used with a '
+#                    + 'StrainAnalysisConfig that uses par_file.')
+#            else:
+#                try:
+#                    detector.tth_map = ParFile(values['par_file']).map_values(
+#                        values['map_config'], np.loadtxt(detector.tth_file))
+#                except Exception as e:
+#                    raise ValueError(
+#                        'Could not get map of tth angles from '
+#                        + f'{detector.tth_file}') from e
+#        return detector
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
 
-        :return: dictionary representation of the configuration.
+        :return: Dictionary representation of the configuration.
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
@@ -674,11 +792,11 @@ class StrainAnalysisConfig(BaseModel):
     def mca_data(self, detector_config, map_index):
         """Get MCA data for a single detector element.
 
-        :param detector_config: the detector to get data for
+        :param detector_config: Detector for which data is returned.
         :type detector_config: MCAElementStrainAnalysisConfig
-        :param map_index: index of a single point in the map
+        :param map_index: Index of a single point in the map.
         :type map_index: tuple
-        :return: one spectrum of MCA data
+        :return: A single MCA spectrum.
         :rtype: np.ndarray
         """
         map_coords = {dim: self.map_config.coords[dim][i]
