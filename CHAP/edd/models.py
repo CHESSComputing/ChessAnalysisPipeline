@@ -1,7 +1,11 @@
-# third party modules
-import numpy as np
+# System modules
 import os
 from pathlib import PosixPath
+from typing import Literal, Optional, Union
+
+# Third party modules
+import numpy as np
+from hexrd.material import Material
 from pydantic import (BaseModel,
                       confloat,
                       conint,
@@ -12,11 +16,9 @@ from pydantic import (BaseModel,
                       root_validator,
                       validator)
 from scipy.interpolate import interp1d
-from typing import Literal, Optional, Union
 
-# local modules
+# Local modules
 from CHAP.common.models.map import MapConfig
-from hexrd.material import Material
 from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
@@ -31,8 +33,8 @@ class MCAElementConfig(BaseModel):
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
     :ivar include_bin_ranges: List of MCA channel index ranges whose
-        data should be included after applying a mask,
-        defaults to `[]`
+        data should be included after applying a mask (the bounds are
+        inclusive), defaults to `[]`
     :type include_bin_ranges: list[list[int]], optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
@@ -65,6 +67,7 @@ class MCAElementConfig(BaseModel):
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
+        Note that the bounds of self.include_bin_ranges are inclusive.
 
         :return: Boolean mask array.
         :rtype: numpy.ndarray
@@ -72,8 +75,8 @@ class MCAElementConfig(BaseModel):
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
         for min_, max_ in self.include_bin_ranges:
-            _mask = np.logical_and(bin_indices > min_, bin_indices < max_)
-            mask = np.logical_or(mask, _mask)
+            mask = np.logical_or(
+                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
 
     def dict(self, *args, **kwargs):
@@ -219,7 +222,6 @@ class MCAScanDataConfig(BaseModel):
         detector_name = detector_config.detector_name
         if self._parfile is not None:
             if scan_step_index is None:
-                import numpy as np
                 data = np.asarray(
                     [ScanParser(self._parfile.spec_file, scan_number)\
                      .get_all_detector_data(detector_name)[0] \
@@ -291,7 +293,9 @@ class MaterialConfig(BaseModel):
         :return: The validated list of `values`.
         :rtype: dict
         """
+        # Local modules
         from CHAP.edd.utils import make_material
+
         values['_material'] = make_material(values.get('material_name'),
                                             values.get('sgnum'),
                                             values.get('lattice_parameters'))
@@ -309,7 +313,9 @@ class MaterialConfig(BaseModel):
         :return: Unique HKLs and their lattice spacings in angstroms.
         :rtype: np.ndarray, np.ndarray
         """
+        # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds
+
         return get_unique_hkls_ds([self._material])
 
     def dict(self, *args, **kwargs):
@@ -382,9 +388,11 @@ class MCAElementCalibrationConfig(MCAElementConfig):
 #        :return: HKLs to fit and their lattice spacings in angstroms.
 #        :rtype: np.ndarray, np.ndarray
 #        """
+#        # Local modules
+#        from CHAP.edd.utils import get_unique_hkls_ds
+#
 #        if not isinstance(materials, list):
 #            materials = [materials]
-#        from CHAP.edd.utils import get_unique_hkls_ds
 #        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
 #
 #        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
@@ -631,10 +639,12 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :return: HKLs to fit and their lattice spacings in angstroms.
         :rtype: np.ndarray, np.ndarray
         """
+        # Local modules
+        from CHAP.edd.utils import get_unique_hkls_ds
+
         exit('FIX fit_ds')
         if not isinstance(materials, list):
             materials = [materials]
-        from CHAP.edd.utils import get_unique_hkls_ds
         unique_hkls, unique_ds = get_unique_hkls_ds(materials)
 
         # unique_hkls, unique_ds = material.unique_ds(

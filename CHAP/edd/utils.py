@@ -1,8 +1,9 @@
 """Utility functions for EDD workflows"""
 
+# Third party modules
 import numpy as np
-
 from scipy.constants import physical_constants
+
 hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
      * physical_constants['speed of light in vacuum'][0]
 
@@ -40,8 +41,10 @@ def make_material(name, sgnum, lparms, dmin=0.6):
     :return: a hexrd material
     :rtype: heard.material.Material
     """
+    # Third party modules
     from hexrd.material import Material    
     from hexrd.valunits import valWUnit
+
     matl = Material()
     matl.name = name
     matl.sgnum = sgnum
@@ -64,8 +67,12 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     :return: unique HKLs, unique d-spacings
     :rtype: tuple[np.ndarray, np.ndarray]
     """
+    # System modules
     from copy import deepcopy
+
+    # Local modules
     from CHAP.edd.models import MaterialConfig
+
     _materials = deepcopy(materials)
     for i, m in enumerate(materials):
         if isinstance(m, MaterialConfig):
@@ -115,11 +122,13 @@ def select_hkls(detector, materials, tth, y, x, interactive):
     :return: plot showing the user-selected HKLs
     :rtype: matplotlib.figure.Figure
     """
+    # Local modules
+    from CHAP.utils.general import select_peaks
+
     hkls, ds = get_unique_hkls_ds(materials)
     peak_locations = get_peak_locations(ds, tth)
     pre_selected_peak_indices = detector.fit_hkls \
                                 if detector.fit_hkls else []
-    from CHAP.utils.general import select_peaks
     selected_peaks, figure = select_peaks(
         y, x, peak_locations,
         peak_labels=[str(hkl)[1:-1] for hkl in hkls],
@@ -156,11 +165,10 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
-    :raises ValueError: Invalid input for an updated initial 2&theta
-        guess.
     :return: Selected initial guess for 2&theta
     :type: float
     """
+    # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
 
@@ -237,9 +245,14 @@ def select_material_params(x, y, tth, materials=[]):
     updated. Return a list of the selected materials when the figure
     is closed.
     """
+    # System modules
     from copy import deepcopy
+
+    # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
+
+    # Local modules
     from CHAP.edd.models import MaterialConfig
 
     _materials = deepcopy(materials)
@@ -445,7 +458,10 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         include
     :rtype: matplotlib.figure.Figure, list[list[int]], list[int]
     """
+    # System modules
     from copy import deepcopy
+
+    # Third party modules
     import matplotlib.lines as mlines
     from matplotlib.patches import Patch
     import matplotlib.pyplot as plt
@@ -599,7 +615,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         fig.canvas.mpl_disconnect(pick_hkl_cid)
         confirm_btn.disconnect(confirm_cid)
 
-        # ...and remove the confirm button before returning the figure
+        # ...and remove the buttons before returning the figure
         add_span_btn.ax.remove()
         confirm_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)

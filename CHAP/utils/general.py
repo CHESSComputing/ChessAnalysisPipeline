@@ -26,8 +26,6 @@ from sys import float_info
 import numpy as np
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.lines as mlines
-    from matplotlib.widgets import Button
 except ImportError:
     pass
 
@@ -880,287 +878,220 @@ def file_exists_and_readable(f):
     return f
 
 
-def draw_mask_1d(
-        ydata, xdata=None, label=None, ref_data=[],
-        current_index_ranges=None, current_mask=None,
-        select_mask=True, num_index_ranges_max=None,
-        title=None, xlabel=None, ylabel=None,
-        test_mode=False, return_figure=False):
+def select_mask_1d(
+        y, x=None, label=None, ref_data=[], preselected_index_ranges=[],
+        preselected_mask=None, title=None, xlabel=None, ylabel=None,
+        interactive=True, return_figure=False):
     """Display a 2D plot and have the user select a mask.
 
-    :param ydata: data array for which a mask will be constructed
-    :type ydata: numpy.ndarray
-    :param xdata: x-coordinates of the reference data, defaults to
-        None
-    :type xdata: numpy.ndarray, optional
-    :param label: legend label for the reference data, defaults to
-        None
+    :param y: One-dimensional data array for which a mask will be
+        constructed.
+    :type y: numpy.ndarray
+    :param x: x-coordinates of the reference data,
+        defaults to `None`.
+    :type x: numpy.ndarray, optional
+    :param label: Legend label for the reference data,
+        defaults to `None`.
     :type label: str, optional
-    :param ref_data: a list of additional reference data to
+    :param ref_data: A list of additional reference data to
         plot. Items in the list should be tuples of positional
         arguments and keyword arguments to unpack and pass directly to
-        `matplotlib.axes.Axes.plot`, defaults to []
-    :type ref_data: list[tuple[tuple, dict]]
-    :param current_index_ranges: list of preselected index ranges to
-        mask, defaults to None
-    :type current_index_ranges: list[tuple[int, int]]
-    :param current_mask: preselected boolean mask array, defaults to
-        None
-    :type current_mask: numpy.ndarray, optional
-    :param select_mask: if True, user-selected ranges will be included
-        when the returned mask is applied to `ydata`. If False, they
-        will be excluded. Defaults to True.
-    :type select_mask: bool, optional
-    :param title: title for the displayed figure, defaults to None
+        `matplotlib.axes.Axes.plot`, defaults to `[]`.
+    :type ref_data: list[tuple[tuple, dict]], optional
+    :param preselected_index_ranges: List of preselected index ranges
+        to mask, defaults to `[]`.
+    :type preselected_index_ranges: Union(list[tuple[int, int]],
+        list[list[int]]), optional
+    :param preselected_mask: Preselected boolean mask array,
+        defaults to `None`.
+    :type preselected_mask: numpy.ndarray, optional
+    :param title: Title for the displayed figure, defaults to `None`.
     :type title: str, optional
-    :param xlabel: label for the x-axis of the displayed figure,
-        defaults to None
+    :param xlabel: Label for the x-axis of the displayed figure,
+        defaults to `None`.
     :type xlabel: str, optional
-    :param ylabel: label for the y-axis of the displayed figure,
-        defaults to None
+    :param ylabel: Label for the y-axis of the displayed figure,
+        defaults to `None`.
     :type ylabel: str, optional
-    :param test_mode: if True, run as a non-interactive test
-        case. Defaults to False
-    :type test_mode: bool, optional
-    :param return_figure: if True, also return a matplotlib figure of
-        the drawn mask, defaults to False
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defults to `True`.
+    :type interactive: bool, optional
+    :param return_figure: If True, also return a matplotlib figure of
+        the drawn mask, defaults to `False`.
     :type return_figure: bool, optional
-    :return: a boolean mask array and the list of selected index
-        ranges (and a matplotlib figure, if `return_figure` was True).
-    :rtype: numpy.ndarray, list[tuple[int, int]] [, matplotlib.figure.Figure]
+    :return: A boolean mask array and the list of selected index
+        ranges (and a matplotlib figure, if `return_figure` was `True`).
+    :rtype: numpy.ndarray, list[tuple[int, int]]
+        [, matplotlib.figure.Figure]
     """
-    # RV make color blind friendly
-    def draw_selections(
-            ax, current_include, current_exclude, selected_index_ranges):
-        """Draw the selections."""
-        ax.clear()
-        if title is not None:
-            ax.set_title(title)
-        if xlabel is not None:
-            ax.set_xlabel(xlabel)
-        if ylabel is not None:
-            ax.set_ylabel(ylabel)
-        ax.plot(xdata, ydata, 'k', label=label)
-        for data in ref_data:
-            ax.plot(*data[0], **data[1])
-        ax.legend()
-        for low, upp in current_include:
-            xlow = 0.5 * (xdata[max(0, low-1)]+xdata[low])
-            xupp = 0.5 * (xdata[upp]+xdata[min(num_data-1, 1+upp)])
-            ax.axvspan(xlow, xupp, facecolor='green', alpha=0.5)
-        for low, upp in current_exclude:
-            xlow = 0.5 * (xdata[max(0, low-1)]+xdata[low])
-            xupp = 0.5 * (xdata[upp]+xdata[min(num_data-1, 1+upp)])
-            ax.axvspan(xlow, xupp, facecolor='red', alpha=0.5)
-        for low, upp in selected_index_ranges:
-            xlow = 0.5 * (xdata[max(0, low-1)]+xdata[low])
-            xupp = 0.5 * (xdata[upp]+xdata[min(num_data-1, 1+upp)])
-            ax.axvspan(xlow, xupp, facecolor=selection_color, alpha=0.5)
-        ax.get_figure().canvas.draw()
+    # Third party modules
+    from matplotlib.patches import Patch
+    from matplotlib.widgets import Button, SpanSelector
 
-    def onclick(event):
-        """Action taken on clicking the mouse button."""
-        if event.inaxes in [fig.axes[0]]:
-            selected_index_ranges.append(index_nearest_upp(xdata, event.xdata))
+    # local modules
+    from CHAP.utils.general import index_nearest
 
-    def onrelease(event):
-        """Action taken on releasing the mouse button."""
-        if selected_index_ranges:
-            if isinstance(selected_index_ranges[-1], int):
-                if event.inaxes in [fig.axes[0]]:
-                    event.xdata = index_nearest_low(xdata, event.xdata)
-                    if selected_index_ranges[-1] <= event.xdata:
-                        selected_index_ranges[-1] = \
-                            (selected_index_ranges[-1], event.xdata)
-                    else:
-                        selected_index_ranges[-1] = \
-                            (event.xdata, selected_index_ranges[-1])
-                    draw_selections(
-                        event.inaxes, current_include, current_exclude,
-                        selected_index_ranges)
-                else:
-                    selected_index_ranges.pop(-1)
+    def on_span_select(xmin, xmax):
+        """Callback function for the SpanSelector widget."""
+        print(f'\non_span_select: {spans[-1].extents}\n')
+        combined_spans = True
+        while combined_spans:
+            combined_spans = False
+            for i, span1 in enumerate(spans):
+                for j, span2 in enumerate(spans[i+1:]):
+                    if (span1.extents[1] >= span2.extents[0]
+                            and span1.extents[0] <= span2.extents[1]):
+                        print('Combined overlapping spans in the currently '
+                            'selected energy mask')
+                        span2.extents = (
+                            min(span1.extents[0], span2.extents[0]),
+                            max(span1.extents[1], span2.extents[1]))
+                        span1.set_visible(False)
+                        spans.pop(i)
+                        combined_spans = True
+                        break
+                if combined_spans:
+                    break
+        plt.draw()
 
-    def confirm_selection(event):
-        """Action taken on hitting the confirm button."""
+    def add_span(event, xrange_init=None):
+        """Callback function for the "Add span" button."""
+        spans.append(
+            SpanSelector(
+                ax, on_span_select, 'horizontal', props=included_props,
+                useblit=True, interactive=interactive, drag_from_anywhere=True,
+                ignore_event_outside=True, grab_range=5))
+        if xrange_init is None:
+            xmin_init, xmax_init = min(x), 0.05*(max(x)-min(x))
+        else:
+            xmin_init, xmax_init = xrange_init
+        spans[-1]._selection_completed = True
+        spans[-1].extents = (xmin_init, xmax_init)
+        spans[-1].onselect(xmin_init, xmax_init)
+        print(f'\nadd_span: {spans[-1].extents}\n')
+
+    def confirm(event):
+        """Callback function for the "Confirm" button."""
         plt.close()
 
-    def clear_last_selection(event):
-        """Action taken on hitting the clear button."""
-        if selected_index_ranges:
-            selected_index_ranges.pop(-1)
-        else:
-            while current_include:
-                current_include.pop()
-            while current_exclude:
-                current_exclude.pop()
-            selected_mask.fill(False)
-        draw_selections(
-            ax, current_include, current_exclude, selected_index_ranges)
-
-    def update_mask(mask, selected_index_ranges, unselected_index_ranges):
-        """Update the plot with the selected mask."""
+    def update_mask(mask, selected_index_ranges):
+        """Update the mask with the selected index ranges."""
+        print(f'\n\nupdate_mask\n\tinput mask: {mask}')
         for low, upp in selected_index_ranges:
-            selected_mask = np.logical_and(
-                xdata >= xdata[low], xdata <= xdata[upp])
-            mask = np.logical_or(mask, selected_mask)
-        for low, upp in unselected_index_ranges:
-            unselected_mask = np.logical_and(
-                xdata >= xdata[low], xdata <= xdata[upp])
-            mask[unselected_mask] = False
+            print(f'\tlow, upp: {low}, {upp}')
+            mask = np.logical_or(
+                mask, np.logical_and(x >= x[low], x <= x[upp]))
+        print(f'\toutput mask: {mask}')
         return mask
 
     def update_index_ranges(mask):
         """
-        Update the currently included index ranges (where mask = True).
+        Update the selected index ranges (where mask = True).
         """
-        current_include = []
+        selected_index_ranges = []
         for i, m in enumerate(mask):
             if m:
-                if (not current_include
-                        or isinstance(current_include[-1], tuple)):
-                    current_include.append(i)
+                if (not selected_index_ranges
+                        or isinstance(selected_index_ranges[-1], tuple)):
+                    selected_index_ranges.append(i)
             else:
-                if current_include and isinstance(current_include[-1], int):
-                    current_include[-1] = (current_include[-1], i-1)
-        if current_include and isinstance(current_include[-1], int):
-            current_include[-1] = (current_include[-1], num_data-1)
-        return current_include
+                if (selected_index_ranges
+                        and isinstance(selected_index_ranges[-1], int)):
+                    selected_index_ranges[-1] = \
+                        (selected_index_ranges[-1], i-1)
+        if (selected_index_ranges
+                and isinstance(selected_index_ranges[-1], int)):
+            selected_index_ranges[-1] = (selected_index_ranges[-1], num_data-1)
+        print(f'update_index_ranges: {selected_index_ranges}')
+        return selected_index_ranges
+
+    spans = []
 
     # Check inputs
-    ydata = np.asarray(ydata)
-    if ydata.ndim > 1:
-        logger.warning(f'Invalid ydata dimension ({ydata.ndim})')
-        return None, None
-    num_data = ydata.size
-    if xdata is None:
-        xdata = np.arange(num_data)
+    y = np.asarray(y)
+    if y.ndim > 1:
+        raise ValueError(f'Invalid y dimension ({y.ndim})')
+    num_data = y.size
+    if x is None:
+        x = np.arange(num_data)
     else:
-        xdata = np.asarray(xdata, dtype=np.float64)
-        if xdata.ndim > 1 or xdata.size != num_data:
-            logger.warning(f'Invalid xdata shape ({xdata.shape})')
-            return None, None
-        if not np.all(xdata[:-1] < xdata[1:]):
-            logger.warning('Invalid xdata: must be monotonically increasing')
-            return None, None
-    if current_index_ranges is not None:
-        if not isinstance(current_index_ranges, (tuple, list)):
-            logger.warning(
-                'Invalid current_index_ranges parameter '
-                f'({current_index_ranges}, {type(current_index_ranges)})')
-            return None, None
-    if not isinstance(select_mask, bool):
-        logger.warning(
-            f'Invalid select_mask parameter ({select_mask}, '
-            f'{type(select_mask)})')
-        return None, None
-    if num_index_ranges_max is not None:
-        logger.warning(
-            'num_index_ranges_max input not yet implemented in draw_mask_1d')
+        x = np.asarray(x, dtype=np.float64)
+        if x.ndim > 1 or x.size != num_data:
+            raise ValueError(f'Invalid x shape ({x.shape})')
+        if not np.all(x[:-1] < x[1:]):
+            raise ValueError('Invalid x: must be monotonically increasing')
     if title is None:
-        title = 'select ranges of data'
-    elif not isinstance(title, str):
-        illegal_value(title, 'title')
-        title = ''
+        title = 'Click and drag to select ranges to include in mask'
+    if preselected_index_ranges:
+        if (not isinstance(preselected_index_ranges, list)
+                or any(not is_int_pair(v, raise_error=True)
+                       for v in preselected_index_ranges)):
+            raise ValueError('Invalid parameter preselected_index_ranges '
+                             f'({preselected_index_ranges})')
 
-    if select_mask:
-        selection_color = 'green'
-    else:
-        selection_color = 'red'
+    if preselected_mask is not None:
+        preselected_index_ranges = update_index_ranges(
+            update_mask(
+                np.copy(np.asarray(preselected_mask, dtype=bool)),
+                preselected_index_ranges))
 
-    # Set initial selected mask and the selected/unselected index
-    #     ranges as needed
-    selected_index_ranges = []
-    unselected_index_ranges = []
-    selected_mask = np.full(xdata.shape, False, dtype=bool)
-    if current_index_ranges is None:
-        if current_mask is None:
-            if not select_mask:
-                selected_index_ranges = [(0, num_data-1)]
-                selected_mask = np.full(xdata.shape, True, dtype=bool)
-        else:
-            selected_mask = np.copy(np.asarray(current_mask, dtype=bool))
-    if current_index_ranges is not None and current_index_ranges:
-        current_index_ranges = sorted(list(current_index_ranges))
-        for low, upp in current_index_ranges:
-            if low > upp or low >= num_data or upp < 0:
-                continue
-            low = max(low, 0)
-            upp = min(upp, num_data-1)
-            selected_index_ranges.append((low, upp))
-        selected_mask = update_mask(
-            selected_mask, selected_index_ranges, unselected_index_ranges)
-    if current_index_ranges is not None and current_mask is not None:
-        selected_mask = np.logical_and(current_mask, selected_mask)
-    if current_mask is not None:
-        selected_index_ranges = update_index_ranges(selected_mask)
+    excluded_props = {
+        'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
+    included_props = {
+        'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
 
-    # Set up range selections for display
-    current_include = selected_index_ranges
-    current_exclude = []
-    selected_index_ranges = []
-    if not current_include:
-        if select_mask:
-            current_exclude = [(0, num_data-1)]
-        else:
-            current_include = [(0, num_data-1)]
-    else:
-        if current_include[0][0] > 0:
-            current_exclude.append((0, current_include[0][0]-1))
-        for i in range(1, len(current_include)):
-            current_exclude.append(
-                (1+current_include[i-1][1], current_include[i][0]-1))
-        if current_include[-1][1] < num_data-1:
-            current_exclude.append((1+current_include[-1][1], num_data-1))
+    fig, ax = plt.subplots(figsize=(11, 8.5))
+    handles = ax.plot(x, y, color='k', label='Reference Data')
+    handles.append(Patch(
+        label='Excluded / unselected ranges', **excluded_props))
+    handles.append(Patch(
+        label='Included / selected ranges', **included_props))
+    ax.legend(handles=handles)
+    #ax.set_title(title)
+    #if xlabel is not None:
+    #    ax.set_xlabel(xlabel)
+    #if ylabel is not None:
+    #    ax.set_ylabel(ylabel)
+    ax.set(title=title, xlabel=xlabel, ylabel=ylabel)
+    fig.subplots_adjust(bottom=0.2)
 
-    # Set up matplotlib figure
-    plt.close('all')
-    fig, ax = plt.subplots()
-    plt.subplots_adjust(bottom=0.2)
-    draw_selections(
-        ax, current_include, current_exclude, selected_index_ranges)
+    for index_range in preselected_index_ranges:
+        add_span(None, xrange_init=x[list(index_range)])
 
-    if not test_mode:
-        # Set up event handling for click-and-drag range selection
-        cid_click = fig.canvas.mpl_connect('button_press_event', onclick)
-        cid_release = fig.canvas.mpl_connect('button_release_event', onrelease)
+    if interactive:
+        add_span_btn = Button(plt.axes([0.15, 0.05, 0.1, 0.075]), 'Add span')
+        add_span_cid = add_span_btn.on_clicked(add_span)
 
-        # Set up confirm / clear range selection buttons
-        confirm_b = Button(plt.axes([0.75, 0.015, 0.15, 0.075]), 'Confirm')
-        clear_b = Button(plt.axes([0.59, 0.015, 0.15, 0.075]), 'Clear')
-        cid_confirm = confirm_b.on_clicked(confirm_selection)
-        cid_clear = clear_b.on_clicked(clear_last_selection)
+        confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
 
-        # Show figure
-        plt.show(block=True)
+        # Show figure for user interaction
+        plt.show()
 
-        # Disconnect callbacks when figure is closed
-        fig.canvas.mpl_disconnect(cid_click)
-        fig.canvas.mpl_disconnect(cid_release)
-        confirm_b.disconnect(cid_confirm)
-        clear_b.disconnect(cid_clear)
+        # Disconnect all widget callbacks when figure is closed
+        add_span_btn.disconnect(add_span_cid)
+        confirm_btn.disconnect(confirm_cid)
 
-        # Remove buttons & readjust axes before returning a figure
+        # ...and remove the buttons before returning the figure
         if return_figure:
-            confirm_b.ax.remove()
-            clear_b.ax.remove()
+            add_span_btn.ax.remove()
+            confirm_btn.ax.remove()
             plt.subplots_adjust(bottom=0.0)
 
-    # Swap selection depending on select_mask
-    if not select_mask:
-        selected_index_ranges, unselected_index_ranges = \
-            unselected_index_ranges, selected_index_ranges
+    selected_index_ranges = [[index_nearest(x, span.extents[0]),
+                              index_nearest(x, span.extents[1])]
+                             for span in spans]
 
-    # Update the mask with the currently selected/unselected x-ranges
-    selected_mask = update_mask(
-        selected_mask, selected_index_ranges, unselected_index_ranges)
-
-    # Update the currently included index ranges (where mask is True)
-    current_include = update_index_ranges(selected_mask)
+    # Update the mask with the currently selected index ranges
+    if preselected_mask is None:
+        selected_mask = None
+    else:
+        selected_mask = update_mask(
+            len(x)*[False], selected_index_ranges)
 
     if return_figure:
-        return selected_mask, current_include, fig
-    return selected_mask, current_include
+        return selected_mask, selected_index_ranges, fig
+    return selected_mask, selected_index_ranges
 
 def select_peaks(
         ydata, xdata, peak_locations,
@@ -1208,6 +1139,9 @@ def select_peaks(
     :return: the locations of the user-selected peaks
     :rtype: list
     """
+    # Third party modules
+    import matplotlib.lines as mlines
+    from matplotlib.widgets import Button
 
     if ydata.size != xdata.size:
         raise ValueError('x and y data must have the same size')

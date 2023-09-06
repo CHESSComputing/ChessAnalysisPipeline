@@ -7,14 +7,14 @@ Author     : Keara Soloway, Rolf Verberg
 Description: Module for Processors used only by EDD experiments
 """
 
-# system modules
+# System modules
 from json import dumps
 import os
 
-# third party modules
+# Third party modules
 import numpy as np
 
-# local modules
+# Local modules
 from CHAP.processor import Processor
 
 
@@ -65,7 +65,9 @@ class DiffractionVolumeLengthProcessor(Processor):
             self.logger.info('No valid DVL config in input pipeline data, '
                              + 'using config parameter instead.')
             try:
+                # Local modules
                 from CHAP.edd.models import DiffractionVolumeLengthConfig
+
                 dvl_config = DiffractionVolumeLengthConfig(
                     **config, inputdir=inputdir)
             except Exception as dict_exc:
@@ -114,27 +116,30 @@ class DiffractionVolumeLengthProcessor(Processor):
         :return: Calculated diffraction volume length.
         :rtype: float
         """
-
+        # Local modules
         from CHAP.utils.fit import Fit
-        from CHAP.utils.general import draw_mask_1d
+        from CHAP.utils.general import select_mask_1d
 
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data(detector)
 
         # Interactively set mask, if needed & possible.
         if interactive or save_figures:
+            # Third party modules
+            import matplotlib.pyplot as plt
+
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
-            mask, include_bin_ranges, figure = draw_mask_1d(
+            mask, include_bin_ranges, figure = select_mask_1d(
                 np.sum(mca_data, axis=0),
-                xdata = np.arange(detector.num_bins),
-                current_index_ranges=detector.include_bin_ranges,
-                label='sum of MCA spectra over all scan points',
+                x = np.arange(detector.num_bins),
+                preselected_index_ranges=detector.include_bin_ranges,
+                label='Sum of MCA spectra over all scan points',
                 title='Click and drag to select ranges of MCA data to\n'
-                + 'include when measuring the diffraction volume length.',
+                      'include when measuring the diffraction volume length.',
                 xlabel='MCA channel (index)',
                 ylabel='MCA intensity (counts)',
-                test_mode=not interactive,
+                interactive=interactive,
                 return_figure=True
             )
             detector.include_bin_ranges = include_bin_ranges
@@ -143,7 +148,6 @@ class DiffractionVolumeLengthProcessor(Processor):
             if save_figures:
                 figure.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
-            import matplotlib.pyplot as plt
             plt.close()
         if detector.include_bin_ranges is None:
             raise ValueError(
@@ -158,10 +162,6 @@ class DiffractionVolumeLengthProcessor(Processor):
         # 3) sum of intensities in detector bins after mask is applied
         unmasked_sum = np.sum(mca_data, axis=1)
         mask = detector.mca_mask()
-#RV        masked_mca_data = np.empty(
-#RV            (mca_data.shape[0], *mca_data[0][mask].shape))
-#RV        for i in range(mca_data.shape[0]):
-#RV            masked_mca_data[i] = mca_data[i][mask]
         masked_mca_data = mca_data[:,mask]
         masked_max = np.amax(masked_mca_data, axis=1)
         masked_sum = np.sum(masked_mca_data, axis=1)
@@ -178,13 +178,13 @@ class DiffractionVolumeLengthProcessor(Processor):
         masked_sum = masked_sum / max(masked_sum)
 
         # Fit the masked summed data with a gaussian
-        fit = Fit.fit_data(masked_sum, (constant, 'gaussian'), x=x)
+        fit = Fit.fit_data(masked_sum, ('constant', 'gaussian'), x=x)
 
         # Calculate / manually select diffraction volume length
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
         if detector.measurement_mode == 'manual':
             if interactive:
-                mask, dvl_bounds = draw_mask_1d(
+                mask, dvl_bounds = select_mask_1d(
                     masked_sum, xdata=x,
                     label='total (masked & normalized)',
                     ref_data=[
@@ -210,7 +210,9 @@ class DiffractionVolumeLengthProcessor(Processor):
                     + 'Using default DVL calcluation instead.')
 
         if interactive or save_figures:
+            # Third party modules
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.detector_name})')
             ax.set_xlabel(dvl_config.scanned_dim_lbl \
@@ -225,7 +227,6 @@ class DiffractionVolumeLengthProcessor(Processor):
                        label='diffraction volume'
                        + f' ({detector.measurement_mode})')
             ax.legend()
-
             if save_figures:
                 figfile = os.path.join(outputdir,
                                        f'{detector.detector_name}_dvl.png')
@@ -285,7 +286,9 @@ class MCACeriaCalibrationProcessor(Processor):
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
+                # Local modules
                 from CHAP.edd.models import MCACeriaCalibrationConfig
+
                 calibration_config = MCACeriaCalibrationConfig(
                     **config, inputdir=inputdir)
             except Exception as dict_exc:
@@ -333,6 +336,7 @@ class MCACeriaCalibrationProcessor(Processor):
             parameters for MCA channel energies: tth, slope, intercept.
         :rtype: float, float, float
         """
+        # Local modules
         from CHAP.edd.utils import hc
         from CHAP.utils.fit import Fit
 
@@ -344,8 +348,9 @@ class MCACeriaCalibrationProcessor(Processor):
         mca_bin_energies = np.linspace(
             0, detector.max_energy_kev, detector.num_bins)
 
+        # Adjust initial tth guess
         if interactive:
-            # Interactively adjust initial tth guess
+            # Local modules
             from CHAP.edd.utils import select_tth_initial_guess
 
             detector.tth_initial_guess = select_tth_initial_guess(
@@ -355,8 +360,12 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Select mask & HKLs for fitting
         if interactive or save_figures:
+            # Third party modules
             import matplotlib.pyplot as plt
+
+            # Local modules
             from CHAP.edd.utils import select_mask_and_hkls
+
             fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
                 mca_bin_energies, mca_data, hkls, ds,
                 detector.tth_initial_guess, detector.include_bin_ranges,
@@ -464,7 +473,9 @@ class MCACeriaCalibrationProcessor(Processor):
         intercept = fit.best_values['intercept']
 
         if interactive or save_figures:
+            # Third party modules
             import matplotlib.pyplot as plt
+
             fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
 
             # Upper left axes: Input data & best fits
@@ -577,13 +588,13 @@ class MCADataProcessor(Processor):
         :return: A map of the calibrated and flux-corrected MCA data.
         :rtype: nexusformat.nexus.NXroot
         """
-        # third party modules
+        # Third party modules
         from nexusformat.nexus import (NXdata,
                                        NXdetector,
                                        NXinstrument,
                                        NXroot)
 
-        # local modules
+        # Local modules
         from CHAP.common import MapProcessor
 
         nxroot = NXroot()
@@ -682,9 +693,11 @@ class StrainAnalysisProcessor(Processor):
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except Exception as data_exc:
+            # Local modules
+            from CHAP.edd.models import StrainAnalysisConfig
+
             self.logger.info('No valid strain analysis config in input '
                              + 'pipeline data, using config parameter instead')
-            from CHAP.edd.models import StrainAnalysisConfig
             try:
                 strain_analysis_config = StrainAnalysisConfig(
                     **config, inputdir=inputdir)
@@ -734,6 +747,7 @@ class StrainAnalysisProcessor(Processor):
         :return: NXroot containing strain maps.
         :rtype: nexusformat.nexus.NXroot
         """
+        # Third party modules
         from nexusformat.nexus import (NXcollection,
                                        NXdata,
                                        NXdetector,
@@ -741,7 +755,8 @@ class StrainAnalysisProcessor(Processor):
                                        NXparameters,
                                        NXprocess,
                                        NXroot)
-        import numpy as np
+
+        # Local modules
         from CHAP.common import MapProcessor
         from CHAP.edd.utils import hc
         from CHAP.utils.fit import FitMap
@@ -773,10 +788,16 @@ class StrainAnalysisProcessor(Processor):
 
         # Select interactive params / save figures
         if save_figures or interactive:
+            # Third party modules
             import matplotlib.pyplot as plt
+
+            # Local modules
             from CHAP.edd.utils import select_mask_and_hkls
+
             if interactive:
+                # Local modules
                 from CHAP.edd.utils import select_material_params
+
                 x = np.linspace(
                     strain_analysis_config.detectors[0].intercept_calibrated,
                     strain_analysis_config.detectors[0].max_energy_kev \
@@ -999,7 +1020,7 @@ class StrainAnalysisProcessor(Processor):
 
 
 if __name__ == '__main__':
-    # local modules
+    # Local modules
     from CHAP.processor import main
 
     main()
