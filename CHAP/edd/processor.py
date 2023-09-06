@@ -353,7 +353,6 @@ class MCACeriaCalibrationProcessor(Processor):
                 detector.tth_initial_guess)
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
 
-
         # Select mask & HKLs for fitting
         if interactive or save_figures:
             import matplotlib.pyplot as plt
@@ -460,10 +459,7 @@ class MCACeriaCalibrationProcessor(Processor):
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
         fit = Fit.fit_data(
-            fit_E0,
-            'linear',
-            x=unconstrained_fit_centers,
-            nan_policy='omit')
+            fit_E0, 'linear', x=unconstrained_fit_centers, nan_policy='omit')
         slope = fit.best_values['slope']
         intercept = fit.best_values['intercept']
 

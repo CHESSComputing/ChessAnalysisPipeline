@@ -167,12 +167,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     # Callback for tth input
     def new_guess(tth):
         """Callback function for the tth input."""
-        global tth_new_guess
         try:
             tth_new_guess = float(tth)
         except:
-            raise ValueError(f'Cannot convert {tth} to float')
-            #RV Can we refresh instead?
+            print(f'ValueError: Cannot convert {tth} to float')
+            return
         for i, (line, loc) in enumerate(zip(
                 hkl_lines, get_peak_locations(ds, tth_new_guess))):
             line.remove()
@@ -196,9 +195,9 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
                  for loc in get_peak_locations(ds, tth_initial_guess)]
     hkl_lbls = [ax.text(loc, 1, str(hkl)[1:-1],
                         ha='right', va='top', rotation=90,
-                        transform=ax.get_xaxis_transform()) \
-                for loc, hkl in zip(get_peak_locations(ds, tth_initial_guess),
-                                    hkls)]
+                        transform=ax.get_xaxis_transform())
+                for loc, hkl
+                    in zip(get_peak_locations(ds, tth_initial_guess), hkls)]
 
     # Setup tth input
     plt.subplots_adjust(bottom=0.25)
@@ -218,10 +217,13 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     tth_input.disconnect(cid_update_tth)
     confirm_b.disconnect(cid_confirm)
 
-    if 'tth_new_guess' in globals():
-        return globals().pop('tth_new_guess')
-    else:
-        return tth_initial_guess
+    try:
+        tth_new_guess = float(tth_input.text)
+    except:
+        tth_new_guess = select_tth_initial_guess(
+            x, y, hkls, ds, tth_initial_guess=tth_initial_guess)
+
+    return tth_new_guess
 
 
 def select_material_params(x, y, tth, materials=[]):
@@ -449,10 +451,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, SpanSelector
 
-    selected_hkl_indices = preselected_hkl_indices
-    spans = []
-    hkl_vlines = []
-
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
         removed_hkls = False
@@ -525,6 +523,10 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     def confirm(event):
         """Callback function for the "Confirm" button."""
         plt.close()
+
+    selected_hkl_indices = preselected_hkl_indices
+    spans = []
+    hkl_vlines = []
 
     hkl_locations = get_peak_locations(ds, tth)
     hkl_labels = [str(hkl)[1:-1] for hkl in hkls]
