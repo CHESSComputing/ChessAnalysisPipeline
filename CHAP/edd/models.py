@@ -214,12 +214,14 @@ class MCAScanDataConfig(BaseModel):
         :type detector_config: MCAElementConfig
         :param scan_step_index: Only return the MCA spectrum for the
             given scan step index, default to `None`, which returns
-            all the available MCA.
+            all the available MCA spectra.
         :type scan_step_index: int, optional
         :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
+        #RV todo: instead of detector_config pass index in detector array? 
         detector_name = detector_config.detector_name
+#        print(f'\nmca_data 1:\n\ttype: {type(self)}\n\tdetector_config: {detector_config}\n\tscan_step_index: {scan_step_index}\n\tdetector_name: {detector_name}')
         if self._parfile is not None:
             if scan_step_index is None:
                 data = np.asarray(
@@ -536,6 +538,7 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
+#        print(f'\nmca_data 2:\n\ttype: {type(self)}\n\tdetector_config: {detector_config}')
         if self.scan_step_index is None:
             data = super().mca_data(detector_config)
             if self.scanparser.spec_scan_npts > 1:
@@ -629,31 +632,30 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         for field in add_fields:
             setattr(self, field, getattr(calibration, field))
 
-    def fit_ds(self, materials):
-        """Get a list of HKLs and their lattice spacings that will be
-        fit in the strain analysis routine.
-
-        :ivar materials: Material(s) to get HKLs and lattice spacings.
-        :type materials: hexrd.material.Material,
-            list[hexrd.material.Material]
-        :return: HKLs to fit and their lattice spacings in angstroms.
-        :rtype: np.ndarray, np.ndarray
-        """
-        # Local modules
-        from CHAP.edd.utils import get_unique_hkls_ds
-
-        exit('FIX fit_ds')
-        if not isinstance(materials, list):
-            materials = [materials]
-        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
-
-        # unique_hkls, unique_ds = material.unique_ds(
-        #     tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
-
-        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
-        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
-
-        return fit_hkls, fit_ds
+#    def fit_ds(self, materials):
+#        """Get a list of HKLs and their lattice spacings that will be
+#        fit in the strain analysis routine.
+#
+#        :ivar materials: Material(s) to get HKLs and lattice spacings.
+#        :type materials: hexrd.material.Material,
+#            list[hexrd.material.Material]
+#        :return: HKLs to fit and their lattice spacings in angstroms.
+#        :rtype: np.ndarray, np.ndarray
+#        """
+#        # Local modules
+#        from CHAP.edd.utils import get_unique_hkls_ds
+#
+#        if not isinstance(materials, list):
+#            materials = [materials]
+#        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
+#
+#        # unique_hkls, unique_ds = material.unique_ds(
+#        #     tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
+#
+#        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
+#        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
+#
+#        return fit_hkls, fit_ds
 
     def get_tth_map(self, map_config):
         """Return a map of 2&theta values to use -- may vary at each
@@ -661,7 +663,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
         :param map_config: The map configuration with which the
             returned map of 2&theta values will be used.
-        :type map_config: MapConfig
+        :type map_config: CHAP.common.models.map.MapConfig
         :return: Map of 2&theta values.
         :rtype: np.ndarray
         """
@@ -694,7 +696,7 @@ class StrainAnalysisConfig(BaseModel):
     :type inputdir: str, optional
     :ivar map_config: The map configuration for the MCA data on which
         the strain analysis is performed.
-    :type map_config: MapConfig, optional
+    :type map_config: CHAP.common.models.map.MapConfig, optional
     :ivar par_file: Path to the par file associated with the scan.
     :type par_file: str, optional
     :ivar par_dims: List of independent dimensions.
@@ -784,6 +786,40 @@ class StrainAnalysisConfig(BaseModel):
 #                        + f'{detector.tth_file}') from e
 #        return detector
 
+    def mca_data(self, detector_config, map_index):
+        """Get MCA data for a single detector element.
+
+        :param detector_config: Detector for which data is returned.
+        :type detector_config: MCAElementStrainAnalysisConfig
+        :param map_index: Index of a single point in the map.
+        :type map_index: tuple
+        :return: A single MCA spectrum.
+        :rtype: np.ndarray
+        """
+#        print(f'\nmca_data 3:\n\ttype: {type(self)}')
+#        print(f'\n\tdetector_config: {detector_config}')
+#        print(f'\n\tmap_index: {map_index}')
+        map_coords = {dim: self.map_config.coords[dim][i]
+                      for dim,i in zip(self.map_config.dims, map_index)}
+#        print(f'\n\tmap_coords: {map_coords}\n')
+        for scans in self.map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    _coords = {
+                        dim.label:dim.get_value(
+                            scans, scan_number, scan_step_index)
+                        for dim in self.map_config.independent_dimensions}
+#                    print(f'\t\t{scan_number} {scan_step_index} {_coords}')
+                    if _coords == map_coords:
+                        break
+#        print(f'\n\tscans: {scans}')
+#        print(f'\n\tscan_number: {scan_number}')
+#        print(f'\n\tscan_step_index: {scan_step_index}')
+        scanparser = scans.get_scanparser(scan_number)
+        return scanparser.get_detector_data(detector_config.detector_name,
+                                            scan_step_index)
+
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
@@ -798,29 +834,3 @@ class StrainAnalysisConfig(BaseModel):
         if '_scanparser' in d:
             del d['_scanparser']
         return d
-
-    def mca_data(self, detector_config, map_index):
-        """Get MCA data for a single detector element.
-
-        :param detector_config: Detector for which data is returned.
-        :type detector_config: MCAElementStrainAnalysisConfig
-        :param map_index: Index of a single point in the map.
-        :type map_index: tuple
-        :return: A single MCA spectrum.
-        :rtype: np.ndarray
-        """
-        map_coords = {dim: self.map_config.coords[dim][i]
-                      for dim,i in zip(self.map_config.dims, map_index)}
-        for scans in self.map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    _coords = {
-                        dim.label:dim.get_value(
-                            scans, scan_number, scan_step_index)
-                        for dim in self.map_config.independent_dimensions}
-                    if _coords == map_coords:
-                        break
-        scanparser = scans.get_scanparser(scan_number)
-        return scanparser.get_detector_data(detector_config.detector_name,
-                                            scan_step_index)

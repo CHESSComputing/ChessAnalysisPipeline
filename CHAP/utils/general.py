@@ -933,7 +933,6 @@ def select_mask_1d(
 
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
-        print(f'\non_span_select: {spans[-1].extents}\n')
         combined_spans = True
         while combined_spans:
             combined_spans = False
@@ -968,7 +967,6 @@ def select_mask_1d(
         spans[-1]._selection_completed = True
         spans[-1].extents = (xmin_init, xmax_init)
         spans[-1].onselect(xmin_init, xmax_init)
-        print(f'\nadd_span: {spans[-1].extents}\n')
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
@@ -976,12 +974,9 @@ def select_mask_1d(
 
     def update_mask(mask, selected_index_ranges):
         """Update the mask with the selected index ranges."""
-        print(f'\n\nupdate_mask\n\tinput mask: {mask}')
         for low, upp in selected_index_ranges:
-            print(f'\tlow, upp: {low}, {upp}')
             mask = np.logical_or(
                 mask, np.logical_and(x >= x[low], x <= x[upp]))
-        print(f'\toutput mask: {mask}')
         return mask
 
     def update_index_ranges(mask):
@@ -1002,7 +997,6 @@ def select_mask_1d(
         if (selected_index_ranges
                 and isinstance(selected_index_ranges[-1], int)):
             selected_index_ranges[-1] = (selected_index_ranges[-1], num_data-1)
-        print(f'update_index_ranges: {selected_index_ranges}')
         return selected_index_ranges
 
     spans = []

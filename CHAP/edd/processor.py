@@ -121,6 +121,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         from CHAP.utils.general import select_mask_1d
 
         # Get raw MCA data from raster scan
+        print(f'\nCollect raw MCA data of interest in {type(dvl_config)}')
         mca_data = dvl_config.mca_data(detector)
 
         # Interactively set mask, if needed & possible.
@@ -340,6 +341,8 @@ class MCACeriaCalibrationProcessor(Processor):
         from CHAP.edd.utils import hc
         from CHAP.utils.fit import Fit
 
+        # Get the unique HKLs and lattice spacings for the calibration
+        # material
         hkls, ds = calibration_config.material.unique_ds(
             tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
 
@@ -685,8 +688,6 @@ class StrainAnalysisProcessor(Processor):
 
         """
         # Get required configuration models from input data
-        # map_config = self.get_config(
-        #     data, 'common.models.map.MapConfig')
         ceria_calibration_config = self.get_config(
             data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
         try:
@@ -705,7 +706,6 @@ class StrainAnalysisProcessor(Processor):
                 raise RuntimeError from dict_exc
 
         nxroot = self.get_nxroot(
-            #map_config,
             strain_analysis_config.map_config,
             ceria_calibration_config,
             strain_analysis_config,
@@ -713,8 +713,8 @@ class StrainAnalysisProcessor(Processor):
             outputdir=outputdir,
             interactive=interactive)
         self.logger.debug(nxroot.tree)
-        return nxroot
 
+        return nxroot
 
     def get_nxroot(self,
                    map_config,
@@ -758,8 +758,17 @@ class StrainAnalysisProcessor(Processor):
 
         # Local modules
         from CHAP.common import MapProcessor
-        from CHAP.edd.utils import hc
+        from CHAP.edd.utils import (
+            hc,
+            get_unique_hkls_ds,
+        )
         from CHAP.utils.fit import FitMap
+
+        def linkdims(nxgroup):
+            for dim in map_config.dims:
+                nxgroup.makelink(nxentry.data[dim])
+                nxgroup.attrs[f'{dim}_indices'] = \
+                    nxentry.data.attrs[f'{dim}_indices']
 
         for detector in strain_analysis_config.detectors:
             calibration = [
@@ -779,12 +788,34 @@ class StrainAnalysisProcessor(Processor):
         nxprocess.default = 'data'
         nxdata = nxprocess.data
         nxdata.attrs['axes'] = map_config.dims
-        def linkdims(nxgroup):
-            for dim in map_config.dims:
-                nxgroup.makelink(nxentry.data[dim])
-                nxgroup.attrs[f'{dim}_indices'] = \
-                    nxentry.data.attrs[f'{dim}_indices']
         linkdims(nxdata)
+
+        # Get the unique HKLs and lattice spacings for the strain
+        # analysis materials (assume hkl_tth_tol and tth_max are the
+        # same for each detector)
+        hkls, ds = get_unique_hkls_ds(
+            strain_analysis_config.materials,
+            tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
+            tth_max=strain_analysis_config.detectors[0].tth_max)
+
+        # Collect raw MCA data of interest
+        mca_data = []
+        mca_bin_energies = []
+        print(f'\nCollect raw MCA data of interest in {type(strain_analysis_config)}')
+        print(f'\nstrain_analysis_config.map_config {type(strain_analysis_config.map_config)}:\n\t{strain_analysis_config.map_config}')
+        print(f'\nstrain_analysis_config.map_config.coords {type(strain_analysis_config.map_config.coords)}:\n\t{strain_analysis_config.map_config.coords}')
+        print(f'\nstrain_analysis_config.map_config.shape: {strain_analysis_config.map_config.shape}')
+        print(f'\nstrain_analysis_config.map_config.dims: {strain_analysis_config.map_config.dims}')
+        for detector in strain_analysis_config.detectors:
+            mca_bin_energies.append(
+                detector.slope_calibrated
+                * np.linspace(0, detector.max_energy_kev, detector.num_bins)
+                + detector.intercept_calibrated)
+            mca_data.append(
+                strain_analysis_config.mca_data(
+                    detector,
+                    (0,) * len(strain_analysis_config.map_config.shape)))
+        print(f'\nmca_data.shape: {np.asarray(mca_data).shape}')
 
         # Select interactive params / save figures
         if save_figures or interactive:
@@ -798,52 +829,43 @@ class StrainAnalysisProcessor(Processor):
                 # Local modules
                 from CHAP.edd.utils import select_material_params
 
-                x = np.linspace(
-                    strain_analysis_config.detectors[0].intercept_calibrated,
-                    strain_analysis_config.detectors[0].max_energy_kev \
-                    * strain_analysis_config.detectors[0].slope_calibrated,
-                    strain_analysis_config.detectors[0].num_bins)
-                y = strain_analysis_config.mca_data(
-                    strain_analysis_config.detectors[0],
-                    (0,) * len(strain_analysis_config.map_config.shape))
                 tth = strain_analysis_config.detectors[0].tth_calibrated
                 strain_analysis_config.materials = select_material_params(
-                    x, y, tth, materials=strain_analysis_config.materials)
+                    mca_bin_energies[0], mca_data[0], tth,
+                    materials=strain_analysis_config.materials)
                 self.logger.debug(
                     f'materials: {strain_analysis_config.materials}')
-            for detector in strain_analysis_config.detectors:
-                x = np.linspace(detector.intercept_calibrated,
-                                detector.max_energy_kev \
-                                * detector.slope_calibrated,
-                                detector.num_bins)
-                y = strain_analysis_config.mca_data(
-                    detector,
-                    (0,) * len(strain_analysis_config.map_config.shape))
-                ref_map = np.empty((np.prod(map_config.shape), *y.shape))
-                for i, map_index in enumerate(np.ndindex(map_config.shape)):
+            for i, detector in enumerate(strain_analysis_config.detectors):
+                #RV use mca_data()?
+                print(f'\ndetector {type(detector)}\n\t{detector}')
+                print(f'\nmap_config {type(map_config)}\n\t{map_config}')
+                ref_map = np.empty(
+                    (np.prod(map_config.shape), *mca_data[i].shape))
+                print(f'\nref_mapshape: {ref_map.shape}')
+                for j, map_index in enumerate(np.ndindex(map_config.shape)):
+                    print(f'\tj, map_index: {j}, {map_index}')
                     try:
                         scans, scan_number, scan_step_index = \
                             map_config.get_scan_step_index(map_index)
                     except:
                         continue
                     scanparser = scans.get_scanparser(scan_number)
-                    ref_map[i] = scanparser.get_detector_data(
+                    ref_map[j] = scanparser.get_detector_data(
                         detector.detector_name, scan_step_index)
-
-                fig, include_bin_ranges, fit_hkls = select_mask_and_hkls(
-                    detector, strain_analysis_config.materials,
-                    detector.tth_calibrated,
-                    y, x, ref_map=ref_map,
-                    interactive=interactive)
+                fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
+                    mca_bin_energies[i], mca_data[i], hkls, ds,
+                    detector.tth_calibrated, detector.include_bin_ranges,
+                    detector.hkl_indices, detector.detector_name,
+                    ref_map, interactive)
                 detector.include_bin_ranges = include_bin_ranges
-                detector.fit_hkls = fit_hkls
+                detector.hkl_indices = hkl_indices
                 if save_figures:
                     fig.savefig(os.path.join(
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_fit_mask_hkls.png'))
                 plt.close()
 
-        for detector in strain_analysis_config.detectors:
+        for i, detector in enumerate(strain_analysis_config.detectors):
             # Setup NXdata group
             self.logger.debug(
                 f'Setting up NXdata group for {detector.detector_name}')
@@ -855,11 +877,8 @@ class StrainAnalysisProcessor(Processor):
             det_nxdata = nxdetector.data
             det_nxdata.attrs['axes'] = map_config.dims + ['energy']
             linkdims(det_nxdata)
-            all_energies = detector.slope_calibrated \
-                * np.linspace(0, detector.max_energy_kev, detector.num_bins) \
-                + detector.intercept_calibrated
             mask = detector.mca_mask()
-            energies = all_energies[mask]
+            energies = mca_bin_energies[i][mask]
             det_nxdata.energy = NXfield(value=energies,
                                         attrs={'units': 'keV'})
             det_nxdata.attrs['energy_indices'] = len(map_config.dims)
@@ -875,6 +894,7 @@ class StrainAnalysisProcessor(Processor):
             # Gather detector data
             self.logger.debug(
                 f'Gathering detector data for {detector.detector_name}')
+            #RV use mca_data?
             for map_index in np.ndindex(map_config.shape):
                 try:
                     scans, scan_number, scan_step_index = \
@@ -891,8 +911,11 @@ class StrainAnalysisProcessor(Processor):
             # Perform strain analysis
             self.logger.debug(
                 f'Beginning strain analysis for {detector.detector_name}')
-            fit_hkls, fit_ds = detector.fit_ds(
-                strain_analysis_config.materials)
+
+            # Get the HKLs and lattice spacings that will be used for
+            # fitting
+            fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
+            fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = hc / (
                 2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
             # KLS: Use the below def of peak_locations when

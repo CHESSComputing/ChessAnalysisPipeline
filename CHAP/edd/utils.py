@@ -20,7 +20,6 @@ def get_peak_locations(ds, tth):
     """
     return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
 
-
 def make_material(name, sgnum, lparms, dmin=0.6):
     """Return a hexrd.material.Material with the given properties.
     Taken from
@@ -56,7 +55,6 @@ def make_material(name, sgnum, lparms, dmin=0.6):
     matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
 
     return matl
-
 
 def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     """Return the unique HKLs and d-spacings for the given list of
@@ -99,7 +97,6 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     hkls_unique = hkls[ds_index_unique,:].astype(int)
     ds_unique = ds[ds_index_unique]
     return hkls_unique, ds_unique
-
 
 def select_hkls(detector, materials, tth, y, x, interactive):
     """Return a plot of `detector.fit_hkls` as a matplotlib
@@ -145,7 +142,6 @@ def select_hkls(detector, materials, tth, y, x, interactive):
 
     return figure
 
-
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     """Show a matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
@@ -190,7 +186,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
                                   transform=ax.get_xaxis_transform())
         ax.get_figure().canvas.draw()
 
-    def confirm_selection(event):
+    def confirm(event):
         """Callback function for the "Confirm" button."""
         plt.close()
 
@@ -215,15 +211,15 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     cid_update_tth = tth_input.on_submit(new_guess)
 
     # Setup "Confirm" button
-    confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
-    cid_confirm = confirm_b.on_clicked(confirm_selection)
+    confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+    confirm_cid = confirm_btn.on_clicked(confirm)
 
     # Show figure for user interaction
     plt.show()
 
     # Disconnect all widget callbacks when figure is closed
     tth_input.disconnect(cid_update_tth)
-    confirm_b.disconnect(cid_confirm)
+    confirm_btn.disconnect(confirm_cid)
 
     try:
         tth_new_guess = float(tth_input.text)
@@ -233,17 +229,27 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
 
     return tth_new_guess
 
-
 def select_material_params(x, y, tth, materials=[]):
-    """Interactively select lattice parameters and space group for a
-    list of materials. A matplotlib figure will be shown with a plot
+    """Interactively select the lattice parameters and space group for
+    a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
     widgets to add / remove materials and update selections for space
     group number and lattice parameters for each one. The HKLs for the
     materials defined by the widgets' values will be shown over the
     reference data and updated when the widgets' values are
-    updated. Return a list of the selected materials when the figure
-    is closed.
+    updated. It returns a list of the selected materials when the
+    figure is closed.
+
+    :param x: MCA channel energies.
+    :type x: np.ndarray
+    :param y: MCA intensities.
+    :type y: np.ndarray
+    :param tth: The (calibrated) 2&theta angle.
+    :type tth: float
+    :param materials: List of materials to get HKLs and d-spacings for
+    :type materials: list[hexrd.material.Material]
+    :return: The selected materials for the strain analyses.
+    :rtype: list[CHAP.edd.models.MaterialConfig]
     """
     # System modules
     from copy import deepcopy
@@ -255,17 +261,9 @@ def select_material_params(x, y, tth, materials=[]):
     # Local modules
     from CHAP.edd.models import MaterialConfig
 
-    _materials = deepcopy(materials)
-    for i, m in enumerate(_materials):
-        if isinstance(m, MaterialConfig):
-            _materials[i] = m._material
-
-    # Set up plot of reference data
-    fig, ax = plt.subplots(figsize=(11, 8.5))
-
     def draw_plot():
         """Redraw plot of reference data and HKL locations based on
-        the `_materials` list on the matplotlib Axes `ax`.
+        the `_materials` list on the Matplotlib axes `ax`.
         """
         ax.clear()
         ax.set_title('Reference Data')
@@ -282,80 +280,10 @@ def select_material_params(x, y, tth, materials=[]):
                         transform=ax.get_xaxis_transform())
         ax.get_figure().canvas.draw()
 
-    # Confirm & close button
-    widget_callbacks = []
-    plt.subplots_adjust(bottom=0.1)
-    def confirm_selection(event):
-        plt.close()
-    confirm_button = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
-    cid_confirm = confirm_button.on_clicked(confirm_selection)
-    widget_callbacks.append([(confirm_button, cid_confirm)])
-
-    # Widgets to edit materials
-    widgets = []
-    def update_materials(*args, **kwargs):
-        """Validate input material properties from widgets, update the
-        `_materials` list, and redraw the plot.
-        """
-        def set_vals(material_i):
-            """Set all widget values from the `_materials` list for a
-            particular material
-            """
-            material = _materials[material_i]
-            # Temporarily disconnect widget callbacks
-            callbacks = widget_callbacks[material_i+2]
-            for widget, callback in callbacks:
-                widget.disconnect(callback)
-            # Set widget values
-            name_input, sgnum_input, \
-            a_input, b_input, c_input, \
-            alpha_input, beta_input, gamma_input = widgets[material_i]
-            name_input.set_val(material.name)
-            sgnum_input.set_val(material.sgnum)
-            a_input.set_val(material.latticeParameters[0].value)
-            b_input.set_val(material.latticeParameters[1].value)
-            c_input.set_val(material.latticeParameters[2].value)
-            alpha_input.set_val(material.latticeParameters[3].value)
-            beta_input.set_val(material.latticeParameters[4].value)
-            gamma_input.set_val(material.latticeParameters[5].value)
-            # Reconnect widget callbacks
-            for i, (w, cb) in enumerate(widget_callbacks[material_i+2]):
-                widget_callbacks[material_i+2][i] = (
-                    w, w.on_submit(update_materials))
-
-        # Update the _materials list
-        for i, (material,
-                (name_input, sgnum_input, \
-                 a_input, b_input, c_input, \
-                 alpha_input, beta_input, gamma_input)) \
-                in enumerate(zip(_materials, widgets)):
-            # Skip if no parameters were changes on this material
-            old_material_params = (
-                material.name, material.sgnum,
-                [material.latticeParameters[i].value for i in range(6)]
-            )
-            new_material_params = (
-                name_input.text, int(sgnum_input.text),
-                [float(a_input.text), float(b_input.text), float(c_input.text),
-                 float(alpha_input.text), float(beta_input.text),
-                 float(gamma_input.text)]
-            )
-            if old_material_params == new_material_params:
-                continue
-            try:
-                new_material = make_material(*new_material_params)
-            except:
-                print(f'Bad input for {material.name}')
-            else:
-                _materials[i] = new_material
-            finally:
-                set_vals(i)
-        # Redraw reference data plot
-        draw_plot()
-
     def add_material(*args, material=None, new=True):
-        """Add new row of material-property-editing widgets to the
-        figure and update the plot with new HKLs
+        """Callback function for the "Add material" button to add
+        a new row of material-property-editing widgets to the figure
+        and update the plot with new HKLs.
         """
         if material is None:
             material = make_material('new_material', 225, 3.0)
@@ -396,28 +324,115 @@ def select_material_params(x, y, tth, materials=[]):
              for widget in widgets[-1]])
         draw_plot()
 
-    # Button to add materials
-    add_material_button = Button(
-        plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
-    cid_add_material = add_material_button.on_clicked(add_material)
-    widget_callbacks.append([(add_material_button, cid_add_material)])
+    def update_materials(*args, **kwargs):
+        """Callback function for the material-property-editing widgets
+         button to validate input material properties from widgets,
+         update the `_materials` list, and redraw the plot.
+        """
+        def set_vals(material_i):
+            """Set all widget values from the `_materials` list for a
+            particular material.
+            """
+            material = _materials[material_i]
+            # Temporarily disconnect widget callbacks
+            callbacks = widget_callbacks[material_i+2]
+            for widget, callback in callbacks:
+                widget.disconnect(callback)
+            # Set widget values
+            name_input, sgnum_input, \
+                a_input, b_input, c_input, \
+                alpha_input, beta_input, gamma_input = widgets[material_i]
+            name_input.set_val(material.name)
+            sgnum_input.set_val(material.sgnum)
+            a_input.set_val(material.latticeParameters[0].value)
+            b_input.set_val(material.latticeParameters[1].value)
+            c_input.set_val(material.latticeParameters[2].value)
+            alpha_input.set_val(material.latticeParameters[3].value)
+            beta_input.set_val(material.latticeParameters[4].value)
+            gamma_input.set_val(material.latticeParameters[5].value)
+            # Reconnect widget callbacks
+            for i, (w, cb) in enumerate(widget_callbacks[material_i+2]):
+                widget_callbacks[material_i+2][i] = (
+                    w, w.on_submit(update_materials))
 
-    # Draw data & show plot
+        # Update the _materials list
+        for i, (material,
+                (name_input, sgnum_input,
+                 a_input, b_input, c_input,
+                 alpha_input, beta_input, gamma_input)) \
+                in enumerate(zip(_materials, widgets)):
+            # Skip if no parameters were changes on this material
+            old_material_params = (
+                material.name, material.sgnum,
+                [material.latticeParameters[i].value for i in range(6)]
+            )
+            new_material_params = (
+                name_input.text, int(sgnum_input.text),
+                [float(a_input.text), float(b_input.text), float(c_input.text),
+                 float(alpha_input.text), float(beta_input.text),
+                 float(gamma_input.text)]
+            )
+            if old_material_params == new_material_params:
+                continue
+            try:
+                new_material = make_material(*new_material_params)
+            except:
+                print(f'Bad input for {material.name}')
+            else:
+                _materials[i] = new_material
+            finally:
+                set_vals(i)
+
+        # Redraw reference data plot
+        draw_plot()
+
+    def confirm(event):
+        """Callback function for the "Confirm" button."""
+        plt.close()
+
+    widgets = []
+    widget_callbacks = []
+
+    _materials = deepcopy(materials)
+    for i, m in enumerate(_materials):
+        if isinstance(m, MaterialConfig):
+            _materials[i] = m._material
+
+    # Set up plot of reference data
+    fig, ax = plt.subplots(figsize=(11, 8.5))
+    plt.subplots_adjust(bottom=0.1)
+
+    # Setup "Add material" button
+    add_material_btn = Button(
+        plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
+    add_material_cid = add_material_btn.on_clicked(add_material)
+    widget_callbacks.append([(add_material_btn, add_material_cid)])
+
+    # Setup "Confirm" button
+    confirm_btn = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
+    confirm_cid = confirm_btn.on_clicked(confirm)
+    widget_callbacks.append([(confirm_btn, confirm_cid)])
+
+    # Setup material-property-editing buttons for each material
     for material in _materials:
         add_material(material=material)
+
+    # Show figure for user interaction
     plt.show()
 
-    # Teardown after figure is closed
+    # Disconnect all widget callbacks when figure is closed
     for group in widget_callbacks:
         for widget, callback in group:
             widget.disconnect(callback)
 
-    new_materials = [MaterialConfig(
-        material_name=m.name, sgnum=m.sgnum,
-        lattice_parameters=[m.latticeParameters[i].value for i in range(6)]) \
-                     for m in _materials]
-    return new_materials
+    new_materials = [
+        MaterialConfig(
+            material_name=m.name, sgnum=m.sgnum,
+            lattice_parameters=[
+                m.latticeParameters[i].value for i in range(6)])
+        for m in _materials]
 
+    return new_materials
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
@@ -597,6 +612,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         hkl_vlines.append(hkl_vline)
 
     if interactive:
+
+        # Setup "Add span" button
         add_span_btn = Button(plt.axes([0.15, 0.05, 0.1, 0.075]), 'Add span')
         add_span_cid = add_span_btn.on_clicked(add_span)
 
@@ -604,6 +621,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
              vline.set_picker(5)
         pick_hkl_cid = fig.canvas.mpl_connect('pick_event', pick_hkl)
 
+        # Setup "Confirm" button
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
