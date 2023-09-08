@@ -799,23 +799,13 @@ class StrainAnalysisProcessor(Processor):
             tth_max=strain_analysis_config.detectors[0].tth_max)
 
         # Collect raw MCA data of interest
-        mca_data = []
         mca_bin_energies = []
-        print(f'\nCollect raw MCA data of interest in {type(strain_analysis_config)}')
-        print(f'\nstrain_analysis_config.map_config {type(strain_analysis_config.map_config)}:\n\t{strain_analysis_config.map_config}')
-        print(f'\nstrain_analysis_config.map_config.coords {type(strain_analysis_config.map_config.coords)}:\n\t{strain_analysis_config.map_config.coords}')
-        print(f'\nstrain_analysis_config.map_config.shape: {strain_analysis_config.map_config.shape}')
-        print(f'\nstrain_analysis_config.map_config.dims: {strain_analysis_config.map_config.dims}')
-        for detector in strain_analysis_config.detectors:
+        for i, detector in enumerate(strain_analysis_config.detectors):
             mca_bin_energies.append(
                 detector.slope_calibrated
                 * np.linspace(0, detector.max_energy_kev, detector.num_bins)
                 + detector.intercept_calibrated)
-            mca_data.append(
-                strain_analysis_config.mca_data(
-                    detector,
-                    (0,) * len(strain_analysis_config.map_config.shape)))
-        print(f'\nmca_data.shape: {np.asarray(mca_data).shape}')
+        mca_data = strain_analysis_config.mca_data()
 
         # Select interactive params / save figures
         if save_figures or interactive:
@@ -831,32 +821,16 @@ class StrainAnalysisProcessor(Processor):
 
                 tth = strain_analysis_config.detectors[0].tth_calibrated
                 strain_analysis_config.materials = select_material_params(
-                    mca_bin_energies[0], mca_data[0], tth,
+                    mca_bin_energies[0], mca_data[0][0], tth,
                     materials=strain_analysis_config.materials)
                 self.logger.debug(
                     f'materials: {strain_analysis_config.materials}')
             for i, detector in enumerate(strain_analysis_config.detectors):
-                #RV use mca_data()?
-                print(f'\ndetector {type(detector)}\n\t{detector}')
-                print(f'\nmap_config {type(map_config)}\n\t{map_config}')
-                ref_map = np.empty(
-                    (np.prod(map_config.shape), *mca_data[i].shape))
-                print(f'\nref_mapshape: {ref_map.shape}')
-                for j, map_index in enumerate(np.ndindex(map_config.shape)):
-                    print(f'\tj, map_index: {j}, {map_index}')
-                    try:
-                        scans, scan_number, scan_step_index = \
-                            map_config.get_scan_step_index(map_index)
-                    except:
-                        continue
-                    scanparser = scans.get_scanparser(scan_number)
-                    ref_map[j] = scanparser.get_detector_data(
-                        detector.detector_name, scan_step_index)
                 fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
-                    mca_bin_energies[i], mca_data[i], hkls, ds,
+                    mca_bin_energies[i], mca_data[i][0], hkls, ds,
                     detector.tth_calibrated, detector.include_bin_ranges,
                     detector.hkl_indices, detector.detector_name,
-                    ref_map, interactive)
+                    mca_data[i], interactive)
                 detector.include_bin_ranges = include_bin_ranges
                 detector.hkl_indices = hkl_indices
                 if save_figures:
@@ -894,18 +868,9 @@ class StrainAnalysisProcessor(Processor):
             # Gather detector data
             self.logger.debug(
                 f'Gathering detector data for {detector.detector_name}')
-            #RV use mca_data?
-            for map_index in np.ndindex(map_config.shape):
-                try:
-                    scans, scan_number, scan_step_index = \
-                        map_config.get_scan_step_index(map_index)
-                except:
-                    continue
-                scanparser = scans.get_scanparser(scan_number)
-                intensity = scanparser.get_detector_data(
-                    detector.detector_name, scan_step_index)\
-                    .astype('uint16')[mask]
-                det_nxdata.intensity[map_index] = intensity
+            for j, map_index in enumerate(np.ndindex(map_config.shape)):
+                det_nxdata.intensity[map_index] = \
+                    mca_data[i][j].astype('uint16')[mask]
             det_nxdata.summed_intensity = det_nxdata.intensity.sum(axis=-1)
 
             # Perform strain analysis

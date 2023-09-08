@@ -213,7 +213,7 @@ class MCAScanDataConfig(BaseModel):
         :param detector_config: Detector for which data is returned.
         :type detector_config: MCAElementConfig
         :param scan_step_index: Only return the MCA spectrum for the
-            given scan step index, default to `None`, which returns
+            given scan step index, defaults to `None`, which returns
             all the available MCA spectra.
         :type scan_step_index: int, optional
         :return: The current detectors's MCA data.
@@ -786,39 +786,40 @@ class StrainAnalysisConfig(BaseModel):
 #                        + f'{detector.tth_file}') from e
 #        return detector
 
-    def mca_data(self, detector_config, map_index):
-        """Get MCA data for a single detector element.
+    def mca_data(self, detector=None, map_index=None):
+        """Get MCA data for a single or multiple detector elements.
 
-        :param detector_config: Detector for which data is returned.
-        :type detector_config: MCAElementStrainAnalysisConfig
-        :param map_index: Index of a single point in the map.
-        :type map_index: tuple
+        :param detector: Detector(s) for which data is returned,
+            defaults to None, which return MCA data for all 
+            detector elements.
+        :type detector: Union[int, MCAElementStrainAnalysisConfig],
+            optional
+        :param map_index: Index of a single point in the map, defaults
+            to None, which returns MCA data for each point in the map.
+        :type map_index: tuple, optional
         :return: A single MCA spectrum.
         :rtype: np.ndarray
         """
-#        print(f'\nmca_data 3:\n\ttype: {type(self)}')
-#        print(f'\n\tdetector_config: {detector_config}')
-#        print(f'\n\tmap_index: {map_index}')
-        map_coords = {dim: self.map_config.coords[dim][i]
-                      for dim,i in zip(self.map_config.dims, map_index)}
-#        print(f'\n\tmap_coords: {map_coords}\n')
-        for scans in self.map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    _coords = {
-                        dim.label:dim.get_value(
-                            scans, scan_number, scan_step_index)
-                        for dim in self.map_config.independent_dimensions}
-#                    print(f'\t\t{scan_number} {scan_step_index} {_coords}')
-                    if _coords == map_coords:
-                        break
-#        print(f'\n\tscans: {scans}')
-#        print(f'\n\tscan_number: {scan_number}')
-#        print(f'\n\tscan_step_index: {scan_step_index}')
-        scanparser = scans.get_scanparser(scan_number)
-        return scanparser.get_detector_data(detector_config.detector_name,
-                                            scan_step_index)
+        if detector is None:
+            mca_data = []
+            for detector_config in self.detectors:
+                mca_data.append(self.mca_data(detector_config, map_index))
+            return np.asarray(mca_data)
+        else:
+            if isinstance(detector, int):
+                detector_config = self.detectors[detector]
+            else:
+                if not isinstance(detector, MCAElementStrainAnalysisConfig):
+                    raise ValueError('Invalid parameter detector ({detector})')
+                detector_config = detector
+            if map_index is None:
+                mca_data = []
+                for map_index in np.ndindex(self.map_config.shape):
+                    mca_data.append(self.mca_data(detector_config, map_index))
+                return np.asarray(mca_data)
+            else:
+                return self.map_config.get_detector_data(
+                    detector_config.detector_name, map_index)
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
