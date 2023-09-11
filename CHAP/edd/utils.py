@@ -462,16 +462,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         while combined_spans:
             combined_spans = False
             for i, span1 in enumerate(spans):
-                for j, span2 in enumerate(spans[i+1:]):
+                for span2 in reversed(spans[i+1:]):
                     if (span1.extents[1] >= span2.extents[0]
                             and span1.extents[0] <= span2.extents[1]):
                         print('Combined overlapping spans in the currently '
                             'selected energy mask')
-                        span2.extents = (
+                        span1.extents = (
                             min(span1.extents[0], span2.extents[0]),
                             max(span1.extents[1], span2.extents[1]))
-                        span1.set_visible(False)
-                        spans.pop(i)
+                        span2.set_visible(False)
+                        spans.remove(span2)
                         combined_spans = True
                         break
                 if combined_spans:
@@ -514,6 +514,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     print(f'Selected HKL is outside any current span, '
                         'extend or add spans before adding this value')
             plt.draw()
+
+    def reset(event):
+        """Callback function for the "Confirm" button."""
+        for hkl_index in deepcopy(selected_hkl_indices):
+            hkl_vlines[hkl_index].set(**excluded_hkl_props)
+            selected_hkl_indices.remove(hkl_index)
+        for span in reversed(spans):
+            span.set_visible(False)
+            spans.remove(span)
+        plt.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
@@ -578,12 +588,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     if interactive:
 
         # Setup "Add span" button
-        add_span_btn = Button(plt.axes([0.15, 0.05, 0.1, 0.075]), 'Add span')
+        add_span_btn = Button(plt.axes([0.125, 0.05, 0.15, 0.075]), 'Add span')
         add_span_cid = add_span_btn.on_clicked(add_span)
 
         for vline in hkl_vlines:
              vline.set_picker(5)
         pick_hkl_cid = fig.canvas.mpl_connect('pick_event', pick_hkl)
+
+        # Setup "Reset" button
+        reset_btn = Button(plt.axes([0.4375, 0.05, 0.15, 0.075]), 'Reset')
+        reset_cid = reset_btn.on_clicked(reset)
 
         # Setup "Confirm" button
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
@@ -595,11 +609,13 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         # Disconnect all widget callbacks when figure is closed
         add_span_btn.disconnect(add_span_cid)
         fig.canvas.mpl_disconnect(pick_hkl_cid)
+        reset_btn.disconnect(reset_cid)
         confirm_btn.disconnect(confirm_cid)
 
         # ...and remove the buttons before returning the figure
         add_span_btn.ax.remove()
         confirm_btn.ax.remove()
+        reset_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
     selected_bin_ranges = [np.searchsorted(x, span.extents).tolist()
