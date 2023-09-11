@@ -121,7 +121,6 @@ class DiffractionVolumeLengthProcessor(Processor):
         from CHAP.utils.general import select_mask_1d
 
         # Get raw MCA data from raster scan
-        print(f'\nCollect raw MCA data of interest in {type(dvl_config)}')
         mca_data = dvl_config.mca_data(detector)
 
         # Interactively set mask, if needed & possible.
@@ -338,12 +337,12 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: float, float, float
         """
         # Local modules
-        from CHAP.edd.utils import hc
+        from CHAP.edd.utils import get_peak_locations
         from CHAP.utils.fit import Fit
 
         # Get the unique HKLs and lattice spacings for the calibration
         # material
-        hkls, ds = calibration_config.material.unique_ds(
+        hkls, ds = calibration_config.material.unique_hkls_ds(
             tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
 
         # Collect raw MCA data of interest
@@ -418,8 +417,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Get expected peak energy locations for this iteration's
             # starting value of tth
-            fit_lambda = 2.0*fit_ds*np.sin(0.5*np.radians(tth))
-            fit_E0 = hc / fit_lambda
+            fit_E0 = get_peak_locations(fit_ds, tth)
 
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
@@ -451,8 +449,8 @@ class MCACeriaCalibrationProcessor(Processor):
             unconstrained_fit_centers = np.array(
                 [unconstrained_fit.best_values[f'peak{i+1}_center']
                  for i in range(len(fit_hkls))])
-            unconstrained_a = 0.5*hc*np.sqrt(c_1) \
-                / (unconstrained_fit_centers*abs(np.sin(0.5*np.radians(tth))))
+            unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
+                unconstrained_fit_centers, tth))
             unconstrained_strains = np.log(
                 (unconstrained_a
                  / calibration_config.material.lattice_parameters))
@@ -759,7 +757,7 @@ class StrainAnalysisProcessor(Processor):
         # Local modules
         from CHAP.common import MapProcessor
         from CHAP.edd.utils import (
-            hc,
+            get_peak_locations,
             get_unique_hkls_ds,
         )
         from CHAP.utils.fit import FitMap
@@ -881,14 +879,13 @@ class StrainAnalysisProcessor(Processor):
             # fitting
             fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
             fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
-            peak_locations = hc / (
-                2. * fit_ds * np.sin(0.5*np.radians(detector.tth_calibrated)))
+            peak_locations = get_peak_locations(
+                fit_ds, detector.tth_calibrated)
             # KLS: Use the below def of peak_locations when
             # FitMap.create_multipeak_model can accept a list of maps
             # for centers.
             # tth = np.radians(detector.map_tth(map_config))
-            # peak_locations = [hc / (2. * d0 * np.sin(0.5*tth)) \
-            #                   for d0 in fit_ds]
+            # peak_locations = [get_peak_locations(d0, tth) for d0 in fit_ds]
 
             # Perform initial fit: assume uniform strain for all HKLs
             self.logger.debug('Performing uniform fit')
@@ -926,12 +923,12 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for hkl, center_guessed, centers_fit, centers_errors in \
-                    zip(fit_hkls, peak_locations,
-                        uniform_fit_centers, uniform_fit_errors):
+            for hkl, center_guess, centers_fit, centers_error in zip(
+                    fit_hkls, peak_locations, uniform_fit_centers,
+                    uniform_fit_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guessed
+                fit_nxgroup[hkl_name].initial_guess = center_guess
                 fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
@@ -939,7 +936,7 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
-                    value=centers_errors)
+                    value=centers_error)
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
 
@@ -949,12 +946,6 @@ class StrainAnalysisProcessor(Processor):
             self.logger.debug('Performing unconstrained fit')
             fit.create_multipeak_model(fit_type='unconstrained')
             fit.fit()
-            tth_map = detector.get_tth_map(map_config)
-            nominal_centers = np.empty(
-                (len(peak_locations), *map_config.shape))
-            for i, fit_d in enumerate(fit_ds):
-                nominal_centers = hc / (
-                    2. * fit_d * np.sin(0.5*np.radians(tth_map)))
             unconstrained_fit_centers = np.array(
                 [fit.best_values[
                     fit.best_parameters()\
@@ -965,6 +956,9 @@ class StrainAnalysisProcessor(Processor):
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
+            tth_map = detector.get_tth_map(map_config)
+            nominal_centers = np.asarray(
+                [get_peak_locations(d0, tth_map) for d0 in fit_ds])
             unconstrained_strains = np.log(
                 nominal_centers / unconstrained_fit_centers)
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
@@ -987,13 +981,12 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for (hkl, unconstrained_center_guesses,
-                 centers_fit, centers_errors) in \
-                    zip(fit_hkls, peak_locations,
-                        unconstrained_fit_centers, unconstrained_fit_errors):
+            for hkl, center_guess, centers_fit, centers_error in zip(
+                    fit_hkls, peak_locations, unconstrained_fit_centers,
+                    unconstrained_fit_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guessed
+                fit_nxgroup[hkl_name].initial_guess = center_guess
                 fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
@@ -1001,7 +994,7 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
-                    value=centers_errors)
+                    value=centers_error)
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
         return nxroot

@@ -219,9 +219,7 @@ class MCAScanDataConfig(BaseModel):
         :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
-        #RV todo: instead of detector_config pass index in detector array? 
         detector_name = detector_config.detector_name
-#        print(f'\nmca_data 1:\n\ttype: {type(self)}\n\tdetector_config: {detector_config}\n\tscan_step_index: {scan_step_index}\n\tdetector_name: {detector_name}')
         if self._parfile is not None:
             if scan_step_index is None:
                 data = np.asarray(
@@ -303,14 +301,14 @@ class MaterialConfig(BaseModel):
                                             values.get('lattice_parameters'))
         return values
 
-    def unique_ds(self, tth_tol=0.15, tth_max=90.0):
+    def unique_hkls_ds(self, tth_tol=0.15, tth_max=90.0):
         """Get a list of unique HKLs and their lattice spacings.
 
-        :param tth_tol: Minimum resolvable difference in 2&theta.
+        :param tth_tol: Minimum resolvable difference in 2&theta
             between two unique HKL peaks, defaults to `0.15`.
         :type tth_tol: float, optional
-        :param tth_max: Detector rotation about hutch x axis, defaults
-            to `90.0`.
+        :param tth_max: Detector rotation about hutch x axis,
+            defaults to `90.0`.
         :type tth_max: float, optional
         :return: Unique HKLs and their lattice spacings in angstroms.
         :rtype: np.ndarray, np.ndarray
@@ -379,28 +377,6 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-
-#    def fit_ds(self, materials):
-#        """Get a list of HKLs and their lattice spacings that will be
-#        fitted in the calibration routine.
-#
-#        :ivar materials: Material(s) to get HKLs and lattice spacings.
-#        :type materials: hexrd.material.Material,
-#            list[hexrd.material.Material]
-#        :return: HKLs to fit and their lattice spacings in angstroms.
-#        :rtype: np.ndarray, np.ndarray
-#        """
-#        # Local modules
-#        from CHAP.edd.utils import get_unique_hkls_ds
-#
-#        if not isinstance(materials, list):
-#            materials = [materials]
-#        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
-#
-#        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
-#        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
-#
-#        return fit_hkls, fit_ds
 
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
@@ -538,7 +514,6 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
-#        print(f'\nmca_data 2:\n\ttype: {type(self)}\n\tdetector_config: {detector_config}')
         if self.scan_step_index is None:
             data = super().mca_data(detector_config)
             if self.scanparser.spec_scan_npts > 1:
@@ -571,7 +546,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     analysis fitting for a single MCA detector element.
 
     :ivar max_energy_kev: Maximum channel energy of the MCA in keV.
-    :type max_energy_kev: float
+    :type max_energy_kev: float, optional
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
     :param tth_max: Detector rotation about hutch x axis, defaults
@@ -585,9 +560,10 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type hkl_indices: list[int], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
-    :ivar peak_models: Peak model for peak fitting.
+    :ivar peak_models: Peak model for peak fitting,
+        defaults to 'gaussian'.
     :type peak_models: Literal['gaussian', 'lorentzian']],
-        list[Literal['gaussian', 'lorentzian']]]
+        list[Literal['gaussian', 'lorentzian']]], optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
     :ivar slope_calibrated: Calibrated value for detector channel.
@@ -596,7 +572,6 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar intercept_calibrated: Calibrated value for detector channel
         energy correction y-intercept.
     :type intercept_calibrated: float, optional
-
     """
     max_energy_kev: Optional[confloat(gt=0)]
     num_bins: Optional[conint(gt=0)]
@@ -631,31 +606,6 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
                       'intercept_calibrated', 'num_bins', 'max_energy_kev']
         for field in add_fields:
             setattr(self, field, getattr(calibration, field))
-
-#    def fit_ds(self, materials):
-#        """Get a list of HKLs and their lattice spacings that will be
-#        fit in the strain analysis routine.
-#
-#        :ivar materials: Material(s) to get HKLs and lattice spacings.
-#        :type materials: hexrd.material.Material,
-#            list[hexrd.material.Material]
-#        :return: HKLs to fit and their lattice spacings in angstroms.
-#        :rtype: np.ndarray, np.ndarray
-#        """
-#        # Local modules
-#        from CHAP.edd.utils import get_unique_hkls_ds
-#
-#        if not isinstance(materials, list):
-#            materials = [materials]
-#        unique_hkls, unique_ds = get_unique_hkls_ds(materials)
-#
-#        # unique_hkls, unique_ds = material.unique_ds(
-#        #     tth_tol=self.hkl_tth_tol, tth_max=self.tth_max)
-#
-#        fit_hkls = np.array([unique_hkls[i] for i in self.hkl_indices])
-#        fit_ds = np.array([unique_ds[i] for i in self.hkl_indices])
-#
-#        return fit_hkls, fit_ds
 
     def get_tth_map(self, map_config):
         """Return a map of 2&theta values to use -- may vary at each

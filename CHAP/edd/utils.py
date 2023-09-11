@@ -2,10 +2,6 @@
 
 # Third party modules
 import numpy as np
-from scipy.constants import physical_constants
-
-hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
-     * physical_constants['speed of light in vacuum'][0]
 
 def get_peak_locations(ds, tth):
     """Return the peak locations for a given set of lattice spacings
@@ -13,56 +9,67 @@ def get_peak_locations(ds, tth):
 
     :param ds: A set of lattice spacings in angstroms.
     :type ds: list[float]
-    :param tth: diffraction angle two-theta
+    :param tth: Diffraction angle 2&theta.
     :type tth: float
     :return: The peak locations in keV.
     :rtype: numpy.ndarray
     """
+    # Third party modules
+    from scipy.constants import physical_constants
+
+    hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
+         * physical_constants['speed of light in vacuum'][0]
+
     return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
 
-def make_material(name, sgnum, lparms, dmin=0.6):
+def make_material(name, sgnum, lattice_parameters, dmin=0.6):
     """Return a hexrd.material.Material with the given properties.
-    Taken from
-    [CHEDDr](https://gitlab01.classe.cornell.edu/msn-c/cheddr/-/blob/master/notebooks/CHESS_EDD.py#L99).
 
     :param name: Material name.
     :type name: str
-    :param sgnum: Space group of the material
+    :param sgnum: Space group of the material.
     :type sgnum: int
-    :param lparms: The material's lattice parameters ([a, b, c, &#945;,
-        &#946;, &#947;], or fewer as the symmetry of the space group
-        allows --- for instance, a cubic lattice with space group
-        number 225 can just provide [a, ]).
-    :type lparms: list[float]
-    :param dmin: Materials's dmin value in Angstrom (&#8491;),
-        defaults to 0.6.
+    :param lattice_parameters: The material's lattice parameters
+        ([a, b, c, &#945;, &#946;, &#947;], or fewer as the symmetry of
+        the space group allows --- for instance, a cubic lattice with
+        space group number 225 can just provide [a, ]).
+    :type lattice_parameters: list[float]
+    :param dmin: Materials's dmin value in angstroms (&#8491;),
+        defaults to `0.6`.
     :type dmin: float, optional
-    :return: a hexrd material
+    :return: A hexrd material.
     :rtype: heard.material.Material
     """
     # Third party modules
     from hexrd.material import Material    
     from hexrd.valunits import valWUnit
 
-    matl = Material()
-    matl.name = name
-    matl.sgnum = sgnum
-    if isinstance(lparms, float):
-        lparms = [lparms]
-    matl.latticeParameters = lparms
-    matl.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
-    nhkls = len(matl.planeData.exclusions)
-    matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+    material = Material(name)
+    material.sgnum = sgnum
+    if isinstance(lattice_parameters, float):
+        lattice_parameters = [lattice_parameters]
+    material.latticeParameters = lattice_parameters
+    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
+    nhkls = len(material.planeData.exclusions)
+    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
 
-    return matl
+    return material
 
 def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
-    """Return the unique HKLs and d-spacings for the given list of
-    materials.
+    """Return the unique HKLs and lattice spacings for the given list
+    of materials.
 
-    :param materials: list of materials to get HKLs and d-spacings for
+    :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
-    :return: unique HKLs, unique d-spacings
+    :param tth_tol: Minimum resolvable difference in 2&theta between
+        two unique HKL peaks.
+    :type tth_tol: float, optional
+    :param tth_max: Detector rotation about hutch x axis.
+    :type tth_max: float, optional
+    :param round_sig: The number of significant figures in the unique
+        lattice spacings, defaults to `8`.
+    :type round_sig: int, optional
+    :return: Unique HKLs, unique lattice spacings.
     :rtype: tuple[np.ndarray, np.ndarray]
     """
     # System modules
@@ -96,51 +103,8 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     # Limit the list to unique lattice spacings
     hkls_unique = hkls[ds_index_unique,:].astype(int)
     ds_unique = ds[ds_index_unique]
+
     return hkls_unique, ds_unique
-
-def select_hkls(detector, materials, tth, y, x, interactive):
-    """Return a plot of `detector.fit_hkls` as a matplotlib
-    figure. Optionally modify `detector.fit_hkls` by interacting with
-    a matplotlib figure.
-
-    :param detector: the detector to set `fit_hkls` on
-    :type detector: CHAP.edd.models.MCAElementConfig
-    :param material: the material to pick HKLs for
-    :type material: CHAP.edd.models.MaterialConfig
-    :param tth: diffraction angle two-theta
-    :type tth: float
-    :param y: reference y data to plot
-    :type y: np.ndarray
-    :param x: reference x data to plot
-    :type x: np.ndarray
-    :param interactive: show the plot and allow user interactions with
-        the matplotlib figure
-    :type interactive: bool
-    :return: plot showing the user-selected HKLs
-    :rtype: matplotlib.figure.Figure
-    """
-    # Local modules
-    from CHAP.utils.general import select_peaks
-
-    hkls, ds = get_unique_hkls_ds(materials)
-    peak_locations = get_peak_locations(ds, tth)
-    pre_selected_peak_indices = detector.fit_hkls \
-                                if detector.fit_hkls else []
-    selected_peaks, figure = select_peaks(
-        y, x, peak_locations,
-        peak_labels=[str(hkl)[1:-1] for hkl in hkls],
-        pre_selected_peak_indices=pre_selected_peak_indices,
-        mask=detector.mca_mask(),
-        interactive=interactive,
-        xlabel='MCA channel energy (keV)',
-        ylabel='MCA intensity (counts)',
-        title='Mask and HKLs for fitting')
-
-    selected_hkl_indices = [int(np.where(peak_locations == peak)[0][0]) \
-                            for peak in selected_peaks]
-    detector.fit_hkls = selected_hkl_indices
-
-    return figure
 
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     """Show a matplotlib figure of a reference MCA spectrum on top of
@@ -246,7 +210,7 @@ def select_material_params(x, y, tth, materials=[]):
     :type y: np.ndarray
     :param tth: The (calibrated) 2&theta angle.
     :type tth: float
-    :param materials: List of materials to get HKLs and d-spacings for
+    :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
     :return: The selected materials for the strain analyses.
     :rtype: list[CHAP.edd.models.MaterialConfig]
@@ -461,12 +425,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         fit peaks for in the calibration routine, defaults to `[]`.
     :type preselected_hkl_indices: list[int], optional
     :param detector_name: Name of the MCA detector element.
-    :type detector_name: str
+    :type detector_name: str, optional
     :param ref_map: Reference map of MCA intensities to show underneath
-        the interactive plot, defaults to None.
+        the interactive plot.
     :type ref_map: np.ndarray, optional
     :param interactive: Allows for user interactions, defaults to
-        False.
+        `False`.
     :type interactive: bool, optional
     :return: A saveable matplotlib figure, the list of selected data
         index ranges to include, and the list of HKL indices to
