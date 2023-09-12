@@ -400,7 +400,7 @@ def select_material_params(x, y, tth, materials=[]):
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
-        interactive=False):
+        flux_energy_range=None, interactive=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -476,6 +476,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                         break
                 if combined_spans:
                     break
+        if flux_energy_range is not None:
+            for span in spans:
+                min_x = max(span.extents[0], flux_min_x)
+                max_x = min(span.extents[1], flux_max_x)
+                span.extents = (min_x, max_x)
         plt.draw()
 
     def add_span(event, xrange_init=None):
@@ -485,10 +490,21 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 ax, on_span_select, 'horizontal', props=included_data_props,
                 useblit=True, interactive=interactive, drag_from_anywhere=True,
                 ignore_event_outside=True, grab_range=5))
-        if xrange_init is None:
-            xmin_init, xmax_init = min(x), 0.05*(max(x)-min(x))
+        if flux_energy_range is None:
+            if xrange_init is None:
+                min_x = x.min()
+                xmin_init, xmax_init = min_x, min_x+0.05*(x.max()-min_x)
+            else:
+                xmin_init, xmax_init = xrange_init
         else:
-            xmin_init, xmax_init = xrange_init
+            if xrange_init is None:
+                min_x = x.min()
+                xmin_init = max(min_x, flux_min_x)
+                xmax_init = xmin_init + 0.05*min(
+                    x.max()-min_x, flux_max_x-flux_min_x)
+            else:
+                xmin_init = max(flux_min_x, xrange_init[0])
+                xmax_init = min(flux_max_x, xrange_init[1])
         spans[-1]._selection_completed = True
         spans[-1].extents = (xmin_init, xmax_init)
         spans[-1].onselect(xmin_init, xmax_init)
@@ -546,6 +562,15 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
     included_data_props = {
         'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
+
+    if flux_energy_range is not None:
+        # Local modules
+        from CHAP.utils.general import (
+            index_nearest_low,
+            index_nearest_upp,
+        )
+        flux_min_x = x[index_nearest_upp(x, flux_energy_range[0])]
+        flux_max_x = x[index_nearest_low(x, flux_energy_range[1])]
 
     if ref_map is None:
         fig, ax = plt.subplots(figsize=(11, 8.5))

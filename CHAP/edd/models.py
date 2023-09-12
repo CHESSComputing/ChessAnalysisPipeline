@@ -74,9 +74,9 @@ class MCAElementConfig(BaseModel):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for min_, max_ in self.include_bin_ranges:
+        for low, upp in self.include_bin_ranges:
             mask = np.logical_or(
-                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
+                mask, np.logical_and(bin_indices >= low, bin_indices <= upp))
         return mask
 
     def dict(self, *args, **kwargs):
@@ -127,7 +127,7 @@ class MCAScanDataConfig(BaseModel):
 
     @root_validator(pre=True)
     def validate_scan(cls, values):
-        """Finalize file paths for spec_file/par_file and flux_file.
+        """Finalize file paths for spec_file and par_file.
 
         :param values: Dictionary of previously validated field values.
         :type values: dict
@@ -138,25 +138,19 @@ class MCAScanDataConfig(BaseModel):
         inputdir = values.get('inputdir')
         spec_file = values.get('spec_file')
         par_file = values.get('par_file')
-        flux_file = values.get('flux_file')
-        if flux_file:
-            if not os.path.isabs(flux_file):
-                values['flux_file'] = os.path.join(inputdir, flux_file)
-        if spec_file and par_file:
+        if spec_file is not None and par_file is not None:
             raise ValueError('Use either spec_file or par_file, not both')
-        elif spec_file:
-            if inputdir is not None:
-                if not os.path.isabs(spec_file):
-                    values['spec_file'] = os.path.join(inputdir, spec_file)
-        elif par_file:
-            if inputdir is not None:
-                if not os.path.isabs(par_file):
-                    values['par_file'] = os.path.join(inputdir, par_file)
+        elif spec_file is not None:
+            if inputdir is not None and not os.path.isabs(spec_file):
+                values['spec_file'] = os.path.join(inputdir, spec_file)
+        elif par_file is not None:
+            if inputdir is not None and not os.path.isabs(par_file):
+                values['par_file'] = os.path.join(inputdir, par_file)
             if 'scan_column' not in values:
                 raise ValueError(
                     'scan_column is required when par_file is used')
             if isinstance(values['scan_column'], str):
-                parfile = ParFile(values.get('par_file'))
+                parfile = ParFile(par_file)
                 if values['scan_column'] not in parfile.column_names:
                     raise ValueError(
                         f'No column named {values["scan_column"]} in '
@@ -170,7 +164,9 @@ class MCAScanDataConfig(BaseModel):
     @root_validator
     def validate_detectors(cls, values):
         """Fill in values for _scanparser / _parfile (if applicable).
-        Fill in values for each detector's num_bins field, if needed.
+        Fill in each detector's num_bins field, if needed.
+        Check each detector's include_bin_ranges field against the
+        flux file, if available.
 
         :param values: Dictionary of previously validated field values.
         :type values: dict
@@ -178,22 +174,51 @@ class MCAScanDataConfig(BaseModel):
         :return: The validated list of `values`.
         :rtype: dict
         """
-        if values.get('spec_file', False):
-            values['_scanparser'] = ScanParser(values.get('spec_file'),
-                                               values.get('scan_number'))
+        spec_file = values.get('spec_file')
+        par_file = values.get('par_file')
+        detectors = values.get('detectors')
+        flux_file = values.get('flux_file')
+        if spec_file is not None:
+            values['_scanparser'] = ScanParser(
+                spec_file, values.get('scan_number'))
             values['_parfile'] = None
-        elif values.get('par_file', False):
-            values['_parfile'] = ParFile(values.get('par_file'))
+        elif par_file is not None:
+            values['_parfile'] = ParFile(par_file)
             values['_scanparser'] = ScanParser(
                 values['_parfile'].spec_file,
                 values['_parfile'].good_scan_numbers()[0])
-        for detector in values.get('detectors'):
+        for detector in detectors:
             if detector.num_bins is None:
                 try:
                     detector.num_bins = values['_scanparser']\
                         .get_detector_num_bins(detector.detector_name)
                 except Exception as e:
                     raise ValueError('No value found for num_bins') from e
+        if flux_file is not None:
+            # System modules
+            from copy import deepcopy
+
+            # Local modules
+            from CHAP.utils.general import (
+                index_nearest_low,
+                index_nearest_upp,
+            )
+            flux = np.loadtxt(flux_file)
+            flux_file_energies = flux[:,0]/1.e3
+            energy_range = (flux_file_energies.min(), flux_file_energies.max())
+            for detector in detectors:
+                mca_bin_energies = np.linspace( 
+                    0, detector.max_energy_kev, detector.num_bins)
+                min_ = index_nearest_upp(mca_bin_energies, energy_range[0])
+                max_ = index_nearest_low(mca_bin_energies, energy_range[1])
+                for i, (low, upp) in enumerate(
+                        deepcopy(detector.include_bin_ranges)):
+                    if low < min_ or upp > max_:
+                        bin_range = [max(low, min_), min(upp, max_)]
+                        print(f'WARNING: include_bin_ranges[{i}] out of range '
+                              f'({detector.include_bin_ranges[i]}): adjusted '
+                              f'to {bin_range}')
+                        detector.include_bin_ranges[i] = bin_range
 
         return values
 
@@ -500,11 +525,39 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
     :ivar tune_tth_tol: float, optional
     """
     scan_step_index: Optional[conint(ge=0)]
-    flux_file: FilePath
     material: CeriaConfig = CeriaConfig()
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
+    flux_file: FilePath
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
+
+    @root_validator(pre=True)
+    def validate_config(cls, values):
+        """Ensure that a valid configuration was provided and finalize
+        flux_file filepath.
+
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :return: The validated list of `values`.
+        :rtype: dict
+        """
+        inputdir = values.get('inputdir')
+        flux_file = values.get('flux_file')
+        if inputdir is not None and not os.path.isabs(flux_file):
+            values['flux_file'] = os.path.join(inputdir, flux_file)
+
+        return values
+
+    @property
+    def flux_file_energy_range(self):
+        """Get the energy range in the flux corection file.
+
+        :return: The energy range in the flux corection file.
+        :rtype: tuple(float, float)
+        """
+        flux = np.loadtxt(self.flux_file)
+        energies = flux[:,0]/1.e3
+        return energies.min(), energies.max()
 
     def mca_data(self, detector_config):
         """Get the array of MCA data to use for calibration.
@@ -664,16 +717,16 @@ class StrainAnalysisConfig(BaseModel):
     par_file: Optional[FilePath]
     par_dims: Optional[list[dict[str,str]]]
     other_dims: Optional[list[dict[str,str]]]
-    flux_file: FilePath
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
+    flux_file: FilePath
 
     _parfile: Optional[ParFile]
 
     @root_validator(pre=True)
-    def validate_map(cls, values):
-        """Ensure exactly one valid map configuration was provided,
-        and finalize input filepaths.
+    def validate_config(cls, values):
+        """Ensure that a valid configuration was provided and finalize
+        input filepaths.
 
         :param values: Dictionary of previously validated field values.
         :type values: dict
@@ -684,11 +737,10 @@ class StrainAnalysisConfig(BaseModel):
         inputdir = values.get('inputdir')
         flux_file = values.get('flux_file')
         par_file = values.get('par_file')
-        if flux_file:
-            if not os.path.isabs(flux_file):
-                values['flux_file'] = os.path.join(inputdir, flux_file)
-        if par_file:
-            if not os.path.isabs(par_file):
+        if inputdir is not None and not os.path.isabs(flux_file):
+            values['flux_file'] = os.path.join(inputdir, flux_file)
+        if par_file is not None:
+            if inputdir is not None and not os.path.isabs(par_file):
                 values['par_file'] = os.path.join(inputdir, par_file)
             if 'par_dims' not in values:
                 raise ValueError(
@@ -701,7 +753,7 @@ class StrainAnalysisConfig(BaseModel):
         if isinstance(map_config, dict):
             for i, scans in enumerate(map_config.get('spec_scans')):
                 spec_file = scans.get('spec_file')
-                if not os.path.isabs(spec_file):
+                if inputdir is not None and not os.path.isabs(spec_file):
                     values['map_config']['spec_scans'][i]['spec_file'] = \
                         os.path.join(inputdir, spec_file)
         return values

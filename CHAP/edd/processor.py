@@ -346,9 +346,9 @@ class MCACeriaCalibrationProcessor(Processor):
             tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
 
         # Collect raw MCA data of interest
-        mca_data = calibration_config.mca_data(detector)
         mca_bin_energies = np.linspace(
             0, detector.max_energy_kev, detector.num_bins)
+        mca_data = calibration_config.mca_data(detector)
 
         # Adjust initial tth guess
         if interactive:
@@ -372,6 +372,7 @@ class MCACeriaCalibrationProcessor(Processor):
                 mca_bin_energies, mca_data, hkls, ds,
                 detector.tth_initial_guess, detector.include_bin_ranges,
                 detector.hkl_indices, detector.detector_name,
+                flux_energy_range=calibration_config.flux_file_energy_range,
                 interactive=interactive)
             detector.include_bin_ranges = include_bin_ranges
             detector.hkl_indices = hkl_indices
@@ -828,7 +829,7 @@ class StrainAnalysisProcessor(Processor):
                     mca_bin_energies[i], mca_data[i][0], hkls, ds,
                     detector.tth_calibrated, detector.include_bin_ranges,
                     detector.hkl_indices, detector.detector_name,
-                    mca_data[i], interactive)
+                    mca_data[i], interactive=interactive)
                 detector.include_bin_ranges = include_bin_ranges
                 detector.hkl_indices = hkl_indices
                 if save_figures:
