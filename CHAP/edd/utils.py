@@ -400,7 +400,8 @@ def select_material_params(x, y, tth, materials=[]):
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
-        flux_energy_range=None, interactive=False):
+#        flux_energy_range=None, calibration_mask=None, interactive=False):
+        flux_energy_range=None, calibration_bin_ranges=None, interactive=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -429,6 +430,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     :param ref_map: Reference map of MCA intensities to show underneath
         the interactive plot.
     :type ref_map: np.ndarray, optional
+    :param flux_energy_range: Energy range in eV in the flux file
+        containing station beam energy in eV versus flux
+    :type flux_energy_range: tuple(float, float), optional
+    :param calibration_bin_ranges: MCA channel index ranges included
+        in the detector calibration.
+    :type calibration_bin_ranges: list[[int, int]], optional
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
@@ -580,7 +587,20 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map)
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
+        handles = ax.plot(x, y, color='k', label='Reference Data')
     handles = ax.plot(x, y, color='k', label='Reference Data')
+#    if calibration_mask is not None:
+#        handles.append(
+#            ax.plot(
+#                x[calibration_mask], y[calibration_mask], '.', #color='r',
+#                label='Energies included in calibration')[0])
+    if calibration_bin_ranges is not None:
+        ylow = ax.get_ylim()[0]
+        for low, upp in calibration_bin_ranges:
+            ax.plot([x[low], x[upp]], [ylow, ylow], color='r', linewidth=2)
+        handles.append(mlines.Line2D(
+            [], [], label='Energies included in calibration', color='r',
+            linewidth=2))
     handles.append(mlines.Line2D(
         [], [], label='Excluded / unselected HKL', **excluded_hkl_props))
     handles.append(mlines.Line2D(

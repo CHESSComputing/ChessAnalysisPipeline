@@ -769,6 +769,8 @@ class StrainAnalysisProcessor(Processor):
                 nxgroup.attrs[f'{dim}_indices'] = \
                     nxentry.data.attrs[f'{dim}_indices']
 
+        if len(strain_analysis_config.detectors) != 1:
+            raise RuntimeError('Multiple detectors not tested')
         for detector in strain_analysis_config.detectors:
             calibration = [
                 d for d in ceria_calibration_config.detectors \
@@ -814,6 +816,13 @@ class StrainAnalysisProcessor(Processor):
             # Local modules
             from CHAP.edd.utils import select_mask_and_hkls
 
+            # Mask during calibration
+            if len(ceria_calibration_config.detectors) != 1:
+                raise RuntimeError('Multiple detectors not implemented')
+            for detector in ceria_calibration_config.detectors:
+#                calibration_mask = detector.mca_mask()
+                calibration_bin_ranges = detector.include_bin_ranges
+
             if interactive:
                 # Local modules
                 from CHAP.edd.utils import select_material_params
@@ -828,8 +837,10 @@ class StrainAnalysisProcessor(Processor):
                 fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
                     mca_bin_energies[i], mca_data[i][0], hkls, ds,
                     detector.tth_calibrated, detector.include_bin_ranges,
-                    detector.hkl_indices, detector.detector_name,
-                    mca_data[i], interactive=interactive)
+                    detector.hkl_indices, detector.detector_name, mca_data[i],
+#                    calibration_mask=calibration_mask,
+                    calibration_bin_ranges=calibration_bin_ranges,
+                    interactive=interactive)
                 detector.include_bin_ranges = include_bin_ranges
                 detector.hkl_indices = hkl_indices
                 if save_figures:

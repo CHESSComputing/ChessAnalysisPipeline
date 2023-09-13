@@ -35,7 +35,7 @@ class MCAElementConfig(BaseModel):
     :ivar include_bin_ranges: List of MCA channel index ranges whose
         data should be included after applying a mask (the bounds are
         inclusive), defaults to `[]`
-    :type include_bin_ranges: list[list[int]], optional
+    :type include_bin_ranges: list[[int, int]], optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)]
