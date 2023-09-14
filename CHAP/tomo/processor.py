@@ -1309,7 +1309,7 @@ class Tomo:
                     save_fig=True, save_only=True)
 
             # Save test data to file
-            #     reconstructed data order in each stack: x,y,z
+            #     reconstructed data order in each stack: z,y,x
             if self._test_mode:
                 np.savetxt(
                     f'{self._output_folder}/recon_stack.txt',
@@ -1342,7 +1342,7 @@ class Tomo:
                 for i in range(tomo_recon_stacks.shape[0]):
                     np.savetxt(
                         f'{self._output_folder}/recon_stack_{i}.txt',
-                        tomo_recon_stacks[i,:,:,z_slice-z_range[0]],
+                        tomo_recon_stacks[i,z_slice-z_range[0],:,:],
                         fmt='%.6e')
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -2643,7 +2643,7 @@ class Tomo:
             self, data, x_bounds=None, y_bounds=None, z_bounds=None,
             z_only=False):
         """Resize the reconstructed tomography data."""
-        # Data order: x,y,z or stack,x,y,z
+        # Data order: row/-z,y,x or stack,row/-z,y,x
         if isinstance(data, list):
             for stack in data:
                 assert stack.ndim == 3
@@ -2658,7 +2658,7 @@ class Tomo:
             # Selecting x bounds (in yz-plane)
             tomosum = 0
             for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
+                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,1))
             select_x_bounds = input_yesno(
                 '\nDo you want to change the image x-bounds (y/n)?', 'y')
             if not select_x_bounds:
@@ -2711,7 +2711,7 @@ class Tomo:
         if z_bounds is None and num_tomo_stacks != 1:
             tomosum = 0
             for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(0,1))
+                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
             select_z_bounds = input_yesno(
                 'Do you want to change the image z-bounds (y/n)?', 'n')
             if not select_z_bounds:
