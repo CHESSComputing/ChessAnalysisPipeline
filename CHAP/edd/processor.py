@@ -227,6 +227,12 @@ class DiffractionVolumeLengthProcessor(Processor):
                        label='diffraction volume'
                        + f' ({detector.measurement_mode})')
             ax.legend()
+            ax.text(
+                0, 1,
+                f'Diffraction volume length: {dvl:.2f}',
+                ha='left', va='top',
+                #transform=ax.get_xaxis_transform())
+                transform=ax.transAxes)
             if save_figures:
                 figfile = os.path.join(outputdir,
                                        f'{detector.detector_name}_dvl.png')
