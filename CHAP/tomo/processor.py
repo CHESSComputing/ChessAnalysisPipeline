@@ -19,13 +19,13 @@ import numpy as np
 # Local modules
 from CHAP.utils.general import (
     is_num,
+    is_int_pair,
     input_int,
     input_num,
     input_yesno,
     select_image_indices,
+    select_roi_1d,
     select_roi_2d,
-    clear_plot,
-    clear_imshow,
     quick_plot,
     quick_imshow,
 )
@@ -991,7 +991,7 @@ class Tomo:
                       img_column_bounds[0]:img_column_bounds[1]], 
                 preselected_indices=center_rows,
                 title='Select or adjust two detector image row indices to '
-                    f'find the center axis (within range [0, {num_row-1}])',
+                    f'find center axis (in range [0, {num_row-1}])',
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field', interactive=self._interactive)
@@ -1005,32 +1005,23 @@ class Tomo:
             plt.close()
 
         # Find the center offsets at each of the center rows
-        t0 = time()
-        center_offsets = [self._find_center_one_plane(
-            nxentry.reduced_data.data.tomo_fields[
-                center_stack_index,:,center_rows[0],:],
-            center_rows[0], thetas, eff_pixel_size, cross_sectional_dim,
-            path=self._output_folder, num_core=self._num_core,
-            search_range=tool_config.search_range,
-            search_step=tool_config.search_step,
-            gaussian_sigma=tool_config.gaussian_sigma,
-            ring_width=tool_config.ring_width)]
-        self._logger.info(f'Finding center one took {time()-t0:.2f} seconds')
-        self._logger.debug(f'center_row = {center_rows[0]:.2f}')
-        self._logger.debug(f'center_offset = {center_offsets[0]:.2f}')
-        t0 = time()
-        center_offsets.append(self._find_center_one_plane(
-            nxentry.reduced_data.data.tomo_fields[
-                center_stack_index,:,center_rows[1],:],
-            center_rows[1], thetas, eff_pixel_size, cross_sectional_dim,
-            path=self._output_folder, num_core=self._num_core,
-            search_range=tool_config.search_range,
-            search_step=tool_config.search_step,
-            gaussian_sigma=tool_config.gaussian_sigma,
-            ring_width=tool_config.ring_width))
-        self._logger.info(f'Finding center two took {time()-t0:.2f} seconds')
-        self._logger.debug(f'center_row = {center_rows[1]:.2f}')
-        self._logger.debug(f'center_offset = {center_offsets[1]:.2f}')
+        center_offsets = []
+        for i, center_row in enumerate(center_rows):
+            t0 = time()
+            center_offsets.append(
+                self._find_center_one_plane(
+                    nxentry.reduced_data.data.tomo_fields[
+                        center_stack_index,:,center_row,:],
+                    center_row, thetas, eff_pixel_size, cross_sectional_dim,
+                    path=self._output_folder, num_core=self._num_core,
+                    search_range=tool_config.search_range,
+                    search_step=tool_config.search_step,
+                    gaussian_sigma=tool_config.gaussian_sigma,
+                    ring_width=tool_config.ring_width))
+            self._logger.info(
+                f'Finding center {i} took {time()-t0:.2f} seconds')
+            self._logger.debug(f'center_row {i} = {center_rows[i]:.2f}')
+            self._logger.debug(f'center_offset {i} = {center_offsets[i]:.2f}')
 
         center_config = {
             'center_rows': list(center_rows),
@@ -1071,9 +1062,6 @@ class Tomo:
             NXprocess,
             NXroot,
         )
-
-        # Local modules
-        from CHAP.utils.general import is_int_pair
 
         self._logger.info('Reconstruct the tomography data')
 
@@ -1372,9 +1360,6 @@ class Tomo:
             NXroot,
         )
 
-        # Local modules
-        from CHAP.utils.general import is_int_pair
-
         self._logger.info('Combine the reconstructed tomography stacks')
 
         if isinstance(nxroot, NXroot):
@@ -1641,8 +1626,8 @@ class Tomo:
         # Plot dark field
         if self._save_figs:
             quick_imshow(
-                tdf, title='dark field', path=self._output_folder,
-                save_fig=True, save_only=True)
+                tdf, title='Dark field', name='dark_field',
+                path=self._output_folder, save_fig=True, save_only=True)
 
         # Add dark field to reduced data NXprocess
         reduced_data.data = NXdata()
@@ -1698,8 +1683,8 @@ class Tomo:
         # Plot bright field
         if self._save_figs:
             quick_imshow(
-                tbf, title='bright field', path=self._output_folder,
-                save_fig=True, save_only=True)
+                tbf, title='Bright field', name='bright_field',
+                path=self._output_folder, save_fig=True, save_only=True)
 
         # Add bright field to reduced data NXprocess
         if 'data' not in reduced_data:
@@ -1819,8 +1804,8 @@ class Tomo:
                     img_row_bounds = (0, first_image.shape[0])
         fig, img_row_bounds = select_image_indices(
             first_image, 0, b=tbf, preselected_indices=img_row_bounds,
-            title='Select or adjust the detector image row bounds for data '
-                  f'reduction (within range {[0, first_image.shape[0]]})',
+            title='Select or adjust detector image row bounds for data '
+                  f'reduction (in range {[0, first_image.shape[0]]})',
             title_a=r'Tomography image at $\theta$ = 'f'{round(theta, 2)+0}',
             title_b='Bright field',
             interactive=self._interactive)
@@ -2056,17 +2041,17 @@ class Tomo:
             # Downsize tomography stack to smaller size
             tomo_stack = tomo_stack.astype('float32', copy=False)
             if not self._test_mode and (self._save_figs or self._save_only):
+                theta = round(thetas[0], 2)
                 if len(tomo_stacks) == 1:
-                    title = f'red fullres theta {round(thetas[0], 2)+0}'
+                    title = r'Reduced data, $\theta$ = 'f'{theta}'
+                    name = f'reduced_data_theta_{theta}'
                 else:
-                    title = f'red stack {i} fullres theta ' \
-                        f'{round(thetas[0], 2)+0}'
+                    title = f'Reduced data stack {i}, 'r'$\theta$ = 'f'{theta}'
+                    name = f'reduced_data_stack_{i}_theta_{theta}'
                 quick_imshow(
-                    tomo_stack[0,:,:], title=title, 
+                    tomo_stack[0,:,:], title=title, name=name,
                     path=self._output_folder, save_fig=self._save_figs,
                     save_only=self._save_only, block=self._block)
-#                if not self._block:
-#                    clear_imshow(title)
             zoom_perc = 100
             if zoom_perc != 100:
                 t0 = time()
@@ -2085,8 +2070,6 @@ class Tomo:
                         tomo_stack[0,:,:], title=title, 
                         path=self._output_folder, save_fig=self._save_figs,
                         save_only=self._save_only, block=self._block)
-#                    if not self._block:
-#                        clear_imshow(title)
 
             # Save test data to file
             if self._test_mode:
@@ -2118,6 +2101,7 @@ class Tomo:
             gaussian_sigma=None, ring_width=None):
         """Find center for a single tomography plane."""
         # Third party modules
+        import matplotlib.pyplot as plt
         from tomopy import find_center_vo
 
         if not gaussian_sigma:
@@ -2130,12 +2114,6 @@ class Tomo:
         sinogram = np.asarray(sinogram)
         sinogram_t = sinogram.T
         center = sinogram.shape[1]/2
-
-#        quick_imshow(
-#            sinogram_t, f'sinogram row{row}',
-#            aspect='auto', path=self._output_folder,
-#            save_fig=self._save_figs, save_only=self._save_only,
-#            block=self._block)
 
         # Try using Nghia Vo’s method
         t0 = time()
@@ -2154,133 +2132,75 @@ class Tomo:
             f'Center at row {row} using Nghia Vo’s method = '
             f'{center_offset_vo:.2f}')
 
-        recon_plane = None
-        if self._save_figs:
+        if self._interactive or self._save_figs:
+
+            # Reconstruct the plane for Nghia Vo’s center offset
             t0 = time()
             recon_plane = self._reconstruct_one_plane(
-                sinogram_t, tomo_center, thetas, eff_pixel_size,
+                sinogram_t, center_offset_vo, thetas, eff_pixel_size,
                 cross_sectional_dim, False, num_core, gaussian_sigma,
                 ring_width)
             self._logger.info(
                 f'Reconstructing row {row} took {time()-t0:.2f} seconds')
-            title = f'edges row{row} center offset{center_offset_vo:.2f} Vo'
-            self._plot_edges_one_plane(recon_plane, title, path=path)
+            recon_edges = [self._get_edges_one_plane(recon_plane)]
+            fig, accept, selected_center_offset = self._select_center_offset(
+                recon_edges, row, center_offset_vo)
+            # Plot results
+            if self._save_figs:
+                fig.savefig(
+                    os_path.join(
+                        self._output_folder,
+                        f'edges_default_center_row_{row}.png'))
+            plt.close()
 
-        # Try using phase correlation method
-#        if input_yesno('
-#                Try finding center using phase correlation (y/n)?',
-#                'n'):
-#            t0 = time()
-#            tomo_center = find_center_pc(
-#                sinogram, sinogram, tol=0.1, rotc_guess=tomo_center)
-#            error = 1.
-#            while error > tol:
-#                prev = tomo_center
-#                tomo_center = find_center_pc(
-#                    sinogram, sinogram, tol=tol, rotc_guess=tomo_center)
-#                error = np.abs(tomo_center-prev)
-#            self._logger.info(
-#                'Finding center using the phase correlation method '
-#                f'took {time()-t0:.2f} seconds')
-#            center_offset = tomo_center-center
-#            print(
-#                f'Center at row {row} using phase correlation = '
-#                f'{center_offset:.2f}')
-#            t0 = time()
-#            recon_plane = self._reconstruct_one_plane(
-#                sinogram_t, tomo_center, thetas, eff_pixel_size,
-#                cross_sectional_dim, False, num_core, gaussian_sigma, ring_width)
-#            self._logger.info(
-#                f'Reconstructing row {row} took {time()-t0:.2f} seconds')
-#
-#            title = \
-#                f'edges row{row} center_offset{center_offset:.2f} PC'
-#            self._plot_edges_one_plane(recon_plane, title, path=path)
 
-        # Perform center finding search
-        if self._interactive:
-            print(
-                f'Center at row {row} using Nghia Vo’s method = '
-                f'{center_offset_vo:.2f}')
-            accept_vo = input_yesno(
-                '\nAccept this center location (y) or perform a search (n)?',
-                'y')
-        elif search_range is not None or search_step is not None:
-            accept_vo = False
-        else:
-            accept_vo = True
-        while not accept_vo:
-            if search_range is None:
-                if search_step is None:
-                    center_offset_low = max(-center, center_offset_vo-10)
-                    center_offset_upp = min(center, center_offset_vo+10)
+            # Perform center finding search
+            center_offsets = [center_offset_vo]
+            step_size = 4
+            indices = 3*[-1]
+            prev_index = None
+            up = True
+            while not accept and step_size:
+                selected_center_offset = round(selected_center_offset)
+                preselected_offsets = (
+                    selected_center_offset-step_size,
+                    selected_center_offset,
+                    selected_center_offset+step_size)
+                for i, preselected_offset in enumerate(preselected_offsets):
+                    if preselected_offset in center_offsets:
+                        indices[i] = center_offsets.index(preselected_offset)
+                    else:
+                        recon_plane = self._reconstruct_one_plane(
+                            sinogram_t, preselected_offset, thetas,
+                            eff_pixel_size, cross_sectional_dim, False,
+                            num_core, gaussian_sigma, ring_width)
+                        indices[i] = len(center_offsets)
+                        center_offsets.append(preselected_offset)
+                        recon_edges.append(
+                            self._get_edges_one_plane(recon_plane))
+                fig, accept, selected_center_offset = \
+                    self._select_center_offset(
+                        [recon_edges[i] for i in indices],
+                        row, preselected_offsets, center_offset_vo)
+                index = preselected_offsets.index(selected_center_offset)
+                if index != 1 and prev_index in (None, index) and up:
+                    step_size *=2
                 else:
-                    center_offset_low = max(
-                        -center, center_offset_vo-search_step)
-                    center_offset_upp = min(
-                        center, center_offset_vo+search_step)
-            else:
-                center_offset_low = max(-center, center_offset_vo-search_range)
-                center_offset_upp = min(center, center_offset_vo+search_range)
-            if search_step is None:
-                center_offset_step = center_offset_upp-center_offset_vo
-            else:
-                center_offset_step = min(
-                    search_step, center_offset_upp-center_offset_vo)
-            if self._interactive:
-                center_offset_low = input_num(
-                    '\nEnter lower bound for center offset', ge=-int(center),
-                    le=int(center), default=center_offset_low)
-                center_offset_upp = input_num(
-                    'Enter upper bound for center offset',
-                    ge=center_offset_low, le=int(center),
-                    default=center_offset_upp)
-                if search_step is None:
-                    center_offset_step = 1
-                else:
-                    center_offset_step = min(search_range, search_step)
-                if center_offset_upp == center_offset_low:
-                    center_offset_step = 1
-                else:
-                    center_offset_step = input_num(
-                        'Enter step size for center offset search',
-                        ge=1, le=center_offset_upp-center_offset_low,
-                        default=center_offset_step)
-            num_center_offset = 1 + int(
-                (center_offset_upp-center_offset_low) / center_offset_step)
-            center_offsets = np.linspace(
-                center_offset_low, center_offset_upp, num_center_offset)
-            if self._interactive:
-                save_figs = self._save_figs
-                save_only = False
-            else:
-                save_figs = True
-                save_only = True
-            for center_offset in center_offsets:
-                if (not self._interactive and center_offset == center_offset_vo
-                        and self._save_figs):
-                    continue
-                t0 = time()
-                recon_plane = self._reconstruct_one_plane(
-                    sinogram_t, center_offset+center, thetas, eff_pixel_size,
-                    cross_sectional_dim, False, num_core, gaussian_sigma,
-                    ring_width)
-                self._logger.info(
-                    f'Reconstructing center_offset {center_offset} took '
-                    'f{time()-t0:.2f} seconds')
-                title = f'edges row{row} center_offset{center_offset:.2f}'
-                self._plot_edges_one_plane(
-                    recon_plane, title, path=path, save_figs=save_figs,
-                    save_only=save_only)
-            if (not self._interactive
-                    or input_yesno('\nEnd the search (y/n)?', 'y')):
-                break
+                    step_size = int(step_size/2)
+                    up = False
+                prev_index = index
+                # Plot results
+                if self._save_figs:
+                    fig.savefig(
+                        os_path.join(
+                            self._output_folder,
+                            f'edges_center_{min(preselected_offsets)}_'\
+                                f'{max(preselected_offsets)}.png'))
+                plt.close()
 
         # Select center location
-        if not accept_vo and self._interactive:
-            center_offset = input_num(
-                '    Enter chosen center offset', ge=-center, le=center,
-                default=center_offset_vo)
+        if self._interactive:
+            center_offset = selected_center_offset
         else:
             center_offset = center_offset_vo
 
@@ -2291,8 +2211,8 @@ class Tomo:
         return float(center_offset)
 
     def _reconstruct_one_plane(
-            self, tomo_plane_t, center, thetas, eff_pixel_size,
-            cross_sectional_dim, plot_sinogram=True, num_core=1,
+            self, tomo_plane_t, center_offset, thetas, eff_pixel_size,
+            cross_sectional_dim, plot_sinogram=False, num_core=1,
             gaussian_sigma=None, ring_width=None):
         """Invert the sinogram for a single tomography plane."""
         # Third party modules
@@ -2301,8 +2221,6 @@ class Tomo:
         from tomopy import misc
 
         # tomo_plane_t index order: column,theta
-        assert 0 <= center < tomo_plane_t.shape[0]
-        center_offset = center-tomo_plane_t.shape[0]/2
         two_offset = 2 * int(np.round(center_offset))
         two_offset_abs = np.abs(two_offset)
         # Add 10% slack to max_rad to avoid edge effects
@@ -2324,10 +2242,11 @@ class Tomo:
             sinogram = tomo_plane_t[dist_from_edge:two_offset-dist_from_edge,:]
         if plot_sinogram:
             quick_imshow(
-                sinogram.T, f'sinogram center offset{center_offset:.2f}',
-                aspect='auto', path=self._output_folder,
-                save_fig=self._save_figs, save_only=self._save_only,
-                block=self._block)
+                sinogram.T,
+                title=f'Sinogram for a center offset of {center_offset:.2f}',
+                name=f'sinogram_center_offset{center_offset:.2f}',
+                path=self._output_folder, save_fig=self._save_figs,
+                save_only=self._save_only, block=self._block, aspect='auto')
 
         # Inverting sinogram
         t0 = time()
@@ -2347,20 +2266,14 @@ class Tomo:
 
         return recon_clean
 
-    def _plot_edges_one_plane(
-            self, recon_plane, title, path=None, save_figs=None,
-            save_only=None):
+    def _get_edges_one_plane(self, recon_plane):
         """
-        Create an "edges plot" for a singled reconstructed tomography
-        data plane.
+        Create an "edges plot" image for a single reconstructed
+        tomography data plane.
         """
         # Third party modules
         from skimage.restoration import denoise_tv_chambolle
 
-        if save_figs is None:
-            save_figs = self._save_figs
-        if save_only is None:
-            save_only = self._save_only
         vis_parameters = None  # self._config.get('vis_parameters')
         if vis_parameters is None:
             weight = 0.1
@@ -2368,23 +2281,157 @@ class Tomo:
             weight = vis_parameters.get('denoise_weight', 0.1)
             if not is_num(weight, ge=0.):
                 self._logger.warning(
-                    f'Invalid weight ({weight}) in _plot_edges_one_plane, '
+                    f'Invalid weight ({weight}) in _get_edges_one_plane, '
                     'set to a default of 0.1')
                 weight = 0.1
-        edges = denoise_tv_chambolle(recon_plane, weight=weight)
-        vmax = np.max(edges[0,:,:])
-        vmin = -vmax
-        if path is None:
-            path = self._output_folder
-        quick_imshow(
-            edges[0,:,:], f'{title} coolwarm', path=path, cmap='coolwarm',
-            save_fig=save_figs, save_only=save_only,
-            block=self._block)
-        quick_imshow(
-            edges[0,:,:], f'{title} gray', path=path, cmap='gray',
-            vmin=vmin, vmax=vmax, save_fig=save_figs,
-            save_only=save_only, block=self._block)
-        del edges
+        return denoise_tv_chambolle(recon_plane, weight=weight)[0]
+
+    def _select_center_offset(
+            self, recon_edges, row, preselected_offsets,
+            center_offset_vo=None):
+        """Select a center offset value from an "edges plot" image
+        for a single reconstructed tomography data plane."""
+        # Third party modules
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import RadioButtons, Button
+        from matplotlib.widgets import Button
+
+        def select_offset(offset):
+            """Callback function for the "Select offset" input."""
+            selected_offset.append(
+                ((False,
+                  preselected_offsets[preselected_offsets.index(
+                      float(radio_btn.value_selected))])))
+            plt.close()
+
+        def reject(event):
+            """Callback function for the "Reject" button."""
+            selected_offset.append((False, preselected_offsets[0]))
+            plt.close()
+
+        def accept(event):
+            """Callback function for the "Accept" button."""
+            if num_plots == 1:
+                selected_offset.append((True, preselected_offsets[0]))
+            else:
+                selected_offset.append(
+                    ((False,
+                      preselected_offsets[preselected_offsets.index(
+                          float(radio_btn.value_selected))])))
+            plt.close()
+
+        if not isinstance(recon_edges, (tuple, list)):
+            recon_edges = [recon_edges]
+        if not isinstance(preselected_offsets, (tuple, list)):
+            preselected_offsets = [preselected_offsets]
+        assert len(recon_edges) == len(preselected_offsets)
+
+        selected_offset = []
+
+        title_pos = (0.5, 0.95)
+        title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        subtitle_pos = (0.5, 0.90)
+        subtitle_props = {'fontsize': 'xx-large',
+                          'horizontalalignment': 'center',
+                          'verticalalignment': 'bottom'}
+
+        num_plots = len(recon_edges)
+        if num_plots == 1:
+            fig, axs = plt.subplots(figsize=(11, 8.5))
+            axs = [axs]
+            vmax = np.max(recon_edges[0][:,:])
+        else:
+            fig, axs = plt.subplots(ncols=num_plots, figsize=(17, 8.5))
+            axs = list(axs)
+            vmax = np.max(recon_edges[1][:,:])
+        for i, (ax, recon_edge, preselected_offset) in enumerate(zip(
+                axs, recon_edges, preselected_offsets)):
+            ax.imshow(recon_edge, vmin=-vmax, vmax=vmax, cmap='gray')
+            if num_plots == 1:
+                ax.set_title(
+                    f'Reconstruction for row {row}, center offset: ' \
+                    f'{preselected_offset:.2f}', fontsize='x-large')
+            else:
+                ax.set_title(
+                    f'Center offset: {preselected_offset}',
+                    fontsize='x-large')
+            ax.set_xlabel('x', fontsize='x-large')
+            if not i:
+                ax.set_ylabel('y', fontsize='x-large')
+
+        if len(recon_edges) > 1:
+            fig_title = plt.figtext(
+                *title_pos,
+                f'Reconstructions for row {row} (default center offset: '
+                    f'{center_offset_vo})',
+                **title_props)
+            fig_subtitle = plt.figtext(
+                *subtitle_pos,
+                'Select the best offset or press "Accept" to accept the '
+                f'default value of {preselected_offsets[1]}',
+                **subtitle_props)
+        else:
+            fig_title = plt.figtext(
+                *title_pos,
+                'Press "Accept" to accept this value or "Reject" to start a '
+                    'center calibration search',
+                **title_props)
+
+        if not self._interactive:
+
+            selected_offset.append((True, preselected_offsets[0]))
+
+        else:
+
+            fig.subplots_adjust(bottom=0.2)
+
+            if num_plots == 1:
+
+                # Setup "Reject" button
+                reject_btn = Button(
+                    plt.axes([0.15, 0.05, 0.15, 0.075]), 'Reject')
+                reject_cid = reject_btn.on_clicked(reject)
+
+
+            else:
+
+                # Setup RadioButtons
+                select_text = plt.figtext(
+                    0.225, 0.175, 'Select offset', fontsize='x-large',
+                    horizontalalignment='center', verticalalignment='center')
+                radio_btn = RadioButtons(
+                    plt.axes([0.175, 0.05, 0.1, 0.1]),
+                    labels = preselected_offsets, active=1)
+                radio_cid = radio_btn.on_clicked(select_offset)
+
+            # Setup "Accept" button
+            accept_btn = Button(
+                plt.axes([0.7, 0.05, 0.15, 0.075]), 'Accept')
+            accept_cid = accept_btn.on_clicked(accept)
+
+            plt.show()
+
+            # Disconnect all widget callbacks when figure is closed
+            # and remove the buttons before returning the figure
+            if num_plots == 1:
+                reject_btn.disconnect(reject_cid)
+                reject_btn.ax.remove()
+            else:
+                radio_btn.disconnect(radio_cid)
+                radio_btn.ax.remove()
+            accept_btn.disconnect(accept_cid)
+            accept_btn.ax.remove()
+
+        if num_plots == 1:
+            fig_title.remove()
+        else:
+            fig_title.set_in_layout(True)
+            fig_subtitle.remove()
+            select_text.remove()
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
+
+        return fig, *selected_offset[0]
 
     def _reconstruct_one_tomo_stack(
             self, tomo_stack, thetas, center_offsets=None, num_core=1,
@@ -2511,6 +2558,9 @@ class Tomo:
             self, data, x_bounds=None, y_bounds=None, z_bounds=None,
             z_only=False):
         """Resize the reconstructed tomography data."""
+        # Third party modules
+        import matplotlib.pyplot as plt
+
         # Data order: row/-z,y,x or stack,row/-z,y,x
         if isinstance(data, list):
             for i, stack in enumerate(data):
@@ -2525,48 +2575,48 @@ class Tomo:
             tomo_recon_stacks = [data]
 
         if not z_only:
-            # Third party modules
-            import matplotlib.pyplot as plt
-
             # Selecting x an y bounds (in z-plane)
             if x_bounds is None:
                 if not self._interactive:
                     self._logger.warning('x_bounds unspecified, reconstruct '
                                          'data for full x-range')
-                    x_bounds = (0, data[0].shape[2])
-            elif not is_int_pair(x_bounds, ge=0, le=data[0].shape[2]):
+                    x_bounds = (0, tomo_recon_stacks[0].shape[2])
+            elif not is_int_pair(
+                    x_bounds, ge=0, le=tomo_recon_stacks[0].shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             if y_bounds is None:
                 if not self._interactive:
                     self._logger.warning('y_bounds unspecified, reconstruct '
                                          'data for full y-range')
-                    y_bounds = (0, data[0].shape[1])
-            elif not is_int_pair(y_bounds, ge=0, le=data[0].shape[1]):
+                    y_bounds = (0, tomo_recon_stacks[0].shape[1])
+            elif not is_int_pair(
+                    y_bounds, ge=0, le=tomo_recon_stacks[0].shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            if self._interactive:
-                if x_bounds is None and y_bounds is None:
-                    preselected_roi = None
-                elif x_bounds is None:
-                    preselected_roi = (
-                        0, data[0].shape[2], y_bounds[0], y_bounds[1])
-                elif y_bounds is None:
-                    preselected_roi = (
-                        x_bounds[0], x_bounds[1], 0, data[0].shape[1])
-                else:
-                    preselected_roi = (
-                        0, data[0].shape[2], 0, data[0].shape[1])
+            if x_bounds is None and y_bounds is None:
+                preselected_roi = None
+            elif x_bounds is None:
+                preselected_roi = (
+                    0, tomo_recon_stacks[0].shape[2],
+                    y_bounds[0], y_bounds[1])
+            elif y_bounds is None:
+                preselected_roi = (
+                    x_bounds[0], x_bounds[1],
+                    0, tomo_recon_stacks[0].shape[1])
+            else:
+                preselected_roi = (
+                    x_bounds[0], x_bounds[1],
+                    y_bounds[0], y_bounds[1])
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=0)
-            preselected_roi = (200, 500, 300, 700)
             fig, roi = select_roi_2d(
                 tomosum, preselected_roi=preselected_roi,
                 title_a='Reconstructed data summed over z',
                 row_label='y', column_label='x',
                 interactive=self._interactive)
             if roi is None:
-                x_bounds = (0, data[0].shape[2])
-                y_bounds = (0, data[0].shape[1])
+                x_bounds = (0, tomo_recon_stacks[0].shape[2])
+                y_bounds = (0, tomo_recon_stacks[0].shape[1])
             else:
                 x_bounds = (int(roi[0]), int(roi[1]))
                 y_bounds = (int(roi[2]), int(roi[3]))
@@ -2576,38 +2626,34 @@ class Tomo:
             if self._save_figs:
                 fig.savefig(
                     os_path.join(
-                        self._output_folder, 'reconstructed_data_roi.png'))
+                        self._output_folder, 'reconstructed_data_xy_roi.png'))
             plt.close()
-
-        z_bounds = (0, data[0].shape[0])
-        return x_bounds, y_bounds, z_bounds
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack)
-        if z_bounds is not None:
-            raise RuntimeError('Selecting z bounds not updated yet')
-        if z_bounds is None and num_tomo_stacks == 1:
-            raise RuntimeError('Selecting z bounds not updated yet')
+        if z_bounds is None:
+            if num_tomo_stacks> 1 or not self._interactive:
+                self._logger.warning('z_bounds unspecified, reconstruct '
+                                     'data for full z-range')
+            z_bounds = (0, tomo_recon_stacks[0].shape[0])
+        elif not is_int_pair(
+                z_bounds, ge=0, le=tomo_recon_stacks[0].shape[0]):
+            raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
+        if num_tomo_stacks == 1:
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
-            select_z_bounds = input_yesno(
-                'Do you want to change the image z-bounds (y/n)?', 'n')
-            if not select_z_bounds:
-                z_bounds = None
-            else:
-                accept = False
-                while not accept:
-                    _, z_bounds = draw_mask_1d(
-                        tomosum, title='select x data range', ylabel='sum xy')
-                    while len(z_bounds) != 1:
-                        print('Please select exactly one continuous range')
-                        _, z_bounds = draw_mask_1d(
-                            tomosum, title='select x data range',
-                            ylabel='sum xy')
-                    z_bounds = z_bounds[0]
-                    accept = True
+            fig, z_bounds = select_roi_1d(
+                tomosum, preselected_roi=z_bounds,
+                xlabel='z', ylabel='Reconstructed data summed over x and y',
+                interactive=self._interactive)
             self._logger.debug(f'z_bounds = {z_bounds}')
+            # Plot results
+            if self._save_figs:
+                fig.savefig(
+                    os_path.join(
+                        self._output_folder, 'reconstructed_data_z_roi.png'))
+            plt.close()
 
         return x_bounds, y_bounds, z_bounds
 
