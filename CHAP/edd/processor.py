@@ -876,6 +876,11 @@ class StrainAnalysisProcessor(Processor):
                 dtype='uint16',
                 shape=(*map_config.shape, len(energies)),
                 attrs={'units': 'counts'})
+            det_nxdata.tth = NXfield(
+                dtype='float64',
+                shape=map_config.shape,
+                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'}
+            )
             det_nxdata.microstrain = NXfield(
                 dtype='float64',
                 shape=map_config.shape,
@@ -1010,6 +1015,7 @@ class StrainAnalysisProcessor(Processor):
                 for i in range(len(peak_locations))]
 
             tth_map = detector.get_tth_map(map_config)
+            det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])
             unconstrained_strains = np.log(
