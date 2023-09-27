@@ -922,6 +922,14 @@ class StrainAnalysisProcessor(Processor):
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_center')]
                 for i in range(len(peak_locations))]
+            uniform_fit_amplitudes = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(len(peak_locations))]
+            uniform_fit_sigmas = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(len(peak_locations))]
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -941,13 +949,16 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for hkl, center_guess, centers_fit, centers_error in zip(
+            for (hkl, center_guess, centers_fit, centers_error,
+                amplitudes_fit, sigmas_fit) in zip(
                     fit_hkls, peak_locations, uniform_fit_centers,
-                    uniform_fit_errors):
+                    uniform_fit_errors,
+                    uniform_fit_amplitudes, uniform_fit_sigmas):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guess
-                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                fit_nxgroup[hkl_name].center_initial_guess = center_guess
+                fit_nxgroup[hkl_name].center_initial_guess.attrs['units'] = 'keV'
+                # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
@@ -955,8 +966,23 @@ class StrainAnalysisProcessor(Processor):
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
+                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
+                # Report HKL peak amplitudes
+                fit_nxgroup[hkl_name].amplitudes = NXdata()
+                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].amplitudes)
+                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
+                    value=amplitudes_fit, attrs={'units': 'counts'})
+                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
+                # Report HKL peak FWHM
+                fit_nxgroup[hkl_name].sigmas = NXdata()
+                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].sigmas)
+                fit_nxgroup[hkl_name].sigmas.values = NXfield(
+                    value=sigmas_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
 
             # Perform second fit: do not assume uniform strain for all
             # HKLs, and use the fit peak centers from the uniform fit
@@ -974,6 +1000,15 @@ class StrainAnalysisProcessor(Processor):
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
+            unconstrained_fit_amplitudes = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(len(peak_locations))]
+            unconstrained_fit_sigmas = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(len(peak_locations))]
+
             tth_map = detector.get_tth_map(map_config)
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])
@@ -999,13 +1034,16 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for hkl, center_guess, centers_fit, centers_error in zip(
+            for (hkl, center_guess, centers_fit, centers_error,
+                amplitudes_fit, sigmas_fit) in zip(
                     fit_hkls, peak_locations, unconstrained_fit_centers,
-                    unconstrained_fit_errors):
+                    unconstrained_fit_errors,
+                    unconstrained_fit_amplitudes, unconstrained_fit_sigmas):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guess
-                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                fit_nxgroup[hkl_name].center_initial_guess = center_guess
+                fit_nxgroup[hkl_name].center_initial_guess.attrs['units'] = 'keV'
+                # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
@@ -1015,6 +1053,22 @@ class StrainAnalysisProcessor(Processor):
                     value=centers_error)
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
+                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
+                # Report HKL peak amplitudes
+                fit_nxgroup[hkl_name].amplitudes = NXdata()
+                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].amplitudes)
+                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
+                    value=amplitudes_fit, attrs={'units': 'counts'})
+                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
+                # Report HKL peak sigmas
+                fit_nxgroup[hkl_name].sigmas = NXdata()
+                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
+                linkdims(fit_nxgroup[hkl_name].sigmas)
+                fit_nxgroup[hkl_name].sigmas.values = NXfield(
+                    value=sigmas_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
+
         return nxroot
 
 
