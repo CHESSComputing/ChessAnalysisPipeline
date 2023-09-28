@@ -65,14 +65,11 @@ class TomoFindCenterConfig(BaseModel):
     :ivar center_stack_index: Stack index of the tomography set to find
         the center axis.
     :type center_stack_index: int, optional
-    :ivar lower_row: Lower row index for the center finding processor.
-    :type lower_row: int, optional
-    :ivar lower_center_offset: Center at the lower row index in pixels.
-    :type lower_center_offset: float, optional
-    :ivar upper_row: Upper row index for the center finding processor.
-    :type upper_row: int, optional
-    :ivar upper_center_offset: Center at the upper row index in pixels.
-    :type upper_center_offset: float, optional
+    :ivar center_rows: Row indices for the center finding processor.
+    :type center_rows: list[int, int], optional
+    :ivar center_offsets: Centers at the center finding row indices in
+        pixels.
+    :type center_offsets: list[float, float], optional
     :ivar search_range: Search range to perform center finding search
         in pixels
     :type search_range: float, optional
@@ -88,10 +85,11 @@ class TomoFindCenterConfig(BaseModel):
     :type ring_width: float, optional
     """
     center_stack_index: Optional[conint(ge=0)]
-    lower_row: Optional[conint(ge=-1)]
-    lower_center_offset: Optional[confloat(allow_inf_nan=False)]
-    upper_row: Optional[conint(ge=-1)]
-    upper_center_offset: Optional[confloat(allow_inf_nan=False)]
+    center_rows: Optional[conlist(
+        item_type=conint(gt=0), min_items=2, max_items=2)]
+    center_offsets: Optional[conlist(
+        item_type=confloat(allow_inf_nan=False),
+        min_items=2, max_items=2)]
     search_range: Optional[confloat(ge=0, allow_inf_nan=False)]
     search_step: Optional[confloat(ge=0, allow_inf_nan=False)]
     gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
