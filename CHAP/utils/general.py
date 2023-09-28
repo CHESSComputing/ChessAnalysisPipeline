@@ -26,6 +26,8 @@ from sys import float_info
 import numpy as np
 try:
     import matplotlib.pyplot as plt
+    from matplotlib.widgets import AxesWidget, RadioButtons
+    from matplotlib import cbook
 except ImportError:
     pass
 
@@ -879,10 +881,11 @@ def file_exists_and_readable(f):
 
 
 def select_mask_1d(
-        y, x=None, label=None, ref_data=[], preselected_index_ranges=[],
+        y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
         preselected_mask=None, title=None, xlabel=None, ylabel=None,
-        interactive=True, return_figure=False):
-    """Display a 2D plot and have the user select a mask.
+        min_num_index_ranges=None, max_num_index_ranges=None,
+        interactive=True):
+    """Display a lineplot and have the user select a mask.
 
     :param y: One-dimensional data array for which a mask will be
         constructed.
@@ -897,10 +900,10 @@ def select_mask_1d(
         plot. Items in the list should be tuples of positional
         arguments and keyword arguments to unpack and pass directly to
         `matplotlib.axes.Axes.plot`, defaults to `[]`.
-    :type ref_data: list[tuple[tuple, dict]], optional
+    :type ref_data: list[tuple(tuple, dict)], optional
     :param preselected_index_ranges: List of preselected index ranges
-        to mask, defaults to `[]`.
-    :type preselected_index_ranges: Union(list[tuple[int, int]],
+        to mask, defaults to `None`.
+    :type preselected_index_ranges: Union(list[tuple(int, int)],
         list[list[int]]), optional
     :param preselected_mask: Preselected boolean mask array,
         defaults to `None`.
@@ -913,16 +916,19 @@ def select_mask_1d(
     :param ylabel: Label for the y-axis of the displayed figure,
         defaults to `None`.
     :type ylabel: str, optional
+    :param min_num_index_ranges: The minimum number of selected index
+        ranges, defaults to `None`.
+    :type min_num_index_ranges: int, optional
+    :param max_num_index_ranges: The maximum number of selected index
+        ranges, defaults to `None`.
+    :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defults to `True`.
     :type interactive: bool, optional
-    :param return_figure: If True, also return a matplotlib figure of
-        the drawn mask, defaults to `False`.
-    :type return_figure: bool, optional
-    :return: A boolean mask array and the list of selected index
-        ranges (and a matplotlib figure, if `return_figure` was `True`).
-    :rtype: numpy.ndarray, list[tuple[int, int]]
-        [, matplotlib.figure.Figure]
+    :return: A Matplotlib figure, a boolean mask array and the list of
+        selected index ranges.
+    :rtype: matplotlib.figure.Figure, numpy.ndarray,
+        list[tuple(int, int)]
     """
     # Third party modules
     from matplotlib.patches import Patch
@@ -931,52 +937,112 @@ def select_mask_1d(
     # local modules
     from CHAP.utils.general import index_nearest
 
-    def on_span_select(xmin, xmax):
+    def change_fig_title(title):
+        if fig_title:
+            fig_title[0].remove()
+            fig_title.pop()
+        fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
+
+    def get_selected_index_ranges(change_fnc=None):
+        selected_index_ranges = sorted(
+            [[index_nearest(x, span.extents[0]),
+              index_nearest(x, span.extents[1])+1]
+             for span in spans])
+        if change_fnc is not None:
+            if len(selected_index_ranges) > 1:
+                change_fnc(
+                    f'Selected index ranges: {selected_index_ranges}')
+            elif selected_index_ranges:
+                change_fnc(
+                    f'Selected ROI: {tuple(selected_index_ranges[0])}')
+            else:
+                change_fnc(f'Selected ROI: None')
+        return selected_index_ranges
+
+    def add_span(event, xrange_init=None):
+        """Callback function for the "Add span" button."""
+        if (max_num_index_ranges is not None
+                and len(spans) >= max_num_index_ranges):
+            change_error_text(
+                f'Exceeding max number of ranges, adjust an existing '
+                'range or click "Reset"/"Confirm"')
+        else:
+            spans.append(
+                SpanSelector(
+                    ax, select_span, 'horizontal', props=included_props,
+                    useblit=True, interactive=interactive,
+                    drag_from_anywhere=True, ignore_event_outside=True,
+                    grab_range=5))
+            if xrange_init is None:
+                xmin_init, xmax_init = min(x), 0.05*(max(x)-min(x))
+            else:
+                xmin_init, xmax_init = xrange_init
+            spans[-1]._selection_completed = True
+            spans[-1].extents = (xmin_init, xmax_init)
+            spans[-1].onselect(xmin_init, xmax_init)
+        plt.draw()
+
+    def select_span(xmin, xmax):
         """Callback function for the SpanSelector widget."""
         combined_spans = True
         while combined_spans:
             combined_spans = False
             for i, span1 in enumerate(spans):
-                for j, span2 in enumerate(spans[i+1:]):
+                for span2 in spans[i+1:]:
                     if (span1.extents[1] >= span2.extents[0]
                             and span1.extents[0] <= span2.extents[1]):
-                        print('Combined overlapping spans in the currently '
-                            'selected energy mask')
+                        change_error_text(
+                            'Combined overlapping spans in currently '
+                            'selected mask')
                         span2.extents = (
                             min(span1.extents[0], span2.extents[0]),
                             max(span1.extents[1], span2.extents[1]))
                         span1.set_visible(False)
-                        spans.pop(i)
+                        spans.remove(span1)
                         combined_spans = True
                         break
                 if combined_spans:
                     break
+        get_selected_index_ranges(change_error_text)
         plt.draw()
 
-    def add_span(event, xrange_init=None):
-        """Callback function for the "Add span" button."""
-        spans.append(
-            SpanSelector(
-                ax, on_span_select, 'horizontal', props=included_props,
-                useblit=True, interactive=interactive, drag_from_anywhere=True,
-                ignore_event_outside=True, grab_range=5))
-        if xrange_init is None:
-            xmin_init, xmax_init = min(x), 0.05*(max(x)-min(x))
-        else:
-            xmin_init, xmax_init = xrange_init
-        spans[-1]._selection_completed = True
-        spans[-1].extents = (xmin_init, xmax_init)
-        spans[-1].onselect(xmin_init, xmax_init)
+    def reset(event):
+        """Callback function for the "Reset" button."""
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        for span in reversed(spans):
+            span.set_visible(False)
+            spans.remove(span)
+        get_selected_index_ranges(change_error_text)
+        plt.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
-        plt.close()
+        if (min_num_index_ranges is not None
+                and len(spans) < min_num_index_ranges):
+            change_error_text(
+                f'Select at least {min_num_index_ranges} unique index ranges')
+            plt.draw()
+        else:
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            get_selected_index_ranges(change_fig_title)
+            plt.close()
 
     def update_mask(mask, selected_index_ranges):
         """Update the mask with the selected index ranges."""
         for low, upp in selected_index_ranges:
             mask = np.logical_or(
-                mask, np.logical_and(x >= x[low], x <= x[upp]))
+                mask,
+                np.logical_and(x >= x[low], x <= x[min(upp, num_data-1)]))
         return mask
 
     def update_index_ranges(mask):
@@ -999,15 +1065,13 @@ def select_mask_1d(
             selected_index_ranges[-1] = (selected_index_ranges[-1], num_data-1)
         return selected_index_ranges
 
-    spans = []
-
     # Check inputs
     y = np.asarray(y)
     if y.ndim > 1:
         raise ValueError(f'Invalid y dimension ({y.ndim})')
     num_data = y.size
     if x is None:
-        x = np.arange(num_data)
+        x = np.arange(num_data)+0.5
     else:
         x = np.asarray(x, dtype=np.float64)
         if x.ndim > 1 or x.size != num_data:
@@ -1016,19 +1080,37 @@ def select_mask_1d(
             raise ValueError('Invalid x: must be monotonically increasing')
     if title is None:
         title = 'Click and drag to select ranges to include in mask'
-    if preselected_index_ranges:
+    if preselected_index_ranges is None:
+        preselected_index_ranges = []
+    else:
         if (not isinstance(preselected_index_ranges, list)
-                or any(not is_int_pair(v, raise_error=True)
+                or any(not is_int_pair(v, ge=0, le=num_data)
                        for v in preselected_index_ranges)):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
+        if (min_num_index_ranges is not None
+                and len(preselected_index_ranges) < min_num_index_ranges):
+            raise ValueError(
+                'Invalid parameter preselected_index_ranges '
+                f'({preselected_index_ranges}), number of selected index '
+                f'ranges must be >= {min_num_index_ranges}')
+        if (max_num_index_ranges is not None
+                and len(preselected_index_ranges) > max_num_index_ranges):
+            raise ValueError(
+                'Invalid parameter preselected_index_ranges '
+                f'({preselected_index_ranges}), number of selected index '
+                f'ranges must be <= {max_num_index_ranges}')
 
-    if preselected_mask is not None:
-        preselected_index_ranges = update_index_ranges(
-            update_mask(
-                np.copy(np.asarray(preselected_mask, dtype=bool)),
-                preselected_index_ranges))
+    spans = []
+    fig_title = []
+    error_texts = []
 
+    title_pos = (0.5, 0.95)
+    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    error_pos = (0.5, 0.90)
+    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
     excluded_props = {
         'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
     included_props = {
@@ -1041,21 +1123,39 @@ def select_mask_1d(
     handles.append(Patch(
         label='Included / selected ranges', **included_props))
     ax.legend(handles=handles)
-    #ax.set_title(title)
-    #if xlabel is not None:
-    #    ax.set_xlabel(xlabel)
-    #if ylabel is not None:
-    #    ax.set_ylabel(ylabel)
-    ax.set(title=title, xlabel=xlabel, ylabel=ylabel)
-    fig.subplots_adjust(bottom=0.2)
+    ax.set_xlabel(xlabel, fontsize='x-large')
+    ax.set_ylabel(ylabel, fontsize='x-large')
+    ax.set_xlim(x[0], x[-1])
+    fig.subplots_adjust(bottom=0.0, top=0.85)
 
-    for index_range in preselected_index_ranges:
-        add_span(None, xrange_init=x[list(index_range)])
+    # Setup the preselected mask and index ranges if provided
+    if preselected_mask is not None:
+        preselected_index_ranges = update_index_ranges(
+            update_mask(
+                np.copy(np.asarray(preselected_mask, dtype=bool)),
+                preselected_index_ranges))
+    for low, upp in preselected_index_ranges:
+        add_span(None, xrange_init=(x[low], x[min(upp, num_data-1)]))
 
-    if interactive:
-        add_span_btn = Button(plt.axes([0.15, 0.05, 0.1, 0.075]), 'Add span')
+    if not interactive:
+
+        get_selected_index_ranges(change_fig_title)
+
+    else:
+
+        change_fig_title(title)
+        get_selected_index_ranges(change_error_text)
+        fig.subplots_adjust(bottom=0.2)
+
+        # Setup "Add span" button
+        add_span_btn = Button(plt.axes([0.15, 0.05, 0.15, 0.075]), 'Add span')
         add_span_cid = add_span_btn.on_clicked(add_span)
 
+        # Setup "Reset" button
+        reset_btn = Button(plt.axes([0.45, 0.05, 0.15, 0.075]), 'Reset')
+        reset_cid = reset_btn.on_clicked(reset)
+
+        # Setup "Confirm" button
         confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
         confirm_cid = confirm_btn.on_clicked(confirm)
 
@@ -1064,385 +1164,524 @@ def select_mask_1d(
 
         # Disconnect all widget callbacks when figure is closed
         add_span_btn.disconnect(add_span_cid)
+        reset_btn.disconnect(reset_cid)
         confirm_btn.disconnect(confirm_cid)
 
         # ...and remove the buttons before returning the figure
-        if return_figure:
-            add_span_btn.ax.remove()
-            confirm_btn.ax.remove()
-            plt.subplots_adjust(bottom=0.0)
+        add_span_btn.ax.remove()
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
+        plt.subplots_adjust(bottom=0.0)
 
-    selected_index_ranges = [[index_nearest(x, span.extents[0]),
-                              index_nearest(x, span.extents[1])]
-                             for span in spans]
+    selected_index_ranges = get_selected_index_ranges()
+    if not selected_index_ranges:
+        selected_index_ranges = None
 
     # Update the mask with the currently selected index ranges
-    if preselected_mask is None:
-        selected_mask = None
-    else:
-        selected_mask = update_mask(
-            len(x)*[False], selected_index_ranges)
+    selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
-    if return_figure:
-        return selected_mask, selected_index_ranges, fig
-    return selected_mask, selected_index_ranges
+    fig_title[0].set_in_layout(True)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
 
-def select_peaks(
-        ydata, xdata, peak_locations,
-        peak_labels=None,
-        mask=None,
-        pre_selected_peak_indices=[],
-        return_sorted=True,
-        title='', xlabel='', ylabel='',
+    return fig, selected_mask, selected_index_ranges
+
+
+def select_roi_1d(
+        y, x=None, preselected_roi=None, title=None, xlabel=None, ylabel=None,
         interactive=True):
-    """
-    Show a plot of the 1D data provided with user-selectable markers
-    at the given locations. Return the locations of the markers that
-    the user selected with their mouse interactions.
+    """Display a 2D plot and have the user select a single region
+    of interest.
 
-    :param ydata: 1D array of values to plot
-    :type ydata: numpy.ndarray
-    :param xdata: values of the independent dimension corresponding to
-        ydata, defaults to None
-    :type xdata: numpy.ndarray, optional
-    :param peak_locations: locations of selectable markers in the same
-        units as xdata.
-    :type peak_locations: list
-    :param peak_labels: list of annotations for each peak, defaults to
-        None
-    :type peak_labels: list[str], optional
-    :param mask: boolean array representing a mask that will be
-        applied to the data at some later point, defaults to None
-    :type mask: np.ndarray, optional
-    :param pre_selected_peak_indices: indices of markers that should
-        already be selected when the figure shows up, defaults to []
-    :type pre_selected_peak_indices: list[int], optional
-    :param return_sorted: sort the indices of selected markers before
-        returning (otherwise: return them in the same order that the
-        user selected them), defaults to True
-    :type return_sorted: bool, optional
-    :param title: title for the plot, defaults to ''
+    :param y: One-dimensional data array for which a for which a region of
+        interest will be selected.
+    :type y: numpy.ndarray
+    :param x: x-coordinates of the data, defaults to `None`.
+    :type x: numpy.ndarray, optional
+    :param preselected_roi: Preselected region of interest,
+        defaults to `None`.
+    :type preselected_roi: tuple(int, int), optional
+    :param title: Title for the displayed figure, defaults to `None`.
     :type title: str, optional
-    :param xlabel: x-axis label for the plot, defaults to ''
+    :param xlabel: Label for the x-axis of the displayed figure,
+        defaults to `None`.
     :type xlabel: str, optional
-    :param ylabel: y-axis label for the plot, defaults to ''
+    :param ylabel: Label for the y-axis of the displayed figure,
+        defaults to `None`.
     :type ylabel: str, optional
-    :param interactive: show the plot and allow user interactions with
-        the matplotlib figure, defults to True
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defults to `True`.
     :type interactive: bool, optional
-    :return: the locations of the user-selected peaks
-    :rtype: list
+    :return: The selected region of interest as array indices and a
+        matplotlib figure.
+    :rtype: matplotlib.figure.Figure, tuple(int, int)
+    """
+    # Check inputs
+    y = np.asarray(y)
+    if y.ndim != 1:
+        raise ValueError(f'Invalid image dimension ({y.ndim})')
+    if preselected_roi is not None:
+        if not is_int_pair(preselected_roi, ge=0, le=y.size, log=False):
+            raise ValueError('Invalid parameter preselected_roi '
+                             f'({preselected_roi})')
+        preselected_roi = [preselected_roi]
+
+    fig, mask, roi = select_mask_1d(
+        y, x=x, preselected_index_ranges=preselected_roi, title=title,
+        xlabel=xlabel, ylabel=ylabel, min_num_index_ranges=1,
+        max_num_index_ranges=1, interactive=interactive)
+
+    return fig, tuple(roi[0])
+
+def select_roi_2d(
+        a, preselected_roi=None, title=None, title_a=None,
+        row_label='row index', column_label='column index', interactive=True):
+    """Display a 2D image and have the user select a single rectangular
+       region of interest.
+
+    :param a: Two-dimensional image data array for which a region of
+        interest will be selected.
+    :type a: numpy.ndarray
+    :param preselected_roi: Preselected region of interest,
+        defaults to `None`.
+    :type preselected_roi: tuple(int, int, int, int), optional
+    :param title: Title for the displayed figure, defaults to `None`.
+    :type title: str, optional
+    :param title_a: Title for the image of a, defaults to `None`.
+    :type title_a: str, optional
+    :param row_label: Label for the y-axis of the displayed figure,
+        defaults to `row index`.
+    :type row_label: str, optional
+    :param column_label: Label for the x-axis of the displayed figure,
+        defaults to `column index`.
+    :type column_label: str, optional
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defaults to `True`.
+    :type interactive: bool, optional
+    :return: The selected region of interest as array indices and a
+        matplotlib figure.
+    :rtype: matplotlib.figure.Figure, tuple(int, int, int, int)
     """
     # Third party modules
-    import matplotlib.lines as mlines
-    from matplotlib.widgets import Button
+    from matplotlib.widgets import Button, RectangleSelector
 
-    if ydata.size != xdata.size:
-        raise ValueError('x and y data must have the same size')
-    if mask is not None and mask.size != ydata.size:
-        raise ValueError('mask must have the same size as data')
+    # Local modules
+    from CHAP.utils.general import index_nearest
 
+    def change_fig_title(title):
+        if fig_title:
+            fig_title[0].remove()
+            fig_title.pop()
+        fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    excluded_peak_props = {
-        'color': 'black', 'linestyle': '--','linewidth': 1,
-        'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
-    included_peak_props = {
-        'color': 'green', 'linestyle': '-', 'linewidth': 2,
-        'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
-    masked_peak_props = {
-        'color': 'gray', 'linestyle': ':', 'linewidth': 1}
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
-    # Setup reference data & plot
-    if mask is None:
-        mask = np.full(ydata.shape, True, dtype=bool)
+    def on_rect_select(eclick, erelease):
+        """Callback function for the RectangleSelector widget."""
+        change_error_text(
+            f'Selected ROI: {tuple(int(v) for v in rects[0].extents)}')
+        plt.draw()
+
+    def reset(event):
+        """Callback function for the "Reset" button."""
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        rects[0].set_visible(False)
+        rects.pop()
+        rects.append(
+            RectangleSelector(
+                ax, on_rect_select, props=rect_props, useblit=True,
+                interactive=interactive, drag_from_anywhere=True,
+                ignore_event_outside=False))
+        plt.draw()
+
+    def confirm(event):
+        """Callback function for the "Confirm" button."""
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        roi = tuple(int(v) for v in rects[0].extents)
+        if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
+            roi = None
+        change_fig_title(f'Selected ROI: {roi}')
+        plt.close()
+
+    fig_title = []
+    error_texts = []
+
+    # Check inputs
+    a = np.asarray(a)
+    if a.ndim != 2:
+        raise ValueError(f'Invalid image dimension ({a.ndim})')
+    if preselected_roi is not None:
+        if (not is_int_series(preselected_roi, ge=0, log=False)
+                or len(preselected_roi) != 4):
+            raise ValueError('Invalid parameter preselected_roi '
+                             f'({preselected_roi})')
+    if title is None:
+        title = 'Click and drag to select or adjust a region of interest (ROI)'
+
+    title_pos = (0.5, 0.95)
+    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    error_pos = (0.5, 0.90)
+    error_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    rect_props = {
+        'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
+
     fig, ax = plt.subplots(figsize=(11, 8.5))
-    handles = ax.plot(xdata, ydata, label='Reference data')
-    handles.append(mlines.Line2D(
-        [], [], label='Excluded / unselected', **excluded_peak_props))
-    handles.append(mlines.Line2D(
-        [], [], label='Included / selected', **included_peak_props))
-    handles.append(mlines.Line2D(
-        [], [], label='In masked region (unselectable)', **masked_peak_props))
-    ax.legend(handles=handles, loc='center right')
-    ax.set(title=title, xlabel=xlabel, ylabel=ylabel)
-    fig.tight_layout()
+    ax.imshow(a)
+    ax.set_title(title_a, fontsize='xx-large')
+    ax.set_xlabel(column_label, fontsize='x-large')
+    ax.set_ylabel(row_label, fontsize='x-large')
+    ax.set_xlim(0, a.shape[1])
+    ax.set_ylim(a.shape[0], 0)
+    fig.subplots_adjust(bottom=0.0, top=0.85)
 
-    # Plot a vertical line marker at each peak location
-    peak_vlines = []
-    x_indices = np.arange(ydata.size)
-    if peak_labels is None:
-        peak_labels = [''] * len(peak_locations)
-    for i, (loc, lbl) in enumerate(zip(peak_locations, peak_labels)):
-        nearest_index = np.searchsorted(xdata, loc)
-        if nearest_index in x_indices[mask]:
-            if i in pre_selected_peak_indices:
-                peak_vline = ax.axvline(loc, **included_peak_props)
-            else:
-                peak_vline = ax.axvline(loc, **excluded_peak_props)
-            peak_vline.set_picker(5)
-        else:
-            if i in pre_selected_peak_indices:
-                logger.warning(
-                    f'Pre-selected peak index {i} is in a masked region and '
-                    'will not be selectable.')
-                pre_selected_peak_indices.remove(i)
-            peak_vline = ax.axvline(loc, **masked_peak_props)
-        ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
-                transform=ax.get_xaxis_transform())
-        peak_vlines.append(peak_vline)
+    # Setup the preselected range of interest if provided
+    rects = [RectangleSelector(
+        ax, on_rect_select, props=rect_props, useblit=True,
+        interactive=interactive, drag_from_anywhere=True,
+        ignore_event_outside=True)]
+    if preselected_roi is not None:
+        rects[0].extents = preselected_roi
 
-    # Indicate masked regions by gray-ing out the axes facecolor
-    exclude_bounds = []
-    for i, m in enumerate(mask):
-        if not m:
-            if (not exclude_bounds) or isinstance(exclude_bounds[-1], tuple):
-                exclude_bounds.append(i)
-        else:
-            if exclude_bounds and isinstance(exclude_bounds[-1], int):
-                exclude_bounds[-1] = (exclude_bounds[-1], i-1)
-    if exclude_bounds and isinstance(exclude_bounds[-1], int):
-        exclude_bounds[-1] = (exclude_bounds[-1], mask.size-1)
-    for (low, upp) in exclude_bounds:
-        xlow = xdata[low]
-        xupp = xdata[upp]
-        ax.axvspan(xlow, xupp, facecolor='gray', alpha=0.5)
+    if not interactive:
 
-    selected_peak_indices = pre_selected_peak_indices
-    if interactive:
-        # Setup interative peak selection
-        def onpick(event):
-            try:
-                peak_index = peak_vlines.index(event.artist)
-            except:
-                pass
-            else:
-                peak_vline = event.artist
-                if peak_index in selected_peak_indices:
-                    peak_vline.set(**excluded_peak_props)
-                    selected_peak_indices.remove(peak_index)
-                else:
-                    peak_vline.set(**included_peak_props)
-                    selected_peak_indices.append(peak_index)
-                plt.draw()
-        cid_pick_peak = fig.canvas.mpl_connect('pick_event', onpick)
+        change_fig_title(
+            f'Selected ROI: {tuple(int(v) for v in preselected_roi)}')
+
+    else:
+
+        change_fig_title(title)
+        if preselected_roi is not None:
+            change_error_text(
+                f'Preselected ROI: {tuple(int(v) for v in preselected_roi)}')
+        fig.subplots_adjust(bottom=0.2)
+
+        # Setup "Reset" button
+        reset_btn = Button(plt.axes([0.125, 0.05, 0.15, 0.075]), 'Reset')
+        reset_cid = reset_btn.on_clicked(reset)
 
         # Setup "Confirm" button
-        def confirm_selection(event):
-            plt.close()
-        plt.subplots_adjust(bottom=0.2)
-        confirm_b = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
-        cid_confirm = confirm_b.on_clicked(confirm_selection)
+        confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
 
         # Show figure for user interaction
         plt.show()
 
         # Disconnect all widget callbacks when figure is closed
-        fig.canvas.mpl_disconnect(cid_pick_peak)
-        confirm_b.disconnect(cid_confirm)
+        reset_btn.disconnect(reset_cid)
+        confirm_btn.disconnect(confirm_cid)
 
-        # ...and remove the confirm button before returning the figure
-        confirm_b.ax.remove()
-        plt.subplots_adjust(bottom=0.0)
+        # ... and remove the buttons before returning the figure
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
 
-    selected_peaks = peak_locations[selected_peak_indices]
-    if return_sorted:
-        selected_peaks.sort()
-    return selected_peaks, fig
+    fig_title[0].set_in_layout(True)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+
+    # Remove the handles before returning the figure
+    if interactive:
+        rects[0]._center_handle.set_visible(False)
+        rects[0]._corner_handles.set_visible(False)
+        rects[0]._edge_handles.set_visible(False)
+
+    roi = tuple(int(v) for v in rects[0].extents)
+    if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
+        roi = None
+
+    return fig, roi
 
 
-def select_image_bounds(
-        a, axis, low=None, upp=None, num_min=None, title='select array bounds',
-        raise_error=False):
+def select_image_indices(
+        a, axis, b=None, preselected_indices=None, min_range=None,
+        min_num_indices=2, max_num_indices=2, title=None,
+        title_a=None, title_b=None, row_label='row index',
+        column_label='column index', interactive=True):
+    """Display a 2D image and have the user select a set of image
+       indices in either row or column direction. 
+
+    :param a: Two-dimensional image data array for which a region of
+        interest will be selected.
+    :type a: numpy.ndarray
+    :param axis: The selection direction (0: row, 1: column)
+    :type axis: int
+    :param b: A secondary two-dimensional image data array for which
+        a shared region of interest will be selected,
+        defaults to `None`.
+    :type b: numpy.ndarray, optional
+    :param preselected_indices: Preselected image indices,
+        defaults to `None`.
+    :type preselected_roi: tuple(int), list(int), optional
+    :param min_range: The minimal range spanned by the selected 
+        indices, defaults to `None`
+    :type min_range: int, optional
+    :param min_num_indices: The minimum number of selected indices,
+        defaults to `None`.
+    :type min_num_indices: int, optional
+    :param max_num_indices: The maximum number of selected indices,
+        defaults to `None`.
+    :type max_num_indices: int, optional
+    :param title: Title for the displayed figure, defaults to `None`.
+    :type title: str, optional
+    :param title_a: Title for the image of a, defaults to `None`.
+    :type title_a: str, optional
+    :param title_b: Title for the image of b, defaults to `None`.
+    :type title_b: str, optional
+    :param row_label: Label for the y-axis of the displayed figure,
+        defaults to `row index`.
+    :type row_label: str, optional
+    :param column_label: Label for the x-axis of the displayed figure,
+        defaults to `column index`.
+    :type column_label: str, optional
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defaults to `True`.
+    :type interactive: bool, optional
+    :return: The selected region of interest as array indices and a
+        matplotlib figure.
+    :rtype: matplotlib.figure.Figure, tuple(int, int, int, int)
     """
-    Interactively select the lower and upper data bounds for a 2D
-    numpy array.
-    """
+    # Third party modules
+    from matplotlib.widgets import TextBox, Button
+
+    def change_fig_title(title):
+        if fig_title:
+            fig_title[0].remove()
+            fig_title.pop()
+        fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
+
+    def get_selected_indices(change_fnc=None):
+        selected_indices = tuple(sorted(indices))
+        if change_fnc is not None:
+            num_indices = len(indices)
+            if len(selected_indices) > 1:
+                text = f'Selected {row_column} indices: {selected_indices}'
+            elif selected_indices:
+                text = f'Selected {row_column} index: {selected_indices[0]}'
+            else:
+                text = f'Selected {row_column} indices: None'
+            if min_num_indices is not None and num_indices < min_num_indices:
+                if min_num_indices == max_num_indices:
+                    text += \
+                        f', select another {max_num_indices-num_indices}'
+                else:
+                    text += \
+                        f', select at least {max_num_indices-num_indices} more'
+            change_fnc(text)
+        return selected_indices
+
+    def add_index(index):
+        if index in indices:
+            raise ValueError(f'Ignoring duplicate of selected {row_column}s')
+        elif max_num_indices is not None and len(indices) >= max_num_indices:
+            raise ValueError(
+                f'Exceeding maximum number of selected {row_column}s, click '
+                'either "Reset" or "Confirm"')
+        elif (len(indices) and min_range is not None
+                and abs(max(index, max(indices)) - min(index, min(indices)))
+                    < min_range):
+            raise ValueError(
+                f'Selected {row_column} range is smaller than required '
+                'minimal range of {min_range}: ignoring last selection')
+        else:
+            indices.append(index)
+            if not axis:
+                for ax in axs:
+                    lines.append(ax.axhline(indices[-1], c='r', lw=2))
+            else:
+                for ax in axs:
+                    lines.append(ax.axvline(indices[-1], c='r', lw=2))
+
+    def select_index(expression):
+        """Callback function for the "Select row/column index" TextBox.
+        """
+        if not len(expression):
+            return
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        try:
+            index = int(expression)
+            if not 0 <= index <= a.shape[axis]:
+                raise ValueError
+        except ValueError:
+            change_error_text(
+                f'Invalid {row_column} index ({expression}), enter an integer '
+                f'between 0 and {a.shape[axis]-1}')
+        else:
+            try:
+                add_index(index)
+                get_selected_indices(change_error_text)
+            except ValueError as e:
+                change_error_text(e)
+        index_input.set_val('')
+        for ax in axs:
+            ax.get_figure().canvas.draw()
+
+    def reset(event):
+        """Callback function for the "Reset" button."""
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        for line in reversed(lines):
+            line.remove()
+        indices.clear()
+        lines.clear()
+        get_selected_indices(change_error_text)
+        for ax in axs:
+            ax.get_figure().canvas.draw()
+
+    def confirm(event):
+        """Callback function for the "Confirm" button."""
+        if len(indices) < min_num_indices:
+            change_error_text(
+                f'Select at least {min_num_indices} unique {row_column}s')
+            for ax in axs:
+                ax.get_figure().canvas.draw()
+        else:
+            # Remove error texts and add selected indices if set
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            get_selected_indices(change_fig_title)
+            plt.close()
+
+    # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
-        illegal_value(
-            a.ndim, 'array dimension', location='select_image_bounds',
-            raise_error=raise_error)
-        return None
+        raise ValueError(f'Invalid image dimension ({a.ndim})')
     if axis < 0 or axis >= a.ndim:
-        illegal_value(
-            axis, 'axis', location='select_image_bounds',
-            raise_error=raise_error)
-        return None
-    low_save = low
-    upp_save = upp
-    num_min_save = num_min
-    if num_min is None:
-        num_min = 1
+        raise ValueError(f'Invalid parameter axis ({axis})')
+    if not axis:
+        row_column = 'row'
     else:
-        if num_min < 2 or num_min > a.shape[axis]:
-            logger.warning(
-                'Invalid input for num_min in select_image_bounds, '
-                'input ignored')
-            num_min = 1
-    if low is None:
-        min_ = 0
-        max_ = a.shape[axis]
-        low_max = a.shape[axis]-num_min
-        while True:
-            if axis:
-                quick_imshow(
-                    a[:,min_:max_], title=title, aspect='auto',
-                    extent=[min_,max_,a.shape[0],0])
+        row_column = 'column'
+    if preselected_indices is not None:
+        if not is_int_series(
+                preselected_indices, ge=0, le=a.shape[axis], log=False):
+            if interactive:
+                logger.warning(
+                    'Invalid parameter preselected_indices '
+                    f'({preselected_indices}), ignoring preselected_indices')
+                preselected_indices = None
             else:
-                quick_imshow(
-                    a[min_:max_,:], title=title, aspect='auto',
-                    extent=[0,a.shape[1], max_,min_])
-            zoom_flag = input_yesno(
-                'Set lower data bound (y) or zoom in (n)?', 'y')
-            if zoom_flag:
-                low = input_int('    Set lower data bound', ge=0, le=low_max)
-                break
-            min_ = input_int('    Set lower zoom index', ge=0, le=low_max)
-            max_ = input_int(
-                '    Set upper zoom index', ge=min_+1, le=low_max+1)
-    else:
-        if not is_int(low, ge=0, le=a.shape[axis]-num_min):
-            illegal_value(
-                low, 'low', location='select_image_bounds',
-                raise_error=raise_error)
-            return None
-    if upp is None:
-        min_ = low+num_min
-        max_ = a.shape[axis]
-        upp_min = min_
-        while True:
-            if axis:
-                quick_imshow(
-                    a[:,min_:max_], title=title, aspect='auto',
-                    extent=[min_,max_,a.shape[0],0])
-            else:
-                quick_imshow(
-                    a[min_:max_,:], title=title, aspect='auto',
-                    extent=[0,a.shape[1], max_,min_])
-            zoom_flag = input_yesno(
-                'Set upper data bound (y) or zoom in (n)?', 'y')
-            if zoom_flag:
-                upp = input_int(
-                    '    Set upper data bound', ge=upp_min, le=a.shape[axis])
-                break
-            min_ = input_int(
-                '    Set upper zoom index', ge=upp_min, le=a.shape[axis]-1)
-            max_ = input_int(
-                '    Set upper zoom index', ge=min_+1, le=a.shape[axis])
-    else:
-        if not is_int(upp, ge=low+num_min, le=a.shape[axis]):
-            illegal_value(
-                upp, 'upp', location='select_image_bounds',
-                raise_error=raise_error)
-            return None
-    bounds = (low, upp)
-    a_tmp = np.copy(a)
-    a_tmp_max = a.max()
-    if axis:
-        a_tmp[:,bounds[0]] = a_tmp_max
-        a_tmp[:,bounds[1]-1] = a_tmp_max
-    else:
-        a_tmp[bounds[0],:] = a_tmp_max
-        a_tmp[bounds[1]-1,:] = a_tmp_max
-    print(f'lower bound = {low} (inclusive)\nupper bound = {upp} (exclusive)')
-    quick_imshow(a_tmp, title=title, aspect='auto')
-    del a_tmp
-    if not input_yesno('Accept these bounds (y/n)?', 'y'):
-        bounds = select_image_bounds(
-            a, axis, low=low_save, upp=upp_save, num_min=num_min_save,
-            title=title)
-    clear_imshow(title)
-    return bounds
-
-
-def select_one_image_bound(
-        a, axis, bound=None, bound_name=None, title='select array bounds',
-        default='y', raise_error=False):
-    """
-    Interactively select a data boundary for a 2D numpy array.
-    """
-    a = np.asarray(a)
-    if a.ndim != 2:
-        illegal_value(
-            a.ndim, 'array dimension', location='select_one_image_bound',
-            raise_error=raise_error)
-        return None
-    if axis < 0 or axis >= a.ndim:
-        illegal_value(
-            axis, 'axis', location='select_one_image_bound',
-            raise_error=raise_error)
-        return None
-    if bound_name is None:
-        bound_name = 'data bound'
-    if bound is None:
-        min_ = 0
-        max_ = a.shape[axis]
-        bound_max = a.shape[axis]-1
-        while True:
-            if axis:
-                quick_imshow(
-                    a[:,min_:max_], title=title, aspect='auto',
-                    extent=[min_,max_,a.shape[0],0])
-            else:
-                quick_imshow(
-                    a[min_:max_,:], title=title, aspect='auto',
-                    extent=[0,a.shape[1], max_,min_])
-            zoom_flag = input_yesno(
-                f'Set {bound_name} (y) or zoom in (n)?', 'y')
-            if zoom_flag:
-                bound = input_int(f'    Set {bound_name}', ge=0, le=bound_max)
-                clear_imshow(title)
-                break
-            min_ = input_int('    Set lower zoom index', ge=0, le=bound_max)
-            max_ = input_int(
-                '    Set upper zoom index', ge=min_+1, le=bound_max+1)
-
-    elif not is_int(bound, ge=0, le=a.shape[axis]-1):
-        illegal_value(
-            bound, 'bound', location='select_one_image_bound',
-            raise_error=raise_error)
-        return None
-    else:
-        print(f'Current {bound_name} = {bound}')
-    a_tmp = np.copy(a)
-    a_tmp_max = a.max()
-    if axis:
-        a_tmp[:,bound] = a_tmp_max
-    else:
-        a_tmp[bound,:] = a_tmp_max
-    quick_imshow(a_tmp, title=title, aspect='auto')
-    del a_tmp
-    if not input_yesno(f'Accept this {bound_name} (y/n)?', default):
-        bound = select_one_image_bound(
-            a, axis, bound_name=bound_name, title=title)
-    clear_imshow(title)
-    return bound
-
-
-def clear_imshow(title=None):
-    """Clear an image opened by quick_imshow()."""
-    plt.ioff()
+                raise ValueError('Invalid parameter preselected_indices '
+                                 f'({preselected_indices})')
+    if min_range is not None and not 2 <= min_range <= a.shape[axis]:
+        raise ValueError('Invalid parameter min_range ({min_range})')
     if title is None:
-        title = 'quick imshow'
-    elif not isinstance(title, str):
-        raise ValueError(f'Invalid parameter title ({title})')
-    plt.close(fig=title)
+        title = f'Select or adjust image {row_column} indices'
+    if b is not None:
+        b = np.asarray(b)
+        if b.ndim != 2:
+            raise ValueError(f'Invalid image dimension ({b.ndim})')
+        if a.shape[0] != b.shape[0]:
+            raise ValueError(f'Inconsistent image shapes({a.shape} vs '
+                             f'{b.shape})')
+        
+    indices = []
+    lines = []
+    fig_title = []
+    error_texts = []
 
+    title_pos = (0.5, 0.95)
+    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    error_pos = (0.5, 0.90)
+    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    if b is None:
+       fig, axs = plt.subplots(figsize=(11, 8.5))
+       axs = [axs]
+    else:
+       if a.shape[0]+b.shape[0] > max(a.shape[1], b.shape[1]):
+           fig, axs = plt.subplots(1, 2, figsize=(11, 8.5))
+       else:
+           fig, axs = plt.subplots(2, 1, figsize=(11, 8.5))
+    axs[0].imshow(a)
+    axs[0].set_title(title_a, fontsize='xx-large')
+    if b is not None:
+        axs[1].imshow(b)
+        axs[1].set_title(title_b, fontsize='xx-large')
+        if a.shape[0]+b.shape[0] > max(a.shape[1], b.shape[1]):
+            axs[0].set_xlabel(column_label, fontsize='x-large')
+            axs[0].set_ylabel(row_label, fontsize='x-large')
+            axs[1].set_xlabel(column_label, fontsize='x-large')
+        else:
+            axs[0].set_ylabel(row_label, fontsize='x-large')
+            axs[1].set_xlabel(column_label, fontsize='x-large')
+            axs[1].set_ylabel(row_label, fontsize='x-large')
+    for ax in axs:
+        ax.set_xlim(0, a.shape[1])
+        ax.set_ylim(a.shape[0], 0)
+    fig.subplots_adjust(bottom=0.0, top=0.85)
 
-def clear_plot(title=None):
-    """Clear an image opened by quick_plot()."""
-    plt.ioff()
-    if title is None:
-        title = 'quick plot'
-    elif not isinstance(title, str):
-        raise ValueError(f'Invalid parameter title ({title})')
-    plt.close(fig=title)
+    # Setup the preselected indices if provided
+    if preselected_indices is not None:
+        preselected_indices = sorted(list(preselected_indices))
+        for index in preselected_indices:
+            add_index(index)   
+
+    if not interactive:
+
+        get_selected_indices(change_fig_title)
+
+    else:
+
+        change_fig_title(title)
+        get_selected_indices(change_error_text)
+        fig.subplots_adjust(bottom=0.2)
+
+        # Setup TextBox
+        index_input = TextBox(
+            plt.axes([0.25, 0.05, 0.15, 0.075]), f'Select {row_column} index ')
+        indices_cid = index_input.on_submit(select_index)
+
+        # Setup "Reset" button
+        reset_btn = Button(plt.axes([0.5, 0.05, 0.15, 0.075]), 'Reset')
+        reset_cid = reset_btn.on_clicked(reset)
+
+        # Setup "Confirm" button
+        confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
+
+        plt.show()
+
+        # Disconnect all widget callbacks when figure is closed
+        index_input.disconnect(indices_cid)
+        reset_btn.disconnect(reset_cid)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ... and remove the buttons before returning the figure
+        index_input.ax.remove()
+        reset_btn.ax.remove()
+        confirm_btn.ax.remove()
+
+    fig_title[0].set_in_layout(True)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+
+    if indices:
+        return fig, tuple(sorted(indices))
+    return fig, None
 
 
 def quick_imshow(
-        a, title=None, path=None, name=None, save_fig=False, save_only=False,
-        clear=True, extent=None, show_grid=False, grid_color='w',
-        grid_linewidth=1, block=False, **kwargs):
+        a, title=None, row_label='row index', column_label='column index',
+        path=None, name=None, save_fig=False, save_only=False,
+        extent=None, show_grid=False, grid_color='w', grid_linewidth=1,
+        block=False, **kwargs):
     """Display a 2D image."""
     if title is not None and not isinstance(title, str):
         raise ValueError(f'Invalid parameter title ({title})')
@@ -1452,8 +1691,6 @@ def quick_imshow(
         raise ValueError(f'Invalid parameter save_fig ({save_fig})')
     if not isinstance(save_only, bool):
         raise ValueError(f'Invalid parameter save_only ({save_only})')
-    if not isinstance(clear, bool):
-        raise ValueError(f'Invalid parameter clear ({clear})')
     if not isinstance(block, bool):
         raise ValueError(f'Invalid parameter block ({block})')
     if not title:
@@ -1461,9 +1698,9 @@ def quick_imshow(
     if name is None:
         ttitle = re_sub(r'\s+', '_', title)
         if path is None:
-            path = f'{ttitle}.png'
+            path = ttitle
         else:
-            path = f'{path}/{ttitle}.png'
+            path = f'{path}/{ttitle}'
     else:
         if path is None:
             path = name
@@ -1486,26 +1723,25 @@ def quick_imshow(
             kwargs.pop('cmap')
     if extent is None:
         extent = (0, a.shape[1], a.shape[0], 0)
-    if clear:
-        try:
-            plt.close(fig=title)
-        except:
-            pass
     if not save_only:
         if block:
             plt.ioff()
         else:
             plt.ion()
-    plt.figure(title)
+    plt.figure(figsize=(11, 8.5))
     plt.imshow(a, extent=extent, **kwargs)
+    ax = plt.gca()
+    ax.set_title(title, fontsize='xx-large')
+    ax.set_xlabel(column_label, fontsize='x-large')
+    ax.set_ylabel(row_label, fontsize='x-large')
     if show_grid:
-        ax = plt.gca()
         ax.grid(color=grid_color, linewidth=grid_linewidth)
-#    if title != 'quick imshow':
-#        plt.title = title
+    if (os_path.splitext(path)[1]
+            not in plt.gcf().canvas.get_supported_filetypes()):
+        path += '.png'
     if save_only:
         plt.savefig(path)
-        plt.close(fig=title)
+        plt.close()
     else:
         if save_fig:
             plt.savefig(path)
@@ -1516,8 +1752,8 @@ def quick_imshow(
 def quick_plot(
         *args, xerr=None, yerr=None, vlines=None, title=None, xlim=None,
         ylim=None, xlabel=None, ylabel=None, legend=None, path=None, name=None,
-        show_grid=False, save_fig=False, save_only=False, clear=True,
-        block=False, **kwargs):
+        show_grid=False, save_fig=False, save_only=False, block=False,
+        **kwargs):
     """Display a 2D line plot."""
     if title is not None and not isinstance(title, str):
         illegal_value(title, 'title', 'quick_plot')
@@ -1551,9 +1787,6 @@ def quick_plot(
     if not isinstance(save_only, bool):
         illegal_value(save_only, 'save_only', 'quick_plot')
         return
-    if not isinstance(clear, bool):
-        illegal_value(clear, 'clear', 'quick_plot')
-        return
     if not isinstance(block, bool):
         illegal_value(block, 'block', 'quick_plot')
         return
@@ -1570,11 +1803,6 @@ def quick_plot(
             path = name
         else:
             path = f'{path}/{name}'
-    if clear:
-        try:
-            plt.close(fig=title)
-        except:
-            pass
     args = unwrap_tuple(args)
     if depth_tuple(args) > 1 and (xerr is not None or yerr is not None):
         logger.warning('Error bars ignored form multiple curves')

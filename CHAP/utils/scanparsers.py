@@ -359,7 +359,7 @@ class SMBScanParser(ScanParser):
 
         if par_dict is None:
             raise RuntimeError(f'{self.scan_title}: could not find scan pars '
-                               'for scan number {self.scan_number}')
+                               f'for scan number {self.scan_number}')
         return par_dict
 
     def get_counter_gain(self, counter_name):
