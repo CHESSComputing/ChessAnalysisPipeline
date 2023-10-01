@@ -942,10 +942,10 @@ class Tomo:
                         default=int(num_tomo_stacks/2))
             else:
                 if center_stack_index is None:
+                    center_stack_index = int(num_tomo_stacks/2)
                     self._logger.warning(
                         'center_stack_index unspecified, use stack '
                         f'{center_stack_index} to find centers')
-                    center_stack_index = int(num_tomo_stacks/2)
             default = 'y'
 
         # Get thetas (in degrees)
@@ -1142,21 +1142,34 @@ class Tomo:
 
         # Resize the reconstructed tomography data
         #     reconstructed data order in each stack: row/-z,y,x
+        tomo_recon_shape = tomo_recon_stacks[0].shape
         if self._test_mode:
             x_bounds = tuple(self._test_config.get('x_bounds'))
             y_bounds = tuple(self._test_config.get('y_bounds'))
-            z_bounds = (0, tomo_recon_stacks[0].shape[0])
+            z_bounds = (0, tomo_recon_shape[0])
         else:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_stacks, x_bounds=tool_config.x_bounds,
                 y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
-        x_range = (min(x_bounds), max(x_bounds))
-        x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
-        y_range = (min(y_bounds), max(y_bounds))
-        y_slice = int((y_bounds[0]+y_bounds[1]) / 2)
-        z_range = (min(z_bounds), max(z_bounds))
-        z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
-        z_dim_org = tomo_recon_stacks[0].shape[0]
+        if x_bounds is None:
+            x_range = (0, tomo_recon_shape[2])
+            x_slice = int(x_range[1]/2)
+        else:
+            x_range = (min(x_bounds), max(x_bounds))
+            x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
+        if y_bounds is None:
+            y_range = (0, tomo_recon_shape[1])
+            y_slice = int(y_range[1] / 2)
+        else:
+            y_range = (min(y_bounds), max(y_bounds))
+            y_slice = int((y_bounds[0]+y_bounds[1]) / 2)
+        if z_bounds is None:
+            z_range = (0, tomo_recon_shape[0])
+            z_slice = int(z_range[1] / 2)
+        else:
+            z_range = (min(z_bounds), max(z_bounds))
+            z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
+        z_dim_org = tomo_recon_shape[0]
         for i, stack in enumerate(tomo_recon_stacks):
             tomo_recon_stacks[i] = stack[
                 z_range[0]:z_range[1],y_range[0]:y_range[1],
@@ -1266,7 +1279,7 @@ class Tomo:
             # Save test data to file
             #     reconstructed data order in each stack: row/-z,y,x
             if self._test_mode:
-                for i in range(tomo_recon_stacks.shape[0]):
+                for i in range(tomo_recon_shape[0]):
                     np.savetxt(
                         f'{self._output_folder}/recon_stack_{i}.txt',
                         tomo_recon_stacks[i,z_slice-z_range[0],:,:],
@@ -1408,7 +1421,7 @@ class Tomo:
             z_bounds = tuple(self._test_config.get('z_bounds'))
         elif self._interactive:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
-                tomo_recon_combined, z_only=True)
+                tomo_recon_combined, combine_data=True)
         else:
             x_bounds = tool_config.x_bounds
             if x_bounds is None:
@@ -1433,16 +1446,22 @@ class Tomo:
                 raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
         if x_bounds is None:
             x_range = (0, tomo_recon_combined.shape[2])
+            x_slice = int(x_range[1]/2)
         else:
-            x_range = x_bounds
+            x_range = (min(x_bounds), max(x_bounds))
+            x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
         if y_bounds is None:
             y_range = (0, tomo_recon_combined.shape[1])
+            y_slice = int(y_range[1]/2)
         else:
-            y_range = y_bounds
+            y_range = (min(y_bounds), max(y_bounds))
+            y_slice = int((y_bounds[0]+y_bounds[1]) / 2)
         if z_bounds is None:
             z_range = (0, tomo_recon_combined.shape[0])
+            z_slice = int(z_range[1]/2)
         else:
-            z_range = z_bounds
+            z_range = (min(z_bounds), max(z_bounds))
+            z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
         z_dim_org = tomo_recon_combined.shape[0]
         tomo_recon_combined = tomo_recon_combined[
             z_range[0]:z_range[1],y_range[0]:y_range[1],x_range[0]:x_range[1]]
@@ -2194,7 +2213,7 @@ class Tomo:
                     fig.savefig(
                         os_path.join(
                             self._output_folder,
-                            f'edges_center_{min(preselected_offsets)}_'\
+                            f'edges_center_{row}_{min(preselected_offsets)}_'\
                                 f'{max(preselected_offsets)}.png'))
                 plt.close()
 
@@ -2556,7 +2575,7 @@ class Tomo:
 
     def _resize_reconstructed_data(
             self, data, x_bounds=None, y_bounds=None, z_bounds=None,
-            z_only=False):
+            combine_data=False):
         """Resize the reconstructed tomography data."""
         # Third party modules
         import matplotlib.pyplot as plt
@@ -2574,72 +2593,77 @@ class Tomo:
             num_tomo_stacks = 1
             tomo_recon_stacks = [data]
 
-        if not z_only:
-            # Selecting x an y bounds (in z-plane)
-            if x_bounds is None:
-                if not self._interactive:
-                    self._logger.warning('x_bounds unspecified, reconstruct '
-                                         'data for full x-range')
-                    x_bounds = (0, tomo_recon_stacks[0].shape[2])
-            elif not is_int_pair(
-                    x_bounds, ge=0, le=tomo_recon_stacks[0].shape[2]):
-                raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
-            if y_bounds is None:
-                if not self._interactive:
-                    self._logger.warning('y_bounds unspecified, reconstruct '
-                                         'data for full y-range')
-                    y_bounds = (0, tomo_recon_stacks[0].shape[1])
-            elif not is_int_pair(
-                    y_bounds, ge=0, le=tomo_recon_stacks[0].shape[1]):
-                raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
-            if x_bounds is None and y_bounds is None:
-                preselected_roi = None
-            elif x_bounds is None:
-                preselected_roi = (
-                    0, tomo_recon_stacks[0].shape[2],
-                    y_bounds[0], y_bounds[1])
-            elif y_bounds is None:
-                preselected_roi = (
-                    x_bounds[0], x_bounds[1],
-                    0, tomo_recon_stacks[0].shape[1])
-            else:
-                preselected_roi = (
-                    x_bounds[0], x_bounds[1],
-                    y_bounds[0], y_bounds[1])
-            tomosum = 0
-            for i in range(num_tomo_stacks):
-                tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=0)
-            fig, roi = select_roi_2d(
-                tomosum, preselected_roi=preselected_roi,
-                title_a='Reconstructed data summed over z',
-                row_label='y', column_label='x',
-                interactive=self._interactive)
-            if roi is None:
+        # Selecting x an y bounds (in z-plane)
+        if x_bounds is None:
+            if not self._interactive:
+                self._logger.warning('x_bounds unspecified, reconstruct '
+                                     'data for full x-range')
                 x_bounds = (0, tomo_recon_stacks[0].shape[2])
+        elif not is_int_pair(
+                x_bounds, ge=0, le=tomo_recon_stacks[0].shape[2]):
+            raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
+        if y_bounds is None:
+            if not self._interactive:
+                self._logger.warning('y_bounds unspecified, reconstruct '
+                                     'data for full y-range')
                 y_bounds = (0, tomo_recon_stacks[0].shape[1])
-            else:
-                x_bounds = (int(roi[0]), int(roi[1]))
-                y_bounds = (int(roi[2]), int(roi[3]))
-            self._logger.debug(f'x_bounds = {x_bounds}')
-            self._logger.debug(f'y_bounds = {y_bounds}')
-            # Plot results
-            if self._save_figs:
-                fig.savefig(
-                    os_path.join(
-                        self._output_folder, 'reconstructed_data_xy_roi.png'))
-            plt.close()
+        elif not is_int_pair(
+                y_bounds, ge=0, le=tomo_recon_stacks[0].shape[1]):
+            raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
+        if x_bounds is None and y_bounds is None:
+            preselected_roi = None
+        elif x_bounds is None:
+            preselected_roi = (
+                0, tomo_recon_stacks[0].shape[2],
+                y_bounds[0], y_bounds[1])
+        elif y_bounds is None:
+            preselected_roi = (
+                x_bounds[0], x_bounds[1],
+                0, tomo_recon_stacks[0].shape[1])
+        else:
+            preselected_roi = (
+                x_bounds[0], x_bounds[1],
+                y_bounds[0], y_bounds[1])
+        tomosum = 0
+        for i in range(num_tomo_stacks):
+            tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=0)
+        fig, roi = select_roi_2d(
+            tomosum, preselected_roi=preselected_roi,
+            title_a='Reconstructed data summed over z',
+            row_label='y', column_label='x',
+            interactive=self._interactive)
+        if roi is None:
+            x_bounds = (0, tomo_recon_stacks[0].shape[2])
+            y_bounds = (0, tomo_recon_stacks[0].shape[1])
+        else:
+            x_bounds = (int(roi[0]), int(roi[1]))
+            y_bounds = (int(roi[2]), int(roi[3]))
+        self._logger.debug(f'x_bounds = {x_bounds}')
+        self._logger.debug(f'y_bounds = {y_bounds}')
+        # Plot results
+        if self._save_figs:
+            fig.savefig(
+                os_path.join(
+                    self._output_folder, 'reconstructed_data_xy_roi.png'))
+        plt.close()
 
         # Selecting z bounds (in xy-plane)
-        # (only valid for a single image stack)
-        if z_bounds is None:
-            if num_tomo_stacks> 1 or not self._interactive:
-                self._logger.warning('z_bounds unspecified, reconstruct '
-                                     'data for full z-range')
-            z_bounds = (0, tomo_recon_stacks[0].shape[0])
-        elif not is_int_pair(
-                z_bounds, ge=0, le=tomo_recon_stacks[0].shape[0]):
-            raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
-        if num_tomo_stacks == 1:
+        # (only valid for a single image stack or when combining a stack)
+        if num_tomo_stacks == 1 or combine_data:
+            if z_bounds is None:
+                if not self._interactive:
+                    if combine_data:
+                        self._logger.warning(
+                            'z_bounds unspecified, combine reconstructed data '
+                            'for full z-range')
+                    else:
+                        self._logger.warning(
+                            'z_bounds unspecified, reconstruct data for '
+                            'full z-range')
+                z_bounds = (0, tomo_recon_stacks[0].shape[0])
+            elif not is_int_pair(
+                    z_bounds, ge=0, le=tomo_recon_stacks[0].shape[0]):
+                raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))

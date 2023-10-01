@@ -86,7 +86,7 @@ class TomoFindCenterConfig(BaseModel):
     """
     center_stack_index: Optional[conint(ge=0)]
     center_rows: Optional[conlist(
-        item_type=conint(gt=0), min_items=2, max_items=2)]
+        item_type=conint(ge=0), min_items=2, max_items=2)]
     center_offsets: Optional[conlist(
         item_type=confloat(allow_inf_nan=False),
         min_items=2, max_items=2)]
