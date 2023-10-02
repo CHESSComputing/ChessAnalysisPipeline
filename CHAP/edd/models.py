@@ -403,6 +403,14 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
 
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return hkl_indices
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """Class representing metadata required to perform a diffraction
@@ -641,6 +649,15 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
 #    tth_file: Optional[FilePath]
 #    tth_map: Optional[np.ndarray] = None
+
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return hkl_indices
 
     class Config:
         arbitrary_types_allowed = True

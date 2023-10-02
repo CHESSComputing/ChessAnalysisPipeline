@@ -439,7 +439,8 @@ class MCACeriaCalibrationProcessor(Processor):
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             uniform_fit.create_multipeak_model(
-                fit_E0, fit_type='uniform', background='constant')
+                fit_E0, fit_type='uniform')
+                #fit_E0, fit_type='uniform', background='constant')
             uniform_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -460,7 +461,7 @@ class MCACeriaCalibrationProcessor(Processor):
             unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             unconstrained_fit.create_multipeak_model(
                 uniform_fit_centers, fit_type='unconstrained',
-                background='constant')
+                )#background='constant')
             unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
