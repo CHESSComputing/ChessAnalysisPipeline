@@ -118,10 +118,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         """
         # Local modules
         from CHAP.utils.fit import Fit
-        from CHAP.utils.general import (
-            index_nearest,
-            select_mask_1d,
-        )
+        from CHAP.utils.general import select_mask_1d
 
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data(detector)
@@ -133,22 +130,23 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
-            fig, mask, include_bin_ranges = select_mask_1d(
+            mask, include_bin_ranges, figure = select_mask_1d(
                 np.sum(mca_data, axis=0),
                 x = np.arange(detector.num_bins),
-                label='Sum of MCA spectra over all scan points',
                 preselected_index_ranges=detector.include_bin_ranges,
-                title='Click and drag to select data range to include when '
-                      'measuring diffraction volume length',
+                label='Sum of MCA spectra over all scan points',
+                title='Click and drag to select ranges of MCA data to\n'
+                      'include when measuring the diffraction volume length.',
                 xlabel='MCA channel (index)',
                 ylabel='MCA intensity (counts)',
-                min_num_index_ranges=1,
-                interactive=interactive)
+                interactive=interactive,
+                return_figure=True
+            )
             detector.include_bin_ranges = include_bin_ranges
             self.logger.debug('Mask selected. Including detector bin ranges: '
                               + str(detector.include_bin_ranges))
             if save_figures:
-                fig.savefig(os.path.join(
+                figure.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
             plt.close()
         if detector.include_bin_ranges is None:
@@ -186,26 +184,23 @@ class DiffractionVolumeLengthProcessor(Processor):
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
         if detector.measurement_mode == 'manual':
             if interactive:
-                _, _, dvl_bounds = select_mask_1d(
-                    masked_sum, x=x,
-                    label='Total (masked & normalized)',
-#RV TODO                    ref_data=[
-#                        ((x, fit.best_fit),
-#                         {'label': 'gaussian fit (to total)'}),
-#                        ((x, masked_max),
-#                         {'label': 'maximum (masked)'}),
-#                        ((x, unmasked_sum),
-#                         {'label': 'total (unmasked)'})
-#                    ],
-                    preselected_index_ranges=[
-                        (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
-                    title=('Click and drag to indicate the boundary '
-                           'of the diffraction volume'),
+                mask, dvl_bounds = select_mask_1d(
+                    masked_sum, xdata=x,
+                    label='total (masked & normalized)',
+                    ref_data=[
+                        ((x, fit.best_fit),
+                         {'label': 'gaussian fit (to total)'}),
+                        ((x, masked_max),
+                         {'label': 'maximum (masked)'}),
+                        ((x, unmasked_sum),
+                         {'label': 'total (unmasked)'})
+                    ],
+                    num_index_ranges_max=1,
+                    title=('Click and drag to indicate the\n'
+                           + 'boundary of the diffraction volume'),
                     xlabel=(dvl_config.scanned_dim_lbl
                             + ' (offset from scan "center")'),
-                    ylabel='MCA intensity (normalized)',
-                    min_num_index_ranges=1,
-                    max_num_index_ranges=1)
+                    ylabel='MCA intensity (normalized)')
                 dvl_bounds = dvl_bounds[0]
                 dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
             else:
@@ -361,29 +356,24 @@ class MCACeriaCalibrationProcessor(Processor):
             0, detector.max_energy_kev, detector.num_bins)
         mca_data = calibration_config.mca_data(detector)
 
+        # Adjust initial tth guess
+        if interactive:
+            # Local modules
+            from CHAP.edd.utils import select_tth_initial_guess
+
+            detector.tth_initial_guess = select_tth_initial_guess(
+                mca_bin_energies, mca_data, hkls, ds,
+                detector.tth_initial_guess)
+        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
+
+        # Select mask & HKLs for fitting
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import (
-                select_tth_initial_guess,
-                select_mask_and_hkls,
-            )
+            from CHAP.edd.utils import select_mask_and_hkls
 
-            plt.close()
-            # Adjust initial tth guess
-            fig, detector.tth_initial_guess = select_tth_initial_guess(
-                mca_bin_energies, mca_data, hkls, ds,
-                detector.tth_initial_guess, interactive)
-            if save_figures:
-                fig.savefig(os.path.join(
-                   outputdir,
-                   f'{detector.detector_name}_calibration_'
-                   'tth_initial_guess.png'))
-            plt.close()
-
-            # Select mask & HKLs for fitting
             fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
                 mca_bin_energies, mca_data, hkls, ds,
                 detector.tth_initial_guess, detector.include_bin_ranges,
@@ -397,7 +387,6 @@ class MCACeriaCalibrationProcessor(Processor):
                    outputdir,
                     f'{detector.detector_name}_calibration_fit_mask_hkls.png'))
             plt.close()
-        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
         self.logger.debug(
             f'include_bin_ranges = {detector.include_bin_ranges}')
         if detector.include_bin_ranges is None:
@@ -405,6 +394,7 @@ class MCACeriaCalibrationProcessor(Processor):
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration, '
                 'or re-run the pipeline with the --interactive flag.')
+        self.logger.debug(f'hkl_indices: {detector.hkl_indices}')
         if detector.hkl_indices is None:
             raise ValueError(
                 'No value provided for hkl_indices. Provide them in '
@@ -438,8 +428,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            uniform_fit.create_multipeak_model(
-                fit_E0, fit_type='uniform', background='constant')
+            uniform_fit.create_multipeak_model(fit_E0, fit_type='uniform')
             uniform_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -459,8 +448,7 @@ class MCACeriaCalibrationProcessor(Processor):
             # fit
             unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             unconstrained_fit.create_multipeak_model(
-                uniform_fit_centers, fit_type='unconstrained',
-                background='constant')
+                uniform_fit_centers, fit_type='unconstrained')
             unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -888,11 +876,6 @@ class StrainAnalysisProcessor(Processor):
                 dtype='uint16',
                 shape=(*map_config.shape, len(energies)),
                 attrs={'units': 'counts'})
-            det_nxdata.tth = NXfield(
-                dtype='float64',
-                shape=map_config.shape,
-                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'}
-            )
             det_nxdata.microstrain = NXfield(
                 dtype='float64',
                 shape=map_config.shape,
@@ -939,14 +922,6 @@ class StrainAnalysisProcessor(Processor):
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_center')]
                 for i in range(len(peak_locations))]
-            uniform_fit_amplitudes = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
-            uniform_fit_sigmas = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -966,16 +941,13 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for (hkl, center_guess, centers_fit, centers_error,
-                amplitudes_fit, sigmas_fit) in zip(
+            for hkl, center_guess, centers_fit, centers_error in zip(
                     fit_hkls, peak_locations, uniform_fit_centers,
-                    uniform_fit_errors,
-                    uniform_fit_amplitudes, uniform_fit_sigmas):
+                    uniform_fit_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].center_initial_guess = center_guess
-                fit_nxgroup[hkl_name].center_initial_guess.attrs['units'] = 'keV'
-                # Report HKL peak centers
+                fit_nxgroup[hkl_name].initial_guess = center_guess
+                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
@@ -983,23 +955,8 @@ class StrainAnalysisProcessor(Processor):
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
-                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
-                # Report HKL peak amplitudes
-                fit_nxgroup[hkl_name].amplitudes = NXdata()
-                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].amplitudes)
-                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
-                    value=amplitudes_fit, attrs={'units': 'counts'})
-                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
-                # Report HKL peak FWHM
-                fit_nxgroup[hkl_name].sigmas = NXdata()
-                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].sigmas)
-                fit_nxgroup[hkl_name].sigmas.values = NXfield(
-                    value=sigmas_fit, attrs={'units': 'keV'})
-                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
 
             # Perform second fit: do not assume uniform strain for all
             # HKLs, and use the fit peak centers from the uniform fit
@@ -1017,17 +974,7 @@ class StrainAnalysisProcessor(Processor):
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
                  for i in range(len(peak_locations))])
-            unconstrained_fit_amplitudes = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
-            unconstrained_fit_sigmas = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
-
             tth_map = detector.get_tth_map(map_config)
-            det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])
             unconstrained_strains = np.log(
@@ -1052,16 +999,13 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for (hkl, center_guess, centers_fit, centers_error,
-                amplitudes_fit, sigmas_fit) in zip(
+            for hkl, center_guess, centers_fit, centers_error in zip(
                     fit_hkls, peak_locations, unconstrained_fit_centers,
-                    unconstrained_fit_errors,
-                    unconstrained_fit_amplitudes, unconstrained_fit_sigmas):
+                    unconstrained_fit_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].center_initial_guess = center_guess
-                fit_nxgroup[hkl_name].center_initial_guess.attrs['units'] = 'keV'
-                # Report HKL peak centers
+                fit_nxgroup[hkl_name].initial_guess = center_guess
+                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
                 fit_nxgroup[hkl_name].centers = NXdata()
                 fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
@@ -1071,22 +1015,6 @@ class StrainAnalysisProcessor(Processor):
                     value=centers_error)
                 fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
                                     name=hkl_name)
-                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
-                # Report HKL peak amplitudes
-                fit_nxgroup[hkl_name].amplitudes = NXdata()
-                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].amplitudes)
-                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
-                    value=amplitudes_fit, attrs={'units': 'counts'})
-                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
-                # Report HKL peak sigmas
-                fit_nxgroup[hkl_name].sigmas = NXdata()
-                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
-                linkdims(fit_nxgroup[hkl_name].sigmas)
-                fit_nxgroup[hkl_name].sigmas.values = NXfield(
-                    value=sigmas_fit, attrs={'units': 'keV'})
-                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
-
         return nxroot
 
 
