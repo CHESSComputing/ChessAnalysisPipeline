@@ -118,7 +118,10 @@ class DiffractionVolumeLengthProcessor(Processor):
         """
         # Local modules
         from CHAP.utils.fit import Fit
-        from CHAP.utils.general import select_mask_1d
+        from CHAP.utils.general import (
+            index_nearest,
+            select_mask_1d,
+        )
 
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data(detector)
@@ -130,23 +133,22 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
-            mask, include_bin_ranges, figure = select_mask_1d(
+            fig, mask, include_bin_ranges = select_mask_1d(
                 np.sum(mca_data, axis=0),
                 x = np.arange(detector.num_bins),
-                preselected_index_ranges=detector.include_bin_ranges,
                 label='Sum of MCA spectra over all scan points',
-                title='Click and drag to select ranges of MCA data to\n'
-                      'include when measuring the diffraction volume length.',
+                preselected_index_ranges=detector.include_bin_ranges,
+                title='Click and drag to select data range to include when '
+                      'measuring diffraction volume length',
                 xlabel='MCA channel (index)',
                 ylabel='MCA intensity (counts)',
-                interactive=interactive,
-                return_figure=True
-            )
+                min_num_index_ranges=1,
+                interactive=interactive)
             detector.include_bin_ranges = include_bin_ranges
             self.logger.debug('Mask selected. Including detector bin ranges: '
                               + str(detector.include_bin_ranges))
             if save_figures:
-                figure.savefig(os.path.join(
+                fig.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
             plt.close()
         if detector.include_bin_ranges is None:
@@ -184,23 +186,26 @@ class DiffractionVolumeLengthProcessor(Processor):
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
         if detector.measurement_mode == 'manual':
             if interactive:
-                mask, dvl_bounds = select_mask_1d(
-                    masked_sum, xdata=x,
-                    label='total (masked & normalized)',
-                    ref_data=[
-                        ((x, fit.best_fit),
-                         {'label': 'gaussian fit (to total)'}),
-                        ((x, masked_max),
-                         {'label': 'maximum (masked)'}),
-                        ((x, unmasked_sum),
-                         {'label': 'total (unmasked)'})
-                    ],
-                    num_index_ranges_max=1,
-                    title=('Click and drag to indicate the\n'
-                           + 'boundary of the diffraction volume'),
+                _, _, dvl_bounds = select_mask_1d(
+                    masked_sum, x=x,
+                    label='Total (masked & normalized)',
+#RV TODO                    ref_data=[
+#                        ((x, fit.best_fit),
+#                         {'label': 'gaussian fit (to total)'}),
+#                        ((x, masked_max),
+#                         {'label': 'maximum (masked)'}),
+#                        ((x, unmasked_sum),
+#                         {'label': 'total (unmasked)'})
+#                    ],
+                    preselected_index_ranges=[
+                        (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
+                    title=('Click and drag to indicate the boundary '
+                           'of the diffraction volume'),
                     xlabel=(dvl_config.scanned_dim_lbl
                             + ' (offset from scan "center")'),
-                    ylabel='MCA intensity (normalized)')
+                    ylabel='MCA intensity (normalized)',
+                    min_num_index_ranges=1,
+                    max_num_index_ranges=1)
                 dvl_bounds = dvl_bounds[0]
                 dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
             else:
@@ -356,24 +361,29 @@ class MCACeriaCalibrationProcessor(Processor):
             0, detector.max_energy_kev, detector.num_bins)
         mca_data = calibration_config.mca_data(detector)
 
-        # Adjust initial tth guess
-        if interactive:
-            # Local modules
-            from CHAP.edd.utils import select_tth_initial_guess
-
-            detector.tth_initial_guess = select_tth_initial_guess(
-                mca_bin_energies, mca_data, hkls, ds,
-                detector.tth_initial_guess)
-        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
-
-        # Select mask & HKLs for fitting
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import select_mask_and_hkls
+            from CHAP.edd.utils import (
+                select_tth_initial_guess,
+                select_mask_and_hkls,
+            )
 
+            plt.close()
+            # Adjust initial tth guess
+            fig, detector.tth_initial_guess = select_tth_initial_guess(
+                mca_bin_energies, mca_data, hkls, ds,
+                detector.tth_initial_guess, interactive)
+            if save_figures:
+                fig.savefig(os.path.join(
+                   outputdir,
+                   f'{detector.detector_name}_calibration_'
+                   'tth_initial_guess.png'))
+            plt.close()
+
+            # Select mask & HKLs for fitting
             fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
                 mca_bin_energies, mca_data, hkls, ds,
                 detector.tth_initial_guess, detector.include_bin_ranges,
@@ -387,6 +397,7 @@ class MCACeriaCalibrationProcessor(Processor):
                    outputdir,
                     f'{detector.detector_name}_calibration_fit_mask_hkls.png'))
             plt.close()
+        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
         self.logger.debug(
             f'include_bin_ranges = {detector.include_bin_ranges}')
         if detector.include_bin_ranges is None:
@@ -394,7 +405,6 @@ class MCACeriaCalibrationProcessor(Processor):
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration, '
                 'or re-run the pipeline with the --interactive flag.')
-        self.logger.debug(f'hkl_indices: {detector.hkl_indices}')
         if detector.hkl_indices is None:
             raise ValueError(
                 'No value provided for hkl_indices. Provide them in '
@@ -428,7 +438,8 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            uniform_fit.create_multipeak_model(fit_E0, fit_type='uniform')
+            uniform_fit.create_multipeak_model(
+                fit_E0, fit_type='uniform', background='constant')
             uniform_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -448,7 +459,8 @@ class MCACeriaCalibrationProcessor(Processor):
             # fit
             unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             unconstrained_fit.create_multipeak_model(
-                uniform_fit_centers, fit_type='unconstrained')
+                uniform_fit_centers, fit_type='unconstrained',
+                background='constant')
             unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
