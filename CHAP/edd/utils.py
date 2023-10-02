@@ -44,7 +44,8 @@ def make_material(name, sgnum, lattice_parameters, dmin=0.6):
     from hexrd.material import Material    
     from hexrd.valunits import valWUnit
 
-    material = Material(name)
+    material = Material()
+    material.name = name
     material.sgnum = sgnum
     if isinstance(lattice_parameters, float):
         lattice_parameters = [lattice_parameters]
@@ -129,8 +130,9 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
-    :return: Selected initial guess for 2&theta
-    :type: float
+    :return: A saveable matplotlib figure and the selected initial
+        guess for 2&theta.
+    :type: matplotlib.figure.Figure, float
     """
     # System modules:
     from copy import deepcopy
@@ -211,12 +213,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     hkl_peaks = [i for i, loc in enumerate(peak_locations)
                    if x[0] <= loc <= x[-1]]
     hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
-                 for loc in peak_locations if x[0] <= loc <= x[-1]]
+                 for loc in peak_locations[hkl_peaks]]
     hkl_lbls = [ax.text(loc, 1, str(hkl)[1:-1],
                         ha='right', va='top', rotation=90,
                         transform=ax.get_xaxis_transform())
-                for loc, hkl in zip(peak_locations, hkls)
-                if x[0] <= loc <= x[-1]]
+                for loc, hkl in zip(peak_locations[hkl_peaks], hkls)]
 
     if not interactive:
 
@@ -262,7 +263,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     return fig, tth_new_guess
 
-def select_material_params(x, y, tth, materials=[]):
+def select_material_params(x, y, tth, materials=[], interactive=False):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -270,8 +271,7 @@ def select_material_params(x, y, tth, materials=[]):
     group number and lattice parameters for each one. The HKLs for the
     materials defined by the widgets' values will be shown over the
     reference data and updated when the widgets' values are
-    updated. It returns a list of the selected materials when the
-    figure is closed.
+    updated.
 
     :param x: MCA channel energies.
     :type x: np.ndarray
@@ -281,8 +281,13 @@ def select_material_params(x, y, tth, materials=[]):
     :type tth: float
     :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
-    :return: The selected materials for the strain analyses.
-    :rtype: list[CHAP.edd.models.MaterialConfig]
+    :param interactive: Allows for user interactions, defaults to
+        `False`.
+    :type interactive: bool, optional
+    :return: A saveable matplotlib figure and the selected materials
+        for the strain analyses.
+    :rtype: matplotlib.figure.Figure,
+        list[CHAP.edd.models.MaterialConfig]
     """
     # System modules
     from copy import deepcopy
@@ -293,6 +298,12 @@ def select_material_params(x, y, tth, materials=[]):
 
     # Local modules
     from CHAP.edd.models import MaterialConfig
+
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
     def draw_plot():
         """Redraw plot of reference data and HKL locations based on
@@ -308,10 +319,11 @@ def select_material_params(x, y, tth, materials=[]):
             hkls, ds = get_unique_hkls_ds([material])            
             E0s = get_peak_locations(ds, tth)
             for hkl, E0 in zip(hkls, E0s):
-                ax.axvline(E0, c=f'C{i}', ls='--', lw=1)
-                ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i}',
-                        ha='right', va='top', rotation=90,
-                        transform=ax.get_xaxis_transform())
+                if x[0] <= E0 <= x[-1]:
+                    ax.axvline(E0, c=f'C{i}', ls='--', lw=1)
+                    ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i}',
+                            ha='right', va='top', rotation=90,
+                            transform=ax.get_xaxis_transform())
         ax.get_figure().canvas.draw()
 
     def add_material(*args, material=None, new=True):
@@ -319,6 +331,9 @@ def select_material_params(x, y, tth, materials=[]):
         a new row of material-property-editing widgets to the figure
         and update the plot with new HKLs.
         """
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
         if material is None:
             material = make_material('new_material', 225, 3.0)
             _materials.append(material)
@@ -326,7 +341,7 @@ def select_material_params(x, y, tth, materials=[]):
             material = material._material
         bottom = len(_materials) * 0.075
         plt.subplots_adjust(bottom=bottom + 0.125)
-        name_input = TextBox(plt.axes([0.125, bottom, 0.06, 0.05]),
+        name_input = TextBox(plt.axes([0.1, bottom, 0.09, 0.05]),
                              'Material: ',
                              initial=material.name)
         sgnum_input = TextBox(plt.axes([0.3, bottom, 0.06, 0.05]),
@@ -411,7 +426,7 @@ def select_material_params(x, y, tth, materials=[]):
             try:
                 new_material = make_material(*new_material_params)
             except:
-                print(f'Bad input for {material.name}')
+                change_error_text(f'Bad input for {material.name}')
             else:
                 _materials[i] = new_material
             finally:
@@ -422,10 +437,18 @@ def select_material_params(x, y, tth, materials=[]):
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
         plt.close()
 
     widgets = []
     widget_callbacks = []
+    error_texts = []
+
+    error_pos = (0.5, 0.95)
+    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
 
     _materials = deepcopy(materials)
     for i, m in enumerate(_materials):
@@ -434,30 +457,37 @@ def select_material_params(x, y, tth, materials=[]):
 
     # Set up plot of reference data
     fig, ax = plt.subplots(figsize=(11, 8.5))
-    plt.subplots_adjust(bottom=0.1)
 
-    # Setup "Add material" button
-    add_material_btn = Button(
-        plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
-    add_material_cid = add_material_btn.on_clicked(add_material)
-    widget_callbacks.append([(add_material_btn, add_material_cid)])
+    if interactive:
 
-    # Setup "Confirm" button
-    confirm_btn = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
-    confirm_cid = confirm_btn.on_clicked(confirm)
-    widget_callbacks.append([(confirm_btn, confirm_cid)])
+        plt.subplots_adjust(bottom=0.1)
 
-    # Setup material-property-editing buttons for each material
-    for material in _materials:
-        add_material(material=material)
+        # Setup "Add material" button
+        add_material_btn = Button(
+            plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
+        add_material_cid = add_material_btn.on_clicked(add_material)
+        widget_callbacks.append([(add_material_btn, add_material_cid)])
 
-    # Show figure for user interaction
-    plt.show()
+        # Setup "Confirm" button
+        confirm_btn = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
+        widget_callbacks.append([(confirm_btn, confirm_cid)])
 
-    # Disconnect all widget callbacks when figure is closed
-    for group in widget_callbacks:
-        for widget, callback in group:
-            widget.disconnect(callback)
+        # Setup material-property-editing buttons for each material
+        for material in _materials:
+            add_material(material=material)
+
+        # Show figure for user interaction
+        plt.show()
+
+        # Disconnect all widget callbacks when figure is closed
+        # and remove the buttons before returning the figure
+        for group in widget_callbacks:
+            for widget, callback in group:
+                widget.disconnect(callback)
+                widget.ax.remove()
+
+    fig.tight_layout()
 
     new_materials = [
         MaterialConfig(
@@ -466,7 +496,7 @@ def select_material_params(x, y, tth, materials=[]):
                 m.latticeParameters[i].value for i in range(6)])
         for m in _materials]
 
-    return new_materials
+    return fig, new_materials
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
@@ -655,8 +685,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     fig_title = []
     error_texts = []
 
-    hkl_locations = get_peak_locations(ds, tth)
-    hkl_labels = [str(hkl)[1:-1] for hkl in hkls]
+    hkl_locations = [loc for loc in get_peak_locations(ds, tth)
+                     if x[0] <= loc <= x[-1]]
+    hkl_labels = [str(hkl)[1:-1] for hkl, loc in zip(hkls, hkl_locations)]
 
     title_pos = (0.5, 0.95)
     title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
@@ -686,12 +717,15 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     if ref_map is None:
         fig, ax = plt.subplots(figsize=(11, 8.5))
+        ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
     else:
         fig, (ax, ax_map) = plt.subplots(
             2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
+        ax.set(ylabel='Intensity (counts)')
         ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map)
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
+        ax_map.set_xlim(x[0], x[-1])
     handles = ax.plot(x, y, color='k', label='Reference Data')
     if calibration_bin_ranges is not None:
         ylow = ax.get_ylim()[0]
@@ -709,7 +743,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     handles.append(Patch(
         label='Included / selected data', **included_data_props))
     ax.legend(handles=handles)
-    ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
     ax.set_xlim(x[0], x[-1])
 
     for bin_range in preselected_bin_ranges:
@@ -728,7 +761,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     if not interactive:
 
         if detector_name is None:
-            change_fig_title('Selected data and HKLs uses in fitting')
+            change_fig_title('Selected data and HKLs used in fitting')
         else:
             change_fig_title(
                 f'Selected data and HKLs used in fitting {detector_name}')

@@ -841,31 +841,42 @@ class StrainAnalysisProcessor(Processor):
 #                calibration_mask = detector.mca_mask()
                 calibration_bin_ranges = detector.include_bin_ranges
 
-            if interactive:
+            if interactive or save_figures:
                 # Local modules
                 from CHAP.edd.utils import select_material_params
 
                 tth = strain_analysis_config.detectors[0].tth_calibrated
-                strain_analysis_config.materials = select_material_params(
+                fig, strain_analysis_config.materials = select_material_params(
                     mca_bin_energies[0], mca_data[0][0], tth,
-                    materials=strain_analysis_config.materials)
+                    materials=strain_analysis_config.materials,
+                    interactive=interactive)
                 self.logger.debug(
                     f'materials: {strain_analysis_config.materials}')
-            for i, detector in enumerate(strain_analysis_config.detectors):
-                fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
-                    mca_bin_energies[i], mca_data[i][0], hkls, ds,
-                    detector.tth_calibrated, detector.include_bin_ranges,
-                    detector.hkl_indices, detector.detector_name, mca_data[i],
-#                    calibration_mask=calibration_mask,
-                    calibration_bin_ranges=calibration_bin_ranges,
-                    interactive=interactive)
-                detector.include_bin_ranges = include_bin_ranges
-                detector.hkl_indices = hkl_indices
                 if save_figures:
                     fig.savefig(os.path.join(
                         outputdir,
-                        f'{detector.detector_name}_strainanalysis_fit_mask_hkls.png'))
+                        f'{detector.detector_name}_strainanalysis_'
+                        'material_config.png'))
                 plt.close()
+
+                for i, detector in enumerate(strain_analysis_config.detectors):
+                    fig, include_bin_ranges, hkl_indices = \
+                        select_mask_and_hkls(
+                            mca_bin_energies[i], mca_data[i][0], hkls, ds,
+                            detector.tth_calibrated,
+                            detector.include_bin_ranges, detector.hkl_indices,
+                            detector.detector_name, mca_data[i],
+#                            calibration_mask=calibration_mask,
+                            calibration_bin_ranges=calibration_bin_ranges,
+                            interactive=interactive)
+                    detector.include_bin_ranges = include_bin_ranges
+                    detector.hkl_indices = hkl_indices
+                    if save_figures:
+                        fig.savefig(os.path.join(
+                            outputdir,
+                            f'{detector.detector_name}_strainanalysis_'
+                            'fit_mask_hkls.png'))
+                    plt.close()
 
         for i, detector in enumerate(strain_analysis_config.detectors):
             # Setup NXdata group
