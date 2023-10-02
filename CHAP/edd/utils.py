@@ -106,7 +106,8 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
 
     return hkls_unique, ds_unique
 
-def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
+def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
+        interactive=False):
     """Show a matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
     initial 2&theta guess and responds by updating the HKL locations
@@ -118,80 +119,148 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0):
     :type y: np.ndarray
     :param hkls: List of unique HKL indices to fit peaks for in the
         calibration routine.
-    :type fit_hkls: list[int]
+    :type fit_hkls: Union(numpy.ndarray, list[list[int, int,int]])
     :param ds: Lattice spacings in angstroms associated with the
         unique HKL indices.
-    :type ds: list[float]
+    :type ds: Union(numpy.ndarray, list[float])
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
+    :param interactive: Allows for user interactions, defaults to
+        `False`.
+    :type interactive: bool, optional
     :return: Selected initial guess for 2&theta
     :type: float
     """
+    # System modules:
+    from copy import deepcopy
+
     # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
 
-    # Callback for tth input
+    def change_fig_title(title):
+        if fig_title:
+            fig_title[0].remove()
+            fig_title.pop()
+        fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
+
     def new_guess(tth):
         """Callback function for the tth input."""
         try:
             tth_new_guess = float(tth)
         except:
-            print(f'ValueError: Cannot convert {tth} to float')
+            change_error_text(
+                r'Invalid 2$\theta$ 'f'cannot convert {tth} to float, '
+                r'enter a valid 2$\theta$')
             return
-        for i, (line, loc) in enumerate(zip(
-                hkl_lines, get_peak_locations(ds, tth_new_guess))):
-            line.remove()
-            hkl_lines[i] = ax.axvline(loc, c='k', ls='--', lw=1)
-            hkl_lbls[i].remove()
-            hkl_lbls[i] = ax.text(loc, 1, str(hkls[i])[1:-1],
-                                  ha='right', va='top', rotation=90,
-                                  transform=ax.get_xaxis_transform())
+        for i, (loc, hkl) in enumerate(zip(
+                get_peak_locations(ds, tth_new_guess), hkls)):
+            if i in hkl_peaks:
+                j = hkl_peaks.index(i)
+                hkl_lines[j].remove()
+                hkl_lbls[j].remove()
+                if x[0] <= loc <= x[-1]:
+                    hkl_lines[j] = ax.axvline(loc, c='k', ls='--', lw=1)
+                    hkl_lbls[j] = ax.text(loc, 1, str(hkls[i])[1:-1],
+                                           ha='right', va='top', rotation=90,
+                                           transform=ax.get_xaxis_transform())
+                else:
+                    hkl_peaks.pop(j)
+                    hkl_lines.pop(j)
+                    hkl_lbls.pop(j)
+            elif x[0] <= loc <= x[-1]:
+                hkl_peaks.append(i)
+                hkl_lines.append(ax.axvline(loc, c='k', ls='--', lw=1))
+                hkl_lbls.append(
+                    ax.text(
+                        loc, 1, str(hkl)[1:-1], ha='right', va='top',
+                        rotation=90, transform=ax.get_xaxis_transform()))
         ax.get_figure().canvas.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
+        change_fig_title(r'Initial guess for 2$\theta$='f'{tth_input.text}')
         plt.close()
+
+    fig_title = []
+    error_texts = []
+
+    title_pos = (0.5, 0.95)
+    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    error_pos = (0.5, 0.90)
+    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+
+    assert np.asarray(hkls).shape[1] == 3
+    assert np.asarray(ds).size == np.asarray(hkls).shape[0]
 
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.plot(x, y)
     ax.set_xlabel('MCA channel energy (keV)')
     ax.set_ylabel('MCA intensity (counts)')
-    ax.set_title('Adjust initial guess for $2\\theta$')
+    ax.set_xlim(x[0], x[-1])
+    peak_locations = get_peak_locations(ds, tth_initial_guess)
+    hkl_peaks = [i for i, loc in enumerate(peak_locations)
+                   if x[0] <= loc <= x[-1]]
     hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
-                 for loc in get_peak_locations(ds, tth_initial_guess)]
+                 for loc in peak_locations if x[0] <= loc <= x[-1]]
     hkl_lbls = [ax.text(loc, 1, str(hkl)[1:-1],
                         ha='right', va='top', rotation=90,
                         transform=ax.get_xaxis_transform())
-                for loc, hkl
-                    in zip(get_peak_locations(ds, tth_initial_guess), hkls)]
+                for loc, hkl in zip(peak_locations, hkls)
+                if x[0] <= loc <= x[-1]]
 
-    # Setup tth input
-    plt.subplots_adjust(bottom=0.25)
-    tth_input = TextBox(plt.axes([0.125, 0.05, 0.15, 0.075]),
-                        '$2\\theta$: ',
-                        initial=tth_initial_guess)
-    cid_update_tth = tth_input.on_submit(new_guess)
+    if not interactive:
 
-    # Setup "Confirm" button
-    confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
-    confirm_cid = confirm_btn.on_clicked(confirm)
+        change_fig_title(r'Initial guess for 2$\theta$='f'{tth_initial_guess}')
 
-    # Show figure for user interaction
-    plt.show()
+    else:
 
-    # Disconnect all widget callbacks when figure is closed
-    tth_input.disconnect(cid_update_tth)
-    confirm_btn.disconnect(confirm_cid)
+        change_fig_title(r'Adjust initial guess for 2$\theta$')
+        fig.subplots_adjust(bottom=0.2)
 
-    try:
-        tth_new_guess = float(tth_input.text)
-    except:
-        tth_new_guess = select_tth_initial_guess(
-            x, y, hkls, ds, tth_initial_guess=tth_initial_guess)
+        # Setup tth input
+        tth_input = TextBox(plt.axes([0.125, 0.05, 0.15, 0.075]),
+                            '$2\\theta$: ',
+                            initial=tth_initial_guess)
+        cid_update_tth = tth_input.on_submit(new_guess)
 
-    return tth_new_guess
+        # Setup "Confirm" button
+        confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+        confirm_cid = confirm_btn.on_clicked(confirm)
+
+        # Show figure for user interaction
+        plt.show()
+
+        # Disconnect all widget callbacks when figure is closed
+        tth_input.disconnect(cid_update_tth)
+        confirm_btn.disconnect(confirm_cid)
+
+        # ...and remove the buttons before returning the figure
+        tth_input.ax.remove()
+        confirm_btn.ax.remove()
+
+    fig_title[0].set_in_layout(True)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+
+    if not interactive:
+        tth_new_guess = tth_initial_guess
+    else:
+        try:
+            tth_new_guess = float(tth_input.text)
+        except:
+            fig, tth_new_guess = select_tth_initial_guess(
+                x, y, hkls, ds, tth_initial_guess, interactive)
+
+    return fig, tth_new_guess
 
 def select_material_params(x, y, tth, materials=[]):
     """Interactively select the lattice parameters and space group for
@@ -233,6 +302,7 @@ def select_material_params(x, y, tth, materials=[]):
         ax.set_title('Reference Data')
         ax.set_xlabel('MCA channel energy (keV)')
         ax.set_ylabel('MCA intensity (counts)')
+        ax.set_xlim(x[0], x[-1])
         ax.plot(x, y)
         for i, material in enumerate(_materials):
             hkls, ds = get_unique_hkls_ds([material])            
@@ -400,8 +470,8 @@ def select_material_params(x, y, tth, materials=[]):
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
-#        flux_energy_range=None, calibration_mask=None, interactive=False):
-        flux_energy_range=None, calibration_bin_ranges=None, interactive=False):
+        flux_energy_range=None, calibration_bin_ranges=None,
+        interactive=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -453,6 +523,18 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, SpanSelector
 
+    def change_fig_title(title):
+        if fig_title:
+            fig_title[0].remove()
+            fig_title.pop()
+        fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+    def change_error_text(error):
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
+        error_texts.append(plt.figtext(*error_pos, error, **error_props))
+
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
         removed_hkls = False
@@ -464,7 +546,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 selected_hkl_indices.remove(hkl_index)
                 removed_hkls = True
         if removed_hkls:
-            print('Removed HKL(s) outside the currently selected energy mask')
+            change_error_text(
+                'Removed HKL(s) outside the currently selected energy mask')
         combined_spans = True
         while combined_spans:
             combined_spans = False
@@ -472,7 +555,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 for span2 in reversed(spans[i+1:]):
                     if (span1.extents[1] >= span2.extents[0]
                             and span1.extents[0] <= span2.extents[1]):
-                        print('Combined overlapping spans in the currently '
+                        change_error_text(
+                            'Combined overlapping spans in the currently '
                             'selected energy mask')
                         span1.extents = (
                             min(span1.extents[0], span2.extents[0]),
@@ -534,7 +618,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     hkl_vline.set(**included_hkl_props)
                     selected_hkl_indices.append(hkl_index)
                 else:
-                    print(f'Selected HKL is outside any current span, '
+                    change_error_text(
+                        f'Selected HKL is outside any current span, '
                         'extend or add spans before adding this value')
             plt.draw()
 
@@ -550,15 +635,35 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
-        plt.close()
+        if not len(spans) or len(selected_hkl_indices) < 2:
+            change_error_text('Select at least one span and two HKLs')
+            plt.draw()
+        else:
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            if detector_name is None:
+                change_fig_title('Selected data and HKLs used in fitting')
+            else:
+                change_fig_title(
+                    f'Selected data and HKLs used in fitting {detector_name}')
+            plt.close()
 
     selected_hkl_indices = preselected_hkl_indices
     spans = []
     hkl_vlines = []
+    fig_title = []
+    error_texts = []
 
     hkl_locations = get_peak_locations(ds, tth)
     hkl_labels = [str(hkl)[1:-1] for hkl in hkls]
 
+    title_pos = (0.5, 0.95)
+    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
+    error_pos = (0.5, 0.90)
+    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                   'verticalalignment': 'bottom'}
     excluded_hkl_props = {
         'color': 'black', 'linestyle': '--','linewidth': 1,
         'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
@@ -587,13 +692,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map)
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
-        handles = ax.plot(x, y, color='k', label='Reference Data')
     handles = ax.plot(x, y, color='k', label='Reference Data')
-#    if calibration_mask is not None:
-#        handles.append(
-#            ax.plot(
-#                x[calibration_mask], y[calibration_mask], '.', #color='r',
-#                label='Energies included in calibration')[0])
     if calibration_bin_ranges is not None:
         ylow = ax.get_ylim()[0]
         for low, upp in calibration_bin_ranges:
@@ -611,11 +710,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         label='Included / selected data', **included_data_props))
     ax.legend(handles=handles)
     ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
-    if detector_name is None:
-        fig.suptitle('Select data and HKLs to use in fitting')
-    else:
-        fig.suptitle(f'Select data and HKLs to use in fitting {detector_name}')
-    fig.subplots_adjust(bottom=0.2)
+    ax.set_xlim(x[0], x[-1])
 
     for bin_range in preselected_bin_ranges:
         add_span(None, xrange_init=x[bin_range])
@@ -630,7 +725,22 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 transform=ax.get_xaxis_transform())
         hkl_vlines.append(hkl_vline)
 
-    if interactive:
+    if not interactive:
+
+        if detector_name is None:
+            change_fig_title('Selected data and HKLs uses in fitting')
+        else:
+            change_fig_title(
+                f'Selected data and HKLs used in fitting {detector_name}')
+
+    else:
+
+        if detector_name is None:
+            change_fig_title('Select data and HKLs to use in fitting')
+        else:
+            change_fig_title(
+                f'Select data and HKLs to use in fitting {detector_name}')
+        fig.subplots_adjust(bottom=0.2)
 
         # Setup "Add span" button
         add_span_btn = Button(plt.axes([0.125, 0.05, 0.15, 0.075]), 'Add span')
@@ -665,6 +775,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     selected_bin_ranges = [np.searchsorted(x, span.extents).tolist()
                            for span in spans]
-    selected_hkl_indices = sorted(selected_hkl_indices)
+    if not selected_bin_ranges:
+        selected_bin_ranges = None
+    if selected_hkl_indices:
+        selected_hkl_indices = sorted(selected_hkl_indices)
+    else:
+        selected_hkl_indices = None
+
+    fig_title[0].set_in_layout(True)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
 
     return fig, selected_bin_ranges, selected_hkl_indices
