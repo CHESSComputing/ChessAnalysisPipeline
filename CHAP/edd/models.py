@@ -647,8 +647,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-#    tth_file: Optional[FilePath]
-#    tth_map: Optional[np.ndarray] = None
+    tth_file: Optional[FilePath]
+    tth_map: Optional[np.ndarray] = None
 
     @validator('hkl_indices', pre=True)
     def validate_hkl_indices(cls, hkl_indices):
@@ -687,8 +687,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :return: Map of 2&theta values.
         :rtype: np.ndarray
         """
-#        if getattr(self, 'tth_map', None) is not None:
-#            return self.tth_map
+        if getattr(self, 'tth_map', None) is not None:
+            return self.tth_map
         return np.full(map_config.shape, self.tth_calibrated)
 
     def dict(self, *args, **kwargs):
@@ -775,35 +775,35 @@ class StrainAnalysisConfig(BaseModel):
                         os.path.join(inputdir, spec_file)
         return values
 
-#    @validator('detectors', pre=True, each_item=True)
-#    def validate_tth_file(cls, detector, values):
-#        """Finalize value for tth_file for each detector"""
-#        inputdir = values.get('inputdir')
-#        tth_file = detector.get('tth_file')
-#        if tth_file:
-#            if not os.path.isabs(tth_file):
-#                detector['tth_file'] = os.path.join(inputdir, tth_file)
-#        return detector
+    @validator('detectors', pre=True, each_item=True)
+    def validate_tth_file(cls, detector, values):
+        """Finalize value for tth_file for each detector"""
+        inputdir = values.get('inputdir')
+        tth_file = detector.get('tth_file')
+        if tth_file:
+            if not os.path.isabs(tth_file):
+                detector['tth_file'] = os.path.join(inputdir, tth_file)
+        return detector
 
-#    @validator('detectors', each_item=True)
-#    def validate_tth(cls, detector, values):
-#        """Validate detector element tth_file field. It may only be
-#        used if StrainAnalysisConfig used par_file.
-#        """
-#        if detector.tth_file is not None:
-#            if not values.get('par_file'):
-#                raise ValueError(
-#                    'variable tth angles may only be used with a '
-#                    + 'StrainAnalysisConfig that uses par_file.')
-#            else:
-#                try:
-#                    detector.tth_map = ParFile(values['par_file']).map_values(
-#                        values['map_config'], np.loadtxt(detector.tth_file))
-#                except Exception as e:
-#                    raise ValueError(
-#                        'Could not get map of tth angles from '
-#                        + f'{detector.tth_file}') from e
-#        return detector
+    @validator('detectors', each_item=True)
+    def validate_tth(cls, detector, values):
+        """Validate detector element tth_file field. It may only be
+        used if StrainAnalysisConfig used par_file.
+        """
+        if detector.tth_file is not None:
+            if not values.get('par_file'):
+                raise ValueError(
+                    'variable tth angles may only be used with a '
+                    + 'StrainAnalysisConfig that uses par_file.')
+            else:
+                try:
+                    detector.tth_map = ParFile(values['par_file']).map_values(
+                        values['map_config'], np.loadtxt(detector.tth_file))
+                except Exception as e:
+                    raise ValueError(
+                        'Could not get map of tth angles from '
+                        + f'{detector.tth_file}') from e
+        return detector
 
     def mca_data(self, detector=None, map_index=None):
         """Get MCA data for a single or multiple detector elements.
