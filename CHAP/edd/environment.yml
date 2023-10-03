@@ -17,4 +17,5 @@ dependencies:
   - hexrd==0.9.2
   - nexusformat==1.0.2
   - matplotlib==3.7.1 # required only for some interactive portions
+  - ffmpeg==6.0.0 # required only to save animations
 #  - xarray==2023.8.0

@@ -828,12 +828,15 @@ class StrainAnalysisProcessor(Processor):
         mca_data = strain_analysis_config.mca_data()
 
         # Select interactive params / save figures
-        if save_figures or interactive:
+        if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import select_mask_and_hkls
+            from CHAP.edd.utils import (
+                select_material_params,
+                select_mask_and_hkls,
+            )
 
             # Mask during calibration
             if len(ceria_calibration_config.detectors) != 1:
@@ -842,42 +845,39 @@ class StrainAnalysisProcessor(Processor):
 #                calibration_mask = detector.mca_mask()
                 calibration_bin_ranges = detector.include_bin_ranges
 
-            if interactive or save_figures:
-                # Local modules
-                from CHAP.edd.utils import select_material_params
 
-                tth = strain_analysis_config.detectors[0].tth_calibrated
-                fig, strain_analysis_config.materials = select_material_params(
-                    mca_bin_energies[0], mca_data[0][0], tth,
-                    materials=strain_analysis_config.materials,
-                    interactive=interactive)
-                self.logger.debug(
-                    f'materials: {strain_analysis_config.materials}')
+            tth = strain_analysis_config.detectors[0].tth_calibrated
+            fig, strain_analysis_config.materials = select_material_params(
+                mca_bin_energies[0], mca_data[0][0], tth,
+                materials=strain_analysis_config.materials,
+                interactive=interactive)
+            self.logger.debug(
+                f'materials: {strain_analysis_config.materials}')
+            if save_figures:
+                fig.savefig(os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_strainanalysis_'
+                    'material_config.png'))
+            plt.close()
+
+            for i, detector in enumerate(strain_analysis_config.detectors):
+                fig, include_bin_ranges, hkl_indices = \
+                    select_mask_and_hkls(
+                        mca_bin_energies[i], mca_data[i][0], hkls, ds,
+                        detector.tth_calibrated,
+                        detector.include_bin_ranges, detector.hkl_indices,
+                        detector.detector_name, mca_data[i],
+#                        calibration_mask=calibration_mask,
+                        calibration_bin_ranges=calibration_bin_ranges,
+                        interactive=interactive)
+                detector.include_bin_ranges = include_bin_ranges
+                detector.hkl_indices = hkl_indices
                 if save_figures:
                     fig.savefig(os.path.join(
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_'
-                        'material_config.png'))
+                        'fit_mask_hkls.png'))
                 plt.close()
-
-                for i, detector in enumerate(strain_analysis_config.detectors):
-                    fig, include_bin_ranges, hkl_indices = \
-                        select_mask_and_hkls(
-                            mca_bin_energies[i], mca_data[i][0], hkls, ds,
-                            detector.tth_calibrated,
-                            detector.include_bin_ranges, detector.hkl_indices,
-                            detector.detector_name, mca_data[i],
-#                            calibration_mask=calibration_mask,
-                            calibration_bin_ranges=calibration_bin_ranges,
-                            interactive=interactive)
-                    detector.include_bin_ranges = include_bin_ranges
-                    detector.hkl_indices = hkl_indices
-                    if save_figures:
-                        fig.savefig(os.path.join(
-                            outputdir,
-                            f'{detector.detector_name}_strainanalysis_'
-                            'fit_mask_hkls.png'))
-                    plt.close()
 
         for i, detector in enumerate(strain_analysis_config.detectors):
             # Setup NXdata group
@@ -1062,6 +1062,58 @@ class StrainAnalysisProcessor(Processor):
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_sigma')]
                 for i in range(len(peak_locations))]
+
+            if interactive or save_figures:
+                # Third party modules
+                import matplotlib.animation as animation
+
+                def animate(i):
+                    map_indices = np.unravel_index(
+                        i, det_nxdata.intensity.nxdata.shape[0:-1])
+                    intensity.set_ydata(
+                        det_nxdata.intensity.nxdata[map_indices])
+                    best_fit.set_ydata(fit.best_fit[map_indices])
+                    # residual.set_ydata(fit.residual[map_indices])
+                    index.set_text(
+                        '\n'.join(
+                            f'{dim}[{i}]={nxentry.data[dim][i]}'
+                            for dim in map_config.dims))
+                    # return intensity, best_fit, residual, index
+                    return intensity, best_fit, index
+
+                fig, ax = plt.subplots()
+                intensity, = ax.plot(
+                    energies, det_nxdata.intensity.nxdata[0], 'b.',
+                    label='data')
+                best_fit, = ax.plot(
+                    energies, fit.best_fit[0], 'k-', label='fit')
+                # residual, = ax.plot(
+                #     energies, fit.residual[0], 'r-', label='residual')
+                ax.set(
+                    title='Unconstrained fits', xlabel='Energy (keV)',
+                    ylabel='Intensity (counts)')
+                ax.set_ylim(
+                    0,
+                    max(
+                        det_nxdata.intensity.nxdata.max(),
+                        fit.best_fit.max()))
+                ax.legend()
+                index = ax.text(0.05, 0.95, '', transform=ax.transAxes)
+
+                ani = animation.FuncAnimation(
+                    fig, animate,
+                    frames=int(det_nxdata.intensity.nxdata.size
+                               / det_nxdata.intensity.nxdata.shape[-1]),
+                    interval=1000, blit=True, repeat=False)
+
+                if save_figures:
+                    path = os.path.join(
+                        outputdir,
+                        f'{detector.detector_name}_strainanalysis_'
+                        'unconstrained_fits.mp4')
+                    ani.save(path)
+                if interactive:
+                    plt.show()
 
             tth_map = detector.get_tth_map(map_config)
             det_nxdata.tth.nxdata = tth_map

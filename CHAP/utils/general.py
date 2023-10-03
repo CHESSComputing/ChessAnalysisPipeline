@@ -1805,7 +1805,7 @@ def quick_plot(
             path = f'{path}/{name}'
     args = unwrap_tuple(args)
     if depth_tuple(args) > 1 and (xerr is not None or yerr is not None):
-        logger.warning('Error bars ignored form multiple curves')
+        logger.warning('Error bars ignored for multiple curves')
     if not save_only:
         if block:
             plt.ioff()
@@ -1825,10 +1825,6 @@ def quick_plot(
             vlines = [vlines]
         for v in vlines:
             plt.axvline(v, color='r', linestyle='--', **kwargs)
-#    if vlines is not None:
-#        for s in tuple(
-#                ([x, x], list(plt.gca().get_ylim())) for x in vlines):
-#            plt.plot(*s, color='red', **kwargs)
     if xlim is not None:
         plt.xlim(xlim)
     if ylim is not None:
