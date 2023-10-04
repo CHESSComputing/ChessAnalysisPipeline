@@ -18,7 +18,7 @@ from pydantic import (BaseModel,
 from scipy.interpolate import interp1d
 
 # Local modules
-from CHAP.common.models.map import MapConfig
+from CHAP.common.models.map import MapConfig, UnstructuredMapConfig
 from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
@@ -730,7 +730,7 @@ class StrainAnalysisConfig(BaseModel):
     :type material_name: list[MaterialConfig]
     """
     inputdir: Optional[DirectoryPath]
-    map_config: Optional[MapConfig]
+    map_config: Optional[Union[MapConfig, UnstructuredMapConfig]]
     par_file: Optional[FilePath]
     par_dims: Optional[list[dict[str,str]]]
     other_dims: Optional[list[dict[str,str]]]

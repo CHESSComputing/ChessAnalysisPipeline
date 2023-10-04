@@ -774,6 +774,82 @@ class MapConfig(BaseModel):
         return scanparser.get_detector_data(detector_name, scan_step_index)
 
 
+class UnstructuredMapConfig(MapConfig):
+    """Represents a sample map where data points were not taken at
+    every point in a grid.
+    """
+    _scan_step_indices: dict = PrivateAttr()
+    def get_scan_step_index(self, map_index):
+        """Return parameters to identify a single SPEC scan step that
+        corresponds to the map point at the index provided.
+
+        :param map_index: The index of a map point to identify as a
+            specific SPEC scan step index
+        :type map_index: int
+        :return: A `SpecScans` configuration, scan number, and scan
+            step index
+        :rtype: tuple[SpecScans, int, int]
+        """
+        if isinstance(map_index, tuple):
+            if len(map_index) == 1:
+                map_index = map_index[0]
+            else:
+                raise ValueError('Indices for unstructured maps must be 1D.')
+        return self.scan_step_indices[map_index]
+
+    @property
+    def shape(self):
+        """Return the shape of the map -- a tuple representing the
+        number of unique values of each dimension across the map.
+        """
+        return((len(self.scan_step_indices),))
+
+    @property
+    def scan_step_indices(self):
+        """Return an ordered list in which we can look up the SpecScans
+        object, the scan number, and scan step index for every point
+        in the map
+
+        :returns: list of specific spec scan info for every point in the map
+        :rtype: list[tuple[SpecScans, int, int]]
+        """
+        try:
+            scan_step_indices = self._scan_step_indices
+        except:
+            scan_step_indices = []
+            for scans in self.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        scan_step_indices.append(
+                            (scans, scan_number, scan_step_index))
+        return scan_step_indices
+
+    @property
+    def coords(self):
+        """Return a dictionary of the values of each independent
+        dimension across the map.
+
+        :returns: A dictionary ofthe map's  coordinate values.
+        :rtype: dict[str,list[float]]
+        """
+        try:
+            coords = self._coords
+        except:
+            coords = {}
+            for dim in self.independent_dimensions:
+                coords[dim.label] = []
+                for scans in self.spec_scans:
+                    for scan_number in scans.scan_numbers:
+                        scanparser = scans.get_scanparser(scan_number)
+                        for scan_step_index in range(
+                                scanparser.spec_scan_npts):
+                            coords[dim.label].append(dim.get_value(
+                                    scans, scan_number, scan_step_index))
+            self._coords = coords
+        return coords
+
+
 def import_scanparser(station, experiment):
     """Given the name of a CHESS station and experiment type, import
     the corresponding subclass of `ScanParser` as `ScanParser`.
