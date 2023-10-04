@@ -1071,34 +1071,40 @@ class StrainAnalysisProcessor(Processor):
                     map_indices = np.unravel_index(
                         i, det_nxdata.intensity.nxdata.shape[0:-1])
                     intensity.set_ydata(
-                        det_nxdata.intensity.nxdata[map_indices])
-                    best_fit.set_ydata(fit.best_fit[map_indices])
+                        det_nxdata.intensity.nxdata[map_indices]
+                        / det_nxdata.intensity.nxdata[map_indices].max())
+                    best_fit.set_ydata(fit.best_fit[map_indices]
+                                       / fit.best_fit[map_indices].max())
                     # residual.set_ydata(fit.residual[map_indices])
                     index.set_text(
                         '\n'.join(
-                            f'{dim}[{i}]={nxentry.data[dim][i]}'
-                            for dim in map_config.dims))
+                            f'{dim}[{i}]={nxentry.data[dim][map_indices[j]]}'
+                            for j, dim in enumerate(map_config.dims)))
                     # return intensity, best_fit, residual, index
                     return intensity, best_fit, index
 
                 fig, ax = plt.subplots()
+                map_indices = np.unravel_index(
+                    0, det_nxdata.intensity.nxdata.shape[0:-1])
+                data_normalized = (
+                    det_nxdata.intensity.nxdata[map_indices]
+                    / det_nxdata.intensity.nxdata[map_indices].max())
                 intensity, = ax.plot(
-                    energies, det_nxdata.intensity.nxdata[0], 'b.',
-                    label='data')
+                    energies, data_normalized, 'b.', label='data')
+                fit_normalized = (fit.best_fit[map_indices]
+                                  / fit.best_fit[map_indices].max())
                 best_fit, = ax.plot(
-                    energies, fit.best_fit[0], 'k-', label='fit')
+                    energies, fit_normalized, 'k-', label='fit')
                 # residual, = ax.plot(
-                #     energies, fit.residual[0], 'r-', label='residual')
+                #     energies, fit.residual[map_indices], 'r-',
+                #     label='residual')
                 ax.set(
-                    title='Unconstrained fits', xlabel='Energy (keV)',
-                    ylabel='Intensity (counts)')
-                ax.set_ylim(
-                    0,
-                    max(
-                        det_nxdata.intensity.nxdata.max(),
-                        fit.best_fit.max()))
-                ax.legend()
-                index = ax.text(0.05, 0.95, '', transform=ax.transAxes)
+                    title='Unconstrained fits',
+                    xlabel='Energy (keV)',
+                    ylabel='Normalized Intensity (-)')
+                ax.legend(loc='upper right')
+                index = ax.text(
+                    0.05, 0.95, '', transform=ax.transAxes, va='top')
 
                 ani = animation.FuncAnimation(
                     fig, animate,

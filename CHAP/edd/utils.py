@@ -195,11 +195,9 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     error_texts = []
 
     title_pos = (0.5, 0.95)
-    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
-                   'verticalalignment': 'bottom'}
+    title_props = {'fontsize': 'xx-large', 'ha': 'center', 'va': 'bottom'}
     error_pos = (0.5, 0.90)
-    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
-                   'verticalalignment': 'bottom'}
+    error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
 
     assert np.asarray(hkls).shape[1] == 3
     assert np.asarray(ds).size == np.asarray(hkls).shape[0]
@@ -447,8 +445,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
     error_texts = []
 
     error_pos = (0.5, 0.95)
-    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
-                   'verticalalignment': 'bottom'}
+    error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
 
     _materials = deepcopy(materials)
     for i, m in enumerate(_materials):
@@ -690,11 +687,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     hkl_labels = [str(hkl)[1:-1] for hkl, loc in zip(hkls, hkl_locations)]
 
     title_pos = (0.5, 0.95)
-    title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
-                   'verticalalignment': 'bottom'}
+    title_props = {'fontsize': 'xx-large', 'ha': 'center', 'va': 'bottom'}
     error_pos = (0.5, 0.90)
-    error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
-                   'verticalalignment': 'bottom'}
+    error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
     excluded_hkl_props = {
         'color': 'black', 'linestyle': '--','linewidth': 1,
         'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
