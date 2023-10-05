@@ -54,10 +54,12 @@ class SpecReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         from json import dumps
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+        )
         import numpy as np
         from CHAP.common.models.map import SpecConfig
 
@@ -120,7 +122,9 @@ class SpecReader(Reader):
 
 class MapReader(Reader):
     """Reader for CHESS sample maps"""
-    def read(self, filename=None, map_config=None, detector_names=[]):
+    def read(
+            self, filename=None, map_config=None, detector_names=[],
+            inputdir=None):
         """Take a map configuration dictionary and return a
         representation of the map as an NXentry. The NXentry's default
         data group will contain the raw data collected over the course
@@ -140,11 +144,13 @@ class MapReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         from json import dumps
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield,
-                                       NXsample)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
         import numpy as np
         from CHAP.common.models.map import MapConfig
 
@@ -168,7 +174,9 @@ class MapReader(Reader):
 
         # Validate the map configuration provided by constructing a
         # MapConfig
-        map_config = MapConfig(**map_config)
+        map_config = MapConfig(**map_config, inputdir=inputdir)
+        print(f'\nmap_config:\n{map_config}\n')
+        exit('Done')
 
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)

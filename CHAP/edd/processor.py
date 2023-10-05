@@ -575,7 +575,13 @@ class MCADataProcessor(Processor):
     transformed according to the results of a ceria calibration.
     """
 
-    def process(self, data):
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                inputdir='.',
+                interactive=False):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
 
@@ -586,11 +592,13 @@ class MCADataProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
 
+        print(f'data:\n{data}')
+        exit('Done Here')
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
-        calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig')
-        nxroot = self.get_nxroot(map_config, calibration_config)
+            data, 'common.models.map.MapConfig', inputdir=inputdir)
+        ceria_calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+        nxroot = self.get_nxroot(map_config, ceria_calibration_config)
 
         return nxroot
 
@@ -610,10 +618,12 @@ class MCADataProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXinstrument,
-                                       NXroot)
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXinstrument,
+            NXroot,
+        )
 
         # Local modules
         from CHAP.common import MapProcessor
@@ -766,13 +776,15 @@ class StrainAnalysisProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXdetector,
-                                       NXfield,
-                                       NXparameters,
-                                       NXprocess,
-                                       NXroot)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXdetector,
+            NXfield,
+            NXparameters,
+            NXprocess,
+            NXroot,
+        )
 
         # Local modules
         from CHAP.common import MapProcessor

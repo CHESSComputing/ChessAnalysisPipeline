@@ -1,20 +1,26 @@
 # System modules
 import os
 from pathlib import PosixPath
-from typing import Literal, Optional, Union
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
 from hexrd.material import Material
-from pydantic import (BaseModel,
-                      confloat,
-                      conint,
-                      conlist,
-                      constr,
-                      DirectoryPath,
-                      FilePath,
-                      root_validator,
-                      validator)
+from pydantic import (
+    BaseModel,
+    confloat,
+    conint,
+    conlist,
+    constr,
+    DirectoryPath,
+    FilePath,
+    root_validator,
+    validator,
+)
 from scipy.interpolate import interp1d
 
 # Local modules
@@ -129,7 +135,7 @@ class MCAScanDataConfig(BaseModel):
     def validate_scan(cls, values):
         """Finalize file paths for spec_file and par_file.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :raises ValueError: Invalid SPEC or par file.
         :return: The validated list of `values`.
@@ -544,15 +550,16 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         """Ensure that a valid configuration was provided and finalize
         flux_file filepath.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
         """
         inputdir = values.get('inputdir')
-        flux_file = values.get('flux_file')
-        if inputdir is not None and not os.path.isabs(flux_file):
-            values['flux_file'] = os.path.join(inputdir, flux_file)
+        if inputdir is not None:
+            flux_file = values.get('flux_file')
+            if not os.path.isabs(flux_file):
+                values['flux_file'] = os.path.join(inputdir, flux_file)
 
         return values
 
@@ -745,7 +752,7 @@ class StrainAnalysisConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         input filepaths.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :raises ValueError: Missing par_dims value.
         :return: The validated list of `values`.
