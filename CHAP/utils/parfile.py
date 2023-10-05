@@ -84,7 +84,7 @@ class ParFile():
 
         scanparser = SMBScanParser(self.spec_file, 1)
         good_scans = self.good_scan_numbers()
-        map_config_dict = {
+        map_config = {
             'title': scanparser.scan_name,
             'station': station, #scanparser.station,
             'experiment_type': experiment_type,
@@ -99,12 +99,7 @@ class ParFile():
                  'data_type': 'smb_par'}
                 for dim in par_dims] + other_dims
         }
-        map_config = MapConfig(**map_config_dict)
-        map_size = np.prod(map_config.shape)
-        if map_size != len(good_scans):
-            from CHAP.common.models.map import UnstructuredMapConfig
-            map_config = UnstructuredMapConfig(**map_config_dict)
-        return map_config
+        return MapConfig(**map_config)
 
     def good_scan_numbers(self, good_col_name='1/0'):
         """Return the numbers of scans marked with a "1" in the
