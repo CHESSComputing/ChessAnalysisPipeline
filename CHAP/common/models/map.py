@@ -55,7 +55,7 @@ class SpecScans(BaseModel):
             raise ValueError(f'Invalid SPEC file {spec_file}')
         return spec_file
 
-    @validator('scan_numbers', allow_reuse=True)
+    @validator('scan_numbers', pre=True, allow_reuse=True)
     def validate_scan_numbers(cls, scan_numbers, values):
         """Validate the specified list of scan numbers.
 
@@ -68,6 +68,12 @@ class SpecScans(BaseModel):
         :return: List of scan numbers.
         :rtype: list of int
         """
+        if isinstance(scan_numbers, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_numbers = string_to_list(scan_numbers)
+
         spec_file = values.get('spec_file')
         if spec_file is not None:
             spec_scans = FileSpec(spec_file)

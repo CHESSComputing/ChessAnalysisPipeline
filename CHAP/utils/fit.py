@@ -2314,7 +2314,7 @@ class FitMap(Fit):
             logger.warning(
                 f'The requested number of processors ({num_proc}) exceeds the '
                 'maximum number of processors, num_proc reduced to '
-                f'({cpu_count()})')
+                f'{cpu_count()}')
             num_proc = cpu_count()
         if 'try_no_bounds' in kwargs:
             self._try_no_bounds = kwargs.pop('try_no_bounds')
@@ -2587,7 +2587,7 @@ class FitMap(Fit):
             if num_proc > num_fit:
                 logger.warning(
                     f'The requested number of processors ({num_proc}) exceeds '
-                    f'the number of fits, num_proc reduced to ({num_fit})')
+                    f'the number of fits, num_proc reduced to {num_fit}')
                 num_proc = num_fit
                 num_fit_per_proc = 1
             else:
