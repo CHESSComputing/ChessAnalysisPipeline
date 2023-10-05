@@ -695,6 +695,8 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return len(np.array(self.spec_scan.data[:,0]))
+        if self.spec_macro == 'wbsync_ct':
+            return (1,)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
                            f'for scans of type {self.spec_macro}')
 
