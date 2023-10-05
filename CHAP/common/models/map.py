@@ -636,7 +636,7 @@ class MapConfig(BaseModel):
     postsample_intensity: Optional[PostsampleIntensity]
     scalar_data: Optional[list[PointByPointScanData]] = []
     map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
-#    _coords: dict = PrivateAttr()
+    _coords: dict = PrivateAttr()
 
     _validate_independent_dimensions = validator(
         'independent_dimensions',
@@ -746,34 +746,31 @@ class MapConfig(BaseModel):
                 f'Supplied experiment type {value} is not allowed.')
         return value
 
-#    @property
-#    def coords(self):
-#        """Return a dictionary of the values of each independent
-#        dimension across the map.
-#
-#        :returns: A dictionary ofthe map's  coordinate values.
-#        :rtype: dict[str,list[float]]
-#        """
-#        try:
-#            coords = self._coords
-#        except:
-#            coords = {}
-#            for dim in self.independent_dimensions:
-#                coords[dim.label] = []
-#                for scans in self.spec_scans:
-#                    for scan_number in scans.scan_numbers:
-#                        scanparser = scans.get_scanparser(scan_number)
-#                        for scan_step_index in range(
-#                                scanparser.spec_scan_npts):
-#                            coords[dim.label].append(dim.get_value(
-#                                    scans, scan_number, scan_step_index))
-#                coords[dim.label] = np.unique(coords[dim.label])
-#                if dim.end is None:
-#                    dim.end = len(coords[dim.label])
-#                coords[dim.label] = coords[dim.label][slice(
-#                    dim.start, dim.end, dim.step)]
-#            self._coords = coords
-#        return coords
+    @property
+    def coords(self):
+        """Return a dictionary of the values of each independent
+        dimension across the map.
+
+        :returns: A dictionary ofthe map's  coordinate values.
+        :rtype: dict[str,list[float]]
+        """
+        try:
+            coords = self._coords
+        except:
+            coords = {}
+            for dim in self.independent_dimensions:
+                coords[dim.label] = []
+                for scans in self.spec_scans:
+                    for scan_number in scans.scan_numbers:
+                        scanparser = scans.get_scanparser(scan_number)
+                        for scan_step_index in range(
+                                scanparser.spec_scan_npts):
+                            coords[dim.label].append(dim.get_value(
+                                    scans, scan_number, scan_step_index))
+                if self.map_type == 'structured':
+                    coords[dim.label] = np.unique(coords[dim.label])
+            self._coords = coords
+        return coords
 
     @property
     def dims(self):
@@ -789,7 +786,10 @@ class MapConfig(BaseModel):
         """Return the shape of the map -- a tuple representing the
         number of unique values of each dimension across the map.
         """
-        return tuple([len(values) for key,values in self.coords.items()][::-1])
+        if self.map_type == 'structured':
+            return tuple([len(v) for k, v in self.coords.items()][::-1])
+        else:
+            return (len(self.scan_step_indices),) 
 
     @property
     def all_scalar_data(self):
@@ -805,6 +805,27 @@ class MapConfig(BaseModel):
                 for label in CorrectionsData.reserved_labels()
                 if getattr(self, label, None) is not None] + self.scalar_data
 
+    @property
+    def scan_step_indices(self):
+        """Return an ordered list in which we can look up the SpecScans
+        object, the scan number, and scan step index for every point
+        in the map
+
+        :returns: list of specific spec scan info for every point in the map
+        :rtype: list[tuple[SpecScans, int, int]]
+        """
+        try:
+            scan_step_indices = self._scan_step_indices
+        except:
+            scan_step_indices = []
+            for scans in self.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        scan_step_indices.append(
+                            (scans, scan_number, scan_step_index))
+        return scan_step_indices
+
     def get_scan_step_index(self, map_index):
         """Return parameters to identify a single SPEC scan step that
         corresponds to the map point at the index provided.
@@ -816,18 +837,24 @@ class MapConfig(BaseModel):
             step index
         :rtype: tuple[SpecScans, int, int]
         """
-        coords = {dim: self.coords[dim][i]
-            for dim,i in zip( self.dims, map_index)}
-        for scans in self.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    _coords = {dim.label:dim.get_value(
-                                   scans, scan_number, scan_step_index)
-                               for dim in self.independent_dimensions}
-                    if _coords == coords:
-                        return scans, scan_number, scan_step_index
-        raise RuntimeError(f'Unable to match coordinates {coords}')
+        if self.map_type == 'structured':
+            coords = {dim: self.coords[dim][i]
+                      for dim, i in zip(self.dims, map_index)}
+            for scans, scan_number, scan_step_index in self.scan_step_indices:
+                _coords = {dim.label:dim.get_value(
+                               scans, scan_number, scan_step_index)
+                           for dim in self.independent_dimensions}
+                if _coords == coords:
+                    return scans, scan_number, scan_step_index
+            raise RuntimeError(f'Unable to match coordinates {coords}')
+        else:
+            if isinstance(map_index, tuple):
+                if len(map_index) == 1:
+                    map_index = map_index[0]
+                else:
+                    raise ValueError(
+                        'Indices for unstructured maps must be 1D.')
+            return self.scan_step_indices[map_index]
 
     def get_value(self, data, map_index):
         """Return the raw data collected by a single device at a
@@ -859,82 +886,6 @@ class MapConfig(BaseModel):
             self.get_scan_step_index(map_index)
         scanparser = scans.get_scanparser(scan_number)
         return scanparser.get_detector_data(detector_name, scan_step_index)
-
-
-class UnstructuredMapConfig(MapConfig):
-    """Represents a sample map where data points were not taken at
-    every point in a grid.
-    """
-    _scan_step_indices: dict = PrivateAttr()
-    def get_scan_step_index(self, map_index):
-        """Return parameters to identify a single SPEC scan step that
-        corresponds to the map point at the index provided.
-
-        :param map_index: The index of a map point to identify as a
-            specific SPEC scan step index
-        :type map_index: int
-        :return: A `SpecScans` configuration, scan number, and scan
-            step index
-        :rtype: tuple[SpecScans, int, int]
-        """
-        if isinstance(map_index, tuple):
-            if len(map_index) == 1:
-                map_index = map_index[0]
-            else:
-                raise ValueError('Indices for unstructured maps must be 1D.')
-        return self.scan_step_indices[map_index]
-
-    @property
-    def shape(self):
-        """Return the shape of the map -- a tuple representing the
-        number of unique values of each dimension across the map.
-        """
-        return((len(self.scan_step_indices),))
-
-    @property
-    def scan_step_indices(self):
-        """Return an ordered list in which we can look up the SpecScans
-        object, the scan number, and scan step index for every point
-        in the map
-
-        :returns: list of specific spec scan info for every point in the map
-        :rtype: list[tuple[SpecScans, int, int]]
-        """
-        try:
-            scan_step_indices = self._scan_step_indices
-        except:
-            scan_step_indices = []
-            for scans in self.spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(scanparser.spec_scan_npts):
-                        scan_step_indices.append(
-                            (scans, scan_number, scan_step_index))
-        return scan_step_indices
-
-    @property
-    def coords(self):
-        """Return a dictionary of the values of each independent
-        dimension across the map.
-
-        :returns: A dictionary ofthe map's  coordinate values.
-        :rtype: dict[str,list[float]]
-        """
-        try:
-            coords = self._coords
-        except:
-            coords = {}
-            for dim in self.independent_dimensions:
-                coords[dim.label] = []
-                for scans in self.spec_scans:
-                    for scan_number in scans.scan_numbers:
-                        scanparser = scans.get_scanparser(scan_number)
-                        for scan_step_index in range(
-                                scanparser.spec_scan_npts):
-                            coords[dim.label].append(dim.get_value(
-                                    scans, scan_number, scan_step_index))
-            self._coords = coords
-        return coords
 
 
 def import_scanparser(station, experiment):

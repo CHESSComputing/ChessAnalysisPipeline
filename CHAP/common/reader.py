@@ -175,8 +175,6 @@ class MapReader(Reader):
         # Validate the map configuration provided by constructing a
         # MapConfig
         map_config = MapConfig(**map_config, inputdir=inputdir)
-        print(f'\nmap_config:\n{map_config}\n')
-        exit('Done')
 
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
@@ -193,7 +191,8 @@ class MapReader(Reader):
 
         # Set up default data group
         nxentry.data = NXdata()
-        nxentry.data.attrs['axes'] = map_config.dims
+        if map_config.map_type == 'structured':
+            nxentry.data.attrs['axes'] = map_config.dims
         for i, dim in enumerate(map_config.independent_dimensions[::-1]):
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
@@ -201,7 +200,8 @@ class MapReader(Reader):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-            nxentry.data.attrs[f'{dim.label}_indices'] = i
+            if map_config.map_type == 'structured':
+                nxentry.data.attrs[f'{dim.label}_indices'] = i
 
         # Create empty NXfields for all scalar data present in the
         # provided map configuration
