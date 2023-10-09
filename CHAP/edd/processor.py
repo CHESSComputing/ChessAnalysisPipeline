@@ -8,6 +8,7 @@ Description: Module for Processors used only by EDD experiments
 """
 
 # System modules
+from copy import deepcopy
 from json import dumps
 import os
 
@@ -794,11 +795,27 @@ class StrainAnalysisProcessor(Processor):
         )
         from CHAP.utils.fit import FitMap
 
-        def linkdims(nxgroup):
+        def linkdims(nxgroup, field_dims=[]):
+            if isinstance(field_dims, dict):
+                field_dims = [field_dims]
+            if map_config.map_type == 'structured':
+                axes = deepcopy(map_config.dims)
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+                nxgroup.attrs['axes'] = axes
+            else:
+                axes = ['map_index']
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+                nxgroup.attrs['axes'] = axes
+                nxgroup.attrs[f'map_index_indices'] = 0
             for dim in map_config.dims:
                 nxgroup.makelink(nxentry.data[dim])
-                nxgroup.attrs[f'{dim}_indices'] = \
-                    nxentry.data.attrs[f'{dim}_indices']
+                if f'{dim}_indices' in nxentry.data.attrs:
+                    nxgroup.attrs[f'{dim}_indices'] = \
+                        nxentry.data.attrs[f'{dim}_indices']
+            for dims in field_dims:
+                nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
 
         if len(strain_analysis_config.detectors) != 1:
             raise RuntimeError('Multiple detectors not tested')
@@ -819,7 +836,6 @@ class StrainAnalysisProcessor(Processor):
         nxprocess.data = NXdata()
         nxprocess.default = 'data'
         nxdata = nxprocess.data
-        nxdata.attrs['axes'] = map_config.dims
         linkdims(nxdata)
 
         # Get the unique HKLs and lattice spacings for the strain
@@ -901,13 +917,12 @@ class StrainAnalysisProcessor(Processor):
             nxdetector.detector_config = dumps(detector.dict())
             nxdetector.data = NXdata()
             det_nxdata = nxdetector.data
-            det_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(det_nxdata)
+            linkdims(
+                det_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             mask = detector.mca_mask()
             energies = mca_bin_energies[i][mask]
             det_nxdata.energy = NXfield(value=energies,
                                         attrs={'units': 'keV'})
-            det_nxdata.attrs['energy_indices'] = len(map_config.dims)
             det_nxdata.intensity = NXfield(
                 dtype='uint16',
                 shape=(*map_config.shape, len(energies)),
@@ -987,17 +1002,15 @@ class StrainAnalysisProcessor(Processor):
             # Full map of results
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
-            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(fit_nxdata)
+            linkdims(
+                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
 
             # Peak-by-peak results
 #            fit_nxgroup.fit_hkl_centers = NXdata()
 #            fit_nxdata = fit_nxgroup.fit_hkl_centers
-#            fit_nxdata.attrs['axes'] = map_config.dims
 #            linkdims(fit_nxdata)
             for (hkl, center_guess, centers_fit, centers_error,
                 amplitudes_fit, amplitudes_error, sigmas_fit,
@@ -1014,7 +1027,6 @@ class StrainAnalysisProcessor(Processor):
                     'keV'
                 # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
@@ -1025,7 +1037,6 @@ class StrainAnalysisProcessor(Processor):
 #                    fit_nxgroup[f'{hkl_name}/centers/values'], name=hkl_name)
                 # Report HKL peak amplitudes
                 fit_nxgroup[hkl_name].amplitudes = NXdata()
-                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].amplitudes)
                 fit_nxgroup[hkl_name].amplitudes.values = NXfield(
                     value=amplitudes_fit, attrs={'units': 'counts'})
@@ -1034,7 +1045,6 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
                 # Report HKL peak FWHM
                 fit_nxgroup[hkl_name].sigmas = NXdata()
-                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].sigmas)
                 fit_nxgroup[hkl_name].sigmas.values = NXfield(
                     value=sigmas_fit, attrs={'units': 'keV'})
@@ -1080,35 +1090,31 @@ class StrainAnalysisProcessor(Processor):
                 import matplotlib.animation as animation
 
                 def animate(i):
-                    map_indices = np.unravel_index(
-                        i, det_nxdata.intensity.nxdata.shape[0:-1])
+                    map_index = np.unravel_index(i, map_config.shape)
                     intensity.set_ydata(
-                        det_nxdata.intensity.nxdata[map_indices]
-                        / det_nxdata.intensity.nxdata[map_indices].max())
-                    best_fit.set_ydata(fit.best_fit[map_indices]
-                                       / fit.best_fit[map_indices].max())
-                    # residual.set_ydata(fit.residual[map_indices])
-                    index.set_text(
-                        '\n'.join(
-                            f'{dim}[{i}]={nxentry.data[dim][map_indices[j]]}'
-                            for j, dim in enumerate(map_config.dims)))
+                        det_nxdata.intensity.nxdata[map_index]
+                        / det_nxdata.intensity.nxdata[map_index].max())
+                    best_fit.set_ydata(fit.best_fit[map_index]
+                                       / fit.best_fit[map_index].max())
+                    # residual.set_ydata(fit.residual[map_index])
+                    index.set_text('\n'.join(f'{k}[{i}] = {v}'
+                        for k, v in map_config.get_coords(map_index).items()))
                     # return intensity, best_fit, residual, index
                     return intensity, best_fit, index
 
                 fig, ax = plt.subplots()
-                map_indices = np.unravel_index(
-                    0, det_nxdata.intensity.nxdata.shape[0:-1])
+                map_index = np.unravel_index(0, map_config.shape)
                 data_normalized = (
-                    det_nxdata.intensity.nxdata[map_indices]
-                    / det_nxdata.intensity.nxdata[map_indices].max())
+                    det_nxdata.intensity.nxdata[map_index]
+                    / det_nxdata.intensity.nxdata[map_index].max())
                 intensity, = ax.plot(
                     energies, data_normalized, 'b.', label='data')
-                fit_normalized = (fit.best_fit[map_indices]
-                                  / fit.best_fit[map_indices].max())
+                fit_normalized = (fit.best_fit[map_index]
+                                  / fit.best_fit[map_index].max())
                 best_fit, = ax.plot(
                     energies, fit_normalized, 'k-', label='fit')
                 # residual, = ax.plot(
-                #     energies, fit.residual[map_indices], 'r-',
+                #     energies, fit.residual[map_index], 'r-',
                 #     label='residual')
                 ax.set(
                     title='Unconstrained fits',
@@ -1149,17 +1155,15 @@ class StrainAnalysisProcessor(Processor):
             # Full map of results
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
-            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(fit_nxdata)
+            linkdims(
+                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
 
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
-            fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
             for (hkl, center_guesses, centers_fit, centers_error,
                 amplitudes_fit, amplitudes_error, sigmas_fit,
@@ -1174,8 +1178,6 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name] = NXparameters()
                 # Report initial guesses HKL peak centers
                 fit_nxgroup[hkl_name].center_initial_guess = NXdata()
-                fit_nxgroup[hkl_name].center_initial_guess.attrs['axes'] = \
-                    map_config.dims
                 linkdims(fit_nxgroup[hkl_name].center_initial_guess)
                 fit_nxgroup[hkl_name].center_initial_guess.makelink(
                     nxdetector.uniform_fit[f'{hkl_name}/centers/values'],
@@ -1184,7 +1186,6 @@ class StrainAnalysisProcessor(Processor):
                     'values'
                 # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
@@ -1195,7 +1196,6 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
                 # Report HKL peak amplitudes
                 fit_nxgroup[hkl_name].amplitudes = NXdata()
-                fit_nxgroup[hkl_name].amplitudes.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].amplitudes)
                 fit_nxgroup[hkl_name].amplitudes.values = NXfield(
                     value=amplitudes_fit, attrs={'units': 'counts'})
@@ -1204,7 +1204,6 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
                 # Report HKL peak sigmas
                 fit_nxgroup[hkl_name].sigmas = NXdata()
-                fit_nxgroup[hkl_name].sigmas.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].sigmas)
                 fit_nxgroup[hkl_name].sigmas.values = NXfield(
                     value=sigmas_fit, attrs={'units': 'keV'})
