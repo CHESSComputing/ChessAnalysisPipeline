@@ -838,14 +838,6 @@ class StrainAnalysisProcessor(Processor):
         nxdata = nxprocess.data
         linkdims(nxdata)
 
-        # Get the unique HKLs and lattice spacings for the strain
-        # analysis materials (assume hkl_tth_tol and tth_max are the
-        # same for each detector)
-        hkls, ds = get_unique_hkls_ds(
-            strain_analysis_config.materials,
-            tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
-            tth_max=strain_analysis_config.detectors[0].tth_max)
-
         # Collect raw MCA data of interest
         mca_bin_energies = []
         for i, detector in enumerate(strain_analysis_config.detectors):
@@ -888,6 +880,12 @@ class StrainAnalysisProcessor(Processor):
                     'material_config.png'))
             plt.close()
 
+            # ASK: can we assume same hkl_tth_tol and tth_max for
+            # every detector in this part?
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials,
+                tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
+                tth_max=strain_analysis_config.detectors[0].tth_max)
             for i, detector in enumerate(strain_analysis_config.detectors):
                 fig, include_bin_ranges, hkl_indices = \
                     select_mask_and_hkls(
@@ -906,6 +904,16 @@ class StrainAnalysisProcessor(Processor):
                         f'{detector.detector_name}_strainanalysis_'
                         'fit_mask_hkls.png'))
                 plt.close()
+        else:
+            # ASK: can we assume same hkl_tth_tol and tth_max for
+            # every detector in this part?
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials (assume hkl_tth_tol and tth_max are the
+            # same for each detector)
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials,
+                tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
+                tth_max=strain_analysis_config.detectors[0].tth_max)
 
         for i, detector in enumerate(strain_analysis_config.detectors):
             # Setup NXdata group

@@ -69,6 +69,8 @@ class MCAElementConfig(BaseModel):
         num_bins = values.get('num_bins')
         if num_bins is not None:
             value[1] = min(value[1], num_bins)
+        else:
+            return []
         return value
 
     def mca_mask(self):
