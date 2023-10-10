@@ -437,7 +437,7 @@ def index_nearest(a, value):
     return (int)(np.argmin(np.abs(a-value)))
 
 
-def index_nearest_low(a, value):
+def index_nearest_down(a, value):
     """Return index of nearest array value, rounded down"""
     a = np.asarray(a)
     if a.ndim > 1:
@@ -459,6 +459,23 @@ def index_nearest_upp(a, value):
     if value > a[index] and index < a.size-1:
         index += 1
     return index
+
+
+def get_consecutive_int_range(a):
+    """Return a list of pairs of integers marking consecutive ranges
+    of integers."""
+    a.sort()
+    i = 0
+    int_ranges = []
+    while i < len(a):
+        j = i
+        while j < len(a)-1:
+            if a[j+1] > 1 + a[j]:
+                break   
+            j += 1
+        int_ranges.append([a[i], a[j]])
+        i = j+1
+    return int_ranges
 
 
 def round_to_n(x, n=1):
@@ -1039,10 +1056,10 @@ def select_mask_1d(
 
     def update_mask(mask, selected_index_ranges):
         """Update the mask with the selected index ranges."""
-        for low, upp in selected_index_ranges:
+        for min_, max_ in selected_index_ranges:
             mask = np.logical_or(
                 mask,
-                np.logical_and(x >= x[low], x <= x[min(upp, num_data-1)]))
+                np.logical_and(x >= x[min_], x <= x[min(max_, num_data-1)]))
         return mask
 
     def update_index_ranges(mask):
@@ -1134,8 +1151,8 @@ def select_mask_1d(
             update_mask(
                 np.copy(np.asarray(preselected_mask, dtype=bool)),
                 preselected_index_ranges))
-    for low, upp in preselected_index_ranges:
-        add_span(None, xrange_init=(x[low], x[min(upp, num_data-1)]))
+    for min_, max_ in preselected_index_ranges:
+        add_span(None, xrange_init=(x[min_], x[min(max_, num_data-1)]))
 
     if not interactive:
 

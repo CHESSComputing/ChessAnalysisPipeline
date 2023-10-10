@@ -1,5 +1,8 @@
 """Utility functions for EDD workflows"""
 
+# System modules
+from copy import deepcopy
+
 # Third party modules
 import numpy as np
 
@@ -73,9 +76,6 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     :return: Unique HKLs, unique lattice spacings.
     :rtype: tuple[np.ndarray, np.ndarray]
     """
-    # System modules
-    from copy import deepcopy
-
     # Local modules
     from CHAP.edd.models import MaterialConfig
 
@@ -134,9 +134,6 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         guess for 2&theta.
     :type: matplotlib.figure.Figure, float
     """
-    # System modules:
-    from copy import deepcopy
-
     # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
@@ -287,9 +284,6 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
     :rtype: matplotlib.figure.Figure,
         list[CHAP.edd.models.MaterialConfig]
     """
-    # System modules
-    from copy import deepcopy
-
     # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
@@ -541,14 +535,18 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         include
     :rtype: matplotlib.figure.Figure, list[list[int]], list[int]
     """
-    # System modules
-    from copy import deepcopy
-
     # Third party modules
     import matplotlib.lines as mlines
     from matplotlib.patches import Patch
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, SpanSelector
+
+    # Local modules
+    from CHAP.utils.general import (
+        get_consecutive_int_range,
+        index_nearest_down,
+        index_nearest_upp,
+    )
 
     def change_fig_title(title):
         if fig_title:
@@ -562,43 +560,74 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
+    def hkl_locations_in_any_span(hkl_index):
+        """Return the index of the span where the location of a specific
+        HKL resides. Return(-1 if outside any span."""
+        if hkl_index < 0 or hkl_index>= len(hkl_locations):
+            return -1
+        for i, span in enumerate(spans):
+            if (span.extents[0] <= hkl_locations[hkl_index] and
+                    span.extents[1] >= hkl_locations[hkl_index]):
+                return i
+        return -1
+
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
         removed_hkls = False
-        for hkl_index in deepcopy(selected_hkl_indices):
-            if not any(True if span.extents[0] <= hkl_locations[hkl_index] and
-                    span.extents[1] >= hkl_locations[hkl_index] else False
-                    for span in spans):
-                hkl_vlines[hkl_index].set(**excluded_hkl_props)
-                selected_hkl_indices.remove(hkl_index)
-                removed_hkls = True
-        if removed_hkls:
-            change_error_text(
-                'Removed HKL(s) outside the currently selected energy mask')
-        combined_spans = True
-        while combined_spans:
-            combined_spans = False
+        if not init_flag[0]:
+            for hkl_index in deepcopy(selected_hkl_indices):
+                if hkl_locations_in_any_span(hkl_index) < 0:
+                    hkl_vlines[hkl_index].set(**excluded_hkl_props)
+                    selected_hkl_indices.remove(hkl_index)
+                    removed_hkls = True
+        combined_spans = False
+        combined_spans_test = True
+        while combined_spans_test:
+            combined_spans_test = False
             for i, span1 in enumerate(spans):
                 for span2 in reversed(spans[i+1:]):
                     if (span1.extents[1] >= span2.extents[0]
                             and span1.extents[0] <= span2.extents[1]):
-                        change_error_text(
-                            'Combined overlapping spans in the currently '
-                            'selected energy mask')
                         span1.extents = (
                             min(span1.extents[0], span2.extents[0]),
                             max(span1.extents[1], span2.extents[1]))
                         span2.set_visible(False)
                         spans.remove(span2)
                         combined_spans = True
+                        combined_spans_test = True
                         break
-                if combined_spans:
+                if combined_spans_test:
                     break
         if flux_energy_range is not None:
             for span in spans:
-                min_x = max(span.extents[0], flux_min_x)
-                max_x = min(span.extents[1], flux_max_x)
-                span.extents = (min_x, max_x)
+                min_ = max(span.extents[0], min_x)
+                max_ = min(span.extents[1], max_x)
+                span.extents = (min_, max_)
+        added_hkls = False
+        for hkl_index in range(len(hkl_locations)):
+            if (hkl_index not in selected_hkl_indices
+                    and hkl_locations_in_any_span(hkl_index) >= 0):
+                hkl_vlines[hkl_index].set(**included_hkl_props)
+                selected_hkl_indices.append(hkl_index)
+                added_hkls = True
+        if combined_spans:
+            if added_hkls or removed_hkls:
+                change_error_text(
+                    'Combined overlapping spans and selected only HKL(s) '
+                    'inside the selected energy mask')
+            else:
+                change_error_text(
+                    'Combined overlapping spans in the selected energy mask')
+        elif added_hkls and removed_hkls:
+            change_error_text(
+                'Adjusted the selected HKL(s) to match the selected '
+                'energy mask')
+        elif added_hkls:
+            change_error_text(
+                'Added HKL(s) to match the selected energy mask')
+        elif removed_hkls:
+            change_error_text(
+                'Removed HKL(s) outside the selected energy mask')
         plt.draw()
 
     def add_span(event, xrange_init=None):
@@ -608,21 +637,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 ax, on_span_select, 'horizontal', props=included_data_props,
                 useblit=True, interactive=interactive, drag_from_anywhere=True,
                 ignore_event_outside=True, grab_range=5))
-        if flux_energy_range is None:
-            if xrange_init is None:
-                min_x = x.min()
-                xmin_init, xmax_init = min_x, min_x+0.05*(x.max()-min_x)
-            else:
-                xmin_init, xmax_init = xrange_init
+        if xrange_init is None:
+            xmin_init = min_x
+            xmax_init = 0.5*(min_x + hkl_locations[0])
         else:
-            if xrange_init is None:
-                min_x = x.min()
-                xmin_init = max(min_x, flux_min_x)
-                xmax_init = xmin_init + 0.05*min(
-                    x.max()-min_x, flux_max_x-flux_min_x)
-            else:
-                xmin_init = max(flux_min_x, xrange_init[0])
-                xmax_init = min(flux_max_x, xrange_init[1])
+            xmin_init = max(min_x, xrange_init[0])
+            xmax_init = min(max_x, xrange_init[1])
         spans[-1]._selection_completed = True
         spans[-1].extents = (xmin_init, xmax_init)
         spans[-1].onselect(xmin_init, xmax_init)
@@ -635,19 +655,42 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             pass
         else:
             hkl_vline = event.artist
-            if hkl_index in selected_hkl_indices:
+            if hkl_index in deepcopy(selected_hkl_indices):
                 hkl_vline.set(**excluded_hkl_props)
                 selected_hkl_indices.remove(hkl_index)
-            else:
-                if any(True if span.extents[0] <= hkl_locations[hkl_index] and
-                        span.extents[1] >= hkl_locations[hkl_index] else False
-                        for span in spans):
-                    hkl_vline.set(**included_hkl_props)
-                    selected_hkl_indices.append(hkl_index)
+                span = spans[hkl_locations_in_any_span(hkl_index)]
+                span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
+                span_prev_hkl_index = hkl_locations_in_any_span(hkl_index-1)
+                if span_next_hkl_index < 0 and span_prev_hkl_index < 0:
+                    span.set_visible(False)
+                    spans.remove(span)
+                elif span_next_hkl_index < 0:
+                    span.extents = (
+                        span.extents[0],
+                        0.5*(hkl_locations[hkl_index-1]
+                             + hkl_locations[hkl_index]))
+                elif span_prev_hkl_index < 0:
+                    span.extents = (
+                        0.5*(hkl_locations[hkl_index]
+                             + hkl_locations[hkl_index+1]),
+                        span.extents[1])
                 else:
-                    change_error_text(
-                        f'Selected HKL is outside any current span, '
-                        'extend or add spans before adding this value')
+                    xrange_init = [
+                        0.5*(hkl_locations[hkl_index]
+                             + hkl_locations[hkl_index+1]),
+                        span.extents[1]]
+                    span.extents = (
+                        span.extents[0],
+                        0.5*(hkl_locations[hkl_index-1]
+                             + hkl_locations[hkl_index]))
+                    add_span(None, xrange_init=xrange_init)
+                change_error_text(
+                    f'Adjusted the selected energy mask to reflect the '
+                    'removed HKL')
+            else:
+                change_error_text(
+                    f'Selected HKL is outside any current span, '
+                    'extend or add spans before adding this value')
             plt.draw()
 
     def reset(event):
@@ -701,14 +744,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     included_data_props = {
         'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
 
-    if flux_energy_range is not None:
-        # Local modules
-        from CHAP.utils.general import (
-            index_nearest_low,
-            index_nearest_upp,
-        )
-        flux_min_x = x[index_nearest_upp(x, flux_energy_range[0])]
-        flux_max_x = x[index_nearest_low(x, flux_energy_range[1])]
+    if flux_energy_range is None:
+        min_x = x.min()
+        max_x = x.max()
+    else:
+        min_x = x[index_nearest_upp(x, max(x.min(), flux_energy_range[0]))]
+        max_x = x[index_nearest_down(x, min(x.max(), flux_energy_range[1]))]
 
     if ref_map is None:
         fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -740,8 +781,21 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     ax.legend(handles=handles)
     ax.set_xlim(x[0], x[-1])
 
-    for bin_range in preselected_bin_ranges:
-        add_span(None, xrange_init=x[bin_range])
+    if selected_hkl_indices and not preselected_bin_ranges:
+        index_ranges = get_consecutive_int_range(selected_hkl_indices)
+        for index_range in index_ranges:
+            i = index_range[0]
+            if i:
+                min_ = 0.5*(hkl_locations[i-1] + hkl_locations[i])
+            else:
+                min_ = 0.5*(min_x + hkl_locations[i])
+            j = index_range[1]
+            if j < len(hkl_locations)-1:
+                max_ = 0.5*(hkl_locations[j] + hkl_locations[j+1])
+            else:
+                max_ = 0.5*(hkl_locations[j] + max_x)
+            preselected_bin_ranges.append(
+                [index_nearest_upp(x, min_), index_nearest_down(x, max_)])
 
     for i, (loc, lbl) in enumerate(zip(hkl_locations, hkl_labels)):
         nearest_index = np.searchsorted(x, loc)
@@ -752,6 +806,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
                 transform=ax.get_xaxis_transform())
         hkl_vlines.append(hkl_vline)
+
+    init_flag = [True]
+    for bin_range in preselected_bin_ranges:
+        add_span(None, xrange_init=x[bin_range])
+    init_flag = [False]
 
     if not interactive:
 

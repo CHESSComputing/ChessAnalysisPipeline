@@ -45,13 +45,12 @@ class MCAElementConfig(BaseModel):
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)]
-    include_bin_ranges: Optional[
-        conlist(
-            min_items=1,
-            item_type=conlist(
-                item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))] = []
+    include_bin_ranges: conlist(
+        min_items=1,
+        item_type=conlist(
+            item_type=conint(ge=0),
+            min_items=2,
+            max_items=2)) = []
 
     @validator('include_bin_ranges', each_item=True)
     def validate_include_bin_range(cls, value, values):
@@ -65,12 +64,12 @@ class MCAElementConfig(BaseModel):
         :return: The validated value of `include_bin_ranges`.
         :rtype: dict
         """
-        #RV test for more than one bin
         num_bins = values.get('num_bins')
         if num_bins is not None:
-            value[1] = min(value[1], num_bins)
-        else:
-            return []
+            value[1] = min(value[1], num_bins-1)
+        if value[0] >= value[1]:
+            raise ValueError('Invalid bin range in include_bin_ranges '
+                             f'({value})')
         return value
 
     def mca_mask(self):
@@ -82,9 +81,9 @@ class MCAElementConfig(BaseModel):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for low, upp in self.include_bin_ranges:
+        for min_, max_ in self.include_bin_ranges:
             mask = np.logical_or(
-                mask, np.logical_and(bin_indices >= low, bin_indices <= upp))
+                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
 
     def dict(self, *args, **kwargs):
@@ -208,7 +207,7 @@ class MCAScanDataConfig(BaseModel):
 
             # Local modules
             from CHAP.utils.general import (
-                index_nearest_low,
+                index_nearest_down,
                 index_nearest_upp,
             )
             flux = np.loadtxt(flux_file)
@@ -217,12 +216,12 @@ class MCAScanDataConfig(BaseModel):
             for detector in detectors:
                 mca_bin_energies = np.linspace( 
                     0, detector.max_energy_kev, detector.num_bins)
-                min_ = index_nearest_upp(mca_bin_energies, energy_range[0])
-                max_ = index_nearest_low(mca_bin_energies, energy_range[1])
-                for i, (low, upp) in enumerate(
+                e_min = index_nearest_upp(mca_bin_energies, energy_range[0])
+                e_max = index_nearest_down(mca_bin_energies, energy_range[1])
+                for i, (min_, max_) in enumerate(
                         deepcopy(detector.include_bin_ranges)):
-                    if low < min_ or upp > max_:
-                        bin_range = [max(low, min_), min(upp, max_)]
+                    if min_ < e_min or max_ > e_max:
+                        bin_range = [max(min_, e_min), min(max_, e_max)]
                         print(f'WARNING: include_bin_ranges[{i}] out of range '
                               f'({detector.include_bin_ranges[i]}): adjusted '
                               f'to {bin_range}')
@@ -418,7 +417,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
             from CHAP.utils.general import string_to_list
 
             hkl_indices = string_to_list(hkl_indices)
-        return hkl_indices
+        return sorted(hkl_indices)
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """Class representing metadata required to perform a diffraction
@@ -666,7 +665,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             from CHAP.utils.general import string_to_list
 
             hkl_indices = string_to_list(hkl_indices)
-        return hkl_indices
+        return sorted(hkl_indices)
 
     class Config:
         arbitrary_types_allowed = True
