@@ -630,9 +630,13 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
     :ivar peak_models: Peak model for peak fitting,
-        defaults to 'gaussian'.
+        defaults to `'gaussian'`.
     :type peak_models: Literal['gaussian', 'lorentzian']],
         list[Literal['gaussian', 'lorentzian']]], optional
+    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `1.0`.
+    :type fwhm_min: float, optional
+    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
+    :type fwhm_max: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
     :ivar slope_calibrated: Calibrated value for detector channel.
@@ -651,6 +655,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
+    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 1.0
+    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 5.0
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
@@ -817,12 +823,12 @@ class StrainAnalysisConfig(BaseModel):
         """Get MCA data for a single or multiple detector elements.
 
         :param detector: Detector(s) for which data is returned,
-            defaults to None, which return MCA data for all 
+            defaults to `None`, which return MCA data for all 
             detector elements.
         :type detector: Union[int, MCAElementStrainAnalysisConfig],
             optional
         :param map_index: Index of a single point in the map, defaults
-            to None, which returns MCA data for each point in the map.
+            to `None`, which returns MCA data for each point in the map.
         :type map_index: tuple, optional
         :return: A single MCA spectrum.
         :rtype: np.ndarray

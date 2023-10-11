@@ -118,7 +118,9 @@ class Fit:
         self._result = None
         self._try_linear_fit = True
         self._param_constraint = None
+        self._fwhm_min = None
         self._fwhm_max = None
+        self._sigma_min = None
         self._sigma_max = None
         self._y = None
         self._y_norm = None
@@ -851,12 +853,20 @@ class Fit:
 
     def create_multipeak_model(
             self, centers=None, fit_type=None, peak_models=None,
-            center_exprs=None, background=None, param_constraint=False,
-            fwhm_max=None):
+            center_exprs=None, background=None, param_constraint=True,
+            fwhm_min=None, fwhm_max=None, centers_range=None):
         """Create a multipeak model."""
         # System modules
         from re import search as re_search
 
+        # Third party modules
+        from asteval import Interpreter
+
+        if centers_range is None:
+            centers_range = (self._x[0], self._x[-1])
+        elif not is_index_range(centers_range, ge=self._x[0], le=self._x[-1]):
+            raise ValueError(
+                f'Invalid parameter centers_range ({centers_range})')
         if self._model is not None:
             if self._fit_type == 'uniform' and fit_type != 'uniform':
                 logger.info('Use the existing multipeak model to refit a '
@@ -872,10 +882,12 @@ class Fit:
                         self._best_errors, scale_factor_index, 0)
                     for name, par in self._parameters.items():
                         if re_search('peak\d+_center', name) is not None:
-                            par.set(min=min_value, vary=True, expr=None)
+                            par.set(
+                                min=centers_range[0], max=centers_range[1],
+                                vary=True, expr=None)
                             self._parameter_bounds[name] = {
-                                'min': min_value,
-                                'max': np.inf,
+                                'min': centers_range[0],
+                                'max': centers_range[1],
                             }
                 else:
                     for name, par in self._parameters.items():
@@ -942,11 +954,15 @@ class Fit:
                 raise ValueError(
                     f'Invalid parameter fit_type ({fit_type})')
         self._fit_type = fit_type
+        self._fwhm_min = fwhm_min
         self._fwhm_max = fwhm_max
+        self._sigma_min = None
         self._sigma_max = None
         if param_constraint:
             self._param_constraint = True
             min_value = FLOAT_MIN
+            if self._fwhm_min is not None:
+                self._sigma_min = np.zeros(num_peaks)
             if self._fwhm_max is not None:
                 self._sigma_max = np.zeros(num_peaks)
         else:
@@ -1045,7 +1061,13 @@ class Fit:
                     f'Invalid parameter background ({background})')
 
         # Add peaks and set initial fit parameters
+        ast = Interpreter()
         if num_peaks == 1:
+            sig_min = None
+            if self._sigma_min is not None:
+                ast(f'fwhm = {self._fwhm_min}')
+                sig_min = ast(fwhm_factor[peak_models[0]])
+                self._sigma_min[0] = sig_min
             sig_max = None
             if self._sigma_max is not None:
                 ast(f'fwhm = {self._fwhm_max}')
@@ -1055,14 +1077,20 @@ class Fit:
                 peak_models[0],
                 parameters=(
                     {'name': 'amplitude', 'min': min_value},
-                    {'name': 'center', 'value': centers[0], 'min': min_value},
-                    {'name': 'sigma', 'min': min_value, 'max': sig_max},
+                    {'name': 'center', 'value': centers[0],
+                     'min': centers_range[0], 'max': centers_range[1]},
+                    {'name': 'sigma', 'min': sig_min, 'max': sig_max},
                 ))
         else:
             if fit_type == 'uniform':
                 self.add_parameter(
                     name='scale_factor', value=1.0, min=min_value)
             for i in range(num_peaks):
+                sig_min = None
+                if self._sigma_min is not None:
+                    ast(f'fwhm = {self._fwhm_min}')
+                    sig_min = ast(fwhm_factor[peak_models[i]])
+                    self._sigma_min[i] = sig_min
                 sig_max = None
                 if self._sigma_max is not None:
                     ast(f'fwhm = {self._fwhm_max}')
@@ -1074,8 +1102,7 @@ class Fit:
                         parameters=(
                             {'name': 'amplitude', 'min': min_value},
                             {'name': 'center', 'expr': center_exprs[i]},
-                            {'name': 'sigma', 'min': min_value,
-                             'max': sig_max},
+                            {'name': 'sigma', 'min': sig_min, 'max': sig_max},
                         ))
                 else:
                     self.add_model(
@@ -1084,7 +1111,7 @@ class Fit:
                         parameters=(
                             {'name': 'amplitude', 'min': min_value},
                             {'name': 'center', 'value': centers[i],
-                             'min': min_value},
+                             'min': centers_range[0], 'max': centers_range[1]},
                             {'name': 'sigma', 'min': min_value,
                              'max': sig_max},
                         ))
@@ -1178,7 +1205,10 @@ class Fit:
                             self.guess_init_peak(
                                 xx, yy, center_guess=center,
                                 use_max_for_center=False)
-                        if (self._fwhm_max is not None
+                        if (self._fwhm_min is not None
+                                and fwhm_init < self._fwhm_min):
+                            fwhm_init = self._fwhm_min
+                        elif (self._fwhm_max is not None
                                 and fwhm_init > self._fwhm_max):
                             fwhm_init = self._fwhm_max
                         ast(f'fwhm = {fwhm_init}')

@@ -976,8 +976,10 @@ class StrainAnalysisProcessor(Processor):
                 peak_locations,
                 fit_type='uniform',
                 peak_models=detector.peak_models,
-                background=detector.background)
-            fit.fit()
+                background=detector.background,
+                fwhm_min=detector.fwhm_min,
+                fwhm_max=detector.fwhm_max)
+            fit.fit()#num_proc=1, plot=False)
             uniform_fit_centers = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_center')]
@@ -1065,7 +1067,7 @@ class StrainAnalysisProcessor(Processor):
             # as inital guesses
             self.logger.debug('Performing unconstrained fit')
             fit.create_multipeak_model(fit_type='unconstrained')
-            fit.fit()
+            fit.fit()#num_proc=1, plot=False, print_report=True)
             unconstrained_fit_centers = np.array(
                 [fit.best_values[
                     fit.best_parameters()\
