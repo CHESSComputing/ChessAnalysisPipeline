@@ -372,7 +372,6 @@ class MCACeriaCalibrationProcessor(Processor):
                 select_mask_and_hkls,
             )
 
-            plt.close()
             # Adjust initial tth guess
             fig, detector.tth_initial_guess = select_tth_initial_guess(
                 mca_bin_energies, mca_data, hkls, ds,
@@ -1100,6 +1099,13 @@ class StrainAnalysisProcessor(Processor):
                 # Third party modules
                 import matplotlib.animation as animation
 
+                if save_figures:
+                    path = os.path.join(
+                        outputdir, f'{detector.detector_name}_strainanalysis_'
+                        'unconstrained_fits')
+                    if not os.path.isdir(path):
+                        os.mkdir(path)
+
                 def animate(i):
                     map_index = np.unravel_index(i, map_config.shape)
                     intensity.set_ydata(
@@ -1110,12 +1116,8 @@ class StrainAnalysisProcessor(Processor):
                     # residual.set_ydata(fit.residual[map_index])
                     index.set_text('\n'.join(f'{k}[{i}] = {v}'
                         for k, v in map_config.get_coords(map_index).items()))
-                    #if save_figures:
-                    #    path = os.path.join(
-                    #        outputdir,
-                    #        f'{detector.detector_name}_strainanalysis_'
-                    #        f'unconstrained_fits_{i}.png')
-                    #    plt.savefig(path)
+                    if save_figures:
+                        plt.savefig(os.path.join(path, f'frame_{i}.png'))
                     #return intensity, best_fit, residual, index
                     return intensity, best_fit, index
 
@@ -1141,11 +1143,36 @@ class StrainAnalysisProcessor(Processor):
                 index = ax.text(
                     0.05, 0.95, '', transform=ax.transAxes, va='top')
 
-                ani = animation.FuncAnimation(
-                    fig, animate,
-                    frames=int(det_nxdata.intensity.nxdata.size
-                               / det_nxdata.intensity.nxdata.shape[-1]),
-                    interval=1000, blit=True, repeat=False)
+                num_frames = int(det_nxdata.intensity.nxdata.size
+                              / det_nxdata.intensity.nxdata.shape[-1])
+                if not save_figures:
+                    ani = animation.FuncAnimation(
+                        fig, animate,
+                        frames=int(det_nxdata.intensity.nxdata.size
+                                   / det_nxdata.intensity.nxdata.shape[-1]),
+                        interval=1000, blit=True, repeat=False)
+                else:
+                    for i in range(num_frames):
+                        animate(i)
+
+                    plt.close()
+                    plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
+
+                    frames = []
+                    for i in range(num_frames):
+                        frame = plt.imread(
+                            os.path.join(path, f'frame_{i}.png'))
+                        im = plt.imshow(frame, animated=True)
+                        if not i:
+                            plt.imshow(frame)
+                        frames.append([im])
+
+                    ani = animation.ArtistAnimation(
+                         plt.gcf(), frames, interval=1000, blit=True,
+                         repeat=False)
+
+                if interactive:
+                    plt.show()
 
                 if save_figures:
                     path = os.path.join(
@@ -1153,8 +1180,7 @@ class StrainAnalysisProcessor(Processor):
                         f'{detector.detector_name}_strainanalysis_'
                         'unconstrained_fits.mp4')
                     ani.save(path)
-                if interactive:
-                    plt.show()
+                plt.close()
 
             tth_map = detector.get_tth_map(map_config)
             det_nxdata.tth.nxdata = tth_map
