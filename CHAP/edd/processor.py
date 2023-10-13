@@ -963,6 +963,7 @@ class StrainAnalysisProcessor(Processor):
             fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = get_peak_locations(
                 fit_ds, detector.tth_calibrated)
+            num_peak = len(peak_locations)
             # KLS: Use the below def of peak_locations when
             # FitMap.create_multipeak_model can accept a list of maps
             # for centers.
@@ -979,31 +980,31 @@ class StrainAnalysisProcessor(Processor):
                 background=detector.background,
                 fwhm_min=detector.fwhm_min,
                 fwhm_max=detector.fwhm_max)
-            fit.fit()#num_proc=1, plot=False)
+            fit.fit()
             uniform_fit_centers = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             uniform_fit_centers_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             uniform_fit_amplitudes = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             uniform_fit_amplitudes_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             uniform_fit_sigmas = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             uniform_fit_sigmas_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -1067,33 +1068,33 @@ class StrainAnalysisProcessor(Processor):
             # as inital guesses
             self.logger.debug('Performing unconstrained fit')
             fit.create_multipeak_model(fit_type='unconstrained')
-            fit.fit()#num_proc=1, plot=False, print_report=True)
+            fit.fit(rel_amplitude_cutoff=detector.rel_amplitude_cutoff)
             unconstrained_fit_centers = np.array(
                 [fit.best_values[
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
-                 for i in range(len(peak_locations))])
+                 for i in range(num_peak)])
             unconstrained_fit_centers_errors = np.array(
                 [fit.best_errors[
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
-                 for i in range(len(peak_locations))])
+                 for i in range(num_peak)])
             unconstrained_fit_amplitudes = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             unconstrained_fit_amplitudes_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             unconstrained_fit_sigmas = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
             unconstrained_fit_sigmas_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
 
             if interactive or save_figures:
                 # Third party modules
@@ -1109,7 +1110,13 @@ class StrainAnalysisProcessor(Processor):
                     # residual.set_ydata(fit.residual[map_index])
                     index.set_text('\n'.join(f'{k}[{i}] = {v}'
                         for k, v in map_config.get_coords(map_index).items()))
-                    # return intensity, best_fit, residual, index
+                    #if save_figures:
+                    #    path = os.path.join(
+                    #        outputdir,
+                    #        f'{detector.detector_name}_strainanalysis_'
+                    #        f'unconstrained_fits_{i}.png')
+                    #    plt.savefig(path)
+                    #return intensity, best_fit, residual, index
                     return intensity, best_fit, index
 
                 fig, ax = plt.subplots()

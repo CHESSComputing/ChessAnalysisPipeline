@@ -1129,7 +1129,7 @@ class Fit:
         # Third party modules
         from asteval import Interpreter
 
-        # Check inputs
+        # Check input parameters
         if self._model is None:
             logger.error('Undefined fit model')
             return None
@@ -1148,6 +1148,11 @@ class Fit:
                     f'Invalid value of keyword argument guess ({guess})')
         else:
             guess = False
+        if self._result is not None:
+            if guess:
+                logger.warning(
+                    'Ignoring input parameter guess during refitting')
+                guess = False
         if 'try_linear_fit' in kwargs:
             try_linear_fit = kwargs.pop('try_linear_fit')
             if not isinstance(try_linear_fit, bool):
@@ -1160,16 +1165,6 @@ class Fit:
                     '(not yet supported for callable models)')
             else:
                 self._try_linear_fit = try_linear_fit
-        if self._result is not None:
-            if guess:
-                logger.warning(
-                    'Ignoring input parameter guess during refitting')
-                guess = False
-
-        # Check for circular expressions
-        # RV
-#        for name1, par1 in self._parameters.items():
-#            if par1.expr is not None:
 
         # Apply mask if supplied:
         if 'mask' in kwargs:
@@ -1198,7 +1193,7 @@ class Fit:
                 # Should work for other peak-like models,
                 #   but will need tests first
                 for component in self._model.components:
-                    if component._name == 'gaussian':
+                    if isinstance(component, GaussianModel):
                         center = self._parameters[
                             f"{component.prefix}center"].value
                         height_init, cen_init, fwhm_init = \
@@ -1322,9 +1317,7 @@ class Fit:
             self._parameter_bounds = {
                 name:{'min': par.min, 'max': par.max}
                 for name, par in self._parameters.items() if par.vary}
-            for par in self._parameters.values():
-                if par.vary:
-                    par.set(value=self._reset_par_at_boundary(par, par.value))
+            self._reset_par_at_boundary()
 
             # Perform the fit
             fit_kws = None
@@ -1872,39 +1865,39 @@ class Fit:
         if self._result.residual is not None:
             self._result.residual *= self._norm[1]
 
-    def _reset_par_at_boundary(self, par, value):
-        assert par.vary
-        name = par.name
-        _min = self._parameter_bounds[name]['min']
-        _max = self._parameter_bounds[name]['max']
-        if np.isinf(_min):
-            if not np.isinf(_max):
-                if self._parameter_norms.get(name, False):
-                    upp = _max-0.1*self._y_range
-                elif _max == 0.0:
-                    upp = _max-0.1
+    def _reset_par_at_boundary(self):
+        for name, par in self._parameters.items():
+            if par.vary:
+                value = par.value
+                _min = self._parameter_bounds[name]['min']
+                _max = self._parameter_bounds[name]['max']
+                if np.isinf(_min):
+                    if not np.isinf(_max):
+                        if self._parameter_norms.get(name, False):
+                            upp = _max-0.1*self._y_range
+                        elif _max == 0.0:
+                            upp = _max-0.1
+                        else:
+                            upp = _max-0.1*abs(_max)
+                        if value >= upp:
+                            par.set(value=upp)
                 else:
-                    upp = _max-0.1*abs(_max)
-                if value >= upp:
-                    return upp
-        else:
-            if np.isinf(_max):
-                if self._parameter_norms.get(name, False):
-                    low = _min + 0.1*self._y_range
-                elif _min == 0.0:
-                    low = _min+0.1
-                else:
-                    low = _min + 0.1*abs(_min)
-                if value <= low:
-                    return low
-            else:
-                low = 0.9*_min + 0.1*_max
-                upp = 0.1*_min + 0.9*_max
-                if value <= low:
-                    return low
-                if value >= upp:
-                    return upp
-        return value
+                    if np.isinf(_max):
+                        if self._parameter_norms.get(name, False):
+                            low = _min + 0.1*self._y_range
+                        elif _min == 0.0:
+                            low = _min+0.1
+                        else:
+                            low = _min + 0.1*abs(_min)
+                        if value <= low:
+                            par.set(value=low)
+                    else:
+                        low = 0.9*_min + 0.1*_max
+                        upp = 0.1*_min + 0.9*_max
+                        if value <= low:
+                            par.set(value=low)
+                        if value >= upp:
+                            par.set(value=upp)
 
 
 class FitMap(Fit):
@@ -1947,7 +1940,7 @@ class FitMap(Fit):
             raise ValueError('Invalid parameter ymap ({ymap})')
         self._ymap = ymap
 
-        # Verify the input parameters
+        # Check input parameters
         if self._x.ndim != 1:
             raise ValueError(f'Invalid dimension for input x {self._x.ndim}')
         if self._ymap.ndim < 2:
@@ -2499,9 +2492,7 @@ class FitMap(Fit):
         self._parameter_bounds = {
             name:{'min': par.min, 'max': par.max}
             for name, par in self._parameters.items() if par.vary}
-        for name, par in self._parameters.items():
-            if par.vary:
-                par.set(value=self._reset_par_at_boundary(par, par.value))
+        self._reset_par_at_boundary()
 
         # Set parameter bounds to unbound
         #     (only use bounds when fit fails)
@@ -2714,81 +2705,60 @@ class FitMap(Fit):
             self._fit(n_start+n, current_best_values, **kwargs)
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
-        # Set parameters to current best values, but prevent them from
-        #     sitting at boundaries
-        if self._new_parameters is None:
-            # Initial fit
-            for name, value in current_best_values.items():
-                par = self._parameters[name]
-                par.set(value=self._reset_par_at_boundary(par, value))
+        # Check input parameters
+        if 'rel_amplitude_cutoff' in kwargs:
+            rel_amplitude_cutoff = kwargs.pop('rel_amplitude_cutoff')
+            if (rel_amplitude_cutoff is not None
+                    and not is_num(rel_amplitude_cutoff, gt=0.0, lt=1.0)):
+                logger.warning(
+                    'Ignoring invalid parameter rel_amplitude_cutoff '
+                    f'in FitMap._fit() ({rel_amplitude_cutoff})')
+                rel_amplitude_cutoff = None
         else:
-            # Refit
-            for i, name in enumerate(self._best_parameters):
-                par = self._parameters[name]
-                if name in self._new_parameters:
-                    if name in current_best_values:
-                        par.set(value=self._reset_par_at_boundary(
-                            par, current_best_values[name]))
-                elif par.expr is None:
-                    par.set(value=self._best_values[i][n])
-        if self._mask is None:
-            result = self._model.fit(
-                self._ymap_norm[n], self._parameters, x=self._x, **kwargs)
-        else:
-            result = self._model.fit(
-                self._ymap_norm[n][~self._mask], self._parameters,
-                x=self._x[~self._mask], **kwargs)
-        out_of_bounds = False
-        for name, par in self._parameter_bounds.items():
-            value = result.params[name].value
-            if not np.isinf(par['min']) and value < par['min']:
-                out_of_bounds = True
-                break
-            if not np.isinf(par['max']) and value > par['max']:
-                out_of_bounds = True
-                break
-        self._out_of_bounds_flat[n] = out_of_bounds
-        if self._try_no_bounds and out_of_bounds:
-            # Rerun fit with parameter bounds in place
-            for name, par in self._parameter_bounds.items():
-                self._parameters[name].set(min=par['min'], max=par['max'])
-            # Set parameters to current best values, but prevent them
-            #     from sitting at boundaries
-            if self._new_parameters is None:
-                # Initial fit
-                for name, value in current_best_values.items():
-                    par = self._parameters[name]
-                    par.set(value=self._reset_par_at_boundary(par, value))
-            else:
-                # Refit
-                for i, name in enumerate(self._best_parameters):
-                    par = self._parameters[name]
-                    if name in self._new_parameters:
-                        if name in current_best_values:
-                            par.set(value=self._reset_par_at_boundary(par,
-                                    current_best_values[name]))
-                    elif par.expr is None:
-                        par.set(value=self._best_values[i][n])
-            if self._mask is None:
-                result = self._model.fit(
-                    self._ymap_norm[n], self._parameters, x=self._x, **kwargs)
-            else:
-                result = self._model.fit(
-                    self._ymap_norm[n][~self._mask], self._parameters,
-                    x=self._x[~self._mask], **kwargs)
-            out_of_bounds = False
-            for name, par in self._parameter_bounds.items():
-                value = result.params[name].value
-                if not np.isinf(par['min']) and value < par['min']:
-                    out_of_bounds = True
-                    break
-                if not np.isinf(par['max']) and value > par['max']:
-                    out_of_bounds = True
-                    break
-            # Reset parameters back to unbound
-            for name in self._parameter_bounds.keys():
-                self._parameters[name].set(min=-np.inf, max=np.inf)
-        assert not out_of_bounds
+            rel_amplitude_cutoff = None
+
+        # Regular full fit
+        result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
+
+        if rel_amplitude_cutoff is not None:
+            # Third party modules
+            from lmfit.models import (
+                GaussianModel,
+                LorentzianModel,
+            )
+
+            # Check for low amplitude peaks and refit without them
+            amplitudes = []
+            names = []
+            for component in result.components:
+                if isinstance(component, (GaussianModel, LorentzianModel)):
+                   for name in component.param_names:
+                       if 'amplitude' in name:
+                           amplitudes.append(result.params[name].value)
+                           names.append(name)
+            if amplitudes:
+                refit = False
+                amplitudes = np.asarray(amplitudes)/sum(amplitudes)
+                parameters_save = deepcopy(self._parameters)
+                for i, (name, amp) in enumerate(zip(names, amplitudes)):
+                    if abs(amp) < rel_amplitude_cutoff:
+                        self._parameters[name].set(
+                            value=0.0, min=0.0, vary=False)
+                        self._parameters[
+                            name.replace('amplitude', 'center')].set(
+                               vary=False)
+                        self._parameters[
+                            name.replace('amplitude', 'sigma')].set(
+                               value=0.0, min=0.0, vary=False)
+                        refit = True
+                if refit:
+                    result = self._fit_with_bounds_check(
+                        n, current_best_values, **kwargs)
+#                    for name in names:
+#                        result.params[name].error = 0.0
+                    # Reset fixed amplitudes back to default
+                    self._parameters = deepcopy(parameters_save)
+
         if result.redchi >= self._redchi_cutoff:
             result.success = False
         if result.nfev == result.max_nfev:
@@ -2820,6 +2790,90 @@ class FitMap(Fit):
         if return_result:
             return result
         return None
+
+    def _fit_with_bounds_check(self, n, current_best_values, **kwargs):
+        # Set parameters to current best values, but prevent them from
+        #     sitting at boundaries
+        if self._new_parameters is None:
+            # Initial fit
+            for name, value in current_best_values.items():
+                par = self._parameters[name]
+                if par.vary:
+                    par.set(value=value)
+        else:
+            # Refit
+            for i, name in enumerate(self._best_parameters):
+                par = self._parameters[name]
+                if par.vary:
+                    if name in self._new_parameters:
+                        if name in current_best_values:
+                            par.set(value=current_best_values[name])
+                    elif par.expr is None:
+                        par.set(value=self._best_values[i][n])
+        self._reset_par_at_boundary()
+        if self._mask is None:
+            result = self._model.fit(
+                self._ymap_norm[n], self._parameters, x=self._x, **kwargs)
+        else:
+            result = self._model.fit(
+                self._ymap_norm[n][~self._mask], self._parameters,
+                x=self._x[~self._mask], **kwargs)
+        out_of_bounds = False
+        for name, par in self._parameter_bounds.items():
+            if self._parameters[name].vary:
+                value = result.params[name].value
+                if not np.isinf(par['min']) and value < par['min']:
+                    out_of_bounds = True
+                    break
+                if not np.isinf(par['max']) and value > par['max']:
+                    out_of_bounds = True
+                    break
+        self._out_of_bounds_flat[n] = out_of_bounds
+        if self._try_no_bounds and out_of_bounds:
+            # Rerun fit with parameter bounds in place
+            for name, par in self._parameter_bounds.items():
+                if self._parameters[name].vary:
+                    self._parameters[name].set(min=par['min'], max=par['max'])
+            # Set parameters to current best values, but prevent them
+            #     from sitting at boundaries
+            if self._new_parameters is None:
+                # Initial fit
+                for name, value in current_best_values.items():
+                    par = self._parameters[name]
+                    if par.vary:
+                        par.set(value=value)
+            else:
+                # Refit
+                for i, name in enumerate(self._best_parameters):
+                    par = self._parameters[name]
+                    if par.vary:
+                        if name in self._new_parameters:
+                            if name in current_best_values:
+                                par.set(value=current_best_values[name])
+                        elif par.expr is None:
+                            par.set(value=self._best_values[i][n])
+            self._reset_par_at_boundary()
+            if self._mask is None:
+                result = self._model.fit(
+                    self._ymap_norm[n], self._parameters, x=self._x, **kwargs)
+            else:
+                result = self._model.fit(
+                    self._ymap_norm[n][~self._mask], self._parameters,
+                    x=self._x[~self._mask], **kwargs)
+            out_of_bounds = False
+            for name, par in self._parameter_bounds.items():
+                if self._parameters[name].vary:
+                    value = result.params[name].value
+                    if not np.isinf(par['min']) and value < par['min']:
+                        out_of_bounds = True
+                        break
+                    if not np.isinf(par['max']) and value > par['max']:
+                        out_of_bounds = True
+                        break
+                    # Reset parameters back to unbound
+                    self._parameters[name].set(min=-np.inf, max=np.inf)
+        assert not out_of_bounds
+        return result
 
     def _renormalize(self, n, result):
         self._redchi_flat[n] = np.float64(result.redchi)

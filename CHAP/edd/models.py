@@ -637,6 +637,11 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type fwhm_min: float, optional
     :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
     :type fwhm_max: float, optional
+    :ivar rel_amplitude_cutoff: Relative peak amplitude cutoff for
+        peak fitting (any peak with an amplitude smaller than
+        `rel_amplitude_cutoff` times the sum of all peak amplitudes
+        gets removed from the fit model), defaults to `None`.
+    :type rel_amplitude_cutoff: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
     :ivar slope_calibrated: Calibrated value for detector channel.
@@ -657,6 +662,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         Literal['gaussian', 'lorentzian']] = 'gaussian'
     fwhm_min: confloat(gt=0, allow_inf_nan=False) = 1.0
     fwhm_max: confloat(gt=0, allow_inf_nan=False) = 5.0
+    rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
