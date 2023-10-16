@@ -1017,6 +1017,8 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
+            fit_nxdata.redchi = fit.redchi
+            fit_nxdata.success = fit.success
 
             # Peak-by-peak results
 #            fit_nxgroup.fit_hkl_centers = NXdata()
@@ -1203,6 +1205,8 @@ class StrainAnalysisProcessor(Processor):
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
+            fit_nxdata.redchi = fit.redchi
+            fit_nxdata.success = fit.success
 
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
