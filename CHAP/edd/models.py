@@ -1,20 +1,26 @@
 # System modules
 import os
 from pathlib import PosixPath
-from typing import Literal, Optional, Union
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
 from hexrd.material import Material
-from pydantic import (BaseModel,
-                      confloat,
-                      conint,
-                      conlist,
-                      constr,
-                      DirectoryPath,
-                      FilePath,
-                      root_validator,
-                      validator)
+from pydantic import (
+    BaseModel,
+    confloat,
+    conint,
+    conlist,
+    constr,
+    DirectoryPath,
+    FilePath,
+    root_validator,
+    validator,
+)
 from scipy.interpolate import interp1d
 
 # Local modules
@@ -39,13 +45,12 @@ class MCAElementConfig(BaseModel):
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)]
-    include_bin_ranges: Optional[
-        conlist(
-            min_items=1,
-            item_type=conlist(
-                item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))] = []
+    include_bin_ranges: conlist(
+        min_items=1,
+        item_type=conlist(
+            item_type=conint(ge=0),
+            min_items=2,
+            max_items=2)) = []
 
     @validator('include_bin_ranges', each_item=True)
     def validate_include_bin_range(cls, value, values):
@@ -59,10 +64,12 @@ class MCAElementConfig(BaseModel):
         :return: The validated value of `include_bin_ranges`.
         :rtype: dict
         """
-        #RV test for more than one bin
         num_bins = values.get('num_bins')
         if num_bins is not None:
-            value[1] = min(value[1], num_bins)
+            value[1] = min(value[1], num_bins-1)
+        if value[0] >= value[1]:
+            raise ValueError('Invalid bin range in include_bin_ranges '
+                             f'({value})')
         return value
 
     def mca_mask(self):
@@ -74,9 +81,9 @@ class MCAElementConfig(BaseModel):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for low, upp in self.include_bin_ranges:
+        for min_, max_ in self.include_bin_ranges:
             mask = np.logical_or(
-                mask, np.logical_and(bin_indices >= low, bin_indices <= upp))
+                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
 
     def dict(self, *args, **kwargs):
@@ -129,7 +136,7 @@ class MCAScanDataConfig(BaseModel):
     def validate_scan(cls, values):
         """Finalize file paths for spec_file and par_file.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :raises ValueError: Invalid SPEC or par file.
         :return: The validated list of `values`.
@@ -200,7 +207,7 @@ class MCAScanDataConfig(BaseModel):
 
             # Local modules
             from CHAP.utils.general import (
-                index_nearest_low,
+                index_nearest_down,
                 index_nearest_upp,
             )
             flux = np.loadtxt(flux_file)
@@ -209,12 +216,12 @@ class MCAScanDataConfig(BaseModel):
             for detector in detectors:
                 mca_bin_energies = np.linspace( 
                     0, detector.max_energy_kev, detector.num_bins)
-                min_ = index_nearest_upp(mca_bin_energies, energy_range[0])
-                max_ = index_nearest_low(mca_bin_energies, energy_range[1])
-                for i, (low, upp) in enumerate(
+                e_min = index_nearest_upp(mca_bin_energies, energy_range[0])
+                e_max = index_nearest_down(mca_bin_energies, energy_range[1])
+                for i, (min_, max_) in enumerate(
                         deepcopy(detector.include_bin_ranges)):
-                    if low < min_ or upp > max_:
-                        bin_range = [max(low, min_), min(upp, max_)]
+                    if min_ < e_min or max_ > e_max:
+                        bin_range = [max(min_, e_min), min(max_, e_max)]
                         print(f'WARNING: include_bin_ranges[{i}] out of range '
                               f'({detector.include_bin_ranges[i]}): adjusted '
                               f'to {bin_range}')
@@ -403,6 +410,14 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
 
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return sorted(hkl_indices)
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """Class representing metadata required to perform a diffraction
@@ -536,15 +551,16 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         """Ensure that a valid configuration was provided and finalize
         flux_file filepath.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
         """
         inputdir = values.get('inputdir')
-        flux_file = values.get('flux_file')
-        if inputdir is not None and not os.path.isabs(flux_file):
-            values['flux_file'] = os.path.join(inputdir, flux_file)
+        if inputdir is not None:
+            flux_file = values.get('flux_file')
+            if not os.path.isabs(flux_file):
+                values['flux_file'] = os.path.join(inputdir, flux_file)
 
         return values
 
@@ -614,9 +630,18 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
     :ivar peak_models: Peak model for peak fitting,
-        defaults to 'gaussian'.
+        defaults to `'gaussian'`.
     :type peak_models: Literal['gaussian', 'lorentzian']],
         list[Literal['gaussian', 'lorentzian']]], optional
+    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `1.0`.
+    :type fwhm_min: float, optional
+    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
+    :type fwhm_max: float, optional
+    :ivar rel_amplitude_cutoff: Relative peak amplitude cutoff for
+        peak fitting (any peak with an amplitude smaller than
+        `rel_amplitude_cutoff` times the sum of all peak amplitudes
+        gets removed from the fit model), defaults to `None`.
+    :type rel_amplitude_cutoff: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
     :ivar slope_calibrated: Calibrated value for detector channel.
@@ -635,12 +660,24 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
+    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 1.0
+    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 5.0
+    rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-#    tth_file: Optional[FilePath]
-#    tth_map: Optional[np.ndarray] = None
+    tth_file: Optional[FilePath]
+    tth_map: Optional[np.ndarray] = None
+
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return sorted(hkl_indices)
 
     class Config:
         arbitrary_types_allowed = True
@@ -670,8 +707,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :return: Map of 2&theta values.
         :rtype: np.ndarray
         """
-#        if getattr(self, 'tth_map', None) is not None:
-#            return self.tth_map
+        if getattr(self, 'tth_map', None) is not None:
+            return self.tth_map
         return np.full(map_config.shape, self.tth_calibrated)
 
     def dict(self, *args, **kwargs):
@@ -728,7 +765,7 @@ class StrainAnalysisConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         input filepaths.
 
-        :param values: Dictionary of previously validated field values.
+        :param values: Dictionary of class field values.
         :type values: dict
         :raises ValueError: Missing par_dims value.
         :return: The validated list of `values`.
@@ -758,46 +795,46 @@ class StrainAnalysisConfig(BaseModel):
                         os.path.join(inputdir, spec_file)
         return values
 
-#    @validator('detectors', pre=True, each_item=True)
-#    def validate_tth_file(cls, detector, values):
-#        """Finalize value for tth_file for each detector"""
-#        inputdir = values.get('inputdir')
-#        tth_file = detector.get('tth_file')
-#        if tth_file:
-#            if not os.path.isabs(tth_file):
-#                detector['tth_file'] = os.path.join(inputdir, tth_file)
-#        return detector
+    @validator('detectors', pre=True, each_item=True)
+    def validate_tth_file(cls, detector, values):
+        """Finalize value for tth_file for each detector"""
+        inputdir = values.get('inputdir')
+        tth_file = detector.get('tth_file')
+        if tth_file:
+            if not os.path.isabs(tth_file):
+                detector['tth_file'] = os.path.join(inputdir, tth_file)
+        return detector
 
-#    @validator('detectors', each_item=True)
-#    def validate_tth(cls, detector, values):
-#        """Validate detector element tth_file field. It may only be
-#        used if StrainAnalysisConfig used par_file.
-#        """
-#        if detector.tth_file is not None:
-#            if not values.get('par_file'):
-#                raise ValueError(
-#                    'variable tth angles may only be used with a '
-#                    + 'StrainAnalysisConfig that uses par_file.')
-#            else:
-#                try:
-#                    detector.tth_map = ParFile(values['par_file']).map_values(
-#                        values['map_config'], np.loadtxt(detector.tth_file))
-#                except Exception as e:
-#                    raise ValueError(
-#                        'Could not get map of tth angles from '
-#                        + f'{detector.tth_file}') from e
-#        return detector
+    @validator('detectors', each_item=True)
+    def validate_tth(cls, detector, values):
+        """Validate detector element tth_file field. It may only be
+        used if StrainAnalysisConfig used par_file.
+        """
+        if detector.tth_file is not None:
+            if not values.get('par_file'):
+                raise ValueError(
+                    'variable tth angles may only be used with a '
+                    + 'StrainAnalysisConfig that uses par_file.')
+            else:
+                try:
+                    detector.tth_map = ParFile(values['par_file']).map_values(
+                        values['map_config'], np.loadtxt(detector.tth_file))
+                except Exception as e:
+                    raise ValueError(
+                        'Could not get map of tth angles from '
+                        + f'{detector.tth_file}') from e
+        return detector
 
     def mca_data(self, detector=None, map_index=None):
         """Get MCA data for a single or multiple detector elements.
 
         :param detector: Detector(s) for which data is returned,
-            defaults to None, which return MCA data for all 
+            defaults to `None`, which return MCA data for all 
             detector elements.
         :type detector: Union[int, MCAElementStrainAnalysisConfig],
             optional
         :param map_index: Index of a single point in the map, defaults
-            to None, which returns MCA data for each point in the map.
+            to `None`, which returns MCA data for each point in the map.
         :type map_index: tuple, optional
         :return: A single MCA spectrum.
         :rtype: np.ndarray
