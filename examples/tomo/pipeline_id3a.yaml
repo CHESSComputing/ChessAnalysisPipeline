@@ -32,7 +32,7 @@ pipeline:
               station: id3a
               experiment_type: TOMO
               spec_scans:
-              - spec_file: examples/tomo/hollow_brick/spec.log
+              - spec_file: spec.log
                 scan_numbers:
                 - 1
             detector_names:
@@ -43,7 +43,7 @@ pipeline:
               station: id3a
               experiment_type: TOMO
               spec_scans:
-              - spec_file: examples/tomo/hollow_brick/spec.log
+              - spec_file: spec.log
                 scan_numbers:
                 - 2
             detector_names:

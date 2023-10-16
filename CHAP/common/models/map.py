@@ -550,6 +550,28 @@ class SpecConfig(BaseModel):
     experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     spec_scans: conlist(item_type=SpecScans, min_items=1)
 
+    @root_validator(pre=True)
+    def validate_config(cls, values):
+        """Ensure that a valid configuration was provided and finalize
+        spec_file filepaths.
+
+        :param values: Dictionary of class field values.
+        :type values: dict
+        :return: The validated list of `values`.
+        :rtype: dict
+        """
+        inputdir = values.get('inputdir')
+        if inputdir is not None:
+            spec_scans = values.get('spec_scans')
+            for i, scans in enumerate(deepcopy(spec_scans)):
+                spec_file = scans['spec_file']
+                if not os.path.isabs(spec_file):
+                    spec_scans[i]['spec_file'] = os.path.join(
+                        inputdir, spec_file)
+                spec_scans[i] = SpecScans(**spec_scans[i], **values)
+            values['spec_scans'] = spec_scans
+        return values
+
     @validator('experiment_type')
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
