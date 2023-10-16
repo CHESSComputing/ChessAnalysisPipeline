@@ -99,15 +99,7 @@ class ParFile():
                  'data_type': 'smb_par'}
                 for dim in par_dims] + other_dims
         }
-        map_config = MapConfig(**map_config)
-        map_size = np.prod(map_config.shape)
-        if map_size != len(good_scans):
-            raise ValueError(
-                f'{self.par_file} has {len(good_scans)} good scans, '
-                + 'but size of map along '
-                + ', '.join([dim['name'] for dim in par_dims + other_dims])
-                + f' is {map_size}.')
-        return map_config
+        return MapConfig(**map_config)
 
     def good_scan_numbers(self, good_col_name='1/0'):
         """Return the numbers of scans marked with a "1" in the

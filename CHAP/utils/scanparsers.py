@@ -5,6 +5,7 @@
 # System modules
 from csv import reader
 from fnmatch import filter as fnmatch_filter
+from functools import cache
 from json import load
 import os
 import re
@@ -14,6 +15,9 @@ import numpy as np
 from pyspec.file.spec import FileSpec
 from pyspec.file.tiff import TiffFile
 
+@cache
+def get_filespec(spec_file_name):
+    return FileSpec(spec_file_name)
 
 class ScanParser:
     """Partial implementation of a class representing a SPEC scan and
@@ -58,7 +62,7 @@ class ScanParser:
         # NB This FileSpec instance is not stored as a private
         # attribute because it cannot be pickled (and therefore could
         # cause problems for parallel code that uses ScanParsers).
-        return FileSpec(self.spec_file_name)
+        return get_filespec(self.spec_file_name)
 
     @property
     def scan_path(self):
@@ -695,6 +699,8 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return len(np.array(self.spec_scan.data[:,0]))
+        if self.spec_macro == 'wbsync_ct':
+            return (1,)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
                            f'for scans of type {self.spec_macro}')
 

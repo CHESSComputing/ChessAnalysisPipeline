@@ -1,17 +1,28 @@
 # System modules
-from functools import cache, lru_cache
+from copy import deepcopy
+from functools import (
+    cache,
+    lru_cache,
+)
 import os
-from typing import Literal, Optional, Union
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
-from pydantic import (BaseModel,
-                      conint,
-                      conlist,
-                      constr,
-                      FilePath,
-                      PrivateAttr,
-                      validator)
+from pydantic import (
+    BaseModel,
+    conint,
+    conlist,
+    constr,
+    FilePath,
+    PrivateAttr,
+    root_validator,
+    validator,
+)
 from pyspec.file.spec import FileSpec
 
 
@@ -39,7 +50,7 @@ class SpecScans(BaseModel):
     scan_numbers: conlist(item_type=conint(gt=0), min_items=1)
 
     @validator('spec_file', allow_reuse=True)
-    def validate_spec_file(cls, spec_file):
+    def validate_spec_file(cls, spec_file, values):
         """Validate the specified SPEC file.
 
         :param spec_file: Path to the SPEC file.
@@ -55,7 +66,7 @@ class SpecScans(BaseModel):
             raise ValueError(f'Invalid SPEC file {spec_file}')
         return spec_file
 
-    @validator('scan_numbers', allow_reuse=True)
+    @validator('scan_numbers', pre=True, allow_reuse=True)
     def validate_scan_numbers(cls, scan_numbers, values):
         """Validate the specified list of scan numbers.
 
@@ -68,6 +79,12 @@ class SpecScans(BaseModel):
         :return: List of scan numbers.
         :rtype: list of int
         """
+        if isinstance(scan_numbers, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_numbers = string_to_list(scan_numbers)
+
         spec_file = values.get('spec_file')
         if spec_file is not None:
             spec_scans = FileSpec(spec_file)
@@ -606,19 +623,26 @@ class MapConfig(BaseModel):
         map. In the NeXus file representation of the map, datasets for
         these values will be included.
     :type scalar_values: Optional[list[PointByPointScanData]]
+    :ivar map_type: Type of map, structured or unstructured,
+        defaults to `'structured'`.
+    :type map_type: Optional[Literal['structured', 'unstructured']]
     """
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3','id3a','id3b']
     experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
-    independent_dimensions: conlist(item_type=IndependentDimension,
-                                    min_items=1)
+    independent_dimensions: conlist(
+        item_type=IndependentDimension, min_items=1)
     presample_intensity: Optional[PresampleIntensity]
     dwell_time_actual: Optional[DwellTimeActual]
     postsample_intensity: Optional[PostsampleIntensity]
     scalar_data: Optional[list[PointByPointScanData]] = []
+    map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
     _coords: dict = PrivateAttr()
+    _dims: tuple = PrivateAttr()
+    _scan_step_indices: list = PrivateAttr()
+    _shape: tuple = PrivateAttr()
 
     _validate_independent_dimensions = validator(
         'independent_dimensions',
@@ -637,6 +661,75 @@ class MapConfig(BaseModel):
         'scalar_data',
         each_item=True,
         allow_reuse=True)(validate_data_source_for_map_config)
+
+    @root_validator(pre=True)
+    def validate_config(cls, values):
+        """Ensure that a valid configuration was provided and finalize
+        spec_file filepaths.
+
+        :param values: Dictionary of class field values.
+        :type values: dict
+        :return: The validated list of `values`.
+        :rtype: dict
+        """
+        inputdir = values.get('inputdir')
+        if inputdir is not None:
+            spec_scans = values.get('spec_scans')
+            for i, scans in enumerate(deepcopy(spec_scans)):
+                spec_file = scans['spec_file']
+                if not os.path.isabs(spec_file):
+                    spec_scans[i]['spec_file'] = os.path.join(
+                        inputdir, spec_file)
+                spec_scans[i] = SpecScans(**spec_scans[i], **values)
+            values['spec_scans'] = spec_scans
+        return values
+
+    @validator('map_type', pre=True, always=True)
+    def validate_map_type(cls, map_type, values):
+        """Validate the map_type field.
+
+        :param map_type: Type of map, structured or unstructured,
+            defaults to `'structured'`.
+        :type map_type: Literal['structured', 'unstructured']]
+        :param values: Dictionary of values for all fields of the model.
+        :type values: dict
+        :return: The validated value for map_type.
+        :rtype: str
+        """
+        dims = {}
+        spec_scans = values.get('spec_scans')
+        independent_dimensions = values.get('independent_dimensions')
+        import_scanparser(values.get('station'), values.get('experiment_type'))
+        for i, dim in enumerate(deepcopy(independent_dimensions)):
+            dims[dim.label] = []
+            for scans in spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(
+                            scanparser.spec_scan_npts):
+                        dims[dim.label].append(dim.get_value(
+                                scans, scan_number, scan_step_index))
+            dims[dim.label] = np.unique(dims[dim.label])
+            if dim.end is None:
+                dim.end = len(dims[dim.label])
+            dims[dim.label] = dims[dim.label][slice(
+                dim.start, dim.end, dim.step)]
+            independent_dimensions[i] = dim
+
+        coords = np.zeros([v.size for v in dims.values()], dtype=np.int64)
+        for scans in spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    coords[tuple([
+                        list(dims[dim.label]).index(
+                            dim.get_value(scans, scan_number, scan_step_index))
+                        for dim in independent_dimensions])] += 1
+        if any(True for v in coords.flatten() if v == 0 or v > 1):
+            return 'unstructured'
+        else:
+            return 'structured'
+
 
     @validator('experiment_type')
     def validate_experiment_type(cls, value, values):
@@ -660,51 +753,6 @@ class MapConfig(BaseModel):
         return value
 
     @property
-    def coords(self):
-        """Return a dictionary of the values of each independent
-        dimension across the map.
-
-        :returns: A dictionary ofthe map's  coordinate values.
-        :rtype: dict[str,list[float]]
-        """
-        try:
-            coords = self._coords
-        except:
-            coords = {}
-            for dim in self.independent_dimensions:
-                coords[dim.label] = []
-                for scans in self.spec_scans:
-                    for scan_number in scans.scan_numbers:
-                        scanparser = scans.get_scanparser(scan_number)
-                        for scan_step_index in range(
-                                scanparser.spec_scan_npts):
-                            coords[dim.label].append(dim.get_value(
-                                    scans, scan_number, scan_step_index))
-                coords[dim.label] = np.unique(coords[dim.label])
-                if dim.end is None:
-                    dim.end = len(coords[dim.label])
-                coords[dim.label] = coords[dim.label][slice(
-                    dim.start, dim.end, dim.step)]
-            self._coords = coords
-        return coords
-
-    @property
-    def dims(self):
-        """Return a tuple of the independent dimension labels for the
-        map.
-        """
-        return [point_by_point_scan_data.label
-                for point_by_point_scan_data
-                in self.independent_dimensions[::-1]]
-
-    @property
-    def shape(self):
-        """Return the shape of the map -- a tuple representing the
-        number of unique values of each dimension across the map.
-        """
-        return tuple([len(values) for key,values in self.coords.items()][::-1])
-
-    @property
     def all_scalar_data(self):
         """Return a list of all instances of `PointByPointScanData`
         for which this map configuration will collect dataset-like
@@ -718,29 +766,122 @@ class MapConfig(BaseModel):
                 for label in CorrectionsData.reserved_labels()
                 if getattr(self, label, None) is not None] + self.scalar_data
 
+    @property
+    def coords(self):
+        """Return a dictionary of the values of each independent
+        dimension across the map.
+        """
+        if not hasattr(self, "_coords"):
+            coords = {}
+            for dim in self.independent_dimensions:
+                coords[dim.label] = []
+                for scans in self.spec_scans:
+                    for scan_number in scans.scan_numbers:
+                        scanparser = scans.get_scanparser(scan_number)
+                        for scan_step_index in range(
+                                scanparser.spec_scan_npts):
+                            coords[dim.label].append(dim.get_value(
+                                    scans, scan_number, scan_step_index))
+                if self.map_type == 'structured':
+                    coords[dim.label] = np.unique(coords[dim.label])
+            self._coords = coords
+        return self._coords
+
+    @property
+    def dims(self):
+        """Return a tuple of the independent dimension labels for the
+        map.
+        """
+        if not hasattr(self, "_dims"):
+            self._dims = [
+                dim.label for dim in self.independent_dimensions[::-1]]
+        return self._dims
+
+    @property
+    def scan_step_indices(self):
+        """Return an ordered list in which we can look up the SpecScans
+        object, the scan number, and scan step index for every point
+        on the map.
+        """
+        if not hasattr(self, "_scan_step_indices"):
+            scan_step_indices = []
+            for scans in self.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(scanparser.spec_scan_npts):
+                        scan_step_indices.append(
+                            (scans, scan_number, scan_step_index))
+            self._scan_step_indices = scan_step_indices
+        return self._scan_step_indices
+
+    @property
+    def shape(self):
+        """Return the shape of the map -- a tuple representing the
+        number of unique values of each dimension across the map.
+        """
+        if not hasattr(self, "_shape"):
+            if self.map_type == 'structured':
+                self._shape = tuple(
+                    [len(v) for k, v in self.coords.items()][::-1])
+            else:
+                self._shape =  (len(self.scan_step_indices),) 
+        return self._shape
+
+    def get_coords(self, map_index):
+        """Return a dictionary of the coordinate names and values of
+        each independent dimension for a given point on the map.
+
+        :param map_index: The map index to return coordinates for.
+        :type map_index: tuple
+        :return: A list of coordinate values.
+        :rtype: dict
+        """
+        if self.map_type == 'structured':
+            return {dim:self.coords[dim][i]
+                    for dim, i in zip(self.dims, map_index)}
+        else:
+            return {dim:self.coords[dim][map_index[0]] for dim in self.dims}
+
+    def get_detector_data(self, detector_name, map_index):
+        """Return detector data collected by this map for a given
+        point on the map.
+
+        :param detector_name: Name of the detector for which to return
+            data. Usually the value of the detector's EPICS
+            areaDetector prefix macro, $P.
+        :type detector_name: str
+        :param map_index: The map index to return detector data for.
+        :type map_index: tuple
+        :return: One frame of raw detector data.
+        :rtype: np.ndarray
+        """
+        scans, scan_number, scan_step_index = \
+            self.get_scan_step_index(map_index)
+        scanparser = scans.get_scanparser(scan_number)
+        return scanparser.get_detector_data(detector_name, scan_step_index)
+
     def get_scan_step_index(self, map_index):
         """Return parameters to identify a single SPEC scan step that
         corresponds to the map point at the index provided.
 
         :param map_index: The index of a map point to identify as a
-            specific SPEC scan step index
+            specific SPEC scan step index.
         :type map_index: tuple
         :return: A `SpecScans` configuration, scan number, and scan
-            step index
+            step index.
         :rtype: tuple[SpecScans, int, int]
         """
-        coords = {dim: self.coords[dim][i]
-            for dim,i in zip( self.dims, map_index)}
-        for scans in self.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    _coords = {dim.label:dim.get_value(
-                                   scans, scan_number, scan_step_index)
-                               for dim in self.independent_dimensions}
-                    if _coords == coords:
-                        return scans, scan_number, scan_step_index
-        raise RuntimeError(f'Unable to match coordinates {coords}')
+        if self.map_type == 'structured':
+            map_coords = self.get_coords(map_index)
+            for scans, scan_number, scan_step_index in self.scan_step_indices:
+                coords = {dim.label:dim.get_value(
+                               scans, scan_number, scan_step_index)
+                           for dim in self.independent_dimensions}
+                if coords == map_coords:
+                    return scans, scan_number, scan_step_index
+            raise RuntimeError(f'Unable to match coordinates {coords}')
+        else:
+            return self.scan_step_indices[map_index[0]]
 
     def get_value(self, data, map_index):
         """Return the raw data collected by a single device at a
@@ -756,22 +897,6 @@ class MapConfig(BaseModel):
         scans, scan_number, scan_step_index = \
             self.get_scan_step_index(map_index)
         return data.get_value(scans, scan_number, scan_step_index)
-
-    def get_detector_data(self, detector_name, map_index):
-        """Return detector data collected by this map.
-
-        :param detector_name: Name of the detector for which to return
-            data. Usually the value of the detector's EPICS
-            areaDetector prefix macro, $P.
-        :type detector_name: str
-        :param map_index: The map index to return detector data for.
-        :return: One frame of raw detector data
-        :rtype: np.ndarray
-        """
-        scans, scan_number, scan_step_index = \
-            self.get_scan_step_index(map_index)
-        scanparser = scans.get_scanparser(scan_number)
-        return scanparser.get_detector_data(detector_name, scan_step_index)
 
 
 def import_scanparser(station, experiment):
