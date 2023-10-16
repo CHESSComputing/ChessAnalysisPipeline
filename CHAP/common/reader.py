@@ -35,7 +35,8 @@ class BinaryFileReader(Reader):
 
 class SpecReader(Reader):
     """Reader for CHESS SPEC scans"""
-    def read(self, filename=None, spec_config=None, detector_names=[]):
+    def read(self, filename=None, spec_config=None, detector_names=[],
+            inputdir=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as an NXentry.
 
@@ -83,7 +84,7 @@ class SpecReader(Reader):
 
         # Validate the SPEC configuration provided by constructing a
         # SpecConfig
-        spec_config = SpecConfig(**spec_config)
+        spec_config = SpecConfig(**spec_config, inputdir=inputdir)
 
         # Set up NXentry and add misc. CHESS-specific metadata
         # as well as all spec_motors, scan_columns, and smb_pars

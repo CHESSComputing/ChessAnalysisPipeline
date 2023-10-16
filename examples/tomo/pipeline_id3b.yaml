@@ -32,7 +32,7 @@ pipeline:
               station: id3b
               experiment_type: TOMO
               spec_scans:
-              - spec_file: examples/tomo/hollow_cube/hollow_cube
+              - spec_file: hollow_cube
                 scan_numbers:
                 - 1
             detector_names:
@@ -43,7 +43,7 @@ pipeline:
               station: id3b
               experiment_type: TOMO
               spec_scans:
-              - spec_file: examples/tomo/hollow_cube/hollow_cube
+              - spec_file: hollow_cube
                 scan_numbers:
                 - 2
             detector_names:
