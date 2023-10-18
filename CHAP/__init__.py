@@ -21,3 +21,5 @@ appear in specific `Processor` implementations.
 from CHAP.reader import Reader
 from CHAP.processor import Processor
 from CHAP.writer import Writer
+
+version = 'PACKAGE_VERSION'

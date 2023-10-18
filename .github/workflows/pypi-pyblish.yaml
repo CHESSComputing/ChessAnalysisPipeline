@@ -31,6 +31,9 @@ jobs:
     - name: Update setup script with version (tag) name
       run : |
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
+    - name: Update CHAP.version with version (tag) name
+      run : |
+        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
     - name: Build package
       run: python -m build
     - name: Publish package
