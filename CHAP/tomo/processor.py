@@ -119,6 +119,7 @@ class TomoCHESSMapConverter(Processor):
 
         # Local modules
         from CHAP.common.models.map import MapConfig
+        from CHAP.utils.general import index_nearest
 
         darkfield = get_nxroot(data, 'darkfield')
         brightfield = get_nxroot(data, 'brightfield')
@@ -383,7 +384,6 @@ class TomoCHESSMapConverter(Processor):
         thetas = np.asarray(tomofields.data.rotation_angles)
 #RV        num_image = len(tomofields.data.rotation_angles)
         assert len(thetas) > 2
-        from CHAP.utils.general import index_nearest
         delta_theta = thetas[1]-thetas[0]
         if thetas[-1]-thetas[0] > 180-delta_theta:
             image_end = index_nearest(thetas, thetas[0]+180)

@@ -11,6 +11,7 @@ from pydantic import (BaseModel,
                       constr,
                       FilePath,
                       PrivateAttr,
+                      root_validator,
                       validator)
 from pyspec.file.spec import FileSpec
 
@@ -560,6 +561,9 @@ class SpecConfig(BaseModel):
         :return: The validated list of `values`.
         :rtype: dict
         """
+        # System modules
+        from copy import deepcopy
+
         inputdir = values.get('inputdir')
         if inputdir is not None:
             spec_scans = values.get('spec_scans')
