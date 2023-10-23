@@ -55,10 +55,12 @@ class SpecReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         from json import dumps
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+        )
         import numpy as np
         from CHAP.common.models.map import SpecConfig
 
@@ -121,7 +123,9 @@ class SpecReader(Reader):
 
 class MapReader(Reader):
     """Reader for CHESS sample maps"""
-    def read(self, filename=None, map_config=None, detector_names=[]):
+    def read(
+            self, filename=None, map_config=None, detector_names=[],
+            inputdir=None):
         """Take a map configuration dictionary and return a
         representation of the map as an NXentry. The NXentry's default
         data group will contain the raw data collected over the course
@@ -141,11 +145,13 @@ class MapReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         from json import dumps
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield,
-                                       NXsample)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
         import numpy as np
         from CHAP.common.models.map import MapConfig
 
@@ -169,7 +175,7 @@ class MapReader(Reader):
 
         # Validate the map configuration provided by constructing a
         # MapConfig
-        map_config = MapConfig(**map_config)
+        map_config = MapConfig(**map_config, inputdir=inputdir)
 
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
@@ -186,7 +192,8 @@ class MapReader(Reader):
 
         # Set up default data group
         nxentry.data = NXdata()
-        nxentry.data.attrs['axes'] = map_config.dims
+        if map_config.map_type == 'structured':
+            nxentry.data.attrs['axes'] = map_config.dims
         for i, dim in enumerate(map_config.independent_dimensions[::-1]):
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
@@ -194,7 +201,8 @@ class MapReader(Reader):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-            nxentry.data.attrs[f'{dim.label}_indices'] = i
+            if map_config.map_type == 'structured':
+                nxentry.data.attrs[f'{dim.label}_indices'] = i
 
         # Create empty NXfields for all scalar data present in the
         # provided map configuration

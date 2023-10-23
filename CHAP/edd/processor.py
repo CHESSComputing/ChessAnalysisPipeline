@@ -8,6 +8,7 @@ Description: Module for Processors used only by EDD experiments
 """
 
 # System modules
+from copy import deepcopy
 from json import dumps
 import os
 
@@ -118,7 +119,10 @@ class DiffractionVolumeLengthProcessor(Processor):
         """
         # Local modules
         from CHAP.utils.fit import Fit
-        from CHAP.utils.general import select_mask_1d
+        from CHAP.utils.general import (
+            index_nearest,
+            select_mask_1d,
+        )
 
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data(detector)
@@ -130,23 +134,22 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
-            mask, include_bin_ranges, figure = select_mask_1d(
+            fig, mask, include_bin_ranges = select_mask_1d(
                 np.sum(mca_data, axis=0),
                 x = np.arange(detector.num_bins),
-                preselected_index_ranges=detector.include_bin_ranges,
                 label='Sum of MCA spectra over all scan points',
-                title='Click and drag to select ranges of MCA data to\n'
-                      'include when measuring the diffraction volume length.',
+                preselected_index_ranges=detector.include_bin_ranges,
+                title='Click and drag to select data range to include when '
+                      'measuring diffraction volume length',
                 xlabel='MCA channel (index)',
                 ylabel='MCA intensity (counts)',
-                interactive=interactive,
-                return_figure=True
-            )
+                min_num_index_ranges=1,
+                interactive=interactive)
             detector.include_bin_ranges = include_bin_ranges
             self.logger.debug('Mask selected. Including detector bin ranges: '
                               + str(detector.include_bin_ranges))
             if save_figures:
-                figure.savefig(os.path.join(
+                fig.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
             plt.close()
         if detector.include_bin_ranges is None:
@@ -184,23 +187,26 @@ class DiffractionVolumeLengthProcessor(Processor):
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
         if detector.measurement_mode == 'manual':
             if interactive:
-                mask, dvl_bounds = select_mask_1d(
-                    masked_sum, xdata=x,
-                    label='total (masked & normalized)',
-                    ref_data=[
-                        ((x, fit.best_fit),
-                         {'label': 'gaussian fit (to total)'}),
-                        ((x, masked_max),
-                         {'label': 'maximum (masked)'}),
-                        ((x, unmasked_sum),
-                         {'label': 'total (unmasked)'})
-                    ],
-                    num_index_ranges_max=1,
-                    title=('Click and drag to indicate the\n'
-                           + 'boundary of the diffraction volume'),
+                _, _, dvl_bounds = select_mask_1d(
+                    masked_sum, x=x,
+                    label='Total (masked & normalized)',
+#RV TODO                    ref_data=[
+#                        ((x, fit.best_fit),
+#                         {'label': 'gaussian fit (to total)'}),
+#                        ((x, masked_max),
+#                         {'label': 'maximum (masked)'}),
+#                        ((x, unmasked_sum),
+#                         {'label': 'total (unmasked)'})
+#                    ],
+                    preselected_index_ranges=[
+                        (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
+                    title=('Click and drag to indicate the boundary '
+                           'of the diffraction volume'),
                     xlabel=(dvl_config.scanned_dim_lbl
                             + ' (offset from scan "center")'),
-                    ylabel='MCA intensity (normalized)')
+                    ylabel='MCA intensity (normalized)',
+                    min_num_index_ranges=1,
+                    max_num_index_ranges=1)
                 dvl_bounds = dvl_bounds[0]
                 dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
             else:
@@ -356,24 +362,28 @@ class MCACeriaCalibrationProcessor(Processor):
             0, detector.max_energy_kev, detector.num_bins)
         mca_data = calibration_config.mca_data(detector)
 
-        # Adjust initial tth guess
-        if interactive:
-            # Local modules
-            from CHAP.edd.utils import select_tth_initial_guess
-
-            detector.tth_initial_guess = select_tth_initial_guess(
-                mca_bin_energies, mca_data, hkls, ds,
-                detector.tth_initial_guess)
-        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
-
-        # Select mask & HKLs for fitting
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import select_mask_and_hkls
+            from CHAP.edd.utils import (
+                select_tth_initial_guess,
+                select_mask_and_hkls,
+            )
 
+            # Adjust initial tth guess
+            fig, detector.tth_initial_guess = select_tth_initial_guess(
+                mca_bin_energies, mca_data, hkls, ds,
+                detector.tth_initial_guess, interactive)
+            if save_figures:
+                fig.savefig(os.path.join(
+                   outputdir,
+                   f'{detector.detector_name}_calibration_'
+                   'tth_initial_guess.png'))
+            plt.close()
+
+            # Select mask & HKLs for fitting
             fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
                 mca_bin_energies, mca_data, hkls, ds,
                 detector.tth_initial_guess, detector.include_bin_ranges,
@@ -387,6 +397,7 @@ class MCACeriaCalibrationProcessor(Processor):
                    outputdir,
                     f'{detector.detector_name}_calibration_fit_mask_hkls.png'))
             plt.close()
+        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
         self.logger.debug(
             f'include_bin_ranges = {detector.include_bin_ranges}')
         if detector.include_bin_ranges is None:
@@ -394,7 +405,6 @@ class MCACeriaCalibrationProcessor(Processor):
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration, '
                 'or re-run the pipeline with the --interactive flag.')
-        self.logger.debug(f'hkl_indices: {detector.hkl_indices}')
         if detector.hkl_indices is None:
             raise ValueError(
                 'No value provided for hkl_indices. Provide them in '
@@ -428,7 +438,9 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            uniform_fit.create_multipeak_model(fit_E0, fit_type='uniform')
+            uniform_fit.create_multipeak_model(
+                fit_E0, fit_type='uniform')
+                #fit_E0, fit_type='uniform', background='constant')
             uniform_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -448,7 +460,8 @@ class MCACeriaCalibrationProcessor(Processor):
             # fit
             unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             unconstrained_fit.create_multipeak_model(
-                uniform_fit_centers, fit_type='unconstrained')
+                uniform_fit_centers, fit_type='unconstrained',
+                )#background='constant')
             unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -562,7 +575,13 @@ class MCADataProcessor(Processor):
     transformed according to the results of a ceria calibration.
     """
 
-    def process(self, data):
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                inputdir='.',
+                interactive=False):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
 
@@ -573,11 +592,13 @@ class MCADataProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
 
+        print(f'data:\n{data}')
+        exit('Done Here')
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
-        calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig')
-        nxroot = self.get_nxroot(map_config, calibration_config)
+            data, 'common.models.map.MapConfig', inputdir=inputdir)
+        ceria_calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+        nxroot = self.get_nxroot(map_config, ceria_calibration_config)
 
         return nxroot
 
@@ -597,10 +618,12 @@ class MCADataProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXinstrument,
-                                       NXroot)
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXinstrument,
+            NXroot,
+        )
 
         # Local modules
         from CHAP.common import MapProcessor
@@ -753,13 +776,15 @@ class StrainAnalysisProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXdetector,
-                                       NXfield,
-                                       NXparameters,
-                                       NXprocess,
-                                       NXroot)
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXdetector,
+            NXfield,
+            NXparameters,
+            NXprocess,
+            NXroot,
+        )
 
         # Local modules
         from CHAP.common import MapProcessor
@@ -769,11 +794,27 @@ class StrainAnalysisProcessor(Processor):
         )
         from CHAP.utils.fit import FitMap
 
-        def linkdims(nxgroup):
+        def linkdims(nxgroup, field_dims=[]):
+            if isinstance(field_dims, dict):
+                field_dims = [field_dims]
+            if map_config.map_type == 'structured':
+                axes = deepcopy(map_config.dims)
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+                nxgroup.attrs['axes'] = axes
+            else:
+                axes = ['map_index']
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+                nxgroup.attrs['axes'] = axes
+                nxgroup.attrs[f'map_index_indices'] = 0
             for dim in map_config.dims:
                 nxgroup.makelink(nxentry.data[dim])
-                nxgroup.attrs[f'{dim}_indices'] = \
-                    nxentry.data.attrs[f'{dim}_indices']
+                if f'{dim}_indices' in nxentry.data.attrs:
+                    nxgroup.attrs[f'{dim}_indices'] = \
+                        nxentry.data.attrs[f'{dim}_indices']
+            for dims in field_dims:
+                nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
 
         if len(strain_analysis_config.detectors) != 1:
             raise RuntimeError('Multiple detectors not tested')
@@ -794,16 +835,7 @@ class StrainAnalysisProcessor(Processor):
         nxprocess.data = NXdata()
         nxprocess.default = 'data'
         nxdata = nxprocess.data
-        nxdata.attrs['axes'] = map_config.dims
         linkdims(nxdata)
-
-        # Get the unique HKLs and lattice spacings for the strain
-        # analysis materials (assume hkl_tth_tol and tth_max are the
-        # same for each detector)
-        hkls, ds = get_unique_hkls_ds(
-            strain_analysis_config.materials,
-            tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
-            tth_max=strain_analysis_config.detectors[0].tth_max)
 
         # Collect raw MCA data of interest
         mca_bin_energies = []
@@ -815,12 +847,15 @@ class StrainAnalysisProcessor(Processor):
         mca_data = strain_analysis_config.mca_data()
 
         # Select interactive params / save figures
-        if save_figures or interactive:
+        if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import select_mask_and_hkls
+            from CHAP.edd.utils import (
+                select_material_params,
+                select_mask_and_hkls,
+            )
 
             # Mask during calibration
             if len(ceria_calibration_config.detectors) != 1:
@@ -829,31 +864,55 @@ class StrainAnalysisProcessor(Processor):
 #                calibration_mask = detector.mca_mask()
                 calibration_bin_ranges = detector.include_bin_ranges
 
-            if interactive:
-                # Local modules
-                from CHAP.edd.utils import select_material_params
 
-                tth = strain_analysis_config.detectors[0].tth_calibrated
-                strain_analysis_config.materials = select_material_params(
-                    mca_bin_energies[0], mca_data[0][0], tth,
-                    materials=strain_analysis_config.materials)
-                self.logger.debug(
-                    f'materials: {strain_analysis_config.materials}')
+            tth = strain_analysis_config.detectors[0].tth_calibrated
+            fig, strain_analysis_config.materials = select_material_params(
+                mca_bin_energies[0], mca_data[0][0], tth,
+                materials=strain_analysis_config.materials,
+                interactive=interactive)
+            self.logger.debug(
+                f'materials: {strain_analysis_config.materials}')
+            if save_figures:
+                fig.savefig(os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_strainanalysis_'
+                    'material_config.png'))
+            plt.close()
+
+            # ASK: can we assume same hkl_tth_tol and tth_max for
+            # every detector in this part?
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials,
+                tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
+                tth_max=strain_analysis_config.detectors[0].tth_max)
             for i, detector in enumerate(strain_analysis_config.detectors):
-                fig, include_bin_ranges, hkl_indices = select_mask_and_hkls(
-                    mca_bin_energies[i], mca_data[i][0], hkls, ds,
-                    detector.tth_calibrated, detector.include_bin_ranges,
-                    detector.hkl_indices, detector.detector_name, mca_data[i],
-#                    calibration_mask=calibration_mask,
-                    calibration_bin_ranges=calibration_bin_ranges,
-                    interactive=interactive)
+                fig, include_bin_ranges, hkl_indices = \
+                    select_mask_and_hkls(
+                        mca_bin_energies[i], mca_data[i][0], hkls, ds,
+                        detector.tth_calibrated,
+                        detector.include_bin_ranges, detector.hkl_indices,
+                        detector.detector_name, mca_data[i],
+#                        calibration_mask=calibration_mask,
+                        calibration_bin_ranges=calibration_bin_ranges,
+                        interactive=interactive)
                 detector.include_bin_ranges = include_bin_ranges
                 detector.hkl_indices = hkl_indices
                 if save_figures:
                     fig.savefig(os.path.join(
                         outputdir,
-                        f'{detector.detector_name}_strainanalysis_fit_mask_hkls.png'))
+                        f'{detector.detector_name}_strainanalysis_'
+                        'fit_mask_hkls.png'))
                 plt.close()
+        else:
+            # ASK: can we assume same hkl_tth_tol and tth_max for
+            # every detector in this part?
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials (assume hkl_tth_tol and tth_max are the
+            # same for each detector)
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials,
+                tth_tol=strain_analysis_config.detectors[0].hkl_tth_tol,
+                tth_max=strain_analysis_config.detectors[0].tth_max)
 
         for i, detector in enumerate(strain_analysis_config.detectors):
             # Setup NXdata group
@@ -865,17 +924,21 @@ class StrainAnalysisProcessor(Processor):
             nxdetector.detector_config = dumps(detector.dict())
             nxdetector.data = NXdata()
             det_nxdata = nxdetector.data
-            det_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(det_nxdata)
+            linkdims(
+                det_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             mask = detector.mca_mask()
             energies = mca_bin_energies[i][mask]
             det_nxdata.energy = NXfield(value=energies,
                                         attrs={'units': 'keV'})
-            det_nxdata.attrs['energy_indices'] = len(map_config.dims)
             det_nxdata.intensity = NXfield(
                 dtype='uint16',
                 shape=(*map_config.shape, len(energies)),
                 attrs={'units': 'counts'})
+            det_nxdata.tth = NXfield(
+                dtype='float64',
+                shape=map_config.shape,
+                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'}
+            )
             det_nxdata.microstrain = NXfield(
                 dtype='float64',
                 shape=map_config.shape,
@@ -899,6 +962,7 @@ class StrainAnalysisProcessor(Processor):
             fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = get_peak_locations(
                 fit_ds, detector.tth_calibrated)
+            num_peak = len(peak_locations)
             # KLS: Use the below def of peak_locations when
             # FitMap.create_multipeak_model can accept a list of maps
             # for centers.
@@ -912,69 +976,216 @@ class StrainAnalysisProcessor(Processor):
                 peak_locations,
                 fit_type='uniform',
                 peak_models=detector.peak_models,
-                background=detector.background)
+                background=detector.background,
+                fwhm_min=detector.fwhm_min,
+                fwhm_max=detector.fwhm_max)
             fit.fit()
             uniform_fit_centers = [
                 fit.best_values[
                     fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(len(peak_locations))]
-            uniform_fit_errors = [
+                for i in range(num_peak)]
+            uniform_fit_centers_errors = [
                 fit.best_errors[
                    fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(len(peak_locations))]
+                for i in range(num_peak)]
+            uniform_fit_amplitudes = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(num_peak)]
+            uniform_fit_amplitudes_errors = [
+                fit.best_errors[
+                   fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(num_peak)]
+            uniform_fit_sigmas = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(num_peak)]
+            uniform_fit_sigmas_errors = [
+                fit.best_errors[
+                   fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(num_peak)]
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
             fit_nxgroup = nxdetector.uniform_fit
+
             # Full map of results
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
-            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(fit_nxdata)
+            linkdims(
+                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
+            fit_nxdata.redchi = fit.redchi
+            fit_nxdata.success = fit.success
 
             # Peak-by-peak results
-            fit_nxgroup.fit_hkl_centers = NXdata()
-            fit_nxdata = fit_nxgroup.fit_hkl_centers
-            fit_nxdata.attrs['axes'] = map_config.dims
-            linkdims(fit_nxdata)
-            for hkl, center_guess, centers_fit, centers_error in zip(
-                    fit_hkls, peak_locations, uniform_fit_centers,
-                    uniform_fit_errors):
+#            fit_nxgroup.fit_hkl_centers = NXdata()
+#            fit_nxdata = fit_nxgroup.fit_hkl_centers
+#            linkdims(fit_nxdata)
+            for (hkl, center_guess, centers_fit, centers_error,
+                amplitudes_fit, amplitudes_error, sigmas_fit,
+                sigmas_error) in zip(
+                    fit_hkls, peak_locations,
+                    uniform_fit_centers, uniform_fit_centers_errors,
+                    uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+                    uniform_fit_sigmas, uniform_fit_sigmas_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guess
-                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                # Report initial HKL peak centers
+                fit_nxgroup[hkl_name].center_initial_guess = center_guess
+                fit_nxgroup[hkl_name].center_initial_guess.attrs['units'] = \
+                    'keV'
+                # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
-                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
-                                    name=hkl_name)
+                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
+#                fit_nxdata.makelink(
+#                    fit_nxgroup[f'{hkl_name}/centers/values'], name=hkl_name)
+                # Report HKL peak amplitudes
+                fit_nxgroup[hkl_name].amplitudes = NXdata()
+                linkdims(fit_nxgroup[hkl_name].amplitudes)
+                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
+                    value=amplitudes_fit, attrs={'units': 'counts'})
+                fit_nxgroup[hkl_name].amplitudes.errors = NXfield(
+                    value=amplitudes_error)
+                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
+                # Report HKL peak FWHM
+                fit_nxgroup[hkl_name].sigmas = NXdata()
+                linkdims(fit_nxgroup[hkl_name].sigmas)
+                fit_nxgroup[hkl_name].sigmas.values = NXfield(
+                    value=sigmas_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].sigmas.errors = NXfield(
+                    value=sigmas_error)
+                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
 
             # Perform second fit: do not assume uniform strain for all
             # HKLs, and use the fit peak centers from the uniform fit
             # as inital guesses
             self.logger.debug('Performing unconstrained fit')
             fit.create_multipeak_model(fit_type='unconstrained')
-            fit.fit()
+            fit.fit(rel_amplitude_cutoff=detector.rel_amplitude_cutoff)
             unconstrained_fit_centers = np.array(
                 [fit.best_values[
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
-                 for i in range(len(peak_locations))])
-            unconstrained_fit_errors = np.array(
+                 for i in range(num_peak)])
+            unconstrained_fit_centers_errors = np.array(
                 [fit.best_errors[
                     fit.best_parameters()\
                     .index(f'peak{i+1}_center')]
-                 for i in range(len(peak_locations))])
+                 for i in range(num_peak)])
+            unconstrained_fit_amplitudes = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(num_peak)]
+            unconstrained_fit_amplitudes_errors = [
+                fit.best_errors[
+                   fit.best_parameters().index(f'peak{i+1}_amplitude')]
+                for i in range(num_peak)]
+            unconstrained_fit_sigmas = [
+                fit.best_values[
+                    fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(num_peak)]
+            unconstrained_fit_sigmas_errors = [
+                fit.best_errors[
+                   fit.best_parameters().index(f'peak{i+1}_sigma')]
+                for i in range(num_peak)]
+
+            if interactive or save_figures:
+                # Third party modules
+                import matplotlib.animation as animation
+
+                if save_figures:
+                    path = os.path.join(
+                        outputdir, f'{detector.detector_name}_strainanalysis_'
+                        'unconstrained_fits')
+                    if not os.path.isdir(path):
+                        os.mkdir(path)
+
+                def animate(i):
+                    map_index = np.unravel_index(i, map_config.shape)
+                    intensity.set_ydata(
+                        det_nxdata.intensity.nxdata[map_index]
+                        / det_nxdata.intensity.nxdata[map_index].max())
+                    best_fit.set_ydata(fit.best_fit[map_index]
+                                       / fit.best_fit[map_index].max())
+                    # residual.set_ydata(fit.residual[map_index])
+                    index.set_text('\n'.join(f'{k}[{i}] = {v}'
+                        for k, v in map_config.get_coords(map_index).items()))
+                    if save_figures:
+                        plt.savefig(os.path.join(path, f'frame_{i}.png'))
+                    #return intensity, best_fit, residual, index
+                    return intensity, best_fit, index
+
+                fig, ax = plt.subplots()
+                map_index = np.unravel_index(0, map_config.shape)
+                data_normalized = (
+                    det_nxdata.intensity.nxdata[map_index]
+                    / det_nxdata.intensity.nxdata[map_index].max())
+                intensity, = ax.plot(
+                    energies, data_normalized, 'b.', label='data')
+                fit_normalized = (fit.best_fit[map_index]
+                                  / fit.best_fit[map_index].max())
+                best_fit, = ax.plot(
+                    energies, fit_normalized, 'k-', label='fit')
+                # residual, = ax.plot(
+                #     energies, fit.residual[map_index], 'r-',
+                #     label='residual')
+                ax.set(
+                    title='Unconstrained fits',
+                    xlabel='Energy (keV)',
+                    ylabel='Normalized Intensity (-)')
+                ax.legend(loc='upper right')
+                index = ax.text(
+                    0.05, 0.95, '', transform=ax.transAxes, va='top')
+
+                num_frames = int(det_nxdata.intensity.nxdata.size
+                              / det_nxdata.intensity.nxdata.shape[-1])
+                if not save_figures:
+                    ani = animation.FuncAnimation(
+                        fig, animate,
+                        frames=int(det_nxdata.intensity.nxdata.size
+                                   / det_nxdata.intensity.nxdata.shape[-1]),
+                        interval=1000, blit=True, repeat=False)
+                else:
+                    for i in range(num_frames):
+                        animate(i)
+
+                    plt.close()
+                    plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
+
+                    frames = []
+                    for i in range(num_frames):
+                        frame = plt.imread(
+                            os.path.join(path, f'frame_{i}.png'))
+                        im = plt.imshow(frame, animated=True)
+                        if not i:
+                            plt.imshow(frame)
+                        frames.append([im])
+
+                    ani = animation.ArtistAnimation(
+                         plt.gcf(), frames, interval=1000, blit=True,
+                         repeat=False)
+
+                if interactive:
+                    plt.show()
+
+                if save_figures:
+                    path = os.path.join(
+                        outputdir,
+                        f'{detector.detector_name}_strainanalysis_'
+                        'unconstrained_fits.mp4')
+                    ani.save(path)
+                plt.close()
+
             tth_map = detector.get_tth_map(map_config)
+            det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])
             unconstrained_strains = np.log(
@@ -985,36 +1196,68 @@ class StrainAnalysisProcessor(Processor):
             # Add unconstrained fit results to the NeXus structure
             nxdetector.unconstrained_fit = NXcollection()
             fit_nxgroup = nxdetector.unconstrained_fit
+
             # Full map of results
-            fit_nxgroup.data = NXdata()
-            fit_nxdata = fit_nxgroup.data
-            fit_nxdata.attrs['axes'] = map_config.dims + ['energy']
-            linkdims(fit_nxdata)
+            fit_nxgroup.results = NXdata()
+            fit_nxdata = fit_nxgroup.results
+            linkdims(
+                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.attrs['energy_indices'] = len(map_config.dims)
             fit_nxdata.best_fit= fit.best_fit
             fit_nxdata.residuals = fit.residual
+            fit_nxdata.redchi = fit.redchi
+            fit_nxdata.success = fit.success
+
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
-            fit_nxdata.attrs['axes'] = map_config.dims
             linkdims(fit_nxdata)
-            for hkl, center_guess, centers_fit, centers_error in zip(
-                    fit_hkls, peak_locations, unconstrained_fit_centers,
-                    unconstrained_fit_errors):
+            for (hkl, center_guesses, centers_fit, centers_error,
+                amplitudes_fit, amplitudes_error, sigmas_fit,
+                sigmas_error) in zip(
+                    fit_hkls, uniform_fit_centers,
+                    unconstrained_fit_centers,
+                    unconstrained_fit_centers_errors,
+                    unconstrained_fit_amplitudes,
+                    unconstrained_fit_amplitudes_errors,
+                    unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
-                fit_nxgroup[hkl_name].initial_guess = center_guess
-                fit_nxgroup[hkl_name].initial_guess.attrs['units'] = 'keV'
+                # Report initial guesses HKL peak centers
+                fit_nxgroup[hkl_name].center_initial_guess = NXdata()
+                linkdims(fit_nxgroup[hkl_name].center_initial_guess)
+                fit_nxgroup[hkl_name].center_initial_guess.makelink(
+                    nxdetector.uniform_fit[f'{hkl_name}/centers/values'],
+                    name='values')
+                fit_nxgroup[hkl_name].center_initial_guess.attrs['signal'] = \
+                    'values'
+                # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                fit_nxgroup[hkl_name].centers.attrs['axes'] = map_config.dims
                 linkdims(fit_nxgroup[hkl_name].centers)
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
-                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
-                                    name=hkl_name)
+#                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
+#                                    name=hkl_name)
+                fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
+                # Report HKL peak amplitudes
+                fit_nxgroup[hkl_name].amplitudes = NXdata()
+                linkdims(fit_nxgroup[hkl_name].amplitudes)
+                fit_nxgroup[hkl_name].amplitudes.values = NXfield(
+                    value=amplitudes_fit, attrs={'units': 'counts'})
+                fit_nxgroup[hkl_name].amplitudes.errors = NXfield(
+                    value=amplitudes_error)
+                fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
+                # Report HKL peak sigmas
+                fit_nxgroup[hkl_name].sigmas = NXdata()
+                linkdims(fit_nxgroup[hkl_name].sigmas)
+                fit_nxgroup[hkl_name].sigmas.values = NXfield(
+                    value=sigmas_fit, attrs={'units': 'keV'})
+                fit_nxgroup[hkl_name].sigmas.errors = NXfield(
+                    value=sigmas_error)
+                fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
+
         return nxroot
 
 
