@@ -1607,7 +1607,7 @@ def select_image_indices(
         if a.shape[0] != b.shape[0]:
             raise ValueError(f'Inconsistent image shapes({a.shape} vs '
                              f'{b.shape})')
-        
+ 
     indices = []
     lines = []
     fig_title = []

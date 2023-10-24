@@ -1,0 +1,84 @@
+config:
+  root: examples/tomo/hollow_brick
+  log_level: INFO
+  interactive: true
+  profile: false
+
+pipeline:
+
+  - pipeline.MultiplePipelineItem:
+      items:
+        # Create a simulated stack of tomography images
+        - common.YAMLReader:
+            filename: ../tomo_sim_id3a.yaml
+            schema: tomo.models.TomoSimConfig
+        - tomo.TomoSimFieldProcessor:
+            schema: tomo.models.TomoSimField
+        # Create the dark field for the simulation
+        - tomo.TomoDarkFieldProcessor:
+            schema: tomo.models.TomoDarkField
+        # Create the bright field for the simulation
+        - tomo.TomoBrightFieldProcessor:
+            schema: tomo.models.TomoBrightField
+            num_image: 10
+        # Create the SPEC file for the simulation
+        - tomo.TomoSpecProcessor:
+            scan_numbers: [1, 2, 3, 4, 5]
+        - common.FileTreeWriter:
+            force_overwrite: true
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: spec.log
+                scan_numbers:
+                - 1
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: spec.log
+                scan_numbers:
+                - 2
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: ../map_id3a_onestack.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: ../detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.YAMLReader:
+            filename: ../find_center_data_id3a.yaml
+            schema: tomo.models.TomoFindCenterConfig
+        - common.YAMLReader:
+            filename: ../reconstruct_data.yaml
+            schema: tomo.models.TomoReconstructConfig
+        - common.YAMLReader:
+            filename: ../combine_data_id3a.yaml
+            schema: tomo.models.TomoCombineConfig
+  - tomo.TomoDataProcessor:
+      reduce_data: True
+      output_folder: examples/tomo/hollow_brick/output
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: combine_hollow_brick.nxs
+      force_overwrite: true
+
