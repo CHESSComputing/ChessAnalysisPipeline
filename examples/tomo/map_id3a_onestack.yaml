@@ -1,0 +1,22 @@
+title: hollow_brick
+station: id3a
+experiment_type: TOMO
+sample:
+  name: hollow_brick
+spec_scans:
+- spec_file: spec.log
+  scan_numbers: [4]
+independent_dimensions:
+- label: rotation_angles
+  units: degrees
+  data_type: scan_column
+  name: theta
+- label: x_translation
+  units: mm
+  data_type: smb_par
+  name: ramsx
+- label: z_translation
+  units: mm
+  data_type: smb_par
+  name: ramsz
+

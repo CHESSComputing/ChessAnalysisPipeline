@@ -46,7 +46,8 @@ class TomoReduceConfig(BaseModel):
     Class representing the configuration for the tomography image
     reduction processor.
 
-    :ivar img_row_bounds: Detector image bounds in the row-direction.
+    :ivar img_row_bounds: Detector image bounds in the row-direction
+        (ignored for id1a3 and id3a).
     :type img_row_bounds: list[int], optional
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.

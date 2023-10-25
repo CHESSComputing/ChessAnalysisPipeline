@@ -62,22 +62,11 @@ pipeline:
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
 
-  # Full tomography reconstruction
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.YAMLReader:
-            filename: ../reduce_data_id3b.yaml
-            schema: tomo.models.TomoReduceConfig
-        - common.YAMLReader:
-            filename: ../find_center_data_id3b.yaml
-            schema: tomo.models.TomoFindCenterConfig
-        - common.YAMLReader:
-            filename: ../reconstruct_data.yaml
-            schema: tomo.models.TomoReconstructConfig
+  # Find rotation axis centers
   - tomo.TomoDataProcessor:
-      output_folder: examples/tomo/hollow_cube/output
+      calibrate_center: true
+      output_folder: examples/tomo/hollow_brick/output
       save_figs: 'only'
-  - common.NexusWriter:
-      filename: reconstructed_data.nxs
+  - common.YAMLWriter:
+      filename: centers.yaml
       force_overwrite: true
-
