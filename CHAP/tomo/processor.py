@@ -539,7 +539,7 @@ class TomoDataProcessor(Processor):
             if (reduce_data or find_center 
                     or reconstruct_data or reconstruct_data_config is not None
                     or combine_data or combine_data_config is not None):
-                self.logger.warning('Ignoring any step specific instructions '
+                self._logger.warning('Ignoring any step specific instructions '
                                     'during center calibration')
             if nxroot is None:
                 raise RuntimeError('Map info required to calibrate the '
@@ -802,13 +802,13 @@ class Tomo:
             if img_row_bounds is not None:
                 if (nxentry.instrument.source.attrs['station']
                         in ('id1a3', 'id3a')):
-                    self.logger.warning('Ignoring parameter img_row_bounds '
+                    self._logger.warning('Ignoring parameter img_row_bounds '
                                         'for id1a3 and id3a')
-                    img_row_bounds is None
+                    img_row_bounds = None
                 elif calibrate_center_rows:
-                    self.logger.warning('Ignoring parameter img_row_bounds '
+                    self._logger.warning('Ignoring parameter img_row_bounds '
                                         'during rotation axis calibration')
-                    img_row_bounds is None
+                    img_row_bounds = None
 
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key is None or 'data' not in nxentry.instrument.detector:
@@ -837,7 +837,7 @@ class Tomo:
                 if delta_theta is not None:
                     delta_theta = None
                     self._logger.warning(
-                        'Ignore delta_theta when an image mask is used')
+                        'Ignoring delta_theta when an image mask is used')
                 np.random.seed(0)
                 image_mask = np.where(np.random.rand(
                     len(thetas)) < drop_fraction/100, 0, 1).astype(bool)
@@ -874,6 +874,8 @@ class Tomo:
             img_row_bounds = (0, tbf_shape[0])
         reduced_data.img_row_bounds = img_row_bounds
         reduced_data.img_row_bounds.units = 'pixels'
+        reduced_data.img_row_bounds.attrs['long_name'] = \
+            'image row boundaries on detector frame of reference'
 
         # Store rotation angles for image stacks
         self._logger.debug(f'thetas = {thetas}')
@@ -1455,9 +1457,9 @@ class Tomo:
         tomo_recon_combined = \
             nxentry.reconstructed_data.data.reconstructed_data[0,:,:,:]
         tomo_recon_combined = np.concatenate(
-            [nxentry.reconstructed_data.data.reconstructed_data[i,:,:,:]
-               for i in range(num_tomo_stacks-1,0,-1)]
-            + [tomo_recon_combined])
+            [tomo_recon_combined]
+            + [nxentry.reconstructed_data.data.reconstructed_data[i,:,:,:]
+               for i in range(1, num_tomo_stacks)])
         self._logger.info(
             f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
 
