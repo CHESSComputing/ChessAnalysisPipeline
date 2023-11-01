@@ -460,10 +460,15 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     volume length calculation for an EDD setup using a steel-foil
     raster scan.
 
+    :ivar sample_thickness: Thickness of scanned foil sample. Quantity
+        must be provided in the same units as the values of the
+        scanning motor.
+    :type sample_thickness: float
     :ivar detectors: Individual detector element DVL
         measurement configurations
     :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     """
+    sample_thickness: float
     detectors: conlist(min_items=1,
                        item_type=MCAElementDiffractionVolumeLengthConfig)
 

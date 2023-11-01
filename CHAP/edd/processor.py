@@ -63,6 +63,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                 data, 'edd.models.DiffractionVolumeLengthConfig',
                 inputdir=inputdir)
         except Exception as data_exc:
+            self.logger.error(data_exc)
             self.logger.info('No valid DVL config in input pipeline data, '
                              + 'using config parameter instead.')
             try:
@@ -184,7 +185,8 @@ class DiffractionVolumeLengthProcessor(Processor):
         fit = Fit.fit_data(masked_sum, ('constant', 'gaussian'), x=x)
 
         # Calculate / manually select diffraction volume length
-        dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor
+        dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor \
+              - dvl_config.sample_thickness
         if detector.measurement_mode == 'manual':
             if interactive:
                 _, _, dvl_bounds = select_mask_1d(

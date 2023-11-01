@@ -39,6 +39,7 @@ pipeline:
         scan_number: 2
         #par_file: set2_c1-1/id1a3-wbmapscan-set2_c1-1.par
         #scan_column: sampYcp
+        sample_thickness: 0.25
         detectors:
           - detector_name: mca1
             include_bin_ranges: [[670, 1218]] # Can be selected interactively
