@@ -187,6 +187,9 @@ class DiffractionVolumeLengthProcessor(Processor):
         # Calculate / manually select diffraction volume length
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor \
               - dvl_config.sample_thickness
+        detector.fit_amplitude = fit.best_values['amplitude']
+        detector.fit_center = fit.best_values['center']
+        detector.fit_sigma = fit.best_values['sigma']
         if detector.measurement_mode == 'manual':
             if interactive:
                 _, _, dvl_bounds = select_mask_1d(

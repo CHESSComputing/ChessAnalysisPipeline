@@ -435,10 +435,19 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     :ivar dvl_measured: Placeholder for the measured diffraction
         volume length before writing the data to file.
     :type dvl_measured: float, optional
+    :ivar fit_amplitude: Placeholder for amplitude of the gaussian fit.
+    :type fit_amplitude: float, optional
+    :ivar fit_center: Placeholder for center of the gaussian fit.
+    :type fit_center: float, optional
+    :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
+    :type fit_sigma: float, optional
     """
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
+    fit_amplitude: Optional[float] = None
+    fit_center: Optional[float] = None
+    fit_sigma: Optional[float] = None
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
