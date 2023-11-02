@@ -8,19 +8,84 @@ Description: Module for Processors used in multiple experiment-specific
              workflows.
 """
 
-# system modules
-from json import dumps
-from time import time
+# Third party modules
+import numpy as np
 
-# local modules
+# Local modules
 from CHAP import Processor
+
+
+class AnimationProcessor(Processor):
+    """A Processor to show and return an animation.
+    """
+    def process(
+            self, data, num_frames, axis=0, interval=1000, blit=True,
+            repeat=True, repeat_delay=1000):
+        """Show and return an animation of image slices from a dataset
+        contained in `data`.
+
+        :param data: Input data.
+        :type data: CHAP.pipeline.PipelineData
+        :param num_frames: Number of frames for the animation.
+        :type num_frames: int
+        :param axis: Axis direction of the image slices,
+            defaults to `0`
+        :type axis: int, optional
+        :param interval: Delay between frames in milliseconds,
+            defaults to `1000`
+        :type interval: int, optional
+        :param blit: Whether blitting is used to optimize drawing,
+            default to `True`
+        :type blit: bool, optional
+        :param repeat: Whether the animation repeats when the sequence
+            of frames is completed, defaults to `True`
+        :type repeat: bool, optional
+        :param repeat_delay: Delay in milliseconds between consecutive
+            animation runs if repeat is `True`, defaults to `1000`
+        :type repeat_delay: int, optional
+        :return: The matplotlib animation.
+        :rtype: matplotlib.animation.ArtistAnimation
+        """
+        # Third party modules
+        import matplotlib.pyplot as plt
+        import matplotlib.animation as animation
+
+        # Get the frames
+        data = self.unwrap_pipelinedata(data)[-1]
+        indices = np.linspace(0, data.shape[axis]-1, num_frames)
+        if data.ndim == 3:
+            if not axis:
+                frames = [data[int(index)] for index in indices]
+            elif axis == 1:
+                frames = [data[:,int(index),:] for index in indices]
+            elif axis == 2:
+                frames = [data[:,:,int(index)] for index in indices]
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+
+        fig = plt.figure()
+        vmin = np.min(frames)
+        vmax = np.max(frames)
+        ims = [[plt.imshow(frames[n], vmin=vmin,vmax=vmax, animated=True)]
+               for n in range(num_frames)]
+        ani = animation.ArtistAnimation(
+            fig, ims, interval=interval, blit=blit, repeat=repeat,
+            repeat_delay=repeat_delay)
+
+        plt.show()
+
+        #ani.save('movie.mp4', writer='ffmpeg', fps=1)
+#        print(f'ani: {type(ani)}')
+#        ani.save('movie.gif', fps=1)
+
+        return ani
 
 
 class AsyncProcessor(Processor):
     """A Processor to process multiple sets of input data via asyncio
-    module
+    module.
 
-    :ivar mgr: The `Processor` used to process every set of input data
+    :ivar mgr: The `Processor` used to process every set of input data.
     :type mgr: Processor
     """
     def __init__(self, mgr):
@@ -31,31 +96,31 @@ class AsyncProcessor(Processor):
         """Asynchronously process the input documents with the
         `self.mgr` `Processor`.
 
-        :param data: input data documents to process
+        :param data: Input data documents to process.
         :type docs: iterable
         """
-
+        # System modules
         import asyncio
 
         async def task(mgr, doc):
-            """Process given data using provided `Processor`
+            """Process given data using provided `Processor`.
 
-            :param mgr: the object that will process given data
+            :param mgr: The object that will process given data.
             :type mgr: Processor
-            :param doc: the data to process
+            :param doc: The data to process.
             :type doc: object
-            :return: processed data
+            :return: The processed data.
             :rtype: object
             """
             return mgr.process(doc)
 
         async def execute_tasks(mgr, docs):
             """Process given set of documents using provided task
-            manager
+            manager.
 
-            :param mgr: the object that will process all documents
+            :param mgr: The object that will process all documents.
             :type mgr: Processor
-            :param docs: the set of data documents to process
+            :param docs: The set of data documents to process.
             :type doc: iterable
             """
             coroutines = [task(mgr, d) for d in docs]
@@ -64,22 +129,56 @@ class AsyncProcessor(Processor):
         asyncio.run(execute_tasks(self.mgr, data))
 
 
-class IntegrationProcessor(Processor):
-    """A processor for integrating 2D data with pyFAI"""
+class ImageProcessor(Processor):
+    """A Processor to plot an image slice from a dataset.
+    """
+    def process(self, data, index=0, axis=0):
+        """Plot an image from a dataset contained in `data` and return
+        the full dataset.
 
+        :param data: Input data.
+        :type data: CHAP.pipeline.PipelineData
+        :param index: Array index of the slice of data to plot,
+            defaults to `0`
+        :type index: int, optional
+        :param axis: Axis direction of the image slice,
+            defaults to `0`
+        :type axis: int, optional
+        :return: The full input dataset.
+        :rtype: object
+        """
+        # Local modules
+        from CHAP.utils.general import quick_imshow
+
+        data = self.unwrap_pipelinedata(data)[0]
+        if data.ndim == 2:
+            quick_imshow(data, block=True)
+        elif data.ndim == 3:
+            if not axis:
+                quick_imshow(data[index], block=True)
+            elif axis == 1:
+                quick_imshow(data[:,index,:], block=True)
+            elif axis == 2:
+                quick_imshow(data[:,:,index], block=True)
+            else:
+                raise ValueError(f'Invalid parameter axis ({axis})')
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+
+        return data
+
+
+class IntegrationProcessor(Processor):
+    """A processor for integrating 2D data with pyFAI.
+    """
     def process(self, data):
         """Integrate the input data with the integration method and
-        keyword arguments supplied and return the results.
+        keyword arguments supplied in `data` and return the results.
 
-        :param data: input data, including raw data, integration
+        :param data: Input data, containing the raw data, integration
             method, and keyword args for the integration method.
-        :type data: tuple[typing.Union[numpy.ndarray,
-                          list[numpy.ndarray]], callable, dict]
-        :param integration_method: the method of a
-            `pyFAI.azimuthalIntegrator.AzimuthalIntegrator` or
-            `pyFAI.multi_geometry.MultiGeometry` that returns the
-            desired integration results.
-        :return: integrated raw data
+        :type data: CHAP.pipeline.PipelineData
+        :return: Integrated raw data.
         :rtype: pyFAI.containers.IntegrateResult
         """
         detector_data, integration_method, integration_kwargs = data
@@ -88,26 +187,23 @@ class IntegrationProcessor(Processor):
 
 
 class IntegrateMapProcessor(Processor):
-    """Class representing a process that takes a map and integration
-    configuration and returns a `nexusformat.nexus.NXprocess`
-    containing a map of the integrated detector data requested.
+    """A processor that takes a map and integration configuration and
+    returns a NeXus NXprocesss object containing a map of the
+    integrated detector data requested.
     """
-
     def process(self, data):
         """Process the output of a `Reader` that contains a map and
-        integration configuration and return a
-        `nexusformat.nexus.NXprocess` containing a map of the
-        integrated detector data requested
+        integration configuration and return a NeXus NXprocess object
+        containing a map of the integrated detector data requested.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key, and at
-            least one item has the value `'IntegrationConfig'` for the
+        :param data: Input data, containing at least one item
+            with the value `'MapConfig'` for the `'schema'` key, and at
+            least one item with the value `'IntegrationConfig'` for the
             `'schema'` key.
-        :type data: list[dict[str,object]]
-        :return: integrated data and process metadata
+        :type data: CHAP.pipeline.PipelineData
+        :return: Integrated data and process metadata.
         :rtype: nexusformat.nexus.NXprocess
         """
-
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
         integration_config = self.get_config(
@@ -118,26 +214,30 @@ class IntegrateMapProcessor(Processor):
 
     def get_nxprocess(self, map_config, integration_config):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
-        `nexusformat.nexus.NXprocess`
+        NeXus NXprocess object.
 
-        :param map_config: a valid map configuration
+        :param map_config: A valid map configuration.
         :type map_config: MapConfig
-        :param integration_config: a valid integration configuration
-        :type integration_config: IntegrationConfig
-        :return: the integrated detector data and metadata contained
-            in a NeXus structure
+        :param integration_config: A valid integration configuration
+        :type integration_config: IntegrationConfig.
+        :return: The integrated detector data and metadata.
         :rtype: nexusformat.nexus.NXprocess
         """
+        # System modules
+        from json import dumps
+        from time import time
+
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXfield,
+            NXprocess,
+        )
+        import pyFAI
 
         self.logger.debug('Constructing NXprocess')
         t0 = time()
-
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXfield,
-                                       NXprocess)
-        import numpy as np
-        import pyFAI
 
         nxprocess = NXprocess(name=integration_config.title)
 
@@ -255,24 +355,21 @@ class IntegrateMapProcessor(Processor):
 
 
 class MapProcessor(Processor):
-    """A Processor to take a map configuration and return a
-    `nexusformat.nexus.NXentry` representing that map's metadata and
-    any scalar-valued raw data requseted by the supplied map
-    configuration.
+    """A Processor that takes a map configuration and returns a NeXus
+    NXentry object representing that map's metadata and any
+    scalar-valued raw data requested by the supplied map configuration.
     """
-
     def process(self, data):
         """Process the output of a `Reader` that contains a map
-        configuration and return a `nexusformat.nexus.NXentry`
-        representing the map.
+        configuration and returns a NeXus NXentry object representing
+        the map.
 
         :param data: Result of `Reader.read` where at least one item
             has the value `'MapConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :return: Map data & metadata
+        :type data: CHAP.pipeline.PipelineData
+        :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
-
         map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config)
 
@@ -280,29 +377,29 @@ class MapProcessor(Processor):
 
     @staticmethod
     def get_nxentry(map_config):
-        """Use a `MapConfig` to construct a
-        `nexusformat.nexus.NXentry`
+        """Use a `MapConfig` to construct a NeXus NXentry object.
 
-        :param map_config: a valid map configuration
+        :param map_config: A valid map configuration.
         :type map_config: MapConfig
-        :return: the map's data and metadata contained in a NeXus
-            structure
+        :return: The map's data and metadata contained in a NeXus
+            structure.
         :rtype: nexusformat.nexus.NXentry
         """
+        # System modules
+        from json import dumps
 
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield,
-                                       NXsample)
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
 
         nxentry = NXentry(name=map_config.title)
-
         nxentry.map_config = dumps(map_config.dict())
-
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
-
         nxentry.attrs['station'] = map_config.station
 
         nxentry.spec_scans = NXcollection()
@@ -352,22 +449,21 @@ class MapProcessor(Processor):
 
 
 class NexusToNumpyProcessor(Processor):
-    """A Processor to convert the default plottable data in an
-    `NXobject` into an `numpy.ndarray`.
+    """A Processor to convert the default plottable data in a NeXus
+    object into a `numpy.ndarray`.
     """
-
     def process(self, data):
-        """Return the default plottable data signal in `data` as an
-        `numpy.ndarray`.
+        """Return the default plottable data signal in a NeXus object 
+        contained in `data` as an `numpy.ndarray`.
 
-        :param data: input NeXus structure
-        :type data: nexusformat.nexus.tree.NXobject
-        :raises ValueError: if `data` has no default plottable data
-            signal
-        :return: default plottable data signal in `data`
+        :param data: Input data.
+        :type data: nexusformat.nexus.NXobject
+        :raises ValueError: If `data` has no default plottable data
+            signal.
+        :return: The default plottable data signal.
         :rtype: numpy.ndarray
         """
-
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         data = self.unwrap_pipelinedata(data)[-1]
@@ -394,22 +490,21 @@ class NexusToNumpyProcessor(Processor):
 
 
 class NexusToXarrayProcessor(Processor):
-    """A Processor to convert the default plottable data in an
-    `NXobject` into an `xarray.DataArray`.
+    """A Processor to convert the default plottable data in a
+    NeXus object into an `xarray.DataArray`.
     """
-
     def process(self, data):
-        """Return the default plottable data signal in `data` as an
-        `xarray.DataArray`.
+        """Return the default plottable data signal in a NeXus object
+        contained in `data` as an `xarray.DataArray`.
 
-        :param data: input NeXus structure
-        :type data: nexusformat.nexus.tree.NXobject
-        :raises ValueError: if metadata for `xarray` is absent from
+        :param data: Input data.
+        :type data: nexusformat.nexus.NXobject
+        :raises ValueError: If metadata for `xarray` is absent from
             `data`
-        :return: default plottable data signal in `data`
+        :return: The default plottable data signal.
         :rtype: xarray.DataArray
         """
-
+        # Third party modules
         from nexusformat.nexus import NXdata
         from xarray import DataArray
 
@@ -458,18 +553,15 @@ class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.
     """
-
     def process(self, data):
         """Print and return the input data.
 
-        :param data: Input data
+        :param data: Input data.
         :type data: object
         :return: `data`
         :rtype: object
         """
-
         print(f'{self.__name__} data :')
-
         if callable(getattr(data, '_str_tree', None)):
             # If data is likely an NXobject, print its tree
             # representation (since NXobjects' str representations are
@@ -482,23 +574,23 @@ class PrintProcessor(Processor):
 
 
 class RawDetectorDataMapProcessor(Processor):
-    """A Processor to return a map of raw derector data in an NXroot"""
-
+    """A Processor to return a map of raw derector data in a
+    NeXus NXroot object.
+    """
     def process(self, data, detector_name, detector_shape):
         """Process configurations for a map and return the raw
         detector data data collected over the map.
 
-        :param data: input map configuration
-        :type data: list[dict[str,object]]
-        :param detector_name: detector prefix
+        :param data: Input map configuration.
+        :type data: CHAP.pipeline.PipelineData
+        :param detector_name: The detector prefix.
         :type detector_name: str
-        :param detector_shape: shape of detector data for a single
-            scan step
+        :param detector_shape: The shape of detector data for a single
+            scan step.
         :type detector_shape: list
-        :return: map of raw detector data
+        :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-
         map_config = self.get_config(data)
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
@@ -506,17 +598,18 @@ class RawDetectorDataMapProcessor(Processor):
 
     def get_config(self, data):
         """Get instances of the map configuration object needed by this
-        `Processor`
+        `Processor`.
 
         :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key
-        :type data: list[dict[str,object]]
+            has the value `'MapConfig'` for the `'schema'` key.
+        :type data: CHAP.pipeline.PipelineData
         :raises Exception: If a valid map config object cannot be
             constructed from `data`.
-        :return: valid instances of the map configuration object with
+        :return: A valid instance of the map configuration object with
             field values taken from `data`.
         :rtype: MapConfig
         """
+        # Local modules
         from CHAP.common.models.map import MapConfig
 
         map_config = False
@@ -534,27 +627,28 @@ class RawDetectorDataMapProcessor(Processor):
 
     def get_nxroot(self, map_config, detector_name, detector_shape):
         """Get a map of the detector data collected by the scans in
-        `map_config`.The data will be returned along with some
+        `map_config`. The data will be returned along with some
         relevant metadata in the form of a NeXus structure.
 
-        :param map_config: the map configuration
+        :param map_config: The map configuration.
         :type map_config: MapConfig
-        :param detector_name: detector prefix
+        :param detector_name: The detector prefix.
         :type detector_name: str
-        :param detector_shape: shape of detector data for a single
-            scan step
+        :param detector_shape: The shape of detector data for a single
+            scan step.
         :type detector_shape: list
-        :return: a map of the raw detector data
+        :return: A map of the raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        # third party modules
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXinstrument,
-                                       NXroot)
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXinstrument,
+            NXroot,
+        )
 
-        # local modules
+        # Local modules
         from CHAP.common import MapProcessor
 
         nxroot = NXroot()
@@ -604,42 +698,39 @@ class RawDetectorDataMapProcessor(Processor):
 
 
 class StrainAnalysisProcessor(Processor):
-    """A Processor to compute a map of sample strains by fitting bragg
+    """A Processor to compute a map of sample strains by fitting Bragg
     peaks in 1D detector data and analyzing the difference between
     measured peak locations and expected peak locations for the sample
     measured.
     """
-
     def process(self, data):
         """Process the input map detector data & configuration for the
         strain analysis procedure, and return a map of sample strains.
 
-        :param data: results of `MutlipleReader.read` containing input
+        :param data: Results of `MutlipleReader.read` containing input
             map detector data and strain analysis configuration
-        :type data: dict[list[str,object]]
-        :return: map of sample strains
+        :type data: CHAP.pipeline.PipelineData
+        :return: A map of sample strains.
         :rtype: xarray.Dataset
         """
-
         strain_analysis_config = self.get_config(data)
 
         return data
 
     def get_config(self, data):
         """Get instances of the configuration objects needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor`.
 
         :param data: Result of `Reader.read` where at least one item
             has the value `'StrainAnalysisConfig'` for the `'schema'`
             key.
-        :type data: list[dict[str,object]]
+        :type data: CHAP.pipeline.PipelineData
         :raises Exception: If valid config objects cannot be
             constructed from `data`.
-        :return: valid instances of the configuration objects with
+        :return: A valid instance of the configuration object with
             field values taken from `data`.
         :rtype: StrainAnalysisConfig
         """
-
         strain_analysis_config = False
         if isinstance(data, list):
             for item in data:
@@ -655,25 +746,25 @@ class StrainAnalysisProcessor(Processor):
 
 
 class XarrayToNexusProcessor(Processor):
-    """A Processor to convert the data in an `xarray` structure to an
-    `nexusformat.nexus.NXdata`.
+    """A Processor to convert the data in an `xarray` structure to a
+    NeXus NXdata object.
     """
-
     def process(self, data):
-        """Return `data` represented as an `nexusformat.nexus.NXdata`.
+        """Return `data` represented as a NeXus NXdata object.
 
-        :param data: The input `xarray` structure
+        :param data: The input `xarray` structure.
         :type data: typing.Union[xarray.DataArray, xarray.Dataset]
-        :return: The data and metadata in `data`
+        :return: The data and metadata in `data`.
         :rtype: nexusformat.nexus.NXdata
         """
-
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         data = self.unwrap_pipelinedata(data)[-1]
-
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
-
         axes = []
         for name, coord in data.coords.items():
             axes.append(
@@ -687,13 +778,12 @@ class XarrayToNumpyProcessor(Processor):
     """A Processor to convert the data in an `xarray.DataArray`
     structure to an `numpy.ndarray`.
     """
-
     def process(self, data):
         """Return just the signal values contained in `data`.
 
-        :param data: The input `xarray.DataArray`
+        :param data: The input `xarray.DataArray`.
         :type data: xarray.DataArray
-        :return: The data in `data`
+        :return: The data in `data`.
         :rtype: numpy.ndarray
         """
 
@@ -701,5 +791,7 @@ class XarrayToNumpyProcessor(Processor):
 
 
 if __name__ == '__main__':
+    # Local modules
     from CHAP.processor import main
+
     main()
