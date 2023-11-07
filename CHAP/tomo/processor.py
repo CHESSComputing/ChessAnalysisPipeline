@@ -874,7 +874,7 @@ class Tomo:
         reduced_data.img_row_bounds = img_row_bounds
         reduced_data.img_row_bounds.units = 'pixels'
         reduced_data.img_row_bounds.attrs['long_name'] = \
-            'image row boundaries on detector frame of reference'
+            'image row boundaries in detector frame of reference'
 
         # Store rotation angles for image stacks
         self._logger.debug(f'thetas = {thetas}')
@@ -986,7 +986,8 @@ class Tomo:
         if self._test_mode:
             center_rows = tuple(self._test_config['center_rows'])
         elif calibrate_center_rows:
-            center_rows = (0, 1)
+            center_rows = calibrate_center_rows
+            offset_center_rows = (0, 1)
         else:
             # Third party modules
             import matplotlib.pyplot as plt
@@ -996,23 +997,27 @@ class Tomo:
             tbf_shape = tbf.shape
 
             # Get image bounds
-            img_row_bounds = tuple(
-                nxentry.reduced_data.get('img_row_bounds', (0, tbf_shape[0])))
-            img_column_bounds = tuple(nxentry.reduced_data.get(
-                'img_column_bounds', (0, tbf_shape[1])))
+            img_row_bounds = nxentry.reduced_data.get(
+                'img_row_bounds', (0, tbf_shape[0]))
+            img_row_bounds = (int(img_row_bounds[0]), int(img_row_bounds[1]))
+            img_column_bounds = nxentry.reduced_data.get(
+                'img_column_bounds', (0, tbf_shape[1]))
+            img_column_bounds = (
+                int(img_column_bounds[0]), int(img_column_bounds[1]))
 
             center_rows = tool_config.center_rows
-            num_row = int(img_row_bounds[1] - img_row_bounds[0])
             if center_rows is None:
                 if num_tomo_stacks == 1:
                     # Add a small margin to avoid edge effects
-                    offset = min(5, int(0.1*num_row))
-                    center_rows = (offset, num_row-1-offset)
+                    offset = min(
+                        5, int(0.1*(img_row_bounds[1] - img_row_bounds[0])))
+                    center_rows = (
+                        img_row_bounds[0]+offset, img_row_bounds[1]-1-offset)
                 else:
                     if not self._interactive:
                         self._logger.warning('center_rows unspecified, find '
                                              'centers at reduced data bounds')
-                    center_rows = (0, num_row-1)
+                    center_rows = (img_row_bounds[0], img_row_bounds[1]-1)
             fig, center_rows = select_image_indices(
                 nxentry.reduced_data.data.tomo_fields[
                     center_stack_index,0,:,:],
@@ -1020,13 +1025,18 @@ class Tomo:
                 b=tbf[img_row_bounds[0]:img_row_bounds[1],
                       img_column_bounds[0]:img_column_bounds[1]], 
                 preselected_indices=center_rows,
-                title='Select two detector image row indices to '
-                    f'find center axis (in range [0, {num_row-1}])',
+                axis_index_offset=img_row_bounds[0],
+                title='Select two detector image row indices to find center '
+                    f'axis (in range [{img_row_bounds[0]}, '
+                    f'{img_row_bounds[1]-1}])',
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field', interactive=self._interactive)
-            if center_rows[1] == num_row:
+            if center_rows[1] == img_row_bounds[1]:
                 center_rows = (center_rows[0], center_rows[1]-1)
+            offset_center_rows = (
+                center_rows[0] - img_row_bounds[0],
+                center_rows[1] - img_row_bounds[0])
             # Plot results
             if self._save_figs:
                 fig.savefig(
@@ -1051,13 +1061,13 @@ class Tomo:
         # Find the center offsets at each of the center rows
         prev_center_offset = None
         center_offsets = []
-        for i, center_row in enumerate(center_rows):
+        for row, offset_row in zip(center_rows, offset_center_rows):
             t0 = time()
             center_offsets.append(
                 self._find_center_one_plane(
                     nxentry.reduced_data.data.tomo_fields[
-                        center_stack_index,:,center_row,:],
-                    center_row, thetas, eff_pixel_size, cross_sectional_dim,
+                        center_stack_index,:,offset_row,:],
+                    row, thetas, eff_pixel_size, cross_sectional_dim,
                     path=self._output_folder, num_core=self._num_core,
                     center_offset_min=tool_config.center_offset_min,
                     center_offset_max=tool_config.center_offset_max,
@@ -1065,13 +1075,11 @@ class Tomo:
                     ring_width=tool_config.ring_width,
                     prev_center_offset=prev_center_offset))
             self._logger.info(
-                f'Finding center {i} took {time()-t0:.2f} seconds')
-            self._logger.debug(f'center_row {i} = {center_rows[i]:.2f}')
-            self._logger.debug(f'center_offset {i} = {center_offsets[i]:.2f}')
-            prev_center_offset = center_offsets[i]
+                f'Finding center row {row} took {time()-t0:.2f} seconds')
+            self._logger.debug(f'center_row = {row:.2f}')
+            self._logger.debug(f'center_offset = {center_offsets[-1]:.2f}')
+            prev_center_offset = center_offsets[-1]
 
-        if calibrate_center_rows:
-            center_rows = calibrate_center_rows
         center_config = {
             'center_rows': list(center_rows),
             'center_offsets': center_offsets,
@@ -1163,6 +1171,9 @@ class Tomo:
         tomo_stacks = np.asarray(nxentry.reduced_data.data.tomo_fields)
         num_tomo_stacks = tomo_stacks.shape[0]
         tomo_recon_stacks = num_tomo_stacks*[np.array([])]
+        img_row_bounds = tuple(nxentry.reduced_data.get(
+            'img_row_bounds', (0, tomo_stacks.shape[2])))
+        center_rows -= img_row_bounds[0]
         for i in range(num_tomo_stacks):
             # Convert reduced data stack from theta,row,column to
             #     row,theta,column
@@ -1352,15 +1363,24 @@ class Tomo:
             nxprocess[k] = v
             if k == 'center_rows' or k == 'center_offsets':
                 nxprocess[k].units = 'pixels'
+            if k == 'center_rows':
+                nxprocess[k].attrs['long_name'] = \
+                    'center row indices in detector frame of reference'
         if x_bounds is not None:
             nxprocess.x_bounds = x_bounds
             nxprocess.x_bounds.units = 'pixels'
+            nxprocess.x_bounds.attrs['long_name'] = \
+                'x range indices in reconstructed data frame of reference'
         if y_bounds is not None:
             nxprocess.y_bounds = y_bounds
             nxprocess.y_bounds.units = 'pixels'
+            nxprocess.y_bounds.attrs['long_name'] = \
+                'y range indices in reconstructed data frame of reference'
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
             nxprocess.z_bounds.units = 'pixels'
+            nxprocess.z_bounds.attrs['long_name'] = \
+                'z range indices in reconstructed data frame of reference'
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
         if num_tomo_stacks == 1:
             nxprocess.data.reconstructed_data = tomo_recon_stack
@@ -1611,12 +1631,18 @@ class Tomo:
         if x_bounds is not None:
             nxprocess.x_bounds = x_bounds
             nxprocess.x_bounds.units = 'pixels'
+            nxprocess.x_bounds.attrs['long_name'] = \
+                'x range indices in reconstructed data frame of reference'
         if y_bounds is not None:
             nxprocess.y_bounds = y_bounds
             nxprocess.y_bounds.units = 'pixels'
+            nxprocess.y_bounds.attrs['long_name'] = \
+                'y range indices in reconstructed data frame of reference'
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
             nxprocess.z_bounds.units = 'pixels'
+            nxprocess.z_bounds.attrs['long_name'] = \
+                'z range indices in reconstructed data frame of reference'
         nxprocess.data.combined_data = tomo_recon_combined
         nxprocess.data.attrs['signal'] = 'combined_data'
         nxprocess.data.attrs['axes'] = ['z', 'y', 'x']
@@ -2295,7 +2321,7 @@ class Tomo:
                 f'{center_offset_vo} took {time()-t0:.2f} seconds')
 
             recon_edges = [self._get_edges_one_plane(recon_plane)]
-            if (prev_center_offset is None
+            if (not self._interactive or prev_center_offset is None
                     or prev_center_offset == center_offset_vo):
                 fig, accept, center_offset_default = \
                     self._select_center_offset(
@@ -2338,10 +2364,8 @@ class Tomo:
 
                 if center_offset_default == center_offset_vo:
                     recon_edges.pop(0)
-                    fig, accept, _ = \
-                        self._select_center_offset(
-                            recon_edges, row, center_offset_vo,
-                            vo=True)
+                    fig, accept, _ = self._select_center_offset(
+                        recon_edges, row, center_offset_vo, vo=True)
                     # Plot results
                     if self._save_figs:
                         fig.savefig(
@@ -2352,10 +2376,8 @@ class Tomo:
                 else:
                     recon_edges.pop()
                     if center_offset_default == prev_center_offset:
-                        fig, accept, _ = \
-                            self._select_center_offset(
-                                recon_edges, row, prev_center_offset,
-                                vo=False)
+                        fig, accept, _ = self._select_center_offset(
+                            recon_edges, row, prev_center_offset, vo=False)
                         # Plot results
                         if self._save_figs:
                             fig.savefig(
