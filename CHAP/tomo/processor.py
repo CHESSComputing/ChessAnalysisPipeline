@@ -1020,7 +1020,7 @@ class Tomo:
                 b=tbf[img_row_bounds[0]:img_row_bounds[1],
                       img_column_bounds[0]:img_column_bounds[1]], 
                 preselected_indices=center_rows,
-                title='Select or adjust two detector image row indices to '
+                title='Select two detector image row indices to '
                     f'find center axis (in range [0, {num_row-1}])',
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
@@ -1059,8 +1059,8 @@ class Tomo:
                         center_stack_index,:,center_row,:],
                     center_row, thetas, eff_pixel_size, cross_sectional_dim,
                     path=self._output_folder, num_core=self._num_core,
-                    search_range=tool_config.search_range,
-                    search_step=tool_config.search_step,
+                    center_offset_min=tool_config.center_offset_min,
+                    center_offset_max=tool_config.center_offset_max,
                     gaussian_sigma=tool_config.gaussian_sigma,
                     ring_width=tool_config.ring_width,
                     prev_center_offset=prev_center_offset))
@@ -1078,6 +1078,14 @@ class Tomo:
         }
         if num_tomo_stacks > 1:
             center_config['center_stack_index'] = center_stack_index
+        if tool_config.center_offset_min is not None:
+            center_config['center_offset_min'] = tool_config.center_offset_min
+        if tool_config.center_offset_max is not None:
+            center_config['center_offset_max'] = tool_config.center_offset_max
+        if tool_config.gaussian_sigma is not None:
+            center_config['gaussian_sigma'] = tool_config.gaussian_sigma
+        if tool_config.ring_width is not None:
+            center_config['ring_width'] = tool_config.ring_width
 
         # Save test data to file
         if self._test_mode:
@@ -1888,11 +1896,11 @@ class Tomo:
                             'entire detector range')
                         img_row_bounds = (0, first_image.shape[0])
         if calibrate_center_rows:
-            title='Select or adjust two detector image row indices to '\
+            title='Select two detector image row indices to '\
                   'calibrate rotation axis (in range '\
                   f'[0, {first_image.shape[0]-1}])'
         else:
-            title='Select or adjust detector image row bounds for data '\
+            title='Select detector image row bounds for data '\
                   f'reduction (in range [0, {first_image.shape[0]}])'
         fig, img_row_bounds = select_image_indices(
             first_image, 0, b=tbf, preselected_indices=img_row_bounds,
@@ -2230,7 +2238,7 @@ class Tomo:
 
     def _find_center_one_plane(
             self, sinogram, row, thetas, eff_pixel_size, cross_sectional_dim,
-            path=None, num_core=1, search_range=None, search_step=None,
+            path=None, num_core=1, center_offset_min=-50, center_offset_max=50,
             gaussian_sigma=None, ring_width=None, prev_center_offset=None):
         """Find center for a single tomography plane."""
         # Third party modules
@@ -2246,14 +2254,21 @@ class Tomo:
 
         # Try Nghia Vo's method to get the default center offset
         t0 = time()
+        if center_offset_min is None:
+            center_offset_min = -50
+        if center_offset_max is None:
+            center_offset_max = 50
         if num_core > NUM_CORE_TOMOPY_LIMIT:
             self._logger.debug(
                 f'Running find_center_vo on {NUM_CORE_TOMOPY_LIMIT} '
                 'cores ...')
             tomo_center = find_center_vo(
-                sinogram, ncore=NUM_CORE_TOMOPY_LIMIT)
+                sinogram, ncore=NUM_CORE_TOMOPY_LIMIT, smin=center_offset_min,
+                smax=center_offset_max)
         else:
-            tomo_center = find_center_vo(sinogram, ncore=num_core)
+            tomo_center = find_center_vo(
+                sinogram, ncore=num_core, smin=center_offset_min,
+                smax=center_offset_max)
         self._logger.info(
             f'Finding center using Nghia Vo\'s method took {time()-t0:.2f} '
             'seconds')
@@ -2263,6 +2278,7 @@ class Tomo:
             f'Center at row {row} using Nghia Vo\'s method = '
             f'{center_offset_vo:.2f}')
 
+        center_offset_default = None
         if self._interactive or self._save_figs:
 
             # Need column,theta for iradon, so take transpose
@@ -2270,72 +2286,105 @@ class Tomo:
 
             # Reconstruct the plane for the Nghia Vo's center offset
             t0 = time()
-            center_offset_default = center_offset_vo
             recon_plane = self._reconstruct_one_plane(
-                sinogram_t, center_offset_default, thetas, eff_pixel_size,
+                sinogram_t, center_offset_vo, thetas, eff_pixel_size,
                 cross_sectional_dim, False, num_core, gaussian_sigma,
                 ring_width)
             self._logger.info(
                 f'Reconstructing row {row} with center at '
-                f'{center_offset_default} took {time()-t0:.2f} seconds')
+                f'{center_offset_vo} took {time()-t0:.2f} seconds')
 
             recon_edges = [self._get_edges_one_plane(recon_plane)]
-            fig, accept, selected_center_offset = \
-                self._select_center_offset(
-                    recon_edges, row, center_offset_default, vo=True)
-            # Plot results
-            if self._save_figs:
-                fig.savefig(
-                    os_path.join(
-                        self._output_folder,
-                        f'edges_center_row_{row}_vo.png'))
-            plt.close()
+            if (prev_center_offset is None
+                    or prev_center_offset == center_offset_vo):
+                fig, accept, center_offset_default = \
+                    self._select_center_offset(
+                        recon_edges, row, center_offset_vo, vo=True)
+                # Plot results
+                if self._save_figs:
+                    fig.savefig(
+                        os_path.join(
+                            self._output_folder,
+                            f'edges_center_row_{row}_vo.png'))
+                plt.close()
 
         if self._interactive:
 
-            if not accept and prev_center_offset is not None:
+            if center_offset_default is None:
                 # Reconstruct the plane at the previous center offset
                 t0 = time()
-                center_offset_default = prev_center_offset
                 recon_plane = self._reconstruct_one_plane(
-                    sinogram_t, center_offset_default, thetas, eff_pixel_size,
+                    sinogram_t, prev_center_offset, thetas, eff_pixel_size,
                     cross_sectional_dim, False, num_core, gaussian_sigma,
                     ring_width)
                 self._logger.info(
                     f'Reconstructing row {row} with center at '
-                    f'{center_offset_default} took {time()-t0:.2f} seconds')
+                    f'{prev_center_offset} took {time()-t0:.2f} seconds')
 
-                recon_edges = [self._get_edges_one_plane(recon_plane)]
-                fig, accept, selected_center_offset = \
+                recon_edges.insert(0, self._get_edges_one_plane(recon_plane))
+                fig, accept, center_offset_default = \
                     self._select_center_offset(
-                        recon_edges, row, center_offset_default)
+                        recon_edges, row,
+                        (prev_center_offset, center_offset_vo),
+                        vo=True, include_all_bad=True)
                 # Plot results
                 if self._save_figs:
                     fig.savefig(
                         os_path.join(
                             self._output_folder,
                             f'edges_center_row_{row}_'
-                            f'{center_offset_default}.png'))
+                            f'{prev_center_offset}_{center_offset_vo}.png'))
                 plt.close()
 
+                if center_offset_default == center_offset_vo:
+                    recon_edges.pop(0)
+                    fig, accept, _ = \
+                        self._select_center_offset(
+                            recon_edges, row, center_offset_vo,
+                            vo=True)
+                    # Plot results
+                    if self._save_figs:
+                        fig.savefig(
+                            os_path.join(
+                                self._output_folder,
+                                f'edges_center_row_{row}_vo.png'))
+                    plt.close()
+                else:
+                    recon_edges.pop()
+                    if center_offset_default == prev_center_offset:
+                        fig, accept, _ = \
+                            self._select_center_offset(
+                                recon_edges, row, prev_center_offset,
+                                vo=False)
+                        # Plot results
+                        if self._save_figs:
+                            fig.savefig(
+                                os_path.join(
+                                    self._output_folder,
+                                    f'edges_center_row_{row}_'
+                                    f'{prev_center_offset}.png'))
+                        plt.close()
+                    else:
+                        center_offset_default = prev_center_offset
+
             # Perform center finding search
+            prev_index = None
+            up = True
+            include_all_bad = True
+            selected_center_offset = center_offset_default
+            center_offsets = [center_offset_default]
             step_size = 4
-            max_step_size = min(
-                center_offset_range+center_offset_default,
-                center_offset_range-center_offset_default-1)
-            max_step_size = 1 << int(np.log2(max_step_size))-1
             if not accept:
+                max_step_size = min(
+                    center_offset_range+center_offset_default,
+                    center_offset_range-center_offset_default-1)
+                max_step_size = 1 << int(np.log2(max_step_size))-1
                 step_size = input_int(
                         '\nEnter the intial step size in the center '
                         'calibration search (will be truncated to the nearest '
                         'lower power of 2)', ge=2, le=max_step_size,
                         default=4)
                 step_size = 1 << int(np.log2(step_size))
-
-            prev_index = None
-            up = True
-            include_all_bad = True
-            center_offsets = [center_offset_default]
             while not accept and step_size:
                 if selected_center_offset == 'all bad':
                     selected_center_offset = round(center_offset_default)
@@ -2343,7 +2392,7 @@ class Tomo:
                         selected_center_offset-step_size,
                         selected_center_offset+step_size)
                 else:
-                    selected_center_offset = round(selected_center_offset)
+                    selected_center_offset = round(center_offset_default)
                     preselected_offsets = (
                         selected_center_offset-step_size,
                         selected_center_offset,
@@ -2366,7 +2415,6 @@ class Tomo:
                     self._select_center_offset(
                         [recon_edges[i] for i in indices],
                         row, preselected_offsets,
-                        center_offset_default=center_offset_default,
                         include_all_bad=include_all_bad)
                 if selected_center_offset   == 'all bad':
                     step_size *=2
@@ -2479,8 +2527,8 @@ class Tomo:
         return denoise_tv_chambolle(recon_plane, weight=weight)[0]
 
     def _select_center_offset(
-            self, recon_edges, row, preselected_offsets,
-            center_offset_default=None, vo=False, include_all_bad=False):
+            self, recon_edges, row, preselected_offsets, vo=False,
+            include_all_bad=False):
         """Select a center offset value from an "edges plot" image
         for a single reconstructed tomography data plane."""
         # Third party modules
@@ -2555,36 +2603,39 @@ class Tomo:
             if not i:
                 ax.set_ylabel('y', fontsize='x-large')
 
-        if len(recon_edges) > 1:
-            fig_title = plt.figtext(
-                *title_pos,
-                f'Reconstructions for row {row} (default center offset: '
-                f'{center_offset_default})',
-                **title_props)
-            fig_subtitle = plt.figtext(
-                *subtitle_pos,
-                'Select the best offset or press "Accept" to accept the '
-                f'default value of {preselected_offsets[1]}',
-                **subtitle_props)
-        else:
-            if center_offset_default is None:
-                center_offset_default = preselected_offsets[0]
+        if num_plots == 1:
             if vo:
                 fig_title = plt.figtext(
                     *title_pos,
                     f'Reconstruction for row {row} (Nghia Vo\'s center '
-                    f'offset: {center_offset_default})',
+                    f'offset: {preselected_offsets[0]})',
                     **title_props)
             else:
                 fig_title = plt.figtext(
                     *title_pos,
-                    f'Reconstruction for row {row} (default center offset: '
-                    f'{center_offset_default})',
+                    f'Reconstruction for row {row} (previous center offset: '
+                    f'{preselected_offsets[0]})',
                     **title_props)
             fig_subtitle = plt.figtext(
                 *subtitle_pos,
                 'Press "Accept" to accept this value or "Reject" to start a '
                     'center calibration search',
+                **subtitle_props)
+        else:
+            if vo:
+                fig_title = plt.figtext(
+                    *title_pos,
+                    f'Reconstruction for row {row} (previous center offset: '
+                    f'{preselected_offsets[0]}, Nghia Vo\'s center '
+                    f'offset: {preselected_offsets[1]})',
+                    **title_props)
+            else:
+                fig_title = plt.figtext(
+                    *title_pos, f'Reconstruction for row {row}', **title_props)
+            fig_subtitle = plt.figtext(
+                *subtitle_pos,
+                'Select the best offset or press "Accept" to accept the '
+                f'default value of {preselected_offsets[1]}',
                 **subtitle_props)
 
         if not self._interactive:
@@ -2643,8 +2694,8 @@ class Tomo:
             fig_title.remove()
         else:
             fig_title.set_in_layout(True)
-            fig_subtitle.remove()
             select_text.remove()
+        fig_subtitle.remove()
         fig.tight_layout(rect=(0, 0, 1, 0.95))
         if not selected_offset and num_plots == 1:
             selected_offset.append((True, preselected_offsets[0]))
@@ -2706,7 +2757,6 @@ class Tomo:
         # RV prep.stripe.remove_stripe_fw seems flawed for hollow brick
         #     accross multiple stacks
         if remove_stripe_sigma is not None and remove_stripe_sigma:
-            self._logger.warning('Ignoring remove_stripe_sigma')
             if num_core > NUM_CORE_TOMOPY_LIMIT:
                 tomo_stack = prep.stripe.remove_stripe_fw(
                     tomo_stack, sigma=remove_stripe_sigma,

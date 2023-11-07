@@ -47,12 +47,13 @@ class AnimationProcessor(Processor):
         :rtype: matplotlib.animation.ArtistAnimation
         """
         # Third party modules
-        import matplotlib.pyplot as plt
         import matplotlib.animation as animation
+        import matplotlib.pyplot as plt
 
         # Get the frames
         data = self.unwrap_pipelinedata(data)[-1]
-        indices = np.linspace(0, data.shape[axis]-1, num_frames)
+        delta = int(data.shape[axis]/(num_frames+1))
+        indices = np.linspace(delta, data.shape[axis]-delta, num_frames)
         if data.ndim == 3:
             if not axis:
                 frames = [data[int(index)] for index in indices]
@@ -64,19 +65,18 @@ class AnimationProcessor(Processor):
             raise ValueError('Invalid data dimension (must be 2D or 3D)')
 
         fig = plt.figure()
-        vmin = np.min(frames)
-        vmax = np.max(frames)
-        ims = [[plt.imshow(frames[n], vmin=vmin,vmax=vmax, animated=True)]
+#        vmin = np.min(frames)/8
+#        vmax = np.max(frames)/8
+        ims = [[plt.imshow(
+                    #frames[n], vmin=vmin,vmax=vmax, cmap='gray',
+                    frames[n], cmap='gray',
+                    animated=True)]
                for n in range(num_frames)]
         ani = animation.ArtistAnimation(
             fig, ims, interval=interval, blit=blit, repeat=repeat,
             repeat_delay=repeat_delay)
 
         plt.show()
-
-        #ani.save('movie.mp4', writer='ffmpeg', fps=1)
-#        print(f'ani: {type(ani)}')
-#        ani.save('movie.gif', fps=1)
 
         return ani
 
