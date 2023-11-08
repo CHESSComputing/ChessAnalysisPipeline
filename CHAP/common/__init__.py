@@ -9,14 +9,17 @@ validating input data in some `Processor`s.
 
 from CHAP.common.reader import (
     BinaryFileReader,
-    SpecReader,
+    H5Reader,
     MapReader,
     NexusReader,
+    SpecReader,
     URLReader,
     YAMLReader,
 )
 from CHAP.common.processor import (
+    AnimationProcessor,
     AsyncProcessor,
+    ImageProcessor,
     IntegrationProcessor,
     IntegrateMapProcessor,
     MapProcessor,
@@ -30,9 +33,10 @@ from CHAP.common.processor import (
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,
+    FileTreeWriter,
+    MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,
     YAMLWriter,
     TXTWriter,
-    FileTreeWriter,
 )

@@ -49,7 +49,12 @@ class ScanParser:
 
         self._detector_data_path = None
 
-    def __repr__(self):
+        if isinstance(self, FMBRotationScanParser) and scan_number > 1:
+            scanparser = FMBRotationScanParser(spec_file_name, scan_number-1)
+            if (scanparser.spec_macro in ('rams4_step_ome', 'rams4_fly_ome')
+                    and len(scanparser.spec_args) == 5):
+                self._rams4_args = scanparser.spec_args
+
         return (f'{self.__class__.__name__}'
                 f'({self.spec_file_name}, {self.scan_number}) '
                 f'-- {self.spec_command}')
@@ -793,7 +798,17 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     with the typical tomography setup at FMB.
     """
 
+    def get_spec_scan_data(self):
+        spec_scan_data = super().get_spec_scan_data()
+        if hasattr(self, '_rams4_args'):
+            spec_scan_data['theta'] = np.linspace(
+                float(self._rams4_args[0]), float(self._rams4_args[1]),
+                1+int(self._rams4_args[2]))
+        return spec_scan_data
+
     def get_spec_scan_npts(self):
+        if hasattr(self, '_rams4_args'):
+            return 1+int(self._rams4_args[2])
         if self.spec_macro == 'flyscan':
             if len(self.spec_args) == 2:
                 return 1+int(self.spec_args[0])
@@ -802,12 +817,12 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
                                f'points from {self.spec_macro} with arguments '
                                f'{self.spec_args}')
-        elif self.spec_macro == 'ascan':
-            if len(self.spec_args) == 5:
-                return int(self.spec_args[3])
-            raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
-                               f'points from {self.spec_macro} with arguments '
-                               f'{self.spec_args}')
+#        if self.spec_macro == 'ascan':
+#            if len(self.spec_args) == 5:
+#                return int(self.spec_args[3])
+#            raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
+#                               f'points from {self.spec_macro} with arguments '
+#                               f'{self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine rotation '
                            f' angles for scans of type {self.spec_macro}')
 
@@ -815,21 +830,10 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         return 0
 
     def get_starting_image_offset(self):
+        if hasattr(self, '_rams4_args'):
+            return int(self.spec_args[0]) - self.spec_scan_npts
         if self.spec_macro == 'flyscan':
-#            if len(self.spec_args) == 2:
-#                return 1
-#            if len(self.spec_args) == 5:
-#                return 1
             return 1
-#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-#                               f'image offset {self.spec_macro} with arguments'
-#                               f' {self.spec_args}')
-#        elif self.spec_macro == 'ascan':
-#            if len(self.spec_args) == 5:
-#                return 0
-#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-#                               f'image offset {self.spec_macro} with arguments'
-#                               f' {self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine starting '
                            f'image offset for scans of type {self.spec_macro}')
 
@@ -855,8 +859,6 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             if scan_step_index is None:
                 detector_data = h5_file['/entry/instrument/detector/data'][
                     self.starting_image_offset:]
-#                sum_det = list(np.sum(detector_data, (1,2)))
-#                print(f'\n\nsum scanparser ({len(sum_det)}):\n{sum_det}')
             elif isinstance(scan_step_index, int):
                 detector_data = h5_file['/entry/instrument/detector/data'][
                     self.starting_image_offset+scan_step_index]
@@ -873,10 +875,8 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         try:
             # Detector files in h5 format
-#            print('data in h5 file')
             detector_data = self.get_all_detector_data_in_file(
                 detector_prefix, scan_step_index)
-#            print(f'detector_data {detector_prefix} {scan_step_index}:\n{detector_data.shape}')
         except:
             # Detector files in tiff format
             if scan_step_index is None:
@@ -999,19 +999,16 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                            f'file for scan step ({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
-#        print(f'\n\nin get_detector_data: {detector_prefix} {scan_step_index}')
         if scan_step_index is None:
             detector_data = []
             for index in range(self.spec_scan_npts):
                 detector_data.append(
                     self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)
-#            print(f'detector_data shape {type(detector_data)} {detector_data.shape}:\n{detector_data}')
         elif isinstance(scan_step_index, int):
             image_file = self.get_detector_data_file(scan_step_index)
             with TiffFile(image_file) as tiff_file:
                 detector_data = tiff_file.asarray()
-#            print(f'\t{scan_step_index} {image_file} {np.sum(np.asarray(detector_data))}')
         elif (isinstance(scan_step_index, (list, tuple))
                 and len(scan_step_index) == 2):
             detector_data = []

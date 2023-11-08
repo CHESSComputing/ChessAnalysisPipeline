@@ -65,7 +65,7 @@ pipeline:
   # Find rotation axis centers
   - tomo.TomoDataProcessor:
       calibrate_center: true
-      output_folder: examples/tomo/hollow_brick/output
+      output_folder: examples/tomo/hollow_cube/output
       save_figs: 'only'
   - common.YAMLWriter:
       filename: centers.yaml
