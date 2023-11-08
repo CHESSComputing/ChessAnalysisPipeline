@@ -15,9 +15,6 @@ import numpy as np
 from pyspec.file.spec import FileSpec
 from pyspec.file.tiff import TiffFile
 
-@cache
-def get_filespec(spec_file_name):
-    return FileSpec(spec_file_name)
 
 class ScanParser:
     """Partial implementation of a class representing a SPEC scan and
@@ -52,7 +49,12 @@ class ScanParser:
 
         self._detector_data_path = None
 
-    def __repr__(self):
+        if isinstance(self, FMBRotationScanParser) and scan_number > 1:
+            scanparser = FMBRotationScanParser(spec_file_name, scan_number-1)
+            if (scanparser.spec_macro in ('rams4_step_ome', 'rams4_fly_ome')
+                    and len(scanparser.spec_args) == 5):
+                self._rams4_args = scanparser.spec_args
+
         return (f'{self.__class__.__name__}'
                 f'({self.spec_file_name}, {self.scan_number}) '
                 f'-- {self.spec_command}')
@@ -62,7 +64,7 @@ class ScanParser:
         # NB This FileSpec instance is not stored as a private
         # attribute because it cannot be pickled (and therefore could
         # cause problems for parallel code that uses ScanParsers).
-        return get_filespec(self.spec_file_name)
+        return FileSpec(self.spec_file_name)
 
     @property
     def scan_path(self):
@@ -582,6 +584,27 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         return os.path.join(self.scan_path, self.scan_title)
 
 
+
+@cache
+def list_fmb_saxswaxs_detector_files(detector_data_path, detector_prefix):
+    """Return a sorted list of all data files for the given detector
+    in the given directory. This function is cached to improve
+    performace for carrying our full FAMB SAXS/WAXS data-processing
+    workflows.
+
+    :param detector_data_path: directory in which to look for detector
+        data files
+    :type detector_data_path: str
+    :param detector_prefix: detector name to list files for
+    :type detector_prefix: str
+    :return: list of detector filenames
+    :rtype: list[str]
+    """
+    return sorted(
+        [f for f in os.listdir(detector_data_path)
+        if detector_prefix in f
+        and not f.endswith('.log')])
+
 class FMBSAXSWAXSScanParser(FMBLinearScanParser):
     """Concrete implementation of a class representing a scan taken
     with the typical SAXS/WAXS setup at FMB.
@@ -591,20 +614,8 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
         return f'{self.scan_name}_{self.scan_number:03d}'
 
     def get_detector_data_file(self, detector_prefix, scan_step_index:int):
-        scan_step = self.get_scan_step(scan_step_index)
-        file_indices = [f'{scan_step[i]:03d}'
-                        for i in range(len(self.spec_scan_shape))
-                        if self.spec_scan_shape[i] != 1]
-        if len(file_indices) == 0:
-            file_indices = ['000']
-        file_name = f'{self.scan_name}_{detector_prefix}_' \
-                    f'{self.scan_number:03d}_{"_".join(file_indices)}.tiff'
-        file_name_full = os.path.join(self.detector_data_path, file_name)
-        if os.path.isfile(file_name_full):
-            return file_name_full
-        raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           f'file for detector {detector_prefix} scan step '
-                           f'({scan_step})')
+        detector_files = list_fmb_saxswaxs_detector_files(self.detector_data_path, detector_prefix)
+        return os.path.join(self.detector_data_path, detector_files[scan_step_index])
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
         image_file = self.get_detector_data_file(detector_prefix,
@@ -699,8 +710,6 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return len(np.array(self.spec_scan.data[:,0]))
-        if self.spec_macro == 'wbsync_ct':
-            return (1,)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
                            f'for scans of type {self.spec_macro}')
 
@@ -789,7 +798,17 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     with the typical tomography setup at FMB.
     """
 
+    def get_spec_scan_data(self):
+        spec_scan_data = super().get_spec_scan_data()
+        if hasattr(self, '_rams4_args'):
+            spec_scan_data['theta'] = np.linspace(
+                float(self._rams4_args[0]), float(self._rams4_args[1]),
+                1+int(self._rams4_args[2]))
+        return spec_scan_data
+
     def get_spec_scan_npts(self):
+        if hasattr(self, '_rams4_args'):
+            return 1+int(self._rams4_args[2])
         if self.spec_macro == 'flyscan':
             if len(self.spec_args) == 2:
                 return 1+int(self.spec_args[0])
@@ -798,12 +817,12 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
                                f'points from {self.spec_macro} with arguments '
                                f'{self.spec_args}')
-        elif self.spec_macro == 'ascan':
-            if len(self.spec_args) == 5:
-                return int(self.spec_args[3])
-            raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
-                               f'points from {self.spec_macro} with arguments '
-                               f'{self.spec_args}')
+#        if self.spec_macro == 'ascan':
+#            if len(self.spec_args) == 5:
+#                return int(self.spec_args[3])
+#            raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
+#                               f'points from {self.spec_macro} with arguments '
+#                               f'{self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine rotation '
                            f' angles for scans of type {self.spec_macro}')
 
@@ -811,21 +830,10 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         return 0
 
     def get_starting_image_offset(self):
+        if hasattr(self, '_rams4_args'):
+            return int(self.spec_args[0]) - self.spec_scan_npts
         if self.spec_macro == 'flyscan':
-#            if len(self.spec_args) == 2:
-#                return 1
-#            if len(self.spec_args) == 5:
-#                return 1
             return 1
-#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-#                               f'image offset {self.spec_macro} with arguments'
-#                               f' {self.spec_args}')
-#        elif self.spec_macro == 'ascan':
-#            if len(self.spec_args) == 5:
-#                return 0
-#            raise RuntimeError(f'{self.scan_title}: cannot obtain starting '
-#                               f'image offset {self.spec_macro} with arguments'
-#                               f' {self.spec_args}')
         raise RuntimeError(f'{self.scan_title}: cannot determine starting '
                            f'image offset for scans of type {self.spec_macro}')
 
@@ -851,8 +859,6 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
             if scan_step_index is None:
                 detector_data = h5_file['/entry/instrument/detector/data'][
                     self.starting_image_offset:]
-#                sum_det = list(np.sum(detector_data, (1,2)))
-#                print(f'\n\nsum scanparser ({len(sum_det)}):\n{sum_det}')
             elif isinstance(scan_step_index, int):
                 detector_data = h5_file['/entry/instrument/detector/data'][
                     self.starting_image_offset+scan_step_index]
@@ -869,10 +875,8 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         try:
             # Detector files in h5 format
-#            print('data in h5 file')
             detector_data = self.get_all_detector_data_in_file(
                 detector_prefix, scan_step_index)
-#            print(f'detector_data {detector_prefix} {scan_step_index}:\n{detector_data.shape}')
         except:
             # Detector files in tiff format
             if scan_step_index is None:
@@ -995,19 +999,16 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
                            f'file for scan step ({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
-#        print(f'\n\nin get_detector_data: {detector_prefix} {scan_step_index}')
         if scan_step_index is None:
             detector_data = []
             for index in range(self.spec_scan_npts):
                 detector_data.append(
                     self.get_detector_data(detector_prefix, index))
             detector_data = np.asarray(detector_data)
-#            print(f'detector_data shape {type(detector_data)} {detector_data.shape}:\n{detector_data}')
         elif isinstance(scan_step_index, int):
             image_file = self.get_detector_data_file(scan_step_index)
             with TiffFile(image_file) as tiff_file:
                 detector_data = tiff_file.asarray()
-#            print(f'\t{scan_step_index} {image_file} {np.sum(np.asarray(detector_data))}')
         elif (isinstance(scan_step_index, (list, tuple))
                 and len(scan_step_index) == 2):
             detector_data = []

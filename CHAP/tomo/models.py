@@ -46,7 +46,8 @@ class TomoReduceConfig(BaseModel):
     Class representing the configuration for the tomography image
     reduction processor.
 
-    :ivar img_row_bounds: Detector image bounds in the row-direction.
+    :ivar img_row_bounds: Detector image bounds in the row-direction
+        (ignored for id1a3 and id3a).
     :type img_row_bounds: list[int], optional
     :ivar delta_theta: Rotation angle increment in image reduction
         in degrees.
@@ -70,12 +71,12 @@ class TomoFindCenterConfig(BaseModel):
     :ivar center_offsets: Centers at the center finding row indices in
         pixels.
     :type center_offsets: list[float, float], optional
-    :ivar search_range: Search range to perform center finding search
-        in pixels
-    :type search_range: float, optional
-    :ivar search_step: Search step size in the center finding search
-        in pixels
-    :type search_step: float, optional
+    :ivar center_offset_min: Minimum value of center_offset in center
+        axis finding search in pixels.
+    :type center_offset_min: float, optional
+    :ivar center_offset_max: Maximum value of center_offset in center
+        axis finding search in pixels.
+    :type center_offset_max: float, optional
     :ivar gaussian_sigma: Standard deviation for the Gaussian filter
         applied to image reconstruction visualizations, defaults to no
         filtering performed.
@@ -90,8 +91,8 @@ class TomoFindCenterConfig(BaseModel):
     center_offsets: Optional[conlist(
         item_type=confloat(allow_inf_nan=False),
         min_items=2, max_items=2)]
-    search_range: Optional[confloat(ge=0, allow_inf_nan=False)]
-    search_step: Optional[confloat(ge=0, allow_inf_nan=False)]
+    center_offset_min: Optional[confloat(allow_inf_nan=False)]
+    center_offset_max: Optional[confloat(allow_inf_nan=False)]
     gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 

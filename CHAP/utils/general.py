@@ -1417,8 +1417,8 @@ def select_roi_2d(
 
 
 def select_image_indices(
-        a, axis, b=None, preselected_indices=None, min_range=None,
-        min_num_indices=2, max_num_indices=2, title=None,
+        a, axis, b=None, preselected_indices=None, axis_index_offset=0,
+        min_range=None, min_num_indices=2, max_num_indices=2, title=None,
         title_a=None, title_b=None, row_label='row index',
         column_label='column index', interactive=True):
     """Display a 2D image and have the user select a set of image
@@ -1435,7 +1435,10 @@ def select_image_indices(
     :type b: numpy.ndarray, optional
     :param preselected_indices: Preselected image indices,
         defaults to `None`.
-    :type preselected_roi: tuple(int), list(int), optional
+    :type preselected_indices: tuple(int), list(int), optional
+    :param axis_index_offset: Offset in axes index range and
+        preselected indices, defaults to `0`.
+    :type axis_index_offset: int, optional
     :param min_range: The minimal range spanned by the selected 
         indices, defaults to `None`
     :type min_range: int, optional
@@ -1531,12 +1534,14 @@ def select_image_indices(
             error_texts.pop()
         try:
             index = int(expression)
-            if not 0 <= index <= a.shape[axis]:
+            if (index < axis_index_offset
+                    or index >= axis_index_offset+a.shape[axis]):
                 raise ValueError
         except ValueError:
             change_error_text(
                 f'Invalid {row_column} index ({expression}), enter an integer '
-                f'between 0 and {a.shape[axis]-1}')
+                f'between {axis_index_offset} and '
+                f'{axis_index_offset+a.shape[axis]-1}')
         else:
             try:
                 add_index(index)
@@ -1585,9 +1590,13 @@ def select_image_indices(
         row_column = 'row'
     else:
         row_column = 'column'
+    if not is_int(axis_index_offset, ge=0, log=False):
+        raise ValueError(
+            'Invalid parameter axis_index_offset ({axis_index_offset})')
     if preselected_indices is not None:
         if not is_int_series(
-                preselected_indices, ge=0, le=a.shape[axis], log=False):
+                preselected_indices, ge=axis_index_offset,
+                le=axis_index_offset+a.shape[axis], log=False):
             if interactive:
                 logger.warning(
                     'Invalid parameter preselected_indices '
@@ -1607,7 +1616,7 @@ def select_image_indices(
         if a.shape[0] != b.shape[0]:
             raise ValueError(f'Inconsistent image shapes({a.shape} vs '
                              f'{b.shape})')
-        
+ 
     indices = []
     lines = []
     fig_title = []
@@ -1627,10 +1636,11 @@ def select_image_indices(
            fig, axs = plt.subplots(1, 2, figsize=(11, 8.5))
        else:
            fig, axs = plt.subplots(2, 1, figsize=(11, 8.5))
-    axs[0].imshow(a)
+    extent = (0, a.shape[1], axis_index_offset+a.shape[0], axis_index_offset)
+    axs[0].imshow(a, extent=extent)
     axs[0].set_title(title_a, fontsize='xx-large')
     if b is not None:
-        axs[1].imshow(b)
+        axs[1].imshow(b, extent=extent)
         axs[1].set_title(title_b, fontsize='xx-large')
         if a.shape[0]+b.shape[0] > max(a.shape[1], b.shape[1]):
             axs[0].set_xlabel(column_label, fontsize='x-large')
@@ -1641,8 +1651,8 @@ def select_image_indices(
             axs[1].set_xlabel(column_label, fontsize='x-large')
             axs[1].set_ylabel(row_label, fontsize='x-large')
     for ax in axs:
-        ax.set_xlim(0, a.shape[1])
-        ax.set_ylim(a.shape[0], 0)
+        ax.set_xlim(extent[0], extent[1])
+        ax.set_ylim(extent[2], extent[3])
     fig.subplots_adjust(bottom=0.0, top=0.85)
 
     # Setup the preselected indices if provided
