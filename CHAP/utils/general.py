@@ -1105,18 +1105,6 @@ def select_mask_1d(
                        for v in preselected_index_ranges)):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
-        if (min_num_index_ranges is not None
-                and len(preselected_index_ranges) < min_num_index_ranges):
-            raise ValueError(
-                'Invalid parameter preselected_index_ranges '
-                f'({preselected_index_ranges}), number of selected index '
-                f'ranges must be >= {min_num_index_ranges}')
-        if (max_num_index_ranges is not None
-                and len(preselected_index_ranges) > max_num_index_ranges):
-            raise ValueError(
-                'Invalid parameter preselected_index_ranges '
-                f'({preselected_index_ranges}), number of selected index '
-                f'ranges must be <= {max_num_index_ranges}')
 
     spans = []
     fig_title = []

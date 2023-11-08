@@ -381,6 +381,8 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     :ivar hkl_indices: List of unique HKL indices to fit peaks for in
         the calibration routine, defaults to `[]`.
     :type hkl_indices: list[int], optional
+    :ivar background: Background model for peak fitting.
+    :type background: str, list[str], optional
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
@@ -394,7 +396,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     :type tth_calibrated: float, optional
     :ivar slope_calibrated: Calibrated value for detector channel
         energy correction linear slope.
-    :type  slope_calibrated: float, optional
+    :type slope_calibrated: float, optional
     :ivar intercept_calibrated: Calibrated value for detector channel
         energy correction y-intercept.
     :type intercept_calibrated: float, optional
@@ -403,6 +405,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    background: Optional[str]
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     slope_initial_guess: float = 1.0
     intercept_initial_guess: float = 0.0

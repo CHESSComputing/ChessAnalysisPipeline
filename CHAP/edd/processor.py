@@ -195,14 +195,6 @@ class DiffractionVolumeLengthProcessor(Processor):
                 _, _, dvl_bounds = select_mask_1d(
                     masked_sum, x=x,
                     label='Total (masked & normalized)',
-#RV TODO                    ref_data=[
-#                        ((x, fit.best_fit),
-#                         {'label': 'gaussian fit (to total)'}),
-#                        ((x, masked_max),
-#                         {'label': 'maximum (masked)'}),
-#                        ((x, unmasked_sum),
-#                         {'label': 'total (unmasked)'})
-#                    ],
                     preselected_index_ranges=[
                         (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
                     title=('Click and drag to indicate the boundary '
@@ -226,27 +218,27 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.detector_name})')
-            ax.set_xlabel(dvl_config.scanned_dim_lbl \
-                          + ' (offset from scan "center")')
+            ax.set_xlabel(
+                f'{dvl_config.scanned_dim_lbl} (offset from scan "center")')
             ax.set_ylabel('MCA intensity (normalized)')
             ax.plot(x, masked_sum, label='total (masked & normalized)')
             ax.plot(x, fit.best_fit, label='gaussian fit (to total)')
             ax.plot(x, masked_max, label='maximum (masked)')
             ax.plot(x, unmasked_sum, label='total (unmasked)')
-            ax.axvspan(-dvl / 2., dvl / 2.,
-                       color='gray', alpha=0.5,
-                       label='diffraction volume'
-                       + f' ({detector.measurement_mode})')
+            ax.axvspan(
+                -dvl / 2., dvl / 2., color='gray', alpha=0.5,
+                label=f'diffraction volume ({detector.measurement_mode})')
             ax.legend()
-            ax.text(
-                0, 1,
+            plt.figtext(
+                0.5, 0.95,
                 f'Diffraction volume length: {dvl:.2f}',
-                ha='left', va='top',
-                #transform=ax.get_xaxis_transform())
-                transform=ax.transAxes)
+                fontsize='x-large',
+                horizontalalignment='center',
+                verticalalignment='bottom')
             if save_figures:
-                figfile = os.path.join(outputdir,
-                                       f'{detector.detector_name}_dvl.png')
+                fig.tight_layout(rect=(0, 0, 1, 0.95))
+                figfile = os.path.join(
+                    outputdir, f'{detector.detector_name}_dvl.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -444,8 +436,7 @@ class MCACeriaCalibrationProcessor(Processor):
             # Run the uniform fit
             uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             uniform_fit.create_multipeak_model(
-                fit_E0, fit_type='uniform')
-                #fit_E0, fit_type='uniform', background='constant')
+                fit_E0, fit_type='uniform', background=detector.background)
             uniform_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -466,7 +457,7 @@ class MCACeriaCalibrationProcessor(Processor):
             unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             unconstrained_fit.create_multipeak_model(
                 uniform_fit_centers, fit_type='unconstrained',
-                )#background='constant')
+                background=detector.background)
             unconstrained_fit.fit()
 
             # Extract values of interest from the best values for the
@@ -1124,7 +1115,8 @@ class StrainAnalysisProcessor(Processor):
                     index.set_text('\n'.join(f'{k}[{i}] = {v}'
                         for k, v in map_config.get_coords(map_index).items()))
                     if save_figures:
-                        plt.savefig(os.path.join(path, f'frame_{i}.png'))
+                        plt.savefig(os.path.join(
+                            path, f'frame_{str(i).zfill(num_digit)}.png'))
                     #return intensity, best_fit, residual, index
                     return intensity, best_fit, index
 
@@ -1150,8 +1142,9 @@ class StrainAnalysisProcessor(Processor):
                 index = ax.text(
                     0.05, 0.95, '', transform=ax.transAxes, va='top')
 
-                num_frames = int(det_nxdata.intensity.nxdata.size
+                num_frame = int(det_nxdata.intensity.nxdata.size
                               / det_nxdata.intensity.nxdata.shape[-1])
+                num_digit = len(str(num_frame))
                 if not save_figures:
                     ani = animation.FuncAnimation(
                         fig, animate,
@@ -1159,16 +1152,18 @@ class StrainAnalysisProcessor(Processor):
                                    / det_nxdata.intensity.nxdata.shape[-1]),
                         interval=1000, blit=True, repeat=False)
                 else:
-                    for i in range(num_frames):
+                    for i in range(num_frame):
                         animate(i)
 
                     plt.close()
                     plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
 
                     frames = []
-                    for i in range(num_frames):
+                    for i in range(num_frame):
                         frame = plt.imread(
-                            os.path.join(path, f'frame_{i}.png'))
+                            os.path.join(
+                                path,
+                                f'frame_{str(i).zfill(num_digit)}.png'))
                         im = plt.imshow(frame, animated=True)
                         if not i:
                             plt.imshow(frame)

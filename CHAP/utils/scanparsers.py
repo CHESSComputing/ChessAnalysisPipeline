@@ -323,6 +323,10 @@ class SMBScanParser(ScanParser):
         json_files = fnmatch_filter(
             os.listdir(self.scan_path),
             f'{self._par_file_pattern}.json')
+        if not json_files:
+            json_files = fnmatch_filter(
+                os.listdir(self.scan_path),
+                f'*.json')
         if len(json_files) != 1:
             raise RuntimeError(f'{self.scan_title}: cannot find the '
                                '.json file to decode the .par file')
@@ -339,6 +343,10 @@ class SMBScanParser(ScanParser):
         par_files = fnmatch_filter(
             os.listdir(self.scan_path),
             f'{self._par_file_pattern}.par')
+        if not par_files:
+            par_files = fnmatch_filter(
+                os.listdir(self.scan_path),
+                f'*.par')
         if len(par_files) != 1:
             raise RuntimeError(f'{self.scan_title}: cannot find the .par '
                                'file for this scan directory')
