@@ -695,7 +695,7 @@ class Tomo:
 
     def __init__(
             self, interactive=False, num_core=-1, output_folder='.',
-            save_figs='no', test_mode=False):
+            save_figs='no'):
         """
         Initialize Tomo.
 
@@ -709,9 +709,6 @@ class Tomo:
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
-        :param test_mode: Run in test mode (non-interactively), defaults
-            to False.
-        :type test_mode: bool, optional
         :raises ValueError: Invalid input parameter.
         """
         # System modules
@@ -729,17 +726,7 @@ class Tomo:
         self._output_folder = os_path.abspath(output_folder)
         if not os_path.isdir(self._output_folder):
             mkdir(self._output_folder)
-        if self._interactive:
-            self._test_mode = False
-        else:
-            if not isinstance(test_mode, bool):
-                raise ValueError(f'Invalid parameter test_mode ({test_mode})')
-            self._test_mode = test_mode
         self._test_config = {}
-        if self._test_mode:
-            if save_figs != 'only':
-                self._logger.warning('Ignoring save_figs in test mode')
-            save_figs = 'only'
         if save_figs == 'only':
             self._save_only = True
             self._save_figs = True
@@ -961,10 +948,7 @@ class Tomo:
             center_stack_index = 0
         else:
             center_stack_index = tool_config.center_stack_index
-            if self._test_mode:
-                # Convert input value to offset 0
-                center_stack_index = self._test_config['center_stack_index']
-            elif calibrate_center_rows:
+            if calibrate_center_rows:
                 center_stack_index = int(num_tomo_stacks/2)
             elif self._interactive:
                 if center_stack_index is None:
@@ -983,9 +967,7 @@ class Tomo:
         thetas = np.asarray(nxentry.reduced_data.rotation_angle)
 
         # Select center rows
-        if self._test_mode:
-            center_rows = tuple(self._test_config['center_rows'])
-        elif calibrate_center_rows:
+        if calibrate_center_rows:
             center_rows = calibrate_center_rows
             offset_center_rows = (0, 1)
         else:
@@ -1094,12 +1076,6 @@ class Tomo:
             center_config['gaussian_sigma'] = tool_config.gaussian_sigma
         if tool_config.ring_width is not None:
             center_config['ring_width'] = tool_config.ring_width
-
-        # Save test data to file
-        if self._test_mode:
-            with open(f'{self._output_folder}/center_config.yaml', 'w',
-                      encoding='utf8') as f:
-                safe_dump(center_config, f)
 
         return center_config
 
@@ -1211,14 +1187,9 @@ class Tomo:
         # Resize the reconstructed tomography data
         #     reconstructed data order in each stack: row/-z,y,x
         tomo_recon_shape = tomo_recon_stacks[0].shape
-        if self._test_mode:
-            x_bounds = tuple(self._test_config.get('x_bounds'))
-            y_bounds = tuple(self._test_config.get('y_bounds'))
-            z_bounds = (0, tomo_recon_shape[0])
-        else:
-            x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
-                tomo_recon_stacks, x_bounds=tool_config.x_bounds,
-                y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
+        x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
+            tomo_recon_stacks, x_bounds=tool_config.x_bounds,
+            y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
         if x_bounds is None:
             x_range = (0, tomo_recon_shape[2])
             x_slice = int(x_range[1]/2)
@@ -1315,14 +1286,6 @@ class Tomo:
                     title=f'recon {res_title} z={z[z_index]:.4f}',
                     origin='lower', extent=extent, path=self._output_folder,
                     save_fig=True, save_only=True)
-
-            # Save test data to file
-            #     reconstructed data order in each stack: z,y,x
-            if self._test_mode:
-                np.savetxt(
-                    f'{self._output_folder}/recon_stack.txt',
-                    tomo_recon_stacks[z_slice-z_range[0],:,:],
-                    fmt='%.6e')
         else:
             # Plot a few reconstructed image slices
             if self._save_figs:
@@ -1344,15 +1307,6 @@ class Tomo:
                         title=title, path=self._output_folder,
                         save_fig=True, save_only=True)
 
-            # Save test data to file
-            #     reconstructed data order in each stack: row/-z,y,x
-            if self._test_mode:
-                for i in range(tomo_recon_shape[0]):
-                    np.savetxt(
-                        f'{self._output_folder}/recon_stack_{i}.txt',
-                        tomo_recon_stacks[i,z_slice-z_range[0],:,:],
-                        fmt='%.6e')
-
         # Add image reconstruction to reconstructed data NXprocess
         #     reconstructed data order:
         #     - for one stack: z,y,x
@@ -1370,17 +1324,17 @@ class Tomo:
             nxprocess.x_bounds = x_bounds
             nxprocess.x_bounds.units = 'pixels'
             nxprocess.x_bounds.attrs['long_name'] = \
-                'x range indices in reconstructed data frame of reference'
+                'x range indices in reduced data frame of reference'
         if y_bounds is not None:
             nxprocess.y_bounds = y_bounds
             nxprocess.y_bounds.units = 'pixels'
             nxprocess.y_bounds.attrs['long_name'] = \
-                'y range indices in reconstructed data frame of reference'
+                'y range indices in reduced data frame of reference'
         if z_bounds is not None:
             nxprocess.z_bounds = z_bounds
             nxprocess.z_bounds.units = 'pixels'
             nxprocess.z_bounds.attrs['long_name'] = \
-                'z range indices in reconstructed data frame of reference'
+                'z range indices in reduced data frame of reference'
         nxprocess.data.attrs['signal'] = 'reconstructed_data'
         if num_tomo_stacks == 1:
             nxprocess.data.reconstructed_data = tomo_recon_stack
@@ -1492,14 +1446,11 @@ class Tomo:
                for i in range(1, num_tomo_stacks)])
         self._logger.info(
             f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
+        tomo_shape = tomo_recon_combined.shape
 
         # Resize the combined tomography data stacks
         #     combined data order: row/-z,y,x
-        if self._test_mode:
-            x_bounds = None
-            y_bounds = None
-            z_bounds = tuple(self._test_config.get('z_bounds'))
-        elif self._interactive:
+        if self._interactive:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
         else:
@@ -1508,41 +1459,41 @@ class Tomo:
                 self._logger.warning(
                     'x_bounds unspecified, reconstruct data for full x-range')
             elif not is_int_pair(
-                    x_bounds, ge=0, le=tomo_recon_combined.shape[2]):
+                    x_bounds, ge=0, le=tomo_shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
                     'y_bounds unspecified, reconstruct data for full y-range')
             elif not is_int_pair(
-                    y_bounds, ge=0, le=tomo_recon_combined.shape[1]):
+                    y_bounds, ge=0, le=tomo_shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
             z_bounds = tool_config.z_bounds
             if z_bounds is None:
                 self._logger.warning(
                     'z_bounds unspecified, reconstruct data for full z-range')
             elif not is_int_pair(
-                    z_bounds, ge=0, le=tomo_recon_combined.shape[0]):
+                    z_bounds, ge=0, le=tomo_shape[0]):
                 raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
         if x_bounds is None:
-            x_range = (0, tomo_recon_combined.shape[2])
+            x_range = (0, tomo_shape[2])
             x_slice = int(x_range[1]/2)
         else:
             x_range = (min(x_bounds), max(x_bounds))
             x_slice = int((x_bounds[0]+x_bounds[1]) / 2)
         if y_bounds is None:
-            y_range = (0, tomo_recon_combined.shape[1])
+            y_range = (0, tomo_shape[1])
             y_slice = int(y_range[1]/2)
         else:
             y_range = (min(y_bounds), max(y_bounds))
             y_slice = int((y_bounds[0]+y_bounds[1]) / 2)
         if z_bounds is None:
-            z_range = (0, tomo_recon_combined.shape[0])
+            z_range = (0, tomo_shape[0])
             z_slice = int(z_range[1]/2)
         else:
             z_range = (min(z_bounds), max(z_bounds))
             z_slice = int((z_bounds[0]+z_bounds[1]) / 2)
-        z_dim_org = tomo_recon_combined.shape[0]
+        z_dim_org = tomo_shape[0]
         tomo_recon_combined = tomo_recon_combined[
             z_range[0]:z_range[1],y_range[0]:y_range[1],x_range[0]:x_range[1]]
 
@@ -1552,6 +1503,7 @@ class Tomo:
         #     Here x is to the right, y along the beam direction
         #     and z upwards in the lab frame of reference
         tomo_recon_combined = np.flip(tomo_recon_combined, 0)
+        tomo_shape = tomo_recon_combined.shape
         z_range = (z_dim_org-z_range[1], z_dim_org-z_range[0])
 
         # Get coordinate axes
@@ -1587,7 +1539,7 @@ class Tomo:
                 y[-1],
                 z[0],
                 z[-1])
-            x_slice = int(tomo_recon_combined.shape[2]/2)
+            x_slice = int(tomo_shape[2]/2)
             quick_imshow(
                 tomo_recon_combined[:,:,x_slice],
                 title=f'recon combined x={x[x_slice]:.4f}', origin='lower',
@@ -1598,7 +1550,7 @@ class Tomo:
                 x[-1],
                 z[0],
                 z[-1])
-            y_slice = int(tomo_recon_combined.shape[1]/2)
+            y_slice = int(tomo_shape[1]/2)
             quick_imshow(
                 tomo_recon_combined[:,y_slice,:],
                 title=f'recon combined y={y[y_slice]:.4f}', origin='lower',
@@ -1609,36 +1561,28 @@ class Tomo:
                 x[-1],
                 y[0],
                 y[-1])
-            z_slice = int(tomo_recon_combined.shape[0]/2)
+            z_slice = int(tomo_shape[0]/2)
             quick_imshow(
                 tomo_recon_combined[z_slice,:,:],
                 title=f'recon combined z={z[z_slice]:.4f}', origin='lower',
                 extent=extent, path=self._output_folder, save_fig=True,
                 save_only=True)
 
-        # Save test data to file
-        #     combined data order: z,y,x
-        if self._test_mode:
-            z_slice = int(tomo_recon_combined.shape[0]/2)
-            np.savetxt(
-                f'{self._output_folder}/recon_combined.txt',
-                tomo_recon_combined[z_slice,:,:], fmt='%.6e')
-
         # Add image reconstruction to reconstructed data NXprocess
         #     combined data order: z,y,x
         nxprocess.data = NXdata()
         nxprocess.attrs['default'] = 'data'
-        if x_bounds is not None:
+        if x_bounds is not None and x_bounds != (0, tomo_shape[2]):
             nxprocess.x_bounds = x_bounds
             nxprocess.x_bounds.units = 'pixels'
             nxprocess.x_bounds.attrs['long_name'] = \
                 'x range indices in reconstructed data frame of reference'
-        if y_bounds is not None:
+        if y_bounds is not None and y_bounds != (0, tomo_shape[1]):
             nxprocess.y_bounds = y_bounds
             nxprocess.y_bounds.units = 'pixels'
             nxprocess.y_bounds.attrs['long_name'] = \
                 'y range indices in reconstructed data frame of reference'
-        if z_bounds is not None:
+        if z_bounds is not None and z_bounds != (0, tomo_shape[0]):
             nxprocess.z_bounds = z_bounds
             nxprocess.z_bounds.units = 'pixels'
             nxprocess.z_bounds.attrs['long_name'] = \
@@ -1804,9 +1748,6 @@ class Tomo:
 
         # Local modules
         from CHAP.utils.general import is_index_range
-
-        if self._test_mode:
-            return tuple(self._test_config['img_row_bounds'])
 
         # Get the first tomography image and the reference heights
         image_mask = reduced_data.get('image_mask')
@@ -1990,9 +1931,6 @@ class Tomo:
         """
         # Local modules
         from CHAP.utils.general import index_nearest
-
-        if self._test_mode:
-            return tuple(self._test_config['delta_theta'])
 
 #        if input_yesno(
 #                '\nDo you want to zoom in to reduce memory '
@@ -2199,7 +2137,7 @@ class Tomo:
 
             # Downsize tomography stack to smaller size
             tomo_stack = tomo_stack.astype('float32', copy=False)
-            if not self._test_mode and (self._save_figs or self._save_only):
+            if self._save_figs or self._save_only:
                 theta = round(thetas[0], 2)
                 if len(tomo_stacks) == 1:
                     title = r'Reduced data, $\theta$ = 'f'{theta}'
@@ -2221,21 +2159,13 @@ class Tomo:
                     tomo_zoom_list.append(tomo_zoom)
                 tomo_stack = np.stack(tomo_zoom_list)
                 self._logger.info(f'Zooming in took {time()-t0:.2f} seconds')
+                title = f'red stack {zoom_perc}p theta ' \
+                    f'{round(thetas[0], 2)+0}'
+                quick_imshow(
+                    tomo_stack[0,:,:], title=title, 
+                    path=self._output_folder, save_fig=self._save_figs,
+                    save_only=self._save_only, block=self._block)
                 del tomo_zoom_list
-                if not self._test_mode:
-                    title = f'red stack {zoom_perc}p theta ' \
-                        f'{round(thetas[0], 2)+0}'
-                    quick_imshow(
-                        tomo_stack[0,:,:], title=title, 
-                        path=self._output_folder, save_fig=self._save_figs,
-                        save_only=self._save_only, block=self._block)
-
-            # Save test data to file
-            if self._test_mode:
-                row_index = int(tomo_stack.shape[1]/2)
-                np.savetxt(
-                    f'{self._output_folder}/red_stack_{i}.txt',
-                    tomo_stack[:,row_index,:], fmt='%.6e')
 
             # Combine resized stacks
             reduced_tomo_stacks[i] = tomo_stack
