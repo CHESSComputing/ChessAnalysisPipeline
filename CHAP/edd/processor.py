@@ -188,7 +188,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor \
               - dvl_config.sample_thickness
         detector.fit_amplitude = fit.best_values['amplitude']
-        detector.fit_center = fit.best_values['center']
+        detector.fit_center = scan_center + fit.best_values['center']
         detector.fit_sigma = fit.best_values['sigma']
         if detector.measurement_mode == 'manual':
             if interactive:
@@ -226,7 +226,9 @@ class DiffractionVolumeLengthProcessor(Processor):
             ax.plot(x, masked_max, label='maximum (masked)')
             ax.plot(x, unmasked_sum, label='total (unmasked)')
             ax.axvspan(
-                -dvl / 2., dvl / 2., color='gray', alpha=0.5,
+                fit.best_values['center']- dvl/2.,
+                fit.best_values['center'] + dvl/2.,
+                color='gray', alpha=0.5,
                 label=f'diffraction volume ({detector.measurement_mode})')
             ax.legend()
             plt.figtext(
@@ -391,7 +393,7 @@ class MCACeriaCalibrationProcessor(Processor):
             detector.hkl_indices = hkl_indices
             if save_figures:
                 fig.savefig(os.path.join(
-                   outputdir,
+                    outputdir,
                     f'{detector.detector_name}_calibration_fit_mask_hkls.png'))
             plt.close()
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
@@ -400,13 +402,13 @@ class MCACeriaCalibrationProcessor(Processor):
         if detector.include_bin_ranges is None:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
-                'Provide them in the MCA Ceria Calibration Configuration, '
+                'Provide them in the MCA Ceria Calibration Configuration '
                 'or re-run the pipeline with the --interactive flag.')
         if detector.hkl_indices is None:
             raise ValueError(
                 'No value provided for hkl_indices. Provide them in '
-                'the detector\'s MCA Ceria Calibration Configuration, or'
-                ' re-run the pipeline with the --interactive flag.')
+                'the detector\'s MCA Ceria Calibration Configuration or '
+                're-run the pipeline with the --interactive flag.')
         mca_mask = detector.mca_mask()
         fit_mca_energies = mca_bin_energies[mca_mask]
         fit_mca_intensities = mca_data[mca_mask]
@@ -419,13 +421,18 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Get the HKLs and lattice spacings that will be used for
         # fitting
+        # Restrict the range for the centers with some margin to 
+        # prevent having centers near the edge of the fitting range
+        delta = 0.1 * (fit_mca_energies[-1]-fit_mca_energies[0])
+        centers_range = (
+            max(0.0, fit_mca_energies[0]-delta), fit_mca_energies[-1]+delta)
         fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
         fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
         tth = detector.tth_initial_guess
         for iter_i in range(calibration_config.max_iter):
-            self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
-                              + f'starting tth value = {tth} ')
+            self.logger.debug(
+                f'Tuning tth: iteration no. {iter_i}, starting value = {tth} ')
 
             # Perform the uniform fit first
 
@@ -434,36 +441,38 @@ class MCACeriaCalibrationProcessor(Processor):
             fit_E0 = get_peak_locations(fit_ds, tth)
 
             # Run the uniform fit
-            uniform_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            uniform_fit.create_multipeak_model(
-                fit_E0, fit_type='uniform', background=detector.background)
-            uniform_fit.fit()
+            fit = Fit(fit_mca_intensities, x=fit_mca_energies)
+            fit.create_multipeak_model(
+                fit_E0, fit_type='uniform', background=detector.background,
+                centers_range=centers_range)
+            fit.fit()
 
             # Extract values of interest from the best values for the
             # uniform fit parameters
+            uniform_best_fit = fit.best_fit
+            uniform_residual = fit.residual
             uniform_fit_centers = [
-                uniform_fit.best_values[f'peak{i+1}_center']
+                fit.best_values[f'peak{i+1}_center']
                 for i in range(len(fit_hkls))]
-            uniform_a = uniform_fit.best_values['scale_factor']
+            uniform_a = fit.best_values['scale_factor']
             uniform_strain = np.log(
                 (uniform_a
                  / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
 
             # Next, perform the unconstrained fit
 
-            # Use the peak locations found in the uniform fit as the
+            # Use the peak parameters from the uniform fit as the
             # initial guesses for peak locations in the unconstrained
             # fit
-            unconstrained_fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            unconstrained_fit.create_multipeak_model(
-                uniform_fit_centers, fit_type='unconstrained',
-                background=detector.background)
-            unconstrained_fit.fit()
+            fit.create_multipeak_model(fit_type='unconstrained')
+            fit.fit()
 
             # Extract values of interest from the best values for the
             # unconstrained fit parameters
+            unconstrained_best_fit = fit.best_fit
+            unconstrained_residual = fit.residual
             unconstrained_fit_centers = np.array(
-                [unconstrained_fit.best_values[f'peak{i+1}_center']
+                [fit.best_values[f'peak{i+1}_center']
                  for i in range(len(fit_hkls))])
             unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
                 unconstrained_fit_centers, tth))
@@ -505,13 +514,13 @@ class MCACeriaCalibrationProcessor(Processor):
                 axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
                               ha='right', va='top', rotation=90,
                               transform=axs[0,0].get_xaxis_transform())
-            axs[0,0].plot(fit_mca_energies, uniform_fit.best_fit,
-                        label='Single Strain')
-            axs[0,0].plot(fit_mca_energies, unconstrained_fit.best_fit,
-                        label='Unconstrained')
+            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
+                          label='Single Strain')
+            axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
+                          label='Unconstrained')
             #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
             axs[0,0].plot(fit_mca_energies, fit_mca_intensities,
-                        label='Flux-Corrected & Masked MCA Data')
+                          label='Flux-Corrected & Masked MCA Data')
             axs[0,0].legend()
 
             # Lower left axes: fit residuals
@@ -519,10 +528,10 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,0].set_xlabel('Energy (keV)')
             axs[1,0].set_ylabel('Residual (a.u)')
             axs[1,0].plot(fit_mca_energies,
-                          uniform_fit.residual,
+                          uniform_residual,
                           label='Single Strain')
             axs[1,0].plot(fit_mca_energies,
-                          unconstrained_fit.residual,
+                          unconstrained_residual,
                           label='Unconstrained')
             axs[1,0].legend()
 
@@ -968,13 +977,17 @@ class StrainAnalysisProcessor(Processor):
             # Perform initial fit: assume uniform strain for all HKLs
             self.logger.debug('Performing uniform fit')
             fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
+            delta = 0.1 * (energies[-1]-energies[0])
+            centers_range = (
+                max(0.0, energies[0]-delta), energies[-1]+delta)
             fit.create_multipeak_model(
                 peak_locations,
                 fit_type='uniform',
                 peak_models=detector.peak_models,
                 background=detector.background,
                 fwhm_min=detector.fwhm_min,
-                fwhm_max=detector.fwhm_max)
+                fwhm_max=detector.fwhm_max,
+                centers_range=centers_range)
             fit.fit()
             uniform_fit_centers = [
                 fit.best_values[
@@ -1180,7 +1193,7 @@ class StrainAnalysisProcessor(Processor):
                     path = os.path.join(
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_'
-                        'unconstrained_fits.mp4')
+                        'unconstrained_fits.gif')
                     ani.save(path)
                 plt.close()
 

@@ -405,7 +405,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
-    background: Optional[str]
+    background: Optional[Union[str, list]]
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     slope_initial_guess: float = 1.0
     intercept_initial_guess: float = 0.0
@@ -673,7 +673,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
-    background: Optional[str]
+    background: Optional[Union[str, list]]
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
