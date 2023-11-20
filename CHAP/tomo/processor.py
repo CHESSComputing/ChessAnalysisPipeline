@@ -27,6 +27,7 @@ from CHAP.utils.general import (
     select_roi_1d,
     select_roi_2d,
     quick_imshow,
+    nxcopy,
 )
 from CHAP.utils.fit import Fit
 from CHAP.processor import Processor
@@ -606,49 +607,6 @@ class TomoDataProcessor(Processor):
             return center_config
         return nxroot
 
-def nxcopy(nxobject, exclude_nxpaths=None, nxpath_prefix=''):
-    """
-    Function that returns a copy of a nexus object, optionally exluding
-    certain child items.
-
-    :param nxobject: The input nexus object to "copy".
-    :type nxobject: nexusformat.nexus.NXobject
-    :param exlude_nxpaths: A list of paths to child nexus objects that
-        should be excluded from the returned "copy", defaults to `[]`.
-    :type exclude_nxpaths: list[str], optional
-    :param nxpath_prefix: For use in recursive calls from inside this
-        function only.
-    :type nxpath_prefix: str
-    :return: Copy of the input `nxobject` with some children optionally
-        exluded.
-    :rtype: nexusformat.nexus.NXobject
-    """
-    # Third party modules
-    from nexusformat.nexus import NXgroup
-
-    nxobject_copy = nxobject.__class__()
-    if not nxpath_prefix:
-        if 'default' in nxobject.attrs:
-            nxobject_copy.attrs['default'] = nxobject.attrs['default']
-    else:
-        for k, v in nxobject.attrs.items():
-            nxobject_copy.attrs[k] = v
-
-    if exclude_nxpaths is None:
-        exclude_nxpaths = []
-    for k, v in nxobject.items():
-        nxpath = os_path.join(nxpath_prefix, k)
-        if nxpath in exclude_nxpaths:
-            continue
-        if isinstance(v, NXgroup):
-            nxobject_copy[k] = nxcopy(
-                v, exclude_nxpaths=exclude_nxpaths,
-                nxpath_prefix=os_path.join(nxpath_prefix, k))
-        else:
-            nxobject_copy[k] = v
-
-    return nxobject_copy
-
 
 class SetNumexprThreads:
     """
@@ -1176,6 +1134,7 @@ class Tomo:
                 tomo_stack, thetas, center_offsets=center_offsets,
                 num_core=self._num_core, algorithm='gridrec',
                 secondary_iters=tool_config.secondary_iters,
+                gaussian_sigma=tool_config.gaussian_sigma,
                 remove_stripe_sigma=tool_config.remove_stripe_sigma,
                 ring_width=tool_config.ring_width)
             self._logger.info(
@@ -2486,7 +2445,6 @@ class Tomo:
         # Third party modules
         import matplotlib.pyplot as plt
         from matplotlib.widgets import RadioButtons, Button
-        from matplotlib.widgets import Button
 
         def select_offset(offset):
             """Callback function for the "Select offset" input."""
@@ -2656,8 +2614,8 @@ class Tomo:
 
     def _reconstruct_one_tomo_stack(
             self, tomo_stack, thetas, center_offsets=None, num_core=1,
-            algorithm='gridrec', secondary_iters=0, remove_stripe_sigma=None,
-            ring_width=None):
+            algorithm='gridrec', secondary_iters=0, gaussian_sigma=None,
+            remove_stripe_sigma=None, ring_width=None):
         """Reconstruct a single tomography stack."""
         # Third party modules
         from tomopy import (
@@ -2771,6 +2729,11 @@ class Tomo:
             misc.corr.remove_ring(
                 tomo_recon_stack, rwidth=ring_width, out=tomo_recon_stack,
                 ncore=num_core)
+
+        # Performing Gaussian filtering
+        if gaussian_sigma is not None and gaussian_sigma:
+            tomo_recon_stack = misc.corr.gaussian_filter(
+                tomo_recon_stack, sigma=gaussian_sigma, ncore=num_core)
 
         return tomo_recon_stack
 
