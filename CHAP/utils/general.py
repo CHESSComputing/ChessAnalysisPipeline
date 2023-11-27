@@ -1915,7 +1915,6 @@ def nxcopy(
         NXfield,
         NXgroup,
         NXlink,
-        NXlinkfield,
         NXlinkgroup,
         NXroot,
     )
@@ -1964,11 +1963,13 @@ def nxcopy(
     if nxpath_copy_abspath is None:
         nxpath_copy_abspath = ''
 
-    # Loop over all nxobject's childs
+    # Loop over all nxobject's children
     for k, v in nxobject.items():
         nxpath = os_path.join(nxpath_prefix, k)
         nxpathabs = os_path.join(nxpathabs_prefix, nxpath)
         if nxpath in exclude_nxpaths:
+            if 'default' in nxobject_copy.attrs and nxobject_copy.default == k:
+                nxobject_copy.attrs.pop('default')
             continue
         if isinstance(v, NXlinkgroup):
             if nxpathabs == v.nxpath and not any(
