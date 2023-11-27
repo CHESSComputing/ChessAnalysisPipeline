@@ -1885,7 +1885,7 @@ def quick_plot(
 
 def nxcopy(
         nxobject, exclude_nxpaths=None, nxpath_prefix=None,
-        nxpathabs_prefix=None):
+        nxpathabs_prefix=None, nxpath_copy_abspath=None):
     """
     Function that returns a copy of a nexus object, optionally exluding
     certain child items.
@@ -1902,6 +1902,9 @@ def nxcopy(
     :param nxpathabs_prefix: For use in recursive calls from inside this
         function only.
     :type nxpathabs_prefix: str
+    :param nxpath_copy_abspath: For use in recursive calls from inside this
+        function only.
+    :type nxpath_copy_abspath: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
     :rtype: nexusformat.nexus.NXobject
@@ -1936,7 +1939,7 @@ def nxcopy(
     # Copy attributes
     if isinstance(nxobject, NXroot):
         if 'default' in nxobject.attrs:
-            nxobject_copy.attrs['default'] = nxobject.attrs['default']
+            nxobject_copy.attrs['default'] = nxobject.default
     else:
         for k, v in nxobject.attrs.items():
             nxobject_copy.attrs[k] = v
@@ -1951,13 +1954,15 @@ def nxcopy(
             raise ValueError(
                 f'Invalid parameter in exclude_nxpaths ({exclude_nxpaths}), '
                 'excluded paths should be relative')
-    if nxpath_prefix == None:
+    if nxpath_prefix is None:
         nxpath_prefix = ''
-    if nxpathabs_prefix == None:
+    if nxpathabs_prefix is None:
         if isinstance(nxobject, NXentry):
             nxpathabs_prefix = nxobject.nxpath
         else:
             nxpathabs_prefix = nxobject.nxpath.removesuffix(nxobject.nxname)
+    if nxpath_copy_abspath is None:
+        nxpath_copy_abspath = ''
 
     # Loop over all nxobject's childs
     for k, v in nxobject.items():
@@ -1973,7 +1978,8 @@ def nxcopy(
             else:
                 nxobject_copy[k] = nxcopy(
                     v, exclude_nxpaths=exclude_nxpaths,
-                    nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix)
+                    nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
+                    nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
         elif isinstance(v, NXlink):
             if nxpathabs == v.nxpath and not any(
                     v.nxtarget.startswith(os_path.join(nxpathabs_prefix, p))
@@ -1981,13 +1987,19 @@ def nxcopy(
                 nxobject_copy[k] = v
             else:
                 nxobject_copy[k] = v.nxdata
-                if v.attrs:
-                    nxobject_copy[k].attrs = v.attrs
+                for kk, vv in v.attrs.items():
+                    nxobject_copy[k].attrs[kk] = vv
+                nxobject_copy[k].attrs.pop('target', None)
         elif isinstance(v, NXgroup):
             nxobject_copy[k] = nxcopy(
                 v, exclude_nxpaths=exclude_nxpaths,
-                nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix)
+                nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
+                nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
         else:
-            nxobject_copy[k] = v
+            nxobject_copy[k] = v.nxdata
+            for kk, vv in v.attrs.items():
+                nxobject_copy[k].attrs[kk] = vv
+            if nxpathabs != os_path.join(nxpath_copy_abspath, k):
+                nxobject_copy[k].attrs.pop('target', None)
 
     return nxobject_copy

@@ -1,7 +1,7 @@
 config:
   root: examples/tomo/hollow_brick
   log_level: INFO
-  interactive: true
+  interactive: false
   profile: false
 
 pipeline:
