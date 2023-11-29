@@ -276,19 +276,20 @@ class NexusWriter(Writer):
         :rtype: nexusformat.nexus.NXobject
         """
         from nexusformat.nexus import (
-            NXdata,
             NXentry,
             NXroot,
         )
         data = self.unwrap_pipelinedata(data)[-1]
-        if isinstance(data, NXdata):
-            data = NXroot(NXentry(data))
-            data.entry.data.set_default()
-            data.entry.set_default()
-        elif isinstance(data, NXentry):
-            entryname = data.nxname
+        nxclass = data.nxclass
+        nxname = data.nxname
+        if nxclass == 'NXentry':
             data = NXroot(data)
-            data[entryname].set_default()
+            data[nxname].set_default()
+        elif nxclass != 'NXroot':
+            data = NXroot(NXentry(data))
+            if nxclass == 'NXdata':
+                data.entry[nxname].set_default()
+            data.entry.set_default()
         write_nexus(data, filename, force_overwrite)
 
         return data

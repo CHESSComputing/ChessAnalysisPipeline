@@ -133,20 +133,22 @@ class BinarizeProcessor(Processor):
     """A Processor to binarize a dataset.
     """
     def process(
-            self, data, nxpath='/', interactive=False, method='CHAP',
-            num_bin=256, axis=None, overwrite=False):
+            self, data, nxpath='', interactive=False, method='CHAP',
+            num_bin=256, axis=None, remove_original_data=False):
         """Show and return a binarized dataset from a dataset
-        contained in `data`. The dataset must either be a numpy array
-        or a NXobject object with a default path to a NXfield object. 
+        contained in `data`. The dataset must either be of type
+        `numpy.ndarray` or a NeXus NXobject object with a default path
+        to a NeXus NXfield object. 
 
         :param data: Input data.
         :type data: CHAP.pipeline.PipelineData
-        :param nxpath: The relative path to a specific location in
-            the NeXus file tree to read from (ignored for numpy input
-            datasets), defaults to `'/'`
+        :param nxpath: The relative path to a specific NeXus NXentry or
+            NeXus NXdata object in the NeXus file tree to read the
+            input data from (ignored for Numpy or NeXus NXfield input
+            datasets), defaults to `''`
         :type nxpath: str, optional
         :param interactive: Allows for user interactions (ignored
-            for any method other than `'manual'`), defaults to False.
+            for any method other than `'manual'`), defaults to `False`.
         :type interactive: bool, optional
         :param method: Binarization method, defaults to `'CHAP'`
             (CHAP's internal implementation of Otzu's method).
@@ -159,13 +161,13 @@ class BinarizeProcessor(Processor):
         :param axis: Axis direction of the image slices (ignored
             for any method other than `'manual'`), defaults to `None`
         :type axis: int, optional
-        :param overwrite: Replaces the original data field
-            with the binarized data (ignored for numpy input
-            datasets), defaults to `False`.
-        :type force_overwrite: bool, optional
+        :param remove_original_data: Removes the original data field
+            (ignored for Numpy input datasets), defaults to `False`.
+        :type force_remove_original_data: bool, optional
         :raises ValueError: Upon invalid input parameters.
-        :return: The binarized dataset.
-        :rtype: numpy.ndarray, nexusformat.nexus.NXentry
+        :return: The binarized dataset with a return type equal to
+            that of the input dataset.
+        :rtype: numpy.ndarray, nexusformat.nexus.NXobject
         """
         # System modules
         from os.path import join as os_join
@@ -178,47 +180,71 @@ class BinarizeProcessor(Processor):
         )
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXfield,
             NXlink,
-            NXobject,
-            NXroot,
+            NXprocess,
             nxsetconfig,
         )
 
         if method not in [
                 'CHAP', 'manual', 'otsu', 'yen', 'isodata', 'minimum']:
-            raise ValueError('Invalid parameter method ({method})')
+            raise ValueError(f'Invalid parameter method ({method})')
         if not is_int(num_bin, gt=0):
-            raise ValueError('Invalid parameter num_bin ({num_bin})')
-        if not isinstance(overwrite, bool):
-            raise ValueError('Invalid parameter overwrite ({overwrite})')
+            raise ValueError(f'Invalid parameter num_bin ({num_bin})')
+        if not isinstance(remove_original_data, bool):
+            raise ValueError('Invalid parameter remove_original_data '
+                             f'({remove_original_data})')
 
         nxsetconfig(memory=100000)
 
-        # Get the dataset
+        # Get the dataset and make a copy if it is a NeXus NXgroup
         dataset = self.unwrap_pipelinedata(data)[-1]
-        if nxpath is not None and isinstance(dataset, NXobject):
-            dataset = dataset[nxpath]
-        if isinstance(dataset, (np.ndarray, NXfield)):
-            if axis is not None and not is_int(axis, gt=0, lt=3):
-                raise ValueError(f'Invalid parameter axis ({axis})')
+        if isinstance(dataset, np.ndarray):
             if method == 'manual':
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
                 axes = ['i', 'j', 'k']
-            data = np.asarray(dataset)
-        else:
-            if isinstance(dataset, NXdata):
-                nxdatapath = ''
-            elif isinstance(dataset, NXentry):
-                nxdatapath = dataset.default
-            elif isinstance(dataset, NXroot):
-                nxdatapath = os_join(
-                    dataset.default, dataset[dataset.default].default)
-            else:
-                raise ValueError(f'Invalid data type ({type(dataset)})')
-            nxdata = dataset[nxdatapath]
+            data = dataset
+        elif isinstance(dataset, NXfield):
             if method == 'manual':
-                if ihasattr(nxdata.attrs, 'axes'):
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
+                axes = ['i', 'j', 'k']
+            if isinstance(dataset, NXfield):
+                if nxpath not in ('', '/'):
+                    self.logger.warning('Ignoring parameter nxpath')
+                data = dataset.nxdata
+            else:
+                try:
+                    data = dataset[nxpath].nxdata
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+        else:
+            # Get the default Nexus NXdata object
+            try:
+                nxdefault = dataset.get_default()
+            except:
+                nxdefault = None
+            if nxdefault is not None and nxdefault.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway NXobject type '
+                                 f'({nxdefault.nxclass})')
+            # Get the requested NeXus NXdata object to binarize
+            if nxpath is None:
+                nxclass = dataset.nxclass
+            else:
+                try:
+                    nxclass = dataset[nxpath].nxclass
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+            if nxclass == 'NXdata':
+                nxdata = dataset[nxpath]
+            else:
+                if nxdefault is None:
+                    raise ValueError(f'No default pathway to a NXdata object')
+                nxdata = nxdefault
+            nxsignal = nxdata.nxsignal
+            if method == 'manual':
+                if hasattr(nxdata.attrs, 'axes'):
                     axes = nxdata.attrs['axes']
                     if isinstance(axis, str):
                         if axis not in axes:
@@ -228,26 +254,57 @@ class BinarizeProcessor(Processor):
                         raise ValueError(f'Invalid parameter axis ({axis})')
                 else:
                     axes = ['i', 'j', 'k']
-                if nxdata[nxdata.signal].ndim != 3:
+                if nxsignal.ndim != 3:
                     raise ValueError('Invalid data dimension (must be 3D)')
-            data = nxdata[nxdata.signal].nxdata
-            if overwrite:
-                exclude_nxpaths = os_join(nxdatapath, nxdata.signal)
-                if (not isinstance(dataset, NXdata)
-                        and isinstance(dataset[exclude_nxpaths], NXlink)):
-                    datatarget = dataset[exclude_nxpaths].nxtarget
-                else:
-                    datatarget = None
-                dataset = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
-            else:
-                dataset = nxcopy(dataset)
-            del nxdata
+            data = nxsignal.nxdata
+            # Create a copy of the input NeXus object, removing the
+            # default NeXus NXdata object as well as the original
+            # dateset if the remove_original_data parameter is set
+            exclude_nxpaths = []
+            if nxdefault is not None:
+                exclude_nxpaths.append(
+                    os_join(relpath(nxdefault.nxpath, dataset.nxpath)))
+            if remove_original_data:
+                if (nxdefault is None
+                        or nxdefault.nxpath != nxdata.nxpath):
+                    relpath_nxdata = relpath(nxdata.nxpath, dataset.nxpath)
+                    keys = list(nxdata.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxdata.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    elif relpath_nxdata == '.':
+                        exclude_nxpaths.append(nxsignal.nxname)
+                        if dataset.nxclass != 'NXdata':
+                            exclude_nxpaths += nxdata.axes
+                    else:
+                        exclude_nxpaths.append(relpath_nxdata)
+                if not (dataset.nxclass == 'NXdata'
+                        or nxdata.nxsignal.nxtarget is None):
+                    nxsignal = dataset[nxsignal.nxtarget]
+                    nxgroup = nxsignal.nxgroup
+                    keys = list(nxgroup.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxgroup.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    else:
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxgroup.nxpath, dataset.nxpath)))
+            nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
 
-        # Get a histogram of the dataset
+        # Get a histogram of the data
         if method not in ['manual', 'yen']:
             counts, edges = np.histogram(data, bins=num_bin)
             centers = edges[:-1] + 0.5 * np.diff(edges)
 
+        # Calculate the data cutoff threshold
         if method == 'CHAP':
             weights = np.cumsum(counts)
             means = np.cumsum(counts * centers)
@@ -398,41 +455,45 @@ class BinarizeProcessor(Processor):
                             roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
                         ].mean())
 
-            # Get and apply the cutoff
+            # Get the data cutoff threshold
             threshold = np.mean(bounds)
 
-        # Create and return the output dataset
+        # Apply the data cutoff threshold and return the output
         data = np.where(data<threshold, 0, 1).astype(np.ubyte)
 #        from CHAP.utils.general import quick_imshow
 #        quick_imshow(data[int(data.shape[0]/2),:,:], block=True)
 #        quick_imshow(data[:,int(data.shape[1]/2),:], block=True)
 #        quick_imshow(data[:,:,int(data.shape[2]/2)], block=True)
         if isinstance(dataset, np.ndarray):
-            dataset = data
-        elif isinstance(dataset, NXfield):
+            return data
+        if isinstance(dataset, NXfield):
             attrs = dataset.attrs
             attrs.pop('target', None)
-            dataset = NXfield(
-                value=data,
-                name=dataset.nxname,
-                attrs=dataset.attrs)
-        elif overwrite:
-            if datatarget is None:
-                dataset[exclude_nxpaths] = data
-            else:
-                if isinstance(dataset, NXroot):
-                    nxdatapath = datatarget
-                else:
-                    nxdatapath = relpath(
-                        datatarget, os_join('/', dataset.nxname))
-                dataset[nxdatapath] = data
-                dataset[exclude_nxpaths] = NXlink(datatarget)
+            return NXfield(
+                value=data, name=dataset.nxname, attrs=dataset.attrs)
+        name = nxsignal.nxname + '_binarized'
+        if nxobject.nxclass == 'NXdata':
+            nxobject[name] = data
+            nxobject.attrs['signal'] = name
+            return nxobject
+        if nxobject.nxclass == 'NXroot':
+            nxentry = nxobject[nxobject.default]
         else:
-            name = dataset[nxdatapath].signal + '_binarized'
-            dataset[nxdatapath][name] = data
-            dataset[nxdatapath].attrs['signal'] = name
-
-        return dataset
+            nxentry = nxobject
+        axes = []
+        for axis in nxdata.axes:
+            attrs = nxdata[axis].attrs
+            attrs.pop('target', None)
+            axes.append(
+                NXfield(nxdata[axis], name=axis, attrs=attrs))
+        nxentry[name] = NXprocess(
+            NXdata(NXfield(data, name=name), axes),
+            attrs={'source': nxsignal.nxpath})
+        nxdata = nxentry[name].data
+        nxentry.data = NXdata(
+            NXlink(nxdata.nxsignal.nxpath),
+            [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+        return nxobject
 
 
 class ImageProcessor(Processor):

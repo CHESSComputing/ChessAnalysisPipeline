@@ -824,25 +824,24 @@ class Tomo:
 
         # Create a copy of the input Nexus object and remove raw and
         # any existing reduced data
-        if isinstance(nxroot, NXroot):
-            exclude_items = [
-                f'{nxentry.nxname}/reduced_data/data',
-                f'{nxentry.nxname}/instrument/detector/data',
-                f'{nxentry.nxname}/instrument/detector/image_key',
-                f'{nxentry.nxname}/instrument/detector/sequence_number',
-                f'{nxentry.nxname}/sample/rotation_angle',
-                f'{nxentry.nxname}/sample/x_translation',
-                f'{nxentry.nxname}/sample/z_translation',
-                f'{nxentry.nxname}/data/data',
-                f'{nxentry.nxname}/data/image_key',
-                f'{nxentry.nxname}/data/rotation_angle',
-                f'{nxentry.nxname}/data/x_translation',
-                f'{nxentry.nxname}/data/z_translation',
-            ]
-            nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
-            nxentry = nxroot[nxroot.default]
+        exclude_items = [
+            f'{nxentry.nxname}/reduced_data/data',
+            f'{nxentry.nxname}/instrument/detector/data',
+            f'{nxentry.nxname}/instrument/detector/image_key',
+            f'{nxentry.nxname}/instrument/detector/sequence_number',
+            f'{nxentry.nxname}/sample/rotation_angle',
+            f'{nxentry.nxname}/sample/x_translation',
+            f'{nxentry.nxname}/sample/z_translation',
+            f'{nxentry.nxname}/data/data',
+            f'{nxentry.nxname}/data/image_key',
+            f'{nxentry.nxname}/data/rotation_angle',
+            f'{nxentry.nxname}/data/x_translation',
+            f'{nxentry.nxname}/data/z_translation',
+        ]
+        nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
         # Add the reduced data NXprocess
+        nxentry = nxroot[nxroot.default]
         nxentry.reduced_data = reduced_data
 
         if 'data' not in nxentry:
