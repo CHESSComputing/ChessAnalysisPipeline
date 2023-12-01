@@ -111,6 +111,10 @@ class TomoReconstructConfig(BaseModel):
     :ivar secondary_iters: Number of secondary iterations in the tomopy
         image reconstruction algorithm, defaults to 0.
     :type secondary_iters: int, optional
+    :ivar gaussian_sigma: Standard deviation for the Gaussian filter
+        applied to image reconstruction visualizations, defaults to no
+        filtering performed.
+    :type gaussian_sigma: float, optional
     :ivar remove_stripe_sigma: Damping parameter in Fourier space in
         tomopy's horizontal stripe removal tool, defaults to no
         correction performed.
@@ -126,6 +130,7 @@ class TomoReconstructConfig(BaseModel):
     z_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
     secondary_iters: conint(ge=0) = 0
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
     remove_stripe_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 

@@ -19,6 +19,7 @@ from CHAP.common.reader import (
 from CHAP.common.processor import (
     AnimationProcessor,
     AsyncProcessor,
+    BinarizeProcessor,
     ImageProcessor,
     IntegrationProcessor,
     IntegrateMapProcessor,

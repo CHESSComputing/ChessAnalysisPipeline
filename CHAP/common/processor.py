@@ -129,6 +129,373 @@ class AsyncProcessor(Processor):
         asyncio.run(execute_tasks(self.mgr, data))
 
 
+class BinarizeProcessor(Processor):
+    """A Processor to binarize a dataset.
+    """
+    def process(
+            self, data, nxpath='', interactive=False, method='CHAP',
+            num_bin=256, axis=None, remove_original_data=False):
+        """Show and return a binarized dataset from a dataset
+        contained in `data`. The dataset must either be of type
+        `numpy.ndarray` or a NeXus NXobject object with a default path
+        to a NeXus NXfield object. 
+
+        :param data: Input data.
+        :type data: CHAP.pipeline.PipelineData
+        :param nxpath: The relative path to a specific NeXus NXentry or
+            NeXus NXdata object in the NeXus file tree to read the
+            input data from (ignored for Numpy or NeXus NXfield input
+            datasets), defaults to `''`
+        :type nxpath: str, optional
+        :param interactive: Allows for user interactions (ignored
+            for any method other than `'manual'`), defaults to `False`.
+        :type interactive: bool, optional
+        :param method: Binarization method, defaults to `'CHAP'`
+            (CHAP's internal implementation of Otzu's method).
+        :type method: Literal['CHAP', 'manual', 'otsu', 'yen', 'isodata',
+            'minimum']
+        :param num_bin: The number of bins used to calculate the
+            histogram in the binarization algorithms (ignored for
+            method = `'manual'`), defaults to `256`.
+        :type num_bin: int, optional
+        :param axis: Axis direction of the image slices (ignored
+            for any method other than `'manual'`), defaults to `None`
+        :type axis: int, optional
+        :param remove_original_data: Removes the original data field
+            (ignored for Numpy input datasets), defaults to `False`.
+        :type force_remove_original_data: bool, optional
+        :raises ValueError: Upon invalid input parameters.
+        :return: The binarized dataset with a return type equal to
+            that of the input dataset.
+        :rtype: numpy.ndarray, nexusformat.nexus.NXobject
+        """
+        # System modules
+        from os.path import join as os_join
+        from os.path import relpath
+
+        # Local modules
+        from CHAP.utils.general import (
+            is_int,
+            nxcopy,
+        )
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+            NXlink,
+            NXprocess,
+            nxsetconfig,
+        )
+
+        if method not in [
+                'CHAP', 'manual', 'otsu', 'yen', 'isodata', 'minimum']:
+            raise ValueError(f'Invalid parameter method ({method})')
+        if not is_int(num_bin, gt=0):
+            raise ValueError(f'Invalid parameter num_bin ({num_bin})')
+        if not isinstance(remove_original_data, bool):
+            raise ValueError('Invalid parameter remove_original_data '
+                             f'({remove_original_data})')
+
+        nxsetconfig(memory=100000)
+
+        # Get the dataset and make a copy if it is a NeXus NXgroup
+        dataset = self.unwrap_pipelinedata(data)[-1]
+        if isinstance(dataset, np.ndarray):
+            if method == 'manual':
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
+                axes = ['i', 'j', 'k']
+            data = dataset
+        elif isinstance(dataset, NXfield):
+            if method == 'manual':
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
+                axes = ['i', 'j', 'k']
+            if isinstance(dataset, NXfield):
+                if nxpath not in ('', '/'):
+                    self.logger.warning('Ignoring parameter nxpath')
+                data = dataset.nxdata
+            else:
+                try:
+                    data = dataset[nxpath].nxdata
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+        else:
+            # Get the default Nexus NXdata object
+            try:
+                nxdefault = dataset.get_default()
+            except:
+                nxdefault = None
+            if nxdefault is not None and nxdefault.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway NXobject type '
+                                 f'({nxdefault.nxclass})')
+            # Get the requested NeXus NXdata object to binarize
+            if nxpath is None:
+                nxclass = dataset.nxclass
+            else:
+                try:
+                    nxclass = dataset[nxpath].nxclass
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+            if nxclass == 'NXdata':
+                nxdata = dataset[nxpath]
+            else:
+                if nxdefault is None:
+                    raise ValueError(f'No default pathway to a NXdata object')
+                nxdata = nxdefault
+            nxsignal = nxdata.nxsignal
+            if method == 'manual':
+                if hasattr(nxdata.attrs, 'axes'):
+                    axes = nxdata.attrs['axes']
+                    if isinstance(axis, str):
+                        if axis not in axes:
+                            raise ValueError(f'Invalid parameter axis ({axis})')
+                        axis = axes.index(axis)
+                    elif axis is not None and not is_int(axis, gt=0, lt=3):
+                        raise ValueError(f'Invalid parameter axis ({axis})')
+                else:
+                    axes = ['i', 'j', 'k']
+                if nxsignal.ndim != 3:
+                    raise ValueError('Invalid data dimension (must be 3D)')
+            data = nxsignal.nxdata
+            # Create a copy of the input NeXus object, removing the
+            # default NeXus NXdata object as well as the original
+            # dateset if the remove_original_data parameter is set
+            exclude_nxpaths = []
+            if nxdefault is not None:
+                exclude_nxpaths.append(
+                    os_join(relpath(nxdefault.nxpath, dataset.nxpath)))
+            if remove_original_data:
+                if (nxdefault is None
+                        or nxdefault.nxpath != nxdata.nxpath):
+                    relpath_nxdata = relpath(nxdata.nxpath, dataset.nxpath)
+                    keys = list(nxdata.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxdata.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    elif relpath_nxdata == '.':
+                        exclude_nxpaths.append(nxsignal.nxname)
+                        if dataset.nxclass != 'NXdata':
+                            exclude_nxpaths += nxdata.axes
+                    else:
+                        exclude_nxpaths.append(relpath_nxdata)
+                if not (dataset.nxclass == 'NXdata'
+                        or nxdata.nxsignal.nxtarget is None):
+                    nxsignal = dataset[nxsignal.nxtarget]
+                    nxgroup = nxsignal.nxgroup
+                    keys = list(nxgroup.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxgroup.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    else:
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxgroup.nxpath, dataset.nxpath)))
+            nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
+
+        # Get a histogram of the data
+        if method not in ['manual', 'yen']:
+            counts, edges = np.histogram(data, bins=num_bin)
+            centers = edges[:-1] + 0.5 * np.diff(edges)
+
+        # Calculate the data cutoff threshold
+        if method == 'CHAP':
+            weights = np.cumsum(counts)
+            means = np.cumsum(counts * centers)
+            weights = weights[0:-1]/weights[-1]
+            means = means[0:-1]/means[-1]
+            variances = (means-weights)**2/(weights*(1.-weights))
+            threshold = centers[np.argmax(variances)]
+        elif method == 'otsu':
+            # Third party modules
+            from skimage.filters import threshold_otsu
+
+            threshold = threshold_otsu(hist=(counts, centers))
+        elif method == 'yen':
+            # Third party modules
+            from skimage.filters import threshold_yen
+
+            _min = data.min()
+            _max = data.max()
+            data = 1+(num_bin-1)*(data-_min)/(_max-_min)
+            counts, edges = np.histogram(data, bins=num_bin)
+            centers = edges[:-1] + 0.5 * np.diff(edges)
+
+            threshold = threshold_yen(hist=(counts, centers))
+        elif method == 'isodata':
+            # Third party modules
+            from skimage.filters import threshold_isodata
+
+            threshold = threshold_isodata(hist=(counts, centers))
+        elif method == 'minimum':
+            # Third party modules
+            from skimage.filters import threshold_minimum
+
+            threshold = threshold_minimum(hist=(counts, centers))
+        else:
+            # Third party modules
+            import matplotlib.pyplot as plt
+            from matplotlib.widgets import RadioButtons, Button
+
+            # Local modules
+            from CHAP.utils.general import (
+                select_roi_1d,
+                select_roi_2d,
+            )
+
+            def select_direction(direction):
+                """Callback function for the "Select direction" input."""
+                selected_direction.append(radio_btn.value_selected)
+                plt.close()
+
+            def accept(event):
+                """Callback function for the "Accept" button."""
+                selected_direction.append(radio_btn.value_selected)
+                plt.close()
+
+            # Select the direction for data averaging
+            if axis is not None:
+                mean_data = data.mean(axis=axis)
+                subaxes = [i for i in range(3) if i != axis]
+            else:
+                selected_direction = []
+
+                # Setup figure
+                title_pos = (0.5, 0.95)
+                title_props = {'fontsize': 'xx-large',
+                               'horizontalalignment': 'center',
+                               'verticalalignment': 'bottom'}
+                fig, axs = plt.subplots(ncols=3, figsize=(17, 8.5))
+                mean_data = []
+                for i, ax in enumerate(axs):
+                    mean_data.append(data.mean(axis=i))
+                    subaxes = [a for a in axes if a != axes[i]]
+                    ax.imshow(mean_data[i], aspect='auto', cmap='gray')
+                    ax.set_title(
+                        f'Data averaged in {axes[i]}-direction',
+                        fontsize='x-large')
+                    ax.set_xlabel(subaxes[1], fontsize='x-large')
+                    ax.set_ylabel(subaxes[0], fontsize='x-large')
+                fig_title = plt.figtext(
+                    *title_pos,
+                    'Select a direction or press "Accept" for the default one '
+                    f'({axes[0]}) to obtain the binary threshold value',
+                    **title_props)
+                fig.subplots_adjust(bottom=0.25, top=0.85)
+
+                # Setup RadioButtons
+                select_text = plt.figtext(
+                    0.225, 0.175, 'Averaging direction', fontsize='x-large',
+                    horizontalalignment='center', verticalalignment='center')
+                radio_btn = RadioButtons(
+                    plt.axes([0.175, 0.05, 0.1, 0.1]), labels=axes, active=0)
+                radio_cid = radio_btn.on_clicked(select_direction)
+
+                # Setup "Accept" button
+                accept_btn = Button(
+                    plt.axes([0.7, 0.05, 0.15, 0.075]), 'Accept')
+                accept_cid = accept_btn.on_clicked(accept)
+
+                plt.show()
+
+                axis = axes.index(selected_direction[0])
+                mean_data = mean_data[axis]
+                subaxes = [a for a in axes if a != axes[axis]]
+
+                plt.close()
+
+            # Select the ROI's orthogonal to the selected averaging direction
+            bounds = []
+            for i, bound in enumerate(['"0"', '"1"']):
+                _, roi = select_roi_2d(
+                    mean_data,
+                    title=f'Select the ROI to obtain the {bound} data value',
+                    title_a=f'Data averaged in the {axes[axis]}-direction',
+                    row_label=subaxes[0], column_label=subaxes[1])
+                plt.close()
+
+                # Select the index range in the selected averaging direction
+                if not axis:
+                    mean_roi_data = data[:,roi[2]:roi[3],roi[0]:roi[1]].mean(
+                        axis=(1,2))
+                elif axis == 1:
+                    mean_roi_data = data[roi[2]:roi[3],:,roi[0]:roi[1]].mean(
+                        axis=(0,2))
+                elif axis == 2:
+                    mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
+                        axis=(0,1))
+
+                _, _range = select_roi_1d(
+                    mean_roi_data, preselected_roi=(0, data.shape[axis]),
+                    title=f'Select the {axes[axis]}-direction range to obtain '
+                          f'the {bound} data bound',
+                    xlabel=axes[axis], ylabel='Average data')
+                plt.close()
+
+                # Obtain the lower/upper data bound
+                if not axis:
+                    bounds.append(
+                        data[
+                            _range[0]:_range[1],roi[2]:roi[3],roi[0]:roi[1]
+                        ].mean())
+                elif axis == 1:
+                    bounds.append(
+                        data[
+                            roi[2]:roi[3],_range[0]:_range[1],roi[0]:roi[1]
+                        ].mean())
+                elif axis == 2:
+                    bounds.append(
+                        data[
+                            roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
+                        ].mean())
+
+            # Get the data cutoff threshold
+            threshold = np.mean(bounds)
+
+        # Apply the data cutoff threshold and return the output
+        data = np.where(data<threshold, 0, 1).astype(np.ubyte)
+#        from CHAP.utils.general import quick_imshow
+#        quick_imshow(data[int(data.shape[0]/2),:,:], block=True)
+#        quick_imshow(data[:,int(data.shape[1]/2),:], block=True)
+#        quick_imshow(data[:,:,int(data.shape[2]/2)], block=True)
+        if isinstance(dataset, np.ndarray):
+            return data
+        if isinstance(dataset, NXfield):
+            attrs = dataset.attrs
+            attrs.pop('target', None)
+            return NXfield(
+                value=data, name=dataset.nxname, attrs=dataset.attrs)
+        name = nxsignal.nxname + '_binarized'
+        if nxobject.nxclass == 'NXdata':
+            nxobject[name] = data
+            nxobject.attrs['signal'] = name
+            return nxobject
+        if nxobject.nxclass == 'NXroot':
+            nxentry = nxobject[nxobject.default]
+        else:
+            nxentry = nxobject
+        axes = []
+        for axis in nxdata.axes:
+            attrs = nxdata[axis].attrs
+            attrs.pop('target', None)
+            axes.append(
+                NXfield(nxdata[axis], name=axis, attrs=attrs))
+        nxentry[name] = NXprocess(
+            NXdata(NXfield(data, name=name), axes),
+            attrs={'source': nxsignal.nxpath})
+        nxdata = nxentry[name].data
+        nxentry.data = NXdata(
+            NXlink(nxdata.nxsignal.nxpath),
+            [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+        return nxobject
+
+
 class ImageProcessor(Processor):
     """A Processor to plot an image slice from a dataset.
     """
