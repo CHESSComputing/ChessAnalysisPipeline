@@ -532,7 +532,17 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_motor_mnes(self):
         if self.spec_macro == 'flymesh':
-            return (self.spec_args[0], self.spec_args[5])
+            m1_mne = self.spec_args[0]
+            try:
+                # Try post-summer-2022 format
+                dwell = float(self.spec_args[4])
+            except:
+                # Accommodate pre-summer-2022 format
+                m2_mne_i = 4
+            else:
+                m2_mne_i = 5
+            m2_mne = self.spec_args[m2_mne_i]
+            return (m1_mne, m2_mne)
         if self.spec_macro in ('flyscan', 'ascan'):
             return (self.spec_args[0],)
         if self.spec_macro in ('tseries', 'loopscan'):
@@ -542,12 +552,26 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_motor_vals(self):
         if self.spec_macro == 'flymesh':
-            fast_mot_vals = np.linspace(float(self.spec_args[1]),
-                                        float(self.spec_args[2]),
-                                        int(self.spec_args[3])+1)
-            slow_mot_vals = np.linspace(float(self.spec_args[6]),
-                                        float(self.spec_args[7]),
-                                        int(self.spec_args[8])+1)
+            m1_start = float(self.spec_args[1])
+            m1_end = float(self.spec_args[2])
+            m1_npt = int(self.spec_args[3]) + 1
+            try:
+                # Try post-summer-2022 format
+                dwell = float(self.spec_args[4])
+            except:
+                # Accommodate pre-summer-2022 format
+                m2_start_i = 5
+                m2_end_i = 6
+                m2_nint_i = 7
+            else:
+                m2_start_i = 6
+                m2_end_i = 7
+                m2_nint_i = 8
+            m2_start = float(self.spec_args[m2_start_i])
+            m2_end = float(self.spec_args[m2_end_i])
+            m2_npt = int(self.spec_args[m2_nint_i]) + 1
+            fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
+            slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
@@ -561,8 +585,16 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_shape(self):
         if self.spec_macro == 'flymesh':
-            fast_mot_npts = int(self.spec_args[3])+1
-            slow_mot_npts = int(self.spec_args[8])+1
+            fast_mot_npts = int(self.spec_args[3]) + 1
+            try:
+                # Try post-summer-2022 format
+                dwell = float(self.spec_args[4])
+            except:
+                # Accommodate pre-summer-2022 format
+                m2_nint_i = 7
+            else:
+                m2_nint_i = 8
+            slow_mot_npts = int(self.spec_args[m2_nint_i]) + 1
             return (fast_mot_npts, slow_mot_npts)
         if self.spec_macro in ('flyscan', 'ascan'):
             mot_npts = int(self.spec_args[3])+1
@@ -573,7 +605,15 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_dwell(self):
-        if self.spec_macro in ('flymesh', 'flyscan', 'ascan'):
+        if self.macro == 'flymesh':
+            try:
+                # Try post-summer-2022 format
+                dwell = float(self.spec_args[4])
+            except:
+                # Accommodate pre-summer-2022 format
+                dwell = float(self.spec_args[8])
+            return dwell
+        if self.spec_macro in ('flyscan', 'ascan'):
             return float(self.spec_args[4])
         if self.spec_macro in ('tseries', 'loopscan'):
             return float(self.spec_args[1])
@@ -614,8 +654,10 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
         return f'{self.scan_name}_{self.scan_number:03d}'
 
     def get_detector_data_file(self, detector_prefix, scan_step_index:int):
-        detector_files = list_fmb_saxswaxs_detector_files(self.detector_data_path, detector_prefix)
-        return os.path.join(self.detector_data_path, detector_files[scan_step_index])
+        detector_files = list_fmb_saxswaxs_detector_files(
+            self.detector_data_path, detector_prefix)
+        return os.path.join(
+            self.detector_data_path, detector_files[scan_step_index])
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
         image_file = self.get_detector_data_file(detector_prefix,
