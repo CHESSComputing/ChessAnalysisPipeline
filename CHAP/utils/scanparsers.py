@@ -1004,7 +1004,8 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
         if os.path.isfile(file_name_full):
             return file_name_full
         raise RuntimeError(f'{self.scan_title}: could not find detector image '
-                           f'file for scan step ({scan_step_index})')
+                           f'file ({file_name_full}) for scan step '
+                           f'({scan_step_index})')
 
     def get_detector_data(self, detector_prefix, scan_step_index=None):
         if scan_step_index is None:

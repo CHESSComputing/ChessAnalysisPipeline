@@ -1179,8 +1179,6 @@ def select_mask_1d(
         plt.subplots_adjust(bottom=0.0)
 
     selected_index_ranges = get_selected_index_ranges()
-    if not selected_index_ranges:
-        selected_index_ranges = None
 
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)

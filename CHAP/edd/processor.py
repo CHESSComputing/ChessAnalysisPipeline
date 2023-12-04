@@ -153,7 +153,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                 fig.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
             plt.close()
-        if detector.include_bin_ranges is None:
+        if not detector.include_bin_ranges:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
                 + 'Provide them in the Diffraction Volume Length '
@@ -399,12 +399,12 @@ class MCACeriaCalibrationProcessor(Processor):
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
         self.logger.debug(
             f'include_bin_ranges = {detector.include_bin_ranges}')
-        if detector.include_bin_ranges is None:
+        if not detector.include_bin_ranges:
             raise ValueError(
                 'No value provided for include_bin_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration '
                 'or re-run the pipeline with the --interactive flag.')
-        if detector.hkl_indices is None:
+        if not detector.hkl_indices:
             raise ValueError(
                 'No value provided for hkl_indices. Provide them in '
                 'the detector\'s MCA Ceria Calibration Configuration or '
@@ -869,7 +869,6 @@ class StrainAnalysisProcessor(Processor):
 #                calibration_mask = detector.mca_mask()
                 calibration_bin_ranges = detector.include_bin_ranges
 
-
             tth = strain_analysis_config.detectors[0].tth_calibrated
             fig, strain_analysis_config.materials = select_material_params(
                 mca_bin_energies[0], mca_data[0][0], tth,
@@ -920,6 +919,16 @@ class StrainAnalysisProcessor(Processor):
                 tth_max=strain_analysis_config.detectors[0].tth_max)
 
         for i, detector in enumerate(strain_analysis_config.detectors):
+            if not detector.include_bin_ranges:
+                raise ValueError(
+                    'No value provided for include_bin_ranges. '
+                    'Provide them in the MCA Ceria Calibration Configuration, '
+                    'or re-run the pipeline with the --interactive flag.')
+            if not detector.hkl_indices:
+                raise ValueError(
+                    'No value provided for hkl_indices. Provide them in '
+                    'the detector\'s MCA Ceria Calibration Configuration, or'
+                    ' re-run the pipeline with the --interactive flag.')
             # Setup NXdata group
             self.logger.debug(
                 f'Setting up NXdata group for {detector.detector_name}')
