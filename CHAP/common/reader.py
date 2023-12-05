@@ -167,6 +167,8 @@ class MapReader(Reader):
         # Create empty NXfields of appropriate shape for raw
         # detector data
         for detector_name in detector_names:
+            if not isinstance(detector_name, str):
+                detector_name = str(detector_name)
             detector_data = map_config.get_detector_data(
                 detector_name, (0,) * len(map_config.shape))
             nxentry.data[detector_name] = NXfield(value=np.zeros(
@@ -184,6 +186,8 @@ class MapReader(Reader):
                     nxentry.data[data.label][map_index] = map_config.get_value(
                         data, map_index)
                 for detector_name in detector_names:
+                    if not isinstance(detector_name, str):
+                        detector_name = str(detector_name)
                     nxentry.data[detector_name][map_index] = \
                         map_config.get_detector_data(detector_name, map_index)
 
