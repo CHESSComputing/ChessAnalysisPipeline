@@ -336,15 +336,19 @@ class SMBScanParser(ScanParser):
             raise RuntimeError(f'{self.scan_title}: cannot find scan pars '
                                'without a "SCAN_N" column in the par file')
 
-        par_files = fnmatch_filter(
-            os.listdir(self.scan_path),
-            f'{self._par_file_pattern}.par')
-        if len(par_files) != 1:
-            raise RuntimeError(f'{self.scan_title}: cannot find the .par '
-                               'file for this scan directory')
+        if hasattr(self, '_par_file'):
+            par_file = self._par_file
+        else:
+            par_files = fnmatch_filter(
+                os.listdir(self.scan_path),
+                f'{self._par_file_pattern}.par')
+            if len(par_files) != 1:
+                raise RuntimeError(f'{self.scan_title}: cannot find the .par '
+                                   'file for this scan directory')
+            par_file = os.path.join(self.scan_path, par_files[0])
         par_dict = None
-        with open(os.path.join(self.scan_path, par_files[0])) as par_file:
-            par_reader = reader(par_file, delimiter=' ')
+        with open(par_file) as f:
+            par_reader = reader(f, delimiter=' ')
             for row in par_reader:
                 if len(row) == len(par_col_names):
                     row_scann = int(row[scann_col_idx])
@@ -963,12 +967,14 @@ class SMBRotationScanParser(RotationScanParser, SMBScanParser):
     with the typical tomography setup at SMB.
     """
 
-    def __init__(self, spec_file_name, scan_number):
+    def __init__(self, spec_file_name, scan_number, par_file=None):
         self._scan_type = None
         super().__init__(spec_file_name, scan_number)
 
         self._katefix = 0  # RV remove when no longer needed
         self._par_file_pattern = f'id*-*tomo*-{self.scan_name}'
+        if par_file is not None:
+            self._par_file = par_file
 
     @property
     def scan_type(self):
