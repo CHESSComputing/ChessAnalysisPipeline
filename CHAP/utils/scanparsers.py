@@ -1114,8 +1114,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
                     'Unrecognized value for detector_data_format: '
                     + f'{detector_data_format}. Allowed values are: '
                     + ', '.join(self.detector_data_formats))
-        print()
-
 
     def init_detector_data_format(self):
         """Determine and set a value for the instance variable

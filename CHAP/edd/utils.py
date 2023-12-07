@@ -873,3 +873,127 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     fig.tight_layout(rect=(0, 0, 1, 0.95))
 
     return fig, selected_bin_ranges, selected_hkl_indices
+
+
+def get_spectra_fits(spectra, energies, peak_locations, fit_params):
+    """Return twenty arrays of fit results for the map of spectra
+    provided: uniform centers, uniform center errors, uniform
+    amplitudes, uniform amplitude errors, uniform sigmas, uniform
+    sigma errors, uniform best fit, uniform residuals, uniform reduced
+    chi, uniform success codes, unconstrained centers, unconstrained
+    center errors, unconstrained amplitudes, unconstrained amplitude
+    errors, unconstrained sigmas, unconstrained sigma errors,
+    unconstrained best fit, unconstrained residuals, unconstrained
+    reduced chi, and unconstrained success codes.
+
+    :param spectra: Array of intensity spectra to fit.
+    :type spectra: numpy.ndarray
+    :param energies: Bin energies for the spectra provided.
+    :type energies: numpy.ndarray
+    :param peak_locations: Initial guesses for peak ceneters to use
+        for the uniform fit.
+    :type peak_locations: list[float]
+    :param fit_params: Detector element fit parameters.
+    :type fit_params: CHAP.edd.models.MCAElementStrainAnalysisConfig
+    :returns: Uniform and unconstrained centers, amplitdues, sigmas
+        (and errors for all three), best fits, residuals between the
+        best fits and the input spectra, reduced chi, and fit success
+        statuses.
+    :rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray]
+    """
+    from CHAP.utils.fit import FitMap
+
+    # Perform fit to get measured peak positions
+    fit = FitMap(spectra, x=energies)
+    num_peak = len(peak_locations)
+    delta = 0.1 * (energies[-1]-energies[0])
+    centers_range = (
+        max(0.0, energies[0]-delta), energies[-1]+delta)
+    fit.create_multipeak_model(
+        peak_locations,
+        fit_type='uniform',
+        peak_models=fit_params.peak_models,
+        background=fit_params.background,
+        fwhm_min=fit_params.fwhm_min,
+        fwhm_max=fit_params.fwhm_max,
+        centers_range=centers_range)
+    fit.fit()
+    uniform_fit_centers = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_center')]
+        for i in range(num_peak)]
+    uniform_fit_centers_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_center')]
+        for i in range(num_peak)]
+    uniform_fit_amplitudes = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    uniform_fit_amplitudes_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    uniform_fit_sigmas = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    uniform_fit_sigmas_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    uniform_best_fit = fit.best_fit
+    uniform_residuals = fit.residual
+    uniform_redchi = fit.redchi
+    uniform_success = fit.success
+
+    # Perform unconstrained fit
+    fit.create_multipeak_model(fit_type='unconstrained')
+    fit.fit(rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+    unconstrained_fit_centers = np.array(
+        [fit.best_values[
+            fit.best_parameters()\
+            .index(f'peak{i+1}_center')]
+         for i in range(num_peak)])
+    unconstrained_fit_centers_errors = np.array(
+        [fit.best_errors[
+            fit.best_parameters()\
+            .index(f'peak{i+1}_center')]
+         for i in range(num_peak)])
+    unconstrained_fit_amplitudes = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    unconstrained_fit_amplitudes_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    unconstrained_fit_sigmas = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    unconstrained_fit_sigmas_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    unconstrained_best_fit = fit.best_fit
+    unconstrained_residuals = fit.residual
+    unconstrained_redchi = fit.redchi
+    unconstrained_success = fit.success
+
+    return (
+        uniform_fit_centers, uniform_fit_centers_errors,
+        uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+        uniform_fit_sigmas, uniform_fit_sigmas_errors,
+        uniform_best_fit, uniform_residuals, uniform_redchi, uniform_success,
+        unconstrained_fit_centers, unconstrained_fit_centers_errors,
+        unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
+        unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
+        unconstrained_best_fit, unconstrained_residuals,
+        unconstrained_redchi, unconstrained_success
+    )

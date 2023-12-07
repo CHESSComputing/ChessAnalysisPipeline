@@ -796,6 +796,7 @@ class StrainAnalysisProcessor(Processor):
         from CHAP.edd.utils import (
             get_peak_locations,
             get_unique_hkls_ds,
+            get_spectra_fits
         )
         from CHAP.utils.fit import FitMap
 
@@ -976,52 +977,20 @@ class StrainAnalysisProcessor(Processor):
             fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = get_peak_locations(
                 fit_ds, detector.tth_calibrated)
-            num_peak = len(peak_locations)
-            # KLS: Use the below def of peak_locations when
-            # FitMap.create_multipeak_model can accept a list of maps
-            # for centers.
-            # tth = np.radians(detector.map_tth(map_config))
-            # peak_locations = [get_peak_locations(d0, tth) for d0 in fit_ds]
 
-            # Perform initial fit: assume uniform strain for all HKLs
-            self.logger.debug('Performing uniform fit')
-            fit = FitMap(det_nxdata.intensity.nxdata, x=energies)
-            delta = 0.1 * (energies[-1]-energies[0])
-            centers_range = (
-                max(0.0, energies[0]-delta), energies[-1]+delta)
-            fit.create_multipeak_model(
-                peak_locations,
-                fit_type='uniform',
-                peak_models=detector.peak_models,
-                background=detector.background,
-                fwhm_min=detector.fwhm_min,
-                fwhm_max=detector.fwhm_max,
-                centers_range=centers_range)
-            fit.fit()
-            uniform_fit_centers = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(num_peak)]
-            uniform_fit_centers_errors = [
-                fit.best_errors[
-                   fit.best_parameters().index(f'peak{i+1}_center')]
-                for i in range(num_peak)]
-            uniform_fit_amplitudes = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(num_peak)]
-            uniform_fit_amplitudes_errors = [
-                fit.best_errors[
-                   fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(num_peak)]
-            uniform_fit_sigmas = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(num_peak)]
-            uniform_fit_sigmas_errors = [
-                fit.best_errors[
-                   fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(num_peak)]
+            (uniform_fit_centers, uniform_fit_centers_errors,
+             uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+             uniform_fit_sigmas, uniform_fit_sigmas_errors,
+             uniform_best_fit, uniform_residuals,
+             uniform_redchi, uniform_success,
+             unconstrained_fit_centers, unconstrained_fit_centers_errors,
+             unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
+             unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
+             unconstrained_best_fit, unconstrained_residuals,
+             unconstrained_redchi, unconstrained_success) = \
+                get_spectra_fits(
+                    det_nxdata.intensity.nxdata, energies,
+                    peak_locations, detector)
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -1033,10 +1002,10 @@ class StrainAnalysisProcessor(Processor):
             linkdims(
                 fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.best_fit= fit.best_fit
-            fit_nxdata.residuals = fit.residual
-            fit_nxdata.redchi = fit.redchi
-            fit_nxdata.success = fit.success
+            fit_nxdata.best_fit= uniform_best_fit
+            fit_nxdata.residuals = uniform_residuals
+            fit_nxdata.redchi = uniform_redchi
+            fit_nxdata.success = uniform_success
 
             # Peak-by-peak results
 #            fit_nxgroup.fit_hkl_centers = NXdata()
@@ -1082,39 +1051,6 @@ class StrainAnalysisProcessor(Processor):
                     value=sigmas_error)
                 fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
 
-            # Perform second fit: do not assume uniform strain for all
-            # HKLs, and use the fit peak centers from the uniform fit
-            # as inital guesses
-            self.logger.debug('Performing unconstrained fit')
-            fit.create_multipeak_model(fit_type='unconstrained')
-            fit.fit(rel_amplitude_cutoff=detector.rel_amplitude_cutoff)
-            unconstrained_fit_centers = np.array(
-                [fit.best_values[
-                    fit.best_parameters()\
-                    .index(f'peak{i+1}_center')]
-                 for i in range(num_peak)])
-            unconstrained_fit_centers_errors = np.array(
-                [fit.best_errors[
-                    fit.best_parameters()\
-                    .index(f'peak{i+1}_center')]
-                 for i in range(num_peak)])
-            unconstrained_fit_amplitudes = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(num_peak)]
-            unconstrained_fit_amplitudes_errors = [
-                fit.best_errors[
-                   fit.best_parameters().index(f'peak{i+1}_amplitude')]
-                for i in range(num_peak)]
-            unconstrained_fit_sigmas = [
-                fit.best_values[
-                    fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(num_peak)]
-            unconstrained_fit_sigmas_errors = [
-                fit.best_errors[
-                   fit.best_parameters().index(f'peak{i+1}_sigma')]
-                for i in range(num_peak)]
-
             if interactive or save_figures:
                 # Third party modules
                 import matplotlib.animation as animation
@@ -1131,9 +1067,10 @@ class StrainAnalysisProcessor(Processor):
                     intensity.set_ydata(
                         det_nxdata.intensity.nxdata[map_index]
                         / det_nxdata.intensity.nxdata[map_index].max())
-                    best_fit.set_ydata(fit.best_fit[map_index]
-                                       / fit.best_fit[map_index].max())
-                    # residual.set_ydata(fit.residual[map_index])
+                    best_fit.set_ydata(
+                        unconstrained_best_fit[map_index]
+                        / unconstrained_best_fit[map_index].max())
+                    # residual.set_ydata(unconstrained_residuals[map_index])
                     index.set_text('\n'.join(f'{k}[{i}] = {v}'
                         for k, v in map_config.get_coords(map_index).items()))
                     if save_figures:
@@ -1149,12 +1086,12 @@ class StrainAnalysisProcessor(Processor):
                     / det_nxdata.intensity.nxdata[map_index].max())
                 intensity, = ax.plot(
                     energies, data_normalized, 'b.', label='data')
-                fit_normalized = (fit.best_fit[map_index]
-                                  / fit.best_fit[map_index].max())
+                fit_normalized = (unconstrained_best_fit[map_index]
+                                  / unconstrained_best_fit[map_index].max())
                 best_fit, = ax.plot(
                     energies, fit_normalized, 'k-', label='fit')
                 # residual, = ax.plot(
-                #     energies, fit.residual[map_index], 'r-',
+                #     energies, unconstrained_residuals[map_index], 'r-',
                 #     label='residual')
                 ax.set(
                     title='Unconstrained fits',
@@ -1225,10 +1162,10 @@ class StrainAnalysisProcessor(Processor):
             linkdims(
                 fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.best_fit= fit.best_fit
-            fit_nxdata.residuals = fit.residual
-            fit_nxdata.redchi = fit.redchi
-            fit_nxdata.success = fit.success
+            fit_nxdata.best_fit= unconstrained_best_fit
+            fit_nxdata.residuals = unconstrained_residuals
+            fit_nxdata.redchi = unconstrained_redchi
+            fit_nxdata.success = unconstrained_success
 
             # Peak-by-peak results
             fit_nxgroup.fit_hkl_centers = NXdata()
