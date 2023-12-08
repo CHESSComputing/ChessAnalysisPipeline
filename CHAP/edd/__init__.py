@@ -3,6 +3,7 @@ processing workflows.
 """
 # from CHAP.edd.reader import
 from CHAP.edd.processor import (DiffractionVolumeLengthProcessor,
+                                LatticeParameterRefinementProcessor,
                                 MCACeriaCalibrationProcessor,
                                 MCADataProcessor,
                                 StrainAnalysisProcessor)

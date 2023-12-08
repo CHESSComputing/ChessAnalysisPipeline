@@ -248,6 +248,342 @@ class DiffractionVolumeLengthProcessor(Processor):
 
         return dvl
 
+
+class LatticeParameterRefinementProcessor(Processor):
+    """Processor to get a refined estimate for a sample's lattice
+    parameters"""
+    def process(self,
+                data,
+                config=None,
+                save_figures=False,
+                outputdir='.',
+                inputdir='.',
+                interactive=False):
+        """Given a strain analysis configuration, return a copy
+        contining refined values for the materials' lattice
+        parameters."""
+        ceria_calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+        try:
+            strain_analysis_config = self.get_config(
+                data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
+        except Exception as data_exc:
+            # Local modules
+            from CHAP.edd.models import StrainAnalysisConfig
+
+            self.logger.info('No valid strain analysis config in input '
+                             + 'pipeline data, using config parameter instead')
+            try:
+                strain_analysis_config = StrainAnalysisConfig(
+                    **config, inputdir=inputdir)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
+
+        if len(strain_analysis_config.materials) > 1:
+            msg = 'Not implemented for multiple materials'
+            self.logger.error('Not implemented for multiple materials')
+            raise NotImplementedError(msg)
+
+        lattice_parameters = self.refine_lattice_parameters(
+            strain_analysis_config, ceria_calibration_config, 0,
+            interactive, save_figures, outputdir)
+        self.logger.debug(f'Refined lattice parameters: {lattice_parameters}')
+
+        strain_analysis_config.materials[0].lattice_parameters = \
+            lattice_parameters
+        return strain_analysis_config.dict()
+
+    def refine_lattice_parameters(
+            self, strain_analysis_config, ceria_calibration_config,
+            detector_i, interactive, save_figures, outputdir):
+        """Return refined values for the lattice parameters of the
+        materials indicated in `strain_analysis_config`. Method: given
+        a scan of a material, fit the peaks of each MCA
+        spectrum. Based on those fitted peak locations, calculate the
+        lattice parameters that would produce them. Return the
+        avearaged value of the calculated lattice parameters across
+        all spectra.
+
+        :param strain_analysis_config: Strain analysis configuration
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param detector_i: Index of the detector in
+            `strain_analysis_config` whose data will be used for the
+            refinement
+        :type detector_i: int
+        :param interactive: Boolean to indicate whether interactive
+            matplotlib figures should be presented
+        :type interactive: bool
+        :param save_figures: Boolean to indicate whether figures
+            indicating the selection should be saved
+        :type save_figures: bool
+        :param outputdir: Where to save figures (if `save_figures` is
+            `True`)
+        :type outputdir: str
+        :returns: List of refined lattice parameters for materials in
+            `strain_analysis_config`
+        :rtype: list[numpy.ndarray]
+        """
+        import numpy as np
+        from CHAP.edd.utils import get_unique_hkls_ds, get_spectra_fits
+
+        self.add_detector_calibrations(
+            strain_analysis_config, ceria_calibration_config)
+
+        detector = strain_analysis_config.detectors[detector_i]
+        mca_bin_energies = self.get_mca_bin_energies(strain_analysis_config)
+        mca_data = strain_analysis_config.mca_data()
+        hkls, ds = get_unique_hkls_ds(
+            strain_analysis_config.materials,
+            tth_tol=detector.hkl_tth_tol,
+            tth_max=detector.tth_max)
+
+        self.select_material_params(
+            strain_analysis_config, detector_i, mca_data, mca_bin_energies,
+            interactive, save_figures, outputdir)
+        self.logger.debug(
+            'Starting lattice parameters: '
+            + str(strain_analysis_config.materials[0].lattice_parameters))
+        self.select_fit_mask_hkls(
+            strain_analysis_config, detector_i, mca_data, mca_bin_energies,
+            hkls, ds,
+            interactive, save_figures, outputdir)
+
+        (uniform_fit_centers, uniform_fit_centers_errors,
+         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+         uniform_fit_sigmas, uniform_fit_sigmas_errors,
+         uniform_best_fit, uniform_residuals,
+         uniform_redchi, uniform_success,
+         unconstrained_fit_centers, unconstrained_fit_centers_errors,
+         unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
+         unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
+         unconstrained_best_fit, unconstrained_residuals,
+         unconstrained_redchi, unconstrained_success) = \
+            self.get_spectra_fits(
+                strain_analysis_config, detector_i,
+                mca_data, mca_bin_energies, hkls, ds)
+
+        # Get the interplanar spacings measured for each fit HKL peak
+        # at every point in the map.
+        from scipy.constants import physical_constants
+        hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
+             * physical_constants['speed of light in vacuum'][0]
+        d_measured = hc / \
+             (2.0 \
+              * unconstrained_fit_centers \
+              * np.sin(np.radians(detector.tth_calibrated / 2.0)))
+        # Convert interplanar spacings to lattice parameters
+        self.logger.warning('Implemented for cubic materials only!')
+        fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
+        Rs = np.sqrt(np.sum(fit_hkls**2, 1))
+        a_measured = Rs[:, None] * d_measured
+        # Average all computed lattice parameters for every fit HKL
+        # peak at every point in the map to get the refined estimate
+        # for the material's lattice parameter
+        a_refined = float(np.mean(a_measured))
+        return [a_refined, a_refined, a_refined, 90.0, 90.0, 90.0]
+
+    def get_mca_bin_energies(self, strain_analysis_config):
+        """Return a list of the MCA bin energies for each detector.
+
+        :param strain_analysis_config: Strain analysis configuration
+            containing a list of detectors to return the bin energies
+            for.
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :returns: List of MCA bin energies
+        :rtype: list[numpy.ndarray]
+        """
+        mca_bin_energies = []
+        for i, detector in enumerate(strain_analysis_config.detectors):
+            mca_bin_energies.append(
+                detector.slope_calibrated
+                * np.linspace(0, detector.max_energy_kev, detector.num_bins)
+                + detector.intercept_calibrated)
+        return mca_bin_energies
+
+    def add_detector_calibrations(
+            self, strain_analysis_config, ceria_calibration_config):
+        """Add calibrated quantities to the detectors configured in
+        `strain_analysis_config`, modifying `strain_analysis_config`
+        in place.
+
+        :param strain_analysis_config: Strain analysisi configuration
+            containing a list of detectors to add calibration values
+            to.
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param ceria_calibration_config: Configuration of a completed
+            ceria calibration containing a list of detector swith the
+            same names as those in `strain_analysis_config`
+        :returns: None"""
+        for detector in strain_analysis_config.detectors:
+            calibration = [
+                d for d in ceria_calibration_config.detectors \
+                if d.detector_name == detector.detector_name][0]
+            detector.add_calibration(calibration)
+
+    def select_fit_mask_hkls(
+            self, strain_analysis_config, detector_i,
+            mca_data, mca_bin_energies, hkls, ds,
+            interactive, save_figures, outputdir):
+        """Select the maks & HKLs to use for fitting for each
+        detector. Update `strain_analysis_config` with new values for
+        `hkl_indices` and `include_bin_ranges` if needed.
+
+        :param strain_analysis_config: Strain analysis configuration
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param detector_i: Index of the detector in
+            `strain_analysis_config` to select mask & HKLs for.
+        :type detector_i: int
+        :param mca_data: List of maps of MCA spectra for all detectors
+            in `strain_analysis_config`
+        :type mca_data: list[numpy.ndarray]
+        :param mca_bin_energies: List of MCA bin energies for all
+            detectors in `strain_analysis_config`
+        :type mca_bin_energies: list[numpy.ndarray]
+        :param hkls: Nominal HKL peak energy locations for the
+            material in `strain_analysis_config`
+        :type hkls: list[float]
+        :param ds: Nominal d-spacing for the material in
+            `strain_analysis_config`
+        :type ds: list[float]
+        :param interactive: Boolean to indicate whether interactive
+            matplotlib figures should be presented
+        :type interactive: bool
+        :param save_figures: Boolean to indicate whether figures
+            indicating the selection should be saved
+        :type save_figures: bool
+        :param outputdir: Where to save figures (if `save_figures` is
+            `True`)
+        :type outputdir: str
+        :returns: None
+        """
+        if not interactive and not save_figures:
+            return
+        import matplotlib.pyplot as plt
+        from CHAP.edd.utils import select_mask_and_hkls
+
+        detector = strain_analysis_config.detectors[detector_i]
+        fig, include_bin_ranges, hkl_indices = \
+            select_mask_and_hkls(
+                mca_bin_energies[detector_i], mca_data[detector_i][0],
+                hkls, ds,
+                detector.tth_calibrated,
+                detector.include_bin_ranges, detector.hkl_indices,
+                detector.detector_name, mca_data[detector_i],
+                calibration_bin_ranges=detector.calibration_bin_ranges,
+                interactive=interactive)
+        detector.include_bin_ranges = include_bin_ranges
+        detector.hkl_indices = hkl_indices
+        if save_figures:
+            fig.savefig(os.path.join(
+                outputdir,
+                f'{detector.detector_name}_strainanalysis_'
+                'fit_mask_hkls.png'))
+        plt.close()
+
+    def select_material_params(self, strain_analysis_config, detector_i,
+                               mca_data, mca_bin_energies,
+                               interactive, save_figures, outputdir):
+        """Select initial material parameters to use for determining
+        nominal HKL peak locations. Modify `strain_analysis_config` in
+        place if needed.
+
+        :param strain_analysis_config: Strain analysis configuration
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param detector_i: Index of the detector in
+            `strain_analysis_config` to select mask & HKLs for.
+        :type detector_i: int
+        :param mca_data: List of maps of MCA spectra for all detectors
+            in `strain_analysis_config`
+        :type mca_data: list[numpy.ndarray]
+        :param mca_bin_energies: List of MCA bin energies for all
+            detectors in `strain_analysis_config`
+        :type mca_bin_energies: list[numpy.ndarray]
+        :param interactive: Boolean to indicate whether interactive
+            matplotlib figures should be presented
+        :type interactive: bool
+        :param save_figures: Boolean to indicate whether figures
+            indicating the selection should be saved
+        :type save_figures: bool
+        :param outputdir: Where to save figures (if `save_figures` is
+            `True`)
+        :type outputdir: str
+        :returns: None
+        """
+        if not interactive and not save_figures:
+            return
+        from CHAP.edd.utils import select_material_params
+        import matplotlib.pyplot as plt
+        fig, strain_analysis_config.materials = select_material_params(
+            mca_bin_energies[detector_i], mca_data[detector_i][0],
+            strain_analysis_config.detectors[detector_i].tth_calibrated,
+            strain_analysis_config.materials, interactive=interactive)
+        self.logger.debug(
+                f'materials: {strain_analysis_config.materials}')
+        if save_figures:
+            detector_name = \
+                strain_analysis_config.detectors[detector_i].detector_name
+            fig.savefig(os.path.join(
+                outputdir,
+                f'{detector_name}_strainanalysis_'
+                'material_config.png'))
+        plt.close()
+
+    def get_spectra_fits(
+            self, strain_analysis_config, detector_i,
+            mca_data, mca_bin_energies, hkls, ds):
+        """Return uniform and unconstrained fit results for all
+        spectra from a single detector.
+
+        :param strain_analysis_config: Strain analysis configuration
+        :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
+        :param detector_i: Index of the detector in
+            `strain_analysis_config` to select mask & HKLs for.
+        :type detector_i: int
+        :param mca_data: List of maps of MCA spectra for all detectors
+            in `strain_analysis_config`
+        :type mca_data: list[numpy.ndarray]
+        :param mca_bin_energies: List of MCA bin energies for all
+            detectors in `strain_analysis_config`
+        :type mca_bin_energies: list[numpy.ndarray]
+        :param hkls: Nominal HKL peak energy locations for the
+            material in `strain_analysis_config`
+        :type hkls: list[float]
+        :param ds: Nominal d-spacing for the material in
+            `strain_analysis_config`
+        :type ds: list[float]
+        :returns: Uniform and unconstrained centers, amplitdues,
+            sigmas (and errors for all three), best fits, residuals
+            between the best fits and the input spectra, reduced chi,
+            and fit success statuses.
+        :rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray, numpy.ndarray,
+            numpy.ndarray, numpy.ndarray]
+        """
+        from CHAP.edd.utils import get_peak_locations, get_spectra_fits
+        detector = strain_analysis_config.detectors[detector_i]
+        self.logger.debug(
+            f'Fitting spectra from detector {detector.detector_name}')
+        mask = detector.mca_mask()
+        energies = mca_bin_energies[detector_i][mask]
+        intensities = np.empty(
+            (*strain_analysis_config.map_config.shape, len(energies)),
+            dtype='uint16')
+        for j, map_index in \
+            enumerate(np.ndindex(strain_analysis_config.map_config.shape)):
+            intensities[map_index] = \
+                mca_data[detector_i][j].astype('uint16')[mask]
+        fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
+        fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
+        peak_locations = get_peak_locations(
+            fit_ds, detector.tth_calibrated)
+        return get_spectra_fits(
+            intensities, energies, peak_locations, detector)
+
+
 class MCACeriaCalibrationProcessor(Processor):
     """A Processor using a CeO2 scan to obtain tuned values for the
     bragg diffraction angle and linear correction parameters for MCA
