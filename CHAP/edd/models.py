@@ -684,6 +684,13 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     slope_calibrated: Optional[confloat(allow_inf_nan=False)]
     intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+    calibration_bin_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+            max_items=2))]
     tth_file: Optional[FilePath]
     tth_map: Optional[np.ndarray] = None
 
@@ -713,6 +720,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
                       'intercept_calibrated', 'num_bins', 'max_energy_kev']
         for field in add_fields:
             setattr(self, field, getattr(calibration, field))
+        self.calibration_bin_ranges = calibration.include_bin_ranges
 
     def get_tth_map(self, map_config):
         """Return a map of 2&theta values to use -- may vary at each
