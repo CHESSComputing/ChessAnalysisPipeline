@@ -1289,7 +1289,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         :returns: 2D array of MCA spectra
         :rtype: numpy.ndarray
         """
-        from h5py import File
         detector_data = np.empty(
             (self.spec_scan_npts,
              self.get_detector_num_bins_h5(element_index)))
@@ -1298,13 +1297,14 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         for i, detector_file in enumerate(detector_files):
             full_filename = os.path.join(
                 self.detector_data_path, detector_file)
-            with File(full_filename) as h5_file:
-                # NB: Bug in EPICS IOC captures an extra frame of data at
-                # the start.
-                i_0 = i * self.spec_scan_shape[0]
+            element_data = get_all_mca_data_h5(
+                full_filename)[:,element_index,:]
+            i_0 = i * self.spec_scan_shape[0]
+            if len(self.spec_scan_shape) == 2:
                 i_f = i_0 + self.spec_scan_shape[1]
-                detector_data[i_0:i_f] = \
-                    h5_file['/entry/data/data'][1:,element_index,:]
+            else:
+                i_f = self.spec_scan_npts
+            detector_data[i_0:i_f] = element_data
         return detector_data
 
     def get_detector_data(self, detector, scan_step_index:int):
@@ -1335,3 +1335,21 @@ def list_smb_mca_detector_files_h5(detector_data_path):
     """
     return sorted(
         [f for f in os.listdir(detector_data_path) if f.endswith('.hdf5')])
+
+@cache
+def get_all_mca_data_h5(filename):
+    """Return all data from all elements from an MCA data file
+
+    :param filename: Name of the MCA h5 data file
+    :type filename: str
+    :returns: 3D array of MCA spectra where the first axis is scan
+        step, second index is detector element, third index is channel
+        energy.
+    :rtype: numpy.ndarray
+    """
+    from h5py import File
+    with File(filename) as h5_file:
+        # NB: Bug in EPICS IOC captures an extra frame of data at the
+        # start.
+        data = h5_file['/entry/data/data'][1:]
+    return data
