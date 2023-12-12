@@ -26,8 +26,6 @@ from sys import float_info
 import numpy as np
 try:
     import matplotlib.pyplot as plt
-    from matplotlib.widgets import AxesWidget, RadioButtons
-    from matplotlib import cbook
 except ImportError:
     pass
 
@@ -655,8 +653,8 @@ def _input_int_or_num(
 
 
 def input_int_list(
-        s=None, ge=None, le=None, split_on_dash=True, remove_duplicates=True,
-        sort=True, raise_error=False, log=True):
+        s=None, num_max=None, ge=None, le=None, split_on_dash=True,
+        remove_duplicates=True, sort=True, raise_error=False, log=True):
     """
     Prompt the user to input a list of interger and split the entered
     string on any combination of commas, whitespaces, or dashes (when
@@ -669,13 +667,13 @@ def input_int_list(
     return None upon an illegal input
     """
     return _input_int_or_num_list(
-        'int', s, ge, le, split_on_dash, remove_duplicates, sort, raise_error,
-        log)
+        'int', s, num_max, ge, le, split_on_dash, remove_duplicates, sort,
+        raise_error, log)
 
 
 def input_num_list(
-        s=None, ge=None, le=None, remove_duplicates=True, sort=True,
-        raise_error=False, log=True):
+        s=None, num_max=None, ge=None, le=None, remove_duplicates=True,
+        sort=True, raise_error=False, log=True):
     """
     Prompt the user to input a list of numbers and split the entered
     string on any combination of commas or whitespaces.
@@ -687,11 +685,12 @@ def input_num_list(
     return None upon an illegal input
     """
     return _input_int_or_num_list(
-        'num', s, ge, le, False, remove_duplicates, sort, raise_error, log)
+        'num', s, num_max, ge, le, False, remove_duplicates, sort, raise_error,
+        log)
 
 
 def _input_int_or_num_list(
-        type_str, s=None, ge=None, le=None, split_on_dash=True,
+        type_str, s=None, num_max=None, ge=None, le=None, split_on_dash=True,
         remove_duplicates=True, sort=True, raise_error=False, log=True):
     # RV do we want a limit on max dimension?
     if type_str == 'int':
@@ -707,6 +706,9 @@ def _input_int_or_num_list(
     else:
         illegal_value(type_str, 'type_str', '_input_int_or_num_list')
         return None
+    if (num_max is not None
+            and not is_int(num_max, gt=0, raise_error=raise_error, log=log)):
+        return None
     v_range = f'{range_string_ge_gt_le_lt(ge=ge, le=le)}'
     if v_range:
         v_range = f' (each value in {v_range})'
@@ -721,14 +723,17 @@ def _input_int_or_num_list(
     except:
         print('Unexpected error')
         raise
-    if (not isinstance(_list, list) or any(
-            not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
+    if (not isinstance(_list, list)
+            or (num_max is not None and len(_list) > num_max)
+            or any(
+                not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
+        num = '' if num_max is None else f'up to {num_max} '
         if split_on_dash:
-            print('Invalid input: enter a valid set of dash/comma/whitespace '
-                  'separated integers e.g. 1 3,5-8 , 12')
+            print(f'Invalid input: enter a valid set of {num}dash/comma/'
+                  'whitespace separated numbers e.g. 1 3,5-8 , 12')
         else:
-            print('Invalid input: enter a valid set of comma/whitespace '
-                  'separated integers e.g. 1 3,5 8 , 12')
+            print(f'Invalid input: enter a valid set of {num}comma/whitespace '
+                  'separated numbers e.g. 1 3,5 8 , 12')
         _list = _input_int_or_num_list(
             type_str, s, ge, le, split_on_dash, remove_duplicates, sort,
             raise_error, log)

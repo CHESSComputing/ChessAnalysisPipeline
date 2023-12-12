@@ -93,6 +93,9 @@ class TomoFindCenterConfig(BaseModel):
         min_items=2, max_items=2)]
     center_offset_min: Optional[confloat(allow_inf_nan=False)]
     center_offset_max: Optional[confloat(allow_inf_nan=False)]
+    center_search_range: Optional[conlist(
+        item_type=confloat(allow_inf_nan=False),
+        min_items=1, max_items=3)]
     gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
 
