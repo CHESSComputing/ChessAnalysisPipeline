@@ -1347,9 +1347,38 @@ def get_all_mca_data_h5(filename):
         energy.
     :rtype: numpy.ndarray
     """
+    import os
+
     from h5py import File
+    import numpy as np
+
     with File(filename) as h5_file:
-        # NB: Bug in EPICS IOC captures an extra frame of data at the
-        # start.
-        data = h5_file['/entry/data/data'][1:]
+        data = h5_file['/entry/data/data'][:]
+
+    # Prior to 2023-12-12, there was an issue where the XPS23 detector
+    # was capturing one or two frames of all 0s at the start of the
+    # dataset in every hdf5 file. In both cases, there is only ONE
+    # extra frame of data relative to the number of frames that should
+    # be there (based on the number of points in the spec scan). If
+    # one frame of all 0s is present: skip it and deliver only the
+    # real data. If two frames of all 0s are present: detector data
+    # will be missing for the LAST step in the scan. Skip the first
+    # two frames of all 0s in the hdf5 dataset, then add a frame of
+    # fake data (all 0-s) to the end of that real data so that the
+    # number of detector data frames matches the number of points in
+    # the spec scan.
+    check_zeros_before = 1702357200
+    file_mtime = os.path.getmtime(filename)
+    if file_mtime <= check_zeros_before:
+        if not np.any(data[0]):
+            # If present, remove first frame of blank data
+            print('Warning: removing blank first frame of detector data')
+            data = data[1:]
+            if not np.any(data[0]):
+                # If present, shift second frame of blank data to the
+                # end
+                print('Warning: shifting second frame of blank detector data '
+                      + 'to the end of the scan')
+                data = np.concatenate((data[1:], np.asarray([data[0]])))
+
     return data
