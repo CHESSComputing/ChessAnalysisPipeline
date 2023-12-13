@@ -446,9 +446,9 @@ class TomoDataProcessor(Processor):
     """
 
     def process(
-            self, data, interactive=False, reduce_data=False,
+            self, data, outputdir='.', interactive=False, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, output_folder='.', save_figs='no', **kwargs):
+            combine_data=False, save_figs='no'):
         """
         Process the input map or configuration with the step specific
         instructions and return either a dictionary or a
@@ -457,6 +457,8 @@ class TomoDataProcessor(Processor):
         :param data: Input configuration and specific step instructions
             for tomographic image reduction.
         :type data: list[PipelineData]
+        :param outputdir: Output folder name, defaults to '.'.
+        :type outputdir:: str, optional
         :param interactive: Allows for user interactions,
             defaults to False.
         :type interactive: bool, optional
@@ -475,8 +477,6 @@ class TomoDataProcessor(Processor):
         :param combine_data: Combine the reconstructed tomography
             stacks, defaults to False.
         :type combine_data: bool, optional
-        :param output_folder: Output folder name, defaults to '.'.
-        :type output_folder:: str, optional
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
@@ -534,7 +534,7 @@ class TomoDataProcessor(Processor):
 
         tomo = Tomo(
             logger=self.logger, interactive=interactive,
-            output_folder=output_folder, save_figs=save_figs)
+            outputdir=outputdir, save_figs=save_figs)
 
         nxsetconfig(memory=100000)
 
@@ -655,8 +655,8 @@ class Tomo:
     """Reconstruct a set of tomographic images."""
 
     def __init__(
-            self, logger=None, interactive=False, num_core=-1,
-            output_folder='.', save_figs='no'):
+            self, logger=None, outputdir='.', interactive=False, num_core=-1,
+            save_figs='no'):
         """
         Initialize Tomo.
 
@@ -665,8 +665,8 @@ class Tomo:
         :type interactive: bool, optional
         :param num_core: Number of processors.
         :type num_core: int
-        :param output_folder: Output folder name, defaults to '.'.
-        :type output_folder:: str, optional
+        :param outputdir: Output folder name, defaults to '.'.
+        :type outputdir:: str, optional
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
@@ -687,11 +687,9 @@ class Tomo:
 
         if not isinstance(interactive, bool):
             raise ValueError(f'Invalid parameter interactive ({interactive})')
+        self._outputdir = outputdir
         self._interactive = interactive
         self._num_core = num_core
-        self._output_folder = os_path.abspath(output_folder)
-        if not os_path.isdir(self._output_folder):
-            mkdir(self._output_folder)
         self._test_config = {}
         if save_figs == 'only':
             self._save_only = True
@@ -983,8 +981,7 @@ class Tomo:
             # Plot results
             if self._save_figs:
                 fig.savefig(
-                    os_path.join(
-                        self._output_folder, 'center_finding_rows.png'))
+                    os_path.join(self._outputdir, 'center_finding_rows.png'))
             plt.close()
 
         # Get effective pixel_size
@@ -1010,7 +1007,7 @@ class Tomo:
                 self._find_center_one_plane(
                     nxentry.reduced_data.data.tomo_fields, center_stack_index,
                     row, offset_row, np.radians(thetas), eff_pixel_size,
-                    cross_sectional_dim, path=self._output_folder,
+                    cross_sectional_dim, path=self._outputdir,
                     num_core=self._num_core,
                     center_offset_min=tool_config.center_offset_min,
                     center_offset_max=tool_config.center_offset_max,
@@ -1210,7 +1207,7 @@ class Tomo:
                 quick_imshow(
                     tomo_recon_stack[:,:,x_index], 
                     title=f'recon {res_title} x={x[x_index]:.4f}',
-                    origin='lower', extent=extent, path=self._output_folder,
+                    origin='lower', extent=extent, path=self._outputdir,
                     save_fig=True, save_only=True)
                 y_index = y_slice-y_range[0]
                 extent = (
@@ -1221,7 +1218,7 @@ class Tomo:
                 quick_imshow(
                     tomo_recon_stack[:,y_index,:],
                     title=f'recon {res_title} y={y[y_index]:.4f}',
-                    origin='lower', extent=extent, path=self._output_folder,
+                    origin='lower', extent=extent, path=self._outputdir,
                     save_fig=True, save_only=True)
                 z_index = z_slice-z_range[0]
                 extent = (
@@ -1232,7 +1229,7 @@ class Tomo:
                 quick_imshow(
                     tomo_recon_stack[z_index,:,:],
                     title=f'recon {res_title} z={z[z_index]:.4f}',
-                    origin='lower', extent=extent, path=self._output_folder,
+                    origin='lower', extent=extent, path=self._outputdir,
                     save_fig=True, save_only=True)
         else:
             # Plot a few reconstructed image slices
@@ -1242,18 +1239,18 @@ class Tomo:
                     title = f'{basetitle} {res_title} xslice{x_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,:,:,x_slice-x_range[0]],
-                        title=title, path=self._output_folder,
-                        save_fig=True, save_only=True)
+                        title=title, path=self._outputdir, save_fig=True,
+                        save_only=True)
                     title = f'{basetitle} {res_title} yslice{y_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,:,y_slice-y_range[0],:],
-                        title=title, path=self._output_folder,
-                        save_fig=True, save_only=True)
+                        title=title, path=self._outputdir, save_fig=True,
+                        save_only=True)
                     title = f'{basetitle} {res_title} zslice{z_slice}'
                     quick_imshow(
                         tomo_recon_stacks[i,z_slice-z_range[0],:,:],
-                        title=title, path=self._output_folder,
-                        save_fig=True, save_only=True)
+                        title=title, path=self._outputdir, save_fig=True,
+                        save_only=True)
 
         # Add image reconstruction to reconstructed data NXprocess
         # reconstructed axis data order:
@@ -1481,7 +1478,7 @@ class Tomo:
             quick_imshow(
                 tomo_recon_combined[:,:,x_slice],
                 title=f'recon combined x={x[x_slice]:.4f}', origin='lower',
-                extent=extent, path=self._output_folder, save_fig=True,
+                extent=extent, path=self._outputdir, save_fig=True,
                 save_only=True)
             extent = (
                 x[0],
@@ -1492,7 +1489,7 @@ class Tomo:
             quick_imshow(
                 tomo_recon_combined[:,y_slice,:],
                 title=f'recon combined y={y[y_slice]:.4f}', origin='lower',
-                extent=extent, path=self._output_folder, save_fig=True,
+                extent=extent, path=self._outputdir, save_fig=True,
                 save_only=True)
             extent = (
                 x[0],
@@ -1503,7 +1500,7 @@ class Tomo:
             quick_imshow(
                 tomo_recon_combined[z_slice,:,:],
                 title=f'recon combined z={z[z_slice]:.4f}', origin='lower',
-                extent=extent, path=self._output_folder, save_fig=True,
+                extent=extent, path=self._outputdir, save_fig=True,
                 save_only=True)
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -1598,7 +1595,7 @@ class Tomo:
         if self._save_figs:
             quick_imshow(
                 tdf, title='Dark field', name='dark_field',
-                path=self._output_folder, save_fig=True, save_only=True)
+                path=self._outputdir, save_fig=True, save_only=True)
 
         # Add dark field to reduced data NXprocess
         reduced_data.data = NXdata()
@@ -1648,7 +1645,7 @@ class Tomo:
         if self._save_figs:
             quick_imshow(
                 tbf, title='Bright field', name='bright_field',
-                path=self._output_folder, save_fig=True, save_only=True)
+                path=self._outputdir, save_fig=True, save_only=True)
 
         # Add bright field to reduced data NXprocess
         if 'data' not in reduced_data:
@@ -1804,10 +1801,10 @@ class Tomo:
         if self._save_figs:
             if calibrate_center_rows:
                 fig.savefig(os_path.join(
-                    self._output_folder, 'rotation_calibration_rows.png'))
+                    self._outputdir, 'rotation_calibration_rows.png'))
             else:
                 fig.savefig(os_path.join(
-                    self._output_folder, 'detector_image_bounds.png'))
+                    self._outputdir, 'detector_image_bounds.png'))
         plt.close()
 
         return img_row_bounds
@@ -2063,7 +2060,7 @@ class Tomo:
                     name = f'reduced_data_stack_{i}_theta_{theta}'
                 quick_imshow(
                     tomo_stack[0,:,:], title=title, name=name,
-                    path=self._output_folder, save_fig=self._save_figs,
+                    path=self._outputdir, save_fig=self._save_figs,
                     save_only=self._save_only, block=self._block)
             zoom_perc = 100
             if zoom_perc != 100:
@@ -2079,7 +2076,7 @@ class Tomo:
                     f'{round(thetas[0], 2)+0}'
                 quick_imshow(
                     tomo_stack[0,:,:], title=title, 
-                    path=self._output_folder, save_fig=self._save_figs,
+                    path=self._outputdir, save_fig=self._save_figs,
                     save_only=self._save_only, block=self._block)
                 del tomo_zoom_list
 
@@ -2261,7 +2258,7 @@ class Tomo:
             if self._save_figs:
                 fig.savefig(
                     os_path.join(
-                        self._output_folder,
+                        self._outputdir,
                         f'recon_row_{row}_default_centers.png'))
             plt.close()
 
@@ -2306,7 +2303,7 @@ class Tomo:
                     block = False
                 quick_imshow(
                     search_recon_planes[i], title=title, row_label='y',
-                    column_label='x', path=self._output_folder, name=name,
+                    column_label='x', path=self._outputdir, name=name,
                     save_only=save_only, save_fig=True, block=block)
                 center_offsets.append(center)
                 recon_planes.append(search_recon_planes[i])
@@ -2369,7 +2366,7 @@ class Tomo:
                 if self._save_figs:
                     fig.savefig(
                         os_path.join(
-                            self._output_folder,
+                            self._outputdir,
                             f'recon_row_{row}_center_range_'
                                 f'{min(preselected_offsets)}_'\
                                 f'{max(preselected_offsets)}.png'))
@@ -2444,7 +2441,7 @@ class Tomo:
             if self._save_figs:
                 fig.savefig(
                     os_path.join(
-                        self._output_folder,
+                        self._outputdir,
                         f'recon_row_{row}_center_'
                             f'{selected_center_offset:.2f}.png'))
             plt.close()
@@ -2879,7 +2876,7 @@ class Tomo:
         if self._save_figs:
             fig.savefig(
                 os_path.join(
-                    self._output_folder, 'reconstructed_data_xy_roi.png'))
+                    self._outputdir, 'reconstructed_data_xy_roi.png'))
         plt.close()
 
         # Selecting z bounds (in xy-plane)
@@ -2911,7 +2908,7 @@ class Tomo:
             if self._save_figs:
                 fig.savefig(
                     os_path.join(
-                        self._output_folder, 'reconstructed_data_z_roi.png'))
+                        self._outputdir, 'reconstructed_data_z_roi.png'))
             plt.close()
 
         return x_bounds, y_bounds, z_bounds
@@ -2924,7 +2921,7 @@ class TomoSimFieldProcessor(Processor):
     tomography detector images.
     """
 
-    def process(self, data, **kwargs):
+    def process(self, data):
         """
         Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
@@ -3175,7 +3172,7 @@ class TomoDarkFieldProcessor(Processor):
     tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, num_image=5, **kwargs):
+    def process(self, data, num_image=5):
         """
         Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
@@ -3248,7 +3245,7 @@ class TomoBrightFieldProcessor(Processor):
     tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, num_image=5, **kwargs):
+    def process(self, data, num_image=5):
         """
         Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
@@ -3336,7 +3333,7 @@ class TomoSpecProcessor(Processor):
     simulated tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, scan_numbers=[1], **kwargs):
+    def process(self, data, scan_numbers=[1]):
         """
         Process the input configuration and return a list of strings
         representing a plain text SPEC file.

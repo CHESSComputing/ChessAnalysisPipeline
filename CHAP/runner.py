@@ -17,11 +17,11 @@ from CHAP.pipeline import Pipeline
 class RunConfig():
     """Representation of Pipeline run configuration."""
     opts = {'root': os.getcwd(),
-            'profile': False,
+            'inputdir': '.',
+            'outputdir': '.',
             'interactive': False,
             'log_level': 'INFO',
-            'inputdir': '.',
-            'outputdir': '.'}
+            'profile': False}
 
     def __init__(self, config={}):
         """RunConfig constructor
@@ -42,7 +42,7 @@ class RunConfig():
             raise OSError('root directory is not accessible for reading '
                           f'({self.root})')
 
-        # Check if input exists and is readable
+        # Check if inputdir exists and is readable
         if not os.path.isabs(self.inputdir):
             self.inputdir = os.path.realpath(
                 os.path.join(self.root, self.inputdir))
@@ -52,7 +52,7 @@ class RunConfig():
             raise OSError('input directory is not accessible for reading '
                           f'({self.inputdir})')
 
-        # Check if output exists (create it if not) and is writable
+        # Check if outputdir exists (create it if not) and is writable
         if not os.path.isabs(self.outputdir):
             self.outputdir = os.path.realpath(
                 os.path.join(self.root, self.outputdir))
@@ -131,26 +131,53 @@ def setLogger(log_level="INFO"):
     logger.addHandler(log_handler)
     return logger, log_handler
 
-def run(pipeline_config,
-        inputdir=None, outputdir=None, interactive=False,
+def run(
+        pipeline_config, inputdir=None, outputdir=None, interactive=False,
         logger=None, log_level=None, log_handler=None):
     """
     Run given pipeline_config
 
     :param pipeline_config: CHAP pipeline config
     """
+    # System modules
+    from tempfile import NamedTemporaryFile
+
     objects = []
     kwds = []
     for item in pipeline_config:
         # load individual object with given name from its module
-        kwargs = {'interactive': interactive,
-                  'inputdir': inputdir,
-                  'outputdir': outputdir}
+        kwargs = {'inputdir': inputdir,
+                  'outputdir': outputdir,
+                  'interactive': interactive}
         if isinstance(item, dict):
             name = list(item.keys())[0]
-            # Combine the "interactive" command line argument with the object's keywords
-            # giving precedence of "interactive" in the latter
-            kwargs = {**kwargs, **item[name]}
+            item_args = item[name]
+            # Combine the function's input arguments "inputdir",
+            # "outputdir" and "interactive" with the item's arguments
+            # joining "inputdir" and "outputdir" and giving precedence
+            # for "interactive" in the latter
+            if 'inputdir' in item_args:
+                newinputdir = os.path.normpath(os.path.join(
+                    kwargs['inputdir'], item_args.pop('inputdir')))
+                if not os.path.isdir(newinputdir):
+                    raise OSError(
+                        f'input directory does not exist ({newinputdir})')
+                if not os.access(newinputdir, os.R_OK):
+                    raise OSError('input directory is not accessible for '
+                                  f'reading ({newinputdir})')
+                kwargs['inputdir'] = newinputdir
+            if 'outputdir' in item_args:
+                newoutputdir = os.path.normpath(os.path.join(
+                    kwargs['outputdir'], item_args.pop('outputdir')))
+                if not os.path.isdir(newoutputdir):
+                    os.mkdir(newoutputdir)
+                try:
+                    tmpfile = NamedTemporaryFile(dir=newoutputdir)
+                except:
+                    raise OSError('output directory is not accessible for '
+                                  f'writing ({newoutputdir})')
+                kwargs['outputdir'] = newoutputdir
+            kwargs = {**kwargs, **item_args}
         else:
             name = item
         if "users" in name:
