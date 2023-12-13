@@ -4,9 +4,8 @@ experiment_type: TOMO
 sample:
   name: hollow_cube
 spec_scans:
-- spec_file: /nfs/chess/user/rv43/ChessAnalysisPipeline/examples/tomo/hollow_cube/hollow_cube
-  scan_numbers:
-  - 3
+- spec_file: ../hollow_cube/hollow_cube
+  scan_numbers: [3]
 independent_dimensions:
 - label: rotation_angles
   units: degrees

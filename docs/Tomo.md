@@ -1,10 +1,14 @@
 # Tomography subpackage (CHAP.tomo)
 
-The tomography subpackage contains the modules that are unique to tomography data processing workflows. This document describes how to run a tomography reconstruction workflow in a Linux terminal.
+The tomography subpackage contains the modules that are unique to tomography
+data processing workflows. This document describes how to run a tomography
+reconstruction workflow in a Linux terminal.
 
 A standard tomographic reconstruction in CHAP consists of three steps:
 
-- Reducing the data, i.e., correcting the raw detector images for background and non-uniformities in the beam intensity profile using dark and bright fields collected separately from the tomography image series.
+- Reducing the data, i.e., correcting the raw detector images for background
+and non-uniformities in the beam intensity profile using dark and bright fields
+collected separately from the tomography image series.
 
 - Finding the calibrated rotation axis. Accurate reconstruction relies on accurately knowing the center of rotation at each data plane perpendicular to the rotation axis (the sinogram). This rotation axis is calibrated by selecting two data planes, one near the top and one near the bottom of the sample or beam, and visually or automatically picking the optimal center location.
 
@@ -40,7 +44,7 @@ conda activate CHAP_tomo
 ## Running a tomography reconstruction
 
 1. Navigate to your work directory.
-1. Create the required CHAP pipeline file for the workflow and any additional workflow specific input files. FIX: Needs general instruction on pipeline files and specific instruction for tomo.
+1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files.
 1. Run the reconstruction:
    ```bash
    CHAP <pipelinefilename>
@@ -61,3 +65,233 @@ Any of the optional output figures can be viewed directly by any PNG image viewe
 1. Or navigate the filetree in the "NeXus Data" panel to inspect any other output or metadata field. Note that the latest data set in any tomography reconstruction workflow is always available under the "data" `NXdata` field among the default `NXentry`'s fields (it is this data set that is opened in the viewer panel when double clicking the `NXroot` field). The default `NXentry` name is always the "title" field in the workflow's map configuration.
 
 ## Creating the pipeline input file
+
+Running any CHAP pipeline requires a YAML pipeline input file. Here is an example for a full Tomographic reconstruction:
+
+```
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: hollow_brick
+  interactive: true
+  log_level: INFO
+  profile: false
+
+pipeline:
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [1]
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [2]
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: map_id3a.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - tomo.TomoDataProcessor:
+      reduce_data: True
+      find_center: True
+      reconstruct_data: True
+      combine_data: True
+      outputdir: saved_figs
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: combined_hollow_brick.nxs
+      force_overwrite: true
+```
+
+```bash
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: hollow_brick
+  interactive: true
+  log_level: INFO
+  profile: false
+
+pipeline:
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [1]
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [2]
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: map_id3a.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - tomo.TomoDataProcessor:
+      reduce_data: True
+      find_center: True
+      reconstruct_data: True
+      combine_data: True
+      outputdir: saved_figs
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: combined_hollow_brick.nxs
+      force_overwrite: true
+```
+
+```jupyter
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: hollow_brick
+  interactive: true
+  log_level: INFO
+  profile: false
+
+pipeline:
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [1]
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [2]
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: map_id3a.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - tomo.TomoDataProcessor:
+      reduce_data: True
+      find_center: True
+      reconstruct_data: True
+      combine_data: True
+      outputdir: saved_figs
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: combined_hollow_brick.nxs
+      force_overwrite: true
+```
+
+```ruby
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: hollow_brick
+  interactive: true
+  log_level: INFO
+  profile: false
+
+pipeline:
+
+  # Convert the CHESS style map
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [1]
+            detector_names:
+              - sim
+            schema: darkfield
+        - common.SpecReader:
+            spec_config:
+              station: id3a
+              experiment_type: TOMO
+              spec_scans:
+              - spec_file: ../hollow_brick/spec.log
+                scan_numbers: [2]
+            detector_names:
+              - sim
+            schema: brightfield
+        - common.MapReader:
+            filename: map_id3a.yaml
+            detector_names:
+              - sim
+            schema: tomofields
+        - common.YAMLReader:
+            filename: detector.yaml
+            schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+
+  # Full tomography reconstruction
+  - tomo.TomoDataProcessor:
+      reduce_data: True
+      find_center: True
+      reconstruct_data: True
+      combine_data: True
+      outputdir: saved_figs
+      save_figs: 'only'
+  - common.NexusWriter:
+      filename: combined_hollow_brick.nxs
+      force_overwrite: true
+```
