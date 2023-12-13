@@ -28,8 +28,8 @@ class DiffractionVolumeLengthProcessor(Processor):
                 data,
                 config=None,
                 save_figures=False,
-                outputdir='.',
                 inputdir='.',
+                outputdir='.',
                 interactive=False):
         """Return the calculated value of the DV length.
 
@@ -259,8 +259,8 @@ class MCACeriaCalibrationProcessor(Processor):
                 data,
                 config=None,
                 save_figures=False,
-                outputdir='.',
                 inputdir='.',
+                outputdir='.',
                 interactive=False):
         """Return tuned values for 2&theta and linear correction
         parameters for the MCA channel energies.
@@ -579,8 +579,8 @@ class MCADataProcessor(Processor):
                 data,
                 config=None,
                 save_figures=False,
-                outputdir='.',
                 inputdir='.',
+                outputdir='.',
                 interactive=False):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
@@ -681,8 +681,8 @@ class StrainAnalysisProcessor(Processor):
                 data,
                 config=None,
                 save_figures=False,
-                outputdir='.',
                 inputdir='.',
+                outputdir='.',
                 interactive=False):
         """Return strain analysis maps & associated metadata in an NXprocess.
 
