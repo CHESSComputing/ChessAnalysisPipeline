@@ -12,7 +12,6 @@ from os.path import (
     splitext,
 )
 from sys import modules
-from time import time
 
 # Third party modules
 import numpy as np
@@ -142,8 +141,8 @@ class MapReader(Reader):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-            if map_config.map_type == 'structured':
-                nxentry.data.attrs[f'{dim.label}_indices'] = i
+#            if map_config.map_type == 'structured':
+#                nxentry.data.attrs[f'{dim.label}_indices'] = i
 
         # Create empty NXfields for all scalar data present in the
         # provided map configuration
@@ -172,10 +171,6 @@ class MapReader(Reader):
             nxentry.data[detector_name] = NXfield(value=np.zeros(
                 (*map_config.shape, *detector_data.shape)),
                 dtype=detector_data.dtype)
-#            data_shape = list(map_config.shape)+list(detector_data.shape)
-#            nxentry.data[detector_name] = NXfield(
-#                value=np.zeros(data_shape), shape=data_shape,
-#                dtype=detector_data.dtype)
 
         # Read and fill in maps of raw data
         if len(map_config.all_scalar_data) > 0 or len(detector_names) > 0:
