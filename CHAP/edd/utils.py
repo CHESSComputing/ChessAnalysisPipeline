@@ -755,6 +755,18 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
     else:
+        # Ensure ref_map is 2D
+        if ref_map.ndim > 2:
+            ref_map = np.reshape(
+                ref_map, (np.prod(ref_map.shape[:-1]), ref_map.shape[-1]))
+        # If needed, abbreviate ref_map to <= 50 spectra to keep
+        # response time of mouse interactions quick.
+        max_ref_spectra = 50
+        if ref_map.shape[0] > max_ref_spectra:
+            choose_i = np.sort(
+                np.random.choice(
+                    ref_map.shape[0], max_ref_spectra, replace=False))
+            ref_map = ref_map[choose_i]
         fig, (ax, ax_map) = plt.subplots(
             2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
         ax.set(ylabel='Intensity (counts)')
