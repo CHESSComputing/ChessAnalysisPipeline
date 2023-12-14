@@ -535,7 +535,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
     """
 
     def get_spec_scan_motor_mnes(self):
-        if self.spec_macro == 'flymesh':
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_mne = self.spec_args[0]
             try:
                 # Try post-summer-2022 format
@@ -555,7 +555,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_motor_vals(self):
-        if self.spec_macro == 'flymesh':
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
             m1_npt = int(self.spec_args[3]) + 1
@@ -588,7 +588,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_shape(self):
-        if self.spec_macro == 'flymesh':
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             fast_mot_npts = int(self.spec_args[3]) + 1
             try:
                 # Try post-summer-2022 format
@@ -609,7 +609,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_dwell(self):
-        if self.macro == 'flymesh':
+        if self.macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
