@@ -513,8 +513,9 @@ class LatticeParameterRefinementProcessor(Processor):
             return
         from CHAP.edd.utils import select_material_params
         import matplotlib.pyplot as plt
+        import numpy as np
         fig, strain_analysis_config.materials = select_material_params(
-            mca_bin_energies[detector_i], mca_data[detector_i][0],
+            mca_bin_energies[detector_i], np.sum(mca_data[detector_i], axis=1)[0],
             strain_analysis_config.detectors[detector_i].tth_calibrated,
             strain_analysis_config.materials, interactive=interactive)
         self.logger.debug(
@@ -696,7 +697,6 @@ class MCACeriaCalibrationProcessor(Processor):
         mca_bin_energies = np.linspace(
             0, detector.max_energy_kev, detector.num_bins)
         mca_data = calibration_config.mca_data(detector)
-
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
@@ -1208,7 +1208,7 @@ class StrainAnalysisProcessor(Processor):
 
             tth = strain_analysis_config.detectors[0].tth_calibrated
             fig, strain_analysis_config.materials = select_material_params(
-                mca_bin_energies[0], mca_data[0][0], tth,
+                mca_bin_energies[0], np.sum(mca_data, axis=1)[0], tth,
                 materials=strain_analysis_config.materials,
                 interactive=interactive)
             self.logger.debug(
