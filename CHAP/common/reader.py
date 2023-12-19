@@ -40,7 +40,7 @@ class BinaryFileReader(Reader):
 class H5Reader(Reader):
     """Reader for h5 files.
     """
-    def read(self, filename, h5path='/'):
+    def read(self, filename, h5path='/', idx=None):
         """Return the data object stored at `h5path` in an h5-file.
 
         :param filename: The name of the h5-file to read from.
@@ -55,6 +55,8 @@ class H5Reader(Reader):
         from h5py import File
 
         data = File(filename, 'r')[h5path]
+        if idx is not None:
+            data = data[tuple(idx)]
         return data
 
 
