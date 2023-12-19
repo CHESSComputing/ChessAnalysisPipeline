@@ -766,6 +766,7 @@ class MCACeriaCalibrationProcessor(Processor):
         fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
         tth = detector.tth_initial_guess
+        fit_E0 = get_peak_locations(fit_ds, tth)
         for iter_i in range(calibration_config.max_iter):
             self.logger.debug(
                 f'Tuning tth: iteration no. {iter_i}, starting value = {tth} ')
@@ -774,12 +775,12 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Get expected peak energy locations for this iteration's
             # starting value of tth
-            fit_E0 = get_peak_locations(fit_ds, tth)
+            _fit_E0 = get_peak_locations(fit_ds, tth)
 
             # Run the uniform fit
             fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             fit.create_multipeak_model(
-                fit_E0, fit_type='uniform', background=detector.background,
+                _fit_E0, fit_type='uniform', background=detector.background,
                 centers_range=centers_range)
             fit.fit()
 
@@ -907,6 +908,115 @@ class MCACeriaCalibrationProcessor(Processor):
                 plt.show()
 
         return float(tth), float(slope), float(intercept)
+
+
+class MCAEnergyCalibrationProcessor(Processor):
+    """Processor to return parameters for linearly transforming MCA
+    channel indices to energies (in keV). Procedure: provide a
+    spectrum from the MCA element to be calibrated and the theoretical
+    location of at least one peak present in that spectrum (peak
+    locations must be given in keV). It is strongly recommended to use
+    the location of fluorescence peaks whenever possible, _not_
+    diffraction peaks, as this Processor does not account for
+    2&theta."""
+    def process(self,
+                data,
+                max_energy,
+                peak_energies,
+                peak_center_fit_delta=2.0,
+                fit_ranges=None,
+                save_figures=False,
+                interactive=False,
+                outputdir='.'):
+        """Fit the specified peaks in the MCA spectrum provided. Using
+        the difference between the provided peak locations and the fit
+        centers of those peaks, compute linear correction parameters
+        to convert MCA channel indices to energies in keV. Return
+        those parameters as a dictionary.
+
+        :param data: An MCA spectrum
+        :type data: PipelineData
+        :param max_energy: The (uncalibrated) maximum energy measured
+            by the MCA spectrum provided.
+        :type max_energy: float
+        :param peak_energies: Theoretical locations of peaks to use
+            for calibrating the MCA channel energies. It is _strongly_
+            recommended to use fluorescence peaks.
+        :type peak_energies: list[float]
+        :param peak_center_fit_delta: Set boundaries on the fit peak
+            centers when performing the fit. The min/max possible
+            values for the peak centers will be the values provided in
+            `peak_energies` &pm; `peak_center_fit_delta`. Defaults to
+            2.0.
+        :type peak_center_fit_delta: float
+        :param fit_ranges: Explicit ranges of MCA channel indices
+            (_not_ energies) to include when performing a fit of the
+            given peaks to the provied MCA spectrum. Use this
+            parameter or select it interactively by running a pipeline
+            with `config.interactive: True`. Defaults to []
+        :type fit_ranges: Optional[list[tuple[int, int]]]
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False.
+        :type save_figures: bool, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'.
+        :type outputdir: str, optional
+        :returns: Dictionary containing linear energy correction
+            parameters for the MCA element
+        :rtype: dict[str, float]
+        """
+        if not (fit_ranges or interactive):
+            self.logger.exception(
+                RuntimeError(
+                    'If `fit_ranges` is not explicitly provided, '
+                    + self.__class__.__name__
+                    + ' must be run with `interactive=True`.'))
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from CHAP.utils.fit import Fit
+        from CHAP.utils.general import select_mask_1d
+
+        spectrum = self.unwrap_pipelinedata(data)[0]
+        num_bins = len(spectrum)
+        uncalibrated_energies = np.linspace(0, max_energy, num_bins)
+
+        fig, mask, fit_ranges = select_mask_1d(
+            spectrum, x=uncalibrated_energies,
+            preselected_index_ranges=fit_ranges,
+            xlabel='Uncalibrated Energy', ylabel='Intensity',
+            min_num_index_ranges=1, interactive=interactive)
+        if save_figures:
+            fig.savefig(os.path.join(
+                outputdir, 'mca_energy_calibration_mask.png'))
+        plt.close()
+
+        spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
+        for i, peak_energy in enumerate(peak_energies):
+            spectrum_fit.add_model(
+                'gaussian', prefix=f'peak{i+1}_', parameters=(
+                    {'name': 'amplitude', 'min': 0.0},
+                    {'name': 'center', 'value': peak_energy,
+                     'min': peak_energy - peak_center_fit_delta,
+                     'max': peak_energy + peak_center_fit_delta}
+                ))
+        spectrum_fit.fit()
+        fit_peak_energies = [
+            spectrum_fit.best_values[f'peak{i+1}_center']
+            for i in range(len(peak_energies))]
+
+        energy_fit = Fit.fit_data(
+            peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
+        slope = energy_fit.best_values['slope']
+        intercept = energy_fit.best_values['intercept']
+
+        # Rescale slope so results are a linear correction from
+        # channel indices -> calibrated energies, not uncalibrated
+        # energies -> calibrated energies
+        slope = (max_energy / num_bins) * slope
+        return({'slope': slope, 'intercept': intercept})
 
 
 class MCADataProcessor(Processor):
