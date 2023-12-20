@@ -923,6 +923,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 data,
                 max_energy,
                 peak_energies,
+                peak_initial_guesses=None,
                 peak_center_fit_delta=2.0,
                 fit_ranges=None,
                 save_figures=False,
@@ -943,11 +944,19 @@ class MCAEnergyCalibrationProcessor(Processor):
             for calibrating the MCA channel energies. It is _strongly_
             recommended to use fluorescence peaks.
         :type peak_energies: list[float]
+        :param peak_initial_guesses: A list of values to use for the
+            initial guesses for peak locations when performing the fit
+            of the spectrum. Providing good values to this parameter
+            can greatly improve the quality of the spectrum fit when
+            the uncalibrated detector channel energies are too far off
+            to use the values in `peak_energies` for the initial
+            guesses for peak centers. Defaults to None.
+        :type peak_inital_guesses: Optional[list[float]]
         :param peak_center_fit_delta: Set boundaries on the fit peak
             centers when performing the fit. The min/max possible
             values for the peak centers will be the values provided in
-            `peak_energies` &pm; `peak_center_fit_delta`. Defaults to
-            2.0.
+            `peak_energies` (or `peak_initial_guesses`, if used) &pm;
+            `peak_center_fit_delta`. Defaults to 2.0.
         :type peak_center_fit_delta: float
         :param fit_ranges: Explicit ranges of MCA channel indices
             (_not_ energies) to include when performing a fit of the
@@ -968,18 +977,31 @@ class MCAEnergyCalibrationProcessor(Processor):
             parameters for the MCA element
         :rtype: dict[str, float]
         """
+        # Validate arguments: fit_ranges & interactive
         if not (fit_ranges or interactive):
             self.logger.exception(
                 RuntimeError(
                     'If `fit_ranges` is not explicitly provided, '
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
+        # Validate arguments: peak_energies & peak_initial_guesses
+        if peak_initial_guesses is None:
+            peak_initial_guesses = peak_energies
+        else:
+            from CHAP.utils.general import is_num_series
+            is_num_series(peak_initial_guesses, raise_error=True)
+            if len(peak_initial_guesses) != len(peak_energies):
+                self.logger.exception(
+                    ValueError(
+                        'peak_initial_guesses must have the same number of '
+                        + 'values as peak_energies'))
+
         import matplotlib.pyplot as plt
         import numpy as np
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import select_mask_1d
 
-        spectrum = self.unwrap_pipelinedata(data)[0]
+        spectrum = data #self.unwrap_pipelinedata(data)[0]
         num_bins = len(spectrum)
         uncalibrated_energies = np.linspace(0, max_energy, num_bins)
 
@@ -992,20 +1014,24 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.savefig(os.path.join(
                 outputdir, 'mca_energy_calibration_mask.png'))
         plt.close()
+        self.logger.debug(f'Selected index ranges to fit: {fit_ranges}')
 
         spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
-        for i, peak_energy in enumerate(peak_energies):
+        for i, (peak_energy, initial_guess) in enumerate(
+                zip(peak_energies, peak_initial_guesses)):
             spectrum_fit.add_model(
                 'gaussian', prefix=f'peak{i+1}_', parameters=(
                     {'name': 'amplitude', 'min': 0.0},
-                    {'name': 'center', 'value': peak_energy,
-                     'min': peak_energy - peak_center_fit_delta,
-                     'max': peak_energy + peak_center_fit_delta}
+                    {'name': 'center', 'value': initial_guess,
+                     'min': initial_guess - peak_center_fit_delta,
+                     'max': initial_guess + peak_center_fit_delta}
                 ))
+        self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
         fit_peak_energies = [
             spectrum_fit.best_values[f'peak{i+1}_center']
             for i in range(len(peak_energies))]
+        self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
 
         energy_fit = Fit.fit_data(
             peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
