@@ -275,7 +275,21 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
         data = self.unwrap_pipelinedata(data)[-1]
+        nxclass = data.nxclass
+        nxname = data.nxname
+        if nxclass == 'NXentry':
+            data = NXroot(data)
+            data[nxname].set_default()
+        elif nxclass != 'NXroot':
+            data = NXroot(NXentry(data))
+            if nxclass == 'NXdata':
+                data.entry[nxname].set_default()
+            data.entry.set_default()
         write_nexus(data, filename, force_overwrite)
 
         return data

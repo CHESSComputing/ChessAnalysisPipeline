@@ -26,8 +26,6 @@ from sys import float_info
 import numpy as np
 try:
     import matplotlib.pyplot as plt
-    from matplotlib.widgets import AxesWidget, RadioButtons
-    from matplotlib import cbook
 except ImportError:
     pass
 
@@ -655,8 +653,8 @@ def _input_int_or_num(
 
 
 def input_int_list(
-        s=None, ge=None, le=None, split_on_dash=True, remove_duplicates=True,
-        sort=True, raise_error=False, log=True):
+        s=None, num_max=None, ge=None, le=None, split_on_dash=True,
+        remove_duplicates=True, sort=True, raise_error=False, log=True):
     """
     Prompt the user to input a list of interger and split the entered
     string on any combination of commas, whitespaces, or dashes (when
@@ -669,13 +667,13 @@ def input_int_list(
     return None upon an illegal input
     """
     return _input_int_or_num_list(
-        'int', s, ge, le, split_on_dash, remove_duplicates, sort, raise_error,
-        log)
+        'int', s, num_max, ge, le, split_on_dash, remove_duplicates, sort,
+        raise_error, log)
 
 
 def input_num_list(
-        s=None, ge=None, le=None, remove_duplicates=True, sort=True,
-        raise_error=False, log=True):
+        s=None, num_max=None, ge=None, le=None, remove_duplicates=True,
+        sort=True, raise_error=False, log=True):
     """
     Prompt the user to input a list of numbers and split the entered
     string on any combination of commas or whitespaces.
@@ -687,11 +685,12 @@ def input_num_list(
     return None upon an illegal input
     """
     return _input_int_or_num_list(
-        'num', s, ge, le, False, remove_duplicates, sort, raise_error, log)
+        'num', s, num_max, ge, le, False, remove_duplicates, sort, raise_error,
+        log)
 
 
 def _input_int_or_num_list(
-        type_str, s=None, ge=None, le=None, split_on_dash=True,
+        type_str, s=None, num_max=None, ge=None, le=None, split_on_dash=True,
         remove_duplicates=True, sort=True, raise_error=False, log=True):
     # RV do we want a limit on max dimension?
     if type_str == 'int':
@@ -707,6 +706,9 @@ def _input_int_or_num_list(
     else:
         illegal_value(type_str, 'type_str', '_input_int_or_num_list')
         return None
+    if (num_max is not None
+            and not is_int(num_max, gt=0, raise_error=raise_error, log=log)):
+        return None
     v_range = f'{range_string_ge_gt_le_lt(ge=ge, le=le)}'
     if v_range:
         v_range = f' (each value in {v_range})'
@@ -721,14 +723,17 @@ def _input_int_or_num_list(
     except:
         print('Unexpected error')
         raise
-    if (not isinstance(_list, list) or any(
-            not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
+    if (not isinstance(_list, list)
+            or (num_max is not None and len(_list) > num_max)
+            or any(
+                not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
+        num = '' if num_max is None else f'up to {num_max} '
         if split_on_dash:
-            print('Invalid input: enter a valid set of dash/comma/whitespace '
-                  'separated integers e.g. 1 3,5-8 , 12')
+            print(f'Invalid input: enter a valid set of {num}dash/comma/'
+                  'whitespace separated numbers e.g. 1 3,5-8 , 12')
         else:
-            print('Invalid input: enter a valid set of comma/whitespace '
-                  'separated integers e.g. 1 3,5 8 , 12')
+            print(f'Invalid input: enter a valid set of {num}comma/whitespace '
+                  'separated numbers e.g. 1 3,5 8 , 12')
         _list = _input_int_or_num_list(
             type_str, s, ge, le, split_on_dash, remove_duplicates, sort,
             raise_error, log)
@@ -1276,37 +1281,46 @@ def select_roi_2d(
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_error_text(error):
-        if error_texts:
-            error_texts[0].remove()
-            error_texts.pop()
-        error_texts.append(plt.figtext(*error_pos, error, **error_props))
+    def change_subfig_title(error):
+        if subfig_title:
+            subfig_title[0].remove()
+            subfig_title.pop()
+        subfig_title.append(plt.figtext(*error_pos, error, **error_props))
 
-    def on_rect_select(eclick, erelease):
-        """Callback function for the RectangleSelector widget."""
-        change_error_text(
-            f'Selected ROI: {tuple(int(v) for v in rects[0].extents)}')
-        plt.draw()
-
-    def reset(event):
-        """Callback function for the "Reset" button."""
-        if error_texts:
-            error_texts[0].remove()
-            error_texts.pop()
+    def clear_selection():
         rects[0].set_visible(False)
         rects.pop()
         rects.append(
             RectangleSelector(
-                ax, on_rect_select, props=rect_props, useblit=True,
-                interactive=interactive, drag_from_anywhere=True,
+                ax, on_rect_select, props=rect_props,
+                useblit=True, interactive=interactive, drag_from_anywhere=True,
                 ignore_event_outside=False))
+
+    def on_rect_select(eclick, erelease):
+        """Callback function for the RectangleSelector widget."""
+        if (not int(rects[0].extents[1]) - int(rects[0].extents[0]) 
+                or not int(rects[0].extents[3]) - int(rects[0].extents[2])):
+            clear_selection()
+            change_subfig_title(
+                f'Selected ROI too small, try again')
+        else:
+            change_subfig_title(
+                f'Selected ROI: {tuple(int(v) for v in rects[0].extents)}')
+        plt.draw()
+
+    def reset(event):
+        """Callback function for the "Reset" button."""
+        if subfig_title:
+            subfig_title[0].remove()
+            subfig_title.pop()
+        clear_selection()
         plt.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
-        if error_texts:
-            error_texts[0].remove()
-            error_texts.pop()
+        if subfig_title:
+            subfig_title[0].remove()
+            subfig_title.pop()
         roi = tuple(int(v) for v in rects[0].extents)
         if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
             roi = None
@@ -1314,7 +1328,7 @@ def select_roi_2d(
         plt.close()
 
     fig_title = []
-    error_texts = []
+    subfig_title = []
 
     # Check inputs
     a = np.asarray(a)
@@ -1363,7 +1377,7 @@ def select_roi_2d(
 
         change_fig_title(title)
         if preselected_roi is not None:
-            change_error_text(
+            change_subfig_title(
                 f'Preselected ROI: {tuple(int(v) for v in preselected_roi)}')
         fig.subplots_adjust(bottom=0.2)
 
@@ -1422,7 +1436,7 @@ def select_image_indices(
     :param preselected_indices: Preselected image indices,
         defaults to `None`.
     :type preselected_indices: tuple(int), list(int), optional
-    :param axis_index_offset: Offset in axes index range and
+    :param axis_index_offset: Offset in axis index range and
         preselected indices, defaults to `0`.
     :type axis_index_offset: int, optional
     :param min_range: The minimal range spanned by the selected 
@@ -1858,3 +1872,126 @@ def quick_plot(
         if save_fig:
             plt.savefig(path)
         plt.show(block=block)
+
+
+def nxcopy(
+        nxobject, exclude_nxpaths=None, nxpath_prefix=None,
+        nxpathabs_prefix=None, nxpath_copy_abspath=None):
+    """
+    Function that returns a copy of a nexus object, optionally exluding
+    certain child items.
+
+    :param nxobject: The input nexus object to "copy".
+    :type nxobject: nexusformat.nexus.NXobject
+    :param exlude_nxpaths: A list of relative paths to child nexus
+        objects that should be excluded from the returned "copy",
+        defaults to `[]`.
+    :type exclude_nxpaths: str, list[str], optional
+    :param nxpath_prefix: For use in recursive calls from inside this
+        function only.
+    :type nxpath_prefix: str
+    :param nxpathabs_prefix: For use in recursive calls from inside this
+        function only.
+    :type nxpathabs_prefix: str
+    :param nxpath_copy_abspath: For use in recursive calls from inside this
+        function only.
+    :type nxpath_copy_abspath: str
+    :return: Copy of the input `nxobject` with some children optionally
+        exluded.
+    :rtype: nexusformat.nexus.NXobject
+    """
+    # Third party modules
+    from nexusformat.nexus import (
+        NXentry,
+        NXfield,
+        NXgroup,
+        NXlink,
+        NXlinkgroup,
+        NXroot,
+    )
+
+
+    if isinstance(nxobject, NXlinkgroup):
+        # The top level nxobject is a linked group
+        # Create a group with the same name as the top level's target
+        nxobject_copy = nxobject[nxobject.nxtarget].__class__(
+            name=nxobject.nxname)
+    elif isinstance(nxobject, (NXlink, NXfield)):
+        # The top level nxobject is a (linked) field: return a copy
+        nxobject_copy = NXfield(
+            value=nxobject.nxdata, name=nxobject.nxname,
+            attrs=nxobject.attrs)
+        return nxobject_copy
+    else:
+        # Create a group with the same type/name as the nxobject
+        nxobject_copy = nxobject.__class__(name=nxobject.nxname)
+
+    # Copy attributes
+    if isinstance(nxobject, NXroot):
+        if 'default' in nxobject.attrs:
+            nxobject_copy.attrs['default'] = nxobject.default
+    else:
+        for k, v in nxobject.attrs.items():
+            nxobject_copy.attrs[k] = v
+
+    # Setup paths
+    if exclude_nxpaths is None:
+        exclude_nxpaths = []
+    elif isinstance(exclude_nxpaths, str):
+        exclude_nxpaths = [exclude_nxpaths]
+    for exclude_nxpath in exclude_nxpaths:
+        if exclude_nxpath[0] == '/':
+            raise ValueError(
+                f'Invalid parameter in exclude_nxpaths ({exclude_nxpaths}), '
+                'excluded paths should be relative')
+    if nxpath_prefix is None:
+        nxpath_prefix = ''
+    if nxpathabs_prefix is None:
+        if isinstance(nxobject, NXentry):
+            nxpathabs_prefix = nxobject.nxpath
+        else:
+            nxpathabs_prefix = nxobject.nxpath.removesuffix(nxobject.nxname)
+    if nxpath_copy_abspath is None:
+        nxpath_copy_abspath = ''
+
+    # Loop over all nxobject's children
+    for k, v in nxobject.items():
+        nxpath = os_path.join(nxpath_prefix, k)
+        nxpathabs = os_path.join(nxpathabs_prefix, nxpath)
+        if nxpath in exclude_nxpaths:
+            if 'default' in nxobject_copy.attrs and nxobject_copy.default == k:
+                nxobject_copy.attrs.pop('default')
+            continue
+        if isinstance(v, NXlinkgroup):
+            if nxpathabs == v.nxpath and not any(
+                    v.nxtarget.startswith(os_path.join(nxpathabs_prefix, p))
+                    for p in exclude_nxpaths):
+                nxobject_copy[k] = NXlink(v.nxtarget)
+            else:
+                nxobject_copy[k] = nxcopy(
+                    v, exclude_nxpaths=exclude_nxpaths,
+                    nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
+                    nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
+        elif isinstance(v, NXlink):
+            if nxpathabs == v.nxpath and not any(
+                    v.nxtarget.startswith(os_path.join(nxpathabs_prefix, p))
+                    for p in exclude_nxpaths):
+                nxobject_copy[k] = v
+            else:
+                nxobject_copy[k] = v.nxdata
+                for kk, vv in v.attrs.items():
+                    nxobject_copy[k].attrs[kk] = vv
+                nxobject_copy[k].attrs.pop('target', None)
+        elif isinstance(v, NXgroup):
+            nxobject_copy[k] = nxcopy(
+                v, exclude_nxpaths=exclude_nxpaths,
+                nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
+                nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
+        else:
+            nxobject_copy[k] = v.nxdata
+            for kk, vv in v.attrs.items():
+                nxobject_copy[k].attrs[kk] = vv
+            if nxpathabs != os_path.join(nxpath_copy_abspath, k):
+                nxobject_copy[k].attrs.pop('target', None)
+
+    return nxobject_copy

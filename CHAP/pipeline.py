@@ -187,6 +187,8 @@ class MultiplePipelineItem(PipelineItem):
         :type items: list
         :rtype: list[PipelineData]
         """
+        # System modules
+        from tempfile import NamedTemporaryFile
 
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
@@ -206,10 +208,37 @@ class MultiplePipelineItem(PipelineItem):
             mod_name, cls_name = item_name.rsplit('.', 1)
             module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
             item = getattr(module, cls_name)()
+            # Combine the command line arguments "inputdir",
+            # "outputdir" and "interactive" with the item's arguments
+            # joining "inputdir" and "outputdir" and giving precedence
+            # for "interactive" in the latter
+            args = {**kwargs}
+            if 'inputdir' in item_args:
+                inputdir = os.path.normpath(os.path.join(
+                    args['inputdir'], item_args.pop('inputdir')))
+                if not os.path.isdir(inputdir):
+                    raise OSError(
+                        f'input directory does not exist ({inputdir})')
+                if not os.access(inputdir, os.R_OK):
+                    raise OSError('input directory is not accessible for '
+                                  f'reading ({inputdir})')
+                args['inputdir'] = inputdir
+            if 'outputdir' in item_args:
+                outputdir = os.path.normpath(os.path.join(
+                    args['outputdir'], item_args.pop('outputdir')))
+                if not os.path.isdir(outputdir):
+                    os.mkdir(outputdir)
+                try:
+                    tmpfile = NamedTemporaryFile(dir=outputdir)
+                except:
+                    raise OSError('output directory is not accessible for '
+                                  f'writing ({outputdir})')
+                args['outputdir'] = outputdir
+            args = {**args, **item_args}
             if hasattr(item, 'write'):
-                item.execute(**item_args, **kwargs)[0]
+                item.execute(**args)[0]
             else:
-                data.append(item.execute(**item_args, **kwargs)[0])
+                data.append(item.execute(**args)[0])
 
         self.logger.info(
             f'Finished executing {len(items)} PipelineItems in {time()-t0:.0f}'
