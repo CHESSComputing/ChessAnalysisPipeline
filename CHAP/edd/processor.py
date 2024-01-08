@@ -1001,7 +1001,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import select_mask_1d
 
-        spectrum = data #self.unwrap_pipelinedata(data)[0]
+        spectrum = self.unwrap_pipelinedata(data)[0]
         num_bins = len(spectrum)
         uncalibrated_energies = np.linspace(0, max_energy, num_bins)
 
