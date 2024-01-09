@@ -934,7 +934,7 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         fwhm_min=fit_params.fwhm_min,
         fwhm_max=fit_params.fwhm_max,
         centers_range=centers_range)
-    fit.fit()
+    fit.fit(num_proc=fit_params.num_proc)
     uniform_fit_centers = [
         fit.best_values[
             fit.best_parameters().index(f'peak{i+1}_center')]
@@ -966,7 +966,8 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
 
     # Perform unconstrained fit
     fit.create_multipeak_model(fit_type='unconstrained')
-    fit.fit(rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+    fit.fit(num_proc=fit_params.num_proc,
+            rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
     unconstrained_fit_centers = np.array(
         [fit.best_values[
             fit.best_parameters()\

@@ -646,6 +646,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type hkl_indices: list[int], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
+    :ivar num_proc: Number of processors used for peak fitting.
+    :type num_proc: int, optional
     :ivar peak_models: Peak model for peak fitting,
         defaults to `'gaussian'`.
     :type peak_models: Literal['gaussian', 'lorentzian']],
@@ -674,6 +676,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
     background: Optional[Union[str, list]]
+    num_proc: Optional[conint(gt=0)]
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'

@@ -1270,7 +1270,6 @@ class StrainAnalysisProcessor(Processor):
             get_unique_hkls_ds,
             get_spectra_fits
         )
-        from CHAP.utils.fit import FitMap
 
         def linkdims(nxgroup, field_dims=[]):
             if isinstance(field_dims, dict):
