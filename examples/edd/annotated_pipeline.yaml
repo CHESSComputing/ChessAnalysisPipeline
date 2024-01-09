@@ -154,7 +154,7 @@ pipeline:
             # Name of the sample characterized by this map. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
             name: v7-p3-chevside-10s
 
-            # Optional (defaults to `nil`). A free-text description of the sample to include as metadata in the output.
+            # Optional (defaults to `null`). A free-text description of the sample to include as metadata in the output.
             description: Your sample description here.
 
           spec_scans:
@@ -191,8 +191,8 @@ pipeline:
               # The following three parameters are optional and can be used to "sparsify" the map along this axis. They can be useful if you just want to just test a certain set of fitting parameters on a specific map, but the map is very large, so analyzing the full map just to see if the parameters are ok would be impractical. The `start`, `stop` and `slice` parameters can be used to carry out the trial analysis on a down-sampled version of the full map.
               # Optional (defaults to `0`). Sarting index for slicing all datasets along this axis.
               start: 0
-              # Optional (deafults to `nil`). Ending index for slicing all datasets along this axis.
-              end: nil
+              # Optional (deafults to `null`). Ending index for slicing all datasets along this axis.
+              end: null
               # Optional (defaults to `1`). Step size for slicing all datasets along this axis.
               step: 1
 
@@ -223,7 +223,7 @@ pipeline:
             units: mm
             name: labz
 
-        # Optional (defaults to `nil`). A list of other independent dimensions of the map, not included in the .par file. Use this when the scans in the par file are not point-scans, but something like an "ascan" or "dscan" and the scanned motor of those 1D scans should be considered another independednt dimension of the map.
+        # Optional (defaults to `null`). A list of other independent dimensions of the map, not included in the .par file. Use this when the scans in the par file are not point-scans, but something like an "ascan" or "dscan" and the scanned motor of those 1D scans should be considered another independednt dimension of the map.
         other_dims:
           - 
              # A label to use for this axis. Recommended: use snake_case. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
@@ -248,8 +248,8 @@ pipeline:
              # The following three parameters are optional and can be used to "sparsify" the map along this axis. They can be useful if you just want to just test a certain set of fitting parameters on a specific map, but the map is very large, so analyzing the full map just to see if the parameters are ok would be impractical. The `start`, `stop` and `slice` parameters can be used to carry out the trial analysis on a down-sampled version of the full map.
              # Optional (defaults to `0`). Sarting index for slicing all datasets along this axis.
              start: 0
-             # Optional (deafults to `nil`). Ending index for slicing all datasets along this axis.
-             end: nil
+             # Optional (deafults to `null`). Ending index for slicing all datasets along this axis.
+             end: null
              # Optional (defaults to `1`). Step size for slicing all datasets along this axis.
              step: 1
         ###
@@ -275,8 +275,8 @@ pipeline:
             # List of unique HKL peak indices to fit. May be a specified using the usual syntax for a list of integers in a YAML file, or using a string like `3, 5, 7-13, 15-20`. Optional only if `interactive` is `true`.
             hkl_indices: 3-15
 
-            # Optional (defaults to `nil`). Name(s) of the model(s) or to use as a background when fitting. May be a string or list of strings with the allowed values being: `constant`, `linear`, `quadratic`, `polynomial`, `gaussian`, `lorentzian`, `exponential`, `step`, or `rectangle`. If a list is provided, the fit background will be a superposiiton of every model in that list.
-            background: nil
+            # Optional (defaults to `null`). Name(s) of the model(s) or to use as a background when fitting. May be a string or list of strings with the allowed values being: `constant`, `linear`, `quadratic`, `polynomial`, `gaussian`, `lorentzian`, `exponential`, `step`, or `rectangle`. If a list is provided, the fit background will be a superposiiton of every model in that list.
+            background: null
 
             # Optional (defaults to `gaussian`). Peak model for peak fitting. May be a string or a list of strings with the allowed values being `gaussian` or `lorentzian`. If a string is provided, all HKL peaks will be fit using the same peak shape. If a list is provided, there must be the same number of items in the list as `hkl_indices`, and each HKL peak will be fit with the corresponding peak shape in the list.
             peak_models:
@@ -287,10 +287,10 @@ pipeline:
             # Optional (defaults to `5.0`). Maximum FWHM for peak fitting.
             fwhm_max:
 
-            # Optional (defaults to `nil`). Relative peak amplitude cutoff for peak fitting (any peak with an amplitude smaller than `rel_amplitude_cutoff` times the sum of all peak amplitudes gets removed from the fit model).
-            rel_amplitude_cutoff: nil
+            # Optional (defaults to `null`). Relative peak amplitude cutoff for peak fitting (any peak with an amplitude smaller than `rel_amplitude_cutoff` times the sum of all peak amplitudes gets removed from the fit model).
+            rel_amplitude_cutoff: null
 
-            # Optional, and may only be used if the location of the sample scan data were specified above with Group #2 AND `other_dims` was NOT used (defaults to `nil`). Absolute or relative path to a .txt file containing the 2&theta values to use at each map point (instead of using the same calibrated 2&theta value for every point in the map). The file's contents must have the same number of lines as the number of good scans in the par file. Each 2&theta value for each map point should be on its own line in the file. 
+            # Optional, and may only be used if the location of the sample scan data were specified above with Group #2 AND `other_dims` was NOT used (defaults to `null`). Absolute or relative path to a .txt file containing the 2&theta values to use at each map point (instead of using the same calibrated 2&theta value for every point in the map). The file's contents must have the same number of lines as the number of good scans in the par file. Each 2&theta value for each map point should be on its own line in the file. 
             tth_file: null
 
         # List of materials in the sample. Currently, this list may have ONLY ONE item.
