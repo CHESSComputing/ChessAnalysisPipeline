@@ -464,6 +464,8 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
         d = super().dict(*args, **kwargs)
         if self.measurement_mode == 'manual':
             del d['sigma_to_dvl_factor']
+        for param in ('amplitude', 'center', 'sigma'):
+            d[f'fit_{param}'] = float(d[f'fit_{param}'])
         return d
 
 
