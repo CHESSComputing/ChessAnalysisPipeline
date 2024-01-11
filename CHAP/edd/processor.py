@@ -135,27 +135,30 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             self.logger.info(
                 'Interactively select a mask in the matplotlib figure')
+
             fig, mask, include_bin_ranges = select_mask_1d(
                 np.sum(mca_data, axis=0),
-                x = np.arange(detector.num_bins),
+                x=np.linspace(0, detector.max_energy_kev, detector.num_bins),
                 label='Sum of MCA spectra over all scan points',
                 preselected_index_ranges=detector.include_bin_ranges,
                 title='Click and drag to select data range to include when '
                       'measuring diffraction volume length',
-                xlabel='MCA channel (index)',
+                xlabel='Uncalibrated Energy (keV)',
                 ylabel='MCA intensity (counts)',
                 min_num_index_ranges=1,
                 interactive=interactive)
-            detector.include_bin_ranges = include_bin_ranges
-            self.logger.debug('Mask selected. Including detector bin ranges: '
-                              + str(detector.include_bin_ranges))
+            detector.include_energy_ranges = detector.get_energy_ranges(
+                include_bin_ranges)
+            self.logger.debug(
+                'Mask selected. Including detector energy ranges: '
+                + str(detector.include_energy_ranges))
             if save_figures:
                 fig.savefig(os.path.join(
                     outputdir, f'{detector.detector_name}_dvl_mask.png'))
             plt.close()
-        if not detector.include_bin_ranges:
+        if not detector.include_energy_ranges:
             raise ValueError(
-                'No value provided for include_bin_ranges. '
+                'No value provided for include_energy_ranges. '
                 + 'Provide them in the Diffraction Volume Length '
                 + 'Measurement Configuration, or re-run the pipeline '
                 + 'with the --interactive flag.')
@@ -471,7 +474,8 @@ class LatticeParameterRefinementProcessor(Processor):
                 detector.detector_name, mca_data[detector_i],
                 calibration_bin_ranges=detector.calibration_bin_ranges,
                 interactive=interactive)
-        detector.include_bin_ranges = include_bin_ranges
+        detector.include_energy_ranges = detector.get_energy_ranges(
+            include_bin_ranges)
         detector.hkl_indices = hkl_indices
         if save_figures:
             fig.savefig(os.path.join(
@@ -725,7 +729,8 @@ class MCACeriaCalibrationProcessor(Processor):
                 detector.hkl_indices, detector.detector_name,
                 flux_energy_range=calibration_config.flux_file_energy_range,
                 interactive=interactive)
-            detector.include_bin_ranges = include_bin_ranges
+            detector.include_energy_ranges = detector.get_energy_ranges(
+                include_bin_ranges)
             detector.hkl_indices = hkl_indices
             if save_figures:
                 fig.savefig(os.path.join(
@@ -734,10 +739,10 @@ class MCACeriaCalibrationProcessor(Processor):
             plt.close()
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
         self.logger.debug(
-            f'include_bin_ranges = {detector.include_bin_ranges}')
-        if not detector.include_bin_ranges:
+            f'include_energy_ranges = {detector.include_energy_ranges}')
+        if not detector.include_energy_ranges:
             raise ValueError(
-                'No value provided for include_bin_ranges. '
+                'No value provided for include_energy_ranges. '
                 'Provide them in the MCA Ceria Calibration Configuration '
                 'or re-run the pipeline with the --interactive flag.')
         if not detector.hkl_indices:
@@ -1371,7 +1376,8 @@ class StrainAnalysisProcessor(Processor):
 #                        calibration_mask=calibration_mask,
                         calibration_bin_ranges=calibration_bin_ranges,
                         interactive=interactive)
-                detector.include_bin_ranges = include_bin_ranges
+                detector.include_energy_ranges = detector.get_energy_ranges(
+                    include_bin_ranges)
                 detector.hkl_indices = hkl_indices
                 if save_figures:
                     fig.savefig(os.path.join(
@@ -1391,9 +1397,9 @@ class StrainAnalysisProcessor(Processor):
                 tth_max=strain_analysis_config.detectors[0].tth_max)
 
         for i, detector in enumerate(strain_analysis_config.detectors):
-            if not detector.include_bin_ranges:
+            if not detector.include_energy_ranges:
                 raise ValueError(
-                    'No value provided for include_bin_ranges. '
+                    'No value provided for include_energy_ranges. '
                     'Provide them in the MCA Ceria Calibration Configuration, '
                     'or re-run the pipeline with the --interactive flag.')
             if not detector.hkl_indices:
