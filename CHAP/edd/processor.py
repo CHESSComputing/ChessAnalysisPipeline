@@ -202,8 +202,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                         (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
                     title=('Click and drag to indicate the boundary '
                            'of the diffraction volume'),
-                    xlabel=(dvl_config.scanned_dim_lbl
-                            + ' (offset from scan "center")'),
+                    xlabel=('Beam Direction (offset from scan "center")'),
                     ylabel='MCA intensity (normalized)',
                     min_num_index_ranges=1,
                     max_num_index_ranges=1)
@@ -221,8 +220,7 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.detector_name})')
-            ax.set_xlabel(
-                f'{dvl_config.scanned_dim_lbl} (offset from scan "center")')
+            ax.set_xlabel('Beam Direction (offset from scan "center")')
             ax.set_ylabel('MCA intensity (normalized)')
             ax.plot(x, masked_sum, label='total (masked & normalized)')
             ax.plot(x, fit.best_fit, label='gaussian fit (to total)')

@@ -528,18 +528,6 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
                 scan_numbers=self._parfile.good_scan_numbers())
         return self.scanparser.spec_scan_motor_vals[0]
 
-    @property
-    def scanned_dim_lbl(self):
-        """Return a label for plot axes corresponding to the scanned
-        dimension.
-
-        :return: Name of scanned motor.
-        :rtype: str
-        """
-        if self._parfile is not None:
-            return self.scan_column
-        return self.scanparser.spec_scan_motor_mnes[0]
-
 
 class CeriaConfig(MaterialConfig):
     """Model for the sample material used in calibrations.
