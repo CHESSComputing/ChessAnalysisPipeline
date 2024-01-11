@@ -678,7 +678,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
     background: Optional[Union[str, list]]
-    num_proc: Optional[conint(gt=0)]
+    num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
