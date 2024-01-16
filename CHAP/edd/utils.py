@@ -494,7 +494,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
         flux_energy_range=None, calibration_bin_ranges=None,
-        interactive=False):
+        label='Reference Data', interactive=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -532,6 +532,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
+    :param label: Legend label for the 1D plot of reference MCA data
+        from the parameters `x`, `y`, defaults to `"Reference Data"`
+    :type label: str, optional
     :return: A saveable matplotlib figure, the list of selected data
         index ranges to include, and the list of HKL indices to
         include
@@ -776,7 +779,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
         ax_map.set_xlim(x[0], x[-1])
-    handles = ax.plot(x, y, color='k', label='Reference Data')
+    handles = ax.plot(x, y, color='k', label=label)
     if calibration_bin_ranges is not None:
         ylow = ax.get_ylim()[0]
         for low, upp in calibration_bin_ranges:
