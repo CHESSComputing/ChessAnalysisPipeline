@@ -477,6 +477,8 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
             for widget, callback in group:
                 widget.disconnect(callback)
                 widget.ax.remove()
+    else:
+        draw_plot()
 
     fig.tight_layout()
 
