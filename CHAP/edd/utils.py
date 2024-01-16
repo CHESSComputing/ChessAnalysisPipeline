@@ -258,7 +258,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     return fig, tth_new_guess
 
-def select_material_params(x, y, tth, materials=[], interactive=False):
+def select_material_params(x, y, tth, materials=[], label='Reference Data',
+                           interactive=False):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -276,6 +277,9 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
     :type tth: float
     :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
+    :param label: Legend label for the 1D plot of reference MCA data
+        from the parameters `x`, `y`, defaults to `"Reference Data"`
+    :type label: str, optional
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
@@ -306,7 +310,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
         ax.set_xlabel('MCA channel energy (keV)')
         ax.set_ylabel('MCA intensity (counts)')
         ax.set_xlim(x[0], x[-1])
-        ax.plot(x, y)
+        ax.plot(x, y, label=label)
         for i, material in enumerate(_materials):
             hkls, ds = get_unique_hkls_ds([material])            
             E0s = get_peak_locations(ds, tth)
@@ -316,6 +320,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
                     ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i}',
                             ha='right', va='top', rotation=90,
                             transform=ax.get_xaxis_transform())
+        ax.legend()
         ax.get_figure().canvas.draw()
 
     def add_material(*args, material=None, new=True):
