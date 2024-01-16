@@ -460,17 +460,20 @@ class LatticeParameterRefinementProcessor(Processor):
         if not interactive and not save_figures:
             return
         import matplotlib.pyplot as plt
+        import numpy as np
         from CHAP.edd.utils import select_mask_and_hkls
 
         detector = strain_analysis_config.detectors[detector_i]
         fig, include_bin_ranges, hkl_indices = \
             select_mask_and_hkls(
-                mca_bin_energies[detector_i], mca_data[detector_i][0],
+                mca_bin_energies[detector_i],
+                np.sum(mca_data[detector_i], axis=0),
                 hkls, ds,
                 detector.tth_calibrated,
                 detector.include_bin_ranges, detector.hkl_indices,
                 detector.detector_name, mca_data[detector_i],
                 calibration_bin_ranges=detector.calibration_bin_ranges,
+                label='Sum of all spectra in the map',
                 interactive=interactive)
         detector.include_energy_ranges = detector.get_energy_ranges(
             include_bin_ranges)
@@ -517,9 +520,10 @@ class LatticeParameterRefinementProcessor(Processor):
         import matplotlib.pyplot as plt
         import numpy as np
         fig, strain_analysis_config.materials = select_material_params(
-            mca_bin_energies[detector_i], np.sum(mca_data[detector_i], axis=1)[0],
+            mca_bin_energies[detector_i], np.sum(mca_data[detector_i], axis=0),
             strain_analysis_config.detectors[detector_i].tth_calibrated,
-            strain_analysis_config.materials, interactive=interactive)
+            strain_analysis_config.materials,
+            label='Sum of all spectra in the map', interactive=interactive)
         self.logger.debug(
                 f'materials: {strain_analysis_config.materials}')
         if save_figures:
@@ -726,6 +730,7 @@ class MCACeriaCalibrationProcessor(Processor):
                 detector.tth_initial_guess, detector.include_bin_ranges,
                 detector.hkl_indices, detector.detector_name,
                 flux_energy_range=calibration_config.flux_file_energy_range,
+                label='MCA data',
                 interactive=interactive)
             detector.include_energy_ranges = detector.get_energy_ranges(
                 include_bin_ranges)
@@ -1361,6 +1366,7 @@ class StrainAnalysisProcessor(Processor):
             fig, strain_analysis_config.materials = select_material_params(
                 mca_bin_energies[0], np.sum(mca_data, axis=1)[0], tth,
                 materials=strain_analysis_config.materials,
+                label='Sum of all spectra in the map',
                 interactive=interactive)
             self.logger.debug(
                 f'materials: {strain_analysis_config.materials}')
@@ -1380,12 +1386,15 @@ class StrainAnalysisProcessor(Processor):
             for i, detector in enumerate(strain_analysis_config.detectors):
                 fig, include_bin_ranges, hkl_indices = \
                     select_mask_and_hkls(
-                        mca_bin_energies[i], mca_data[i][0], hkls, ds,
+                        mca_bin_energies[i],
+                        np.sum(mca_data[i], axis=0),
+                        hkls, ds,
                         detector.tth_calibrated,
                         detector.include_bin_ranges, detector.hkl_indices,
                         detector.detector_name, mca_data[i],
 #                        calibration_mask=calibration_mask,
                         calibration_bin_ranges=calibration_bin_ranges,
+                        label='Sum of all spectra in the map',
                         interactive=interactive)
                 detector.include_energy_ranges = detector.get_energy_ranges(
                     include_bin_ranges)
