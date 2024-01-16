@@ -901,6 +901,19 @@ class MCACeriaCalibrationProcessor(Processor):
                           color='C1', label='Unconstrained: Linear Fit')
             axs[1,1].legend()
 
+            # Add a text box showing final calibrated values
+            axs[1,1].text(
+                0.98, 0.02,
+                'Calibrated Values:\n\n'
+                + f'Takeoff Angle:\n    {tth:.5f}$^\circ$\n\n'
+                + f'Slope:\n    {slope:.5f}\n\n'
+                + f'Intercept:\n    {intercept:.5f} $keV$',
+                ha='right', va='bottom', ma='left',
+                transform=axs[1,1].transAxes,
+                bbox=dict(boxstyle='round',
+                          ec=(1., 0.5, 0.5),
+                          fc=(1., 0.8, 0.8, 0.8)))
+
             fig.tight_layout()
 
             if save_figures:
