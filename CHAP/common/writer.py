@@ -136,7 +136,7 @@ class ExtractArchiveWriter(Writer):
         and write the extracted archive to files.
 
         :param data: The data to write to archive.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the directory to write the archive
             files to.
         :type filename: str
@@ -162,7 +162,7 @@ class FileTreeWriter(Writer):
         directory tree stuctured like the NeXus tree.
 
         :param data: The data to write to disk.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param outputdir: The name of the directory to write to.
         :type outputdir: str
         :param force_overwrite: Flag to allow data to be overwritten
@@ -211,7 +211,7 @@ class MatplotlibAnimationWriter(Writer):
         contained in `data` to file.
 
         :param data: The matplotlib animation.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param fps: Movie frame rate (frames per second),
@@ -224,7 +224,7 @@ class MatplotlibAnimationWriter(Writer):
         extension = os_path.splitext(filename)[1]
         if not extension:
             data.save(f'{filename}.gif', fps=fps)
-        elif extension in '.gif':
+        elif extension == '.gif':
             data.save(filename, fps=fps)
         elif extension == '.mp4':
             data.save(filename, writer='ffmpeg', fps=fps)
@@ -239,7 +239,7 @@ class MatplotlibFigureWriter(Writer):
         file.
 
         :param data: The matplotlib figure
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param savefig_kw: Keyword args to pass to
@@ -265,7 +265,7 @@ class NexusWriter(Writer):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.

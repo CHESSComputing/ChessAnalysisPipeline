@@ -1787,10 +1787,10 @@ class Tomo:
         if calibrate_center_rows:
             title='Select two detector image row indices to '\
                   'calibrate rotation axis (in range '\
-                  f'[0, {first_image.shape[0]-1}])'
+                  f'[0, {first_image.shape[0]}])'
         else:
             title='Select detector image row bounds for data '\
-                  f'reduction (in range [0, {first_image.shape[0]}))'
+                  f'reduction (in range [0, {first_image.shape[0]}])'
         fig, img_row_bounds = select_image_indices(
             first_image, 0, b=tbf, preselected_indices=img_row_bounds,
             title=title,
