@@ -715,6 +715,12 @@ class Tomo:
                 f'num_core = {self._num_core} is larger than the number '
                 f'of available processors and reduced to {cpu_count()}')
             self._num_core = cpu_count()
+        # Tompy py uses numexpr with NUMEXPR_MAX_THREADS = 64
+        if self._num_core > 64:
+            self._logger.warning(
+                f'num_core = {self._num_core} is larger than the number '
+                f'of processors suitable to Tomopy and reduced to 64')
+            self._num_core = 64
 
     def reduce_data(
             self, nxroot, tool_config=None, calibrate_center_rows=False):
@@ -1781,7 +1787,7 @@ class Tomo:
         if calibrate_center_rows:
             title='Select two detector image row indices to '\
                   'calibrate rotation axis (in range '\
-                  f'[0, {first_image.shape[0]-1}])'
+                  f'[0, {first_image.shape[0]}])'
         else:
             title='Select detector image row bounds for data '\
                   f'reduction (in range [0, {first_image.shape[0]}])'
@@ -2695,7 +2701,7 @@ class Tomo:
                 select_text.remove()
         fig_subtitle.remove()
         fig.tight_layout(rect=(0, 0, 1, 0.95))
-        if not selected_offset and num_plots == 1:
+        if not selected_offset:# and num_plots == 1:
             selected_offset.append(
                 (True, preselected_offsets[default_offset_index]))
 

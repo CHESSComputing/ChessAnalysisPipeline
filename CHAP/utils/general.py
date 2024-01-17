@@ -1549,7 +1549,7 @@ def select_image_indices(
         try:
             index = int(expression)
             if (index < axis_index_offset
-                    or index >= axis_index_offset+a.shape[axis]):
+                    or index > axis_index_offset+a.shape[axis]):
                 raise ValueError
         except ValueError:
             change_error_text(

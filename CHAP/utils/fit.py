@@ -1320,14 +1320,11 @@ class Fit:
             self._reset_par_at_boundary()
 
             # Perform the fit
-            fit_kws = None
-#            if 'Dfun' in kwargs:
-#                fit_kws = {'Dfun': kwargs.pop('Dfun')}
-#            self._result = self._model.fit(
-#                self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
-#                **kwargs)
+            fit_kws = {}
             if self._param_constraint:
                 fit_kws = {'xtol': 1.e-5, 'ftol': 1.e-5, 'gtol': 1.e-5}
+#            if 'Dfun' in kwargs:
+#                fit_kws['Dfun'] = kwargs.pop('Dfun')
             if self._mask is None:
                 self._result = self._model.fit(
                     self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
@@ -1917,6 +1914,7 @@ class FitMap(Fit):
         self._max_nfev = None
         self._memfolder = None
         self._new_parameters = None
+        self._num_func_eval = None
         self._out_of_bounds = None
         self._plot = False
         self._print_report = False
@@ -2149,7 +2147,8 @@ class FitMap(Fit):
     @property
     def max_nfev(self):
         """
-        Return the maximum number of function evaluations for each fit.
+        Return if the maximum number of function evaluations is reached
+        for each fit.
         """
         return self._max_nfev
 
@@ -2158,7 +2157,7 @@ class FitMap(Fit):
         """
         Return the number of function evaluations for each best fit.
         """
-        logger.warning('Undefined property num_func_eval')
+        return self._num_func_eval
 
     @property
     def out_of_bounds(self):
@@ -2466,6 +2465,7 @@ class FitMap(Fit):
         if self._result is not None:
             self._out_of_bounds = None
             self._max_nfev = None
+            self._num_func_eval = None
             self._redchi = None
             self._success = None
             self._best_fit = None
@@ -2508,6 +2508,7 @@ class FitMap(Fit):
         if num_proc == 1:
             self._out_of_bounds_flat = np.zeros(self._map_dim, dtype=bool)
             self._max_nfev_flat = np.zeros(self._map_dim, dtype=bool)
+            self._num_func_eval_flat = np.zeros(self._map_dim, dtype=np.intc)
             self._redchi_flat = np.zeros(self._map_dim, dtype=np.float64)
             self._success_flat = np.zeros(self._map_dim, dtype=bool)
             self._best_fit_flat = np.zeros(
@@ -2537,6 +2538,11 @@ class FitMap(Fit):
             filename_memmap = path.join(self._memfolder, 'max_nfev_memmap')
             self._max_nfev_flat = np.memmap(
                 filename_memmap, dtype=bool, shape=(self._map_dim), mode='w+')
+            filename_memmap = path.join(
+                self._memfolder, 'num_func_eval_memmap')
+            self._num_func_eval_flat = np.memmap(
+                filename_memmap, dtype=np.intc, shape=(self._map_dim),
+                mode='w+')
             filename_memmap = path.join(self._memfolder, 'redchi_memmap')
             self._redchi_flat = np.memmap(
                 filename_memmap, dtype=np.float64, shape=(self._map_dim),
@@ -2649,6 +2655,8 @@ class FitMap(Fit):
             self._out_of_bounds_flat, self._map_shape))
         self._max_nfev = np.copy(np.reshape(
             self._max_nfev_flat, self._map_shape))
+        self._num_func_eval = np.copy(np.reshape(
+            self._num_func_eval_flat, self._map_shape))
         self._redchi = np.copy(np.reshape(self._redchi_flat, self._map_shape))
         self._success = np.copy(np.reshape(
             self._success_flat, self._map_shape))
@@ -2662,6 +2670,8 @@ class FitMap(Fit):
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
             self._max_nfev = np.transpose(self._max_nfev, self._inv_transpose)
+            self._num_func_eval = np.transpose(
+                self._num_func_eval, self._inv_transpose)
             self._redchi = np.transpose(self._redchi, self._inv_transpose)
             self._success = np.transpose(self._success, self._inv_transpose)
             self._best_fit = np.transpose(
@@ -2673,6 +2683,7 @@ class FitMap(Fit):
                 self._best_errors, [0] + [i+1 for i in self._inv_transpose])
         del self._out_of_bounds_flat
         del self._max_nfev_flat
+        del self._num_func_eval_flat
         del self._redchi_flat
         del self._success_flat
         del self._best_fit_flat
@@ -2761,6 +2772,7 @@ class FitMap(Fit):
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
+        self._num_func_eval_flat[n] = result.nfev
         if result.nfev == result.max_nfev:
             if result.redchi < self._redchi_cutoff:
                 result.success = True
