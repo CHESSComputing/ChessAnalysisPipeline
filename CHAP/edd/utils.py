@@ -643,9 +643,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         if ref_map is not None:
             selected_data = ref_map[:,get_mask()]
             _min, _max = np.argmin(selected_data), np.argmax(selected_data)
-            ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map,
-                              vmin=_min, vmax=_max)
-
+            ref_map_mappable = ax_map.pcolormesh(
+                x, np.arange(ref_map.shape[0]), ref_map, vmin=_min, vmax=_max)
+            fig.colorbar(ref_map_mappable, cax=cax)
         plt.draw()
 
     def get_mask():
@@ -721,6 +721,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     f'Selected HKL is outside any current span, '
                     'extend or add spans before adding this value')
             plt.draw()
+
+    def position_cax():
+        """Reposition the colorbar axes according to the axes of the
+        reference map"""
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
 
     def reset(event):
         """Callback function for the "Confirm" button."""
@@ -799,10 +805,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         fig, (ax, ax_map) = plt.subplots(
             2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
         ax.set(ylabel='Intensity (counts)')
-        ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map)
+        ref_map_mappable = ax_map.pcolormesh(
+            x, np.arange(ref_map.shape[0]), ref_map)
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
         ax_map.set_xlim(x[0], x[-1])
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax = plt.axes([right + 0.01, bottom, 0.01, top - bottom])
+        fig.colorbar(ref_map_mappable, cax=cax)
     handles = ax.plot(x, y, color='k', label=label)
     if calibration_bin_ranges is not None:
         ylow = ax.get_ylim()[0]
@@ -869,6 +879,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             change_fig_title(
                 f'Select data and HKLs to use in fitting {detector_name}')
         fig.subplots_adjust(bottom=0.2)
+        if ref_map is not None:
+            position_cax()
 
         # Setup "Add span" button
         add_span_btn = Button(plt.axes([0.125, 0.05, 0.15, 0.075]), 'Add span')
@@ -911,7 +923,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         selected_hkl_indices = None
 
     fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.tight_layout(rect=(0, 0, 0.9, 0.9))
+    if ref_map is not None:
+        position_cax()
 
     return fig, selected_bin_ranges, selected_hkl_indices
 
