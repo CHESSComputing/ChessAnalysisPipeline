@@ -79,6 +79,7 @@ class AnimationProcessor(Processor):
 
         # Get the frames
         axes = nxdata.attrs.get('axes', None)
+        title = f'{nxdata.nxpath}/{nxdata.signal}'
         if nxdata.nxsignal.ndim == 2:
             exit('AnimationProcessor not tested yet for a 2D dataset')
         elif nxdata.nxsignal.ndim == 3:
@@ -96,7 +97,6 @@ class AnimationProcessor(Processor):
                 axis = axes.index(axis)
             else:
                 raise ValueError(f'Invalid parameter axis ({axis})')
-            title = f'{axis_name} slices of {nxdata.signal}'
             delta = int(nxdata.nxsignal.shape[axis]/(num_frames+1))
             indices = np.linspace(
                 delta, nxdata.nxsignal.shape[axis]-delta, num_frames)
@@ -110,10 +110,11 @@ class AnimationProcessor(Processor):
                 frames = [nxdata[nxdata.signal][:,:,int(index)]
                           for index in indices]
             if axes is None:
+                axes = [i for i in range(3) if i != axis]
                 row_coords = range(a.shape[1])
-                row_label = 'axis 1 index'
+                row_label = f'axis {axes[1]} index'
                 column_coords = range(a.shape[0])
-                column_label = 'axis 0 index'
+                column_label = f'axis {axes[0]} index'
             else:
                 axes.pop(axis)
                 row_coords = nxdata[axes[1]].nxdata
@@ -143,11 +144,13 @@ class AnimationProcessor(Processor):
         ax.set_title(title, fontsize='xx-large', pad=20)
         ax.set_xlabel(row_label, fontsize='x-large')
         ax.set_ylabel(column_label, fontsize='x-large')
+        fig.tight_layout()
         ims = [[plt.imshow(
                     frames[n], extent=extent, origin='lower',
                     vmin=vmin, vmax=vmax, cmap='gray',
                     animated=True)]
                for n in range(num_frames)]
+        plt.colorbar()
         if interactive:
             ani = animation.ArtistAnimation(
                 fig, ims, interval=interval, blit=blit, repeat=repeat,
@@ -575,15 +578,15 @@ class BinarizeProcessor(Processor):
 
 
 class ImageProcessor(Processor):
-    """A Processor to plot an image slice from a NeXus object.
+    """A Processor to plot an image (slice) from a NeXus object.
     """
     def process(
-            self, data, vmin=None, vmax=None, axis=None, index=None,
+            self, data, vmin=None, vmax=None, axis=0, index=None,
             coord=None, interactive=False, save_figure=True, outputdir='.',
             filename='image.png'):
-        """Plot and/or save an image from a NeXus NXobject object with a
-        default data path contained in `data` and return the NeXus NXdata data
-        object.
+        """Plot and/or save an image (slice) from a NeXus NXobject object with
+        a default data path contained in `data` and return the NeXus NXdata
+        data object.
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -610,7 +613,7 @@ class ImageProcessor(Processor):
         :param outputdir: Directory to which any output figure will
             be saved, defaults to `'.'`
         :type outputdir: str, optional
-        :param filename: Image filename, default to `"image.png"`.
+        :param filename: Image filename, defaults to `"image.png"`.
         :type filename: str, optional
         :return: The input data object.
         :rtype: nexusformat.nexus.NXdata
@@ -650,6 +653,10 @@ class ImageProcessor(Processor):
 
         # Get the data slice
         axes = nxdata.attrs.get('axes', None)
+        if axes is not None:
+            axes = list(axes.nxdata)
+        coords = None
+        title = f'{nxdata.nxpath}/{nxdata.signal}'
         if nxdata.nxsignal.ndim == 2:
             exit('ImageProcessor not tested yet for a 2D dataset')
             if axis is not None:
@@ -662,64 +669,64 @@ class ImageProcessor(Processor):
                 coord = None
                 self.logger.warning('Ignoring parameter coord')
             a = nxdata.nxsignal
-            title = nxdata.signal
         elif nxdata.nxsignal.ndim == 3:
             if isinstance(axis, int):
                 if not 0 <= axis < nxdata.nxsignal.ndim:
                     raise ValueError(f'axis index out of range ({axis} not in '
                                      f'[0, {nxdata.nxsignal.ndim-1}])')
-                if coord is not None:
-                    coord = None
-                    self.logger.warning('Ignoring parameter coord')
-                if index is None:
-                    index = 0
-                elif not isinstance(index, int):
-                    raise ValueError(f'Invalid parameter index ({index})')
-                elif not 0 <= index < nxdata.nxsignal.shape[axis]:
-                    raise ValueError(
-                        f'index value out of range ({index} not in '
-                        f'[0, {nxdata.nxsignal.shape[axis]-1}])')
-                axis_name = 'axis {axis}'
-                title = f'slice of {nxdata.signal} at {axis_name} and '\
-                        f'index {index}'
             elif isinstance(axis, str):
-                if axes is None or axis not in list(axes.nxdata):
+                if axes is None or axis not in axes:
                     raise ValueError(
                         f'Unable to match axis = {axis} in {nxdata.tree}')
-                axes = list(axes.nxdata)
-                axis_name = axis
                 axis = axes.index(axis)
-                if coord is not None:
-                    if not isinstance(coord, (int, float)):
-                        raise ValueError(f'Invalid parameter coord ({coord})')
-                    if index is not None:
-                        self.logger.warning('Ignoring parameter index')
-                    index = index_nearest(nxdata[axis_name], coord)
-                elif index is None:
-                    index = 0
-                elif not isinstance(index, int):
-                    raise ValueError(f'Invalid parameter index ({index})')
-                elif not 0 <= index < nxdata[axis_name].size:
-                    raise ValueError(
-                        f'index value out of range ({index} not in '
-                        f'[0, {nxdata[axis_name].size-1}])')
-                title = f'slice of {nxdata.signal} at {axis_name} = '\
-                        f'{nxdata[axis_name][index]:.2f}'
-                if 'units' in nxdata[axis_name].attrs:
-                    title += f' ({nxdata[axis_name].units})'
             else:
                 raise ValueError(f'Invalid parameter axis ({axis})')
+            if axes is not None and hasattr(nxdata, axes[axis]):
+                coords = nxdata[axes[axis]].nxdata
+                axis_name = axes[axis]
+            else:
+                axis_name = f'axis {axis}'
+            if index is None and coord is None:
+                index = nxdata.nxsignal.shape[axis] // 2
+            else:
+                if index is not None:
+                    if coord is not None:
+                        coord = None
+                        self.logger.warning('Ignoring parameter coord')
+                    if not isinstance(index, int):
+                        raise ValueError(f'Invalid parameter index ({index})')
+                    elif not 0 <= index < nxdata.nxsignal.shape[axis]:
+                        raise ValueError(
+                            f'index value out of range ({index} not in '
+                            f'[0, {nxdata.nxsignal.shape[axis]-1}])')
+                else:
+                    if not isinstance(coord, (int, float)):
+                        raise ValueError(f'Invalid parameter coord ({coord})')
+                    if coords is None:
+                        raise ValueError(
+                            f'Unable to get coordinates for {axis_name} '
+                            f'in {nxdata.tree}')
+                    index = index_nearest(nxdata[axis_name], coord)
+            if coords is None:
+                slice_info = f'slice at {axis_name} and index {index}'
+            else:
+                coord = coords[index]
+                slice_info = f'slice at {axis_name} = '\
+                             f'{nxdata[axis_name][index]:.3f}'
+                if 'units' in nxdata[axis_name].attrs:
+                    slice_info += f' ({nxdata[axis_name].units})'
             if not axis:
                 a = nxdata[nxdata.signal][index,:,:]
             elif axis == 1:
                 a = nxdata[nxdata.signal][:,index,:]
             elif axis == 2:
                 a = nxdata[nxdata.signal][:,:,index]
-            if axes is None:
+            if coords is None:
+                axes = [i for i in range(3) if i != axis]
                 row_coords = range(a.shape[1])
-                row_label = 'axis 1 index'
+                row_label = f'axis {axes[1]} index'
                 column_coords = range(a.shape[0])
-                column_label = 'axis 0 index'
+                column_label = f'axis {axes[0]} index'
             else:
                 axes.pop(axis)
                 row_coords = nxdata[axes[1]].nxdata
@@ -734,25 +741,23 @@ class ImageProcessor(Processor):
             raise ValueError('Invalid data dimension (must be 2D or 3D)')
 
         # Create figure
-#        a_min = a.min()
         a_max = a.max()
         if vmin is None:
             vmin = -a_max
-#        elif vmin > a_min:
-#            a[a < vmin] = vmin
         if vmax is None:
             vmax = a_max
-#        elif vmax < a_max:
-#            a[a > vmax] = vmax
         extent = (
             row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
         fig, ax = plt.subplots(figsize=(11, 8.5))
         plt.imshow(
             a, extent=extent, origin='lower', vmin=vmin, vmax=vmax,
             cmap='gray')
-        ax.set_title(title, fontsize='xx-large', pad=20)
+        fig.suptitle(title, fontsize='xx-large')
+        ax.set_title(slice_info, fontsize='xx-large', pad=20)
         ax.set_xlabel(row_label, fontsize='x-large')
         ax.set_ylabel(column_label, fontsize='x-large')
+        plt.colorbar()
+        fig.tight_layout()
         if interactive:
             plt.show()
         if save_figure:
