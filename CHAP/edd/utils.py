@@ -638,7 +638,26 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         elif removed_hkls:
             change_error_text(
                 'Removed HKL(s) outside the selected energy mask')
+        # If using ref_map, update the colorbar range to min / max of
+        # the selected data only
+        if ref_map is not None:
+            selected_data = ref_map[:,get_mask()]
+            _min, _max = np.argmin(selected_data), np.argmax(selected_data)
+            ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map,
+                              vmin=_min, vmax=_max)
+
         plt.draw()
+
+    def get_mask():
+        """Return a boolean array that acts as the mask corresponding
+        to the currently-selected index ranges"""
+        mask = np.full(x.shape[0], False)
+        bin_indices = np.arange(x.shape[0])
+        for span in spans:
+            _min, _max = span.extents
+            mask = np.logical_or(
+                mask, np.logical_and(bin_indices >= _min, bin_indices <= _max))
+        return mask
 
     def add_span(event, xrange_init=None):
         """Callback function for the "Add span" button."""
