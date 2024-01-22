@@ -31,6 +31,7 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+tiny = np.finfo(np.float64).resolution
 
 def depth_list(_list):
     """Return the depth of a list."""
@@ -84,6 +85,13 @@ def illegal_combination(
         logger.error(error_msg)
     if raise_error:
         raise ValueError(error_msg)
+
+
+def not_zero(value):
+    """Return value with a minimal absolute size of tiny,
+    preserving the sign.
+    """
+    return float(np.copysign(max(tiny, abs(value)), value))
 
 
 def test_ge_gt_le_lt(

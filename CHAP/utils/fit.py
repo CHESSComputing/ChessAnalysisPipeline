@@ -8,6 +8,7 @@ Description: General curve fitting module
 """
 
 # System modules
+from collections import Counter
 from copy import deepcopy
 from logging import getLogger
 from os import (
@@ -46,6 +47,7 @@ from lmfit.models import (
     GaussianModel,
     LorentzianModel,
 )
+from nexusformat.nexus import NXdata
 import numpy as np
 try:
     from sympy import (
@@ -61,6 +63,7 @@ except ImportError:
     HAVE_XARRAY = False
 
 # Local modules
+from CHAP.processor import Processor
 from CHAP.utils.general import (
     is_int,
     is_num,
@@ -71,7 +74,6 @@ from CHAP.utils.general import (
     input_num,
     quick_plot,
 )
-#    eval_expr,
 
 logger = getLogger(__name__)
 FLOAT_MIN = float_info.min
@@ -94,6 +96,92 @@ height_factor = {
     'voight': '3.334*height*fwhm',            # sigma = gamma
     'pseudovoight': '1.268*height*fwhm',      # fraction = 0.5
 }
+
+
+class FitProcessor(Processor):
+    """
+    A processor to perform a fit on a data set or data map.
+    """
+    def process(self, data, config=None):
+        """
+        Fit the data and return a CHAP.utils.fit.Fit or
+        CHAP.utils.fit.FitMap object depending on the
+        dimensionality of the input data.
+
+        :param data: Input data containing the
+            nexusformat.nexus.NXdata object to fit.
+        :type data: list[PipelineData]
+        :raises ValueError: Invalid input or configuration parameter.
+        :return: The fitted data object.
+        :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
+        """
+        # Get the default Nexus NXdata object
+        data = self.unwrap_pipelinedata(data)[0]
+        try:
+            nxdata = data.get_default()
+        except:
+            if nxdata.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway to an NXdata object '
+                                 f'in ({data})')
+
+        # Get the fit configuration
+        try:
+            fit_config = self.get_config(data, 'utils.models.FitConfig')
+        except Exception as data_exc:
+            self.logger.info('No valid fit config in input pipeline '
+                             'data, using config parameter instead.')
+            try:
+                # Local modules
+                from CHAP.utils.models import FitConfig
+
+                fit_config = FitConfig(**config)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
+
+        # Check for duplicate models and create prefixes as needed
+        model_names = []
+        model_prefixes = [None]*len(fit_config.models)
+        for model in fit_config.models:
+            model_names.append(model.model)
+        model_counts = Counter(model_names)
+        for model, count in model_counts.items():
+            if count > 1:
+                n = 0
+                for i, name in enumerate(model_names):
+                    if name == model:
+                        n += 1
+                        model_prefixes[i] = f'{name}{n}_'
+
+        # Instantiate the Fit or FitMap object
+        if len(nxdata.attrs['axes']) == 1:
+            fit = Fit(nxdata)
+        else:
+            fit = FitMap(nxdata)
+
+        # Add the free parameters
+        for par in fit_config.parameters:
+            fit.add_parameter(
+                name=par.name, value=par.value, min=par.min, max=par.max,
+                vary=par.vary, expr=par.expr)
+
+        # Add the models
+        for i, model in enumerate(fit_config.models):
+            parameters = []
+            for par in model.parameters:
+                parameters.append({
+                    'name': par.name,
+                    'value': par.value,
+                    'min': par.min,
+                    'max': par.max,
+                    'vary': par.vary,
+                    'expr': par.expr})
+            fit.add_model(model.model, prefix=model_prefixes[i],
+                parameters=parameters)
+
+        # Fit the data
+        fit.fit(num_proc=1, plot=True)
+        
+        return fit
 
 
 class Fit:
@@ -132,7 +220,11 @@ class Fit:
                     'Invalid value of keyword argument try_linear_fit '
                     f'({self._try_linear_fit})')
         if y is not None:
-            if isinstance(y, (tuple, list, np.ndarray)):
+            if isinstance(y, NXdata):
+                assert len(nxdata.attrs['axes']) == 1
+                self._x = np.asarray(nxdata[nxdata.attrs['axes'][0]])
+                self._y = np.asarray(nxdata.nxsignal)
+            elif isinstance(y, (tuple, list, np.ndarray)):
                 self._x = np.asarray(x)
                 self._y = np.asarray(y)
             elif HAVE_XARRAY and isinstance(y, xr.DataArray):
@@ -1928,15 +2020,20 @@ class FitMap(Fit):
         # At this point the fastest index should always be the signal
         #     dimension so that the slowest ndim-1 dimensions are the
         #     map dimensions
-        if isinstance(ymap, (tuple, list, np.ndarray)):
+        if isinstance(ymap, NXdata):
+            assert len(ymap.attrs['axes']) > 1
+            self._x = np.asarray(ymap[ymap.attrs['axes'][-1]])
+            self._ymap = np.asarray(ymap.nxsignal)
+        elif isinstance(ymap, (tuple, list, np.ndarray)):
             self._x = np.asarray(x)
+            self._ymap = ymap
         elif HAVE_XARRAY and isinstance(ymap, xr.DataArray):
             if x is not None:
                 logger.warning('Ignoring superfluous input x ({x})')
             self._x = np.asarray(ymap[ymap.dims[-1]])
+            self._ymap = ymap
         else:
             raise ValueError('Invalid parameter ymap ({ymap})')
-        self._ymap = ymap
 
         # Check input parameters
         if self._x.ndim != 1:
