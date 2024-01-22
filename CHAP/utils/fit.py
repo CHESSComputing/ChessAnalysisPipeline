@@ -30,23 +30,6 @@ try:
     HAVE_JOBLIB = True
 except ImportError:
     HAVE_JOBLIB = False
-from lmfit import (
-    Parameters,
-    Model,
-)
-from lmfit.model import ModelResult
-from lmfit.models import (
-    ConstantModel,
-    LinearModel,
-    QuadraticModel,
-    PolynomialModel,
-    ExponentialModel,
-    StepModel,
-    RectangleModel,
-    ExpressionModel,
-    GaussianModel,
-    LorentzianModel,
-)
 from nexusformat.nexus import NXdata
 import numpy as np
 try:
@@ -191,6 +174,8 @@ class Fit:
     def __init__(self, y, x=None, models=None, normalize=True, **kwargs):
         """Initialize Fit."""
         # Third party modules
+        from lmfit import Parameters
+
         if not isinstance(normalize, bool):
             raise ValueError(f'Invalid parameter normalize ({normalize})')
         self._fit_type = None
@@ -362,6 +347,9 @@ class Fit:
 
     @property
     def components(self):
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
         """Return the fit model components info."""
         components = {}
         if self._result is None:
@@ -575,6 +563,19 @@ class Fit:
         from asteval import (
             Interpreter,
             get_ast_names,
+        )
+        from lmfit import Model
+        from lmfit.models import (
+            ConstantModel,
+            LinearModel,
+            QuadraticModel,
+            PolynomialModel,
+            ExponentialModel,
+            StepModel,
+            RectangleModel,
+            ExpressionModel,
+            GaussianModel,
+            LorentzianModel,
         )
 
         if prefix is not None and not isinstance(prefix, str):
@@ -953,6 +954,7 @@ class Fit:
 
         # Third party modules
         from asteval import Interpreter
+        from lmfit import Parameters
 
         if centers_range is None:
             centers_range = (self._x[0], self._x[-1])
@@ -1220,6 +1222,7 @@ class Fit:
         """Fit the model to the input data."""
         # Third party modules
         from asteval import Interpreter
+        from lmfit.models import GaussianModel
 
         # Check input parameters
         if self._model is None:
@@ -1622,6 +1625,9 @@ class Fit:
         Identify the linearity of all model parameters and check if
         the model is linear or not.
         """
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
         if not self._try_linear_fit:
             logger.info(
                 'Skip linearity check (not yet supported for callable models)')
@@ -1669,6 +1675,13 @@ class Fit:
         """
         # Third party modules
         from asteval import Interpreter
+        from lmfit.model import ModelResult
+        from lmfit.models import (
+            ConstantModel,
+            LinearModel,
+            QuadraticModel,
+            ExpressionModel.
+        )
 
         # Construct the matrix and the free parameter vector
         free_parameters = \
@@ -2192,6 +2205,9 @@ class FitMap(Fit):
     @property
     def components(self):
         """Return the fit model components info."""
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
         components = {}
         if self._result is None:
             logger.warning(
@@ -2351,6 +2367,9 @@ class FitMap(Fit):
             self, dims=None, y_title=None, plot_residual=False,
             plot_comp_legends=False, plot_masked_data=True, **kwargs):
         """Plot the best fits."""
+        # Third party modules
+        from lmfit.models import ExpressionModel
+
         if dims is None:
             dims = [0]*len(self._map_shape)
         if (not isinstance(dims, (list, tuple))
