@@ -1680,7 +1680,7 @@ class Fit:
             ConstantModel,
             LinearModel,
             QuadraticModel,
-            ExpressionModel.
+            ExpressionModel,
         )
 
         # Construct the matrix and the free parameter vector
