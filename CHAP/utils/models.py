@@ -5,6 +5,7 @@ from numpy import inf
 from pydantic import (
     BaseModel,
     StrictBool,
+    conint,
     conlist,
     confloat,
     constr,
@@ -195,3 +196,6 @@ class FitConfig(BaseModel):
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian],
         min_items=1)
+    num_proc: conint(gt=0) = 1
+    plot: StrictBool = False
+    print_report:  StrictBool = False

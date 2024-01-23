@@ -147,7 +147,7 @@ class FitProcessor(Processor):
                 name=par.name, value=par.value, min=par.min, max=par.max,
                 vary=par.vary, expr=par.expr)
 
-        # Add the models
+        # Add the model functions
         for i, model in enumerate(fit_config.models):
             parameters = []
             for par in model.parameters:
@@ -162,7 +162,9 @@ class FitProcessor(Processor):
                 parameters=parameters)
 
         # Fit the data
-        fit.fit(num_proc=1, plot=True)
+        fit.fit(
+            num_proc=fit_config.num_proc, plot=fit_config.plot,
+            print_report=fit_config.print_report)
         
         return fit
 
