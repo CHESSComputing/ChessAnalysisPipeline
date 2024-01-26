@@ -72,6 +72,11 @@ class MCAElementConfig(BaseModel):
         return value
 
     @property
+    def energies(self):
+        """Return an array of MCA bin energies for this detector."""
+        return np.linspace(0, self.max_energy_kev, self.num_bins)
+
+    @property
     def include_bin_ranges(self):
         """Return the value of `include_energy_ranges` represented in
         terms of channel indices instead of channel energies.
@@ -79,7 +84,7 @@ class MCAElementConfig(BaseModel):
         from CHAP.utils.general import index_nearest_down, index_nearest_upp
 
         include_bin_ranges = []
-        energies = np.linspace(0, self.max_energy_kev, self.num_bins)
+        energies = self.energies
         for e_min, e_max in self.include_energy_ranges:
             include_bin_ranges.append(
                 [index_nearest_down(energies, e_min),
@@ -96,8 +101,7 @@ class MCAElementConfig(BaseModel):
         :returns: Energy ranges
         :rtype: list[list[float]]
         """
-        energies = np.linspace(0, self.max_energy_kev, self.num_bins)
-        return [[energies[i] for i in range_] for range_ in bin_ranges]
+        return [[self.energies[i] for i in range_] for range_ in bin_ranges]
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
@@ -449,6 +453,22 @@ class MCAElementCalibrationConfig(MCAElementConfig):
 
             hkl_indices = string_to_list(hkl_indices)
         return sorted(hkl_indices)
+
+    @property
+    def energies(self):
+        """Return calibrated bin energies, if available. If not,
+        return bin energies adjusted with initial guesses for
+        slope/intercept.
+        """
+        slope = self.slope_calibrated
+        intercept = self.intercept_calibrated
+        if slope is None or intercept is None:
+            slope = self.slope_initial_guess
+            intercept = self.intercept_initial_guess
+        return (
+            slope * np.linspace(0, self.max_energy_kev, self.num_bins)
+            + intercept)
+
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """Class representing metadata required to perform a diffraction

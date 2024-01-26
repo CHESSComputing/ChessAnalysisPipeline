@@ -700,8 +700,7 @@ class MCACeriaCalibrationProcessor(Processor):
             tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
 
         # Collect raw MCA data of interest
-        mca_bin_energies = np.linspace(
-            0, detector.max_energy_kev, detector.num_bins)
+        mca_bin_energies = detector.energies
         mca_data = calibration_config.mca_data(detector)
         if interactive or save_figures:
             # Third party modules
