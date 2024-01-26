@@ -58,6 +58,7 @@ class ScanParser:
                     and len(scanparser.spec_args) == 5):
                 self._rams4_args = scanparser.spec_args
 
+    def __repr_(self):
         return (f'{self.__class__.__name__}'
                 f'({self.spec_file_name}, {self.scan_number}) '
                 f'-- {self.spec_command}')
