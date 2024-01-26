@@ -1918,9 +1918,11 @@ def nxcopy(
             name=nxobject.nxname)
     elif isinstance(nxobject, (NXlink, NXfield)):
         # The top level nxobject is a (linked) field: return a copy
+        attrs = nxobject.attrs
+        attrs.pop('target', None)
         nxobject_copy = NXfield(
             value=nxobject.nxdata, name=nxobject.nxname,
-            attrs=nxobject.attrs)
+            attrs=attrs)
         return nxobject_copy
     else:
         # Create a group with the same type/name as the nxobject
