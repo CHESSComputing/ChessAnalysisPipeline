@@ -1059,11 +1059,12 @@ class MCAEnergyCalibrationProcessor(Processor):
         slope = energy_fit.best_values['slope']
         intercept = energy_fit.best_values['intercept']
 
-        # Rescale slope so results are a linear correction from
-        # channel indices -> calibrated energies, not uncalibrated
-        # energies -> calibrated energies
-        slope = (max_energy / num_bins) * slope
-        return({'slope': slope, 'intercept': intercept})
+        # If we want to rescale slope so results are a linear
+        # correction from channel indices -> calibrated energies, not
+        # uncalibrated energies -> calibrated energies, then uncooment
+        # the following line.
+        # slope = (max_energy / num_bins) * slope
+        return({'slope': float(slope), 'intercept': float(intercept)})
 
 
 class MCADataProcessor(Processor):
