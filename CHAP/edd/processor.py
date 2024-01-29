@@ -963,21 +963,26 @@ class MCAEnergyCalibrationProcessor(Processor):
     2&theta."""
     def process(self,
                 data,
-                max_energy,
                 peak_energies,
                 peak_initial_guesses=None,
                 peak_center_fit_delta=2.0,
-                fit_ranges=None,
+                fit_energy_ranges=None,
                 save_figures=False,
                 interactive=False,
+                inputdir='.',
                 outputdir='.'):
-        """Fit the specified peaks in the MCA spectrum provided. Using
-        the difference between the provided peak locations and the fit
-        centers of those peaks, compute linear correction parameters
-        to convert MCA channel indices to energies in keV. Return
-        those parameters as a dictionary.
+        """For each detector in the `MCACeriaCalibrationConfig`
+        provided with `data`, fit the specified peaks in the MCA
+        spectrum specified. Using the difference between the provided
+        peak locations and the fit centers of those peaks, compute
+        linear correction parameters to convert uncalibrated MCA
+        channel energies to calibrated channel energies. Set the
+        values in the calibration config provided for
+        `slope_initial_guess` and `intercept_initial_guess` to these
+        values (for each detector) and return the updated
+        configuration.
 
-        :param data: An MCA spectrum
+        :param data: A Ceria Calibration configuration.
         :type data: PipelineData
         :param max_energy: The (uncalibrated) maximum energy measured
             by the MCA spectrum provided.
@@ -1000,30 +1005,34 @@ class MCAEnergyCalibrationProcessor(Processor):
             `peak_energies` (or `peak_initial_guesses`, if used) &pm;
             `peak_center_fit_delta`. Defaults to 2.0.
         :type peak_center_fit_delta: float
-        :param fit_ranges: Explicit ranges of MCA channel indices
-            (_not_ energies) to include when performing a fit of the
-            given peaks to the provied MCA spectrum. Use this
+        :param fit_energy_ranges: Explicit ranges of uncalibrated MCA
+            channel energy ranges to include when performing a fit of
+            the given peaks to the provied MCA spectrum. Use this
             parameter or select it interactively by running a pipeline
             with `config.interactive: True`. Defaults to []
-        :type fit_ranges: Optional[list[tuple[int, int]]]
+        :type fit_energy_ranges: Optional[list[list[float]]]
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
         :param interactive: Allows for user interactions, defaults to
             False.
         :type interactive: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to '.'.
+        :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
             be saved, defaults to '.'.
         :type outputdir: str, optional
-        :returns: Dictionary containing linear energy correction
-            parameters for the MCA element
-        :rtype: dict[str, float]
+        :returns: Dictionary representing the energy-calibrated
+            version of the ceria calibration configuration.
+        :rtype: dict
         """
         # Validate arguments: fit_ranges & interactive
-        if not (fit_ranges or interactive):
+        if not (fit_energy_ranges or interactive):
             self.logger.exception(
                 RuntimeError(
-                    'If `fit_ranges` is not explicitly provided, '
+                    'If `fit_energy_ranges` is not explicitly provided, '
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
         # Validate arguments: peak_energies & peak_initial_guesses
@@ -1037,26 +1046,109 @@ class MCAEnergyCalibrationProcessor(Processor):
                     ValueError(
                         'peak_initial_guesses must have the same number of '
                         + 'values as peak_energies'))
+        # Validate arguments: load the calibration configuration
+        try:
+            calibration_config = self.get_config(
+                data, 'edd.models.MCACeriaCalibrationConfig',
+                inputdir=inputdir)
+        except Exception as data_exc:
+            self.logger.info('No valid calibration config in input pipeline '
+                             'data, using config parameter instead.')
+            try:
+                from CHAP.edd.models import MCACeriaCalibrationConfig
+                calibration_config = MCACeriaCalibrationConfig(
+                    **config, inputdir=inputdir)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
 
-        import matplotlib.pyplot as plt
+        # Calibrate detector energy based on indicated peaks. Populate
+        # the calibration configuration's "initial guesses" with these
+        # values -- they may be re-calibrated later with
+        # MCACeriaCalibrationProcessor.
+        for detector in calibration_config.detectors:
+            slope, intercept = self.calibrate(
+                calibration_config, detector, peak_energies,
+                peak_initial_guesses, peak_center_fit_delta, fit_energy_ranges,
+                save_figures, interactive, outputdir)
+            detector.slope_initial_guess = slope
+            detector.intercept_initial_guess = intercept
+
+        return calibration_config.dict()
+
+    def calibrate(self, calibration_config, detector, peak_energies,
+                  peak_initial_guesses, peak_center_fit_delta,
+                  fit_energy_ranges, save_figures, interactive, outputdir):
+        """Return calibrated slope & intercept for linearly correcting
+        this detector's bin energies.
+
+        :param peak_energies: Theoretical locations of peaks to use
+            for calibrating the MCA channel energies. It is _strongly_
+            recommended to use fluorescence peaks.
+        :type peak_energies: list[float]
+        :param peak_initial_guesses: A list of values to use for the
+            initial guesses for peak locations when performing the fit
+            of the spectrum. Providing good values to this parameter
+            can greatly improve the quality of the spectrum fit when
+            the uncalibrated detector channel energies are too far off
+            to use the values in `peak_energies` for the initial
+            guesses for peak centers.
+        :type peak_inital_guesses: Optional[list[float]]
+        :param peak_center_fit_delta: Set boundaries on the fit peak
+            centers when performing the fit. The min/max possible
+            values for the peak centers will be the values provided in
+            `peak_energies` (or `peak_initial_guesses`, if used) &pm;
+            `peak_center_fit_delta`.
+        :type peak_center_fit_delta: float
+        :param fit_energy_ranges: Explicit ranges of uncalibrated MCA
+            channel energy ranges to include when performing a fit of
+            the given peaks to the provied MCA spectrum. Use this
+            parameter or select it interactively by running a pipeline
+            with `config.interactive: True`.
+        :type fit_ranges: list[list[float]]
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor.
+        :type save_figures: bool
+        :param interactive: Allows for user interactions.
+        :type interactive: bool
+        :param outputdir: Directory to which any output figures will
+            be saved.
+        :type outputdir: str
+        :returns: Slope and intercept for linearly correcting the
+            detector's bin energies.
+        :rtype: tuple[float, float]
+        """
         import numpy as np
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import select_mask_1d
 
-        spectrum = self.unwrap_pipelinedata(data)[0]
-        num_bins = len(spectrum)
-        uncalibrated_energies = np.linspace(0, max_energy, num_bins)
+        self.logger.debug(f'Calibrating detector {detector.detector_name}')
+        spectrum = calibration_config.mca_data(detector)
+        uncalibrated_energies = np.linspace(
+            0, detector.max_energy_kev, detector.num_bins)
 
-        fig, mask, fit_ranges = select_mask_1d(
-            spectrum, x=uncalibrated_energies,
-            preselected_index_ranges=fit_ranges,
-            xlabel='Uncalibrated Energy', ylabel='Intensity',
-            min_num_index_ranges=1, interactive=interactive)
-        if save_figures:
-            fig.savefig(os.path.join(
-                outputdir, 'mca_energy_calibration_mask.png'))
-        plt.close()
-        self.logger.debug(f'Selected index ranges to fit: {fit_ranges}')
+        if save_figures or interactive:
+            import matplotlib.pyplot as plt
+            from CHAP.utils.general import (
+                index_nearest_down, index_nearest_upp)
+            fit_index_ranges = []
+            for e_min, e_max in fit_energy_ranges:
+                fit_index_ranges.append(
+                    [index_nearest_down(uncalibrated_energies, e_min),
+                     index_nearest_upp(uncalibrated_energies, e_max)])
+
+            fig, mask, fit_index_ranges = select_mask_1d(
+                spectrum, x=uncalibrated_energies,
+                preselected_index_ranges=fit_index_ranges,
+                xlabel='Uncalibrated Energy', ylabel='Intensity',
+                min_num_index_ranges=1, interactive=interactive)
+            fit_energy_ranges = [[uncalibrated_energies[i] for i in range_]
+                                 for range_ in fit_index_ranges]
+            if save_figures:
+                fig.savefig(os.path.join(
+                    outputdir, 'mca_energy_calibration_mask.png'))
+            plt.close()
+        self.logger.debug(
+            f'Selected energy ranges to fit: {fit_energy_ranges}')
 
         spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
         for i, (peak_energy, initial_guess) in enumerate(
@@ -1084,8 +1176,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         # correction from channel indices -> calibrated energies, not
         # uncalibrated energies -> calibrated energies, then uncooment
         # the following line.
-        # slope = (max_energy / num_bins) * slope
-        return({'slope': float(slope), 'intercept': float(intercept)})
+        # slope = (detector.max_energy_kev / detector.num_bins) * slope
+        return float(slope), float(intercept)
 
 
 class MCADataProcessor(Processor):
