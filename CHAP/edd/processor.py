@@ -841,6 +841,10 @@ class MCACeriaCalibrationProcessor(Processor):
             fit_E0, 'linear', x=unconstrained_fit_centers, nan_policy='omit')
         slope = fit.best_values['slope']
         intercept = fit.best_values['intercept']
+        # Make sure to adjust final values for slope and intercept
+        # according to their initial values
+        slope = slope * detector.slope_initial_guess
+        intercept = slope * detector.intercept_initial_guess + intercept
 
         if interactive or save_figures:
             # Third party modules
