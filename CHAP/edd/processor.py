@@ -600,6 +600,7 @@ class MCACeriaCalibrationProcessor(Processor):
     def process(self,
                 data,
                 config=None,
+                recalibrate_energy=True,
                 save_figures=False,
                 inputdir='.',
                 outputdir='.',
@@ -614,6 +615,9 @@ class MCACeriaCalibrationProcessor(Processor):
             CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
             None.
         :type config: dict, optional
+        :param recalibrate_energy: Get new linear energy correction
+            parameters for detectors, defaults to True.
+        :type recalibrate_energy: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -650,8 +654,9 @@ class MCACeriaCalibrationProcessor(Processor):
 
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
-                calibration_config, detector, save_figures=save_figures,
-                interactive=interactive, outputdir=outputdir)
+                calibration_config, detector, recalibrate_energy,
+                save_figures=save_figures, interactive=interactive,
+                outputdir=outputdir)
             detector.tth_calibrated = tth
             detector.slope_calibrated = slope
             detector.intercept_calibrated = intercept
@@ -661,6 +666,7 @@ class MCACeriaCalibrationProcessor(Processor):
     def calibrate(self,
                   calibration_config,
                   detector,
+                  recalibrate_energy=True,
                   save_figures=False,
                   outputdir='.',
                   interactive=False):
@@ -675,6 +681,9 @@ class MCACeriaCalibrationProcessor(Processor):
             CHAP.edd.models.MCACeriaCalibrationConfig
         :param detector: A single MCA detector element configuration.
         :type detector: CHAP.edd.models.MCAElementCalibrationConfig
+        :param recalibrate_energy: Get new linear energy correction
+            parameters for the detector, defaults to True.
+        :type recalibrate_energy: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -838,13 +847,21 @@ class MCACeriaCalibrationProcessor(Processor):
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
         fit = Fit.fit_data(
-            fit_E0, 'linear', x=unconstrained_fit_centers, nan_policy='omit')
+            fit_E0, 'linear', x=unconstrained_fit_centers,
+            nan_policy='omit')
         slope = fit.best_values['slope']
         intercept = fit.best_values['intercept']
-        # Make sure to adjust final values for slope and intercept
-        # according to their initial values
-        slope = slope * detector.slope_initial_guess
-        intercept = slope * detector.intercept_initial_guess + intercept
+        if recalibrate_energy:
+            # Adjust final values for slope and intercept according to
+            # their initial values
+            final_slope = slope * detector.slope_initial_guess
+            final_intercept = slope * detector.intercept_initial_guess \
+                             + intercept
+        else:
+            # Keep initial values for slope and intercept as the final
+            # values, no matter what the linear fit found.
+            final_slope = detector.slope_initial_guess
+            final_intercept = detector.intercept_initial_guess
 
         if interactive or save_figures:
             # Third party modules
@@ -910,12 +927,13 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,1].legend()
 
             # Add a text box showing final calibrated values
+            txt = 'Calibrated Values:\n\n' \
+                  + f'Takeoff Angle:\n    {tth:.5f}$^\circ$'
+            if recalibrate_energy:
+                txt +=  f'\n\nSlope:\n    {final_slope:.5f}\n\n' \
+                       + f'Intercept:\n    {final_intercept:.5f} $keV$'
             axs[1,1].text(
-                0.98, 0.02,
-                'Calibrated Values:\n\n'
-                + f'Takeoff Angle:\n    {tth:.5f}$^\circ$\n\n'
-                + f'Slope:\n    {slope:.5f}\n\n'
-                + f'Intercept:\n    {intercept:.5f} $keV$',
+                0.98, 0.02, txt,
                 ha='right', va='bottom', ma='left',
                 transform=axs[1,1].transAxes,
                 bbox=dict(boxstyle='round',
@@ -931,7 +949,7 @@ class MCACeriaCalibrationProcessor(Processor):
             if interactive:
                 plt.show()
 
-        return float(tth), float(slope), float(intercept)
+        return float(tth), float(final_slope), float(final_intercept)
 
 
 class MCAEnergyCalibrationProcessor(Processor):
