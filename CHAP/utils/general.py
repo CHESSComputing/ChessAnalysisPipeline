@@ -33,6 +33,51 @@ logger = getLogger(__name__)
 
 tiny = np.finfo(np.float64).resolution
 
+def gformat(val, length=11):
+    """
+    Format a number with '%g'-like format, while:
+      - the length of the output string will be of the requested length
+      - positive numbers will have a leading blank
+      - the precision will be as high as possible
+      - trailing zeros will not be trimmed
+    """
+    # Code taken from lmfit library
+    if val is None or isinstance(val, bool):
+        return f'{repr(val):>{length}s}'
+    try:
+        expon = int(np.log10(abs(val)))
+    except (OverflowError, ValueError):
+        expon = 0
+    except TypeError:
+        return f'{repr(val):>{length}s}'
+
+    length = max(length, 7)
+    form = 'e'
+    prec = length - 7
+    if abs(expon) > 99:
+        prec -= 1
+    elif ((expon > 0 and expon < (prec+4)) or
+          (expon <= 0 and -expon < (prec-1))):
+        form = 'f'
+        prec += 4
+        if expon > 0:
+            prec -= expon
+    return f'{val:{length}.{prec}{form}}'
+
+
+def getfloat_attr(obj, attr, length=11):
+    """Format an attribute of an object for printing."""
+    # Code taken from lmfit library
+    val = getattr(obj, attr, None)
+    if val is None:
+        return 'unknown'
+    if isinstance(val, int):
+        return f'{val}'
+    if isinstance(val, float):
+        return gformat(val, length=length).strip()
+    return repr(val)
+
+
 def depth_list(_list):
     """Return the depth of a list."""
     return isinstance(_list, list) and 1+max(map(depth_list, _list))
@@ -1940,9 +1985,11 @@ def nxcopy(
             name=nxobject.nxname)
     elif isinstance(nxobject, (NXlink, NXfield)):
         # The top level nxobject is a (linked) field: return a copy
+        attrs = nxobject.attrs
+        attrs.pop('target', None)
         nxobject_copy = NXfield(
             value=nxobject.nxdata, name=nxobject.nxname,
-            attrs=nxobject.attrs)
+            attrs=attrs)
         return nxobject_copy
     else:
         # Create a group with the same type/name as the nxobject

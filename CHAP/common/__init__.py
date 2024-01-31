@@ -12,6 +12,8 @@ from CHAP.common.reader import (
     H5Reader,
     MapReader,
     NexusReader,
+    NXdataReader,
+    NXfieldReader,
     SpecReader,
     URLReader,
     YAMLReader,
