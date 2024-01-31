@@ -68,7 +68,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                              + 'using config parameter instead.')
             try:
                 # Local modules
-                from CHAP.edd.models import DiffractionVolumeLengthConfig
+                from .models import DiffractionVolumeLengthConfig
 
                 dvl_config = DiffractionVolumeLengthConfig(
                     **config, inputdir=inputdir)
@@ -270,7 +270,7 @@ class LatticeParameterRefinementProcessor(Processor):
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except Exception as data_exc:
             # Local modules
-            from CHAP.edd.models import StrainAnalysisConfig
+            from .models import StrainAnalysisConfig
 
             self.logger.info('No valid strain analysis config in input '
                              + 'pipeline data, using config parameter instead')
@@ -324,8 +324,15 @@ class LatticeParameterRefinementProcessor(Processor):
             `strain_analysis_config`
         :rtype: list[numpy.ndarray]
         """
+        # Third party modules
         import numpy as np
-        from CHAP.edd.utils import get_unique_hkls_ds, get_spectra_fits
+        from scipy.constants import physical_constants
+
+        # Local modules
+        from .utils import (
+            get_unique_hkls_ds,
+            get_spectra_fits,
+        )
 
         self.add_detector_calibrations(
             strain_analysis_config, ceria_calibration_config)
@@ -365,7 +372,6 @@ class LatticeParameterRefinementProcessor(Processor):
 
         # Get the interplanar spacings measured for each fit HKL peak
         # at every point in the map.
-        from scipy.constants import physical_constants
         hc = 1e7 * physical_constants['Planck constant in eV/Hz'][0] \
              * physical_constants['speed of light in vacuum'][0]
         d_measured = hc / \
@@ -457,11 +463,15 @@ class LatticeParameterRefinementProcessor(Processor):
         :type outputdir: str
         :returns: None
         """
-        if not interactive and not save_figures:
-            return
+        # Third party modules
         import matplotlib.pyplot as plt
         import numpy as np
-        from CHAP.edd.utils import select_mask_and_hkls
+
+        # Local modules
+        from .utils import select_mask_and_hkls
+
+        if not interactive and not save_figures:
+            return
 
         detector = strain_analysis_config.detectors[detector_i]
         fig, include_bin_ranges, hkl_indices = \
@@ -514,11 +524,15 @@ class LatticeParameterRefinementProcessor(Processor):
         :type outputdir: str
         :returns: None
         """
-        if not interactive and not save_figures:
-            return
-        from CHAP.edd.utils import select_material_params
+        # Third party modules
         import matplotlib.pyplot as plt
         import numpy as np
+
+        # Local modules
+        from .utils import select_material_params
+
+        if not interactive and not save_figures:
+            return
         fig, strain_analysis_config.materials = select_material_params(
             mca_bin_energies[detector_i], np.sum(mca_data[detector_i], axis=0),
             strain_analysis_config.detectors[detector_i].tth_calibrated,
@@ -570,7 +584,12 @@ class LatticeParameterRefinementProcessor(Processor):
             numpy.ndarray, numpy.ndarray, numpy.ndarray,
             numpy.ndarray, numpy.ndarray]
         """
-        from CHAP.edd.utils import get_peak_locations, get_spectra_fits
+        # Local modules
+        from .utils import (
+            get_peak_locations,
+            get_spectra_fits,
+        )
+
         detector = strain_analysis_config.detectors[detector_i]
         self.logger.debug(
             f'Fitting spectra from detector {detector.detector_name}')
@@ -645,7 +664,7 @@ class MCACeriaCalibrationProcessor(Processor):
                              'data, using config parameter instead.')
             try:
                 # Local modules
-                from CHAP.edd.models import MCACeriaCalibrationConfig
+                from .models import MCACeriaCalibrationConfig
 
                 calibration_config = MCACeriaCalibrationConfig(
                     **config, inputdir=inputdir)
@@ -700,7 +719,7 @@ class MCACeriaCalibrationProcessor(Processor):
         :rtype: float, float, float
         """
         # Local modules
-        from CHAP.edd.utils import get_peak_locations
+        from .utils import get_peak_locations
         from CHAP.utils.fit import Fit
 
         # Get the unique HKLs and lattice spacings for the calibration
@@ -716,7 +735,7 @@ class MCACeriaCalibrationProcessor(Processor):
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import (
+            from .utils import (
                 select_tth_initial_guess,
                 select_mask_and_hkls,
             )
@@ -855,8 +874,8 @@ class MCACeriaCalibrationProcessor(Processor):
             # Adjust final values for slope and intercept according to
             # their initial values
             final_slope = slope * detector.slope_initial_guess
-            final_intercept = slope * detector.intercept_initial_guess \
-                             + intercept
+            final_intercept = (
+                slope * detector.intercept_initial_guess + intercept)
         else:
             # Keep initial values for slope and intercept as the final
             # values, no matter what the linear fit found.
@@ -922,7 +941,8 @@ class MCACeriaCalibrationProcessor(Processor):
                           marker='o', label='Single Strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
                           linestyle='', marker='o', label='Unconstrained')
-            axs[1,1].plot(slope * unconstrained_fit_centers + intercept,fit_E0,
+            axs[1,1].plot(slope * unconstrained_fit_centers + intercept,
+                          unconstrained_fit_centers,
                           color='C1', label='Unconstrained: Linear Fit')
             axs[1,1].legend()
 
@@ -985,9 +1005,6 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         :param data: A Ceria Calibration configuration.
         :type data: PipelineData
-        :param max_energy: The (uncalibrated) maximum energy measured
-            by the MCA spectrum provided.
-        :type max_energy: float
         :param peak_energies: Theoretical locations of peaks to use
             for calibrating the MCA channel energies. It is _strongly_
             recommended to use fluorescence peaks.
@@ -1044,13 +1061,15 @@ class MCAEnergyCalibrationProcessor(Processor):
         if peak_initial_guesses is None:
             peak_initial_guesses = peak_energies
         else:
+            # Local modules
             from CHAP.utils.general import is_num_series
+
             is_num_series(peak_initial_guesses, raise_error=True)
             if len(peak_initial_guesses) != len(peak_energies):
                 self.logger.exception(
                     ValueError(
                         'peak_initial_guesses must have the same number of '
-                        + 'values as peak_energies'))
+                        'values as peak_energies'))
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1060,7 +1079,9 @@ class MCAEnergyCalibrationProcessor(Processor):
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
-                from CHAP.edd.models import MCACeriaCalibrationConfig
+                # Local modules
+                from .models import MCACeriaCalibrationConfig
+
                 calibration_config = MCACeriaCalibrationConfig(
                     **config, inputdir=inputdir)
             except Exception as dict_exc:
@@ -1122,7 +1143,10 @@ class MCAEnergyCalibrationProcessor(Processor):
             detector's bin energies.
         :rtype: tuple[float, float]
         """
+        # Third party modules
         import numpy as np
+
+        # Local modules
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import select_mask_1d
 
@@ -1131,10 +1155,17 @@ class MCAEnergyCalibrationProcessor(Processor):
         uncalibrated_energies = np.linspace(
             0, detector.max_energy_kev, detector.num_bins)
 
+        mask = None
         if save_figures or interactive:
+            # Third party modules
             import matplotlib.pyplot as plt
+
+            # Local modules
             from CHAP.utils.general import (
-                index_nearest_down, index_nearest_upp)
+                index_nearest_down,
+                index_nearest_upp,
+            )
+
             fit_index_ranges = []
             for e_min, e_max in fit_energy_ranges:
                 fit_index_ranges.append(
@@ -1155,7 +1186,10 @@ class MCAEnergyCalibrationProcessor(Processor):
         self.logger.debug(
             f'Selected energy ranges to fit: {fit_energy_ranges}')
 
-        spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
+        if mask is None:
+            spectrum_fit = Fit(spectrum, x=uncalibrated_energies)
+        else:
+            spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
         for i, (peak_energy, initial_guess) in enumerate(
                 zip(peak_energies, peak_initial_guesses)):
             spectrum_fit.add_model(
@@ -1340,7 +1374,7 @@ class StrainAnalysisProcessor(Processor):
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except Exception as data_exc:
             # Local modules
-            from CHAP.edd.models import StrainAnalysisConfig
+            from .models import StrainAnalysisConfig
 
             self.logger.info('No valid strain analysis config in input '
                              + 'pipeline data, using config parameter instead')
@@ -1405,7 +1439,7 @@ class StrainAnalysisProcessor(Processor):
 
         # Local modules
         from CHAP.common import MapProcessor
-        from CHAP.edd.utils import (
+        from .utils import (
             get_peak_locations,
             get_unique_hkls_ds,
             get_spectra_fits
@@ -1469,7 +1503,7 @@ class StrainAnalysisProcessor(Processor):
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.edd.utils import (
+            from .utils import (
                 select_material_params,
                 select_mask_and_hkls,
             )

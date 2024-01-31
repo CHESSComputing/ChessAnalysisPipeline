@@ -40,7 +40,7 @@ class MCAElementConfig(BaseModel):
     :type num_bins: int, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         whose data should be included after applying a mask (the
-        bounds are inclusive), defaults to `[[50,150]]`
+        bounds are inclusive), defaults to `[[50, 150]]`
     :type include_energy_ranges: list[[float, float]], optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
@@ -51,7 +51,7 @@ class MCAElementConfig(BaseModel):
         item_type=conlist(
             item_type=confloat(ge=0),
             min_items=2,
-            max_items=2)) = [[50,150]]
+            max_items=2)) = [[50, 150]]
 
     @validator('include_energy_ranges', each_item=True)
     def validate_include_energy_range(cls, value, values):
