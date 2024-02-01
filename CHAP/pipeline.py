@@ -113,7 +113,10 @@ class PipelineItem():
 
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
-        model_config = getattr(module, cls_name)(**matching_config, **kwargs)
+        model_kwargs = {k: v for k, v in kwargs.items() \
+                        if k not in matching_config}
+        model_config = getattr(module, cls_name)(**matching_config,
+                                                 **model_kwargs)
 
         self.logger.debug(
             f'Got {schema} configuration in {time()-t0:.3f} seconds')

@@ -258,7 +258,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     return fig, tth_new_guess
 
-def select_material_params(x, y, tth, materials=[], interactive=False):
+def select_material_params(x, y, tth, materials=[], label='Reference Data',
+                           interactive=False):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -276,6 +277,9 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
     :type tth: float
     :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
+    :param label: Legend label for the 1D plot of reference MCA data
+        from the parameters `x`, `y`, defaults to `"Reference Data"`
+    :type label: str, optional
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
@@ -306,7 +310,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
         ax.set_xlabel('MCA channel energy (keV)')
         ax.set_ylabel('MCA intensity (counts)')
         ax.set_xlim(x[0], x[-1])
-        ax.plot(x, y)
+        ax.plot(x, y, label=label)
         for i, material in enumerate(_materials):
             hkls, ds = get_unique_hkls_ds([material])            
             E0s = get_peak_locations(ds, tth)
@@ -316,6 +320,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
                     ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i}',
                             ha='right', va='top', rotation=90,
                             transform=ax.get_xaxis_transform())
+        ax.legend()
         ax.get_figure().canvas.draw()
 
     def add_material(*args, material=None, new=True):
@@ -477,6 +482,8 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
             for widget, callback in group:
                 widget.disconnect(callback)
                 widget.ax.remove()
+    else:
+        draw_plot()
 
     fig.tight_layout()
 
@@ -492,7 +499,7 @@ def select_material_params(x, y, tth, materials=[], interactive=False):
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
         flux_energy_range=None, calibration_bin_ranges=None,
-        interactive=False):
+        label='Reference Data', interactive=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -530,6 +537,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     :param interactive: Allows for user interactions, defaults to
         `False`.
     :type interactive: bool, optional
+    :param label: Legend label for the 1D plot of reference MCA data
+        from the parameters `x`, `y`, defaults to `"Reference Data"`
+    :type label: str, optional
     :return: A saveable matplotlib figure, the list of selected data
         index ranges to include, and the list of HKL indices to
         include
@@ -628,7 +638,26 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         elif removed_hkls:
             change_error_text(
                 'Removed HKL(s) outside the selected energy mask')
+        # If using ref_map, update the colorbar range to min / max of
+        # the selected data only
+        if ref_map is not None:
+            selected_data = ref_map[:,get_mask()]
+            _min, _max = np.argmin(selected_data), np.argmax(selected_data)
+            ref_map_mappable = ax_map.pcolormesh(
+                x, np.arange(ref_map.shape[0]), ref_map, vmin=_min, vmax=_max)
+            fig.colorbar(ref_map_mappable, cax=cax)
         plt.draw()
+
+    def get_mask():
+        """Return a boolean array that acts as the mask corresponding
+        to the currently-selected index ranges"""
+        mask = np.full(x.shape[0], False)
+        bin_indices = np.arange(x.shape[0])
+        for span in spans:
+            _min, _max = span.extents
+            mask = np.logical_or(
+                mask, np.logical_and(bin_indices >= _min, bin_indices <= _max))
+        return mask
 
     def add_span(event, xrange_init=None):
         """Callback function for the "Add span" button."""
@@ -693,6 +722,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     'extend or add spans before adding this value')
             plt.draw()
 
+    def position_cax():
+        """Reposition the colorbar axes according to the axes of the
+        reference map"""
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
+
     def reset(event):
         """Callback function for the "Confirm" button."""
         for hkl_index in deepcopy(selected_hkl_indices):
@@ -755,14 +790,30 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
     else:
+        # Ensure ref_map is 2D
+        if ref_map.ndim > 2:
+            ref_map = np.reshape(
+                ref_map, (np.prod(ref_map.shape[:-1]), ref_map.shape[-1]))
+        # If needed, abbreviate ref_map to <= 50 spectra to keep
+        # response time of mouse interactions quick.
+        max_ref_spectra = 50
+        if ref_map.shape[0] > max_ref_spectra:
+            choose_i = np.sort(
+                np.random.choice(
+                    ref_map.shape[0], max_ref_spectra, replace=False))
+            ref_map = ref_map[choose_i]
         fig, (ax, ax_map) = plt.subplots(
             2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
         ax.set(ylabel='Intensity (counts)')
-        ax_map.pcolormesh(x, np.arange(ref_map.shape[0]), ref_map)
+        ref_map_mappable = ax_map.pcolormesh(
+            x, np.arange(ref_map.shape[0]), ref_map)
         ax_map.set_yticks([])
         ax_map.set_xlabel('Energy (keV)')
         ax_map.set_xlim(x[0], x[-1])
-    handles = ax.plot(x, y, color='k', label='Reference Data')
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax = plt.axes([right + 0.01, bottom, 0.01, top - bottom])
+        fig.colorbar(ref_map_mappable, cax=cax)
+    handles = ax.plot(x, y, color='k', label=label)
     if calibration_bin_ranges is not None:
         ylow = ax.get_ylim()[0]
         for low, upp in calibration_bin_ranges:
@@ -828,6 +879,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             change_fig_title(
                 f'Select data and HKLs to use in fitting {detector_name}')
         fig.subplots_adjust(bottom=0.2)
+        if ref_map is not None:
+            position_cax()
 
         # Setup "Add span" button
         add_span_btn = Button(plt.axes([0.125, 0.05, 0.15, 0.075]), 'Add span')
@@ -870,6 +923,133 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         selected_hkl_indices = None
 
     fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.tight_layout(rect=(0, 0, 0.9, 0.9))
+    if ref_map is not None:
+        position_cax()
 
     return fig, selected_bin_ranges, selected_hkl_indices
+
+
+def get_spectra_fits(spectra, energies, peak_locations, fit_params):
+    """Return twenty arrays of fit results for the map of spectra
+    provided: uniform centers, uniform center errors, uniform
+    amplitudes, uniform amplitude errors, uniform sigmas, uniform
+    sigma errors, uniform best fit, uniform residuals, uniform reduced
+    chi, uniform success codes, unconstrained centers, unconstrained
+    center errors, unconstrained amplitudes, unconstrained amplitude
+    errors, unconstrained sigmas, unconstrained sigma errors,
+    unconstrained best fit, unconstrained residuals, unconstrained
+    reduced chi, and unconstrained success codes.
+
+    :param spectra: Array of intensity spectra to fit.
+    :type spectra: numpy.ndarray
+    :param energies: Bin energies for the spectra provided.
+    :type energies: numpy.ndarray
+    :param peak_locations: Initial guesses for peak ceneters to use
+        for the uniform fit.
+    :type peak_locations: list[float]
+    :param fit_params: Detector element fit parameters.
+    :type fit_params: CHAP.edd.models.MCAElementStrainAnalysisConfig
+    :returns: Uniform and unconstrained centers, amplitdues, sigmas
+        (and errors for all three), best fits, residuals between the
+        best fits and the input spectra, reduced chi, and fit success
+        statuses.
+    :rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
+        numpy.ndarray]
+    """
+    from CHAP.utils.fit import FitMap
+
+    # Perform fit to get measured peak positions
+    fit = FitMap(spectra, x=energies)
+    num_peak = len(peak_locations)
+    delta = 0.1 * (energies[-1]-energies[0])
+    centers_range = (
+        max(0.0, energies[0]-delta), energies[-1]+delta)
+    fit.create_multipeak_model(
+        peak_locations,
+        fit_type='uniform',
+        peak_models=fit_params.peak_models,
+        background=fit_params.background,
+        fwhm_min=fit_params.fwhm_min,
+        fwhm_max=fit_params.fwhm_max,
+        centers_range=centers_range)
+    fit.fit(num_proc=fit_params.num_proc)
+    uniform_fit_centers = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_center')]
+        for i in range(num_peak)]
+    uniform_fit_centers_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_center')]
+        for i in range(num_peak)]
+    uniform_fit_amplitudes = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    uniform_fit_amplitudes_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    uniform_fit_sigmas = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    uniform_fit_sigmas_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    uniform_best_fit = fit.best_fit
+    uniform_residuals = fit.residual
+    uniform_redchi = fit.redchi
+    uniform_success = fit.success
+
+    # Perform unconstrained fit
+    fit.create_multipeak_model(fit_type='unconstrained')
+    fit.fit(num_proc=fit_params.num_proc,
+            rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+    unconstrained_fit_centers = np.array(
+        [fit.best_values[
+            fit.best_parameters()\
+            .index(f'peak{i+1}_center')]
+         for i in range(num_peak)])
+    unconstrained_fit_centers_errors = np.array(
+        [fit.best_errors[
+            fit.best_parameters()\
+            .index(f'peak{i+1}_center')]
+         for i in range(num_peak)])
+    unconstrained_fit_amplitudes = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    unconstrained_fit_amplitudes_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_amplitude')]
+        for i in range(num_peak)]
+    unconstrained_fit_sigmas = [
+        fit.best_values[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    unconstrained_fit_sigmas_errors = [
+        fit.best_errors[
+            fit.best_parameters().index(f'peak{i+1}_sigma')]
+        for i in range(num_peak)]
+    unconstrained_best_fit = fit.best_fit
+    unconstrained_residuals = fit.residual
+    unconstrained_redchi = fit.redchi
+    unconstrained_success = fit.success
+
+    return (
+        uniform_fit_centers, uniform_fit_centers_errors,
+        uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+        uniform_fit_sigmas, uniform_fit_sigmas_errors,
+        uniform_best_fit, uniform_residuals, uniform_redchi, uniform_success,
+        unconstrained_fit_centers, unconstrained_fit_centers_errors,
+        unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
+        unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
+        unconstrained_best_fit, unconstrained_residuals,
+        unconstrained_redchi, unconstrained_success
+    )
