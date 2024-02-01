@@ -45,11 +45,9 @@ from CHAP.processor import Processor
 from .general import (
     is_int,
     is_num,
-    is_str_series,
     is_dict_series,
     is_index,
     index_nearest,
-    input_num,
     quick_plot,
 )
 
@@ -83,8 +81,9 @@ class FitProcessor(Processor):
     def process(self, data, config=None):
         """
         Fit the data and return a CHAP.utils.fit.Fit or
-        CHAP.utils.fit.FitMap object depending on the
-        dimensionality of the input data.
+        CHAP.utils.fit.FitMap object depending on the dimensionality
+        of the input data. The input data should contain a NeXus NXdata 
+        object, with properly defined signal and axis.
 
         :param data: Input data containing the
             nexusformat.nexus.NXdata object to fit.
@@ -93,7 +92,7 @@ class FitProcessor(Processor):
         :return: The fitted data object.
         :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
         """
-        # Get the default Nexus NXdata object
+        # Get the default NeXus NXdata object
         if not isinstance(data, NXdata):
             data = self.unwrap_pipelinedata(data)[0]
         try:
@@ -218,7 +217,10 @@ class Components(dict):
         return self.values()
 
 class Parameters(dict):
-    # Based on similar code in the lmfit library
+    """
+    A dictionary of FitParameter objects, mimicking the functionality
+    of a similarly named class in the lmfit library.
+    """
     def __init__(self):
         super().__init__(self)
 
@@ -233,6 +235,15 @@ class Parameters(dict):
         value.name = key
 
     def add(self, parameter, prefix):
+        """
+        Add a fit parameter.
+
+        :param parameter: The fit parameter to add to the dictionary.
+        :type parameter: Union[str, FitParameter]
+        :param prefix: The prefix for the model to which this
+             parameter belongs.
+        :type prefix: str
+        """
         # Local modules
         from .models import FitParameter
         if isinstance(parameter, FitParameter):
@@ -248,7 +259,10 @@ class Parameters(dict):
 
 
 class ModelResult():
-    # Based on similar code in the lmfit library
+    """
+    The result of a model fit, mimicking the functionality of a
+    similarly named class in the lmfit library.
+    """
     def __init__(self, x, y, model, parameters, par_indices, result):
         self.residual = result[2]['fvec']
         self.best_fit = y + self.residual
@@ -259,6 +273,7 @@ class ModelResult():
         self.nfev = result[2]['nfev']
         self.nvarys = len(par_indices)
         self.success = 1 <= result[4] <= 4
+        self.x = x
 
         # Copy the model info
         self.components = model.components
@@ -281,12 +296,30 @@ class ModelResult():
             setattr(par, '_stderr', stderr)
             self.var_names.append(par.name)
 
-    def eval_components(self, x):
+    def eval_components(self, x=None, parameters=None):
+        """
+        Evaluate each component of a composite model function.
+
+        :param x: Independent variable, defaults to `None`, in which 
+            case the class variable x is used.
+        :type x: Union[list, np.ndarray], optional
+        :param parameters: Composite model parameters, defaults to
+            None, in which case the class variable params is used.
+        :type parameters: Parameters, optional
+        :return: A dictionary with component name and evealuated
+            function values key, value pairs.
+        :rtype: dict
+        """
+        if x is None:
+            x = self.x
+        if parameters is None:
+            parameters = self.params
         result = {}
         for component in self.components:
             if 'tmp_normalization_offset_c' in component.param_names:
                 continue
-            par_values = tuple(self.params[par].value for par in component.param_names)
+            par_values = tuple(
+                parameters[par].value for par in component.param_names)
             if component.prefix is None:
                 name = component._name
             else:
@@ -295,6 +328,14 @@ class ModelResult():
         return result
 
     def fit_report(self, show_correl=False):
+        """
+        Generates a report of the fitting results with their best
+        parameter values and uncertainties.
+
+        :param show_correl: Whether to show list of correlations,
+            defaults to `False`.
+        :type show_correl: bool, optional
+        """
         # Local modules
         from .general import (
             getfloat_attr,
@@ -349,7 +390,7 @@ class ModelResult():
 
 class Fit:
     """
-    Wrapper class for lmfit.
+    Wrapper class for scipy/lmfit.
     """
     def __init__(self, nxdata, config, prefixes):
         """Initialize Fit."""
@@ -644,7 +685,7 @@ class Fit:
             print(result.fit_report(show_correl=show_correl))
 
     def add_parameter(self, parameter):
-        """Add a fit fit parameter to the fit model."""
+        """Add a fit parameter to the fit model."""
         if not isinstance(parameter, dict):
             raise ValueError(f'Invalid parameter ({parameter})')
         if parameter.get('expr') is not None:
@@ -1802,7 +1843,7 @@ class Fit:
 
 class FitMap(Fit):
     """
-    Wrapper to the Fit class to fit dat on a N-dimensional map
+    Wrapper to the Fit class to fit data on a N-dimensional map
     """
     def __init__(self, nxdata, config, prefixes):
         """Initialize FitMap."""

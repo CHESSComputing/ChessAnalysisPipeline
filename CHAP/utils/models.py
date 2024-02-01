@@ -146,6 +146,7 @@ class FitParameter(BaseModel):
 
     @property
     def default(self):
+        """Return the _default attribute."""
         if hasattr(self, '_default'):
             return self._default
         else:
@@ -153,6 +154,7 @@ class FitParameter(BaseModel):
 
     @property
     def init_value(self):
+        """Return the _init_value attribute."""
         if hasattr(self, '_init_value'):
             return self._init_value
         else:
@@ -160,6 +162,7 @@ class FitParameter(BaseModel):
 
     @property
     def prefix(self):
+        """Return the _prefix attribute."""
         if hasattr(self, '_prefix'):
             return self._prefix
         else:
@@ -167,12 +170,31 @@ class FitParameter(BaseModel):
 
     @property
     def stderr(self):
+        """Return the _stderr attribute."""
         if hasattr(self, '_stderr'):
             return self._stderr
         else:
             return None
 
     def set(self, value=None, min=None, max=None, vary=None, expr=None):
+        """
+        Set or update FitParameter attributes.
+
+        :param value: Parameter value.
+        :type value: float, optional
+        :param min: Lower Parameter value bound. To remove the lower
+            bound you must set min to `numpy.inf`.
+        :type min: bool, optional
+        :param max: Upper Parameter value bound. To remove the lower
+            bound you must set max to `numpy.inf`.
+        :type max: bool, optional
+        :param vary: Whether the Parameter is varied during a fit.
+        :type vary: bool, optional
+        :param expr: Mathematical expression used to constrain the
+            value during the fit. To remove a constraint you must
+            supply an empty string.
+        :type expr: str, optional
+        """
         if min is not None:
             if not isinstance(min, (int, float)):
                 raise ValueError(f'Invalid parameter min ({min})')
@@ -204,6 +226,17 @@ class FitParameter(BaseModel):
                 self.vary = False
 
 class Constant(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['constant']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['constant']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -212,6 +245,17 @@ class Constant(BaseModel):
 
 
 class Linear(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['linear']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['linear']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -220,6 +264,17 @@ class Linear(BaseModel):
 
 
 class Quadratic(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['quadratic']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['quadratic']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -228,6 +283,17 @@ class Quadratic(BaseModel):
 
 
 class Exponential(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['exponential']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['exponential']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -236,6 +302,17 @@ class Exponential(BaseModel):
 
 
 class Gaussian(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['gaussian']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['gaussian']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -244,6 +321,17 @@ class Gaussian(BaseModel):
 
 
 class Lorentzian(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['lorentzian']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['lorentzian']
     parameters: conlist(item_type=FitParameter) = []
 
@@ -252,6 +340,20 @@ class Lorentzian(BaseModel):
 
 
 class Expression(BaseModel):
+    """
+    Class representing an Expression model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['expression']
+    :ivar expr: Mathematical expression to represent the model
+        component.
+    :type expr: str
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the model expression (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    """
     model: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
     parameters: conlist(item_type=FitParameter) = []
@@ -283,6 +385,25 @@ class FitConfig(BaseModel):
     """
     Class representing the configuration for the fit processor.
 
+    :ivar code: Specifies is lmfit is used to perform the fit or if
+        the scipy fit method is called directly, default is `'lmfit'`.
+    :type code: Literal['lmfit', 'scipy'], optional
+    :ivar parameters: Fit model parameters in addition to those
+        implicitly defined through the build-in model functions,
+        defaults to `[]`'
+    :type parameters: list[FitParameter], optional
+    :ivar models: The component(s) of the (composite) fit model.
+    :type models: Union[Constant, Linear, Quadratic, Exponential,
+        Gaussian, Lorentzian, Expression]
+    :ivar num_proc: The number of processors used in fitting a map
+        of data, defaults to `1`.
+    :type num_proc: int, optional
+    :ivar plot: Weather a plot of the fit result is generated,
+        defaults to `False`.
+    :type plot: bool, optional.
+    :ivar print_report:  Weather to generate a fit result printout,
+        defaults to `False`.
+    :type print_report: bool, optional.
     """
     code: Literal['lmfit', 'scipy'] = 'scipy'
     parameters: conlist(item_type=FitParameter) = []
