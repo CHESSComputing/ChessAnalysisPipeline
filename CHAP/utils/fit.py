@@ -1795,6 +1795,7 @@ class Fit:
             self._result.residual *= self._norm[1]
 
     def _reset_par_at_boundary(self):
+        fraction = 0.02
         for name, par in self._parameters.items():
             if par.vary:
                 value = par.value
@@ -1803,26 +1804,26 @@ class Fit:
                 if np.isinf(_min):
                     if not np.isinf(_max):
                         if self._parameter_norms.get(name, False):
-                            upp = _max-0.1*self._y_range
+                            upp = _max - fraction*self._y_range
                         elif _max == 0.0:
-                            upp = _max-0.1
+                            upp = _max - fraction
                         else:
-                            upp = _max-0.1*abs(_max)
+                            upp = _max - fraction*abs(_max)
                         if value >= upp:
                             par.set(value=upp)
                 else:
                     if np.isinf(_max):
                         if self._parameter_norms.get(name, False):
-                            low = _min + 0.1*self._y_range
+                            low = _min + fraction*self._y_range
                         elif _min == 0.0:
-                            low = _min+0.1
+                            low = _min + fraction
                         else:
-                            low = _min + 0.1*abs(_min)
+                            low = _min + fraction*abs(_min)
                         if value <= low:
                             par.set(value=low)
                     else:
-                        low = 0.9*_min + 0.1*_max
-                        upp = 0.1*_min + 0.9*_max
+                        low = (1.0-fraction)*_min + fraction*_max
+                        upp = fraction*_min + (1.0-fraction)*_max
                         if value <= low:
                             par.set(value=low)
                         if value >= upp:
@@ -1871,6 +1872,8 @@ class FitMap(Fit):
         #     map dimensions
         self._x = np.asarray(nxdata[nxdata.attrs['axes'][-1]])
         self._ymap = np.asarray(nxdata.nxsignal)
+
+        # Check input parameters
         if self._x.ndim != 1:
             raise ValueError(f'Invalid x dimension ({self._x.ndim})')
         if self._x.size != self._ymap.shape[-1]:
@@ -2451,29 +2454,32 @@ class FitMap(Fit):
             except AttributeError:
                 pass
 
-        if num_proc == 1:
-            # Perform the remaining fits serially
-            for n in range(1, self._map_dim):
-                self._fit(n, current_best_values, **kwargs)
-        else:
-            # Perform the remaining fits in parallel
-            num_fit = self._map_dim-1
-            if num_proc > num_fit:
-                logger.warning(
-                    f'The requested number of processors ({num_proc}) exceeds '
-                    f'the number of fits, num_proc reduced to {num_fit}')
-                num_proc = num_fit
-                num_fit_per_proc = 1
+        if self._map_dim > 1:
+            if num_proc == 1:
+                # Perform the remaining fits serially
+                for n in range(1, self._map_dim):
+                    self._fit(n, current_best_values, **kwargs)
             else:
-                num_fit_per_proc = round((num_fit)/num_proc)
-                if num_proc*num_fit_per_proc < num_fit:
-                    num_fit_per_proc += 1
-            num_fit_batch = min(num_fit_per_proc, 40)
-            with Parallel(n_jobs=num_proc) as parallel:
-                parallel(
-                    delayed(self._fit_parallel)
-                        (current_best_values, num_fit_batch, n_start, **kwargs)
-                    for n_start in range(1, self._map_dim, num_fit_batch))
+                # Perform the remaining fits in parallel
+                num_fit = self._map_dim-1
+                if num_proc > num_fit:
+                    logger.warning(
+                        f'The requested number of processors ({num_proc}) '
+                        'exceeds the number of fits, num_proc reduced to '
+                        f'{num_fit}')
+                    num_proc = num_fit
+                    num_fit_per_proc = 1
+                else:
+                    num_fit_per_proc = round((num_fit)/num_proc)
+                    if num_proc*num_fit_per_proc < num_fit:
+                        num_fit_per_proc += 1
+                num_fit_batch = min(num_fit_per_proc, 40)
+                with Parallel(n_jobs=num_proc) as parallel:
+                    parallel(
+                        delayed(self._fit_parallel)
+                            (current_best_values, num_fit_batch, n_start,
+                             **kwargs)
+                        for n_start in range(1, self._map_dim, num_fit_batch))
 
         # Renormalize the initial parameters for external use
         if self._norm is not None and self._normalized:
