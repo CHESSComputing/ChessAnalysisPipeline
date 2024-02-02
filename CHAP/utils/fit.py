@@ -227,6 +227,7 @@ class Parameters(dict):
     def __setitem__(self, key, value):
         # Local modules
         from .models import FitParameter
+
         if key not in self and not isinstance(key, str):
             raise KeyError(f'Invalid FitParameter name ({key})')
         if value is not None and not isinstance(value, FitParameter):
@@ -246,6 +247,7 @@ class Parameters(dict):
         """
         # Local modules
         from .models import FitParameter
+
         if isinstance(parameter, FitParameter):
             name = f'{prefix}{parameter.name}'
             self.__setitem__(name, parameter)
@@ -409,7 +411,6 @@ class Fit:
         if self._code == 'scipy':
             self._num_pars = []
         self._parameter_bounds = None
-        self._parameter_norms = {}
         self._linear_parameters = []
         self._nonlinear_parameters = []
         self._result = None
@@ -461,13 +462,8 @@ class Fit:
 #                if self._y_range > 0.0:
 #                    self._norm = (y_min, self._y_range)
 
-            # Add the free fit parameters
-            if len(config.parameters):
-                self.add_parameters(config.parameters)
-
-            # Add the model functions
-            for i, model in enumerate(config.models):
-                self.add_model(model, prefixes[i])
+            # Setup fit model
+            self._setup_fit_model(config, prefixes)
 
     @property
     def best_errors(self):
@@ -685,49 +681,22 @@ class Fit:
             print(result.fit_report(show_correl=show_correl))
 
     def add_parameter(self, parameter):
+        # Local modules
+        from .models import FitParameter
+
         """Add a fit parameter to the fit model."""
-        if not isinstance(parameter, dict):
-            raise ValueError(f'Invalid parameter ({parameter})')
         if parameter.get('expr') is not None:
             raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
-        if not isinstance(name, str):
-            raise ValueError(
-                f'Invalid "name" value ({name}) in parameter {parameter}')
-        if parameter.get('norm') is None:
-            self._parameter_norms[name] = False
-        else:
-            norm = parameter.pop('norm')
-            if self._norm is None:
-                logger.warning(
-                    f'Ignoring norm in parameter {name} in Fit.add_parameter '
-                    '(normalization is turned off)')
-                self._parameter_norms[name] = False
-            else:
-                if not isinstance(norm, bool):
-                    raise ValueError(
-                        f'Invalid "norm" value ({norm}) in parameter '
-                        f'{parameter}')
-                self._parameter_norms[name] = norm
-        vary = parameter.get('vary')
-        if vary is not None:
-            if not isinstance(vary, bool):
-                raise ValueError(
-                    f'Invalid "vary" value ({vary}) in parameter {parameter}')
-            if not vary:
-                if 'min' in parameter:
-                    logger.warning(
-                        f'Ignoring min in parameter {name} in '
-                        f'Fit.add_parameter (vary = {vary})')
-                    parameter.pop('min')
-                if 'max' in parameter:
-                    logger.warning(
-                        f'Ignoring max in parameter {name} in '
-                        f'Fit.add_parameter (vary = {vary})')
-                    parameter.pop('max')
-        if self._norm is not None and name not in self._parameter_norms:
-            raise ValueError(
-                f'Missing parameter normalization type for parameter {name}')
+        if not parameter['vary']:
+            logger.warning(
+                f'Ignoring min in parameter {name} in '
+                f'Fit.add_parameter (vary = {parameter["vary"]})')
+            parameter['min'] = -np.inf
+            logger.warning(
+                f'Ignoring max in parameter {name} in '
+                f'Fit.add_parameter (vary = {parameter["vary"]})')
+            parameter['max'] = np.inf
         self._parameters.add(**parameter)
 
     def add_model(self, model, prefix):
@@ -757,7 +726,6 @@ class Fit:
             pprefix = ''
         else:
             pprefix = prefix
-        new_parameter_norms = {}
         if self._code == 'scipy':
             new_parameters = []
             for par in deepcopy(parameters):
@@ -769,23 +737,17 @@ class Fit:
             # Par: c
             if self._code == 'lmfit':
                 newmodel = ConstantModel(prefix=prefix)
-            new_parameter_norms[f'{pprefix}c'] = True
             self._linear_parameters.append(f'{pprefix}c')
         elif model_name == 'linear':
             # Par: slope, intercept
             if self._code == 'lmfit':
                 newmodel = LinearModel(prefix=prefix)
-            new_parameter_norms[f'{pprefix}slope'] = True
-            new_parameter_norms[f'{pprefix}intercept'] = True
             self._linear_parameters.append(f'{pprefix}slope')
             self._linear_parameters.append(f'{pprefix}intercept')
         elif model_name == 'quadratic':
             # Par: a, b, c
             if self._code == 'lmfit':
                 newmodel = QuadraticModel(prefix=prefix)
-            new_parameter_norms[f'{pprefix}a'] = True
-            new_parameter_norms[f'{pprefix}b'] = True
-            new_parameter_norms[f'{pprefix}c'] = True
             self._linear_parameters.append(f'{pprefix}a')
             self._linear_parameters.append(f'{pprefix}b')
             self._linear_parameters.append(f'{pprefix}c')
@@ -801,14 +763,11 @@ class Fit:
 #            if self._code == 'lmfit':
 #                newmodel = PolynomialModel(degree=degree, prefix=prefix)
 #            for i in range(degree+1):
-#                new_parameter_norms[f'{pprefix}c{i}'] = True
 #                self._linear_parameters.append(f'{pprefix}c{i}')
         elif model_name == 'exponential':
             # Par: amplitude, decay
             if self._code == 'lmfit':
                 newmodel = ExponentialModel(prefix=prefix)
-            new_parameter_norms[f'{pprefix}amplitude'] = True
-            new_parameter_norms[f'{pprefix}decay'] = False
             self._linear_parameters.append(f'{pprefix}amplitude')
             self._nonlinear_parameters.append(f'{pprefix}decay')
         elif model_name == 'gaussian':
@@ -817,11 +776,6 @@ class Fit:
                 newmodel = GaussianModel(prefix=prefix)
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
-                new_parameter_norms[f'{pprefix}height'] = True
-                new_parameter_norms[f'{pprefix}fwhm'] = False
-            new_parameter_norms[f'{pprefix}amplitude'] = True
-            new_parameter_norms[f'{pprefix}center'] = False
-            new_parameter_norms[f'{pprefix}sigma'] = False
             self._linear_parameters.append(f'{pprefix}amplitude')
             self._nonlinear_parameters.append(f'{pprefix}center')
             self._nonlinear_parameters.append(f'{pprefix}sigma')
@@ -831,11 +785,6 @@ class Fit:
                 newmodel = LorentzianModel(prefix=prefix)
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
-            new_parameter_norms[f'{pprefix}height'] = True
-            new_parameter_norms[f'{pprefix}fwhm'] = False
-            new_parameter_norms[f'{pprefix}amplitude'] = True
-            new_parameter_norms[f'{pprefix}center'] = False
-            new_parameter_norms[f'{pprefix}sigma'] = False
             self._linear_parameters.append(f'{pprefix}amplitude')
             self._nonlinear_parameters.append(f'{pprefix}center')
             self._nonlinear_parameters.append(f'{pprefix}sigma')
@@ -851,9 +800,6 @@ class Fit:
 #                    f'({form})')
 #            if self._code == 'lmfit':
 #                newmodel = StepModel(prefix=prefix, form=form)
-#            new_parameter_norms[f'{pprefix}amplitude'] = True
-#            new_parameter_norms[f'{pprefix}center'] = False
-#            new_parameter_norms[f'{pprefix}sigma'] = False
 #            self._linear_parameters.append(f'{pprefix}amplitude')
 #            self._nonlinear_parameters.append(f'{pprefix}center')
 #            self._nonlinear_parameters.append(f'{pprefix}sigma')
@@ -869,11 +815,6 @@ class Fit:
 #                    f'({form})')
 #            if self._code == 'lmfit':
 #                newmodel = RectangleModel(prefix=prefix, form=form)
-#            new_parameter_norms[f'{pprefix}amplitude'] = True
-#            new_parameter_norms[f'{pprefix}center1'] = False
-#            new_parameter_norms[f'{pprefix}center2'] = False
-#            new_parameter_norms[f'{pprefix}sigma1'] = False
-#            new_parameter_norms[f'{pprefix}sigma2'] = False
 #            self._linear_parameters.append(f'{pprefix}amplitude')
 #            self._nonlinear_parameters.append(f'{pprefix}center1')
 #            self._nonlinear_parameters.append(f'{pprefix}center2')
@@ -930,35 +871,36 @@ class Fit:
                 if not diff(newmodel.expr, name, name):
                     if name not in self._linear_parameters:
                         self._linear_parameters.append(name)
-                        new_parameter_norms[name] = True
                 else:
                     if name not in self._nonlinear_parameters:
                         self._nonlinear_parameters.append(name)
-                        new_parameter_norms[name] = False
+
+#        print(f'\n\nnew_parameters:\n\t{new_parameters}')
+#        print(f'\n\nself._linear_parameters:\n\t{self._linear_parameters}')
+#        print(f'\n\nself._nonlinear_parameters:\n\t{self._nonlinear_parameters}')
+#        exit('Done')
 
         # Scale the default initial model parameters
         if self._norm is not None:
-            for name, norm in new_parameter_norms.copy().items():
-                par = self._parameters.get(name)
-                if par is None:
-                    new_parameter_norms.pop(name)
-                    continue
-                if par.expr is None and norm:
-                    if self._code == 'scipy':
-                        value = par.default
-                    else:
-                        value = None
-                    if value is None:
-                        value = par.value
-                    if value is not None:
-                        value *= self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
+            for name in new_parameters:
+                if name in self._linear_parameters:
+                    par = self._parameters.get(name)
+                    if par.expr is None:
+                        if self._code == 'scipy':
+                            value = par.default
+                        else:
+                            value = None
+                        if value is None:
+                            value = par.value
+                        if value is not None:
+                            value *= self._norm[1]
+                        _min = par.min
+                        _max = par.max
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
 
         # Initialize the model parameters
         for parameter in deepcopy(parameters):
@@ -972,24 +914,6 @@ class Fit:
                 self._parameters[name].set(
                     value=parameter.value, min=parameter.min,
                     max=parameter.max, vary=parameter.vary)
-        self._parameter_norms = {
-            **self._parameter_norms,
-            **new_parameter_norms,
-        }
-
-        # Check parameter norms
-        # (also need it for expressions to renormalize the errors)
-        if (self._norm is not None
-                and (callable(model) or model == 'expression')):
-            missing_norm = False
-            for name in new_parameters:
-                if name not in self._parameter_norms:
-                    logger.error(
-                        f'Missing parameter normalization type for {name} in '
-                        f'{model_name}')
-                    missing_norm = True
-            if missing_norm:
-                raise ValueError
 
     def eval(self, x, result=None):
         """Evaluate the best fit."""
@@ -1150,11 +1074,11 @@ class Fit:
             if par.expr is None:
                 value = par.value
                 if value is None or np.isinf(value) or np.isnan(value):
-                    value = 1.0
-                    if self._norm is None or name not in self._parameter_norms:
-                        self._parameters[name].set(value=value)
-                    elif self._parameter_norms[name]:
-                        self._parameters[name].set(value=value*self._norm[1])
+                    if (self._norm is None
+                            or name in self._nonlinear_parameters):
+                        self._parameters[name].set(value=1.0)
+                    else:
+                        self._parameters[name].set(value=self._norm[1])
 
         # Check if model is linear
         try:
@@ -1373,6 +1297,22 @@ class Fit:
             height = y[index]-miny
 
         return height, center, fwhm
+
+    def _setup_fit_model(self, config, prefixes):
+
+            # Add the free fit parameters
+            for par in config.parameters:
+                self.add_parameter(par.dict())
+
+            # Add the model functions
+            for i, model in enumerate(config.models):
+                self.add_model(model, prefixes[i])
+
+            print('\n\nparameters:')
+            for name, par in self._parameters.items():
+                print(f'\t{name}: {par.value}')
+            print(f'\n\nself._linear_parameters:\n\t{self._linear_parameters}')
+            print(f'\n\nself._nonlinear_parameters:\n\t{self._nonlinear_parameters}')
 
     def _check_linearity_model(self):
         """
@@ -1670,7 +1610,7 @@ class Fit:
             model_result.init_values = {}
             for name, par in init_params.items():
                 model_result.init_values[name] = par.value
-            model_result.max_nfev = lskws.get('maxfev', None)
+            model_result.max_nfev = lskws.get('maxfev')
         else:
             fit_kws = {}
 #            if 'Dfun' in kwargs:
@@ -1696,9 +1636,9 @@ class Fit:
                 self._y_norm = \
                     (np.asarray(self._y)-self._norm[0]) / self._norm[1]
             self._y_range = 1.0
-            for name, norm in self._parameter_norms.items():
+            for name in self._linear_parameters:
                 par = self._parameters[name]
-                if par.expr is None and norm:
+                if par.expr is None:
                     value = par.value/self._norm[1]
                     _min = par.min
                     _max = par.max
@@ -1714,9 +1654,9 @@ class Fit:
         if self._norm is None or not self._normalized:
             return
         self._normalized = False
-        for name, norm in self._parameter_norms.items():
+        for name in self._linear_parameters:
             par = self._parameters[name]
-            if par.expr is None and norm:
+            if par.expr is None:
                 value = par.value*self._norm[1]
                 _min = par.min
                 _max = par.max
@@ -1730,7 +1670,7 @@ class Fit:
         self._result.best_fit = (
             self._result.best_fit*self._norm[1] + self._norm[0])
         for name, par in self._result.params.items():
-            if self._parameter_norms.get(name, False):
+            if name in self._linear_parameters:
                 if par.stderr is not None:
                     if self._code == 'scipy':
                         setattr(par, '_stderr', par.stderr*self._norm[1])
@@ -1757,13 +1697,13 @@ class Fit:
         if hasattr(self._result, 'init_values'):
             init_values = {}
             for name, value in self._result.init_values.items():
-                if self._parameter_norms.get(name, False):
+                if name in self._linear_parameters:
                     init_values[name] = value*self._norm[1]
                 else:
                     init_values[name] = value
             self._result.init_values = init_values
             for name, par in self._result.init_params.items():
-                if par.expr is None and self._parameter_norms.get(name, False):
+                if par.expr is None and name in self._linear_parameters:
                     value = par.value
                     _min = par.min
                     _max = par.max
@@ -1782,7 +1722,7 @@ class Fit:
 #        self._result.chisqr *= self._norm[1]*self._norm[1]
         if self._result.covar is not None:
             for i, name in enumerate(self._result.var_names):
-                if self._parameter_norms.get(name, False):
+                if name in self._linear_parameters:
                     for j in range(len(self._result.var_names)):
                         if self._result.covar[i,j] is not None:
                             self._result.covar[i,j] *= self._norm[1]
@@ -1803,7 +1743,7 @@ class Fit:
                 _max = self._parameter_bounds[name]['max']
                 if np.isinf(_min):
                     if not np.isinf(_max):
-                        if self._parameter_norms.get(name, False):
+                        if name in self._linear_parameters:
                             upp = _max - fraction*self._y_range
                         elif _max == 0.0:
                             upp = _max - fraction
@@ -1813,7 +1753,7 @@ class Fit:
                             par.set(value=upp)
                 else:
                     if np.isinf(_max):
-                        if self._parameter_norms.get(name, False):
+                        if name in self._linear_parameters:
                             low = _min + fraction*self._y_range
                         elif _min == 0.0:
                             low = _min + fraction
@@ -1912,13 +1852,8 @@ class FitMap(Fit):
         else:
             self._redchi_cutoff *= self._y_range**2
 
-        # Add the free fit parameters
-        if len(config.parameters):
-            self.add_parameters(config.parameters)
-
-        # Add the model functions
-        for i, model in enumerate(config.models):
-            self.add_model(model, prefixes[i])
+        # Setup fit model
+        self._setup_fit_model(config, prefixes)
 
     @property
     def best_errors(self):
@@ -2286,10 +2221,10 @@ class FitMap(Fit):
             if par.expr is None:
                 value = par.value
                 if value is None or np.isinf(value) or np.isnan(value):
-                    value = 1.0
-                    if self._norm is None or name not in self._parameter_norms:
+                    if (self._norm is None
+                            or name in self._nonlinear_parameters):
                         self._parameters[name].set(value=value)
-                    elif self._parameter_norms[name]:
+                    else:
                         self._parameters[name].set(value=value*self._norm[1])
 
         # Create the best parameter list, consisting of all varying
@@ -2331,7 +2266,7 @@ class FitMap(Fit):
                 for i in range(num_best_parameters)]
             if self._norm is not None:
                 for i, name in enumerate(self._best_parameters):
-                    if self._parameter_norms.get(name, False):
+                    if name in self._linear_parameters:
                         self._best_values[i] /= self._norm[1]
 
         # Normalize the initial parameters
@@ -2485,14 +2420,14 @@ class FitMap(Fit):
         if self._norm is not None and self._normalized:
             init_values = {}
             for name, value in self._result.init_values.items():
-                if (name not in self._parameter_norms
+                if (name in self._nonlinear_parameters
                         or self._parameters[name].expr is not None):
                     init_values[name] = value
-                elif self._parameter_norms[name]:
+                else:
                     init_values[name] = value*self._norm[1]
             self._result.init_values = init_values
             for name, par in self._result.init_params.items():
-                if par.expr is None and self._parameter_norms.get(name, False):
+                if par.expr is None and name in self._linear_parameters:
                     _min = par.min
                     _max = par.max
                     value = par.value*self._norm[1]
@@ -2551,9 +2486,9 @@ class FitMap(Fit):
             self._parameters[name].set(min=par['min'], max=par['max'])
         self._normalized = False
         if self._norm is not None:
-            for name, norm in self._parameter_norms.items():
+            for name in self._linear_parameters:
                 par = self._parameters[name]
-                if par.expr is None and norm:
+                if par.expr is None:
                     value = par.value*self._norm[1]
                     _min = par.min
                     _max = par.max
@@ -2743,9 +2678,8 @@ class FitMap(Fit):
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
         else:
-            pars = set(self._parameter_norms) & set(self._best_parameters)
             for name, par in result.params.items():
-                if name in pars and self._parameter_norms[name]:
+                if name in self._linear_parameters:
                     if par.stderr is not None:
                         if self._code == 'scipy':
                             setattr(par, '_stderr', par.stderr*self._norm[1])
