@@ -345,6 +345,12 @@ class YAMLWriter(Writer):
         :rtype: dict
         """
         data = self.unwrap_pipelinedata(data)[-1]
+        try:
+            from pydantic import BaseModel
+            if isinstance(data, BaseModel):
+                data = data.dict()
+        except:
+            pass
         write_yaml(data, filename, force_overwrite)
         return data
 
