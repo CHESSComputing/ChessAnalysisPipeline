@@ -824,15 +824,15 @@ class MapProcessor(Processor):
                 (*map_config.shape, *detector_data.shape)),
                 dtype=detector_data.dtype)
 
-        for data in map_config.all_scalar_data:
-            for map_index in np.ndindex(map_config.shape):
+        for map_index in np.ndindex(map_config.shape):
+            for data in map_config.all_scalar_data:
                 nxentry.data[data.label][map_index] = map_config.get_value(
                     data, map_index)
-                for detector_name in detector_names:
-                    if not isinstance(detector_name, str):
-                        detector_name = str(detector_name)
-                    nxentry.data[detector_name][map_index] = \
-                        map_config.get_detector_data(detector_name, map_index)
+            for detector_name in detector_names:
+                if not isinstance(detector_name, str):
+                    detector_name = str(detector_name)
+                nxentry.data[detector_name][map_index] = \
+                    map_config.get_detector_data(detector_name, map_index)
 
         return nxentry
 
