@@ -726,7 +726,7 @@ class MapProcessor(Processor):
     NXentry object representing that map's metadata and any
     scalar-valued raw data requested by the supplied map configuration.
     """
-    def process(self, data):
+    def process(self, data, detector_names=[]):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -734,20 +734,26 @@ class MapProcessor(Processor):
         :param data: Result of `Reader.read` where at least one item
             has the value `'MapConfig'` for the `'schema'` key.
         :type data: CHAP.pipeline.PipelineData
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NeXus NXentry object, defaults to `[]`.
+        :type detector_names: list[str], optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
         map_config = self.get_config(data, 'common.models.map.MapConfig')
-        nxentry = self.__class__.get_nxentry(map_config)
+        nxentry = self.__class__.get_nxentry(map_config, detector_names)
 
         return nxentry
 
     @staticmethod
-    def get_nxentry(map_config):
+    def get_nxentry(map_config, detector_names):
         """Use a `MapConfig` to construct a NeXus NXentry object.
 
         :param map_config: A valid map configuration.
         :type map_config: MapConfig
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NeXus NXentry object.
+        :type detector_names: list[str]
         :return: The map's data and metadata contained in a NeXus
             structure.
         :rtype: nexusformat.nexus.NXentry
@@ -807,10 +813,26 @@ class MapProcessor(Processor):
             nxentry.data.attrs['signal'] = signal
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
+        # Create empty NXfields of appropriate shape for raw
+        # detector data
+        for detector_name in detector_names:
+            if not isinstance(detector_name, str):
+                detector_name = str(detector_name)
+            detector_data = map_config.get_detector_data(
+                detector_name, (0,) * len(map_config.shape))
+            nxentry.data[detector_name] = NXfield(value=np.zeros(
+                (*map_config.shape, *detector_data.shape)),
+                dtype=detector_data.dtype)
+
         for data in map_config.all_scalar_data:
             for map_index in np.ndindex(map_config.shape):
                 nxentry.data[data.label][map_index] = map_config.get_value(
                     data, map_index)
+                for detector_name in detector_names:
+                    if not isinstance(detector_name, str):
+                        detector_name = str(detector_name)
+                    nxentry.data[detector_name][map_index] = \
+                        map_config.get_detector_data(detector_name, map_index)
 
         return nxentry
 
