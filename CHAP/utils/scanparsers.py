@@ -1362,11 +1362,10 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
                 self.detector_data_path, detector_file)
             element_data = get_all_mca_data_h5(
                 full_filename)[:,element_index,:]
+            i_0 = i * self.spec_scan_shape[0]
             if len(self.spec_scan_shape) == 2:
-                i_0 = i * self.spec_scan_shape[1]
                 i_f = i_0 + self.spec_scan_shape[0]
             else:
-                i_0 = i * self.spec_scan_shape[0]
                 i_f = self.spec_scan_npts
             detector_data[i_0:i_f] = element_data
         return detector_data
