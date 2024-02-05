@@ -964,6 +964,7 @@ class MCAEnergyCalibrationProcessor(Processor):
     def process(self,
                 data,
                 peak_energies,
+                config=None,
                 peak_initial_guesses=None,
                 peak_center_fit_delta=2.0,
                 fit_energy_ranges=None,
@@ -991,6 +992,10 @@ class MCAEnergyCalibrationProcessor(Processor):
             for calibrating the MCA channel energies. It is _strongly_
             recommended to use fluorescence peaks.
         :type peak_energies: list[float]
+        :param config: Initialization parameters for an instance of
+            CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
+            None.
+        :type config: dict, optional
         :param peak_initial_guesses: A list of values to use for the
             initial guesses for peak locations when performing the fit
             of the spectrum. Providing good values to this parameter
