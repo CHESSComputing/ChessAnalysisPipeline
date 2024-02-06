@@ -782,6 +782,7 @@ class MapConfig(BaseModel):
     dwell_time_actual: Optional[DwellTimeActual]
     postsample_intensity: Optional[PostsampleIntensity]
     map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
+    attrs: Optional[dict] = {}
     _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
     _scan_step_indices: list = PrivateAttr()
@@ -879,7 +880,7 @@ class MapConfig(BaseModel):
     @validator('experiment_type')
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
-        compatible
+        compatible.
         """
         station = values.get('station')
         if station == 'id1a3':
@@ -895,6 +896,34 @@ class MapConfig(BaseModel):
                 f'For station {station}, allowed experiment types are '
                 f'{", ".join(allowed_experiment_types)}. '
                 f'Supplied experiment type {value} is not allowed.')
+        return value
+
+    @validator('attrs', always=True)
+    def validate_attrs(cls, value, values):
+        """Read any additional attributes depending on the values for
+        the station and experiment_type fields.
+        """
+        # Get the map's scan_type for EDD experiments
+        station = values.get('station')
+        experiment_type = values.get('experiment_type')
+        if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
+            scan_type = PointByPointScanData(
+                label='scan_type', data_type='smb_par', units='-',
+                name='scan_type')
+            scan_types = []
+            for scans in values.get('spec_scans'):
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    scan_step_index_range = range(scanparser.spec_scan_npts)
+                    for index in scan_step_index_range:
+                        scan_types.append(
+                            scan_type.get_value(scans, scan_number, index))
+            scan_types = list(set(scan_types))
+            if len(scan_types) != 1:
+                raise ValueError('More than one scan_type in map not allowed '
+                                 f'({scan_types})')
+            scan_type =  scan_types[0]
+            value['scan_type'] = scan_type
         return value
 
     @property
