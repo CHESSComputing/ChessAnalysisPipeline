@@ -127,7 +127,7 @@ def setLogger(log_level="INFO"):
     logger.setLevel(log_level)
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter(
-        '{name:20}: {message}', style='{'))
+        '{name:20}: {levelname}: {message}', style='{'))
     logger.addHandler(log_handler)
     return logger, log_handler
 
