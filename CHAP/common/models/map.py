@@ -58,6 +58,8 @@ class SpecScans(BaseModel):
 
         :param spec_file: Path to the SPEC file.
         :type spec_file: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
         :raises ValueError: If the SPEC file is invalid.
         :return: Absolute path to the SPEC file, if it is valid.
         :rtype: str
@@ -75,7 +77,7 @@ class SpecScans(BaseModel):
 
         :param scan_numbers: List of scan numbers.
         :type scan_numbers: list of int
-        :param values: Dictionary of values for all fields of the model.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
@@ -104,6 +106,8 @@ class SpecScans(BaseModel):
 
         :param par_file: Path to a non-default SMB par file.
         :type par_file: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
         :raises ValueError: If the SMB par file is invalid.
         :return: Absolute path to the SMB par file, if it is valid.
         :rtype: str
@@ -693,7 +697,7 @@ class SpecConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of class field values.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
@@ -714,6 +718,14 @@ class SpecConfig(BaseModel):
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
         compatible
+
+        :param value: Field value to validate (`experiment_type`).
+        :type value: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid experiment type.
+        :return: The validated field for `experiment_type`.
+        :rtype: str
         """
         station = values.get('station')
         if station == 'id1a3':
@@ -810,7 +822,7 @@ class MapConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of class field values.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
@@ -834,7 +846,7 @@ class MapConfig(BaseModel):
         :param map_type: Type of map, structured or unstructured,
             defaults to `'structured'`.
         :type map_type: Literal['structured', 'unstructured']]
-        :param values: Dictionary of values for all fields of the model.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :return: The validated value for map_type.
         :rtype: str
@@ -881,6 +893,14 @@ class MapConfig(BaseModel):
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
         compatible.
+
+        :param value: Field value to validate (`experiment_type`).
+        :type value: dict
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid experiment type.
+        :return: The validated field for `experiment_type`.
+        :rtype: str
         """
         station = values.get('station')
         if station == 'id1a3':
@@ -902,29 +922,43 @@ class MapConfig(BaseModel):
     def validate_attrs(cls, value, values):
         """Read any additional attributes depending on the values for
         the station and experiment_type fields.
+
+        :param value: Field value to validate (`attrs`).
+        :type value: dict
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid attribute.
+        :return: The validated field for `attrs`.
+        :rtype: dict
         """
         # Get the map's scan_type for EDD experiments
         station = values.get('station')
         experiment_type = values.get('experiment_type')
         if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
-            scan_type = PointByPointScanData(
-                label='scan_type', data_type='smb_par', units='-',
-                name='scan_type')
-            scan_types = []
-            for scans in values.get('spec_scans'):
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    scan_step_index_range = range(scanparser.spec_scan_npts)
-                    for index in scan_step_index_range:
-                        scan_types.append(
-                            scan_type.get_value(scans, scan_number, index))
-            scan_types = list(set(scan_types))
-            if len(scan_types) != 1:
-                raise ValueError('More than one scan_type in map not allowed '
-                                 f'({scan_types})')
-            scan_type =  scan_types[0]
-            value['scan_type'] = scan_type
+            value['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
+            value['config_id'] = cls.get_smb_par_attr(values, 'config_id')
+            value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
         return value
+
+    @staticmethod
+    def get_smb_par_attr(class_fields, label, units='-', name=None):
+        """Read an SMB par file attribute."""
+        if name is None:
+            name = label
+        scalar_data = PointByPointScanData(
+            label=label, data_type='smb_par', units=units, name=name)
+        values = []
+        for scans in class_fields.get('spec_scans'):
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for index in range(scanparser.spec_scan_npts):
+                    values.append(
+                        scalar_data.get_value(scans, scan_number, index))
+        values = list(set(values))
+        if len(values) != 1:
+            raise ValueError(f'More than one {name} in map not allowed '
+                             f'({values})')
+        return values[0]
 
     @property
     def all_scalar_data(self):

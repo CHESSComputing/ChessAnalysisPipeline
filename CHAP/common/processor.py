@@ -746,7 +746,7 @@ class MapProcessor(Processor):
         return nxentry
 
     @staticmethod
-    def get_nxentry(map_config, detector_names):
+    def get_nxentry(map_config, detector_names=[]):
         """Use a `MapConfig` to construct a NeXus NXentry object.
 
         :param map_config: A valid map configuration.
@@ -774,6 +774,8 @@ class MapProcessor(Processor):
         nxentry.map_config = dumps(map_config.dict())
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
         nxentry.attrs['station'] = map_config.station
+        for key, value in map_config.attrs.items():
+            nxentry.attrs[key] = value
 
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
