@@ -64,9 +64,11 @@ class EddMapReader(Reader):
                  name='ometotal')
         ]
         scalar_data = []
+        attrs = {}
         if scan_type != 0:
             self.logger.warning(
                 'Assuming all fly axes parameters are identical for all scans')
+            attrs['fly_axis_labels'] = []
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
@@ -82,6 +84,7 @@ class EddMapReader(Reader):
                     units=axes_units[fly_axis_key],
                     name=scanparser.spec_scan_motor_mnes[fly_axis_index]))
                 axes_added.append(fly_axis_index)
+                attrs['fly_axis_labels'].append(axes_labels[fly_axis_key])
             add_fly_axis(0)
             if scan_type in (2, 3, 5):
                 add_fly_axis(1)
@@ -89,13 +92,11 @@ class EddMapReader(Reader):
                 scalar_data.append(dict(
                     label='bin_axis', units='n/a', data_type='smb_par',
                     name='bin_axis'))
+                attrs['bin_axis_label'] = axes_labels[
+                    scanparser.pars['bin_axis']].replace('fly_', '')
 
         # Add in the usual extra scalar data maps for EDD
         scalar_data.extend([
-            dict(label='dataset_id', units='n/a', data_type='smb_par',
-                 name='dataset_id'),
-            dict(label='config_id', units='n/a', data_type='smb_par',
-                 name='config_id'),
             dict(label='SCAN_N', units='n/a', data_type='smb_par',
                  name='SCAN_N'),
             dict(label='rsgap_size', units='mm', data_type='smb_par',
@@ -104,8 +105,6 @@ class EddMapReader(Reader):
                  name='x_effective'),
             dict(label='z_effective', units='mm', data_type='smb_par',
                  name='z_effective'),
-            dict(label='scan_type', units='n/a', data_type='smb_par',
-                 name='scan_type')
         ])
 
         # Construct initial map config dictionary
@@ -121,7 +120,8 @@ class EddMapReader(Reader):
             scalar_data=scalar_data,
             presample_intensity=dict(name='a3ic1', data_type='scan_column'),
             postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='count_time', data_type='smb_par')
+            dwell_time_actual=dict(name='count_time', data_type='smb_par'),
+            attrs=attrs
         )
         map_config = MapConfig(**map_config_dict)
 
