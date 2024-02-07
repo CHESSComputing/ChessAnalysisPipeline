@@ -1210,12 +1210,34 @@ class MCAEnergyCalibrationProcessor(Processor):
             peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
         slope = energy_fit.best_values['slope']
         intercept = energy_fit.best_values['intercept']
-
         # If we want to rescale slope so results are a linear
         # correction from channel indices -> calibrated energies, not
         # uncalibrated energies -> calibrated energies, then uncooment
         # the following line.
         # slope = (detector.max_energy_kev / detector.num_bins) * slope
+
+        # Reference plot to see fit results:
+        if interactive or save_figures:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(1,1)
+            ax.set_title(f'Detector {detector.detector_name} '
+                         + 'Energy Calibration Peak Fit')
+            ax.set_xlabel('Energy (keV)')
+            ax.set_ylabel('Intensity (a.u)')
+            ax.plot(uncalibrated_energies[mask], spectrum[mask],
+                    label='MCA data')
+            ax.plot(uncalibrated_energies[mask], spectrum_fit.best_fit,
+                    label='Best fit')
+            ax.legend()
+            fig.tight_layout()
+
+            if save_figures:
+                figfile = os.path.join(outputdir, 'energy_calibration_fit.png')
+                plt.savefig(figfile)
+                self.logger.info(f'Saved figure to {figfile}')
+            if interactive:
+                plt.show()
+
         return float(slope), float(intercept)
 
 
