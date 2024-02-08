@@ -1221,16 +1221,45 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Reference plot to see fit results:
         if interactive or save_figures:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(1,1)
-            ax.set_title(f'Detector {detector.detector_name} '
-                         + 'Energy Calibration Peak Fit')
-            ax.set_xlabel('Energy (keV)')
-            ax.set_ylabel('Intensity (a.u)')
-            ax.plot(uncalibrated_energies[mask], spectrum[mask],
+            fig, axs = plt.subplots(1,2, figsize=(11, 4.25))
+            fig.suptitle(
+                f'Detector {detector.detector_name} Energy Calibration')
+            # Left plot: raw MCA data & best fit of fluorescence peaks
+            axs[0].set_title(f'MCA Spectrum Peak Fit')
+            axs[0].set_xlabel('Uncalibrated Energy (keV)')
+            axs[0].set_ylabel('Intensity (a.u)')
+            axs[0].plot(uncalibrated_energies[mask], spectrum[mask],
                     label='MCA data')
-            ax.plot(uncalibrated_energies[mask], spectrum_fit.best_fit,
+            axs[0].plot(uncalibrated_energies[mask], spectrum_fit.best_fit,
                     label='Best fit')
-            ax.legend()
+            axs[0].legend()
+            # Right plot: linear fit of theoretical & fit peak locations
+            axs[1].set_title('Theoretical vs. Fit Peak Energies')
+            axs[1].set_xlabel('Theoretical Peak Energy (keV)')
+            axs[1].set_ylabel('Energy (keV)')
+            axs[1].plot(peak_energies, fit_peak_energies,
+                        marker='o', ls='',
+                        label='Fit peak energies (uncalibrated)')
+            axs[1].plot(energy_fit.best_fit, fit_peak_energies,
+                        label='Best linear fit')
+            axs[1].plot(peak_energies,
+                        slope * np.asarray(fit_peak_energies) + intercept,
+                        marker='o', ls='',
+                        label='Fit peak energies (calibrated)')
+            axs[1].legend()
+            # Add text box showing computed values of linear E
+            # correction parameters
+            axs[1].text(
+                0.98, 0.02,
+                'Calibrated Values:\n\n'
+                + f'Slope:\n    {slope:.5f}\n\n'
+                + f'Intercept:\n    {intercept:.5f} $keV$',
+                ha='right', va='bottom', ma='left',
+                transform=axs[1].transAxes,
+                bbox=dict(boxstyle='round',
+                          ec=(1., 0.5, 0.5),
+                          fc=(1., 0.8, 0.8, 0.8)))
+
             fig.tight_layout()
 
             if save_figures:
