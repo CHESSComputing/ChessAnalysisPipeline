@@ -1058,6 +1058,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
         # Validate arguments: peak_energies & peak_initial_guesses
+        peak_energies.sort()
         if peak_initial_guesses is None:
             peak_initial_guesses = peak_energies
         else:
@@ -1070,6 +1071,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                     ValueError(
                         'peak_initial_guesses must have the same number of '
                         'values as peak_energies'))
+        peak_initial_guesses.sort()
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1201,9 +1203,9 @@ class MCAEnergyCalibrationProcessor(Processor):
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
-        fit_peak_energies = [
+        fit_peak_energies = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
-            for i in range(len(peak_energies))]
+            for i in range(len(peak_energies))])
         self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
 
         energy_fit = Fit.fit_data(
