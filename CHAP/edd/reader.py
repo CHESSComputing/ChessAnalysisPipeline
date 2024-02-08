@@ -110,7 +110,7 @@ class EddMapReader(Reader):
         # Construct initial map config dictionary
         scanparser = ScanParser(parfile.spec_file, scan_nos[0])
         map_config_dict = dict(
-            title=scanparser.scan_name,
+            title=f'{scanparser.scan_name}_dataset{dataset_id}',
             station='id1a3',
             experiment_type='EDD',
             sample=dict(name=scanparser.scan_name),
