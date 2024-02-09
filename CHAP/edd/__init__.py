@@ -7,6 +7,7 @@ from CHAP.edd.processor import (DiffractionVolumeLengthProcessor,
                                 MCACeriaCalibrationProcessor,
                                 MCADataProcessor,
                                 MCAEnergyCalibrationProcessor,
+                                MCACalibratedDataPlotter,
                                 StrainAnalysisProcessor)
 # from CHAP.edd.writer import
 

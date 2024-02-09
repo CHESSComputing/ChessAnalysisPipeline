@@ -1377,6 +1377,86 @@ class MCADataProcessor(Processor):
         return nxroot
 
 
+class MCACalibratedDataPlotter(Processor):
+    """Convenience Processor for quickly visualizing calibrated MCA
+       data from a single scan. Returns None!"""
+    def process(self, data, spec_file, scan_number, scan_step_index=None,
+                material=None, save_figures=False, interactive=False,
+                outputdir='.'):
+        """Show a maplotlib figure of the MCA data fom the scan
+        provided on a calibrated energy axis. If `scan_step_index` is
+        None, a plot of the sum of all spectra across the whole scan
+        will be shown.
+
+        :param data: PipelineData containing an MCA calibration.
+        :type data: list[PipelineData]
+        :param spec_file: SPEC file containing scan of interest.
+        :type spec_file: str
+        :param scan_number: Scan number of interest.
+        :type scan_number: int
+        :param scan_step_index: Scan step index of interest, defaults to None.
+        :type scan_step_index: int, optional
+        :param material: Material parameters to plot HKLs for.
+        :type material: dict
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor.
+        :type save_figures: bool
+        :param interactive: Allows for user interactions.
+        :type interactive: bool
+        :param outputdir: Directory to which any output figures will
+            be saved.
+        :type outputdir: str
+        :returns: None
+        :rtype: None
+        """
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+
+        if material is not None:
+            self.logger.warning('Plotting HKL lines is not supported yet.')
+
+        if scan_step_index is not None:
+            if not isinstance(scan_step_index, int):
+                try:
+                    scan_step_index = int(scan_step_index)
+                except:
+                    msg = 'scan_step_index must be an int'
+                    self.logger.error(msg)
+                    raise TypeError(msg)
+
+        calibration_config = self.get_config(
+            data, 'edd.models.MCACeriaCalibrationConfig')
+        scanparser = ScanParser(spec_file, scan_number)
+
+        fig, ax = plt.subplots(1, 1, figsize=(11, 8.5))
+        title = f'{scanparser.scan_title} MCA Data'
+        if scan_step_index is None:
+            title += ' (sum of all spectra in the scan)'
+        ax.set_title(title)
+        ax.set_xlabel('Calibrated Energy (keV)')
+        ax.set_ylabel('Intenstiy (a.u)')
+        for detector in calibration_config.detectors:
+            if scan_step_index is None:
+                mca_data = np.sum(
+                    scanparser.get_all_detector_data(detector.detector_name),
+                    axis=0)
+            else:
+                mca_data = scanparser.get_detector_data(
+                    detector.detector_name, scan_step_index=scan_step_index)
+            ax.plot(detector.energies, mca_data,
+                    label=f'Detector {detector.detector_name}')
+        ax.legend()
+        if interactive:
+            plt.show()
+        if save_figures:
+            fig.savefig(os.path.join(
+                outputdir, f'mca_data_{scanparser.scan_title}'))
+        plt.close()
+        return None
+
+
 class StrainAnalysisProcessor(Processor):
     """Processor that takes a map of MCA data and returns a map of
     sample strains
