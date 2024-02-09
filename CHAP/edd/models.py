@@ -805,6 +805,8 @@ class StrainAnalysisConfig(BaseModel):
     :type map_config: CHAP.common.models.map.MapConfig, optional
     :ivar par_file: Path to the par file associated with the scan.
     :type par_file: str, optional
+    :ivar dataset_id: Integer ID of the SMB-style EDD dataset.
+    :type dataset_id: int, optional
     :ivar par_dims: List of independent dimensions.
     :type par_dims: list[dict[str,str]], optional
     :ivar other_dims: List of other column names from `par_file`.
@@ -818,6 +820,7 @@ class StrainAnalysisConfig(BaseModel):
     inputdir: Optional[DirectoryPath]
     map_config: Optional[MapConfig]
     par_file: Optional[FilePath]
+    dataset_id: Optional[int]
     par_dims: Optional[list[dict[str,str]]]
     other_dims: Optional[list[dict[str,str]]]
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
@@ -845,13 +848,19 @@ class StrainAnalysisConfig(BaseModel):
         if par_file is not None:
             if inputdir is not None and not os.path.isabs(par_file):
                 values['par_file'] = os.path.join(inputdir, par_file)
-            if 'par_dims' not in values:
+            if 'dataset_id' in values:
+                from CHAP.edd import EddMapReader
+                values['_parfile'] = ParFile(values['par_file'])
+                values['map_config'] = EddMapReader().read(
+                    values['par_file'], values['dataset_id'])
+            elif 'par_dims' in values:
+                values['_parfile'] = ParFile(values['par_file'])
+                values['map_config'] = values['_parfile'].get_map(
+                    'EDD', 'id1a3', values['par_dims'],
+                    other_dims=values.get('other_dims', []))
+            else:
                 raise ValueError(
-                    'par_dims is required when using par_file')
-            values['_parfile'] = ParFile(values['par_file'])
-            values['map_config'] = values['_parfile'].get_map(
-                'EDD', 'id1a3', values['par_dims'],
-                other_dims=values.get('other_dims', []))
+                    'dataset_id or par_dims is required when using par_file')
         map_config = values.get('map_config')
         if isinstance(map_config, dict):
             for i, scans in enumerate(map_config.get('spec_scans')):
