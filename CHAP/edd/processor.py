@@ -1263,7 +1263,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'energy_calibration_fit.png')
+                figfile = os.path.join(outputdir, f'energy_calibration_fit_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
