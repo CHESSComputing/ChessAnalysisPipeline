@@ -986,7 +986,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 peak_energies,
                 config=None,
                 peak_initial_guesses=None,
-                peak_center_fit_delta=2.0,
+                peak_center_fit_delta=1.0,
                 fit_energy_ranges=None,
                 save_figures=False,
                 interactive=False,
@@ -1058,7 +1058,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
         # Validate arguments: peak_energies & peak_initial_guesses
-        peak_energies.sort()
         if peak_initial_guesses is None:
             peak_initial_guesses = peak_energies
         else:
@@ -1071,7 +1070,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     ValueError(
                         'peak_initial_guesses must have the same number of '
                         'values as peak_energies'))
-        peak_initial_guesses.sort()
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1192,6 +1190,9 @@ class MCAEnergyCalibrationProcessor(Processor):
             spectrum_fit = Fit(spectrum, x=uncalibrated_energies)
         else:
             spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
+            
+        self.logger.debug('ARW: Add initial guess and min, max for peak sigmas in MCAEnergyCalibrationProcessor.calibrate')
+
         for i, (peak_energy, initial_guess) in enumerate(
                 zip(peak_energies, peak_initial_guesses)):
             spectrum_fit.add_model(
@@ -1199,15 +1200,18 @@ class MCAEnergyCalibrationProcessor(Processor):
                     {'name': 'amplitude', 'min': 0.0},
                     {'name': 'center', 'value': initial_guess,
                      'min': initial_guess - peak_center_fit_delta,
-                     'max': initial_guess + peak_center_fit_delta}
+                     'max': initial_guess + peak_center_fit_delta},
+                    {'name': 'sigma', 'value' : 0.2, 'min':0.01, 'max':0.42 }
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
+        
         fit_peak_energies = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
             for i in range(len(peak_energies))])
         self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
 
+        peak_energies.sort()
         energy_fit = Fit.fit_data(
             peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
         slope = energy_fit.best_values['slope']
