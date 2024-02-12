@@ -1216,7 +1216,9 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Reference plot to see fit results:
         if interactive or save_figures:
+            # Third part modules
             import matplotlib.pyplot as plt
+
             fig, axs = plt.subplots(1,2, figsize=(11, 4.25))
             fig.suptitle(
                 f'Detector {detector.detector_name} Energy Calibration')

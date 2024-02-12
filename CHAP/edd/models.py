@@ -81,14 +81,17 @@ class MCAElementConfig(BaseModel):
         """Return the value of `include_energy_ranges` represented in
         terms of channel indices instead of channel energies.
         """
-        from CHAP.utils.general import index_nearest_down, index_nearest_upp
+        from CHAP.utils.general import (
+            index_nearest_down,
+            index_nearest_up,
+        )
 
         include_bin_ranges = []
         energies = self.energies
         for e_min, e_max in self.include_energy_ranges:
             include_bin_ranges.append(
                 [index_nearest_down(energies, e_min),
-                 index_nearest_upp(energies, e_max)])
+                 index_nearest_up(energies, e_max)])
         return include_bin_ranges
 
     def get_energy_ranges(self, bin_ranges):
@@ -236,11 +239,6 @@ class MCAScanDataConfig(BaseModel):
             # System modules
             from copy import deepcopy
 
-            # Local modules
-            from CHAP.utils.general import (
-                index_nearest_down,
-                index_nearest_upp,
-            )
             flux = np.loadtxt(flux_file)
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
@@ -436,7 +434,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     max_energy_kev: confloat(gt=0)
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     slope_initial_guess: float = 1.0
@@ -712,7 +710,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     num_bins: Optional[conint(gt=0)]
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
     num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
