@@ -447,8 +447,8 @@ def index_nearest_down(a, value):
     return index
 
 
-def index_nearest_upp(a, value):
-    """Return index of nearest array value, rounded upp."""
+def index_nearest_up(a, value):
+    """Return index of nearest array value, rounded up."""
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -510,7 +510,9 @@ def almost_equal(a, b, sig_figs):
         f'b: {b}, {type(b)})')
 
 
-def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
+def string_to_list(
+        s, split_on_dash=True, remove_duplicates=True, sort=True,
+        raise_error=False):
     """
     Return a list of numbers by splitting/expanding a string on any
     combination of commas, whitespaces, or dashes (when
@@ -524,8 +526,11 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
         return []
     try:
         list1 = re_split(r'\s+,\s+|\s+,|,\s+|\s+|,', s.strip())
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return None
+    except (ValueError, TypeError, SyntaxError, MemoryError,
+            RecursionError) as e:
+        if not raise_error:
+            return None
+        raise e
     if split_on_dash:
         try:
             l_of_i = []
@@ -540,8 +545,10 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
                 else:
                     raise ValueError
         except (ValueError, TypeError, SyntaxError, MemoryError,
-                RecursionError):
-            return None
+                RecursionError) as e:
+            if not raise_error:
+                return None
+            raise e
     else:
         l_of_i = [literal_eval(x) for x in list1]
     if remove_duplicates:
@@ -906,7 +913,7 @@ def select_mask_1d(
         y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
         preselected_mask=None, title=None, xlabel=None, ylabel=None,
         min_num_index_ranges=None, max_num_index_ranges=None,
-        interactive=True):
+        interactive=True, filename=None):
     """Display a lineplot and have the user select a mask.
 
     :param y: One-dimensional data array for which a mask will be
@@ -945,18 +952,21 @@ def select_mask_1d(
         ranges, defaults to `None`.
     :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defults to `True`.
+        the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :return: A Matplotlib figure, a boolean mask array and the list of
-        selected index ranges.
-    :rtype: matplotlib.figure.Figure, numpy.ndarray,
-        list[tuple(int, int)]
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: A boolean mask array and the list of selected index
+        ranges.
+    :rtype: numpy.ndarray, list[tuple(int, int)]
     """
     # Third party modules
-    from matplotlib.patches import Patch
-    from matplotlib.widgets import Button, SpanSelector
+    if interactive or filename is not None:
+        from matplotlib.patches import Patch
+        from matplotlib.widgets import Button, SpanSelector
 
-    # local modules
+    # Local modules
     from CHAP.utils.general import index_nearest
 
     def change_fig_title(title):
@@ -1111,10 +1121,25 @@ def select_mask_1d(
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
 
+    # Setup the preselected mask and index ranges if provided
+    if preselected_mask is not None:
+        preselected_index_ranges = update_index_ranges(
+            update_mask(
+                np.copy(np.asarray(preselected_mask, dtype=bool)),
+                preselected_index_ranges))
+
+    if not interactive and filename is None:
+
+        # Update the mask with the preselected index ranges
+        selected_mask = update_mask(len(x)*[False], preselected_index_ranges)
+
+        return selected_mask, preselected_index_ranges
+
     spans = []
     fig_title = []
     error_texts = []
 
+    # Setup the Matplotlib figure
     title_pos = (0.5, 0.95)
     title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
                    'verticalalignment': 'bottom'}
@@ -1138,12 +1163,7 @@ def select_mask_1d(
     ax.set_xlim(x[0], x[-1])
     fig.subplots_adjust(bottom=0.0, top=0.85)
 
-    # Setup the preselected mask and index ranges if provided
-    if preselected_mask is not None:
-        preselected_index_ranges = update_index_ranges(
-            update_mask(
-                np.copy(np.asarray(preselected_mask, dtype=bool)),
-                preselected_index_ranges))
+    # Add the preselected index ranges
     for min_, max_ in preselected_index_ranges:
         add_span(None, xrange_init=(x[min_], x[min(max_, num_data-1)]))
 
@@ -1158,7 +1178,8 @@ def select_mask_1d(
         fig.subplots_adjust(bottom=0.2)
 
         # Setup "Add span" button
-        add_span_btn = Button(plt.axes([0.15, 0.05, 0.15, 0.075]), 'Add span')
+        add_span_btn = Button(
+            plt.axes([0.15, 0.05, 0.15, 0.075]), 'Add span')
         add_span_cid = add_span_btn.on_clicked(add_span)
 
         # Setup "Reset" button
@@ -1188,15 +1209,18 @@ def select_mask_1d(
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
-    fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    if filename is not None:
+        fig_title[0].set_in_layout(True)
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
+        fig.savefig(filename)
+    plt.close()
 
-    return fig, selected_mask, selected_index_ranges
+    return selected_mask, selected_index_ranges
 
 
 def select_roi_1d(
         y, x=None, preselected_roi=None, title=None, xlabel=None, ylabel=None,
-        interactive=True):
+        interactive=True, filename=None):
     """Display a 2D plot and have the user select a single region
     of interest.
 
@@ -1217,8 +1241,11 @@ def select_roi_1d(
         defaults to `None`.
     :type ylabel: str, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defults to `True`.
+        the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
     :return: The selected region of interest as array indices and a
         matplotlib figure.
     :rtype: matplotlib.figure.Figure, tuple(int, int)
@@ -1233,16 +1260,17 @@ def select_roi_1d(
                              f'({preselected_roi})')
         preselected_roi = [preselected_roi]
 
-    fig, mask, roi = select_mask_1d(
+    mask, roi = select_mask_1d(
         y, x=x, preselected_index_ranges=preselected_roi, title=title,
         xlabel=xlabel, ylabel=ylabel, min_num_index_ranges=1,
-        max_num_index_ranges=1, interactive=interactive)
+        max_num_index_ranges=1, interactive=interactive, filename=filename)
 
-    return fig, tuple(roi[0])
+    return tuple(roi[0])
 
 def select_roi_2d(
         a, preselected_roi=None, title=None, title_a=None,
-        row_label='row index', column_label='column index', interactive=True):
+        row_label='row index', column_label='column index', interactive=True,
+        filename=None):
     """Display a 2D image and have the user select a single rectangular
        region of interest.
 
@@ -1265,9 +1293,11 @@ def select_roi_2d(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :return: The selected region of interest as array indices and a
-        matplotlib figure.
-    :rtype: matplotlib.figure.Figure, tuple(int, int, int, int)
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: The selected region of interest as array indices.
+    :rtype: tuple(int, int, int, int)
     """
     # Third party modules
     from matplotlib.widgets import Button, RectangleSelector
@@ -1330,6 +1360,7 @@ def select_roi_2d(
     fig_title = []
     subfig_title = []
 
+    raise RuntimeError('Needs testing with new filename parameter')
     # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
@@ -1413,7 +1444,7 @@ def select_roi_2d(
     if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
         roi = None
 
-    return fig, roi
+    return roi
 
 
 def select_image_indices(
