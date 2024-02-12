@@ -738,6 +738,16 @@ class MapProcessor(Processor):
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
+        # Local modules
+        from CHAP.utils.general import string_to_list
+        if isinstance(detector_names, str):
+            try:
+                detector_names = [
+                    str(v) for v in string_to_list(
+                        detector_names, raise_error=True)]
+            except:
+                raise ValueError(
+                    f'Invalid parameter detector_names ({detector_names})')
         map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config, detector_names)
 
