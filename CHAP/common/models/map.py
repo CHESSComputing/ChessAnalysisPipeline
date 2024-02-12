@@ -938,6 +938,14 @@ class MapConfig(BaseModel):
             value['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
             value['config_id'] = cls.get_smb_par_attr(values, 'config_id')
             value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
+            if value['scan_type'] != 0:
+                value['fly_axis_labels'] = [
+                    axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
+            if value['scan_type'] in (2, 3, 5):
+                value['fly_axis_labels'].append(
+                    axes_labels[cls.get_smb_par_attr(values, 'fly_axis1')])
         return value
 
     @staticmethod
