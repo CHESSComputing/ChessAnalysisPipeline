@@ -2005,6 +2005,25 @@ class StrainAnalysisProcessor(Processor):
         return nxroot
 
 
+class CreateStrainAnalysisConfigProcessor(Processor):
+    """Processor that takes a basics stain analysis config file
+    (the old style configuration without the map_config) and the output
+    of EddMapReader and returns the old style stain analysis
+    configuration.
+    """
+    def process(self, data, inputdir='.'):
+        # Local modules
+        from CHAP.common.models.map import MapConfig
+
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig', inputdir=inputdir)
+        config = self.get_config(
+            data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
+        config.map_config = map_config
+
+        return config
+
+
 if __name__ == '__main__':
     # Local modules
     from CHAP.processor import main
