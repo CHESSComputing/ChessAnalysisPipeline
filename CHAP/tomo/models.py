@@ -7,7 +7,6 @@ from typing import (
 )
 from pydantic import (
     BaseModel,
-    StrictBool,
     conint,
     conlist,
     confloat,

@@ -477,14 +477,14 @@ def get_consecutive_int_range(a):
 
 
 def round_to_n(x, n=1):
-    """Round to a specific number of decimals."""
+    """Round to a specific number of sig figs ."""
     if x == 0.0:
         return 0
     return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
 
 
 def round_up_to_n(x, n=1):
-    """Round up to a specific number of decimals."""
+    """Round up to a specific number of sig figs."""
     x_round = round_to_n(x, n)
     if abs(x/x_round) > 1.0:
         x_round += np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
@@ -492,7 +492,7 @@ def round_up_to_n(x, n=1):
 
 
 def trunc_to_n(x, n=1):
-    """Truncate to a specific number of decimals."""
+    """Truncate to a specific number of sig figs."""
     x_round = round_to_n(x, n)
     if abs(x_round/x) > 1.0:
         x_round -= np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)

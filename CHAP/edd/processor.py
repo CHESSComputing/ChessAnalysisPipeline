@@ -736,6 +736,11 @@ class MCACeriaCalibrationProcessor(Processor):
         mca_bin_energies = detector.energies
         mca_data = calibration_config.mca_data(detector)
 
+        # Blank out data below 25 keV as well as the last bin
+        energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
+        energy_mask[-1] = 0
+        mca_data = mca_data*energy_mask
+
         # Adjust initial tth guess
         if save_figures:
             filename = os.path.join(
@@ -981,7 +986,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 peak_energies,
                 config=None,
                 peak_initial_guesses=None,
-                peak_center_fit_delta=2.0,
+                peak_center_fit_delta=1.0,
                 fit_energy_ranges=None,
                 save_figures=False,
                 interactive=False,
@@ -1020,7 +1025,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             centers when performing the fit. The min/max possible
             values for the peak centers will be the values provided in
             `peak_energies` (or `peak_initial_guesses`, if used) &pm;
-            `peak_center_fit_delta`. Defaults to 2.0.
+            `peak_center_fit_delta`. Defaults to 1.0.
         :type peak_center_fit_delta: float
         :param fit_energy_ranges: Explicit ranges of uncalibrated MCA
             channel energy ranges to include when performing a fit of
@@ -1156,6 +1161,11 @@ class MCAEnergyCalibrationProcessor(Processor):
         uncalibrated_energies = np.linspace(
             0, detector.max_energy_kev, detector.num_bins)
 
+        # Blank out data below 25 keV as well as the last bin
+        energy_mask = np.where(uncalibrated_energies >= 25.0, 1, 0)
+        energy_mask[-1] = 0
+        spectrum = spectrum*energy_mask
+
         # Select the mask/energy ranges for fitting
         fit_index_ranges = []
         if fit_energy_ranges is None:
@@ -1195,7 +1205,8 @@ class MCAEnergyCalibrationProcessor(Processor):
                     {'name': 'amplitude', 'min': 0.0},
                     {'name': 'center', 'value': initial_guess,
                      'min': initial_guess - peak_center_fit_delta,
-                     'max': initial_guess + peak_center_fit_delta}
+                     'max': initial_guess + peak_center_fit_delta},
+                    {'name': 'sigma', 'value': 0.2, 'min': 0.01, 'max': 0.42},
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
@@ -1618,13 +1629,16 @@ class StrainAnalysisProcessor(Processor):
         linkdims(nxdata)
 
         # Collect the raw MCA data
-        mca_data = strain_analysis_config.mca_data(sum_fly_axes=True)
+        mca_data = strain_analysis_config.mca_data()
         if mca_data.ndim == 2:
             mca_data_summed = mca_data
         else:
             mca_data_summed = np.sum(
                 mca_data, axis=tuple(np.arange(1, mca_data.ndim-1)))
         effective_map_shape = mca_data.shape[1:-1]
+        self.logger.debug(f'mca_data.shape: {mca_data.shape}')
+        self.logger.debug(f'mca_data_summed.shape: {mca_data_summed.shape}')
+        self.logger.debug(f'effective_map_shape: {effective_map_shape}')
 
         # Loop over the detectors to perform the strain analysis
         for i, detector in enumerate(strain_analysis_config.detectors):
@@ -1641,6 +1655,10 @@ class StrainAnalysisProcessor(Processor):
                 * np.linspace(0, detector.max_energy_kev, detector.num_bins)
                 + detector.intercept_calibrated)
 
+            # Blank out data below 25 keV as well as the last bin
+            energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
+            energy_mask[-1] = 0
+
             # Interactively adjust the material properties based on the
             # first detector calibration information and/or save figure
             # ASK: extend to multiple detectors?
@@ -1655,7 +1673,7 @@ class StrainAnalysisProcessor(Processor):
                 else:
                     filename = None
                 strain_analysis_config.materials = select_material_params(
-                    mca_bin_energies, mca_data_summed[i],
+                    mca_bin_energies, mca_data_summed[i]*energy_mask,
                     tth, materials=strain_analysis_config.materials,
                     label='Sum of all spectra in the map',
                     interactive=interactive, filename=filename)
@@ -1683,10 +1701,10 @@ class StrainAnalysisProcessor(Processor):
                 filename = None
             include_bin_ranges, hkl_indices = \
                 select_mask_and_hkls(
-                    mca_bin_energies, mca_data_summed[i],
+                    mca_bin_energies, mca_data_summed[i]*energy_mask,
                     hkls, ds, detector.tth_calibrated,
                     detector.include_bin_ranges, detector.hkl_indices,
-                    detector.detector_name, mca_data[i],
+                    detector.detector_name, mca_data[i]*energy_mask,
                     #calibration_mask=calibration_mask,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of all spectra in the map',
@@ -1743,20 +1761,15 @@ class StrainAnalysisProcessor(Processor):
             # Gather detector data
             self.logger.debug(
                 f'Gathering detector data for {detector.detector_name}')
-#            print(f'\n\nmca_data.shape: {mca_data.shape}')
-#            print(f'\neffective_map_shape: {effective_map_shape}\n')
-            for j, map_index in enumerate(np.ndindex(effective_map_shape)):
-#                print(f'\tj = {j} map_index = {map_index}')
+            for map_index in np.ndindex(effective_map_shape):
                 det_nxdata.intensity[map_index] = \
-                    mca_data[i][j].astype('uint16')[mask]
+                    mca_data[i][map_index].astype('uint16')[mask]
             det_nxdata.summed_intensity = det_nxdata.intensity.sum(axis=-1)
 
             # Perform strain analysis
             self.logger.debug(
                 f'Beginning strain analysis for {detector.detector_name}')
-#        return nxroot
 
-#        for i, detector in enumerate(strain_analysis_config.detectors):
             # Get the HKLs and lattice spacings that will be used for
             # fitting
             fit_hkls = np.asarray([hkls[i] for i in detector.hkl_indices])
@@ -1850,7 +1863,7 @@ class StrainAnalysisProcessor(Processor):
                         os.mkdir(path)
 
                 def animate(i):
-                    map_index = np.unravel_index(i, map_config.shape)
+                    map_index = np.unravel_index(i, effective_map_shape)
                     intensity.set_ydata(
                         det_nxdata.intensity.nxdata[map_index]
                         / det_nxdata.intensity.nxdata[map_index].max())
@@ -1867,7 +1880,8 @@ class StrainAnalysisProcessor(Processor):
                     return intensity, best_fit, index
 
                 fig, ax = plt.subplots()
-                map_index = np.unravel_index(0, map_config.shape)
+                effective_map_shape
+                map_index = np.unravel_index(0, effective_map_shape)
                 data_normalized = (
                     det_nxdata.intensity.nxdata[map_index]
                     / det_nxdata.intensity.nxdata[map_index].max())
@@ -1930,7 +1944,8 @@ class StrainAnalysisProcessor(Processor):
                     ani.save(path)
                 plt.close()
 
-            tth_map = detector.get_tth_map(map_config)
+            tth_map = detector.get_tth_map(
+                map_config, strain_analysis_config.sum_fly_axes)
             det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])

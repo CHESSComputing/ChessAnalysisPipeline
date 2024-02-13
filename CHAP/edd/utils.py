@@ -595,6 +595,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
+    def get_mask():
+        """Return a boolean array that acts as the mask corresponding
+        to the currently-selected index ranges"""
+        mask = np.full(x.shape[0], False)
+        for span in spans:
+            _min, _max = span.extents
+            mask = np.logical_or(
+                mask, np.logical_and(x >= _min, x <= _max))
+        return mask
+
     def hkl_locations_in_any_span(hkl_index):
         """Return the index of the span where the location of a specific
         HKL resides. Return(-1 if outside any span."""
@@ -605,6 +615,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     span.extents[1] >= hkl_locations[hkl_index]):
                 return i
         return -1
+
+    def position_cax():
+        """Reposition the colorbar axes according to the axes of the
+        reference map"""
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
 
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
@@ -646,46 +662,34 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     hkl_vlines[hkl_index].set(**included_hkl_props)
                 selected_hkl_indices.append(hkl_index)
                 added_hkls = True
-        if not interactive and filename is None:
-            return
-        if combined_spans:
-            if added_hkls or removed_hkls:
+        if interactive or filename is not None:
+            if combined_spans:
+                if added_hkls or removed_hkls:
+                    change_error_text(
+                        'Combined overlapping spans and selected only HKL(s) '
+                        'inside the selected energy mask')
+                else:
+                    change_error_text('Combined overlapping spans in the '
+                                      'selected energy mask')
+            elif added_hkls and removed_hkls:
                 change_error_text(
-                    'Combined overlapping spans and selected only HKL(s) '
-                    'inside the selected energy mask')
-            else:
+                    'Adjusted the selected HKL(s) to match the selected '
+                    'energy mask')
+            elif added_hkls:
                 change_error_text(
-                    'Combined overlapping spans in the selected energy mask')
-        elif added_hkls and removed_hkls:
-            change_error_text(
-                'Adjusted the selected HKL(s) to match the selected '
-                'energy mask')
-        elif added_hkls:
-            change_error_text(
-                'Added HKL(s) to match the selected energy mask')
-        elif removed_hkls:
-            change_error_text(
-                'Removed HKL(s) outside the selected energy mask')
+                    'Added HKL(s) to match the selected energy mask')
+            elif removed_hkls:
+                change_error_text(
+                    'Removed HKL(s) outside the selected energy mask')
         # If using ref_map, update the colorbar range to min / max of
         # the selected data only
         if ref_map is not None:
             selected_data = ref_map[:,get_mask()]
-            _min, _max = np.argmin(selected_data), np.argmax(selected_data)
             ref_map_mappable = ax_map.pcolormesh(
-                x, np.arange(ref_map.shape[0]), ref_map, vmin=_min, vmax=_max)
+                x, np.arange(ref_map.shape[0]), ref_map,
+                vmin=selected_data.min(), vmax=selected_data.max())
             fig.colorbar(ref_map_mappable, cax=cax)
         plt.draw()
-
-    def get_mask():
-        """Return a boolean array that acts as the mask corresponding
-        to the currently-selected index ranges"""
-        mask = np.full(x.shape[0], False)
-        bin_indices = np.arange(x.shape[0])
-        for span in spans:
-            _min, _max = span.extents
-            mask = np.logical_or(
-                mask, np.logical_and(bin_indices >= _min, bin_indices <= _max))
-        return mask
 
     def add_span(event, xrange_init=None):
         """Callback function for the "Add span" button."""
@@ -716,17 +720,19 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 hkl_vline.set(**excluded_hkl_props)
                 selected_hkl_indices.remove(hkl_index)
                 span = spans[hkl_locations_in_any_span(hkl_index)]
-                span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
                 span_prev_hkl_index = hkl_locations_in_any_span(hkl_index-1)
-                if span_next_hkl_index < 0 and span_prev_hkl_index < 0:
+                span_curr_hkl_index = hkl_locations_in_any_span(hkl_index)
+                span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
+                if (span_curr_hkl_index != span_prev_hkl_index
+                        and span_curr_hkl_index != span_next_hkl_index):
                     span.set_visible(False)
                     spans.remove(span)
-                elif span_next_hkl_index < 0:
+                elif span_curr_hkl_index != span_next_hkl_index:
                     span.extents = (
                         span.extents[0],
                         0.5*(hkl_locations[hkl_index-1]
                              + hkl_locations[hkl_index]))
-                elif span_prev_hkl_index < 0:
+                elif span_curr_hkl_index != span_prev_hkl_index:
                     span.extents = (
                         0.5*(hkl_locations[hkl_index]
                              + hkl_locations[hkl_index+1]),
@@ -749,12 +755,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     f'Selected HKL is outside any current span, '
                     'extend or add spans before adding this value')
             plt.draw()
-
-    def position_cax():
-        """Reposition the colorbar axes according to the axes of the
-        reference map"""
-        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
-        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
 
     def reset(event):
         """Callback function for the "Confirm" button."""
@@ -787,6 +787,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     hkl_vlines = []
     fig_title = []
     error_texts = []
+
+    if ref_map is not None and ref_map.ndim == 1:
+        ref_map = None
 
     # Make preselected_bin_ranges consistent with selected_hkl_indices 
     hkl_locations = [loc for loc in get_peak_locations(ds, tth)
@@ -843,7 +846,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
         else:
-            # Ensure ref_map is 2D
             if ref_map.ndim > 2:
                 ref_map = np.reshape(
                     ref_map, (np.prod(ref_map.shape[:-1]), ref_map.shape[-1]))
@@ -1019,8 +1021,8 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         fwhm_min=fit_params.fwhm_min,
         fwhm_max=fit_params.fwhm_max,
         centers_range=centers_range)
-    # RV FIX fit.fit(num_proc=fit_params.num_proc)
-    fit.fit(num_proc=1, plot=True)
+    fit.fit(num_proc=fit_params.num_proc)
+#RV    fit.fit(num_proc=1, plot=True)
     uniform_fit_centers = [
         fit.best_values[
             fit.best_parameters().index(f'peak{i+1}_center')]
@@ -1052,9 +1054,9 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
 
     # Perform unconstrained fit
     fit.create_multipeak_model(fit_type='unconstrained')
-    #RV FIX fit.fit(num_proc=fit_params.num_proc,
-    #        rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
-    fit.fit(num_proc=1, plot=True)
+    fit.fit(num_proc=fit_params.num_proc,
+            rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+#RV    fit.fit(num_proc=1, plot=True)
     unconstrained_fit_centers = np.array(
         [fit.best_values[
             fit.best_parameters()\

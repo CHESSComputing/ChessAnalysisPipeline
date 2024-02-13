@@ -760,7 +760,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
                            f'for scans of type {self.spec_macro}')
 
-    def get_spec_scan_motor_vals(self):
+    def get_spec_scan_motor_vals(self, relative=False):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh'):
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
@@ -782,6 +782,11 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
+            if relative:
+                fast_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[0]])
+                slow_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[1]])
             # if self.spec_macro == 'flydmesh':
             #     fast_mot_vals += self.get_positioner_value(
             #         self.spec_scan_motor_mnes[0])
