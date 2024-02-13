@@ -671,10 +671,11 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
             self.detector_data_path, detector_files[scan_step_index])
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
+        import fabio
         image_file = self.get_detector_data_file(detector_prefix,
                                                  scan_step_index)
-        with TiffFile(image_file) as tiff_file:
-            image_data = tiff_file.asarray()
+        with fabio.open(image_file) as det_file:
+            image_data = det_file.data
         return image_data
 
 
