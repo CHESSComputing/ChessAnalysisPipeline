@@ -671,6 +671,8 @@ class MCACeriaCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
+        self.logger.debug(f'In process: save_figures = {save_figures}; interactive = {interactive}')
+
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
                 calibration_config, detector, recalibrate_energy,
@@ -963,7 +965,7 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'ceria_calibration_fits.png')
+                figfile = os.path.join(outputdir, f'ceria_calibration_fits_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
