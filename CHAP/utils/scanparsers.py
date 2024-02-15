@@ -453,13 +453,17 @@ class LinearScanParser(ScanParser):
         """
         raise NotImplementedError
 
-    def get_spec_scan_motor_vals(self):
+    def get_spec_scan_motor_vals(self, relative=False):
         """Return the values visited by each of the scanned motors. If
         there is more than one motor scanned (in a "flymesh" scan, for
         example), the order of motor values in the returned tuple will
         go from the fastest moving motor's values first to the slowest
         moving motor's values last.
 
+        :param relative: If `True`, return scanned motor positions
+            *relative* to the scanned motors' positions before the scan
+            started, defaults to False.
+        :type relative: bool, optional
         :rtype: tuple
         """
         raise NotImplementedError
@@ -561,7 +565,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
                            f'for scans of type {self.spec_macro}')
 
-    def get_spec_scan_motor_vals(self):
+    def get_spec_scan_motor_vals(self, relative=False):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
@@ -583,19 +587,19 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
-            # if self.spec_macro in ('flydmesh', 'dmesh'):
-            #     fast_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
-            #     slow_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[1])
+            if relative:
+                fast_mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
+                slow_mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[1])
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
-            # if self.spec_macro == 'flydscan':
-            #     mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
+            if relative:
+                mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return self.spec_scan.data[:,0]
@@ -787,19 +791,14 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                     self.spec_scan_motor_mnes[0]])
                 slow_mot_vals -= float(self.spec_positioner_values[
                     self.spec_scan_motor_mnes[1]])
-            # if self.spec_macro == 'flydmesh':
-            #     fast_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
-            #     slow_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[1])
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
-            # if self.spec_macro == 'flydscan':
-            #     mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
+            if relative:
+                mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return (self.spec_scan.data[:,0],)
