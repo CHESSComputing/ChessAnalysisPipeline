@@ -415,6 +415,7 @@ class LinearScanParser(ScanParser):
 
         self._spec_scan_motor_mnes = None
         self._spec_scan_motor_vals = None
+        self._spec_scan_motor_vals_relative = None
         self._spec_scan_shape = None
         self._spec_scan_dwell = None
 
@@ -427,8 +428,16 @@ class LinearScanParser(ScanParser):
     @property
     def spec_scan_motor_vals(self):
         if self._spec_scan_motor_vals is None:
-            self._spec_scan_motor_vals = self.get_spec_scan_motor_vals()
+            self._spec_scan_motor_vals = self.get_spec_scan_motor_vals(
+                relative=False)
         return self._spec_scan_motor_vals
+
+    @property
+    def spec_scan_motor_vals(self):
+        if self._spec_scan_motor_vals_relative is None:
+            self._spec_scan_motor_vals_relative = \
+                self.get_spec_scan_motor_vals(relative=True)
+        return self._spec_scan_motor_vals_relative
 
     @property
     def spec_scan_shape(self):
