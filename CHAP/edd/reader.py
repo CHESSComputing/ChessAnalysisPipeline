@@ -88,7 +88,7 @@ class EddMapReader(Reader):
             add_fly_axis(0)
             if scan_type in (2, 3, 5):
                 add_fly_axis(1)
-            if scan_type in (4, 5):
+            if scan_type == 5:
                 scalar_data.append(dict(
                     label='bin_axis', units='n/a', data_type='smb_par',
                     name='bin_axis'))
