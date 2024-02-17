@@ -447,8 +447,8 @@ def index_nearest_down(a, value):
     return index
 
 
-def index_nearest_upp(a, value):
-    """Return index of nearest array value, rounded upp."""
+def index_nearest_up(a, value):
+    """Return index of nearest array value, rounded up."""
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -477,14 +477,14 @@ def get_consecutive_int_range(a):
 
 
 def round_to_n(x, n=1):
-    """Round to a specific number of decimals."""
+    """Round to a specific number of sig figs ."""
     if x == 0.0:
         return 0
     return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
 
 
 def round_up_to_n(x, n=1):
-    """Round up to a specific number of decimals."""
+    """Round up to a specific number of sig figs."""
     x_round = round_to_n(x, n)
     if abs(x/x_round) > 1.0:
         x_round += np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
@@ -492,7 +492,7 @@ def round_up_to_n(x, n=1):
 
 
 def trunc_to_n(x, n=1):
-    """Truncate to a specific number of decimals."""
+    """Truncate to a specific number of sig figs."""
     x_round = round_to_n(x, n)
     if abs(x_round/x) > 1.0:
         x_round -= np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
@@ -510,7 +510,9 @@ def almost_equal(a, b, sig_figs):
         f'b: {b}, {type(b)})')
 
 
-def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
+def string_to_list(
+        s, split_on_dash=True, remove_duplicates=True, sort=True,
+        raise_error=False):
     """
     Return a list of numbers by splitting/expanding a string on any
     combination of commas, whitespaces, or dashes (when
@@ -524,8 +526,11 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
         return []
     try:
         list1 = re_split(r'\s+,\s+|\s+,|,\s+|\s+|,', s.strip())
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return None
+    except (ValueError, TypeError, SyntaxError, MemoryError,
+            RecursionError) as e:
+        if not raise_error:
+            return None
+        raise e
     if split_on_dash:
         try:
             l_of_i = []
@@ -540,8 +545,10 @@ def string_to_list(s, split_on_dash=True, remove_duplicates=True, sort=True):
                 else:
                     raise ValueError
         except (ValueError, TypeError, SyntaxError, MemoryError,
-                RecursionError):
-            return None
+                RecursionError) as e:
+            if not raise_error:
+                return None
+            raise e
     else:
         l_of_i = [literal_eval(x) for x in list1]
     if remove_duplicates:
@@ -902,11 +909,154 @@ def file_exists_and_readable(f):
     return f
 
 
+def rolling_average(
+        y, x=None, dtype=None, start=0, end=None, width=None,
+        stride=None, num=None, average=True, mode='valid',
+        use_convolve=None):
+    """
+    Returns the rolling sum or average of an array over the last
+    dimension.
+    """
+    y = np.asarray(y)
+    y_shape = y.shape
+    if y.ndim == 1:
+        y = np.expand_dims(y, 0)
+    else:
+        y = y.reshape((np.prod(y.shape[0:-1]), y.shape[-1]))
+    if x is not None:
+        x = np.asarray(x)
+        if x.ndim != 1:
+            raise ValueError('Parameter "x" must be a 1D array-like')
+        if x.size != y.shape[1]:
+            raise ValueError(f'Dimensions of "x" and "y[1]" do not '
+                             f'match ({x.size} vs {y.shape[1]})')
+    if dtype is None:
+        if average:
+            dtype = y.dtype
+        else:
+            dtype = np.float32
+    if width is None and stride is None and num is None:
+        raise ValueError('Invalid input parameters, specify at least one of '
+                         '"width", "stride" or "num"')
+    if width is not None and not is_int(width, ge=1):
+        raise ValueError(f'Invalid "width" parameter ({width})')
+    if stride is not None and not is_int(stride, ge=1):
+        raise ValueError(f'Invalid "stride" parameter ({stride})')
+    if num is not None and not is_int(num, ge=1):
+        raise ValueError(f'Invalid "num" parameter ({num})')
+    if not isinstance(average, bool):
+        raise ValueError(f'Invalid "average" parameter ({average})')
+    if mode not in ('valid', 'full'):
+        raise ValueError(f'Invalid "mode" parameter ({mode})')
+    size = y.shape[1]
+    if size < 2:
+        raise ValueError(f'Invalid y[1] dimension ({size})')
+    if not is_int(start, ge=0, lt=size):
+        raise ValueError(f'Invalid "start" parameter ({start})')
+    if end is None:
+        end = size
+    elif not is_int(end, gt=start, le=size):
+        raise ValueError(f'Invalid "end" parameter ({end})')
+    if use_convolve is None:
+        if len(y_shape) ==1:
+            use_convolve = True
+        else:
+            use_convolve = False
+    if use_convolve and (start or end < size):
+        y = np.take(y, range(start, end), axis=1)
+        if x is not None:
+            x = x[start:end]
+        size = y.shape[1]
+    else:
+        size = end-start
+
+    if stride is None:
+        if width is None:
+            width = max(1, int(size/num))
+            stride = width
+        else:
+            width = min(width, size)
+            if num is None:
+                stride = width
+            else:
+                stride = max(1, int((size-width) / (num-1)))
+    else:
+        stride = min(stride, size-stride)
+        if width is None:
+            width = stride
+
+    if mode == 'valid':
+        num = 1 + max(0, int((size-width) / stride))
+    else:
+        num = int(size/stride)
+        if num*stride < size:
+            num += 1
+
+    if use_convolve:
+        n_start = 0
+        n_end = width
+        weight = np.empty((num))
+        for n in range(num):
+            n_num = n_end-n_start
+            weight[n] = n_num
+            n_start += stride
+            n_end = min(size, n_end+stride)
+
+        window = np.ones((width))
+        if x is not None:
+            if mode == 'valid':
+                rx = np.convolve(x, window)[width-1:1-width:stride]
+            else:
+                rx = np.convolve(x, window)[width-1::stride]
+            rx /= weight
+
+        ry = []
+        if mode == 'valid':
+            for i in range(y.shape[0]):
+                ry.append(np.convolve(y[i], window)[width-1:1-width:stride])
+        else:
+            for i in range(y.shape[0]):
+                ry.append(np.convolve(y[i], window)[width-1::stride])
+        ry = np.reshape(ry, (*y_shape[0:-1], num))
+        if len(y_shape) == 1:
+            ry = np.squeeze(ry)
+        if average:
+            ry = (np.asarray(ry).astype(np.float32)/weight).astype(dtype)
+        elif mode != 'valid':
+            weight = np.where(weight < width, width/weight, 1.0)
+            ry = (np.asarray(ry).astype(np.float32)*weight).astype(dtype)
+    else:
+        ry = np.zeros((num, y.shape[0]), dtype=y.dtype)
+        if x is not None:
+            rx = np.zeros(num, dtype=x.dtype)
+        n_start = start
+        n_end = n_start+width
+        for n in range(num):
+            y_sum = np.sum(y[:,n_start:n_end], 1)
+            n_num = n_end-n_start
+            if n_num < width:
+                y_sum *= width/n_num
+            ry[n] = y_sum
+            if x is not None:
+                rx[n] = np.sum(x[n_start:n_end])/n_num
+            n_start += stride
+            n_end = min(start+size, n_end+stride)
+        ry = np.reshape(ry.T, (*y_shape[0:-1], num))
+        if len(y_shape) == 1:
+            ry = np.squeeze(ry)
+        if average:
+            ry = (ry.astype(np.float32)/width).astype(dtype)
+
+    if x is None:
+        return ry
+    return ry, rx
+
+
 def select_mask_1d(
         y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
         preselected_mask=None, title=None, xlabel=None, ylabel=None,
         min_num_index_ranges=None, max_num_index_ranges=None,
-        interactive=True):
+        interactive=True, filename=None):
     """Display a lineplot and have the user select a mask.
 
     :param y: One-dimensional data array for which a mask will be
@@ -945,18 +1095,21 @@ def select_mask_1d(
         ranges, defaults to `None`.
     :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defults to `True`.
+        the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :return: A Matplotlib figure, a boolean mask array and the list of
-        selected index ranges.
-    :rtype: matplotlib.figure.Figure, numpy.ndarray,
-        list[tuple(int, int)]
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: A boolean mask array and the list of selected index
+        ranges.
+    :rtype: numpy.ndarray, list[tuple(int, int)]
     """
     # Third party modules
-    from matplotlib.patches import Patch
-    from matplotlib.widgets import Button, SpanSelector
+    if interactive or filename is not None:
+        from matplotlib.patches import Patch
+        from matplotlib.widgets import Button, SpanSelector
 
-    # local modules
+    # Local modules
     from CHAP.utils.general import index_nearest
 
     def change_fig_title(title):
@@ -1111,10 +1264,25 @@ def select_mask_1d(
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
 
+    # Setup the preselected mask and index ranges if provided
+    if preselected_mask is not None:
+        preselected_index_ranges = update_index_ranges(
+            update_mask(
+                np.copy(np.asarray(preselected_mask, dtype=bool)),
+                preselected_index_ranges))
+
+    if not interactive and filename is None:
+
+        # Update the mask with the preselected index ranges
+        selected_mask = update_mask(len(x)*[False], preselected_index_ranges)
+
+        return selected_mask, preselected_index_ranges
+
     spans = []
     fig_title = []
     error_texts = []
 
+    # Setup the Matplotlib figure
     title_pos = (0.5, 0.95)
     title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
                    'verticalalignment': 'bottom'}
@@ -1138,12 +1306,7 @@ def select_mask_1d(
     ax.set_xlim(x[0], x[-1])
     fig.subplots_adjust(bottom=0.0, top=0.85)
 
-    # Setup the preselected mask and index ranges if provided
-    if preselected_mask is not None:
-        preselected_index_ranges = update_index_ranges(
-            update_mask(
-                np.copy(np.asarray(preselected_mask, dtype=bool)),
-                preselected_index_ranges))
+    # Add the preselected index ranges
     for min_, max_ in preselected_index_ranges:
         add_span(None, xrange_init=(x[min_], x[min(max_, num_data-1)]))
 
@@ -1158,7 +1321,8 @@ def select_mask_1d(
         fig.subplots_adjust(bottom=0.2)
 
         # Setup "Add span" button
-        add_span_btn = Button(plt.axes([0.15, 0.05, 0.15, 0.075]), 'Add span')
+        add_span_btn = Button(
+            plt.axes([0.15, 0.05, 0.15, 0.075]), 'Add span')
         add_span_cid = add_span_btn.on_clicked(add_span)
 
         # Setup "Reset" button
@@ -1188,15 +1352,18 @@ def select_mask_1d(
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
-    fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    if filename is not None:
+        fig_title[0].set_in_layout(True)
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
+        fig.savefig(filename)
+    plt.close()
 
-    return fig, selected_mask, selected_index_ranges
+    return selected_mask, selected_index_ranges
 
 
 def select_roi_1d(
         y, x=None, preselected_roi=None, title=None, xlabel=None, ylabel=None,
-        interactive=True):
+        interactive=True, filename=None):
     """Display a 2D plot and have the user select a single region
     of interest.
 
@@ -1217,8 +1384,11 @@ def select_roi_1d(
         defaults to `None`.
     :type ylabel: str, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defults to `True`.
+        the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
     :return: The selected region of interest as array indices and a
         matplotlib figure.
     :rtype: matplotlib.figure.Figure, tuple(int, int)
@@ -1233,16 +1403,17 @@ def select_roi_1d(
                              f'({preselected_roi})')
         preselected_roi = [preselected_roi]
 
-    fig, mask, roi = select_mask_1d(
+    mask, roi = select_mask_1d(
         y, x=x, preselected_index_ranges=preselected_roi, title=title,
         xlabel=xlabel, ylabel=ylabel, min_num_index_ranges=1,
-        max_num_index_ranges=1, interactive=interactive)
+        max_num_index_ranges=1, interactive=interactive, filename=filename)
 
-    return fig, tuple(roi[0])
+    return tuple(roi[0])
 
 def select_roi_2d(
         a, preselected_roi=None, title=None, title_a=None,
-        row_label='row index', column_label='column index', interactive=True):
+        row_label='row index', column_label='column index', interactive=True,
+        filename=None):
     """Display a 2D image and have the user select a single rectangular
        region of interest.
 
@@ -1265,9 +1436,11 @@ def select_roi_2d(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :return: The selected region of interest as array indices and a
-        matplotlib figure.
-    :rtype: matplotlib.figure.Figure, tuple(int, int, int, int)
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: The selected region of interest as array indices.
+    :rtype: tuple(int, int, int, int)
     """
     # Third party modules
     from matplotlib.widgets import Button, RectangleSelector
@@ -1330,6 +1503,7 @@ def select_roi_2d(
     fig_title = []
     subfig_title = []
 
+    raise RuntimeError('Needs testing with new filename parameter')
     # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
@@ -1413,7 +1587,7 @@ def select_roi_2d(
     if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
         roi = None
 
-    return fig, roi
+    return roi
 
 
 def select_image_indices(

@@ -415,6 +415,7 @@ class LinearScanParser(ScanParser):
 
         self._spec_scan_motor_mnes = None
         self._spec_scan_motor_vals = None
+        self._spec_scan_motor_vals_relative = None
         self._spec_scan_shape = None
         self._spec_scan_dwell = None
 
@@ -427,8 +428,16 @@ class LinearScanParser(ScanParser):
     @property
     def spec_scan_motor_vals(self):
         if self._spec_scan_motor_vals is None:
-            self._spec_scan_motor_vals = self.get_spec_scan_motor_vals()
+            self._spec_scan_motor_vals = self.get_spec_scan_motor_vals(
+                relative=False)
         return self._spec_scan_motor_vals
+
+    @property
+    def spec_scan_motor_vals(self):
+        if self._spec_scan_motor_vals_relative is None:
+            self._spec_scan_motor_vals_relative = \
+                self.get_spec_scan_motor_vals(relative=True)
+        return self._spec_scan_motor_vals_relative
 
     @property
     def spec_scan_shape(self):
@@ -453,13 +462,17 @@ class LinearScanParser(ScanParser):
         """
         raise NotImplementedError
 
-    def get_spec_scan_motor_vals(self):
+    def get_spec_scan_motor_vals(self, relative=False):
         """Return the values visited by each of the scanned motors. If
         there is more than one motor scanned (in a "flymesh" scan, for
         example), the order of motor values in the returned tuple will
         go from the fastest moving motor's values first to the slowest
         moving motor's values last.
 
+        :param relative: If `True`, return scanned motor positions
+            *relative* to the scanned motors' positions before the scan
+            started, defaults to False.
+        :type relative: bool, optional
         :rtype: tuple
         """
         raise NotImplementedError
@@ -554,14 +567,14 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                 m2_mne_i = 5
             m2_mne = self.spec_args[m2_mne_i]
             return (m1_mne, m2_mne)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             return (self.spec_args[0],)
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
                            f'for scans of type {self.spec_macro}')
 
-    def get_spec_scan_motor_vals(self):
+    def get_spec_scan_motor_vals(self, relative=False):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
@@ -583,19 +596,19 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
-            # if self.spec_macro in ('flydmesh', 'dmesh'):
-            #     fast_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
-            #     slow_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[1])
+            if relative:
+                fast_mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
+                slow_mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[1])
             return (fast_mot_vals, slow_mot_vals)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
-            # if self.spec_macro == 'flydscan':
-            #     mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
+            if relative:
+                mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return self.spec_scan.data[:,0]
@@ -615,7 +628,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                 m2_nint_i = 8
             slow_mot_npts = int(self.spec_args[m2_nint_i]) + 1
             return (fast_mot_npts, slow_mot_npts)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_npts = int(self.spec_args[3])+1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
@@ -632,7 +645,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                 # Accommodate pre-summer-2022 format
                 dwell = float(self.spec_args[8])
             return dwell
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             return float(self.spec_args[4])
         if self.spec_macro in ('tseries', 'loopscan'):
             return float(self.spec_args[1])
@@ -723,7 +736,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
     """
 
     def get_spec_scan_dwell(self):
-        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh'):
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -731,7 +744,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                 # Accommodate pre-summer-2022 format
                 dwell = float(self.spec_args[8])
             return dwell
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             return float(self.spec_args[4])
         if self.spec_macro == 'tseries':
             return float(self.spec_args[1])
@@ -741,7 +754,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_motor_mnes(self):
-        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh'):
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_mne = self.spec_args[0]
             try:
                 # Try post-summer-2022 format
@@ -753,15 +766,15 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                 m2_mne_i = 5
             m2_mne = self.spec_args[m2_mne_i]
             return (m1_mne, m2_mne)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             return (self.spec_args[0],)
         if self.spec_macro in ('tseries', 'loopscan'):
             return ('Time',)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
                            f'for scans of type {self.spec_macro}')
 
-    def get_spec_scan_motor_vals(self):
-        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh'):
+    def get_spec_scan_motor_vals(self, relative=False):
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
             m1_npt = int(self.spec_args[3]) + 1
@@ -782,19 +795,19 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
-            # if self.spec_macro == 'flydmesh':
-            #     fast_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
-            #     slow_mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[1])
+            if relative:
+                fast_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[0]])
+                slow_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[1]])
             return (fast_mot_vals, slow_mot_vals)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
-            # if self.spec_macro == 'flydscan':
-            #     mot_vals += self.get_positioner_value(
-            #         self.spec_scan_motor_mnes[0])
+            if relative:
+                mot_vals += self.get_positioner_value(
+                    self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return (self.spec_scan.data[:,0],)
@@ -802,7 +815,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                            f'for scans of type {self.spec_macro}')
 
     def get_spec_scan_shape(self):
-        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh'):
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             fast_mot_npts = int(self.spec_args[3]) + 1
             try:
                 # Try post-summer-2022 format
@@ -814,7 +827,7 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
                 m2_nint_i = 8
             slow_mot_npts = int(self.spec_args[m2_nint_i]) + 1
             return (fast_mot_npts, slow_mot_npts)
-        if self.spec_macro in ('flyscan', 'ascan', 'flydscan'):
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_npts = int(self.spec_args[3])+1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):

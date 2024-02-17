@@ -2859,11 +2859,16 @@ class Tomo:
         tomosum = 0
         for i in range(num_tomo_stacks):
             tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=0)
-        fig, roi = select_roi_2d(
+        if self._save_figs:
+            filename = os_path.join(
+                self._outputdir, 'reconstructed_data_xy_roi.png')
+        else:
+            filename = None
+        roi = select_roi_2d(
             tomosum, preselected_roi=preselected_roi,
             title_a='Reconstructed data summed over z',
             row_label='y', column_label='x',
-            interactive=self._interactive)
+            interactive=self._interactive, filename=filename)
         if roi is None:
             x_bounds = (0, tomo_recon_stacks[0].shape[2])
             y_bounds = (0, tomo_recon_stacks[0].shape[1])
@@ -2872,12 +2877,6 @@ class Tomo:
             y_bounds = (int(roi[2]), int(roi[3]))
         self._logger.debug(f'x_bounds = {x_bounds}')
         self._logger.debug(f'y_bounds = {y_bounds}')
-        # Plot results
-        if self._save_figs:
-            fig.savefig(
-                os_path.join(
-                    self._outputdir, 'reconstructed_data_xy_roi.png'))
-        plt.close()
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack or when combining a stack)
@@ -2899,17 +2898,16 @@ class Tomo:
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
-            fig, z_bounds = select_roi_1d(
+            if self._save_figs:
+                filename = os_path.join(
+                    self._outputdir, 'reconstructed_data_z_roi.png')
+            else:
+                filename = None
+            z_bounds = select_roi_1d(
                 tomosum, preselected_roi=z_bounds,
                 xlabel='z', ylabel='Reconstructed data summed over x and y',
-                interactive=self._interactive)
+                interactive=self._interactive, filename=filename)
             self._logger.debug(f'z_bounds = {z_bounds}')
-            # Plot results
-            if self._save_figs:
-                fig.savefig(
-                    os_path.join(
-                        self._outputdir, 'reconstructed_data_z_roi.png'))
-            plt.close()
 
         return x_bounds, y_bounds, z_bounds
 
