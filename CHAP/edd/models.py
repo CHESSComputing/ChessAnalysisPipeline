@@ -762,29 +762,21 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             setattr(self, field, getattr(calibration, field))
         self.calibration_bin_ranges = calibration.include_bin_ranges
 
-    def get_tth_map(self, map_config, sum_fly_axes=False):
-        """Return a map of 2&theta values to use -- may vary at each
+    def get_tth_map(self, map_shape):
+        """Return the map of 2&theta values to use -- may vary at each
         point in the map.
 
-        :param map_config: The map configuration with which the
-            returned map of 2&theta values will be used.
-        :type map_config: CHAP.common.models.map.MapConfig
+        :param map_shape: The shape of the suplied 2&theta map.
         :return: Map of 2&theta values.
         :rtype: np.ndarray
         """
         if getattr(self, 'tth_map', None) is not None:
-            raise ValueError('Need to validate the shape')
+            if self.tth_map.shape != map_shape:
+                raise ValueError(
+                    'Invalid "tth_map" field shape '
+                    f'{self.tth_map.shape} (expected {map_shape})')
             return self.tth_map
-        if not isinstance(sum_fly_axes, bool):
-            raise ValueError(
-                f'Invalid sum_fly_axes parameter ({sum_fly_axes})')
-        if not sum_fly_axes:
-            return np.full(map_config.shape, self.tth_calibrated)
-        map_shape = map_config.shape
-        fly_axis_labels = map_config.attrs.get('fly_axis_labels')
-        tth_shape = [map_shape[i] for i, dim in enumerate(map_config.dims)
-                     if dim not in fly_axis_labels]
-        return np.full(tth_shape, self.tth_calibrated)
+        return np.full(map_shape, self.tth_calibrated)
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -842,6 +834,7 @@ class StrainAnalysisConfig(BaseModel):
     materials: list[MaterialConfig]
     flux_file: FilePath
     sum_fly_axes: Optional[StrictBool]
+    oversampling: Optional[dict] = {'num': 10}
 
     _parfile: Optional[ParFile]
 
@@ -936,6 +929,43 @@ class StrainAnalysisConfig(BaseModel):
                     value = True
         return value
 
+    @validator('oversampling', always=True)
+    def validate_oversampling(cls, value, values):
+        """Validate the oversampling field.
+
+        :param value: Field value to validate (`oversampling`).
+        :type value: bool
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :return: The validated value for oversampling.
+        :rtype: bool
+        """
+        # Local modules
+        from CHAP.utils.general import is_int
+
+        if 'start' in value and not is_int(value['start'], ge=0):
+            raise ValueError('Invalid "start" parameter in "oversampling" '
+                             f'field ({value["start"]})')
+        if 'end' in value and not is_int(value['end'], gt=0):
+            raise ValueError('Invalid "end" parameter in "oversampling" '
+                             f'field ({value["end"]})')
+        if 'width' in value and not is_int(value['width'], gt=0):
+            raise ValueError('Invalid "width" parameter in "oversampling" '
+                             f'field ({value["width"]})')
+        if 'stride' in value and not is_int(value['stride'], gt=0):
+            raise ValueError('Invalid "stride" parameter in "oversampling" '
+                             f'field ({value["stride"]})')
+        if 'num' in value and not is_int(value['num'], gt=0):
+            raise ValueError('Invalid "num" parameter in "oversampling" '
+                             f'field ({value["num"]})')
+        if 'mode' in value and 'mode' not in ('valid', 'full'):
+            raise ValueError('Invalid "mode" parameter in "oversampling" '
+                             f'field ({value["mode"]})')
+        if not ('width' in value or 'stride' in value or 'num' in value):
+            raise ValueError('Invalid input parameters, specify at least one '
+                             'of "width", "stride" or "num"')
+        return value
+
     def mca_data(self, detector=None, map_index=None):
         """Get MCA data for a single or multiple detector elements.
 
@@ -972,11 +1002,29 @@ class StrainAnalysisConfig(BaseModel):
                 mca_data = np.reshape(
                     mca_data, (*self.map_config.shape, len(mca_data[0])))
                 if self.sum_fly_axes and fly_axis_labels:
-                    sum_indices = []
-                    for axis in fly_axis_labels:
-                        sum_indices.append(self.map_config.dims.index(axis))
-                    return np.sum(mca_data, tuple(sorted(sum_indices)))
+                    scan_type = self.map_config.attrs['scan_type']
+                    if scan_type == 3:
+                        sum_indices = []
+                        for axis in fly_axis_labels:
+                            sum_indices.append(self.map_config.dims.index(axis))
+                        return np.sum(mca_data, tuple(sorted(sum_indices)))
+                    elif scan_type == 4:
+                        # Local modules
+                        from CHAP.edd.utils import get_rolling_sum_spectra
 
+                        return get_rolling_sum_spectra(
+                            mca_data,
+                            self.map_config.dims.index(fly_axis_labels[0]),
+                            self.oversampling.get('start', 0),
+                            self.oversampling.get('end'),
+                            self.oversampling.get('width'),
+                            self.oversampling.get('stride'),
+                            self.oversampling.get('num'),
+                            self.oversampling.get('mode', 'valid'))
+                    else:
+                        raise ValueError(
+                            f'scan_type {scan_type} not implemented yet '
+                            'in StrainAnalysisConfig.mca_data()')
                 else:
                     return np.asarray(mca_data)
             else:
