@@ -108,7 +108,7 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     return hkls_unique, ds_unique
 
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
-        interactive=False):
+        interactive=False, filename=None):
     """Show a matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
     initial 2&theta guess and responds by updating the HKL locations
@@ -127,13 +127,19 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
-    :param interactive: Allows for user interactions, defaults to
-        `False`.
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :return: A saveable matplotlib figure and the selected initial
-        guess for 2&theta.
-    :type: matplotlib.figure.Figure, float
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :type interactive: bool, optional
+    :return: The selected initial guess for 2&theta.
+    :type: float
     """
+    if not interactive and filename is None:
+        return tth_initial_guess
+
     # Third party modules
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, TextBox
@@ -191,13 +197,14 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     fig_title = []
     error_texts = []
 
+    assert np.asarray(hkls).shape[1] == 3
+    assert np.asarray(ds).size == np.asarray(hkls).shape[0]
+
+    # Setup the Matplotlib figure
     title_pos = (0.5, 0.95)
     title_props = {'fontsize': 'xx-large', 'ha': 'center', 'va': 'bottom'}
     error_pos = (0.5, 0.90)
     error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
-
-    assert np.asarray(hkls).shape[1] == 3
-    assert np.asarray(ds).size == np.asarray(hkls).shape[0]
 
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.plot(x, y)
@@ -244,8 +251,12 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         tth_input.ax.remove()
         confirm_btn.ax.remove()
 
-    fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    # Save the figures if requested and close
+    if filename is not None:
+        fig_title[0].set_in_layout(True)
+        fig.tight_layout(rect=(0, 0, 1, 0.95))
+        fig.savefig(filename)
+    plt.close()
 
     if not interactive:
         tth_new_guess = tth_initial_guess
@@ -253,13 +264,13 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         try:
             tth_new_guess = float(tth_input.text)
         except:
-            fig, tth_new_guess = select_tth_initial_guess(
-                x, y, hkls, ds, tth_initial_guess, interactive)
+            tth_new_guess = select_tth_initial_guess(
+                x, y, hkls, ds, tth_initial_guess, interactive, filename)
 
-    return fig, tth_new_guess
+    return tth_new_guess
 
 def select_material_params(x, y, tth, materials=[], label='Reference Data',
-                           interactive=False):
+                           interactive=False, filename=None):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -280,17 +291,19 @@ def select_material_params(x, y, tth, materials=[], label='Reference Data',
     :param label: Legend label for the 1D plot of reference MCA data
         from the parameters `x`, `y`, defaults to `"Reference Data"`
     :type label: str, optional
-    :param interactive: Allows for user interactions, defaults to
-        `False`.
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-    :return: A saveable matplotlib figure and the selected materials
-        for the strain analyses.
-    :rtype: matplotlib.figure.Figure,
-        list[CHAP.edd.models.MaterialConfig]
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: The selected materials for the strain analyses.
+    :rtype: list[CHAP.edd.models.MaterialConfig]
     """
     # Third party modules
-    import matplotlib.pyplot as plt
-    from matplotlib.widgets import Button, TextBox
+    if interactive or filename is not None:
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import Button, TextBox
 
     # Local modules
     from CHAP.edd.models import MaterialConfig
@@ -443,49 +456,57 @@ def select_material_params(x, y, tth, materials=[], label='Reference Data',
     widget_callbacks = []
     error_texts = []
 
-    error_pos = (0.5, 0.95)
-    error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
-
     _materials = deepcopy(materials)
     for i, m in enumerate(_materials):
         if isinstance(m, MaterialConfig):
             _materials[i] = m._material
 
-    # Set up plot of reference data
-    fig, ax = plt.subplots(figsize=(11, 8.5))
+    # Create the Matplotlib figure
+    if interactive or filename is not None:
+        fig, ax = plt.subplots(figsize=(11, 8.5))
 
-    if interactive:
+        if not interactive:
 
-        plt.subplots_adjust(bottom=0.1)
+            draw_plot()
 
-        # Setup "Add material" button
-        add_material_btn = Button(
-            plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
-        add_material_cid = add_material_btn.on_clicked(add_material)
-        widget_callbacks.append([(add_material_btn, add_material_cid)])
+        else:
 
-        # Setup "Confirm" button
-        confirm_btn = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
-        confirm_cid = confirm_btn.on_clicked(confirm)
-        widget_callbacks.append([(confirm_btn, confirm_cid)])
+            error_pos = (0.5, 0.95)
+            error_props = {
+                'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
 
-        # Setup material-property-editing buttons for each material
-        for material in _materials:
-            add_material(material=material)
+            plt.subplots_adjust(bottom=0.1)
 
-        # Show figure for user interaction
-        plt.show()
+            # Setup "Add material" button
+            add_material_btn = Button(
+                plt.axes([0.125, 0.015, 0.1, 0.05]), 'Add material')
+            add_material_cid = add_material_btn.on_clicked(add_material)
+            widget_callbacks.append([(add_material_btn, add_material_cid)])
 
-        # Disconnect all widget callbacks when figure is closed
-        # and remove the buttons before returning the figure
-        for group in widget_callbacks:
-            for widget, callback in group:
-                widget.disconnect(callback)
-                widget.ax.remove()
-    else:
-        draw_plot()
+            # Setup "Confirm" button
+            confirm_btn = Button(plt.axes([0.75, 0.015, 0.1, 0.05]), 'Confirm')
+            confirm_cid = confirm_btn.on_clicked(confirm)
+            widget_callbacks.append([(confirm_btn, confirm_cid)])
 
-    fig.tight_layout()
+            # Setup material-property-editing buttons for each material
+            for material in _materials:
+                add_material(material=material)
+
+            # Show figure for user interaction
+            plt.show()
+
+            # Disconnect all widget callbacks when figure is closed
+            # and remove the buttons before returning the figure
+            for group in widget_callbacks:
+                for widget, callback in group:
+                    widget.disconnect(callback)
+                    widget.ax.remove()
+
+       # Save the figures if requested and close
+        fig.tight_layout()
+        if filename is not None:
+            fig.savefig(filename)
+        plt.close()
 
     new_materials = [
         MaterialConfig(
@@ -494,12 +515,12 @@ def select_material_params(x, y, tth, materials=[], label='Reference Data',
                 m.latticeParameters[i].value for i in range(6)])
         for m in _materials]
 
-    return fig, new_materials
+    return new_materials
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         preselected_hkl_indices=[], detector_name=None, ref_map=None,
         flux_energy_range=None, calibration_bin_ranges=None,
-        label='Reference Data', interactive=False):
+        label='Reference Data', interactive=False, filename=None):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD Ceria calibration and/or strain
     analysis.
@@ -534,28 +555,32 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     :param calibration_bin_ranges: MCA channel index ranges included
         in the detector calibration.
     :type calibration_bin_ranges: list[[int, int]], optional
-    :param interactive: Allows for user interactions, defaults to
-        `False`.
-    :type interactive: bool, optional
     :param label: Legend label for the 1D plot of reference MCA data
         from the parameters `x`, `y`, defaults to `"Reference Data"`
     :type label: str, optional
-    :return: A saveable matplotlib figure, the list of selected data
-        index ranges to include, and the list of HKL indices to
-        include
-    :rtype: matplotlib.figure.Figure, list[list[int]], list[int]
+    :param interactive: Show the plot and allow user interactions with
+        the matplotlib figure, defaults to `True`.
+    :type interactive: bool, optional
+    :param filename: Save a .png of the plot to filename, defaults to
+        `None`, in which case the plot is not saved.
+    :type filename: str, optional
+    :return: The list of selected data index ranges to include, and the
+        list of HKL indices to include
+    :rtype: list[list[int]], list[int]
     """
     # Third party modules
-    import matplotlib.lines as mlines
-    from matplotlib.patches import Patch
+    if interactive or filename is not None:
+        import matplotlib.lines as mlines
+        from matplotlib.patches import Patch
+        from matplotlib.widgets import Button
     import matplotlib.pyplot as plt
-    from matplotlib.widgets import Button, SpanSelector
+    from matplotlib.widgets import SpanSelector
 
     # Local modules
     from CHAP.utils.general import (
         get_consecutive_int_range,
         index_nearest_down,
-        index_nearest_upp,
+        index_nearest_up,
     )
 
     def change_fig_title(title):
@@ -570,6 +595,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
+    def get_mask():
+        """Return a boolean array that acts as the mask corresponding
+        to the currently-selected index ranges"""
+        mask = np.full(x.shape[0], False)
+        for span in spans:
+            _min, _max = span.extents
+            mask = np.logical_or(
+                mask, np.logical_and(x >= _min, x <= _max))
+        return mask
+
     def hkl_locations_in_any_span(hkl_index):
         """Return the index of the span where the location of a specific
         HKL resides. Return(-1 if outside any span."""
@@ -581,15 +616,21 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 return i
         return -1
 
+    def position_cax():
+        """Reposition the colorbar axes according to the axes of the
+        reference map"""
+        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
+
     def on_span_select(xmin, xmax):
         """Callback function for the SpanSelector widget."""
         removed_hkls = False
-        if not init_flag[0]:
-            for hkl_index in deepcopy(selected_hkl_indices):
-                if hkl_locations_in_any_span(hkl_index) < 0:
+        for hkl_index in deepcopy(selected_hkl_indices):
+            if hkl_locations_in_any_span(hkl_index) < 0:
+                if interactive or filename is not None:
                     hkl_vlines[hkl_index].set(**excluded_hkl_props)
-                    selected_hkl_indices.remove(hkl_index)
-                    removed_hkls = True
+                selected_hkl_indices.remove(hkl_index)
+                removed_hkls = True
         combined_spans = False
         combined_spans_test = True
         while combined_spans_test:
@@ -617,47 +658,38 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         for hkl_index in range(len(hkl_locations)):
             if (hkl_index not in selected_hkl_indices
                     and hkl_locations_in_any_span(hkl_index) >= 0):
-                hkl_vlines[hkl_index].set(**included_hkl_props)
+                if interactive or filename is not None:
+                    hkl_vlines[hkl_index].set(**included_hkl_props)
                 selected_hkl_indices.append(hkl_index)
                 added_hkls = True
-        if combined_spans:
-            if added_hkls or removed_hkls:
+        if interactive or filename is not None:
+            if combined_spans:
+                if added_hkls or removed_hkls:
+                    change_error_text(
+                        'Combined overlapping spans and selected only HKL(s) '
+                        'inside the selected energy mask')
+                else:
+                    change_error_text('Combined overlapping spans in the '
+                                      'selected energy mask')
+            elif added_hkls and removed_hkls:
                 change_error_text(
-                    'Combined overlapping spans and selected only HKL(s) '
-                    'inside the selected energy mask')
-            else:
+                    'Adjusted the selected HKL(s) to match the selected '
+                    'energy mask')
+            elif added_hkls:
                 change_error_text(
-                    'Combined overlapping spans in the selected energy mask')
-        elif added_hkls and removed_hkls:
-            change_error_text(
-                'Adjusted the selected HKL(s) to match the selected '
-                'energy mask')
-        elif added_hkls:
-            change_error_text(
-                'Added HKL(s) to match the selected energy mask')
-        elif removed_hkls:
-            change_error_text(
-                'Removed HKL(s) outside the selected energy mask')
+                    'Added HKL(s) to match the selected energy mask')
+            elif removed_hkls:
+                change_error_text(
+                    'Removed HKL(s) outside the selected energy mask')
         # If using ref_map, update the colorbar range to min / max of
         # the selected data only
         if ref_map is not None:
             selected_data = ref_map[:,get_mask()]
-            _min, _max = np.argmin(selected_data), np.argmax(selected_data)
             ref_map_mappable = ax_map.pcolormesh(
-                x, np.arange(ref_map.shape[0]), ref_map, vmin=_min, vmax=_max)
+                x, np.arange(ref_map.shape[0]), ref_map,
+                vmin=selected_data.min(), vmax=selected_data.max())
             fig.colorbar(ref_map_mappable, cax=cax)
         plt.draw()
-
-    def get_mask():
-        """Return a boolean array that acts as the mask corresponding
-        to the currently-selected index ranges"""
-        mask = np.full(x.shape[0], False)
-        bin_indices = np.arange(x.shape[0])
-        for span in spans:
-            _min, _max = span.extents
-            mask = np.logical_or(
-                mask, np.logical_and(bin_indices >= _min, bin_indices <= _max))
-        return mask
 
     def add_span(event, xrange_init=None):
         """Callback function for the "Add span" button."""
@@ -688,17 +720,19 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 hkl_vline.set(**excluded_hkl_props)
                 selected_hkl_indices.remove(hkl_index)
                 span = spans[hkl_locations_in_any_span(hkl_index)]
-                span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
                 span_prev_hkl_index = hkl_locations_in_any_span(hkl_index-1)
-                if span_next_hkl_index < 0 and span_prev_hkl_index < 0:
+                span_curr_hkl_index = hkl_locations_in_any_span(hkl_index)
+                span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
+                if (span_curr_hkl_index != span_prev_hkl_index
+                        and span_curr_hkl_index != span_next_hkl_index):
                     span.set_visible(False)
                     spans.remove(span)
-                elif span_next_hkl_index < 0:
+                elif span_curr_hkl_index != span_next_hkl_index:
                     span.extents = (
                         span.extents[0],
                         0.5*(hkl_locations[hkl_index-1]
                              + hkl_locations[hkl_index]))
-                elif span_prev_hkl_index < 0:
+                elif span_curr_hkl_index != span_prev_hkl_index:
                     span.extents = (
                         0.5*(hkl_locations[hkl_index]
                              + hkl_locations[hkl_index+1]),
@@ -721,12 +755,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     f'Selected HKL is outside any current span, '
                     'extend or add spans before adding this value')
             plt.draw()
-
-    def position_cax():
-        """Reposition the colorbar axes according to the axes of the
-        reference map"""
-        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
-        cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
 
     def reset(event):
         """Callback function for the "Confirm" button."""
@@ -760,78 +788,12 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     fig_title = []
     error_texts = []
 
+    if ref_map is not None and ref_map.ndim == 1:
+        ref_map = None
+
+    # Make preselected_bin_ranges consistent with selected_hkl_indices 
     hkl_locations = [loc for loc in get_peak_locations(ds, tth)
                      if x[0] <= loc <= x[-1]]
-    hkl_labels = [str(hkl)[1:-1] for hkl, loc in zip(hkls, hkl_locations)]
-
-    title_pos = (0.5, 0.95)
-    title_props = {'fontsize': 'xx-large', 'ha': 'center', 'va': 'bottom'}
-    error_pos = (0.5, 0.90)
-    error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
-    excluded_hkl_props = {
-        'color': 'black', 'linestyle': '--','linewidth': 1,
-        'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
-    included_hkl_props = {
-        'color': 'green', 'linestyle': '-', 'linewidth': 2,
-        'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
-    excluded_data_props = {
-        'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
-    included_data_props = {
-        'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
-
-    if flux_energy_range is None:
-        min_x = x.min()
-        max_x = x.max()
-    else:
-        min_x = x[index_nearest_upp(x, max(x.min(), flux_energy_range[0]))]
-        max_x = x[index_nearest_down(x, min(x.max(), flux_energy_range[1]))]
-
-    if ref_map is None:
-        fig, ax = plt.subplots(figsize=(11, 8.5))
-        ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
-    else:
-        # Ensure ref_map is 2D
-        if ref_map.ndim > 2:
-            ref_map = np.reshape(
-                ref_map, (np.prod(ref_map.shape[:-1]), ref_map.shape[-1]))
-        # If needed, abbreviate ref_map to <= 50 spectra to keep
-        # response time of mouse interactions quick.
-        max_ref_spectra = 50
-        if ref_map.shape[0] > max_ref_spectra:
-            choose_i = np.sort(
-                np.random.choice(
-                    ref_map.shape[0], max_ref_spectra, replace=False))
-            ref_map = ref_map[choose_i]
-        fig, (ax, ax_map) = plt.subplots(
-            2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
-        ax.set(ylabel='Intensity (counts)')
-        ref_map_mappable = ax_map.pcolormesh(
-            x, np.arange(ref_map.shape[0]), ref_map)
-        ax_map.set_yticks([])
-        ax_map.set_xlabel('Energy (keV)')
-        ax_map.set_xlim(x[0], x[-1])
-        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
-        cax = plt.axes([right + 0.01, bottom, 0.01, top - bottom])
-        fig.colorbar(ref_map_mappable, cax=cax)
-    handles = ax.plot(x, y, color='k', label=label)
-    if calibration_bin_ranges is not None:
-        ylow = ax.get_ylim()[0]
-        for low, upp in calibration_bin_ranges:
-            ax.plot([x[low], x[upp]], [ylow, ylow], color='r', linewidth=2)
-        handles.append(mlines.Line2D(
-            [], [], label='Energies included in calibration', color='r',
-            linewidth=2))
-    handles.append(mlines.Line2D(
-        [], [], label='Excluded / unselected HKL', **excluded_hkl_props))
-    handles.append(mlines.Line2D(
-        [], [], label='Included / selected HKL', **included_hkl_props))
-    handles.append(Patch(
-        label='Excluded / unselected data', **excluded_data_props))
-    handles.append(Patch(
-        label='Included / selected data', **included_data_props))
-    ax.legend(handles=handles)
-    ax.set_xlim(x[0], x[-1])
-
     if selected_hkl_indices and not preselected_bin_ranges:
         index_ranges = get_consecutive_int_range(selected_hkl_indices)
         for index_range in index_ranges:
@@ -846,30 +808,109 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             else:
                 max_ = 0.5*(hkl_locations[j] + max_x)
             preselected_bin_ranges.append(
-                [index_nearest_upp(x, min_), index_nearest_down(x, max_)])
+                [index_nearest_up(x, min_), index_nearest_down(x, max_)])
 
-    for i, (loc, lbl) in enumerate(zip(hkl_locations, hkl_labels)):
-        nearest_index = np.searchsorted(x, loc)
-        if i in selected_hkl_indices:
-            hkl_vline = ax.axvline(loc, **included_hkl_props)
+    if flux_energy_range is None:
+        min_x = x.min()
+        max_x = x.max()
+    else:
+        min_x = x[index_nearest_up(x, max(x.min(), flux_energy_range[0]))]
+        max_x = x[index_nearest_down(x, min(x.max(), flux_energy_range[1]))]
+
+    # Setup the Matplotlib figure
+    if not interactive and filename is None:
+
+        # It is too convenient to not use the Matplotlib SpanSelector
+        # so define a (fig, ax) tuple, despite not creating a figure
+        included_data_props = {}
+        fig, ax = plt.subplots()
+
+    else:
+
+        title_pos = (0.5, 0.95)
+        title_props = {'fontsize': 'xx-large', 'ha': 'center', 'va': 'bottom'}
+        error_pos = (0.5, 0.90)
+        error_props = {'fontsize': 'x-large', 'ha': 'center', 'va': 'bottom'}
+        excluded_hkl_props = {
+            'color': 'black', 'linestyle': '--','linewidth': 1,
+            'marker': 10, 'markersize': 5, 'fillstyle': 'none'}
+        included_hkl_props = {
+            'color': 'green', 'linestyle': '-', 'linewidth': 2,
+            'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
+        included_data_props = {
+            'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
+        excluded_data_props = {
+            'facecolor': 'white', 'edgecolor': 'gray', 'linestyle': ':'}
+
+        if ref_map is None:
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
         else:
-            hkl_vline = ax.axvline(loc, **excluded_hkl_props)
-        ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
-                transform=ax.get_xaxis_transform())
-        hkl_vlines.append(hkl_vline)
+            if ref_map.ndim > 2:
+                ref_map = np.reshape(
+                    ref_map, (np.prod(ref_map.shape[:-1]), ref_map.shape[-1]))
+            # If needed, abbreviate ref_map to <= 50 spectra to keep
+            # response time of mouse interactions quick.
+            max_ref_spectra = 50
+            if ref_map.shape[0] > max_ref_spectra:
+                choose_i = np.sort(
+                    np.random.choice(
+                        ref_map.shape[0], max_ref_spectra, replace=False))
+                ref_map = ref_map[choose_i]
+            fig, (ax, ax_map) = plt.subplots(
+                2, sharex=True, figsize=(11, 8.5), height_ratios=[2, 1])
+            ax.set(ylabel='Intensity (counts)')
+            ref_map_mappable = ax_map.pcolormesh(
+                x, np.arange(ref_map.shape[0]), ref_map)
+            ax_map.set_yticks([])
+            ax_map.set_xlabel('Energy (keV)')
+            ax_map.set_xlim(x[0], x[-1])
+            ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+            cax = plt.axes([right + 0.01, bottom, 0.01, top - bottom])
+            fig.colorbar(ref_map_mappable, cax=cax)
+        handles = ax.plot(x, y, color='k', label=label)
+        if calibration_bin_ranges is not None:
+            ylow = ax.get_ylim()[0]
+            for low, upp in calibration_bin_ranges:
+                ax.plot([x[low], x[upp]], [ylow, ylow], color='r', linewidth=2)
+            handles.append(mlines.Line2D(
+                [], [], label='Energies included in calibration', color='r',
+                linewidth=2))
+        handles.append(mlines.Line2D(
+            [], [], label='Excluded / unselected HKL', **excluded_hkl_props))
+        handles.append(mlines.Line2D(
+            [], [], label='Included / selected HKL', **included_hkl_props))
+        handles.append(Patch(
+            label='Excluded / unselected data', **excluded_data_props))
+        handles.append(Patch(
+            label='Included / selected data', **included_data_props))
+        ax.legend(handles=handles)
+        ax.set_xlim(x[0], x[-1])
 
-    init_flag = [True]
+        # Add HKL lines
+        hkl_labels = [str(hkl)[1:-1] for hkl, loc in zip(hkls, hkl_locations)]
+        for i, (loc, lbl) in enumerate(zip(hkl_locations, hkl_labels)):
+            nearest_index = np.searchsorted(x, loc)
+            if i in selected_hkl_indices:
+                hkl_vline = ax.axvline(loc, **included_hkl_props)
+            else:
+                hkl_vline = ax.axvline(loc, **excluded_hkl_props)
+            ax.text(loc, 1, lbl, ha='right', va='top', rotation=90,
+                    transform=ax.get_xaxis_transform())
+            hkl_vlines.append(hkl_vline)
+
+    # Add initial spans
     for bin_range in preselected_bin_ranges:
         add_span(None, xrange_init=x[bin_range])
-    init_flag = [False]
 
     if not interactive:
 
-        if detector_name is None:
-            change_fig_title('Selected data and HKLs used in fitting')
-        else:
-            change_fig_title(
-                f'Selected data and HKLs used in fitting {detector_name}')
+        if filename is not None:
+            if detector_name is None:
+                change_fig_title('Selected data and HKLs used in fitting')
+            else:
+                change_fig_title(
+                    f'Selected data and HKLs used in fitting {detector_name}')
 
     else:
 
@@ -913,6 +954,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         reset_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
+    if filename is not None:
+        fig_title[0].set_in_layout(True)
+        fig.tight_layout(rect=(0, 0, 0.9, 0.9))
+        if ref_map is not None:
+            position_cax()
+        fig.savefig(filename)
+    plt.close()
+
     selected_bin_ranges = [np.searchsorted(x, span.extents).tolist()
                            for span in spans]
     if not selected_bin_ranges:
@@ -922,12 +971,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     else:
         selected_hkl_indices = None
 
-    fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 0.9, 0.9))
-    if ref_map is not None:
-        position_cax()
-
-    return fig, selected_bin_ranges, selected_hkl_indices
+    return selected_bin_ranges, selected_hkl_indices
 
 
 def get_spectra_fits(spectra, energies, peak_locations, fit_params):
@@ -978,6 +1022,7 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         fwhm_max=fit_params.fwhm_max,
         centers_range=centers_range)
     fit.fit(num_proc=fit_params.num_proc)
+#RV    fit.fit(num_proc=1, plot=True)
     uniform_fit_centers = [
         fit.best_values[
             fit.best_parameters().index(f'peak{i+1}_center')]
@@ -1011,6 +1056,7 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
     fit.create_multipeak_model(fit_type='unconstrained')
     fit.fit(num_proc=fit_params.num_proc,
             rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+#RV    fit.fit(num_proc=1, plot=True)
     unconstrained_fit_centers = np.array(
         [fit.best_values[
             fit.best_parameters()\

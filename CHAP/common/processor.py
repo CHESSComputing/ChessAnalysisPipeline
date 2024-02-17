@@ -413,12 +413,11 @@ class BinarizeProcessor(Processor):
             # Select the ROI's orthogonal to the selected averaging direction
             bounds = []
             for i, bound in enumerate(['"0"', '"1"']):
-                _, roi = select_roi_2d(
+                roi = select_roi_2d(
                     mean_data,
                     title=f'Select the ROI to obtain the {bound} data value',
                     title_a=f'Data averaged in the {axes[axis]}-direction',
                     row_label=subaxes[0], column_label=subaxes[1])
-                plt.close()
 
                 # Select the index range in the selected averaging direction
                 if not axis:
@@ -431,12 +430,11 @@ class BinarizeProcessor(Processor):
                     mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
                         axis=(0,1))
 
-                _, _range = select_roi_1d(
+                _range = select_roi_1d(
                     mean_roi_data, preselected_roi=(0, data.shape[axis]),
                     title=f'Select the {axes[axis]}-direction range to obtain '
                           f'the {bound} data bound',
                     xlabel=axes[axis], ylabel='Average data')
-                plt.close()
 
                 # Obtain the lower/upper data bound
                 if not axis:
@@ -740,6 +738,16 @@ class MapProcessor(Processor):
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
+        # Local modules
+        from CHAP.utils.general import string_to_list
+        if isinstance(detector_names, str):
+            try:
+                detector_names = [
+                    str(v) for v in string_to_list(
+                        detector_names, raise_error=True)]
+            except:
+                raise ValueError(
+                    f'Invalid parameter detector_names ({detector_names})')
         map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config, detector_names)
 

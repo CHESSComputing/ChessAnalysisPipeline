@@ -12,12 +12,13 @@ import numpy as np
 from hexrd.material import Material
 from pydantic import (
     BaseModel,
+    DirectoryPath,
+    FilePath,
+    StrictBool,
     confloat,
     conint,
     conlist,
     constr,
-    DirectoryPath,
-    FilePath,
     root_validator,
     validator,
 )
@@ -67,7 +68,7 @@ class MCAElementConfig(BaseModel):
         """
         max_energy_kev = values.get('max_energy_kev')
         value.sort()
-        if value[1] > max_energy_kev:
+        if max_energy_kev is not None and value[1] > max_energy_kev:
             value[1] = max_energy_kev
         return value
 
@@ -81,14 +82,17 @@ class MCAElementConfig(BaseModel):
         """Return the value of `include_energy_ranges` represented in
         terms of channel indices instead of channel energies.
         """
-        from CHAP.utils.general import index_nearest_down, index_nearest_upp
+        from CHAP.utils.general import (
+            index_nearest_down,
+            index_nearest_up,
+        )
 
         include_bin_ranges = []
         energies = self.energies
         for e_min, e_max in self.include_energy_ranges:
             include_bin_ranges.append(
                 [index_nearest_down(energies, e_min),
-                 index_nearest_upp(energies, e_max)])
+                 index_nearest_up(energies, e_max)])
         return include_bin_ranges
 
     def get_energy_ranges(self, bin_ranges):
@@ -236,11 +240,6 @@ class MCAScanDataConfig(BaseModel):
             # System modules
             from copy import deepcopy
 
-            # Local modules
-            from CHAP.utils.general import (
-                index_nearest_down,
-                index_nearest_upp,
-            )
             flux = np.loadtxt(flux_file)
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
@@ -436,7 +435,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     max_energy_kev: confloat(gt=0)
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     slope_initial_guess: float = 1.0
@@ -712,14 +711,14 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     num_bins: Optional[conint(gt=0)]
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0), min_items=1)] = []
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
     num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
-    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 1.0
-    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 5.0
+    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
+    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
     rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
@@ -763,7 +762,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             setattr(self, field, getattr(calibration, field))
         self.calibration_bin_ranges = calibration.include_bin_ranges
 
-    def get_tth_map(self, map_config):
+    def get_tth_map(self, map_config, sum_fly_axes=False):
         """Return a map of 2&theta values to use -- may vary at each
         point in the map.
 
@@ -774,8 +773,18 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :rtype: np.ndarray
         """
         if getattr(self, 'tth_map', None) is not None:
+            raise ValueError('Need to validate the shape')
             return self.tth_map
-        return np.full(map_config.shape, self.tth_calibrated)
+        if not isinstance(sum_fly_axes, bool):
+            raise ValueError(
+                f'Invalid sum_fly_axes parameter ({sum_fly_axes})')
+        if not sum_fly_axes:
+            return np.full(map_config.shape, self.tth_calibrated)
+        map_shape = map_config.shape
+        fly_axis_labels = map_config.attrs.get('fly_axis_labels')
+        tth_shape = [map_shape[i] for i, dim in enumerate(map_config.dims)
+                     if dim not in fly_axis_labels]
+        return np.full(tth_shape, self.tth_calibrated)
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -814,8 +823,14 @@ class StrainAnalysisConfig(BaseModel):
     :ivar detectors: List of individual detector element strain
         analysis configurations
     :type detectors: list[MCAElementStrainAnalysisConfig]
-    :ivar material_name: Sample material configurations.
-    :type material_name: list[MaterialConfig]
+    :ivar materials: Sample material configurations.
+    :type materials: list[MaterialConfig]
+    :ivar flux_file: File name of the csv flux file containing station
+        beam energy in eV (column 0) versus flux (column 1).
+    :type flux_file: str
+    :ivar sum_fly_axes: Whether to sum over the fly axis or not
+        for EDD scan types not 0, defaults to `True`.
+    :type sum_fly_axes: bool, optional
     """
     inputdir: Optional[DirectoryPath]
     map_config: Optional[MapConfig]
@@ -826,6 +841,7 @@ class StrainAnalysisConfig(BaseModel):
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
     flux_file: FilePath
+    sum_fly_axes: Optional[StrictBool]
 
     _parfile: Optional[ParFile]
 
@@ -900,6 +916,26 @@ class StrainAnalysisConfig(BaseModel):
                         + f'{detector.tth_file}') from e
         return detector
 
+    @validator('sum_fly_axes', always=True)
+    def validate_sum_fly_axes(cls, value, values):
+        """Validate the sum_fly_axes field.
+
+        :param value: Field value to validate (`sum_fly_axes`).
+        :type value: bool
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :return: The validated value for sum_fly_axes.
+        :rtype: bool
+        """
+        if value is None:
+            map_config = values.get('map_config')
+            if map_config is not None:
+                if map_config.attrs['scan_type'] < 3:
+                    value = False
+                else:
+                    value = True
+        return value
+
     def mca_data(self, detector=None, map_index=None):
         """Get MCA data for a single or multiple detector elements.
 
@@ -917,7 +953,8 @@ class StrainAnalysisConfig(BaseModel):
         if detector is None:
             mca_data = []
             for detector_config in self.detectors:
-                mca_data.append(self.mca_data(detector_config, map_index))
+                mca_data.append(
+                    self.mca_data(detector_config, map_index))
             return np.asarray(mca_data)
         else:
             if isinstance(detector, int):
@@ -927,10 +964,21 @@ class StrainAnalysisConfig(BaseModel):
                     raise ValueError('Invalid parameter detector ({detector})')
                 detector_config = detector
             if map_index is None:
+                fly_axis_labels = self.map_config.attrs.get('fly_axis_labels')
                 mca_data = []
                 for map_index in np.ndindex(self.map_config.shape):
-                    mca_data.append(self.mca_data(detector_config, map_index))
-                return np.asarray(mca_data)
+                    mca_data.append(self.mca_data(
+                        detector_config, map_index))
+                mca_data = np.reshape(
+                    mca_data, (*self.map_config.shape, len(mca_data[0])))
+                if self.sum_fly_axes and fly_axis_labels:
+                    sum_indices = []
+                    for axis in fly_axis_labels:
+                        sum_indices.append(self.map_config.dims.index(axis))
+                    return np.sum(mca_data, tuple(sorted(sum_indices)))
+
+                else:
+                    return np.asarray(mca_data)
             else:
                 return self.map_config.get_detector_data(
                     detector_config.detector_name, map_index)

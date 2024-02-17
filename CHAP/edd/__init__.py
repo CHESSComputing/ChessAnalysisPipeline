@@ -7,7 +7,9 @@ from CHAP.edd.processor import (DiffractionVolumeLengthProcessor,
                                 MCACeriaCalibrationProcessor,
                                 MCADataProcessor,
                                 MCAEnergyCalibrationProcessor,
-                                StrainAnalysisProcessor)
+                                MCACalibratedDataPlotter,
+                                StrainAnalysisProcessor,
+                                CreateStrainAnalysisConfigProcessor)
 # from CHAP.edd.writer import
 
 from CHAP.common import MapProcessor
