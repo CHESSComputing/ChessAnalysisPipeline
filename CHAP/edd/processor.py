@@ -671,6 +671,8 @@ class MCACeriaCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
+        self.logger.debug(f'In process: save_figures = {save_figures}; interactive = {interactive}')
+
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
                 calibration_config, detector, recalibrate_energy,
@@ -963,7 +965,7 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'ceria_calibration_fits.png')
+                figfile = os.path.join(outputdir, f'ceria_calibration_fits_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -1058,7 +1060,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
         # Validate arguments: peak_energies & peak_initial_guesses
-        peak_energies.sort()
         if peak_initial_guesses is None:
             peak_initial_guesses = peak_energies
         else:
@@ -1071,7 +1072,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     ValueError(
                         'peak_initial_guesses must have the same number of '
                         'values as peak_energies'))
-        peak_initial_guesses.sort()
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1210,11 +1210,13 @@ class MCAEnergyCalibrationProcessor(Processor):
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
+        
         fit_peak_energies = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
             for i in range(len(peak_energies))])
         self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
 
+        peak_energies.sort()
         energy_fit = Fit.fit_data(
             peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
         slope = energy_fit.best_values['slope']
@@ -1272,7 +1274,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'energy_calibration_fit.png')
+                figfile = os.path.join(outputdir, f'energy_calibration_fit_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -1592,25 +1594,37 @@ class StrainAnalysisProcessor(Processor):
                 select_mask_and_hkls,
             )
 
-        def linkdims(nxgroup, field_dims=[]):
+        def linkdims(nxgroup, field_dims=[], oversampling_axis={}):
             if isinstance(field_dims, dict):
                 field_dims = [field_dims]
             if map_config.map_type == 'structured':
                 axes = deepcopy(map_config.dims)
                 for dims in field_dims:
                     axes.append(dims['axes'])
-                nxgroup.attrs['axes'] = axes
             else:
                 axes = ['map_index']
                 for dims in field_dims:
                     axes.append(dims['axes'])
-                nxgroup.attrs['axes'] = axes
                 nxgroup.attrs[f'map_index_indices'] = 0
             for dim in map_config.dims:
-                nxgroup.makelink(nxentry.data[dim])
-                if f'{dim}_indices' in nxentry.data.attrs:
-                    nxgroup.attrs[f'{dim}_indices'] = \
-                        nxentry.data.attrs[f'{dim}_indices']
+                if dim in oversampling_axis:
+                    bin_name = dim.replace('fly_', 'bin_')
+                    axes[axes.index(dim)] = bin_name
+                    nxgroup[bin_name] = NXfield(
+                        value=oversampling_axis[dim],
+                        units=nxentry.data[dim].units,
+                        attrs={
+                            'long_name':
+                                f'oversampled {nxentry.data[dim].long_name}',
+                           'data_type': nxentry.data[dim].data_type,
+                           'local_name':
+                                f'oversampled {nxentry.data[dim].local_name}'})
+                else:
+                    nxgroup.makelink(nxentry.data[dim])
+                    if f'{dim}_indices' in nxentry.data.attrs:
+                        nxgroup.attrs[f'{dim}_indices'] = \
+                            nxentry.data.attrs[f'{dim}_indices']
+            nxgroup.attrs['axes'] = axes
             for dims in field_dims:
                 nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
 
@@ -1639,6 +1653,24 @@ class StrainAnalysisProcessor(Processor):
         self.logger.debug(f'mca_data.shape: {mca_data.shape}')
         self.logger.debug(f'mca_data_summed.shape: {mca_data_summed.shape}')
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
+
+        # Check for oversampling axis and create the binned coordinates
+        oversampling_axis = {}
+        if (map_config.attrs.get('scan_type') == 4
+                and strain_analysis_config.sum_fly_axes):
+            # Local modules
+            from CHAP.utils.general import rolling_average
+
+            fly_axis = map_config.attrs.get('fly_axis_labels')[0]
+            oversampling = strain_analysis_config.oversampling
+            oversampling_axis[fly_axis] = rolling_average(
+                    nxdata[fly_axis].nxdata,
+                    start=oversampling.get('start', 0),
+                    end=oversampling.get('end'),
+                    width=oversampling.get('width'),
+                    stride=oversampling.get('stride'),
+                    num=oversampling.get('num'),
+                    mode=oversampling.get('mode', 'valid'))
 
         # Loop over the detectors to perform the strain analysis
         for i, detector in enumerate(strain_analysis_config.detectors):
@@ -1740,7 +1772,8 @@ class StrainAnalysisProcessor(Processor):
             det_nxdata = nxdetector.data
             linkdims(
                 det_nxdata,
-                {'axes': 'energy', 'index': len(effective_map_shape)})
+                {'axes': 'energy', 'index': len(effective_map_shape)},
+                oversampling_axis=oversampling_axis)
             mask = detector.mca_mask()
             energies = mca_bin_energies[mask]
             det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
@@ -1799,7 +1832,9 @@ class StrainAnalysisProcessor(Processor):
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
             linkdims(
-                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
+                fit_nxdata,
+                {'axes': 'energy', 'index': len(map_config.shape)},
+                oversampling_axis=oversampling_axis)
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.best_fit= uniform_best_fit
             fit_nxdata.residuals = uniform_residuals
@@ -1811,12 +1846,12 @@ class StrainAnalysisProcessor(Processor):
 #            fit_nxdata = fit_nxgroup.fit_hkl_centers
 #            linkdims(fit_nxdata)
             for (hkl, center_guess, centers_fit, centers_error,
-                amplitudes_fit, amplitudes_error, sigmas_fit,
-                sigmas_error) in zip(
-                    fit_hkls, peak_locations,
-                    uniform_fit_centers, uniform_fit_centers_errors,
-                    uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-                    uniform_fit_sigmas, uniform_fit_sigmas_errors):
+                    amplitudes_fit, amplitudes_error, sigmas_fit,
+                    sigmas_error) in zip(
+                        fit_hkls, peak_locations,
+                        uniform_fit_centers, uniform_fit_centers_errors,
+                        uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+                        uniform_fit_sigmas, uniform_fit_sigmas_errors):
                 hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                 fit_nxgroup[hkl_name] = NXparameters()
                 # Report initial HKL peak centers
@@ -1944,8 +1979,7 @@ class StrainAnalysisProcessor(Processor):
                     ani.save(path)
                 plt.close()
 
-            tth_map = detector.get_tth_map(
-                map_config, strain_analysis_config.sum_fly_axes)
+            tth_map = detector.get_tth_map(effective_map_shape)
             det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map) for d0 in fit_ds])
@@ -1962,7 +1996,9 @@ class StrainAnalysisProcessor(Processor):
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
             linkdims(
-                fit_nxdata, {'axes': 'energy', 'index': len(map_config.shape)})
+                fit_nxdata,
+                {'axes': 'energy', 'index': len(map_config.shape)},
+                oversampling_axis=oversampling_axis)
             fit_nxdata.makelink(det_nxdata.energy)
             fit_nxdata.best_fit= unconstrained_best_fit
             fit_nxdata.residuals = unconstrained_residuals

@@ -909,6 +909,149 @@ def file_exists_and_readable(f):
     return f
 
 
+def rolling_average(
+        y, x=None, dtype=None, start=0, end=None, width=None,
+        stride=None, num=None, average=True, mode='valid',
+        use_convolve=None):
+    """
+    Returns the rolling sum or average of an array over the last
+    dimension.
+    """
+    y = np.asarray(y)
+    y_shape = y.shape
+    if y.ndim == 1:
+        y = np.expand_dims(y, 0)
+    else:
+        y = y.reshape((np.prod(y.shape[0:-1]), y.shape[-1]))
+    if x is not None:
+        x = np.asarray(x)
+        if x.ndim != 1:
+            raise ValueError('Parameter "x" must be a 1D array-like')
+        if x.size != y.shape[1]:
+            raise ValueError(f'Dimensions of "x" and "y[1]" do not '
+                             f'match ({x.size} vs {y.shape[1]})')
+    if dtype is None:
+        if average:
+            dtype = y.dtype
+        else:
+            dtype = np.float32
+    if width is None and stride is None and num is None:
+        raise ValueError('Invalid input parameters, specify at least one of '
+                         '"width", "stride" or "num"')
+    if width is not None and not is_int(width, ge=1):
+        raise ValueError(f'Invalid "width" parameter ({width})')
+    if stride is not None and not is_int(stride, ge=1):
+        raise ValueError(f'Invalid "stride" parameter ({stride})')
+    if num is not None and not is_int(num, ge=1):
+        raise ValueError(f'Invalid "num" parameter ({num})')
+    if not isinstance(average, bool):
+        raise ValueError(f'Invalid "average" parameter ({average})')
+    if mode not in ('valid', 'full'):
+        raise ValueError(f'Invalid "mode" parameter ({mode})')
+    size = y.shape[1]
+    if size < 2:
+        raise ValueError(f'Invalid y[1] dimension ({size})')
+    if not is_int(start, ge=0, lt=size):
+        raise ValueError(f'Invalid "start" parameter ({start})')
+    if end is None:
+        end = size
+    elif not is_int(end, gt=start, le=size):
+        raise ValueError(f'Invalid "end" parameter ({end})')
+    if use_convolve is None:
+        if len(y_shape) ==1:
+            use_convolve = True
+        else:
+            use_convolve = False
+    if use_convolve and (start or end < size):
+        y = np.take(y, range(start, end), axis=1)
+        if x is not None:
+            x = x[start:end]
+        size = y.shape[1]
+    else:
+        size = end-start
+
+    if stride is None:
+        if width is None:
+            width = max(1, int(size/num))
+            stride = width
+        else:
+            width = min(width, size)
+            if num is None:
+                stride = width
+            else:
+                stride = max(1, int((size-width) / (num-1)))
+    else:
+        stride = min(stride, size-stride)
+        if width is None:
+            width = stride
+
+    if mode == 'valid':
+        num = 1 + max(0, int((size-width) / stride))
+    else:
+        num = int(size/stride)
+        if num*stride < size:
+            num += 1
+
+    if use_convolve:
+        n_start = 0
+        n_end = width
+        weight = np.empty((num))
+        for n in range(num):
+            n_num = n_end-n_start
+            weight[n] = n_num
+            n_start += stride
+            n_end = min(size, n_end+stride)
+
+        window = np.ones((width))
+        if x is not None:
+            if mode == 'valid':
+                rx = np.convolve(x, window)[width-1:1-width:stride]
+            else:
+                rx = np.convolve(x, window)[width-1::stride]
+            rx /= weight
+
+        ry = []
+        if mode == 'valid':
+            for i in range(y.shape[0]):
+                ry.append(np.convolve(y[i], window)[width-1:1-width:stride])
+        else:
+            for i in range(y.shape[0]):
+                ry.append(np.convolve(y[i], window)[width-1::stride])
+        ry = np.reshape(ry, (*y_shape[0:-1], num))
+        if len(y_shape) == 1:
+            ry = np.squeeze(ry)
+        if average:
+            ry = (np.asarray(ry).astype(np.float32)/weight).astype(dtype)
+        elif mode != 'valid':
+            weight = np.where(weight < width, width/weight, 1.0)
+            ry = (np.asarray(ry).astype(np.float32)*weight).astype(dtype)
+    else:
+        ry = np.zeros((num, y.shape[0]), dtype=y.dtype)
+        if x is not None:
+            rx = np.zeros(num, dtype=x.dtype)
+        n_start = start
+        n_end = n_start+width
+        for n in range(num):
+            y_sum = np.sum(y[:,n_start:n_end], 1)
+            n_num = n_end-n_start
+            if n_num < width:
+                y_sum *= width/n_num
+            ry[n] = y_sum
+            if x is not None:
+                rx[n] = np.sum(x[n_start:n_end])/n_num
+            n_start += stride
+            n_end = min(start+size, n_end+stride)
+        ry = np.reshape(ry.T, (*y_shape[0:-1], num))
+        if len(y_shape) == 1:
+            ry = np.squeeze(ry)
+        if average:
+            ry = (ry.astype(np.float32)/width).astype(dtype)
+
+    if x is None:
+        return ry
+    return ry, rx
+
+
 def select_mask_1d(
         y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
         preselected_mask=None, title=None, xlabel=None, ylabel=None,
