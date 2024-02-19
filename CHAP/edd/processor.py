@@ -671,6 +671,8 @@ class MCACeriaCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
+        self.logger.debug(f'In process: save_figures = {save_figures}; interactive = {interactive}')
+
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
                 calibration_config, detector, recalibrate_energy,
@@ -963,7 +965,7 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'ceria_calibration_fits.png')
+                figfile = os.path.join(outputdir, f'ceria_calibration_fits_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -1058,7 +1060,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     + self.__class__.__name__
                     + ' must be run with `interactive=True`.'))
         # Validate arguments: peak_energies & peak_initial_guesses
-        peak_energies.sort()
         if peak_initial_guesses is None:
             peak_initial_guesses = peak_energies
         else:
@@ -1071,7 +1072,6 @@ class MCAEnergyCalibrationProcessor(Processor):
                     ValueError(
                         'peak_initial_guesses must have the same number of '
                         'values as peak_energies'))
-        peak_initial_guesses.sort()
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1210,11 +1210,13 @@ class MCAEnergyCalibrationProcessor(Processor):
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
+        
         fit_peak_energies = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
             for i in range(len(peak_energies))])
         self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
 
+        peak_energies.sort()
         energy_fit = Fit.fit_data(
             peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
         slope = energy_fit.best_values['slope']
@@ -1272,7 +1274,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, 'energy_calibration_fit.png')
+                figfile = os.path.join(outputdir, f'energy_calibration_fit_{detector.detector_name}.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
