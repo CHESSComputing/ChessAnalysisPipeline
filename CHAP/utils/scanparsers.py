@@ -380,15 +380,15 @@ class SMBScanParser(ScanParser):
         return par_dict
 
     def get_counter_gain(self, counter_name):
-        """Return the gain of a counter as recorded in the comments of
-        a scan in a SPEC file converted to nA/V.
+        """Return the gain of a counter as recorded in the user lines
+        of a scan in a SPEC file converted to nA/V.
 
         :param counter_name: the name of the counter
         :type counter_name: str
         :rtype: str
         """
         counter_gain = None
-        for comment in self.spec_scan.comments:
+        for comment in self.spec_scan.comments + self.spec_scan.user_lines:
             match = re.search(
                 f'{counter_name} gain: '  # start of counter gain comments
                 '(?P<gain_value>\d+) '  # gain numerical value
@@ -399,6 +399,7 @@ class SMBScanParser(ScanParser):
                 gain_scalar = 1 if unit_prefix == 'n' \
                     else 1e3 if unit_prefix == 'u' else 1e6
                 counter_gain = f'{float(match["gain_value"])*gain_scalar} nA/V'
+                break
 
         if counter_gain is None:
             raise RuntimeError(f'{self.scan_title}: could not get gain for '
