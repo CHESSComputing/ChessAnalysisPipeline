@@ -12,7 +12,7 @@ import os
 import setuptools
 
 # [set version]
-version = 'v0.0.14'
+version = 'PACKAGE_VERSION'
 # [version set]
 
 def datafiles(idir, pattern=None):
