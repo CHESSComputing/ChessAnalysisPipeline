@@ -943,6 +943,9 @@ class StrainAnalysisConfig(BaseModel):
         # Local modules
         from CHAP.utils.general import is_int
 
+        map_config = values.get('map_config')
+        if map_config is None or map_config.attrs['scan_type'] < 3:
+            return None
         if 'start' in value and not is_int(value['start'], ge=0):
             raise ValueError('Invalid "start" parameter in "oversampling" '
                              f'field ({value["start"]})')
