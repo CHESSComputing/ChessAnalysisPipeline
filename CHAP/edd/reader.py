@@ -161,6 +161,55 @@ class EddMapReader(Reader):
         return map_config_dict
 
 
+class ScanToMapReader(Reader):
+    """Reader for turning a single SPEC scan into a MapConfig."""
+    def read(self, spec_file, scan_number):
+        """Return a dictionary representing a valid map configuration
+        consisting of the single SPEC scan specified.
+
+        :param spec_file: Name of the SPEC file.
+        :type spec_file: str
+        :param scan_number: Number of the SPEC scan.
+        :type scan_number: int
+        :returns: Map configuration dictionary
+        :rtype: dict
+        """
+        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+
+        scanparser = ScanParser(spec_file, scan_number)
+
+        if scanparser.spec_macro in ('tseries', 'loopscan') or \
+           (scanparser.spec_macro == 'flyscan' and \
+            not len(scanparser.spec_args) ==5):
+            independent_dimensions = [
+                {'label': 'Time',
+                 'units': 'seconds',
+                 'data_type': 'scan_column',
+                 'name': 'Time'}]
+        else:
+            independent_dimensions = [
+                {'label': mne,
+                 'units': 'unknown units',
+                 'data_type': 'spec_motor',
+                 'name': mne}
+                for mne in scanparser.spec_scan_motor_mnes]
+
+        map_config_dict = dict(
+            title=f'{scanparser.scan_name}_{scan_number:03d}',
+            station='id1a3',
+            experiment_type='EDD',
+            sample=dict(name=scanparser.scan_name),
+            spec_scans=[
+                dict(spec_file=spec_file, scan_numbers=[scan_number])],
+            independent_dimensions=independent_dimensions,
+            presample_intensity=dict(name='a3ic1', data_type='scan_column'),
+            postsample_intensity=dict(name='diode', data_type='scan_column'),
+            dwell_time_actual=dict(name='count_time', data_type='smb_par')
+        )
+
+        return map_config_dict
+
+
 if __name__ == '__main__':
     from CHAP.reader import main
     main()
