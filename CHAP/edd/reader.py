@@ -120,7 +120,7 @@ class EddMapReader(Reader):
             scalar_data=scalar_data,
             presample_intensity=dict(name='a3ic1', data_type='scan_column'),
             postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='count_time', data_type='smb_par'),
+            dwell_time_actual=dict(name='sec', data_type='scan_column'),
             attrs=attrs
         )
         map_config = MapConfig(**map_config_dict)
@@ -204,7 +204,7 @@ class ScanToMapReader(Reader):
             independent_dimensions=independent_dimensions,
             presample_intensity=dict(name='a3ic1', data_type='scan_column'),
             postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='count_time', data_type='smb_par')
+            dwell_time_actual=dict(name='sec', data_type='scan_column')
         )
 
         return map_config_dict
