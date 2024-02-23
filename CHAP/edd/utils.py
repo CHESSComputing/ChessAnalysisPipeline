@@ -762,7 +762,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
             plt.draw()
 
     def reset(event):
-        """Callback function for the "Confirm" button."""
+        """Callback function for the "Reset" button."""
         for hkl_index in deepcopy(selected_hkl_indices):
             hkl_vlines[hkl_index].set(**excluded_hkl_props)
             selected_hkl_indices.remove(hkl_index)

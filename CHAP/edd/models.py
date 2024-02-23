@@ -30,6 +30,100 @@ from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
+# Material configuration classes
+
+class MaterialConfig(BaseModel):
+    """Model for parameters to characterize a sample material.
+
+    :ivar material_name: Sample material name.
+    :type material_name: str, optional
+    :ivar lattice_parameters: Lattice spacing(s) in angstroms.
+    :type lattice_parameters: float, list[float], optional
+    :ivar sgnum: Space group of the material.
+    :type sgnum: int, optional
+    """
+    material_name: Optional[constr(strip_whitespace=True, min_length=1)]
+    lattice_parameters: Optional[Union[
+        confloat(gt=0),
+        conlist(item_type=confloat(gt=0), min_items=1, max_items=6)]]
+    sgnum: Optional[conint(ge=0)]
+
+    _material: Optional[Material]
+
+    class Config:
+        underscore_attrs_are_private = False
+
+    @root_validator
+    def validate_material(cls, values):
+        """Create and validate the private attribute _material.
+
+        :param values: Dictionary of previously validated field values.
+        :type values: dict
+        :return: The validated list of `values`.
+        :rtype: dict
+        """
+        # Local modules
+        from CHAP.edd.utils import make_material
+
+        values['_material'] = make_material(values.get('material_name'),
+                                            values.get('sgnum'),
+                                            values.get('lattice_parameters'))
+        return values
+
+    def unique_hkls_ds(self, tth_tol=0.15, tth_max=90.0):
+        """Get a list of unique HKLs and their lattice spacings.
+
+        :param tth_tol: Minimum resolvable difference in 2&theta
+            between two unique HKL peaks, defaults to `0.15`.
+        :type tth_tol: float, optional
+        :param tth_max: Detector rotation about hutch x axis,
+            defaults to `90.0`.
+        :type tth_max: float, optional
+        :return: Unique HKLs and their lattice spacings in angstroms.
+        :rtype: np.ndarray, np.ndarray
+        """
+        # Local modules
+        from CHAP.edd.utils import get_unique_hkls_ds
+
+        return get_unique_hkls_ds([self._material])
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        for k,v in d.items():
+            if isinstance(v, PosixPath):
+                d[k] = str(v)
+        if '_material' in d:
+            del d['_material']
+        return d
+
+
+class CeriaConfig(MaterialConfig):
+    """Model for the sample material used in calibrations.
+
+    :ivar material_name: Calibration material name,
+        defaults to `'CeO2'`.
+    :type material_name: str, optional
+    :ivar lattice_parameters: Lattice spacing(s) for the calibration
+        material in angstroms, defaults to `5.41153`.
+    :type lattice_parameters: float, list[float], optional
+    :ivar sgnum: Space group of the calibration material,
+        defaults to `225`.
+    :type sgnum: int, optional
+    """
+    #RV Name suggests it's always Ceria, why have material_name?
+    material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
+    lattice_parameters: confloat(gt=0) = 5.41153
+    sgnum: Optional[conint(ge=0)] = 225
+
+
+# Detector configuration classes
+
 class MCAElementConfig(BaseModel):
     """Class representing metadata required to configure a single MCA
     detector element.
@@ -39,18 +133,72 @@ class MCAElementConfig(BaseModel):
     :type detector_name: str
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
-    :ivar include_energy_ranges: List of MCA channel energy ranges
-        whose data should be included after applying a mask (the
-        bounds are inclusive), defaults to `[[50, 150]]`
-    :type include_energy_ranges: list[[float, float]], optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)]
-    max_energy_kev: confloat(gt=0) = 200
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        return d
+
+
+class MCAElementCalibrationConfig(MCAElementConfig):
+    """Class representing metadata required to calibrate a single MCA
+    detector element.
+
+    :ivar tth_max: Detector rotation about lab frame x axis,
+       defaults to `90`.
+    :type tth_max: float, optional
+    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
+        two unique HKL peaks, defaults to `0.15`.
+    :type hkl_tth_tol: float, optional
+    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
+        the calibration routine, defaults to `[]`.
+    :type hkl_indices: list[int], optional
+    :ivar background: Background model for peak fitting.
+    :type background: str, list[str], optional
+    :ivar tth_initial_guess: Initial guess for 2&theta,
+        defaults to `5.0`.
+    :type tth_initial_guess: float, optional
+    :ivar slope_initial_guess: Initial guess for the detector channel
+        energy correction linear slope.
+    :type slope_initial_guess: float, optional
+    :ivar intercept_initial_guess: Initial guess for detector channel
+        energy correction y-intercept.
+    :type intercept_initial_guess: float, optional
+    :ivar tth_calibrated: Calibrated value for 2&theta.
+    :type tth_calibrated: float, optional
+    :ivar slope_calibrated: Calibrated value for detector channel
+        energy correction linear slope.
+    :type slope_calibrated: float, optional
+    :ivar intercept_calibrated: Calibrated value for detector channel
+        energy correction y-intercept.
+    :type intercept_calibrated: float, optional
+    :ivar include_energy_ranges: List of MCA channel energy ranges
+        in keV whose data should be included after applying a mask
+        (bounds are inclusive), defaults to `[[50, 150]]`
+    :type include_energy_ranges: list[[float, float]], optional
+    """
+    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
+    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
+    background: Optional[Union[str, list]]
+    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
+    slope_initial_guess: Optional[confloat(allow_inf_nan=False)]
+    intercept_initial_guess: Optional[confloat(allow_inf_nan=False)]
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
+    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
+    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
     include_energy_ranges: conlist(
         min_items=1,
         item_type=conlist(
-            item_type=confloat(ge=0),
+            item_type=confloat(ge=25),
             min_items=2,
             max_items=2)) = [[50, 150]]
 
@@ -66,16 +214,44 @@ class MCAElementConfig(BaseModel):
         :return: The validated value of `include_energy_ranges`.
         :rtype: dict
         """
-        max_energy_kev = values.get('max_energy_kev')
         value.sort()
-        if max_energy_kev is not None and value[1] > max_energy_kev:
-            value[1] = max_energy_kev
+        slope = values.get('slope_calibrated')
+        intercept = values.get('intercept_calibrated')
+        if slope is None or intercept is None:
+            slope = values.get('slope_initial_guess')
+            intercept = values.get('intercept_initial_guess')
+        if slope is not None and intercept is not None:
+            energies = intercept + slope*np.arange(values.get('num_bins'))
+            if value[0] < energies[0] or value[1] > energies[-1]:
+                newvalue = [float(max(value[0], energies[0])),
+                            float(min(value[1], energies[-1]))]
+                print(
+                    f'WARNING: include_energy_range out of range'
+                    f' ({value}): adjusted to {newvalue}')
+                value = newvalue
         return value
+
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return sorted(hkl_indices)
 
     @property
     def energies(self):
-        """Return an array of MCA bin energies for this detector."""
-        return np.linspace(0, self.max_energy_kev, self.num_bins)
+        """Return calibrated bin energies, if available. If not,
+        return bin energies adjusted with initial guesses for
+        slope/intercept.
+        """
+        slope = self.slope_calibrated
+        intercept = self.intercept_calibrated
+        if slope is None or intercept is None:
+            slope = self.slope_initial_guess
+            intercept = self.intercept_initial_guess
+        return intercept + slope*np.arange(self.num_bins)
 
     @property
     def include_bin_ranges(self):
@@ -95,17 +271,19 @@ class MCAElementConfig(BaseModel):
                  index_nearest_up(energies, e_max)])
         return include_bin_ranges
 
-    def get_energy_ranges(self, bin_ranges):
+    def get_include_energy_ranges(self, include_bin_ranges):
         """Given a list of channel index ranges, return the
-        correspongin list of channel energy ranges.
+        corresponding list of channel energy ranges.
 
-        :param bin_ranges: A list of channel bin ranges to convert to
+        :param include_bin_ranges: A list of channel bin ranges to convert to
             energy ranges.
-        :type bin_ranges: list[list[int]]
+        :type include_bin_ranges: list[list[int]]
         :returns: Energy ranges
         :rtype: list[list[float]]
         """
-        return [[self.energies[i] for i in range_] for range_ in bin_ranges]
+        energies = self.energies
+        return [[float(energies[i]) for i in range_]
+                 for range_ in include_bin_ranges]
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
@@ -121,6 +299,255 @@ class MCAElementConfig(BaseModel):
                 mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
 
+#RV need def dict?
+#        d['include_energy_ranges'] = [
+#            [float(energy) for energy in d['include_energy_ranges'][i]]
+#            for i in range(len(d['include_energy_ranges']))]
+
+
+class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
+    """Class representing metadata required to perform a diffraction
+    volume length measurement for a single MCA detector element.
+
+    :ivar measurement_mode: Placeholder for recording whether the
+        measured DVL value was obtained through the automated
+        calculation or a manual selection, defaults to `'auto'`.
+    :type measurement_mode: Literal['manual', 'auto'], optional
+    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
+        form of the MCA detector data. `sigma_to_dvl_factor` is a
+        scalar value that converts the standard deviation of the
+        gaussian fit to the measured DVL, defaults to `3.5`.
+    :type sigma_to_dvl_factor: Literal[3.5, 2.0, 4.0], optional
+    :ivar dvl_measured: Placeholder for the measured diffraction
+        volume length before writing the data to file.
+    :type dvl_measured: float, optional
+    :ivar fit_amplitude: Placeholder for amplitude of the gaussian fit.
+    :type fit_amplitude: float, optional
+    include_energy_ranges: conlist(
+        min_items=1,
+        item_type=conlist(
+            item_type=confloat(ge=25),
+            min_items=2,
+            max_items=2)) = [[50, 150]]
+    :ivar fit_center: Placeholder for center of the gaussian fit.
+    :type fit_center: float, optional
+    :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
+    :type fit_sigma: float, optional
+    """
+    measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
+    sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
+    dvl_measured: Optional[confloat(gt=0)] = None
+    fit_amplitude: Optional[float] = None
+    fit_center: Optional[float] = None
+    fit_sigma: Optional[float] = None
+    #RV FIX does this rely on include_energy_ranges
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+        Exclude `sigma_to_dvl_factor` from the dict representation if
+        `measurement_mode` is `'manual'`.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        if self.measurement_mode == 'manual':
+            del d['sigma_to_dvl_factor']
+        for param in ('amplitude', 'center', 'sigma'):
+            d[f'fit_{param}'] = float(d[f'fit_{param}'])
+        return d
+
+
+class MCAElementStrainAnalysisConfig(MCAElementConfig):
+    """Class representing metadata required to perform a strain
+    analysis fitting for a single MCA detector element.
+
+    :param tth_max: Detector rotation about hutch x axis, defaults
+            to `90.0`.
+    :type tth_max: float, optional
+    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
+        two unique HKL peaks, defaults to `0.15`.
+    :type hkl_tth_tol: float, optional
+    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
+        the calibration routine, defaults to `[]`.
+    :type hkl_indices: list[int], optional
+    :ivar background: Background model for peak fitting.
+    :type background: str, list[str], optional
+    :ivar num_proc: Number of processors used for peak fitting.
+    :type num_proc: int, optional
+    :ivar peak_models: Peak model for peak fitting,
+        defaults to `'gaussian'`.
+    :type peak_models: Literal['gaussian', 'lorentzian']],
+        list[Literal['gaussian', 'lorentzian']]], optional
+    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `1.0`.
+    :type fwhm_min: float, optional
+    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
+    :type fwhm_max: float, optional
+    :ivar rel_amplitude_cutoff: Relative peak amplitude cutoff for
+        peak fitting (any peak with an amplitude smaller than
+        `rel_amplitude_cutoff` times the sum of all peak amplitudes
+        gets removed from the fit model), defaults to `None`.
+    :type rel_amplitude_cutoff: float, optional
+    :ivar tth_calibrated: Calibrated value for 2&theta.
+    :type tth_calibrated: float, optional
+    :ivar slope_calibrated: Calibrated value for detector channel.
+        energy correction linear slope
+    :type  slope_calibrated: float, optional
+    :ivar intercept_calibrated: Calibrated value for detector channel
+        energy correction y-intercept.
+    :type intercept_calibrated: float, optional
+    :ivar calibration_bin_ranges: List of MCA channel index ranges
+        whose data was included in the calibration.
+    :type calibration_bin_ranges: list[[int, int]], optional
+    :ivar tth_file: Path to the file with the 2&theta map.
+    :type tth_file: FilePath, optional
+    :ivar tth_map: Map of the 2&theta values.
+    :type tth_map: np.ndarray, optional
+    :ivar include_energy_ranges: List of MCA channel energy ranges
+        in keV whose data should be included after applying a mask
+        (bounds are inclusive), defaults to `[[50, 150]]`
+    :type include_energy_ranges: list[[float, float]], optional
+    """
+    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
+    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
+    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
+    background: Optional[Union[str, list]]
+    num_proc: Optional[conint(gt=0)] = os.cpu_count()
+    peak_models: Union[
+        conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
+        Literal['gaussian', 'lorentzian']] = 'gaussian'
+    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
+    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
+    rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
+
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
+    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
+    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+    calibration_bin_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+                max_items=2))]
+    tth_file: Optional[FilePath]
+    tth_map: Optional[np.ndarray] = None
+    include_energy_ranges: conlist( 
+        min_items=1,
+        item_type=conlist(
+            item_type=confloat(ge=25),
+            min_items=2,
+            max_items=2)) = [[50, 150]]
+
+    #RV lots of overlap with MCAElementCalibrationConfig (only missing
+    #   tth_initial_guess, slope_initial_guess, intercept_initial_guess)
+    #   Should we derive from MCAElementCalibrationConfig in some way
+    #   or make a MCAElementEnergyCalibrationConfig with what's shared
+    #   and derive MCAElementCalibrationConfig from this as well with 
+    #   the unique fields tth_initial_guess, slope_initial_guess,
+    #   intercept_initial_guess added?
+    #   Revisit when we redo the detectors
+
+    @validator('hkl_indices', pre=True)
+    def validate_hkl_indices(cls, hkl_indices):
+        if isinstance(hkl_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            hkl_indices = string_to_list(hkl_indices)
+        return sorted(hkl_indices)
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @property
+    def energies(self):
+        """Return calibrated bin energies, if available. If not,
+        return bin energies adjusted with initial guesses for
+        slope/intercept.
+        """
+        return (self.intercept_calibrated
+                + self.slope_calibrated*np.arange(self.num_bins))
+
+    @property
+    def include_bin_ranges(self):
+        """Return the value of `include_energy_ranges` represented in
+        terms of channel indices instead of channel energies.
+        """
+        from CHAP.utils.general import (
+            index_nearest_down,
+            index_nearest_up,
+        )
+
+        include_bin_ranges = []
+        energies = self.energies
+        for e_min, e_max in self.include_energy_ranges:
+            include_bin_ranges.append(
+                [index_nearest_down(energies, e_min),
+                 index_nearest_up(energies, e_max)])
+        return include_bin_ranges
+
+    def get_include_energy_ranges(self, include_bin_ranges):
+        """Given a list of channel index ranges, return the
+        corresponding list of channel energy ranges.
+
+        :param include_bin_ranges: A list of channel bin ranges to convert to
+            energy ranges.
+        :type include_bin_ranges: list[list[int]]
+        :returns: Energy ranges
+        :rtype: list[list[float]]
+        """
+        energies = self.energies
+        return [[float(energies[i]) for i in range_]
+                 for range_ in include_bin_ranges]
+
+    def mca_mask(self):
+        """Get a boolean mask array to use on this MCA element's data.
+        Note that the bounds of self.include_energy_ranges are inclusive.
+
+        :return: Boolean mask array.
+        :rtype: numpy.ndarray
+        """
+        mask = np.asarray([False] * self.num_bins)
+        bin_indices = np.arange(self.num_bins)
+        for min_, max_ in self.include_bin_ranges:
+            mask = np.logical_or(
+                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
+        return mask
+
+    def add_calibration(self, calibration):
+        """Finalize values for some fields using a completed
+        MCAElementCalibrationConfig that corresponds to the same
+        detector.
+
+        :param calibration: Existing calibration configuration to use
+            by MCAElementStrainAnalysisConfig.
+        :type calibration: MCAElementCalibrationConfig
+        :return: None
+        """
+        add_fields = ['tth_calibrated', 'slope_calibrated',
+                      'intercept_calibrated', 'num_bins']
+        for field in add_fields:
+            setattr(self, field, getattr(calibration, field))
+        self.calibration_bin_ranges = calibration.include_bin_ranges
+
+    def get_tth_map(self, map_shape):
+        """Return the map of 2&theta values to use -- may vary at each
+        point in the map.
+
+        :param map_shape: The shape of the suplied 2&theta map.
+        :return: Map of 2&theta values.
+        :rtype: np.ndarray
+        """
+        if getattr(self, 'tth_map', None) is not None:
+            if self.tth_map.shape != map_shape:
+                raise ValueError(
+                    'Invalid "tth_map" field shape '
+                    f'{self.tth_map.shape} (expected {map_shape})')
+            return self.tth_map
+        return np.full(map_shape, self.tth_calibrated)
+
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
@@ -129,11 +556,15 @@ class MCAElementConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        d['include_energy_ranges'] = [
-            [float(energy) for energy in d['include_energy_ranges'][i]]
-            for i in range(len(d['include_energy_ranges']))]
+        for k,v in d.items():
+            if isinstance(v, PosixPath):
+                d[k] = str(v)
+            if isinstance(v, np.ndarray):
+                d[k] = v.tolist()
         return d
 
+
+# Processor configuration classes
 
 class MCAScanDataConfig(BaseModel):
     """Class representing metadata required to locate raw MCA data for
@@ -159,7 +590,7 @@ class MCAScanDataConfig(BaseModel):
     scan_number: Optional[conint(gt=0)]
     par_file: Optional[FilePath]
     scan_column: Optional[str]
-    detectors: conlist(min_items=1, item_type=MCAElementConfig)
+    detectors: conlist(min_items=1, item_type=MCAElementConfig)#RV FIX does this rely on include_energy_ranges
 
     _parfile: Optional[ParFile]
     _scanparser: Optional[ScanParser]
@@ -245,13 +676,11 @@ class MCAScanDataConfig(BaseModel):
             flux_e_min = flux_file_energies.min()
             flux_e_max = flux_file_energies.max()
             for detector in detectors:
-                mca_bin_energies = np.linspace( 
-                    0, detector.max_energy_kev, detector.num_bins)
                 for i, (det_e_min, det_e_max) in enumerate(
                         deepcopy(detector.include_energy_ranges)):
                     if det_e_min < flux_e_min or det_e_max > flux_e_max:
-                        energy_range = [min(det_e_min, flux_e_min),
-                                        max(det_e_max, flux_e_max)]
+                        energy_range = [float(max(det_e_min, flux_e_min)),
+                                        float(min(det_e_max, flux_e_max))]
                         print(
                             f'WARNING: include_energy_ranges[{i}] out of range'
                             f' ({detector.include_energy_ranges[i]}): adjusted'
@@ -326,196 +755,6 @@ class MCAScanDataConfig(BaseModel):
         return d
 
 
-class MaterialConfig(BaseModel):
-    """Model for parameters to characterize a sample material.
-
-    :ivar material_name: Sample material name.
-    :type material_name: str, optional
-    :ivar lattice_parameters: Lattice spacing(s) in angstroms.
-    :type lattice_parameters: float, list[float], optional
-    :ivar sgnum: Space group of the material.
-    :type sgnum: int, optional
-    """
-    material_name: Optional[constr(strip_whitespace=True, min_length=1)]
-    lattice_parameters: Optional[Union[
-        confloat(gt=0),
-        conlist(item_type=confloat(gt=0), min_items=1, max_items=6)]]
-    sgnum: Optional[conint(ge=0)]
-
-    _material: Optional[Material]
-
-    class Config:
-        underscore_attrs_are_private = False
-
-    @root_validator
-    def validate_material(cls, values):
-        """Create and validate the private attribute _material.
-
-        :param values: Dictionary of previously validated field values.
-        :type values: dict
-        :return: The validated list of `values`.
-        :rtype: dict
-        """
-        # Local modules
-        from CHAP.edd.utils import make_material
-
-        values['_material'] = make_material(values.get('material_name'),
-                                            values.get('sgnum'),
-                                            values.get('lattice_parameters'))
-        return values
-
-    def unique_hkls_ds(self, tth_tol=0.15, tth_max=90.0):
-        """Get a list of unique HKLs and their lattice spacings.
-
-        :param tth_tol: Minimum resolvable difference in 2&theta
-            between two unique HKL peaks, defaults to `0.15`.
-        :type tth_tol: float, optional
-        :param tth_max: Detector rotation about hutch x axis,
-            defaults to `90.0`.
-        :type tth_max: float, optional
-        :return: Unique HKLs and their lattice spacings in angstroms.
-        :rtype: np.ndarray, np.ndarray
-        """
-        # Local modules
-        from CHAP.edd.utils import get_unique_hkls_ds
-
-        return get_unique_hkls_ds([self._material])
-
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        for k,v in d.items():
-            if isinstance(v, PosixPath):
-                d[k] = str(v)
-        if '_material' in d:
-            del d['_material']
-        return d
-
-
-class MCAElementCalibrationConfig(MCAElementConfig):
-    """Class representing metadata required to calibrate a single MCA
-    detector element.
-
-    :ivar max_energy_kev: Maximum channel energy of the MCA in keV.
-    :type max_energy_kev: float
-    :ivar tth_max: Detector rotation about lab frame x axis,
-       defaults to `90`.
-    :type tth_max: float, optional
-    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
-        two unique HKL peaks, defaults to `0.15`.
-    :type hkl_tth_tol: float, optional
-    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
-        the calibration routine, defaults to `[]`.
-    :type hkl_indices: list[int], optional
-    :ivar background: Background model for peak fitting.
-    :type background: str, list[str], optional
-    :ivar tth_initial_guess: Initial guess for 2&theta,
-        defaults to `5.0`.
-    :type tth_initial_guess: float, optional
-    :ivar slope_initial_guess: Initial guess for the detector channel
-        energy correction linear slope, defaults to `1.0`.
-    :type slope_initial_guess: float, optional
-    :ivar intercept_initial_guess: Initial guess for detector channel
-        energy correction y-intercept, defaults to `0.0`.
-    :type intercept_initial_guess: float, optional
-    :ivar tth_calibrated: Calibrated value for 2&theta.
-    :type tth_calibrated: float, optional
-    :ivar slope_calibrated: Calibrated value for detector channel
-        energy correction linear slope.
-    :type slope_calibrated: float, optional
-    :ivar intercept_calibrated: Calibrated value for detector channel
-        energy correction y-intercept.
-    :type intercept_calibrated: float, optional
-    """
-    max_energy_kev: confloat(gt=0)
-    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
-    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
-    background: Optional[Union[str, list]]
-    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
-    slope_initial_guess: float = 1.0
-    intercept_initial_guess: float = 0.0
-    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
-    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-
-    @validator('hkl_indices', pre=True)
-    def validate_hkl_indices(cls, hkl_indices):
-        if isinstance(hkl_indices, str):
-            # Local modules
-            from CHAP.utils.general import string_to_list
-
-            hkl_indices = string_to_list(hkl_indices)
-        return sorted(hkl_indices)
-
-    @property
-    def energies(self):
-        """Return calibrated bin energies, if available. If not,
-        return bin energies adjusted with initial guesses for
-        slope/intercept.
-        """
-        slope = self.slope_calibrated
-        intercept = self.intercept_calibrated
-        if slope is None or intercept is None:
-            slope = self.slope_initial_guess
-            intercept = self.intercept_initial_guess
-        return (
-            slope * np.linspace(0, self.max_energy_kev, self.num_bins)
-            + intercept)
-
-
-class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
-    """Class representing metadata required to perform a diffraction
-    volume length measurement for a single MCA detector element.
-
-    :ivar measurement_mode: Placeholder for recording whether the
-        measured DVL value was obtained through the automated
-        calculation or a manual selection, defaults to `'auto'`.
-    :type measurement_mode: Literal['manual', 'auto'], optional
-    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
-        form of the MCA detector data. `sigma_to_dvl_factor` is a
-        scalar value that converts the standard deviation of the
-        gaussian fit to the measured DVL, defaults to `3.5`.
-    :type sigma_to_dvl_factor: Literal[3.5, 2.0, 4.0], optional
-    :ivar dvl_measured: Placeholder for the measured diffraction
-        volume length before writing the data to file.
-    :type dvl_measured: float, optional
-    :ivar fit_amplitude: Placeholder for amplitude of the gaussian fit.
-    :type fit_amplitude: float, optional
-    :ivar fit_center: Placeholder for center of the gaussian fit.
-    :type fit_center: float, optional
-    :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
-    :type fit_sigma: float, optional
-    """
-    measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
-    sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
-    dvl_measured: Optional[confloat(gt=0)] = None
-    fit_amplitude: Optional[float] = None
-    fit_center: Optional[float] = None
-    fit_sigma: Optional[float] = None
-
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-        Exclude `sigma_to_dvl_factor` from the dict representation if
-        `measurement_mode` is `'manual'`.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        if self.measurement_mode == 'manual':
-            del d['sigma_to_dvl_factor']
-        for param in ('amplitude', 'center', 'sigma'):
-            d[f'fit_{param}'] = float(d[f'fit_{param}'])
-        return d
-
-
 class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     """Class representing metadata required to perform a diffraction
     volume length calculation for an EDD setup using a steel-foil
@@ -546,25 +785,6 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
                 self.scan_column,
                 scan_numbers=self._parfile.good_scan_numbers())
         return self.scanparser.spec_scan_motor_vals[0]
-
-
-class CeriaConfig(MaterialConfig):
-    """Model for the sample material used in calibrations.
-
-    :ivar material_name: Calibration material name,
-        defaults to `'CeO2'`.
-    :type material_name: str, optional
-    :ivar lattice_parameters: Lattice spacing(s) for the calibration
-        material in angstroms, defaults to `5.41153`.
-    :type lattice_parameters: float, list[float], optional
-    :ivar sgnum: Space group of the calibration material,
-        defaults to `225`.
-    :type sgnum: int, optional
-    """
-    #RV Name suggests it's always Ceria, why have material_name?
-    material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
-    lattice_parameters: confloat(gt=0) = 5.41153
-    sgnum: Optional[conint(ge=0)] = 225
 
 
 class MCACeriaCalibrationConfig(MCAScanDataConfig):
@@ -662,136 +882,6 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         relative_intensities = flux[:,1]/np.max(flux[:,1])
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
-
-
-class MCAElementStrainAnalysisConfig(MCAElementConfig):
-    """Class representing metadata required to perform a strain
-    analysis fitting for a single MCA detector element.
-
-    :ivar max_energy_kev: Maximum channel energy of the MCA in keV.
-    :type max_energy_kev: float, optional
-    :ivar num_bins: Number of MCA channels.
-    :type num_bins: int, optional
-    :param tth_max: Detector rotation about hutch x axis, defaults
-            to `90.0`.
-    :type tth_max: float, optional
-    :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
-        two unique HKL peaks, defaults to `0.15`.
-    :type hkl_tth_tol: float, optional
-    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
-        the calibration routine, defaults to `[]`.
-    :type hkl_indices: list[int], optional
-    :ivar background: Background model for peak fitting.
-    :type background: str, list[str], optional
-    :ivar num_proc: Number of processors used for peak fitting.
-    :type num_proc: int, optional
-    :ivar peak_models: Peak model for peak fitting,
-        defaults to `'gaussian'`.
-    :type peak_models: Literal['gaussian', 'lorentzian']],
-        list[Literal['gaussian', 'lorentzian']]], optional
-    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `1.0`.
-    :type fwhm_min: float, optional
-    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
-    :type fwhm_max: float, optional
-    :ivar rel_amplitude_cutoff: Relative peak amplitude cutoff for
-        peak fitting (any peak with an amplitude smaller than
-        `rel_amplitude_cutoff` times the sum of all peak amplitudes
-        gets removed from the fit model), defaults to `None`.
-    :type rel_amplitude_cutoff: float, optional
-    :ivar tth_calibrated: Calibrated value for 2&theta.
-    :type tth_calibrated: float, optional
-    :ivar slope_calibrated: Calibrated value for detector channel.
-        energy correction linear slope
-    :type  slope_calibrated: float, optional
-    :ivar intercept_calibrated: Calibrated value for detector channel
-        energy correction y-intercept.
-    :type intercept_calibrated: float, optional
-    """
-    max_energy_kev: Optional[confloat(gt=0)]
-    num_bins: Optional[conint(gt=0)]
-    tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
-    hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
-    background: Optional[Union[str, list]]
-    num_proc: Optional[conint(gt=0)] = os.cpu_count()
-    peak_models: Union[
-        conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
-        Literal['gaussian', 'lorentzian']] = 'gaussian'
-    fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
-    fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
-    rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
-
-    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
-    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
-    calibration_bin_ranges: Optional[
-        conlist(
-            min_items=1,
-            item_type=conlist(
-                item_type=conint(ge=0),
-                min_items=2,
-            max_items=2))]
-    tth_file: Optional[FilePath]
-    tth_map: Optional[np.ndarray] = None
-
-    @validator('hkl_indices', pre=True)
-    def validate_hkl_indices(cls, hkl_indices):
-        if isinstance(hkl_indices, str):
-            # Local modules
-            from CHAP.utils.general import string_to_list
-
-            hkl_indices = string_to_list(hkl_indices)
-        return sorted(hkl_indices)
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def add_calibration(self, calibration):
-        """Finalize values for some fields using a completed
-        MCAElementCalibrationConfig that corresponds to the same
-        detector.
-
-        :param calibration: Existing calibration configuration to use
-            by MCAElementStrainAnalysisConfig.
-        :type calibration: MCAElementCalibrationConfig
-        :return: None
-        """
-        add_fields = ['tth_calibrated', 'slope_calibrated',
-                      'intercept_calibrated', 'num_bins', 'max_energy_kev']
-        for field in add_fields:
-            setattr(self, field, getattr(calibration, field))
-        self.calibration_bin_ranges = calibration.include_bin_ranges
-
-    def get_tth_map(self, map_shape):
-        """Return the map of 2&theta values to use -- may vary at each
-        point in the map.
-
-        :param map_shape: The shape of the suplied 2&theta map.
-        :return: Map of 2&theta values.
-        :rtype: np.ndarray
-        """
-        if getattr(self, 'tth_map', None) is not None:
-            if self.tth_map.shape != map_shape:
-                raise ValueError(
-                    'Invalid "tth_map" field shape '
-                    f'{self.tth_map.shape} (expected {map_shape})')
-            return self.tth_map
-        return np.full(map_shape, self.tth_calibrated)
-
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        for k,v in d.items():
-            if isinstance(v, PosixPath):
-                d[k] = str(v)
-            if isinstance(v, np.ndarray):
-                d[k] = v.tolist()
-        return d
 
 
 class StrainAnalysisConfig(BaseModel):
