@@ -149,8 +149,8 @@ class DiffractionVolumeLengthProcessor(Processor):
                 ylabel='MCA intensity (counts)',
                 min_num_index_ranges=1,
                 interactive=interactive, filename=filename)
-            detector.include_energy_ranges = detector.get_energy_ranges(
-                include_bin_ranges)
+            detector.include_energy_ranges = \
+                detector.get_include_energy_ranges(include_bin_ranges)
             self.logger.debug(
                 'Mask selected. Including detector energy ranges: '
                 + str(detector.include_energy_ranges))
@@ -324,7 +324,6 @@ class LatticeParameterRefinementProcessor(Processor):
         :rtype: list[numpy.ndarray]
         """
         # Third party modules
-        import numpy as np
         from scipy.constants import physical_constants
 
         # Local modules
@@ -467,7 +466,6 @@ class LatticeParameterRefinementProcessor(Processor):
 
         # Third party modules
         import matplotlib.pyplot as plt
-        import numpy as np
 
         # Local modules
         from CHAP.edd.utils import select_mask_and_hkls
@@ -484,14 +482,13 @@ class LatticeParameterRefinementProcessor(Processor):
                 calibration_bin_ranges=detector.calibration_bin_ranges,
                 label='Sum of all spectra in the map',
                 interactive=interactive)
-        detector.include_energy_ranges = detector.get_energy_ranges(
+        detector.include_energy_ranges = detector.get_include_energy_ranges(
             include_bin_ranges)
         detector.hkl_indices = hkl_indices
         if save_figures:
             fig.savefig(os.path.join(
                 outputdir,
-                f'{detector.detector_name}_strainanalysis_'
-                'fit_mask_hkls.png'))
+                f'{detector.detector_name}_strainanalysis_fit_mask_hkls.png'))
         plt.close()
 
     def select_material_params(self, strain_analysis_config, detector_i,
@@ -528,7 +525,6 @@ class LatticeParameterRefinementProcessor(Processor):
 
         # Third party modules
         import matplotlib.pyplot as plt
-        import numpy as np
 
         # Local modules
         from CHAP.edd.utils import select_material_params
@@ -545,8 +541,7 @@ class LatticeParameterRefinementProcessor(Processor):
                 strain_analysis_config.detectors[detector_i].detector_name
             fig.savefig(os.path.join(
                 outputdir,
-                f'{detector_name}_strainanalysis_'
-                'material_config.png'))
+                f'{detector_name}_strainanalysis_material_config.png'))
         plt.close()
 
     def get_spectra_fits(
@@ -667,7 +662,8 @@ class MCACeriaCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
-        self.logger.debug(f'In process: save_figures = {save_figures}; interactive = {interactive}')
+        self.logger.debug(f'In process: save_figures = {save_figures}; '
+                          f'interactive = {interactive}')
 
         for detector in calibration_config.detectors:
             tth, slope, intercept = self.calibrate(
@@ -738,8 +734,7 @@ class MCACeriaCalibrationProcessor(Processor):
         if save_figures:
             filename = os.path.join(
                outputdir,
-               f'{detector.detector_name}_calibration_'
-               'tth_initial_guess.png')
+               f'{detector.detector_name}_calibration_tth_initial_guess.png')
         else:
             filename = None
         detector.tth_initial_guess = select_tth_initial_guess(
@@ -758,7 +753,7 @@ class MCACeriaCalibrationProcessor(Processor):
             detector.hkl_indices, detector.detector_name,
             flux_energy_range=calibration_config.flux_file_energy_range,
             label='MCA data', interactive=interactive, filename=filename)
-        detector.include_energy_ranges = detector.get_energy_ranges(
+        detector.include_energy_ranges = detector.get_include_energy_ranges(
             include_bin_ranges)
         detector.hkl_indices = hkl_indices
         self.logger.debug(
@@ -945,7 +940,9 @@ class MCACeriaCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, f'ceria_calibration_fits_{detector.detector_name}.png')
+                figfile = os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_ceria_calibration_fits.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -973,9 +970,9 @@ class MCAEnergyCalibrationProcessor(Processor):
                 data,
                 peak_energies,
                 config=None,
-                peak_initial_guesses=None,
-                peak_center_fit_delta=1.0,
-                fit_energy_ranges=None,
+                fit_index_ranges=None,
+                peak_index_fit_delta=1.0,
+                max_energy_kev=200.0,
                 save_figures=False,
                 interactive=False,
                 inputdir='.',
@@ -999,65 +996,62 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type peak_energies: list[float]
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
-            None.
+            `None`.
         :type config: dict, optional
-        :param peak_initial_guesses: A list of values to use for the
-            initial guesses for peak locations when performing the fit
-            of the spectrum. Providing good values to this parameter
-            can greatly improve the quality of the spectrum fit when
-            the uncalibrated detector channel energies are too far off
-            to use the values in `peak_energies` for the initial
-            guesses for peak centers. Defaults to None.
-        :type peak_inital_guesses: Optional[list[float]]
-        :param peak_center_fit_delta: Set boundaries on the fit peak
-            centers when performing the fit. The min/max possible
-            values for the peak centers will be the values provided in
-            `peak_energies` (or `peak_initial_guesses`, if used) &pm;
-            `peak_center_fit_delta`. Defaults to 1.0.
-        :type peak_center_fit_delta: float
-        :param fit_energy_ranges: Explicit ranges of uncalibrated MCA
-            channel energy ranges to include when performing a fit of
+        :param fit_index_ranges: Explicit ranges of uncalibrated MCA
+            channel index ranges to include when performing a fit of
             the given peaks to the provied MCA spectrum. Use this
             parameter or select it interactively by running a pipeline
-            with `config.interactive: True`. Defaults to []
-        :type fit_energy_ranges: Optional[list[list[float]]]
+            with `config.interactive: True`. Defaults to `None`.
+        :type fit_index_ranges: Optional[list[list[int]]]
+        :param peak_index_fit_delta: Set boundaries on the fit peak
+            centers when performing the fit. The min/max possible
+            values for the peak centers will be the initial values
+            &pm; `peak_index_fit_delta`. Defaults to `20`.
+        :type peak_index_fit_delta: int
+        :param max_energy_kev: Maximum channel energy of the MCA in
+            keV, defaults to 200.0.
+        :type max_energy_kev: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to False.
+            outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
         :param interactive: Allows for user interactions, defaults to
-            False.
+            `False`.
         :type interactive: bool, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
-            defaults to '.'.
+            defaults to `'.'`.
         :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
-            be saved, defaults to '.'.
+            be saved, defaults to `'.'`.
         :type outputdir: str, optional
         :returns: Dictionary representing the energy-calibrated
             version of the ceria calibration configuration.
         :rtype: dict
         """
+        # Local modules
+        from CHAP.utils.general import is_num_series
+
+        # Validate arguments: peak_energies
+        if not is_num_series(peak_energies, gt=0):
+            self.logger.exception(
+                ValueError('Invalid parameter `peak_energies`: '
+                           f'{peak_energies}'), exc_info=False)
+        if len(peak_energies) < 2:
+            self.logger.exception(
+                ValueError('Invalid parameter `peak_energies`: '
+                           f'{peak_energies} (at least two values required)'),
+                           exc_info=False)
+        peak_energies.sort()
+
         # Validate arguments: fit_ranges & interactive
-        if not (fit_energy_ranges or interactive):
+        if fit_index_ranges is None and not interactive:
             self.logger.exception(
                 RuntimeError(
-                    'If `fit_energy_ranges` is not explicitly provided, '
+                    'If `fit_index_ranges` is not explicitly provided, '
                     + self.__class__.__name__
-                    + ' must be run with `interactive=True`.'))
-        # Validate arguments: peak_energies & peak_initial_guesses
-        if peak_initial_guesses is None:
-            peak_initial_guesses = peak_energies
-        else:
-            # Local modules
-            from CHAP.utils.general import is_num_series
+                    + ' must be run with `interactive=True`.'), exc_info=False)
 
-            is_num_series(peak_initial_guesses, raise_error=True)
-            if len(peak_initial_guesses) != len(peak_energies):
-                self.logger.exception(
-                    ValueError(
-                        'peak_initial_guesses must have the same number of '
-                        'values as peak_energies'))
         # Validate arguments: load the calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1075,50 +1069,45 @@ class MCAEnergyCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
-        # Calibrate detector energy based on indicated peaks. Populate
-        # the calibration configuration's "initial guesses" with these
-        # values -- they may be re-calibrated later with
-        # MCACeriaCalibrationProcessor.
+        # Calibrate detector channel energies based on fluorescence peaks.
         for detector in calibration_config.detectors:
             slope, intercept = self.calibrate(
-                calibration_config, detector, peak_energies,
-                peak_initial_guesses, peak_center_fit_delta, fit_energy_ranges,
-                save_figures, interactive, outputdir)
+                calibration_config, detector, peak_energies, fit_index_ranges,
+                peak_index_fit_delta, max_energy_kev, save_figures,
+                interactive, outputdir)
             detector.slope_initial_guess = slope
             detector.intercept_initial_guess = intercept
 
         return calibration_config.dict()
 
     def calibrate(self, calibration_config, detector, peak_energies,
-                  peak_initial_guesses, peak_center_fit_delta,
-                  fit_energy_ranges, save_figures, interactive, outputdir):
-        """Return calibrated slope & intercept for linearly correcting
-        this detector's bin energies.
+            fit_index_ranges, peak_index_fit_delta, max_energy_kev,
+            save_figures, interactive, outputdir):
+        """Return calibrated slope & intercept for linearly converting
+        the current detector's MCA channels to bin energies.
 
+        :param calibration_config: Calibration configuration.
+        :type calibration_config: MCACeriaCalibrationConfig
+        :param detector: Configuration of the current detector.
+        :type calibration_config: MCAElementCalibrationConfig
         :param peak_energies: Theoretical locations of peaks to use
             for calibrating the MCA channel energies. It is _strongly_
             recommended to use fluorescence peaks.
         :type peak_energies: list[float]
-        :param peak_initial_guesses: A list of values to use for the
-            initial guesses for peak locations when performing the fit
-            of the spectrum. Providing good values to this parameter
-            can greatly improve the quality of the spectrum fit when
-            the uncalibrated detector channel energies are too far off
-            to use the values in `peak_energies` for the initial
-            guesses for peak centers.
-        :type peak_inital_guesses: Optional[list[float]]
-        :param peak_center_fit_delta: Set boundaries on the fit peak
-            centers when performing the fit. The min/max possible
-            values for the peak centers will be the values provided in
-            `peak_energies` (or `peak_initial_guesses`, if used) &pm;
-            `peak_center_fit_delta`.
-        :type peak_center_fit_delta: float
-        :param fit_energy_ranges: Explicit ranges of uncalibrated MCA
-            channel energy ranges to include when performing a fit of
+        :param fit_index_ranges: Explicit ranges of uncalibrated MCA
+            channel index ranges to include when performing a fit of
             the given peaks to the provied MCA spectrum. Use this
             parameter or select it interactively by running a pipeline
             with `config.interactive: True`.
         :type fit_ranges: list[list[float]]
+        :param peak_index_fit_delta: Set boundaries on the fit peak
+            centers when performing the fit. The min/max possible
+            values for the peak centers will be the initial values
+            &pm; `peak_index_fit_delta`. Defaults to `20`.
+        :type peak_index_fit_delta: int
+        :param max_energy_kev: Maximum channel energy of the MCA in
+            keV, defaults to 200.0.
+        :type max_energy_kev: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor.
         :type save_figures: bool
@@ -1128,15 +1117,13 @@ class MCAEnergyCalibrationProcessor(Processor):
             be saved.
         :type outputdir: str
         :returns: Slope and intercept for linearly correcting the
-            detector's bin energies.
+            detector's MCA channels to bin energies.
         :rtype: tuple[float, float]
         """
-        # Third party modules
-        import numpy as np
-
         # Local modules
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import (
+            index_nearest,
             index_nearest_down,
             index_nearest_up,
             select_mask_1d,
@@ -1145,104 +1132,98 @@ class MCAEnergyCalibrationProcessor(Processor):
         self.logger.debug(f'Calibrating detector {detector.detector_name}')
         spectrum = calibration_config.mca_data(detector)
         uncalibrated_energies = np.linspace(
-            0, detector.max_energy_kev, detector.num_bins)
+            0, max_energy_kev, detector.num_bins)
+        bins = np.arange(detector.num_bins, dtype=np.int16)
 
-        # Blank out data below 25 keV as well as the last bin
-        energy_mask = np.where(uncalibrated_energies >= 25.0, 1, 0)
+        # Blank out data below bin 500 (~25keV) as well as the last bin
+        energy_mask = np.ones(detector.num_bins, dtype=np.int16)
+        energy_mask[:500] = 0
         energy_mask[-1] = 0
         spectrum = spectrum*energy_mask
 
-        # Select the mask/energy ranges for fitting
-        fit_index_ranges = []
-        if fit_energy_ranges is None:
-            fit_index_ranges.append(
-                [index_nearest_down(
-                    uncalibrated_energies,
-                    max(25.0, uncalibrated_energies[0])),
-                 index_nearest_up(
-                     uncalibrated_energies,
-                     min(45.0, uncalibrated_energies[-1]))])
-        else:
-            for e_min, e_max in fit_energy_ranges:
-                fit_index_ranges.append(
-                    [index_nearest_down(uncalibrated_energies, e_min),
-                     index_nearest_up(uncalibrated_energies, e_max)])
+        # Select the mask/detector channel ranges for fitting
         if save_figures:
             filename = os.path.join(
-                outputdir, 'mca_energy_calibration_mask.png')
+                outputdir,
+                f'{detector.detector_name}_mca_energy_calibration_mask.png')
         else:
             filename = None
         mask, fit_index_ranges = select_mask_1d(
-            spectrum, x=uncalibrated_energies,
-            preselected_index_ranges=fit_index_ranges,
-            xlabel='Uncalibrated Energy', ylabel='Intensity',
+            spectrum, x=bins, preselected_index_ranges=fit_index_ranges,
+            xlabel='Detector channel', ylabel='Intensity',
             min_num_index_ranges=1, interactive=interactive,
             filename=filename)
-        fit_energy_ranges = [[uncalibrated_energies[i] for i in range_]
-                             for range_ in fit_index_ranges]
         self.logger.debug(
-            f'Selected energy ranges to fit: {fit_energy_ranges}')
+            f'Selected index ranges to fit: {fit_index_ranges}')
 
-        spectrum_fit = Fit(spectrum[mask], x=uncalibrated_energies[mask])
-        for i, (peak_energy, initial_guess) in enumerate(
-                zip(peak_energies, peak_initial_guesses)):
+        # Get the intial peak positions for fitting
+        if save_figures:
+            filename = os.path.join(
+                outputdir,
+                f'{detector.detector_name}'
+                    '_mca_energy_calibration_initial_peak_positions.png')
+        else:
+            filename = None
+        input_indices = [index_nearest(uncalibrated_energies, energy)
+                         for energy in peak_energies]
+        initial_peak_indices = self._get_initial_peak_positions(
+            spectrum, input_indices, index_ranges=fit_index_ranges,
+            interactive=interactive, filename=filename,
+            detector_name=detector.detector_name)
+
+        spectrum_fit = Fit(spectrum[mask], x=bins[mask])
+        for i, index in enumerate(initial_peak_indices):
             spectrum_fit.add_model(
                 'gaussian', prefix=f'peak{i+1}_', parameters=(
                     {'name': 'amplitude', 'min': 0.0},
-                    {'name': 'center', 'value': initial_guess,
-                     'min': initial_guess - peak_center_fit_delta,
-                     'max': initial_guess + peak_center_fit_delta},
-                    {'name': 'sigma', 'value': 0.2, 'min': 0.01, 'max': 0.42},
+                    {'name': 'center', 'value': index,
+                     'min': index - peak_index_fit_delta,
+                     'max': index + peak_index_fit_delta},
+                    {'name': 'sigma', 'value': 1.0, 'min': 0.2, 'max': 8.0},
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
         
-        fit_peak_energies = sorted([
+        fit_peak_indices = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
-            for i in range(len(peak_energies))])
-        self.logger.debug(f'Fit peak centers: {fit_peak_energies}')
+            for i in range(len(initial_peak_indices))])
+        self.logger.debug(f'Fit peak centers: {fit_peak_indices}')
 
-        peak_energies.sort()
         energy_fit = Fit.fit_data(
-            peak_energies, 'linear', x=fit_peak_energies, nan_policy='omit')
+            peak_energies, 'linear', x=fit_peak_indices, nan_policy='omit')
         slope = energy_fit.best_values['slope']
         intercept = energy_fit.best_values['intercept']
-        # If we want to rescale slope so results are a linear
-        # correction from channel indices -> calibrated energies, not
-        # uncalibrated energies -> calibrated energies, then uncooment
-        # the following line.
-        # slope = (detector.max_energy_kev / detector.num_bins) * slope
 
         # Reference plot to see fit results:
         if interactive or save_figures:
             # Third part modules
             import matplotlib.pyplot as plt
 
-            fig, axs = plt.subplots(1,2, figsize=(11, 4.25))
+            fig, axs = plt.subplots(1, 2, figsize=(11, 4.25))
             fig.suptitle(
                 f'Detector {detector.detector_name} Energy Calibration')
-            # Left plot: raw MCA data & best fit of fluorescence peaks
+            # Left plot: raw MCA data & best fit of peaks
             axs[0].set_title(f'MCA Spectrum Peak Fit')
-            axs[0].set_xlabel('Uncalibrated Energy (keV)')
+            axs[0].set_xlabel('Detector channel')
             axs[0].set_ylabel('Intensity (a.u)')
-            axs[0].plot(uncalibrated_energies[mask], spectrum[mask],
-                    label='MCA data')
-            axs[0].plot(uncalibrated_energies[mask], spectrum_fit.best_fit,
-                    label='Best fit')
+            axs[0].plot(bins[mask], spectrum[mask], 'b.', label='MCA data')
+            axs[0].plot(
+                bins[mask], spectrum_fit.best_fit, 'r', label='Best fit')
             axs[0].legend()
-            # Right plot: linear fit of theoretical & fit peak locations
-            axs[1].set_title('Theoretical vs. Fit Peak Energies')
-            axs[1].set_xlabel('Theoretical Peak Energy (keV)')
-            axs[1].set_ylabel('Energy (keV)')
-            axs[1].plot(peak_energies, fit_peak_energies,
-                        marker='o', ls='',
-                        label='Fit peak energies (uncalibrated)')
-            axs[1].plot(energy_fit.best_fit, fit_peak_energies,
+            # Right plot: linear fit of theoretical peak energies vs
+            # fit peak locations
+            axs[1].set_title(
+                'Channel Energies vs. Channel Indices')
+            axs[1].set_xlabel('Detector channel')
+            axs[1].set_ylabel('Channel energy (keV)')
+            axs[1].plot(fit_peak_indices, peak_energies,
+                        c='b', marker='o', ms=6, mfc='none', ls='',
+                        label='Initial peak positions')
+            axs[1].plot(fit_peak_indices, energy_fit.best_fit,
+                        c='k', marker='+', ms=6, ls='',
+                        label='Fitted peak positions')
+            axs[1].plot(bins[mask], intercept + slope * bins[mask], 'r',
                         label='Best linear fit')
-            axs[1].plot(peak_energies,
-                        slope * np.asarray(fit_peak_energies) + intercept,
-                        marker='o', ls='',
-                        label='Fit peak energies (calibrated)')
             axs[1].legend()
             # Add text box showing computed values of linear E
             # correction parameters
@@ -1250,7 +1231,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 0.98, 0.02,
                 'Calibrated Values:\n\n'
                 + f'Slope:\n    {slope:.5f}\n\n'
-                + f'Intercept:\n    {intercept:.5f} $keV$',
+                + f'Intercept:\n    {intercept:.5f} $keV$/channel',
                 ha='right', va='bottom', ma='left',
                 transform=axs[1].transAxes,
                 bbox=dict(boxstyle='round',
@@ -1260,13 +1241,250 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.tight_layout()
 
             if save_figures:
-                figfile = os.path.join(outputdir, f'energy_calibration_fit_{detector.detector_name}.png')
+                figfile = os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_energy_calibration_fit.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
                 plt.show()
 
         return float(slope), float(intercept)
+
+    def _get_initial_peak_positions(
+            self, y, input_indices, index_ranges=None, interactive=True,
+            filename=None, detector_name=None, reset_flag=0):
+        # Third party modules
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import TextBox, Button
+
+        # Local modules
+        from CHAP.utils.general import (
+            is_int_pair,
+            is_int_series,
+        )
+
+        def change_fig_title(title):
+            if fig_title:
+                fig_title[0].remove()
+                fig_title.pop()
+            fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+        def change_error_text(error=''):
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            error_texts.append(plt.figtext(*error_pos, error, **error_props))
+
+        def reset(event):
+            """Callback function for the "Reset" button."""
+            peak_indices.clear()
+            plt.close()
+
+        def confirm(event):
+            """Callback function for the "Confirm" button."""
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            plt.close()
+
+        def find_peaks():
+            # Third party modules
+            from scipy.signal import find_peaks as find_peaks_scipy
+
+            yy = y[index_ranges[0][0]:index_ranges[-1][1]]
+            prominence = 0.01*yy.max()
+            indices = find_peaks_scipy(yy, prominence=prominence)[0]
+            while prominence < 0.5 and len(indices) > num_peak:
+                prominence *= 2
+                indices = find_peaks_scipy(yy, prominence=prominence)[0]
+            if len(indices) < 2:
+                return input_indices
+            peak_indices = [index + index_ranges[0][0] for index in indices]
+            if len(peak_indices) < num_peak:
+                i = 0
+                ii = 0
+                for index in peak_indices[:-1]:
+                    shifted_input_indices = [
+                        input_index + index - input_indices[ii]
+                        for input_index in input_indices]
+                    peak_delta = peak_indices[i+1] - index
+                    input_delta1 = (
+                        shifted_input_indices[ii+1]
+                        - shifted_input_indices[ii])
+                    input_delta2 = (
+                        shifted_input_indices[ii+2]
+                        - shifted_input_indices[ii+1])
+                    if (abs(peak_delta-input_delta1)
+                            < abs(peak_delta-input_delta2)):
+                        i += 1
+                        ii += 1
+                    else:
+                        peak_indices[i] = (
+                            peak_indices[i+1] - input_delta1 - input_delta2)
+                        peak_indices.insert(
+                            i+1, peak_indices[i] + input_delta1)
+                        i += 2
+                        ii += 2
+                    if len(peak_indices) == len(input_indices):
+                        break
+                if len(peak_indices) < len(input_indices):
+                    input_delta = \
+                        shifted_input_indices[-1] - shifted_input_indices[-2]
+                    peak_indices[-1] -= input_delta//2
+                    peak_indices.append(peak_indices[-1] + input_delta)
+            return peak_indices
+
+        def select_peaks():
+            """Manually select initial peak indices."""
+            peak_indices = []
+            while len(set(peak_indices)) < num_peak:
+                change_fig_title(f'Select {num_peak} peak positions')
+                peak_indices = [
+                    int(pt[0]) for pt in plt.ginput(num_peak, timeout=15)]
+                if len(set(peak_indices)) < num_peak:
+                    error_text = f'Choose {num_peak} unique position'
+                    peak_indices.clear()
+                outside_indices = []
+                for index in peak_indices:
+                    if not any(True if low <= index <= upp else False
+                           for low, upp in index_ranges):
+                        outside_indices.append(index)
+                if len(outside_indices) == 1:
+                    error_text = \
+                        f'Index {outside_indices[0]} outside of selection ' \
+                        f'region ({index_ranges}), try again'
+                    peak_indices.clear()
+                elif outside_indices:
+                    error_text = \
+                        f'Indices {outside_indices} outside of selection ' \
+                        'region, try again'
+                    peak_indices.clear()
+                if not peak_indices:
+                    plt.close()
+                    fig, ax = plt.subplots(figsize=(11, 8.5))
+                    ax.set_xlabel('Detector channel', fontsize='x-large')
+                    ax.set_ylabel('Intensity', fontsize='x-large')
+                    ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
+                    fig.subplots_adjust(bottom=0.0, top=0.85)
+                    ax.plot(np.arange(y.size), y, color='k')
+                    fig.subplots_adjust(bottom=0.2)
+                    change_error_text(error_text)
+                plt.draw()
+            return peak_indices
+
+        # Check inputs
+        y = np.asarray(y)
+        if not is_int_series(input_indices, gt=0, lt=y.size):
+            raise ValueError(
+                f'Invalid parameter `input_indices`: {input_indices}')
+        if index_ranges is None:
+            index_ranges = [[0, y.size]]
+        elif (not isinstance(index_ranges, list)
+                or any(not is_int_pair(v, ge=0, le=y.size)
+                       for v in index_ranges)):
+            raise ValueError(
+                f'Invalid parameter `index_ranges`: {index_ranges}')
+        if detector_name is None:
+            detector_name = ''
+        elif not isinstance(detector_name, str):
+            raise ValueError(
+                f'Invalid parameter `detector_name`: {detector_name}')
+        elif not reset_flag:
+            detector_name = f' on detector {detector_name}'
+
+        num_peak = len(input_indices)
+        peak_indices = []
+        fig_title = []
+        error_texts = []
+
+        # Setup the Matplotlib figure
+        title_pos = (0.5, 0.95)
+        title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        error_pos = (0.5, 0.90)
+        error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        selected_peak_props = {
+            'color': 'red', 'linestyle': '-', 'linewidth': 2,
+            'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
+
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        ax.plot(np.arange(y.size), y, color='k')
+        ax.set_xlabel('Detector channel', fontsize='x-large')
+        ax.set_ylabel('Intensity', fontsize='x-large')
+        ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
+        fig.subplots_adjust(bottom=0.0, top=0.85)
+
+        if not interactive:
+
+            peak_indices += find_peaks()
+
+            for index in peak_indices:
+                ax.axvline(index, **selected_peak_props)
+            change_fig_title('Initial peak positions from peak finding '
+                             f'routine{detector_name}')
+
+        else:
+
+            fig.subplots_adjust(bottom=0.2)
+
+            # Get initial peak indices
+            if not reset_flag:
+                peak_indices += find_peaks()
+                change_fig_title('Initial peak positions from peak finding '
+                                 f'routine{detector_name}')
+            if peak_indices:
+                for index in peak_indices:
+                    if not any(True if low <= index <= upp else False
+                           for low, upp in index_ranges):
+                        peak_indices.clear
+                        break
+            if not peak_indices:
+                peak_indices += select_peaks()
+                change_fig_title(
+                    'Selected initial peak positions{detector_name}')
+
+            for index in peak_indices:
+                ax.axvline(index, **selected_peak_props)
+
+            # Setup "Reset" button
+            if not reset_flag:
+                reset_btn = Button(
+                    plt.axes([0.1, 0.05, 0.15, 0.075]), 'Manually select')
+            else:
+                reset_btn = Button(
+                    plt.axes([0.1, 0.05, 0.15, 0.075]), 'Reset')
+            reset_cid = reset_btn.on_clicked(reset)
+
+            # Setup "Confirm" button
+            confirm_btn = Button(
+                plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+            confirm_cid = confirm_btn.on_clicked(confirm)
+
+            plt.show()
+
+            # Disconnect all widget callbacks when figure is closed
+            reset_btn.disconnect(reset_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ... and remove the buttons before returning the figure
+            reset_btn.ax.remove()
+            confirm_btn.ax.remove()
+
+        if filename is not None:
+            fig_title[0].set_in_layout(True)
+            fig.tight_layout(rect=(0, 0, 1, 0.95))
+            fig.savefig(filename)
+        plt.close()
+
+        if interactive and len(peak_indices) != num_peak:
+            reset_flag += 1
+            return self._get_initial_peak_positions(
+                y, input_indices, index_ranges=index_ranges,
+                interactive=interactive, filename=filename,
+                detector_name=detector_name, reset_flag=reset_flag)
+        return peak_indices
 
 
 class MCADataProcessor(Processor):
@@ -1406,9 +1624,10 @@ class MCACalibratedDataPlotter(Processor):
         :returns: None
         :rtype: None
         """
-
+        # Third party modules
         import matplotlib.pyplot as plt
-        import numpy as np
+
+        # Local modules
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
         if material is not None:
@@ -1668,10 +1887,7 @@ class StrainAnalysisProcessor(Processor):
             detector.add_calibration(calibration)
 
             # Get the MCA bin energies
-            mca_bin_energies = (
-                detector.slope_calibrated
-                * np.linspace(0, detector.max_energy_kev, detector.num_bins)
-                + detector.intercept_calibrated)
+            mca_bin_energies = detector.energies
 
             # Blank out data below 25 keV as well as the last bin
             energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
@@ -1687,7 +1903,7 @@ class StrainAnalysisProcessor(Processor):
                     filename = os.path.join(
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_'
-                        'material_config.png')
+                            'material_config.png')
                 else:
                     filename = None
                 strain_analysis_config.materials = select_material_params(
@@ -1714,7 +1930,7 @@ class StrainAnalysisProcessor(Processor):
                 filename = os.path.join(
                     outputdir,
                     f'{detector.detector_name}_strainanalysis_'
-                    'fit_mask_hkls.png')
+                        'fit_mask_hkls.png')
             else:
                 filename = None
             include_bin_ranges, hkl_indices = \
@@ -1727,8 +1943,8 @@ class StrainAnalysisProcessor(Processor):
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of all spectra in the map',
                     interactive=interactive, filename=filename)
-            detector.include_energy_ranges = detector.get_energy_ranges(
-                include_bin_ranges)
+            detector.include_energy_ranges = \
+                detector.get_include_energy_ranges(include_bin_ranges)
             detector.hkl_indices = hkl_indices
             self.logger.debug(
                 f'include_energy_ranges for detector {detector.detector_name}:'
@@ -1878,8 +2094,9 @@ class StrainAnalysisProcessor(Processor):
 
                 if save_figures:
                     path = os.path.join(
-                        outputdir, f'{detector.detector_name}_strainanalysis_'
-                        'unconstrained_fits')
+                        outputdir,
+                        f'{detector.detector_name}_strainanalysis_'
+                            'unconstrained_fits')
                     if not os.path.isdir(path):
                         os.mkdir(path)
 
@@ -1961,7 +2178,7 @@ class StrainAnalysisProcessor(Processor):
                     path = os.path.join(
                         outputdir,
                         f'{detector.detector_name}_strainanalysis_'
-                        'unconstrained_fits.gif')
+                            'unconstrained_fits.gif')
                     ani.save(path)
                 plt.close()
 
