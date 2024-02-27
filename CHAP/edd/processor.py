@@ -804,7 +804,7 @@ class MCACeriaCalibrationProcessor(Processor):
             fit = Fit(fit_mca_intensities, x=fit_mca_energies)
             fit.create_multipeak_model(
                 _fit_E0, fit_type='uniform', background=detector.background,
-                centers_range=centers_range)
+                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
             fit.fit()
 
             # Extract values of interest from the best values for the
