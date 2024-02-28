@@ -1230,8 +1230,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[1].text(
                 0.98, 0.02,
                 'Calibrated Values:\n\n'
-                + f'Slope:\n    {slope:.5f}\n\n'
-                + f'Intercept:\n    {intercept:.5f} $keV$/channel',
+                + f'Slope:\n    {slope:.5f} $keV$/channel\n\n'
+                + f'Intercept:\n    {intercept:.5f} $keV$',
                 ha='right', va='bottom', ma='left',
                 transform=axs[1].transAxes,
                 bbox=dict(boxstyle='round',
@@ -1295,7 +1295,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             yy = y[index_ranges[0][0]:index_ranges[-1][1]]
             prominence = 0.01*yy.max()
             indices = find_peaks_scipy(yy, prominence=prominence)[0]
-            while prominence < 0.5 and len(indices) > num_peak:
+            while prominence < 0.5*yy.max() and len(indices) > num_peak:
                 prominence *= 2
                 indices = find_peaks_scipy(yy, prominence=prominence)[0]
             if len(indices) < 2:
