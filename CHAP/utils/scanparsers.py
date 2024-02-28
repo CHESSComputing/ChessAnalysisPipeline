@@ -434,7 +434,7 @@ class LinearScanParser(ScanParser):
         return self._spec_scan_motor_vals
 
     @property
-    def spec_scan_motor_vals(self):
+    def spec_scan_motor_vals_relative(self):
         if self._spec_scan_motor_vals_relative is None:
             self._spec_scan_motor_vals_relative = \
                 self.get_spec_scan_motor_vals(relative=True)
@@ -598,9 +598,9 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
             if relative:
-                fast_mot_vals += self.get_spec_positioner_value(
+                fast_mot_vals -= self.get_spec_positioner_value(
                     self.spec_scan_motor_mnes[0])
-                slow_mot_vals += self.get_spec_positioner_value(
+                slow_mot_vals -= self.get_spec_positioner_value(
                     self.spec_scan_motor_mnes[1])
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
@@ -608,7 +608,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
             if relative:
-                mot_vals += self.get_spec_positioner_value(
+                mot_vals -= self.get_spec_positioner_value(
                     self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
@@ -797,17 +797,17 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
             if relative:
-                fast_mot_vals -= float(self.spec_positioner_values[
-                    self.spec_scan_motor_mnes[0]])
-                slow_mot_vals -= float(self.spec_positioner_values[
-                    self.spec_scan_motor_mnes[1]])
+                fast_mot_vals -= self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[0]]
+                slow_mot_vals -= self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[1]]
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
                                    float(self.spec_args[2]),
                                    int(self.spec_args[3])+1)
             if relative:
-                mot_vals += self.get_spec_positioner_value(
+                mot_vals -= self.get_spec_positioner_value(
                     self.spec_scan_motor_mnes[0])
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
