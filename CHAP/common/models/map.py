@@ -1095,6 +1095,14 @@ class MapConfig(BaseModel):
         :rtype: dict
         """
         if self.map_type == 'structured':
+            scan_type = self.attrs.get('scan_type', -1)
+            fly_axis_labels = self.attrs.get('fly_axis_labels', [])
+            if (scan_type in (3, 5)
+                    and len(self.dims) == 
+                        len(map_index) + len(fly_axis_labels)):
+                dims = [dim for dim in self.dims if dim not in fly_axis_labels]
+                return {dim:self.coords[dim][i]
+                        for dim, i in zip(dims, map_index)}
             return {dim:self.coords[dim][i]
                     for dim, i in zip(self.dims, map_index)}
         else:

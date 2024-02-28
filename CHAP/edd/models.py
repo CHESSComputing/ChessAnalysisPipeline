@@ -1036,6 +1036,8 @@ class StrainAnalysisConfig(BaseModel):
         map_config = values.get('map_config')
         if map_config is None or map_config.attrs['scan_type'] < 3:
             return None
+        if value is None:
+            return {'num': 10}
         if 'start' in value and not is_int(value['start'], ge=0):
             raise ValueError('Invalid "start" parameter in "oversampling" '
                              f'field ({value["start"]})')
@@ -1096,7 +1098,7 @@ class StrainAnalysisConfig(BaseModel):
                     mca_data, (*self.map_config.shape, len(mca_data[0])))
                 if self.sum_fly_axes and fly_axis_labels:
                     scan_type = self.map_config.attrs['scan_type']
-                    if scan_type == 3:
+                    if scan_type in (3, 5):
                         sum_indices = []
                         for axis in fly_axis_labels:
                             sum_indices.append(self.map_config.dims.index(axis))
