@@ -157,9 +157,9 @@ class DiffractionVolumeLengthProcessor(Processor):
         if not detector.include_energy_ranges:
             raise ValueError(
                 'No value provided for include_energy_ranges. '
-                + 'Provide them in the Diffraction Volume Length '
-                + 'Measurement Configuration, or re-run the pipeline '
-                + 'with the --interactive flag.')
+                'Provide them in the Diffraction Volume Length '
+                'Measurement Configuration, or re-run the pipeline '
+                'with the --interactive flag.')
 
         # Reduce the raw MCA data in 3 ways:
         # 1) sum of intensities in all detector bins
@@ -1833,6 +1833,12 @@ class StrainAnalysisProcessor(Processor):
             for dims in field_dims:
                 nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
 
+        if not interactive and not strain_analysis_config.materials:
+            raise ValueError(
+                'No material provided. Provide a material in the '
+                'StrainAnalysis Configuration, or re-run the pipeline with '
+                'the --interactive flag.')
+
         # Create the NXroot object
         nxroot = NXroot()
         nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
@@ -1907,8 +1913,8 @@ class StrainAnalysisProcessor(Processor):
                 else:
                     filename = None
                 strain_analysis_config.materials = select_material_params(
-                    mca_bin_energies, mca_data_summed[i]*energy_mask,
-                    tth, materials=strain_analysis_config.materials,
+                    mca_bin_energies, mca_data_summed[i]*energy_mask, tth,
+                    preselected_materials=strain_analysis_config.materials,
                     label='Sum of all spectra in the map',
                     interactive=interactive, filename=filename)
                 self.logger.debug(
