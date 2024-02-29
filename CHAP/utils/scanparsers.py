@@ -1192,6 +1192,41 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
                     + f'{detector_data_format}. Allowed values are: '
                     + ', '.join(self.detector_data_formats))
 
+    def get_spec_scan_motor_vals(self, relative=True):
+        if not relative:
+            # The scanned motor's recorded position in the spec.log
+            # file's "#P" lines does not always give the right offset
+            # to use to obtain absolute motor postions from relative
+            # motor positions (or relative from actual). Sometimes,
+            # the labx/y/z/ometotal value from the scan's .par file is
+            # the quantity for the offset that _should_ be used, but
+            # there is currently no consistent way to determine when
+            # to use the labx/y/z/ometotal .par file value and when to
+            # use the spec file "#P" lines value. Because the relative
+            # motor values are the only ones currently used in EDD
+            # workflows, obtain them from relevant values available in
+            # the .par file, and defer implementation for absolute
+            # motor postions to later.
+            # return super().get_spec_scan_motor_vals(relative=True)
+            raise NotImplementedError('Only relative motor values are available.')
+        if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            mot_vals_axis0 = np.linspace(self.pars['fly_axis0_start'],
+                                         self.pars['fly_axis0_end'],
+                                         self.pars['fly_axis0_npts'])
+            mot_vals_axis1 = np.linspace(self.pars['fly_axis1_start'],
+                                         self.pars['fly_axis1_end'],
+                                         self.pars['fly_axis1_npts'])
+            return (mot_vals_axis0, mot_vals_axis1)
+        if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
+            mot_vals = np.linspace(self.pars['fly_axis0_start'],
+                                   self.pars['fly_axis0_end'],
+                                   self.pars['fly_axis0_npts'])
+            return (mot_vals,)
+        if self.spec_macro in ('tseries', 'loopscan'):
+            return (self.spec_scan.data[:,0],)
+        raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
+                           f'for scans of type {self.spec_macro}')
+
     def init_detector_data_format(self):
         """Determine and set a value for the instance variable
         `detector_data_format` based on the presence / absence of
