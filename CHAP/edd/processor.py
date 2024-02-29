@@ -1255,7 +1255,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[1].text(
                 0.98, 0.02,
                 'Calibrated Values:\n\n'
-                f'Slope:\n    {slope:.5f}\n\n Intercept:\n    {intercept:.5f}',
+                    f'Slope:\n    {slope:.5f} $keV$/channel\n\n'
+                    f'Intercept:\n    {intercept:.5f} $keV$',
                 ha='right', va='bottom', ma='left',
                 transform=axs[1].transAxes,
                 bbox=dict(boxstyle='round',
