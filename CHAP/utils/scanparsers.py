@@ -304,6 +304,7 @@ class SMBScanParser(ScanParser):
 
         self._pars = None
         self._par_file_pattern = f'*-*-{self.scan_name}'
+        self._par_file = None
 
     def get_scan_name(self):
         return os.path.basename(self.scan_path)
@@ -344,7 +345,7 @@ class SMBScanParser(ScanParser):
             raise RuntimeError(f'{self.scan_title}: cannot find scan pars '
                                'without a "SCAN_N" column in the par file')
 
-        if hasattr(self, '_par_file'):
+        if getattr(self, '_par_file'):
             par_file = self._par_file
         else:
             par_files = fnmatch_filter(
@@ -354,6 +355,7 @@ class SMBScanParser(ScanParser):
                 raise RuntimeError(f'{self.scan_title}: cannot find the .par '
                                    'file for this scan directory')
             par_file = os.path.join(self.scan_path, par_files[0])
+            self._par_file = par_file
         par_dict = None
         with open(par_file) as f:
             par_reader = reader(f, delimiter=' ')
