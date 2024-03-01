@@ -1144,6 +1144,404 @@ class StrainAnalysisProcessor(Processor):
         return strain_analysis_config
 
 
+class SetupNXdataProcessor(Processor):
+    """Processor to set up and return an "empty" NeXus representation
+    of a structured dataset. This representation will be an instance
+    of `NXdata` that has:
+    1. An `NXfield` entry for every coordinate and signal specified.
+    1. `nxaxes` that are the `NXfield` entries for the coordinates and
+       contain the values provided for each coordinate.
+    1. `NXfield` entries of appropriate shape, but containing all
+       zeros, for every signal.
+    1. Attributes that define the axes, plus any additional attributes
+       specified by the user.
+
+    This `Processor` is most useful as a "setup" step for
+    constucting a representation of / container for a complete dataset
+    that will be filled out in pieces later by
+    `UpdateNXdataProcessor`.
+
+    Examples of use in a `Pipeline` configuration:
+    - With inputs from a previous `PipelineItem` specifically written
+      to provide inputs to this `Processor`:
+      ```yaml
+      config:
+        inputdir: /rawdata/samplename
+        outputdir: /reduceddata/samplename
+      pipeline:
+        - edd.SetupNXdataReader:
+            filename: SpecInput.txt
+            dataset_id: 1
+        - common.SetupNXdataProcessor:
+            nxname: samplename_dataset_1
+        - common.NexusWriter:
+            filename: data.nxs
+      ```
+     - With inputs provided directly though the optional arguments:
+       ```yaml
+      config:
+        outputdir: /reduceddata/samplename
+      pipeline:
+        - common.SetupNXdataProcessor:
+            nxname: your_dataset_name
+            coords:
+              - name: x
+                values: [0.0, 0.5, 1.0]
+                attrs:
+                  units: mm
+                  yourkey: yourvalue
+              - name: temperature
+                values: [200, 250, 275]
+                attrs:
+                  units: Celsius
+                  yourotherkey: yourothervalue
+            signals:
+              - name: raw_detector_data
+                shape: [407, 487]
+                attrs:
+                  local_name: PIL11
+                  foo: bar
+              - name: presample_intensity
+                shape: []
+                attrs:
+                   local_name: a3ic0
+                   zebra: fish
+            attrs:
+              arbitrary: metadata
+              from: users
+              goes: here
+        - common.NexusWriter:
+            filename: data.nxs
+       ```
+    """
+    def process(self, data, nxname='data',
+                coords=[], signals=[], attrs={}, data_points=[],
+                duplicates='overwrite'):
+        """Return an `NXdata` that has the requisite axes and
+        `NXfield` entries to represent a structured dataset with the
+        properties provided. Properties may be provided either through
+        the `data` argument (from an appropriate `PipelineItem` that
+        immediately preceeds this one in a `Pipeline`), or through the
+        `coords`, `signals`, `attrs`, and/or `data_points`
+        arguments. If any of the latter are used, their values will
+        completely override any values for these parameters found from
+        `data.`
+
+        :param data: Data from the previous item in a `Pipeline`.
+        :type data: list[PipelineData]
+        :param nxname: Name for the returned `NXdata` object. Defaults
+            to `'data'`.
+        :type nxname: str, optional
+        :param coords: List of dictionaries defining the coordinates
+            of the dataset. Each dictionary must have the keys
+            `'name'` and `'values'`, whose values are the name of the
+            coordinate axis (a string) and all the unique values of
+            that coordinate for the structured dataset (a list of
+            numbers), respectively. A third item in the dictionary is
+            optional, but highly recommended: `'attrs'` may provide a
+            dictionary of attributes to attach to the coordinate axis
+            that assist in in interpreting the returned `NXdata`
+            representation of the dataset. It is strongly recommended
+            to provide the units of the values along an axis in the
+            `attrs` dictionary. Defaults to [].
+        :type coords: list[dict[str, object]], optional
+        :param signals: List of dictionaries defining the signals of
+            the dataset. Each dictionary must have the keys `'name'`
+            and `'shape'`, whose values are the name of the signal
+            field (a string) and the shape of the signal's value at
+            each point in the dataset (a list of zero or more
+            integers), respectively. A third item in the dictionary is
+            optional, but highly recommended: `'attrs'` may provide a
+            dictionary of attributes to attach to the signal fieldthat
+            assist in in interpreting the returned `NXdata`
+            representation of the dataset. It is strongly recommended
+            to provide the units of the signal's values `attrs`
+            dictionary. Defaults to [].
+        :type signals: list[dict[str, object]], optional
+        :param attrs: An arbitrary dictionary of attributes to assign
+            to the returned `NXdata`. Defaults to {}.
+        :type attrs: dict[str, object], optional
+        :param data_points: A list of data points to partially (or
+            even entirely) fil out the "empty" signal `NXfield`s
+            before returning the `NXdata`. Defaults to [].
+        :type data_points: list[dict[str, object]], optional
+        :param duplicates: Behavior to use if any new data points occur
+            at the same point in the dataset's coordinate space as an
+            existing data point. Allowed values for `duplicates` are:
+            `'overwrite'` and `'block'`. Defaults to `'overwrite'`.
+        :type duplicates: Literal['overwrite', 'block']
+        :returns: An `NXdata` that represents the structured dataset
+            as specified.
+        :rtype: nexusformat.nexus.NXdata
+        """
+        self.nxname = nxname
+
+        self.coords = coords
+        self.signals = signals
+        self.attrs = attrs
+        setup_params = self.unwrap_pipelinedata(data)[0]
+        if isinstance(setup_params, dict):
+            for a in ('coords', 'signals', 'attrs'):
+                setup_param = setup_params.get(a)
+                if not getattr(self, a) and setup_param:
+                    self.logger.info(f'Using input data from pipeline for {a}')
+                    setattr(self, a, setup_param)
+                else:
+                    self.logger.info(
+                        f'Ignoring input data from pipeline for {a}')
+        else:
+            self.logger.warning('Ignoring all input data from pipeline')
+
+        self.shape = tuple(len(c['values']) for c in self.coords)
+
+        self._data_points = []
+        self.duplicates = duplicates
+        self.init_nxdata()
+        for d in data_points:
+            self.add_data_point(d)
+
+        return self.nxdata
+
+    def add_data_point(self, data_point):
+        """Add a data point to this dataset.
+        1. Validate `data_point`.
+        2. Append `data_point` to `self._data_points`.
+        3. Update signal `NXfield`s in `self.nxdata`.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: None
+        """
+        self.logger.info(f'Adding data point no. {len(self._data_points)}')
+        self.logger.debug(f'New data point: {data_point}')
+        valid, msg = self.validate_data_point(data_point)
+        if not valid:
+            self.logger.error(f'Cannot add data point: {msg}')
+        else:
+            self._data_points.append(data_point)
+            self.update_nxdata(data_point)
+
+    def validate_data_point(self, data_point):
+        """Return `True` if `data_point` occurs at a valid point in
+        this structured dataset's coordinate space, `False`
+        otherwise. Also validate shapes of signal values and add NaN
+        values for any missing signals.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: Validity of `data_point`, message
+        :rtype: bool, str
+        """
+        import numpy as np
+
+        valid = True
+        msg = ''
+        # Convert all values to numpy types
+        data_point = {k: np.asarray(v) for k, v in data_point.items()}
+        # Ensure data_point defines a specific point in the dataset's
+        # coordinate space
+        if not all(c['name'] in data_point for c in self.coords):
+            valid = False
+            msg = 'Missing coordinate values'
+        # Find & handle any duplicates
+        for i, d in enumerate(self._data_points):
+            is_duplicate = all(data_point[c] == d[c] for c in self.coord_names)
+            if is_duplicate:
+                if self.duplicates == 'overwrite':
+                    self._data_points.pop(i)
+                elif self.duplicates == 'block':
+                    valid = False
+                    msg = 'Duplicate point will be blocked'
+        # Ensure a value is present for all signals
+        for s in self.signals:
+            if s['name'] not in data_point:
+                data_point[s['name']] = np.full(s['shape'], 0)
+            else:
+                if not data_point[s['name']].shape == tuple(s['shape']):
+                    valid = False
+                    msg = f'Shape mismatch for signal {s}'
+        return valid, msg
+
+    def init_nxdata(self):
+        """Initialize an empty `NXdata` representing this dataset to
+        `self.nxdata`; values for axes' `NXfield`s are filled out,
+        values for signals' `NXfield`s are empty an can be filled out
+        later. Save the empty `NXdata` to the NeXus file. Initialise
+        `self.nxfile` and `self.nxdata_path` with the `NXFile` object
+        and actual nxpath used to save and make updates to the
+        `NXdata`.
+
+        :returns: None
+        """
+        from nexusformat.nexus import NXdata, NXfield
+        import numpy as np
+
+        axes = tuple(NXfield(
+            value=c['values'],
+            name=c['name'],
+            attrs=c.get('attrs')) for c in self.coords)
+        entries = {s['name']: NXfield(
+            value=np.full((*self.shape, *s['shape']), 0),
+            name=s['name'],
+            attrs=s.get('attrs')) for s in self.signals}
+        self.nxdata = NXdata(
+            name=self.nxname, axes=axes, entries=entries, attrs=self.attrs)
+
+    def update_nxdata(self, data_point):
+        """Update `self.nxdata`'s NXfield values.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: None
+        """
+        index = self.get_index(data_point)
+        for s in self.signals:
+            if s['name'] in data_point:
+                self.nxdata[s['name']][index] = data_point[s['name']]
+
+    def get_index(self, data_point):
+        """Return a tuple representing the array index of `data_point`
+        in the coordinate space of the dataset.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space.
+        :type data_point: dict[str, object]
+        :returns: Multi-dimensional index of `data_point` in the
+            dataset's coordinate space.
+        :rtype: tuple
+        """
+        return tuple(c['values'].index(data_point[c['name']]) \
+                     for c in self.coords)
+
+
+class UpdateNXdataProcessor(Processor):
+    """Processor to fill in part(s) of an `NXdata` representing a
+    structured dataset that's already been written to a NeXus file.
+
+    This Processor is most useful as an "update" step for an `NXdata`
+    created by `common.SetupNXdataProcessor`, and is easitest to use
+    in a `Pipeline` immediately after another `PipelineItem` designed
+    specifically to return a value that can be used as input to this
+    `Processor`.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+    pipeline:
+      - edd.UpdateNXdataReader:
+          spec_file: spec.log
+          scan_number: 1
+      - common.SetupNXdataProcessor:
+          nxfilename: /reduceddata/samplename/data.nxs
+          nxdata_path: /entry/samplename_dataset_1
+    ```
+    """
+
+    def process(self, data, nxfilename, nxdata_path, data_points=[],
+                allow_approximate_coordinates=True):
+        """Write new data points to the signal fields of an existing
+        `NXdata` object representing a structued dataset in a NeXus
+        file. Return the list of data points used to update the
+        dataset.
+
+        :param data: Data from the previous item in a `Pipeline`. May
+            contain a list of data points that will extend the list of
+            data points optionally provided with the `data_points`
+            argument.
+        :type data: list[PipelineData]
+        :param nxfilename: Name of the NeXus file containing the
+            `NXdata` to update.
+        :type nxfilename: str
+        :param nxdata_path: The path to the `NXdata` to update in the file.
+        :type nxdata_path: str
+        :param data_points: List of data points, each one a dictionary
+            whose keys are the names of the coordinates and axes, and
+            whose values are the values of each coordinate / signal at
+            a single point in the dataset. Deafults to [].
+        :type data_points: list[dict[str, object]]
+        :param allow_approximate_coordinates: Parameter to allow the
+            nearest existing match for the new data points'
+            coordinates to be used if an exact match connot be found
+            (sometimes this is due simply to differences in rounding
+            convetions). Defaults to True.
+        :type allow_approximate_coordinates: bool, optional
+        :returns: Complete list of data points used to update the dataset.
+        :rtype: list[dict[str, object]]
+        """
+        from nexusformat.nexus import NXFile
+        import numpy as np
+        import os
+
+        _data_points = self.unwrap_pipelinedata(data)[0]
+        if isinstance(_data_points, list):
+            data_points.extend(_data_points)
+        self.logger.info(f'Updating {len(data_points)} data points')
+
+        nxfile = NXFile(nxfilename, 'rw')
+        nxdata = nxfile.readfile()[nxdata_path]
+        axes_names = [a.nxname for a in nxdata.nxaxes]
+
+        data_points_used = []
+        for i, d in enumerate(data_points):
+            # Verify that the data point contains a value for all
+            # coordinates in the dataset.
+            if not all(a in d for a in axes_names):
+                self.logger.error(
+                    f'Data point {i} is missing a value for at least one '
+                    + f'axis. Skipping. Axes are: {", ".join(axes_names)}')
+                continue
+            self.logger.info(
+                f'Coordinates for data point {i}: '
+                + ', '.join([f'{a}={d[a]}' for a in axes_names]))
+            # Get the index of the data point in the dataset based on
+            # its values for each coordinate.
+            try:
+                index = tuple(np.where(a.nxdata == d[a.nxname])[0][0] \
+                              for a in nxdata.nxaxes)
+            except:
+                if allow_approximate_coordinates:
+                    try:
+                        index = tuple(np.argmin(np.abs(a.nxdata - d[a.nxname])) \
+                                      for a in nxdata.nxaxes)
+                        self.logger.warning(
+                            f'Nearest match for coordinates of data point {i}: '
+                            + ', '.join([f'{a.nxname}={a[_i]}' \
+                                         for _i, a in zip(index, nxdata.nxaxes)]))
+                    except:
+                        self.logger.error(
+                            f'Cannot get the index of data point {i}. Skipping.')
+                        continue
+                else:
+                    self.logger.error(
+                        f'Cannot get the index of data point {i}. Skipping.')
+                    continue
+            self.logger.info(f'Index of data point {i}: {index}')
+            # Update the signals contained in this data point at the
+            # proper index in the dataset's singal `NXfield`s
+            for k, v in d.items():
+                if k in axes_names:
+                    continue
+                try:
+                    nxfile.writevalue(
+                        os.path.join(nxdata_path, k), np.asarray(v), index)
+                except Exception as e:
+                    self.logger.error(
+                        f'Error updating signal {k} for new data point '
+                        + f'{i} (dataset index {index}): {e}')
+            data_points_used.append(d)
+
+        nxfile.close()
+
+        return data_points_used
+
+
 class XarrayToNexusProcessor(Processor):
     """A Processor to convert the data in an `xarray` structure to a
     NeXus NXdata object.
