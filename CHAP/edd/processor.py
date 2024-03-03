@@ -853,14 +853,33 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
+        E_XRF = np.array([34.28, 34.72,  39.257, 40.236])
+        x_test = np.concatenate((E_XRF, _fit_E0))
+        y_test = np.concatenate((E_XRF, unconstrained_fit_centers))        
         fit = Fit.fit_data(
-            _fit_E0, 'linear', x=unconstrained_fit_centers,
-            nan_policy='omit')
-        slope_correction = fit.best_values['slope']
-        intercept_correction = fit.best_values['intercept'] 
+           y_test, 'quadratic', x = x_test,
+           nan_policy='omit')
+        intercept_correction = fit.best_values['c'] 
+        slope_correction = fit.best_values['b']
+        quad_coeff = fit.best_values['a']     
+        # In the fit above, x' = E0 = mx+b, and y' = a' + b'x'+c'x'^2 = a' + b'(mx+b) + c'(mx+b)(mx+b)
+        #                                          = a' + b'mx + b'b + c' m^2 x^2 + 2c'mbx + c'b^2
+        #                                          = (a' + b'b + c'b^2) + m(b' + 2c'b)x + c'm^2 x^2
+        slope_final = detector.slope_initial_guess * (slope_correction + 2 * quad_coeff * detector.intercept_initial_guess)
+        intercept_final = intercept_correction + slope_correction * detector.intercept_initial_guess + \
+                          quad_coeff * np.power(detector.intercept_initial_guess,2)
+        quad_final = quad_coeff * np.power(detector.slope_initial_guess, 2)
+        print(f'quad_final = {quad_final}')
+        
+        # fit = Fit.fit_data(
+        #     _fit_E0, 'linear', x = unconstrained_fit_centers,
+        #     nan_policy='omit')
+        # intercept_correction = fit.best_values['intercept'] 
+        # slope_correction = fit.best_values['slope']
+        
         # In the fit above, x' = E0 = mx+b, and y' = m'x'+b' = m'm x + m'b + b'; hence the correction below
-        slope_final = fit.best_values['slope'] * detector.slope_initial_guess
-        intercept_final = fit.best_values['slope'] * detector.intercept_initial_guess + fit.best_values['intercept'] 
+        # slope_final = slope_correction * detector.slope_initial_guess
+        # intercept_final = slope_correction * detector.intercept_initial_guess + intercept_correction
 
         if interactive or save_figures:
             # Third party modules
