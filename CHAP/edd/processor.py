@@ -854,7 +854,7 @@ class MCACeriaCalibrationProcessor(Processor):
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
         fit = Fit.fit_data(
-            _fit_E0, 'linear', x=unconstrained_fit_centers,
+            unconstrained_fit_centers, 'linear', x=_fit_E0,
             nan_policy='omit')
         slope_correction = fit.best_values['slope']
         intercept_correction = fit.best_values['intercept'] 
