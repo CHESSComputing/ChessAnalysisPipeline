@@ -163,23 +163,16 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     :type hkl_indices: list[int], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
+    :ivar energy_calibration_coeffs: Detector channel index to energy
+        polynomial conversion coefficients ([a, b, c] with
+        E_i = a*i^2 + b*i + c), defaults to `[0, 0, 1]`.
+    :type energy_calibration_coeffs:
+        list[float, float, float], optional
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
-    :ivar slope_initial_guess: Initial guess for the detector channel
-        energy correction linear slope.
-    :type slope_initial_guess: float, optional
-    :ivar intercept_initial_guess: Initial guess for detector channel
-        energy correction y-intercept.
-    :type intercept_initial_guess: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
-    :ivar slope_calibrated: Calibrated value for detector channel
-        energy correction linear slope.
-    :type slope_calibrated: float, optional
-    :ivar intercept_calibrated: Calibrated value for detector channel
-        energy correction y-intercept.
-    :type intercept_calibrated: float, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
         (bounds are inclusive), defaults to `[[50, 150]]`
@@ -190,11 +183,11 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
-    slope_initial_guess: Optional[confloat(allow_inf_nan=False)]
+    energy_calibration_coeffs: conlist(
+        min_items=3, max_items=3,
+        item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
     intercept_initial_guess: Optional[confloat(allow_inf_nan=False)]
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
-    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
     include_energy_ranges: conlist(
         min_items=1,
         item_type=conlist(
@@ -215,16 +208,14 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         :rtype: dict
         """
         value.sort()
-        slope = values.get('slope_calibrated')
-        intercept = values.get('intercept_calibrated')
-        if slope is None or intercept is None:
-            slope = values.get('slope_initial_guess')
-            intercept = values.get('intercept_initial_guess')
-        if slope is not None and intercept is not None:
-            energies = intercept + slope*np.arange(values.get('num_bins'))
-            if value[0] < energies[0] or value[1] > energies[-1]:
-                newvalue = [float(max(value[0], energies[0])),
-                            float(min(value[1], energies[-1]))]
+        n_max = values.get('num_bins')
+        if n_max is not None:
+            n_max -= 1
+            a, b, c = values.get('energy_calibration_coeffs')
+            e_max = (a*n_max + b)*n_max +c
+            if value[0] < c or value[1] > e_max:
+                newvalue = [float(max(value[0], c)),
+                        float(min(value[1], e_max))]
                 print(
                     f'WARNING: include_energy_range out of range'
                     f' ({value}): adjusted to {newvalue}')
@@ -242,16 +233,10 @@ class MCAElementCalibrationConfig(MCAElementConfig):
 
     @property
     def energies(self):
-        """Return calibrated bin energies, if available. If not,
-        return bin energies adjusted with initial guesses for
-        slope/intercept.
-        """
-        slope = self.slope_calibrated
-        intercept = self.intercept_calibrated
-        if slope is None or intercept is None:
-            slope = self.slope_initial_guess
-            intercept = self.intercept_initial_guess
-        return intercept + slope*np.arange(self.num_bins)
+        """Return calibrated bin energies."""
+        a, b, c = self.energy_calibration_coeffs
+        channels = np.arange(self.num_bins)
+        return (a*channels + b)*channels + c
 
     @property
     def include_bin_ranges(self):
@@ -391,12 +376,11 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type rel_amplitude_cutoff: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
-    :ivar slope_calibrated: Calibrated value for detector channel.
-        energy correction linear slope
-    :type  slope_calibrated: float, optional
-    :ivar intercept_calibrated: Calibrated value for detector channel
-        energy correction y-intercept.
-    :type intercept_calibrated: float, optional
+    :ivar energy_calibration_coeffs: Detector channel index to energy
+        polynomial conversion coefficients ([a, b, c] with
+        E_i = a*i^2 + b*i + c), defaults to `[0, 0, 1]`.
+    :type energy_calibration_coeffs:
+        list[float, float, float], optional
     :ivar calibration_bin_ranges: List of MCA channel index ranges
         whose data was included in the calibration.
     :type calibration_bin_ranges: list[[int, int]], optional
@@ -422,8 +406,9 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    slope_calibrated: Optional[confloat(allow_inf_nan=False)]
-    intercept_calibrated: Optional[confloat(allow_inf_nan=False)]
+    energy_calibration_coeffs: conlist(
+        min_items=3, max_items=3,
+        item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
     calibration_bin_ranges: Optional[
         conlist(
             min_items=1,
@@ -441,12 +426,11 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             max_items=2)) = [[50, 150]]
 
     #RV lots of overlap with MCAElementCalibrationConfig (only missing
-    #   tth_initial_guess, slope_initial_guess, intercept_initial_guess)
+    #   tth_initial_guess)
     #   Should we derive from MCAElementCalibrationConfig in some way
     #   or make a MCAElementEnergyCalibrationConfig with what's shared
     #   and derive MCAElementCalibrationConfig from this as well with 
-    #   the unique fields tth_initial_guess, slope_initial_guess,
-    #   intercept_initial_guess added?
+    #   the unique fields tth_initial_guess added?
     #   Revisit when we redo the detectors
 
     @validator('hkl_indices', pre=True)
@@ -463,12 +447,10 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
     @property
     def energies(self):
-        """Return calibrated bin energies, if available. If not,
-        return bin energies adjusted with initial guesses for
-        slope/intercept.
-        """
-        return (self.intercept_calibrated
-                + self.slope_calibrated*np.arange(self.num_bins))
+        """Return calibrated bin energies."""
+        a, b, c = self.energy_calibration_coeffs
+        channels = np.arange(self.num_bins)
+        return (a*channels + b)*channels + c
 
     @property
     def include_bin_ranges(self):
@@ -526,8 +508,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :type calibration: MCAElementCalibrationConfig
         :return: None
         """
-        add_fields = ['tth_calibrated', 'slope_calibrated',
-                      'intercept_calibrated', 'num_bins']
+        add_fields = [
+            'tth_calibrated', 'energy_calibration_coeffs', 'num_bins']
         for field in add_fields:
             setattr(self, field, getattr(calibration, field))
         self.calibration_bin_ranges = calibration.include_bin_ranges

@@ -145,7 +145,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                 preselected_index_ranges=detector.include_bin_ranges,
                 title='Click and drag to select data range to include when '
                       'measuring diffraction volume length',
-                xlabel='Uncalibrated Energy (keV)',
+                xlabel='Uncalibrated energy (keV)',
                 ylabel='MCA intensity (counts)',
                 min_num_index_ranges=1,
                 interactive=interactive, filename=filename)
@@ -200,7 +200,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                         (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
                     title=('Click and drag to indicate the boundary '
                            'of the diffraction volume'),
-                    xlabel=('Beam Direction (offset from scan "center")'),
+                    xlabel=('Beam direction (offset from scan "center")'),
                     ylabel='MCA intensity (normalized)',
                     min_num_index_ranges=1,
                     max_num_index_ranges=1,
@@ -219,7 +219,7 @@ class DiffractionVolumeLengthProcessor(Processor):
 
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.detector_name})')
-            ax.set_xlabel('Beam Direction (offset from scan "center")')
+            ax.set_xlabel('Beam direction (offset from scan "center")')
             ax.set_ylabel('MCA intensity (normalized)')
             ax.plot(x, masked_sum, label='total (masked & normalized)')
             ax.plot(x, fit.best_fit, label='gaussian fit (to total)')
@@ -397,6 +397,8 @@ class LatticeParameterRefinementProcessor(Processor):
         :returns: List of MCA bin energies
         :rtype: list[numpy.ndarray]
         """
+        raise RuntimeError(
+            'Needs to be updated and tested for energy calibration.')
         mca_bin_energies = []
         for i, detector in enumerate(strain_analysis_config.detectors):
             mca_bin_energies.append(
@@ -614,6 +616,7 @@ class MCACeriaCalibrationProcessor(Processor):
     def process(self,
                 data,
                 config=None,
+                quadratic_energy_calibration=False,
                 save_figures=False,
                 inputdir='.',
                 outputdir='.',
@@ -628,6 +631,10 @@ class MCACeriaCalibrationProcessor(Processor):
             CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
             None.
         :type config: dict, optional
+        :param quadratic_energy_calibration: Adds a quadratic term to
+            the detector channel index to energy conversion, defaults
+            to `False` (linear only).
+        :type quadratic_energy_calibration: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -666,18 +673,20 @@ class MCACeriaCalibrationProcessor(Processor):
                           f'interactive = {interactive}')
 
         for detector in calibration_config.detectors:
-            tth, slope, intercept = self.calibrate(
-                calibration_config, detector, save_figures=save_figures,
-                interactive=interactive, outputdir=outputdir)
+            tth, energy_calibration_coeffs = self.calibrate(
+                calibration_config, detector, 
+                quadratic_energy_calibration=quadratic_energy_calibration,
+                save_figures=save_figures, interactive=interactive,
+                outputdir=outputdir)
             detector.tth_calibrated = tth
-            detector.slope_calibrated = slope
-            detector.intercept_calibrated = intercept
+            detector.energy_calibration_coeffs = energy_calibration_coeffs
 
         return calibration_config.dict()
 
     def calibrate(self,
                   calibration_config,
                   detector,
+                  quadratic_energy_calibration=False,
                   save_figures=False,
                   outputdir='.',
                   interactive=False):
@@ -692,6 +701,10 @@ class MCACeriaCalibrationProcessor(Processor):
             CHAP.edd.models.MCACeriaCalibrationConfig
         :param detector: A single MCA detector element configuration.
         :type detector: CHAP.edd.models.MCAElementCalibrationConfig
+        :param quadratic_energy_calibration: Adds a quadratic term to
+            the detector channel index to energy conversion, defaults
+            to `False` (linear only).
+        :type quadratic_energy_calibration: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -703,9 +716,10 @@ class MCACeriaCalibrationProcessor(Processor):
         :type interactive: bool, optional
         :raises ValueError: No value provided for included bin ranges
             or the fitted HKLs for the MCA detector element.
-        :return: Calibrated values of 2&theta and the linear correction
-            parameters for MCA channel energies: tth, slope, intercept.
-        :rtype: float, float, float
+        :return: Calibrated values of 2&theta and the correction
+            parameters for MCA channel energies: tth, and
+            energy_calibration_coeffs.
+        :rtype: float, [float, float, float]
         """
         # Local modules
         if interactive or save_figures:
@@ -788,7 +802,7 @@ class MCACeriaCalibrationProcessor(Processor):
         fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
         fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
         c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
-        tth = detector.tth_initial_guess
+        tth = float(detector.tth_initial_guess)
         fit_E0 = get_peak_locations(fit_ds, tth)
         for iter_i in range(calibration_config.max_iter):
             self.logger.debug(
@@ -844,7 +858,7 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Update tth for the next iteration of tuning
             prev_tth = tth
-            tth = unconstrained_tth
+            tth = float(unconstrained_tth)
 
             # Stop tuning tth at this iteration if differences are
             # small enough
@@ -853,14 +867,24 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
-        fit = Fit.fit_data(
-            unconstrained_fit_centers, 'linear', x=_fit_E0,
-            nan_policy='omit')
-        slope_correction = fit.best_values['slope']
-        intercept_correction = fit.best_values['intercept'] 
-        # In the fit above, x' = E0 = mx+b, and y' = m'x'+b' = m'm x + m'b + b'; hence the correction below
-        slope_final = fit.best_values['slope'] * detector.slope_initial_guess
-        intercept_final = fit.best_values['slope'] * detector.intercept_initial_guess + fit.best_values['intercept'] 
+        a_init, b_init, c_init = detector.energy_calibration_coeffs
+        if quadratic_energy_calibration:
+            fit = Fit.fit_data(
+                unconstrained_fit_centers, 'quadratic', x=_fit_E0,
+                nan_policy='omit')
+            a_fit = fit.best_values['a']
+            b_fit = fit.best_values['b']
+            c_fit = fit.best_values['c']
+        else:
+            fit = Fit.fit_data(
+                unconstrained_fit_centers, 'linear', x=_fit_E0,
+                nan_policy='omit')
+            a_fit = 0.0
+            b_fit = fit.best_values['slope']
+            c_fit = fit.best_values['intercept']
+        a_final = float(b_init**2*a_fit)
+        b_final = float(2*b_init*c_init*a_fit + b_init*b_fit)
+        c_final = float(c_init**2*a_fit + c_init*b_fit + c_fit)
 
         if interactive or save_figures:
             # Third party modules
@@ -881,12 +905,12 @@ class MCACeriaCalibrationProcessor(Processor):
                               ha='right', va='top', rotation=90,
                               transform=axs[0,0].get_xaxis_transform())
             axs[0,0].plot(fit_mca_energies, uniform_best_fit,
-                          label='Single Strain')
+                          label='Single strain')
             axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
                           label='Unconstrained')
             #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
             axs[0,0].plot(fit_mca_energies, fit_mca_intensities,
-                          label='Flux-Corrected & Masked MCA Data')
+                          label='Flux-corrected & wasked MCA data')
             axs[0,0].legend()
 
             # Lower left axes: fit residuals
@@ -895,7 +919,7 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,0].set_ylabel('Residual (a.u)')
             axs[1,0].plot(fit_mca_energies,
                           uniform_residual,
-                          label='Single Strain')
+                          label='Single strain')
             axs[1,0].plot(fit_mca_energies,
                           unconstrained_residual,
                           label='Unconstrained')
@@ -906,12 +930,12 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
             axs[0,1].axhline(uniform_strain * 1e6,
-                             linestyle='--', label='Single Strain')
+                             linestyle='--', label='Single strain')
             axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
                           color='C1', marker='s', label='Unconstrained')
             axs[0,1].axhline(unconstrained_strain * 1e6,
                              color='C1', linestyle='--',
-                             label='Unconstrained: Unweighted Mean')
+                             label='Unconstrained: unweighted mean')
             axs[0,1].legend()
 
             # Lower right axes: theoretical HKL E vs fit HKL E for
@@ -920,20 +944,29 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
             axs[1,1].plot(fit_E0, uniform_fit_centers,
-                          linestyle='', marker='o', label='Single Strain')
+                          c='b', marker='o', ms=6, mfc='none', ls='',
+                          label='Single strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
-                          linestyle='', marker='o', label='Unconstrained')
-            axs[1,1].plot(fit_E0,
-                          slope_correction*_fit_E0 + intercept_correction,
-                          color='C1', label='Unconstrained: Linear Fit')
+                          c='k', marker='+', ms=6, ls='',
+                          label='Unconstrained')
+            if quadratic_energy_calibration:
+                axs[1,1].plot(fit_E0, (a_fit*_fit_E0 + b_fit)*_fit_E0 + c_fit,
+                              color='C1', label='Unconstrained: quadratic fit')
+            else:
+                axs[1,1].plot(fit_E0, b_fit*_fit_E0 + c_fit, color='C1',
+                              label='Unconstrained: linear fit')
             axs[1,1].legend()
 
             # Add a text box showing final calibrated values
-            txt = 'Calibrated Values:\n\n' \
-                  + f'Takeoff Angle:\n    {tth:.5f}$^\circ$'
+            txt = 'Calibrated values:' \
+                  f'\nTakeoff angle:\n    {tth:.5f}$^\circ$'
             if True or recalibrate_energy:
-                txt += f'\n\nSlope:\n    {slope_final:.5f}\n\n' \
-                       f'Intercept:\n    {intercept_final:.5f}'
+                if quadratic_energy_calibration:
+                    txt += '\nQuadratic coefficient:' \
+                           f'\n    {a_final:.5e} $keV$/channel$^2$'
+                txt += '\nLinear coefficient:' \
+                       f'\n    {b_final:.5f} $keV$/channel' \
+                       f'\nConstant offset:\n    {c_final:.5f}'
             axs[1,1].text(
                 0.98, 0.02, txt,
                 ha='right', va='bottom', ma='left',
@@ -953,13 +986,9 @@ class MCACeriaCalibrationProcessor(Processor):
             if interactive:
                 plt.show()
 
-        # Keep initial values for slope and intercept as the final
-        # values, no matter what the linear fit found.
-        # Slope and intercept should be very close to 1.0 and 0.0,
-        # which should be verified by the user in the figure.
-        return (
-            float(tth), float(slope_final),
-            float(intercept_final))
+        # Return the calibrated 2&theta value and the final energy
+        # calibration coefficients
+        return tth, [a_final, b_final, c_final]
 
 
 class MCAEnergyCalibrationProcessor(Processor):
@@ -987,12 +1016,11 @@ class MCAEnergyCalibrationProcessor(Processor):
         provided with `data`, fit the specified peaks in the MCA
         spectrum specified. Using the difference between the provided
         peak locations and the fit centers of those peaks, compute
-        linear correction parameters to convert uncalibrated MCA
+        the correction coefficients to convert uncalibrated MCA
         channel energies to calibrated channel energies. Set the
         values in the calibration config provided for
-        `slope_initial_guess` and `intercept_initial_guess` to these
-        values (for each detector) and return the updated
-        configuration.
+        `energy_calibration_coeffs` to these values (for each detector)
+        and return the updated configuration.
 
         :param data: A Ceria Calibration configuration.
         :type data: PipelineData
@@ -1099,20 +1127,20 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Calibrate detector channel energies based on fluorescence peaks.
         for detector in calibration_config.detectors:
-            slope, intercept = self.calibrate(
+            energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, fit_index_ranges,
                 peak_energies, max_peak_index, peak_index_fit_delta,
                 max_energy_kev, save_figures, interactive, outputdir)
-            detector.slope_initial_guess = slope
-            detector.intercept_initial_guess = intercept
+            detector.energy_calibration_coeffs = energy_calibration_coeffs
 
         return calibration_config.dict()
 
     def calibrate(self, calibration_config, detector, fit_index_ranges,
             peak_energies, max_peak_index, peak_index_fit_delta,
             max_energy_kev, save_figures, interactive, outputdir):
-        """Return calibrated slope & intercept for linearly converting
-        the current detector's MCA channels to bin energies.
+        """Return energy_calibration_coeffs (a, b, and c) for
+        quadratically converting the current detector's MCA channels
+        to bin energies.
 
         :param calibration_config: Calibration configuration.
         :type calibration_config: MCACeriaCalibrationConfig
@@ -1219,10 +1247,12 @@ class MCAEnergyCalibrationProcessor(Processor):
             for i in range(len(initial_peak_indices))])
         self.logger.debug(f'Fit peak centers: {fit_peak_indices}')
 
+        #RV for now stick with a linear energy correction
         energy_fit = Fit.fit_data(
             peak_energies, 'linear', x=fit_peak_indices, nan_policy='omit')
-        slope = energy_fit.best_values['slope']
-        intercept = energy_fit.best_values['intercept']
+        a = 0.0
+        b = float(energy_fit.best_values['slope'])
+        c = float(energy_fit.best_values['intercept'])
 
         # Reference plot to see fit results:
         if interactive or save_figures:
@@ -1252,16 +1282,16 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[1].plot(fit_peak_indices, energy_fit.best_fit,
                         c='k', marker='+', ms=6, ls='',
                         label='Fitted peak positions')
-            axs[1].plot(bins[mask], intercept + slope * bins[mask], 'r',
+            axs[1].plot(bins[mask], b*bins[mask] + c, 'r',
                         label='Best linear fit')
             axs[1].legend()
             # Add text box showing computed values of linear E
             # correction parameters
             axs[1].text(
                 0.98, 0.02,
-                'Calibrated Values:\n\n'
-                    f'Slope:\n    {slope:.5f} $keV$/channel\n\n'
-                    f'Intercept:\n    {intercept:.5f} $keV$',
+                'Calibrated values:\n\n'
+                    f'Linear coefficient:\n    {b:.5f} $keV$/channel\n\n'
+                    f'Constant offset:\n    {c:.5f} $keV$',
                 ha='right', va='bottom', ma='left',
                 transform=axs[1].transAxes,
                 bbox=dict(boxstyle='round',
@@ -1279,7 +1309,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             if interactive:
                 plt.show()
 
-        return float(slope), float(intercept)
+        return [a, b, c]
 
     def _get_initial_peak_positions(
             self, y, index_ranges, input_indices, input_max_peak_index,
@@ -1642,7 +1672,7 @@ class MCACalibratedDataPlotter(Processor):
         if scan_step_index is None:
             title += ' (sum of all spectra in the scan)'
         ax.set_title(title)
-        ax.set_xlabel('Calibrated Energy (keV)')
+        ax.set_xlabel('Calibrated energy (keV)')
         ax.set_ylabel('Intenstiy (a.u)')
         for detector in calibration_config.detectors:
             if scan_step_index is None:
@@ -2132,7 +2162,7 @@ class StrainAnalysisProcessor(Processor):
                 ax.set(
                     title='Unconstrained fits',
                     xlabel='Energy (keV)',
-                    ylabel='Normalized Intensity (-)')
+                    ylabel='Normalized intensity (-)')
                 ax.legend(loc='upper right')
                 index = ax.text(
                     0.05, 0.95, '', transform=ax.transAxes, va='top')
