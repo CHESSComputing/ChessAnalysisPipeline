@@ -854,10 +854,13 @@ class MCACeriaCalibrationProcessor(Processor):
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
         fit = Fit.fit_data(
-            _fit_E0, 'linear', x=unconstrained_fit_centers,
+            unconstrained_fit_centers, 'linear', x=_fit_E0,
             nan_policy='omit')
-        slope = fit.best_values['slope']
-        intercept = fit.best_values['intercept']
+        slope_correction = fit.best_values['slope']
+        intercept_correction = fit.best_values['intercept'] 
+        # In the fit above, x' = E0 = mx+b, and y' = m'x'+b' = m'm x + m'b + b'; hence the correction below
+        slope_final = fit.best_values['slope'] * detector.slope_initial_guess
+        intercept_final = fit.best_values['slope'] * detector.intercept_initial_guess + fit.best_values['intercept'] 
 
         if interactive or save_figures:
             # Third party modules
@@ -918,7 +921,7 @@ class MCACeriaCalibrationProcessor(Processor):
                           marker='o', label='Single Strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
                           linestyle='', marker='o', label='Unconstrained')
-            axs[1,1].plot(slope * unconstrained_fit_centers + intercept,
+            axs[1,1].plot(slope_correction * unconstrained_fit_centers + intercept_correction,
                           unconstrained_fit_centers,
                           color='C1', label='Unconstrained: Linear Fit')
             axs[1,1].legend()
@@ -927,8 +930,8 @@ class MCACeriaCalibrationProcessor(Processor):
             txt = 'Calibrated Values:\n\n' \
                   + f'Takeoff Angle:\n    {tth:.5f}$^\circ$'
             if True or recalibrate_energy:
-                txt += f'\n\nSlope:\n    {slope:.5f}\n\n' \
-                       f'Intercept:\n    {intercept:.5f}'
+                txt += f'\n\nSlope:\n    {slope_final:.5f}\n\n' \
+                       f'Intercept:\n    {intercept_final:.5f}'
             axs[1,1].text(
                 0.98, 0.02, txt,
                 ha='right', va='bottom', ma='left',
@@ -953,8 +956,8 @@ class MCACeriaCalibrationProcessor(Processor):
         # Slope and intercept should be very close to 1.0 and 0.0,
         # which should be verified by the user in the figure.
         return (
-            float(tth), float(detector.slope_initial_guess),
-            float(detector.intercept_initial_guess))
+            float(tth), float(slope_final),
+            float(intercept_final))
 
 
 class MCAEnergyCalibrationProcessor(Processor):
