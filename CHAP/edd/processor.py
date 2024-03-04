@@ -876,6 +876,8 @@ class MCACeriaCalibrationProcessor(Processor):
             import matplotlib.pyplot as plt
 
             fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
+            fig.suptitle(
+                f'Detector {detector.detector_name} Ceria Calibration')
 
             # Upper left axes: Input data & best fits
             axs[0,0].set_title('Ceria Calibration Fits')
@@ -927,11 +929,11 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
             axs[1,1].plot(fit_E0, uniform_fit_centers,
-                          marker='o', label='Single Strain')
+                          linestyle='', marker='o', label='Single Strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
                           linestyle='', marker='o', label='Unconstrained')
-            axs[1,1].plot(slope_correction * unconstrained_fit_centers + intercept_correction,
-                          unconstrained_fit_centers,
+            axs[1,1].plot(fit_E0,
+                          slope_correction*_fit_E0 + intercept_correction,
                           color='C1', label='Unconstrained: Linear Fit')
             axs[1,1].legend()
 

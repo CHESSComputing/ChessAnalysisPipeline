@@ -29,6 +29,7 @@ class EddMapReader(Reader):
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
         parfile = ParFile(parfile)
+        self.logger.debug(f'spec_file: {parfile.spec_file}')
 
         # Get list of scan numbers for the dataset
         dataset_ids = np.asarray(parfile.get_values('dataset_id'))
@@ -208,6 +209,330 @@ class ScanToMapReader(Reader):
         )
 
         return map_config_dict
+
+
+class SetupNXdataReader(Reader):
+    """Reader for converting the SPEC input .txt file for EDD dataset
+    collection to an approporiate input argument for
+    `CHAP.common.SetupNXdataProcessor`.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+      outputdir: /reduceddata/samplename
+    pipeline:
+      - edd.SetupNXdataReader:
+          filename: SpecInput.txt
+          dataset_id: 1
+      - common.SetupNXdataProcessor:
+          nxname: samplename_dataset_1
+      - common.NexusWriter:
+          filename: data.nxs
+    ```
+    """
+    def read(self, filename, dataset_id):
+        """Return a dictionary containing the `coords`, `signals`, and
+        `attrs` arguments appropriate for use with
+        `CHAP.common.SetupNXdataProcessor.process` to set up an
+        initial `NXdata` object representing a complete and organized
+        structured EDD dataset.
+
+        :param filename: Name of the input .txt file provided to SPEC
+            for EDD dataset collection.
+        :type filename: str
+        :param dataset_id: Number of the dataset in the .txt file to
+            return
+            `CHAP.common.SetupNXdataProcessor.process`
+            arguments for.
+        :type dataset_id: int
+        :returns: The dataset's coordinate names, values, attributes,
+            and signal names, shapes, and attributes.
+        :rtype: dict
+        """
+        # Columns in input .txt file:
+        # 0: scan number
+        # 1: dataset index
+        # 2: configuration descriptor
+        # 3: labx
+        # 4: laby
+        # 5: labz
+        # 6: omega (reference)
+        # 7: omega (offset)
+        # 8: dwell time
+        # 9: beam width
+        # 10: beam height
+        # 11: detector slit gap width
+        # 12: scan type
+
+        # Following columns used only for scan types 1 and up and
+        # specify flyscan/flymesh parameters.
+        # 13 + 4n: scan direction axis index
+        # 14 + 4n: lower bound
+        # 15 + 4n: upper bound
+        # 16 + 4n: no. points
+        # (For scan types 1, 4: n = 1)
+        # (For scan types 2, 3, 5: n = 1 or 2)
+
+        # For scan type 5 only:
+        # 21: bin axis
+
+        import numpy as np
+
+        # Parse dataset from the input .txt file.
+        with open(filename) as inf:
+            file_lines = inf.readlines()
+        dataset_lines = []
+        for l in file_lines:
+            vals = l.split()
+            for i, v in enumerate(vals):
+                try:
+                    vals[i] = int(v)
+                except:
+                    try:
+                        vals[i] = float(v)
+                    except:
+                        pass
+            if vals[1] == dataset_id:
+                dataset_lines.append(vals)
+
+        # Start inferring coords and signals lists for EDD experiments
+        self.logger.warning(
+            'Assuming the following parameters are identical across the '
+            + 'entire dataset: scan type, configuration descriptor')
+        scan_type = dataset_lines[0][12]
+        self.logger.debug(f'scan_type = {scan_type}')
+        coords = [
+            dict(name='labx',
+                 values=np.unique([l[3] for l in dataset_lines]),
+                 attrs=dict(
+                     units='mm', local_name='labx', data_type='smb_par')),
+            dict(name='laby',
+                 values=np.unique([l[4] for l in dataset_lines]),
+                 attrs=dict(
+                     units='mm', local_name='laby', data_type='smb_par')),
+            dict(name='labz',
+                 values=np.unique([l[5] for l in dataset_lines]),
+                 attrs=dict(
+                     units='mm', local_name='labz', data_type='smb_par')),
+            dict(name='ometotal',
+                 values=np.unique([l[6] + l[7] for l in dataset_lines]),
+                 attrs=dict(
+                     units='degrees', local_name='ometotal',
+                     data_type='smb_par'))
+        ]
+        signals = [
+            dict(name='presample_intensity', shape=[],
+                 attrs=dict(units='counts', local_name='a3ic1',
+                            data_type='scan_column')),
+            dict(name='postsample_intensity', shape=[],
+                 attrs=dict(units='counts', local_name='diode',
+                            data_type='scan_column')),
+            dict(name='dwell_time_actual', shape=[],
+                 attrs=dict(units='seconds', local_name='sec',
+                            data_type='scan_column')),
+            dict(name='SCAN_N', shape=[],
+                 attrs=dict(units='n/a', local_name='SCAN_N',
+                            data_type='smb_par')),
+            dict(name='rsgap_size', shape=[],
+                 attrs=dict(units='mm', local_name='rsgap_size',
+                            data_type='smb_par')),
+            dict(name='x_effective', shape=[],
+                 attrs=dict(units='mm', local_name='x_effective',
+                            data_type='smb_par')),
+            dict(name='z_effective', shape=[],
+                 attrs=dict(units='mm', local_name='z_effective',
+                            data_type='smb_par')),
+        ]
+        for i in range(23):
+            signals.append(dict(
+                name=str(i), shape=[4096,],
+                attrs=dict(
+                    units='counts', local_name=f'XPS23 element {i}',
+                    eta='unknown')))
+
+        attrs = dict(dataset_id=dataset_id,
+                     config_id=dataset_lines[0][2],
+                     scan_type=scan_type)
+
+        # For potential coordinate axes w/ only one unique value, do
+        # not consider them a coordinate. Make them a signal instead.
+        _coords = []
+        for i, c in enumerate(coords):
+            if len(c['values']) == 1:
+                self.logger.debug(f'Moving {c["name"]} from coords to signals')
+                # signal = coords.pop(i)
+                del c['values']
+                c['shape'] = []
+                signals.append(c)
+            else:
+                _coords.append(c)
+        coords = _coords
+
+        # Append additional coords depending on the scan type of the
+        # dataset. Also find the number of points / scan.
+        if scan_type == 0:
+            scan_npts = 1
+        else:
+            self.logger.warning(
+                'Assuming scan parameters are identical for all scans.')
+            axes_labels = {1: 'scan_labx', 2: 'scan_laby', 3: 'scan_labz',
+                           4: 'scan_ometotal'}
+            axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
+            coords.append(
+                dict(name=axes_labels[dataset_lines[0][13]],
+                     values=np.round(np.linspace(
+                         dataset_lines[0][14], dataset_lines[0][15],
+                         dataset_lines[0][16]), 3),
+                     attrs=dict(units=axes_units[dataset_lines[0][13]],
+                                relative=True)))
+            scan_npts = len(coords[-1]['values'])
+            if scan_type in (2, 3, 5):
+                coords.append(
+                    dict(name=axes_labels[dataset_lines[0][17]],
+                         values=np.round(np.linspace(
+                             dataset_lines[0][18], dataset_lines[0][19],
+                             dataset_lines[0][20]), 3),
+                         attrs=dict(units=axes_units[dataset_lines[0][17]],
+                                    relative=True)))
+                scan_npts *= len(coords[-1]['values'])
+                if scan_type == 5:
+                    attrs['bin_axis'] = axes_labels[dataset_lines[0][21]]
+
+        # Determine if the datset is structured or unstructured.
+        total_npts = len(dataset_lines) * scan_npts
+        self.logger.debug(f'Total # of points in the dataset: {total_npts}')
+        self.logger.debug(
+            'Determined number of unique coordinate values: '
+            + str({c['name']: len(c['values']) for c in coords}))
+        coords_npts = np.prod([len(c['values']) for c in coords])
+        self.logger.debug(
+            f'If dataset is structured, # of points should be: {coords_npts}')
+        if coords_npts != total_npts:
+            attrs['unstructured_axes'] = []
+            self.logger.warning(
+                'Dataset is unstructured. All coordinates will be treated as '
+                + 'singals, and the dataset will have a single coordinate '
+                + 'instead: data point index.')
+            for c in coords:
+                del c['values']
+                c['shape'] = []
+                signals.append(c)
+                attrs['unstructured_axes'].append(c['name'])
+            coords = [dict(name='dataset_point_index',
+                           values=np.arange(total_npts),
+                           attrs=dict(units='n/a'))]
+
+        return dict(coords=coords, signals=signals, attrs=attrs)
+
+
+class UpdateNXdataReader(Reader):
+    """Companion to `edd.SetupNXdataReader` and
+    `common.UpdateNXDataProcessor`. Constructs a list of data points
+    to pass as pipeline data to `common.UpdateNXDataProcessor` so that
+    an `NXdata` constructed by `edd.SetupNXdataReader` and
+    `common.SetupNXdataProcessor` can be updated live as individual
+    scans in an EDD dataset are completed.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+    pipeline:
+      - edd.UpdateNXdataReader:
+          spec_file: spec.log
+          scan_number: 1
+      - common.SetupNXdataProcessor:
+          nxfilename: /reduceddata/samplename/data.nxs
+          nxdata_path: /entry/samplename_dataset_1
+    ```
+    """
+    def read(self, spec_file, scan_number, inputdir='.'):
+        """Return a list of data points containing raw data values for
+        a single EDD spec scan. The returned values can be passed
+        along to `common.UpdateNXdataProcessor` to fill in an existing
+        `NXdata` set up with `common.SetupNXdataProcessor`.
+
+        :param spec_file: Name of the spec file containing the spec
+           scan (a relative or absolute path).
+        :type spec_file: str
+        :param scan_number: Number of the spec scan.
+        :type scan_number: int
+        :param inputdir: Parent directory of `spec_file`, used only if
+            `spec_file` is a relative path. Will be ignored if
+            `spec_file` is an absolute path. Defaults to `'.'`.
+        :type inputdir: str
+        :returs: List of data points appropriate for input to
+            `common.UpdateNXdataProcessor`.
+        :rtype: list[dict[str, object]]
+        """
+        import os
+        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from CHAP.utils.parfile import ParFile
+
+        if not os.path.isabs(spec_file):
+            spec_file = os.path.join(inputdir, spec_file)
+        scanparser = ScanParser(spec_file, scan_number)
+        self.logger.debug('Parsed scan')
+
+        # A label / counter mne dict for convenience
+        counters = dict(presample_intensity='a3ic0',
+                        postsample_intensity='diode',
+                        dwell_time_actual='sec')
+        # Determine the scan's own coordinate axes based on scan type
+        scan_type = scanparser.pars['scan_type']
+        self.logger.debug(f'scan_type = {scan_type}')
+        if scan_type == 0:
+            scan_axes = []
+        else:
+            axes_labels = {1: 'scan_labx', 2: 'scan_laby', 3: 'scan_labz',
+                           4: 'scan_ometotal'}
+            scan_axes = [axes_labels[scanparser.pars['fly_axis0']]]
+            if scan_type in (2, 3, 5):
+                scan_axes.append(axes_labels[scanparser.pars['fly_axis1']])
+        self.logger.debug(f'Determined scan axes: {scan_axes}')
+
+        # Par file values will be the same for all points in any scan
+        smb_par_values = {}
+        for smb_par in ('labx', 'laby', 'labz', 'ometotal', 'SCAN_N',
+                        'rsgap_size', 'x_effective', 'z_effective'):
+            smb_par_values[smb_par] = scanparser.pars[smb_par]
+
+        # Get offset for the starting index of this scan's points in
+        # the entire dataset.
+        dataset_point_index_offset = 'idk'
+        dataset_id = scanparser.pars['dataset_id']
+        parfile = ParFile(scanparser._par_file)
+        good_scans = parfile.good_scan_numbers()
+        n_prior_dataset_scans = sum(
+            [1 if did == dataset_id and scan_n < scan_number else 0 \
+             for did, scan_n in zip(
+                     parfile.get_values(
+                         'dataset_id', scan_numbers=good_scans),
+                     good_scans)])
+        dataset_point_index_offset = n_prior_dataset_scans \
+                                     * scanparser.spec_scan_npts
+        self.logger.debug(
+            f'dataset_point_index_offset = {dataset_point_index_offset}')
+
+        # Get full data point for every point in the scan
+        data_points = []
+        self.logger.info(f'Getting {scanparser.spec_scan_npts} data points')
+        for i in range(scanparser.spec_scan_npts):
+            self.logger.debug(f'Getting data point for scan step index {i}')
+            step = scanparser.get_scan_step(i)
+            data_points.append(dict(
+                dataset_point_index=dataset_point_index_offset + i,
+                **smb_par_values,
+                **{str(_i): scanparser.get_detector_data(_i, i) \
+                   for _i in range(23)},
+                **{c: scanparser.spec_scan_data[counters[c]][i] \
+                   for c in counters},
+                **{a: round(
+                    scanparser.spec_scan_motor_vals_relative[_i][step[_i]], 3)\
+                   for _i, a in enumerate(scan_axes)}))
+
+        return data_points
 
 
 if __name__ == '__main__':

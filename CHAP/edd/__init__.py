@@ -1,7 +1,10 @@
 """This subpackage contains `PipelineItems` unique to EDD data
 processing workflows.
 """
-from CHAP.edd.reader import EddMapReader, ScanToMapReader
+from CHAP.edd.reader import (EddMapReader,
+                             ScanToMapReader,
+                             SetupNXdataReader,
+                             UpdateNXdataReader)
 from CHAP.edd.processor import (DiffractionVolumeLengthProcessor,
                                 LatticeParameterRefinementProcessor,
                                 MCACeriaCalibrationProcessor,
