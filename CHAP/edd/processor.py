@@ -870,16 +870,6 @@ class MCACeriaCalibrationProcessor(Processor):
                           quad_coeff * np.power(detector.intercept_initial_guess,2)
         quad_final = quad_coeff * np.power(detector.slope_initial_guess, 2)
         print(f'quad_final = {quad_final}')
-        
-        # fit = Fit.fit_data(
-        #     _fit_E0, 'linear', x = unconstrained_fit_centers,
-        #     nan_policy='omit')
-        # intercept_correction = fit.best_values['intercept'] 
-        # slope_correction = fit.best_values['slope']
-        
-        # In the fit above, x' = E0 = mx+b, and y' = m'x'+b' = m'm x + m'b + b'; hence the correction below
-        # slope_final = slope_correction * detector.slope_initial_guess
-        # intercept_final = slope_correction * detector.intercept_initial_guess + intercept_correction
 
         if interactive or save_figures:
             # Third party modules
