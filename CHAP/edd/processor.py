@@ -867,18 +867,19 @@ class MCACeriaCalibrationProcessor(Processor):
 
         # Fit line to expected / computed peak locations from the last
         # unconstrained fit.
+        E_XRF = np.array([34.28, 34.72,  39.257, 40.236])
+        x_test = np.concatenate((E_XRF, _fit_E0))
+        y_test = np.concatenate((E_XRF, unconstrained_fit_centers))        
         a_init, b_init, c_init = detector.energy_calibration_coeffs
         if quadratic_energy_calibration:
             fit = Fit.fit_data(
-                unconstrained_fit_centers, 'quadratic', x=_fit_E0,
-                nan_policy='omit')
+                y_test, 'quadratic', x=x_test, nan_policy='omit')
             a_fit = fit.best_values['a']
             b_fit = fit.best_values['b']
             c_fit = fit.best_values['c']
         else:
             fit = Fit.fit_data(
-                unconstrained_fit_centers, 'linear', x=_fit_E0,
-                nan_policy='omit')
+                y_test, 'linear', x=x_test, nan_policy='omit')
             a_fit = 0.0
             b_fit = fit.best_values['slope']
             c_fit = fit.best_values['intercept']
