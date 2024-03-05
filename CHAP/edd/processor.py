@@ -816,29 +816,32 @@ class MCACeriaCalibrationProcessor(Processor):
 
             # Run the uniform fit
             fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-            fit.create_multipeak_model(
-                _fit_E0, fit_type='uniform', background=detector.background,
-                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
-            fit.fit()
+#            fit.create_multipeak_model(
+#                _fit_E0, fit_type='uniform', background=detector.background,
+#                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
+#            fit.fit()
 
             # Extract values of interest from the best values for the
             # uniform fit parameters
-            uniform_best_fit = fit.best_fit
-            uniform_residual = fit.residual
-            uniform_fit_centers = [
-                fit.best_values[f'peak{i+1}_center']
-                for i in range(len(fit_hkls))]
-            uniform_a = fit.best_values['scale_factor']
-            uniform_strain = np.log(
-                (uniform_a
-                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
+#            uniform_best_fit = fit.best_fit
+#            uniform_residual = fit.residual
+#            uniform_fit_centers = [
+#                fit.best_values[f'peak{i+1}_center']
+#                for i in range(len(fit_hkls))]
+#            uniform_a = fit.best_values['scale_factor']
+#            uniform_strain = np.log(
+#                (uniform_a
+#                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
 
             # Next, perform the unconstrained fit
 
             # Use the peak parameters from the uniform fit as the
             # initial guesses for peak locations in the unconstrained
             # fit
-            fit.create_multipeak_model(fit_type='unconstrained')
+#            fit.create_multipeak_model(fit_type='unconstrained')
+            fit.create_multipeak_model(
+                _fit_E0, background=detector.background,
+                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
             fit.fit()
 
             # Extract values of interest from the best values for the
@@ -909,8 +912,8 @@ class MCACeriaCalibrationProcessor(Processor):
                 axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
                               ha='right', va='top', rotation=90,
                               transform=axs[0,0].get_xaxis_transform())
-            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
-                          label='Single strain')
+#            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
+#                          label='Single strain')
             axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
                           label='Unconstrained')
             #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
@@ -922,9 +925,9 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,0].set_title('Fit Residuals')
             axs[1,0].set_xlabel('Energy (keV)')
             axs[1,0].set_ylabel('Residual (a.u)')
-            axs[1,0].plot(fit_mca_energies,
-                          uniform_residual,
-                          label='Single strain')
+#            axs[1,0].plot(fit_mca_energies,
+#                          uniform_residual,
+#                          label='Single strain')
             axs[1,0].plot(fit_mca_energies,
                           unconstrained_residual,
                           label='Unconstrained')
@@ -934,10 +937,11 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[0,1].set_title('HKL Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
-            axs[0,1].axhline(uniform_strain * 1e6,
-                             linestyle='--', label='Single strain')
+#            axs[0,1].axhline(uniform_strain * 1e6,
+#                             linestyle='--', label='Single strain')
             axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
-                          color='C1', marker='s', label='Unconstrained')
+#                          color='C1', marker='o', label='Unconstrained')
+                          marker='o', label='Unconstrained')
             axs[0,1].axhline(unconstrained_strain * 1e6,
                              color='C1', linestyle='--',
                              label='Unconstrained: unweighted mean')
@@ -948,12 +952,12 @@ class MCACeriaCalibrationProcessor(Processor):
             axs[1,1].set_title('Theoretical vs. Fit HKL Energies')
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
-            axs[1,1].plot(fit_E0, uniform_fit_centers,
-                          c='b', marker='o', ms=6, mfc='none', ls='',
-                          label='Single strain')
+#            axs[1,1].plot(fit_E0, uniform_fit_centers,
+#                          c='b', marker='o', ms=6, mfc='none', ls='',
+#                          label='Single strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
-                          c='k', marker='+', ms=6, ls='',
-                          label='Unconstrained')
+#                          c='k', marker='+', ms=6, ls='',
+                          marker='o', ls='', label='Unconstrained')
             if quadratic_energy_calibration:
                 axs[1,1].plot(fit_E0, (a_fit*_fit_E0 + b_fit)*_fit_E0 + c_fit,
                               color='C1', label='Unconstrained: quadratic fit')
