@@ -870,14 +870,14 @@ class MCACeriaCalibrationProcessor(Processor):
         a_init, b_init, c_init = detector.energy_calibration_coeffs
         if quadratic_energy_calibration:
             fit = Fit.fit_data(
-                unconstrained_fit_centers, 'quadratic', x=_fit_E0,
+                _fit_E0, 'quadratic', x=unconstrained_fit_centers,
                 nan_policy='omit')
             a_fit = fit.best_values['a']
             b_fit = fit.best_values['b']
             c_fit = fit.best_values['c']
         else:
             fit = Fit.fit_data(
-                unconstrained_fit_centers, 'linear', x=_fit_E0,
+                _fit_E0, 'linear', x=unconstrained_fit_centers,
                 nan_policy='omit')
             a_fit = 0.0
             b_fit = fit.best_values['slope']
