@@ -240,7 +240,8 @@ class PointByPointScanData(BaseModel):
     """
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
-    data_type: Literal['spec_motor', 'scan_column', 'smb_par', 'expression']
+    data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
+                       'smb_par', 'expression']
     name: constr(strip_whitespace=True, min_length=1)
 
     @validator('label')
@@ -383,7 +384,9 @@ class PointByPointScanData(BaseModel):
             requested.
         :rtype: float
         """
-        if self.data_type == 'spec_motor':
+        if 'spec_motor' in self.data_type:
+            if 'absolute' in self.data_type:
+                relative = False
             return get_spec_motor_value(spec_scans.spec_file,
                                         scan_number,
                                         scan_step_index,
@@ -911,6 +914,8 @@ class MapConfig(BaseModel):
             value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}
+            if value['scan_type'] is None:
+                return value
             if value['scan_type'] != 0:
                 value['fly_axis_labels'] = [
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
@@ -932,7 +937,7 @@ class MapConfig(BaseModel):
         :rtype: str
         """
         dims = {}
-        attrs = values['attrs']
+        attrs = values.get('attrs', {})
         scan_type = attrs.get('scan_type', -1)
         fly_axis_labels = attrs.get('fly_axis_labels', [])
         spec_scans = values['spec_scans']
@@ -992,9 +997,14 @@ class MapConfig(BaseModel):
         for scans in class_fields.get('spec_scans'):
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                for index in range(scanparser.spec_scan_npts):
-                    values.append(
-                        scalar_data.get_value(scans, scan_number, index))
+                try:
+                    values.append(scanparser.pars[name])
+                except:
+                    print(
+                        f'Warning: No value found for .par file value "{name}"'
+                        + f' on scan {scan_number} in spec file '
+                        + f'{scans.spec_file}.')
+                    values.append(None)
         values = list(set(values))
         if len(values) != 1:
             raise ValueError(f'More than one {name} in map not allowed '
