@@ -355,7 +355,7 @@ class PointByPointScanData(BaseModel):
 
     def get_value(
             self, spec_scans:SpecScans, scan_number:int, scan_step_index:int=0,
-            scalar_data=[], relative=False, ndigits=None):
+            scalar_data=[], relative=True, ndigits=None):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -373,7 +373,7 @@ class PointByPointScanData(BaseModel):
             `data_type == 'expression'`, defaults to `[]`.
         :type scalar_data: list[PointByPointScanData], optional
         :param relative: Whether to return a relative value or not,
-            defaults to `False` (only applies to SPEC motor values).
+            defaults to `True` (only applies to SPEC motor values).
         :type relative: bool, optional
         :params ndigits: Round SPEC motor values to the specified
             number of decimals if set, defaults to `None`.
@@ -410,7 +410,7 @@ class PointByPointScanData(BaseModel):
 @cache
 def get_spec_motor_value(spec_file:str, scan_number:int,
                          scan_step_index:int, spec_mnemonic:str,
-                         relative=False, ndigits=None):
+                         relative=True, ndigits=None):
     """Return the value recorded for a SPEC motor at a specific scan
     step.
 
@@ -425,7 +425,7 @@ def get_spec_motor_value(spec_file:str, scan_number:int,
     :param spec_mnemonic: The menmonic of a SPEC motor.
     :type spec_mnemonic: str
     :param relative: Whether to return a relative value or not,
-        defaults to `False`.
+        defaults to `True`.
     :type relative: bool, optional
     :params ndigits: Round SPEC motor values to the specified
         number of decimals if set, defaults to `None`.
@@ -940,7 +940,7 @@ class MapConfig(BaseModel):
         scalar_data = values['scalar_data']
         import_scanparser(values['station'], values['experiment_type'])
         for i, dim in enumerate(deepcopy(independent_dimensions)):
-            if scan_type > 2 and dim.label in fly_axis_labels:
+            if dim.label in fly_axis_labels:
                 relative = True
                 ndigits = 3
             else:
@@ -971,7 +971,7 @@ class MapConfig(BaseModel):
                         list(dims[dim.label]).index(
                             dim.get_value(scans, scan_number, scan_step_index,
                                           scalar_data, True, 3))
-                        if scan_type > 2 and dim.label in fly_axis_labels else
+                        if dim.label in fly_axis_labels else
                         list(dims[dim.label]).index(
                             dim.get_value(scans, scan_number, scan_step_index,
                                           scalar_data))
@@ -1025,7 +1025,7 @@ class MapConfig(BaseModel):
             fly_axis_labels = self.attrs.get('fly_axis_labels', [])
             coords = {}
             for dim in self.independent_dimensions:
-                if scan_type > 2 and dim.label in fly_axis_labels:
+                if dim.label in fly_axis_labels:
                     relative = True
                     ndigits = 3
                 else:
@@ -1146,7 +1146,7 @@ class MapConfig(BaseModel):
                               dim.get_value(
                                   scans, scan_number, scan_step_index,
                                   self.scalar_data, True, 3)
-                              if scan_type > 2 and dim.label in fly_axis_labels
+                              if dim.label in fly_axis_labels
                               else
                               dim.get_value(
                                   scans, scan_number, scan_step_index,
