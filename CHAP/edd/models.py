@@ -711,7 +711,7 @@ class MCAScanDataConfig(BaseModel):
                     detector_name)
             else:
                 data = self.scanparser.get_detector_data(
-                    detector_config.detector_name, self.scan_step_index)
+                    detector_config.detector_name, scan_step_index)
         return data
 
     def dict(self, *args, **kwargs):
@@ -774,13 +774,13 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
     Class representing metadata required to perform a Ceria calibration
     for an MCA detector.
 
-    :ivar scan_step_index: Optional scan step index to use for the
+    :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
-    :type scan_step_index: int, optional
+    :type scan_step_indices: list[int], optional
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
-    :type flux_file: str
+    :type flux_file: str, optional
     :ivar material: Material configuration for Ceria.
     :type material: CeriaConfig
     :ivar detectors: List of individual MCA detector element
@@ -795,10 +795,10 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         defaults to `1e-8`.
     :ivar tune_tth_tol: float, optional
     """
-    scan_step_index: Optional[conint(ge=0)]
+    scan_step_indices: Optional[conlist(min_items=1, item_type=conint(ge=0))]
     material: CeriaConfig = CeriaConfig()
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
-    flux_file: FilePath
+    flux_file: Optional[FilePath]
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 
@@ -815,10 +815,33 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         inputdir = values.get('inputdir')
         if inputdir is not None:
             flux_file = values.get('flux_file')
-            if not os.path.isabs(flux_file):
+            if flux_file is not None and not os.path.isabs(flux_file):
                 values['flux_file'] = os.path.join(inputdir, flux_file)
 
         return values
+
+    @validator('scan_step_indices', pre=True, always=True)
+    def validate_scan_step_indices(cls, scan_step_indices, values):
+        """Validate the specified list of scan numbers.
+
+        :ivar scan_step_indices: Optional scan step indices to use for the
+            calibration. If not specified, the calibration will be
+            performed on the average of all MCA spectra for the scan.
+        :type scan_step_indices: list[int], optional
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: If a specified scan number is not found in
+            the SPEC file.
+        :return: List of scan numbers.
+        :rtype: list of int
+        """
+        if isinstance(scan_step_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_step_indices = string_to_list(
+                scan_step_indices, raise_error=True)
+        return scan_step_indices
 
     @property
     def flux_file_energy_range(self):
@@ -827,6 +850,8 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :return: The energy range in the flux corection file.
         :rtype: tuple(float, float)
         """
+        if self.flux_file is None:
+            return None
         flux = np.loadtxt(self.flux_file)
         energies = flux[:,0]/1.e3
         return energies.min(), energies.max()
@@ -839,15 +864,21 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :return: The current detectors's MCA data.
         :rtype: np.ndarray
         """
-        if self.scan_step_index is None:
+        if self.scan_step_indices is None:
             data = super().mca_data(detector_config)
             if self.scanparser.spec_scan_npts > 1:
-                data = np.average(data, axis=1)
+                data = np.average(data, axis=0)
             else:
                 data = data[0]
+        elif len(self.scan_step_indices) == 1:
+            data = super().mca_data(
+                detector_config, scan_step_index=self.scan_step_indices[0])
         else:
-            data = super().mca_data(detector_config,
-                                    scan_step_index=self.scan_step_index)
+            data = []
+            for scan_step_index in self.scan_step_indices:
+                data.append(super().mca_data(
+                    detector_config, scan_step_index=scan_step_index))
+            data = np.average(data, axis=0)
         return data
 
     def flux_correction_interpolation_function(self):
@@ -859,6 +890,8 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :rtype: scipy.interpolate._polyint._Interpolator1D
         """
 
+        if self.flux_file is None:
+            return None
         flux = np.loadtxt(self.flux_file)
         energies = flux[:,0]/1.e3
         relative_intensities = flux[:,1]/np.max(flux[:,1])
@@ -891,7 +924,7 @@ class StrainAnalysisConfig(BaseModel):
     :type materials: list[MaterialConfig]
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
-    :type flux_file: str
+    :type flux_file: str, optional
     :ivar sum_fly_axes: Whether to sum over the fly axis or not
         for EDD scan types not 0, defaults to `True`.
     :type sum_fly_axes: bool, optional
@@ -904,7 +937,7 @@ class StrainAnalysisConfig(BaseModel):
     other_dims: Optional[list[dict[str,str]]]
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
-    flux_file: FilePath
+    flux_file: Optional[FilePath]
     sum_fly_axes: Optional[StrictBool]
     oversampling: Optional[dict] = {'num': 10}
 
@@ -924,7 +957,8 @@ class StrainAnalysisConfig(BaseModel):
         inputdir = values.get('inputdir')
         flux_file = values.get('flux_file')
         par_file = values.get('par_file')
-        if inputdir is not None and not os.path.isabs(flux_file):
+        if (inputdir is not None and flux_file is not None
+                and not os.path.isabs(flux_file)):
             values['flux_file'] = os.path.join(inputdir, flux_file)
         if par_file is not None:
             if inputdir is not None and not os.path.isabs(par_file):
