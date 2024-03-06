@@ -789,8 +789,9 @@ class MCACeriaCalibrationProcessor(Processor):
         # Correct raw MCA data for variable flux at different energies
         flux_correct = \
             calibration_config.flux_correction_interpolation_function()
-        mca_intensity_weights = flux_correct(fit_mca_energies)
-        fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
+        if flux_correct is not None:
+            mca_intensity_weights = flux_correct(fit_mca_energies)
+            fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
 
         # Get the HKLs and lattice spacings that will be used for
         # fitting
