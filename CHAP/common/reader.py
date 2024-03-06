@@ -276,7 +276,8 @@ class NXdataReader(Reader):
                     + f'"{nxsignal.nxname}" has {nxsignal.shape[i]} values, '
                     + f'but axis "{nxaxis.nxname}" has {len(nxaxis)} values.')
 
-        result = NXdata(signal=nxsignal, axes=nxaxes, name=name, attrs=attrs)
+        result = NXdata(signal=nxsignal, axes=nxaxes, name=name, attrs=attrs,
+                        **nxfields)
         self.logger.info(result.tree)
         return result
 
@@ -332,8 +333,10 @@ class NXfieldReader(Reader):
         if slice_params is None:
             value = nxfield.nxdata
         else:
-            if len(slice_params) != nxfield.ndim:
+            if len(slice_params) < nxfield.ndim:
                 slice_params.extend([{}] * (nxfield.ndim - len(slice_params)))
+            if len(slice_params) > nxfield.ndim:
+                slice_params = slice_params[0:nxfield.ndim]
             slices = ()
             default_slice = {'start': 0, 'end': None, 'step': 1}
             for s in slice_params:
