@@ -286,14 +286,14 @@ class NXdataReader(Reader):
 
 class NXfieldReader(Reader):
     """Reader for an NXfield with options to modify certain attributes."""
-    def read(self, nxfile, nxpath, nxname=None, update_attrs=None,
-             inputdir='.'):
+    def read(self, filename, nxpath, nxname=None, update_attrs=None,
+             slice_params=None):
         """Return a copy of the indicated NXfield from the file. Name
         and attributes of the returned copy may be modified with the
         `nxname` and `update_attrs` keyword arguments.
 
-        :param nxfile: Name of the NeXus file containing the NXfield to read.
-        :type nxfile: str
+        :param filename: Name of the NeXus file containing the NXfield to read.
+        :type filename: str
         :param nxpath: Path in `nxfile` pointing to the NXfield to read.
         :type nxpath: str
         :param nxname: Optional new name for the returned NXfield,
@@ -302,20 +302,50 @@ class NXfieldReader(Reader):
         :param update_attrs: Optional dictonary used to add to /
             update the original NXfield's attributes, defaults to None
         :type update_attrs: dict, optional
+        :param slice_params: Parameters for returning just a slice of
+            the full field data. Slice parameters are provided in a
+            list dictionaries with integer values for any / all of the
+            following keys: `"start"`, `"end"`, `"step"`. Default
+            values used are: `"start"` - `0`, `"end"` -- `None`,
+            `"step"` -- `1`. The order of the list must correspond to
+            the order of the field's axes. Defaults to `None`.
+        :type slice_params: list[dict[str, int]], optional
         :param inputdir: Directory containing `nxfile`, defaults to `"."`
         :type inputdir: str
         :returns: A copy of the indicated NXfield (with name and
             attributes optionally modified).
         :rtype: nexusformat.nexus.NXfield
         """
-        # Third party modules
-        from nexusformat.nexus import nxload
-
-        # Loacl modules
+        from nexusformat.nexus import nxload, NXfield
         from CHAP.utils.general import nxcopy
 
-        nxroot = nxload(join(inputdir, nxfile))
-        return nxcopy(nxroot[nxpath])
+        nxroot = nxload(filename)
+        nxfield = nxroot[nxpath]
+
+        if nxname is None:
+            nxname = nxfield.nxname
+
+        attrs = nxfield.attrs
+        if update_attrs is not None:
+            attrs.update(update_attrs)
+
+        if slice_params is None:
+            value = nxfield.nxdata
+        else:
+            if len(slice_params) != nxfield.ndim:
+                slice_params.extend([{}] * (nxfield.ndim - len(slice_params)))
+            slices = ()
+            default_slice = {'start': 0, 'end': None, 'step': 1}
+            for s in slice_params:
+                for k, v in default_slice.items():
+                    if k not in s:
+                        s[k] = v
+                slices = (*slices, slice(s['start'], s['end'], s['step']))
+            value = nxfield.nxdata[slices]
+
+        nxfield = NXfield(value=value, name=nxname, attrs=attrs)
+        self.logger.debug(f'Result -- nxfield.tree =\n{nxfield.tree}')
+        return nxfield
 
 
 class SpecReader(Reader):
