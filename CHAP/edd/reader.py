@@ -500,7 +500,6 @@ class UpdateNXdataReader(Reader):
 
         # Get offset for the starting index of this scan's points in
         # the entire dataset.
-        dataset_point_index_offset = 'idk'
         dataset_id = scanparser.pars['dataset_id']
         parfile = ParFile(scanparser._par_file)
         good_scans = parfile.good_scan_numbers()
@@ -533,6 +532,141 @@ class UpdateNXdataReader(Reader):
                    for _i, a in enumerate(scan_axes)}))
 
         return data_points
+
+
+class NXdataSliceReader(Reader):
+    """Reader for returning a sliced verison of an `NXdata` (which
+    represents a full EDD dataset) that contains data from just a
+    single SPEC scan.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+      outputdir: /reduceddata/samplename
+    pipeline:
+      - edd.NXdataSliceReader:
+          filename: /reduceddata/samplename/data.nxs
+          nxpath: /path/to/nxdata
+          spec_file: spec.log
+          scan_number: 1
+      - common.NexusWriter:
+          filename: scan_1.nxs
+    ```
+    """
+    def read(self, filename, nxpath, spec_file, scan_number, inputdir='.'):
+        """Return a "slice" of an EDD dataset's NXdata that represents
+        just the data from one scan in the dataset.
+
+        :param filename: Name of the NeXus file in which the
+            existing full EDD dataset's NXdata resides.
+        :type filename: str
+        :param nxpath: Path to the existing full EDD dataset's NXdata
+            group in `filename`.
+        :type nxpath: str
+        :param spec_file: Name of the spec file containing whose data
+            will be the only contents of the returned `NXdata`.
+        :type spec_file: str
+        :param scan_number: Number of the spec scan whose data will be
+            the only contents of the returned `NXdata`.
+        :type scan_number: int
+        :param inputdir: Directory containing `filename` and/or
+            `spec_file`, if either one / both of them are not absolute
+            paths. Defaults to `'.'`.
+        :type inputdir: str, optional
+        :returns: An `NXdata` similar to the one at `nxpath` in
+            `filename`, but containing only the data collected by the
+            specified spec scan.
+        :rtype: nexusformat.nexus.NXdata
+        """
+        import os
+
+        from nexusformat.nexus import nxload
+        import numpy as np
+
+        from CHAP.common import NXdataReader
+        from CHAP.utils.parfile import ParFile
+        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+
+        # Parse existing NXdata
+        root = nxload(filename)
+        nxdata = root[nxpath]
+        if nxdata.nxclass != 'NXdata':
+            raise TypeError(
+                f'Object at {nxpath} in {filename} is not an NXdata')
+        self.logger.debug('Loaded existing NXdata')
+
+        # Parse scan
+        if not os.path.isabs(spec_file):
+            spec_file = os.path.join(inputdir, spec_file)
+        scanparser = ScanParser(spec_file, scan_number)
+        self.logger.debug('Parsed scan')
+
+        # Assemble arguments for NXdataReader
+        name = f'{nxdata.nxname}_scan_{scan_number}'
+        axes_names = [a.nxname for a in nxdata.nxaxes]
+        if nxdata.nxsignal is not None:
+            signal_name = nxdata.nxsignal.nxname
+        else:
+            signal_name = list(nxdata.entries.keys())[0]
+        attrs = nxdata.attrs
+        nxfield_params = []
+        if 'dataset_point_index' in nxdata:
+            # Get offset for the starting index of this scan's points in
+            # the entire dataset.
+            dataset_id = scanparser.pars['dataset_id']
+            parfile = ParFile(scanparser._par_file)
+            good_scans = parfile.good_scan_numbers()
+            n_prior_dataset_scans = sum(
+                [1 if did == dataset_id and scan_n < scan_number else 0 \
+                 for did, scan_n in zip(
+                         parfile.get_values(
+                             'dataset_id', scan_numbers=good_scans),
+                         good_scans)])
+            dataset_point_index_offset = n_prior_dataset_scans \
+                                         * scanparser.spec_scan_npts
+            self.logger.debug(
+                f'dataset_point_index_offset = {dataset_point_index_offset}')
+            slice_params = dict(
+                start=dataset_point_index_offset,
+                end=dataset_point_index_offset + scanparser.spec_scan_npts + 1)
+            nxfield_params = [dict(filename=filename,
+                                   nxpath=entry.nxpath,
+                                   slice_params=[slice_params]) \
+                              for entry in nxdata]
+        else:
+            signal_slice_params = []
+            for a in nxdata.nxaxes:
+                if a.nxname.startswith('scan_'):
+                    slice_params = {}
+                else:
+                    value = scanparser.pars[a.nxname]
+                    try:
+                        index = np.where(a.nxdata == value)[0][0]
+                    except:
+                        index = np.argmin(np.abs(a.nxdata - value))
+                        self.logger.warning(
+                            f'Nearest match for coordinate value {a.nxname}: '
+                            f'{a.nxdata[index]} (actual value: {value})')
+                    slice_params = dict(start=index, end=index+1)
+                signal_slice_params.append(slice_params)
+                nxfield_params.append(dict(
+                    filename=filename,
+                    nxpath=os.path.join(nxdata.nxpath, a.nxname),
+                    slice_params=[slice_params]))
+            for name, entry in nxdata.entries.items():
+                if entry in nxdata.nxaxes:
+                    continue
+                nxfield_params.append(dict(
+                    filename=filename, nxpath=entry.nxpath,
+                    slice_params=signal_slice_params))
+
+        # Return the "sliced" NXdata
+        reader = NXdataReader()
+        reader.logger = self.logger
+        return reader.read(name=nxdata.nxname, nxfield_params=nxfield_params,
+                           signal_name=signal_name, axes_names=axes_names,
+                           attrs=attrs)
 
 
 if __name__ == '__main__':
