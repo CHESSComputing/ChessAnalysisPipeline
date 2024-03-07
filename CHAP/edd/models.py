@@ -14,6 +14,7 @@ from pydantic import (
     BaseModel,
     DirectoryPath,
     FilePath,
+    PrivateAttr,
     StrictBool,
     confloat,
     conint,
@@ -103,25 +104,6 @@ class MaterialConfig(BaseModel):
         return d
 
 
-class CeriaConfig(MaterialConfig):
-    """Model for the sample material used in calibrations.
-
-    :ivar material_name: Calibration material name,
-        defaults to `'CeO2'`.
-    :type material_name: str, optional
-    :ivar lattice_parameters: Lattice spacing(s) for the calibration
-        material in angstroms, defaults to `5.41153`.
-    :type lattice_parameters: float, list[float], optional
-    :ivar sgnum: Space group of the calibration material,
-        defaults to `225`.
-    :type sgnum: int, optional
-    """
-    #RV Name suggests it's always Ceria, why have material_name?
-    material_name: constr(strip_whitespace=True, min_length=1) = 'CeO2'
-    lattice_parameters: confloat(gt=0) = 5.41153
-    sgnum: Optional[conint(ge=0)] = 225
-
-
 # Detector configuration classes
 
 class MCAElementConfig(BaseModel):
@@ -156,18 +138,15 @@ class MCAElementCalibrationConfig(MCAElementConfig):
        defaults to `90`.
     :type tth_max: float, optional
     :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
-        two unique HKL peaks, defaults to `0.15`.
+        two unique Bragg peaks, defaults to `0.15`.
     :type hkl_tth_tol: float, optional
-    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
-        the calibration routine, defaults to `[]`.
-    :type hkl_indices: list[int], optional
-    :ivar background: Background model for peak fitting.
-    :type background: str, list[str], optional
     :ivar energy_calibration_coeffs: Detector channel index to energy
         polynomial conversion coefficients ([a, b, c] with
         E_i = a*i^2 + b*i + c), defaults to `[0, 0, 1]`.
     :type energy_calibration_coeffs:
         list[float, float, float], optional
+    :ivar background: Background model for peak fitting.
+    :type background: str, list[str], optional
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
@@ -180,13 +159,11 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     """
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
-    hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
-    background: Optional[Union[str, list]]
-    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     energy_calibration_coeffs: conlist(
         min_items=3, max_items=3,
         item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
-    intercept_initial_guess: Optional[confloat(allow_inf_nan=False)]
+    background: Optional[Union[str, list]]
+    tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     include_energy_ranges: conlist(
         min_items=1,
@@ -194,6 +171,8 @@ class MCAElementCalibrationConfig(MCAElementConfig):
             item_type=confloat(ge=25),
             min_items=2,
             max_items=2)) = [[50, 150]]
+
+    _hkl_indices: list = PrivateAttr()
 
     @validator('include_energy_ranges', each_item=True)
     def validate_include_energy_range(cls, value, values):
@@ -222,15 +201,6 @@ class MCAElementCalibrationConfig(MCAElementConfig):
                 value = newvalue
         return value
 
-    @validator('hkl_indices', pre=True)
-    def validate_hkl_indices(cls, hkl_indices):
-        if isinstance(hkl_indices, str):
-            # Local modules
-            from CHAP.utils.general import string_to_list
-
-            hkl_indices = string_to_list(hkl_indices)
-        return sorted(hkl_indices)
-
     @property
     def energies(self):
         """Return calibrated bin energies."""
@@ -255,6 +225,15 @@ class MCAElementCalibrationConfig(MCAElementConfig):
                 [index_nearest_down(energies, e_min),
                  index_nearest_up(energies, e_max)])
         return include_bin_ranges
+
+    @property
+    def hkl_indices(self):
+        """Return the hkl_indices consistent with the selected energy
+        ranges (include_energy_ranges).
+        """
+        if hasattr(self, '_hkl_indices'):
+            return self._hkl_indices
+        return []
 
     def get_include_energy_ranges(self, include_bin_ranges):
         """Given a list of channel index ranges, return the
@@ -284,6 +263,10 @@ class MCAElementCalibrationConfig(MCAElementConfig):
                 mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
 
+    def set_hkl_indices(self, hkl_indices):
+        """Set the private attribute `hkl_indices`."""
+        self._hkl_indices = hkl_indices
+
 #RV need def dict?
 #        d['include_energy_ranges'] = [
 #            [float(energy) for energy in d['include_energy_ranges'][i]]
@@ -308,12 +291,6 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     :type dvl_measured: float, optional
     :ivar fit_amplitude: Placeholder for amplitude of the gaussian fit.
     :type fit_amplitude: float, optional
-    include_energy_ranges: conlist(
-        min_items=1,
-        item_type=conlist(
-            item_type=confloat(ge=25),
-            min_items=2,
-            max_items=2)) = [[50, 150]]
     :ivar fit_center: Placeholder for center of the gaussian fit.
     :type fit_center: float, optional
     :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
@@ -325,7 +302,6 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     fit_amplitude: Optional[float] = None
     fit_center: Optional[float] = None
     fit_sigma: Optional[float] = None
-    #RV FIX does this rely on include_energy_ranges
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -572,7 +548,7 @@ class MCAScanDataConfig(BaseModel):
     scan_number: Optional[conint(gt=0)]
     par_file: Optional[FilePath]
     scan_column: Optional[str]
-    detectors: conlist(min_items=1, item_type=MCAElementConfig)#RV FIX does this rely on include_energy_ranges
+    detectors: conlist(min_items=1, item_type=MCAElementConfig)
 
     _parfile: Optional[ParFile]
     _scanparser: Optional[ScanParser]
@@ -769,38 +745,54 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         return self.scanparser.spec_scan_motor_vals[0]
 
 
-class MCACeriaCalibrationConfig(MCAScanDataConfig):
+class MCAEnergyCalibrationConfig(MCAScanDataConfig):
     """
-    Class representing metadata required to perform a Ceria calibration
-    for an MCA detector.
+    Class representing metadata required to perform an energy
+    calibration for an MCA detector.
 
     :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
     :type scan_step_indices: list[int], optional
-    :ivar flux_file: File name of the csv flux file containing station
-        beam energy in eV (column 0) versus flux (column 1).
-    :type flux_file: str, optional
-    :ivar material: Material configuration for Ceria.
-    :type material: CeriaConfig
     :ivar detectors: List of individual MCA detector element
         calibration configurations.
     :type detectors: list[MCAElementCalibrationConfig]
-    :ivar max_iter: Maximum number of iterations of the calibration
-        routine, defaults to `10`.
-    :type detectors: int, optional
-    :ivar tune_tth_tol: Cutoff error for tuning 2&theta. Stop iterating
-        the calibration routine after an iteration produces a change in
-        the tuned value of 2&theta that is smaller than this cutoff,
-        defaults to `1e-8`.
-    :ivar tune_tth_tol: float, optional
+    :ivar flux_file: File name of the csv flux file containing station
+        beam energy in eV (column 0) versus flux (column 1).
+    :type flux_file: str, optional
+    :ivar material: Material configuration for the calibration,
+        defaults to `Ceria`.
+    :type material: MaterialConfig, optional
+    :ivar peak_energies: Theoretical locations of peaks in keV to use
+        for calibrating the MCA channel energies. It is _strongly_
+        recommended to use fluorescence peaks for the energy
+        calibration.
+    :type peak_energies: list[float]
+    :ivar max_peak_index: Index of the peak in `peak_energies`
+        with the highest amplitude.
+    :type max_peak_index: int
+    :ivar fit_index_ranges: Explicit ranges of uncalibrated MCA
+        channel index ranges to include during energy calibration
+        when the given peaks are fitted to the provied MCA spectrum.
+        Use this parameter or select it interactively by running a
+        pipeline with `config.interactive: True`.
+    :type fit_index_ranges: list[[int, int]], optional
+
     """
     scan_step_indices: Optional[conlist(min_items=1, item_type=conint(ge=0))]
-    material: CeriaConfig = CeriaConfig()
     detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
     flux_file: Optional[FilePath]
-    max_iter: conint(gt=0) = 10
-    tune_tth_tol: confloat(ge=0) = 1e-8
+    material: Optional[MaterialConfig] = MaterialConfig(
+        material_name='CeO2', lattice_parameters=5.41153, sgnum=225)
+    peak_energies: conlist(item_type=confloat(gt=0), min_items=2)
+    max_peak_index: conint(gt=0)
+    fit_index_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+                max_items=2))]
 
     @root_validator(pre=True)
     def validate_config(cls, values):
@@ -832,7 +824,7 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :type values: dict
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
-        :return: List of scan numbers.
+        :return: List of step indices.
         :rtype: list of int
         """
         if isinstance(scan_step_indices, str):
@@ -843,7 +835,25 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
                 scan_step_indices, raise_error=True)
         return scan_step_indices
 
-    @property
+    @validator('max_peak_index')
+    def validate_max_peak_index(cls, max_peak_index, values):
+        """Validate the specified index of the XRF peak with the
+        highest amplitude.
+
+        :ivar max_peak_index: The index of the XRF peak with the
+            highest amplitude.
+        :type max_peak_index: int
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid max_peak_index.
+        :return: The validated value of `max_peak_index`.
+        :rtype: int
+        """
+        peak_energies = values.get('peak_energies')
+        if not 0 <= max_peak_index < len(peak_energies):
+            raise ValueError('max_peak_index out of bounds')
+        return max_peak_index
+
     def flux_file_energy_range(self):
         """Get the energy range in the flux corection file.
 
@@ -889,7 +899,6 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         :return: Energy flux correction interpolation function.
         :rtype: scipy.interpolate._polyint._Interpolator1D
         """
-
         if self.flux_file is None:
             return None
         flux = np.loadtxt(self.flux_file)
@@ -897,6 +906,36 @@ class MCACeriaCalibrationConfig(MCAScanDataConfig):
         relative_intensities = flux[:,1]/np.max(flux[:,1])
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
+
+
+class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
+    """
+    Class representing metadata required to perform a tth calibration
+    for an MCA detector.
+
+    :ivar max_iter: Maximum number of iterations of the calibration
+        routine, defaults to `10`.
+    :type max_iter: int, optional
+    :ivar tune_tth_tol: Cutoff error for tuning 2&theta. Stop iterating
+        the calibration routine after an iteration produces a change in
+        the tuned value of 2&theta that is smaller than this cutoff,
+        defaults to `1e-8`.
+    :ivar tune_tth_tol: float, optional
+    """
+    max_iter: conint(gt=0) = 10
+    tune_tth_tol: confloat(ge=0) = 1e-8
+
+    def flux_file_energy_range(self):
+        """Get the energy range in the flux corection file.
+
+        :return: The energy range in the flux corection file.
+        :rtype: tuple(float, float)
+        """
+        if self.flux_file is None:
+            return None
+        flux = np.loadtxt(self.flux_file)
+        energies = flux[:,0]/1.e3
+        return energies.min(), energies.max()
 
 
 class StrainAnalysisConfig(BaseModel):
