@@ -1216,7 +1216,7 @@ class SetupNXdataProcessor(Processor):
     """
     def process(self, data, nxname='data',
                 coords=[], signals=[], attrs={}, data_points=[],
-                duplicates='overwrite'):
+                extra_nxfields=[], duplicates='overwrite'):
         """Return an `NXdata` that has the requisite axes and
         `NXfield` entries to represent a structured dataset with the
         properties provided. Properties may be provided either through
@@ -1265,6 +1265,15 @@ class SetupNXdataProcessor(Processor):
             even entirely) fil out the "empty" signal `NXfield`s
             before returning the `NXdata`. Defaults to [].
         :type data_points: list[dict[str, object]], optional
+        :param extra_nxfields: List "extra" NXfield`s to include that
+            can be described neither as a signal of the dataset, not a
+            dedicated coordinate. This paramteter is good for
+            including "alternate" values for one of the coordinate
+            dimensions -- the same coordinate axis expressed in
+            different units, for instance. Each item in the list
+            shoulde be a dictionary of parameters for the
+            `nexusformat.nexus.NXfield` constructor. Defaults to `[]`.
+        :type extra_nxfields: list[dict[str, object]], optional
         :param duplicates: Behavior to use if any new data points occur
             at the same point in the dataset's coordinate space as an
             existing data point. Allowed values for `duplicates` are:
@@ -1279,7 +1288,10 @@ class SetupNXdataProcessor(Processor):
         self.coords = coords
         self.signals = signals
         self.attrs = attrs
-        setup_params = self.unwrap_pipelinedata(data)[0]
+        try:
+            setup_params = self.unwrap_pipelinedata(data)[0]
+        except:
+            setup_params = None
         if isinstance(setup_params, dict):
             for a in ('coords', 'signals', 'attrs'):
                 setup_param = setup_params.get(a)
@@ -1294,6 +1306,7 @@ class SetupNXdataProcessor(Processor):
 
         self.shape = tuple(len(c['values']) for c in self.coords)
 
+        self.extra_nxfields = extra_nxfields
         self._data_points = []
         self.duplicates = duplicates
         self.init_nxdata()
@@ -1388,6 +1401,9 @@ class SetupNXdataProcessor(Processor):
             value=np.full((*self.shape, *s['shape']), 0),
             name=s['name'],
             attrs=s.get('attrs')) for s in self.signals}
+        extra_nxfields = [NXfield(**params) for params in self.extra_nxfields]
+        extra_nxfields = {f.nxname: f for f in extra_nxfields}
+        entries.update(extra_nxfields)
         self.nxdata = NXdata(
             name=self.nxname, axes=axes, entries=entries, attrs=self.attrs)
 
