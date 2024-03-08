@@ -1524,15 +1524,18 @@ class UpdateNXdataProcessor(Processor):
             except:
                 if allow_approximate_coordinates:
                     try:
-                        index = tuple(np.argmin(np.abs(a.nxdata - d[a.nxname])) \
-                                      for a in nxdata.nxaxes)
+                        index = tuple(
+                            np.argmin(np.abs(a.nxdata - d[a.nxname])) \
+                            for a in nxdata.nxaxes)
                         self.logger.warning(
-                            f'Nearest match for coordinates of data point {i}: '
-                            + ', '.join([f'{a.nxname}={a[_i]}' \
-                                         for _i, a in zip(index, nxdata.nxaxes)]))
+                            f'Nearest match for coordinates of data point {i}:'
+                            + ', '.join(
+                                [f'{a.nxname}={a[_i]}' \
+                                 for _i, a in zip(index, nxdata.nxaxes)]))
                     except:
                         self.logger.error(
-                            f'Cannot get the index of data point {i}. Skipping.')
+                            f'Cannot get the index of data point {i}. '
+                            + f'Skipping.')
                         continue
                 else:
                     self.logger.error(
@@ -1556,6 +1559,82 @@ class UpdateNXdataProcessor(Processor):
         nxfile.close()
 
         return data_points_used
+
+
+class NXdataToDataPointsProcessor(Processor):
+    """Transform an `NXdata` object into a list of dictionaries. Each
+    dictionary represents a single data point in the coordinate space
+    of the dataset. The keys are the names of the signals and axes in
+    the dataset, and the values are a single scalar value (in the case
+    of axes) or the value of the signal at that point in the
+    coordinate space of the dataset (in the case of signals -- this
+    means that values for signals may be any shape, depending on the
+    shape of the signal itself).
+
+    Example of use in a pipeline configuration:
+    ```yaml
+    config:
+      inputdir: /reduceddata/samplename
+    - common.NXdataReader:
+        name: data
+        axes_names:
+          - x
+          - y
+        signal_name: z
+        nxfield_params:
+          - filename: data.nxs
+            nxpath: entry/data/x
+            slice_params:
+              - step: 2
+          - filename: data.nxs
+            nxpath: entry/data/y
+            slice_params:
+              - step: 2
+          - filename: data.nxs
+            nxpath: entry/data/z
+            slice_params:
+              - step: 2
+              - step: 2
+    - common.NXdataToDataPointsProcessor
+    - common.UpdateNXdataProcessor:
+        nxfilename: /reduceddata/samplename/sparsedata.nxs
+        nxdata_path: /entry/data
+    ```
+    """
+    def process(self, data):
+        """Return a list of dictionaries representing the coordinate
+        and signal values at every point in the dataset provided.
+
+        :param data: Input pipeline data containing an `NXdata`.
+        :type data: list[PipelineData]
+        :returns: List of all data points in the dataset.
+        :rtype: list[dict[str,object]]
+        """
+        import numpy as np
+
+        nxdata = self.unwrap_pipelinedata(data)[0]
+
+        data_points = []
+        axes_names = [a.nxname for a in nxdata.nxaxes]
+        self.logger.info(f'Dataset axes: {axes_names}')
+        dataset_shape = tuple([a.size for a in nxdata.nxaxes])
+        self.logger.info(f'Dataset shape: {dataset_shape}')
+        signal_names = [k for k, v in nxdata.entries.items() \
+                        if not k in axes_names \
+                        and v.shape[:len(dataset_shape)] == dataset_shape]
+        self.logger.info(f'Dataset signals: {signal_names}')
+        other_fields = [k for k, v in nxdata.entries.items() \
+                        if not k in axes_names + signal_names]
+        if len(other_fields) > 0:
+            self.logger.warning(
+                'Ignoring the following fields that cannot be interpreted as '
+                + f'either dataset coordinates or signals: {other_fields}')
+        for i in np.ndindex(dataset_shape):
+            data_points.append({**{a: nxdata[a][_i] \
+                                   for a, _i in zip(axes_names, i)},
+                                **{s: nxdata[s].nxdata[i] \
+                                   for s in signal_names}})
+        return data_points
 
 
 class XarrayToNexusProcessor(Processor):
