@@ -422,6 +422,9 @@ class SetupNXdataReader(Reader):
             coords = [dict(name='dataset_point_index',
                            values=np.arange(total_npts),
                            attrs=dict(units='n/a'))]
+        else:
+            signals.append(dict(name='dataset_point_index', shape=[],
+                                attrs=dict(units='n/a')))
 
         return dict(coords=coords, signals=signals, attrs=attrs)
 
