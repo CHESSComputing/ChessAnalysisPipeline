@@ -865,10 +865,7 @@ class Fit:
         # Local modules
         from CHAP.utils.general import is_num_pair
 
-        if centers_range is None:
-            centers_range = (self._x[0], self._x[-1])
-        elif (not is_num_pair(centers_range) or len(centers_range) != 2
-                or centers_range[0] >= centers_range[1]):
+        if centers_range is not None and not is_num(centers_range, gt=0):
             raise ValueError(
                 f'Invalid parameter centers_range ({centers_range})')
         if self._model is not None:
@@ -884,24 +881,34 @@ class Fit:
                         self._best_values, scale_factor_index, 0)
                     self._best_errors = np.delete(
                         self._best_errors, scale_factor_index, 0)
-                    for name, par in self._parameters.items():
-                        if re_search('peak\d+_center', name) is not None:
+                for name, par in self._parameters.items():
+                    if re_search('peak\d+_center', name) is not None:
+                        if centers_range is None:
+                            par.set(
+                                min=self._x[0], max=self._x[-1], vary=True,
+                                expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': self._x[0],
+                                'max': self._x[-1],
+                            }
+                        else:
+                            value = par.value
+                            raise RuntimeError('Needs testing')
+                            par.set(
+                                value=value, min=value-centers_range,
+                                max=value+centers_range, vary=True,
+                                expr=None)
+                            self._parameter_bounds[name] = {
+                                'min': value-centers_range,
+                                'max': value+centers_range,
+                            }
+
                             par.set(
                                 min=centers_range[0], max=centers_range[1],
                                 vary=True, expr=None)
                             self._parameter_bounds[name] = {
                                 'min': centers_range[0],
                                 'max': centers_range[1],
-                            }
-                else:
-                    for name, par in self._parameters.items():
-                        if re_search('peak\d+_center', name) is not None:
-                            par.set(
-                                value=self._result.params[name].value,
-                                min=min_value, vary=True, expr=None)
-                            self._parameter_bounds[name] = {
-                                'min': min_value,
-                                'max': np.inf,
                             }
                 self._parameters.pop('scale_factor')
                 self._parameter_bounds.pop('scale_factor')
@@ -1057,33 +1064,55 @@ class Fit:
                                         f'({parameters})')
                     if name == 'gaussian':
                         if parameters is None:
-                            parameters = {
-                                'name': 'center',
-                                'value': 0.5 * (
-                                    centers_range[0] + centers_range[1]),
-                                'min': centers_range[0],
-                                'min': centers_range[1],
-                            }
+                            if centers_range is None:
+                                parameters = {
+                                    'name': 'center',
+                                    'value': value,
+                                    'min': self._x[0],
+                                    'min': self._x[-1],
+                                }
+                            else:
+                                parameters = {
+                                    'name': 'center',
+                                    'value': value,
+                                    'min': value-centers_range,
+                                    'min': value+centers_range,
+                                }
                         else:
                             index = [i for i, par in enumerate(parameters)
                                      if par['name'] == 'center']
                             if not len(index):
-                                parameters.append({
-                                    'name': 'center',
-                                    'value': 0.5 * (
-                                        centers_range[0] + centers_range[1]),
-                                    'min': centers_range[0],
-                                    'max': centers_range[1],
-                                })
+                                value = 0.5 * (self._x[0] + self._x[1])
+                                if centers_range is None:
+                                    parameters = {
+                                        'name': 'center',
+                                        'value': value,
+                                        'min': self._x[0],
+                                        'min': self._x[-1],
+                                    }
+                                else:
+                                    parameters = {
+                                        'name': 'center',
+                                        'value': value,
+                                        'min': value-centers_range,
+                                        'min': value+centers_range,
+                                    }
                             elif len(index) == 1:
                                 parameter = parameters[index[0]]
-                                if 'value' not in parameter:
-                                    parameter['value'] = 0.5 * (
-                                        centers_range[0]+centers_range[1])
-                                _min = parameter.get('min', centers_range[0])
-                                parameter['min'] = max(_min, centers_range[0])
-                                _max = parameter.get('max', centers_range[1])
-                                parameter['max'] = min(_max, centers_range[1])
+                                if centers_range is None:
+                                    _min = parameter.get('min', self._x[0])
+                                    parameter['min'] = max(_min, self._x[0])
+                                    _max = parameter.get('max', self._x[-1])
+                                    parameter['max'] = min(_max, self._x[-1])
+                                else:
+                                    _min = parameter.get(
+                                        'min', value-centers_range)
+                                    parameter['min'] = max(
+                                        _min, value-centers_range)
+                                    _max = parameter.get(
+                                        'max', value+centers_range)
+                                    parameter['max'] = min(
+                                        _max, value+centers_range)
                             else:
                                 raise ValueError(
                                     'Invalid parameters value in '
@@ -1109,14 +1138,25 @@ class Fit:
                 ast(f'fwhm = {self._fwhm_max}')
                 sig_max = ast(fwhm_factor[peak_models[0]])
                 self._sigma_max[0] = sig_max
-            self.add_model(
-                peak_models[0],
-                parameters=(
-                    {'name': 'amplitude', 'min': min_value},
-                    {'name': 'center', 'value': centers[0],
-                     'min': centers_range[0], 'max': centers_range[1]},
-                    {'name': 'sigma', 'min': sig_min, 'max': sig_max},
-                ))
+            if centers_range is None:
+                self.add_model(
+                    peak_models[0],
+                    parameters=(
+                        {'name': 'amplitude', 'min': min_value},
+                        {'name': 'center', 'value': centers[0],
+                         'min': self._x[0], 'max': self._x[-1]},
+                        {'name': 'sigma', 'min': sig_min, 'max': sig_max},
+                    ))
+            else:
+                self.add_model(
+                    peak_models[0],
+                    parameters=(
+                        {'name': 'amplitude', 'min': min_value},
+                        {'name': 'center', 'value': centers[0],
+                         'min': centers[0]-centers_range,
+                         'max': centers[0]+centers_range},
+                        {'name': 'sigma', 'min': sig_min, 'max': sig_max},
+                    ))
         else:
             if fit_type == 'uniform':
                 self.add_parameter(
@@ -1140,6 +1180,17 @@ class Fit:
                             {'name': 'center', 'expr': center_exprs[i]},
                             {'name': 'sigma', 'min': sig_min, 'max': sig_max},
                         ))
+                elif centers_range is None:
+                    self.add_model(
+                        'gaussian',
+                        prefix=f'peak{i+1}_',
+                        parameters=(
+                            {'name': 'amplitude', 'min': min_value},
+                            {'name': 'center', 'value': centers[i],
+                             'min': self._x[0], 'max': self._x[-1]},
+                            {'name': 'sigma', 'min': min_value,
+                             'max': sig_max},
+                        ))
                 else:
                     self.add_model(
                         'gaussian',
@@ -1147,7 +1198,8 @@ class Fit:
                         parameters=(
                             {'name': 'amplitude', 'min': min_value},
                             {'name': 'center', 'value': centers[i],
-                             'min': centers_range[0], 'max': centers_range[1]},
+                             'min': centers[i]-centers_range,
+                             'max': centers[i]+centers_range},
                             {'name': 'sigma', 'min': min_value,
                              'max': sig_max},
                         ))

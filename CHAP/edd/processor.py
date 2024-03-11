@@ -262,7 +262,7 @@ class LatticeParameterRefinementProcessor(Processor):
         """Given a strain analysis configuration, return a copy
         contining refined values for the materials' lattice
         parameters."""
-        ceria_calibration_config = self.get_config(
+        calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
@@ -285,8 +285,8 @@ class LatticeParameterRefinementProcessor(Processor):
             raise NotImplementedError(msg)
 
         lattice_parameters = self.refine_lattice_parameters(
-            strain_analysis_config, ceria_calibration_config, 0,
-            interactive, save_figures, outputdir)
+            strain_analysis_config, calibration_config, 0, interactive,
+            save_figures, outputdir)
         self.logger.debug(f'Refined lattice parameters: {lattice_parameters}')
 
         strain_analysis_config.materials[0].lattice_parameters = \
@@ -294,8 +294,8 @@ class LatticeParameterRefinementProcessor(Processor):
         return strain_analysis_config.dict()
 
     def refine_lattice_parameters(
-            self, strain_analysis_config, ceria_calibration_config,
-            detector_i, interactive, save_figures, outputdir):
+            self, strain_analysis_config, calibration_config, detector_i,
+            interactive, save_figures, outputdir):
         """Return refined values for the lattice parameters of the
         materials indicated in `strain_analysis_config`. Method: given
         a scan of a material, fit the peaks of each MCA
@@ -333,7 +333,7 @@ class LatticeParameterRefinementProcessor(Processor):
         )
 
         self.add_detector_calibrations(
-            strain_analysis_config, ceria_calibration_config)
+            strain_analysis_config, calibration_config)
 
         detector = strain_analysis_config.detectors[detector_i]
         mca_bin_energies = self.get_mca_bin_energies(strain_analysis_config)
@@ -408,7 +408,7 @@ class LatticeParameterRefinementProcessor(Processor):
         return mca_bin_energies
 
     def add_detector_calibrations(
-            self, strain_analysis_config, ceria_calibration_config):
+            self, strain_analysis_config, calibration_config):
         """Add calibrated quantities to the detectors configured in
         `strain_analysis_config`, modifying `strain_analysis_config`
         in place.
@@ -417,13 +417,13 @@ class LatticeParameterRefinementProcessor(Processor):
             containing a list of detectors to add calibration values
             to.
         :type strain_analysis_config: CHAP.edd.models.StrainAnalysisConfig
-        :param ceria_calibration_config: Configuration of a completed
-            ceria calibration containing a list of detector swith the
+        :param calibration_config: Configuration of a completed
+            energy/tth calibration containing a list of detector swith the
             same names as those in `strain_analysis_config`
         :returns: None"""
         for detector in strain_analysis_config.detectors:
             calibration = [
-                d for d in ceria_calibration_config.detectors \
+                d for d in calibration_config.detectors \
                 if d.detector_name == detector.detector_name][0]
             detector.add_calibration(calibration)
 
@@ -663,7 +663,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
         :returns: Dictionary representing the energy-calibrated
-            version of the ceria calibration configuration.
+            version of the calibrated configuration.
         :rtype: dict
         """
         # Local modules
@@ -770,7 +770,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             spectrum, x=bins,
             preselected_index_ranges=calibration_config.fit_index_ranges,
             xlabel='Detector channel', ylabel='Intensity',
-            min_num_index_ranges=1, interactive=False,#RV interactive,
+            min_num_index_ranges=1, interactive=interactive,
             filename=filename)
         self.logger.debug(
             f'Selected index ranges to fit: {fit_index_ranges}')
@@ -1235,7 +1235,7 @@ class MCATthCalibrationProcessor(Processor):
             filename = None
         tth_init = select_tth_initial_guess(
             mca_bin_energies, mca_data, hkls, ds,
-            detector.tth_initial_guess)#RV FIX, interactive, filename)
+            detector.tth_initial_guess, interactive, filename)
         detector.tth_initial_guess = tth_init
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
 
@@ -1249,7 +1249,7 @@ class MCATthCalibrationProcessor(Processor):
             detector.tth_initial_guess, detector.include_bin_ranges,
             detector_name=detector.detector_name,
             flux_energy_range=calibration_config.flux_file_energy_range(),
-            label='MCA data')#RV FIX, interactive=interactive, filename=filename)
+            label='MCA data', interactive=interactive, filename=filename)
 
         # Add the mask for the fluorescence peaks
         include_bin_ranges = (
@@ -1299,7 +1299,7 @@ class MCATthCalibrationProcessor(Processor):
 
         # For testing: hardwired limits:
         FLOAT_MIN = float_info.min
-        if True:
+        if False:
             min_value = None
             tth_min = None
             tth_max = None
@@ -1309,8 +1309,8 @@ class MCATthCalibrationProcessor(Processor):
             sig_max = None
         else:
             min_value = FLOAT_MIN
-            tth_min = 0.9*tth
-            tth_max = 1.1*tth
+            tth_min = 0.9*tth_init
+            tth_max = 1.1*tth_init
             b_min = 0.9*b_init
             b_max = 1.1*b_init
             fwhm_min = 5
@@ -1320,7 +1320,7 @@ class MCATthCalibrationProcessor(Processor):
 
         # Add the free fit parameters
         fit.add_parameter(name='tth', value=tth_init, min=tth_min, max=tth_max)
-        if False and quadratic_energy_calibration:
+        if quadratic_energy_calibration:
             fit.add_parameter(name='a', value=a_init)
         fit.add_parameter(name='b', value=b_init, min=b_min, max=b_max)
         fit.add_parameter(name='c', value=c_init)
@@ -1332,12 +1332,15 @@ class MCATthCalibrationProcessor(Processor):
         peak_indices = [index_nearest(mca_bin_energies, e)
                         for e in calibration_config.peak_energies]
         for i, e_peak in enumerate(calibration_config.peak_energies):
+            expr = f'({e_peak}-c)/b'
+            if quadratic_energy_calibration:
+                expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
             fit.add_model(
                 'gaussian',
                 prefix=f'xrf{i+1}_',
                 parameters=(
                     {'name': 'amplitude', 'min': min_value},
-                    {'name': 'center', 'expr': f'({e_peak}-c)/b'},
+                    {'name': 'center', 'expr': expr},
                     {'name': 'sigma', 'min': sig_min, 'max': sig_max}))
 
         # Add the Bragg peaks
@@ -1345,23 +1348,27 @@ class MCATthCalibrationProcessor(Processor):
              * physical_constants['speed of light in vacuum'][0]
         for i, (e_peak, ds) in enumerate(zip(E0_fit, ds_fit)):
             norm = 0.5*hc/ds
+            expr = f'(({norm}/sin(0.5*tth))-c)/b'
+            if quadratic_energy_calibration:
+                expr = \
+                    '(' + expr + f')*(1.0-a*((({norm}/sin(0.5*tth))-c)/(b*b)))'
             fit.add_model(
                 'gaussian',
                 prefix=f'peak{i+1}_',
                 parameters=(
                     {'name': 'amplitude', 'min': min_value},
                     {'name': 'center',
-                     'expr': f'(({norm}/sin(0.5*tth))-c)/b'},
+                     'expr': expr},
                     {'name': 'sigma', 'min': sig_min, 'max': sig_max}))
 
         # Perform the fit
         fit.fit()
-        fit.print_fit_report()
+#        fit.print_fit_report()
 #        fit.plot(skip_init=True)
 
         # Extract the free fit parameters and store in the detector
         tth_fit = np.degrees(fit.best_values['tth'])
-        if False and quadratic_energy_calibration:
+        if quadratic_energy_calibration:
             a_fit = fit.best_values['a']
         else:
             a_fit = 0.0
@@ -1370,11 +1377,11 @@ class MCATthCalibrationProcessor(Processor):
         detector.tth_calibrated = tth_fit
         detector.energy_calibration_coeffs = [a_fit, b_fit, c_fit]
 
-        if True or interactive or save_figures:
+        if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
-            #RV FIX feep xrf and bragg peak separate
+            #RV FIX keep xrf and bragg peak separate
             # Update the peak energies and the MCA channel energies
             E0_fit = get_peak_locations(ds_fit, tth_fit)
             mca_energies_fit = detector.energies[mca_mask]
@@ -1387,20 +1394,29 @@ class MCATthCalibrationProcessor(Processor):
                                * peak_indices_fit + c_fit)
 
             # Get an unconstraint fit
-            unconstraint_fit = Fit(mca_data_fit, x=mca_bins_fit)
+#            unconstraint_fit = Fit(mca_data_fit, x=mca_bins_fit)
+#            unconstraint_fit.create_multipeak_model(
+#                peak_indices_fit, background=detector.background,
+#                centers_range=10, fwhm_min=0.2, fwhm_max=20.0)
+#            unconstraint_fit.fit()
+##            unconstraint_fit.print_fit_report()
+##            unconstraint_fit.plot(skip_init=True)
+#            peak_indices_unconstraint = np.sort(
+#                [unconstraint_fit.best_values[f'peak{i+1}_center']
+#                 for i in range(len(peak_indices_fit))])
+#            peak_energies_unconstraint = (
+#                (a_fit*peak_indices_unconstraint + b_fit)
+#                * peak_indices_unconstraint + c_fit)
+            unconstraint_fit = Fit(mca_data_fit, x=mca_energies_fit)
             unconstraint_fit.create_multipeak_model(
-                peak_indices_fit, background=detector.background,
-                #centers_range=0.5, fwhm_min=0.05, fwhm_max=1.0)
-                fwhm_min=0.2, fwhm_max=20.0)
+                peak_energies_fit, background=detector.background,
+                centers_range=0.25, fwhm_min=0.01, fwhm_max=1.0)
             unconstraint_fit.fit()
-            unconstraint_fit.print_fit_report()
+#            unconstraint_fit.print_fit_report()
 #            unconstraint_fit.plot(skip_init=True)
-            peak_indices_unconstraint = np.sort(
+            peak_energies_unconstraint = np.sort(
                 [unconstraint_fit.best_values[f'peak{i+1}_center']
                  for i in range(len(peak_indices_fit))])
-            peak_energies_unconstraint = (
-                (a_fit*peak_indices_unconstraint + b_fit)
-                * peak_indices_unconstraint + c_fit)
 
             unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
                 peak_energies_unconstraint[
@@ -1409,7 +1425,6 @@ class MCATthCalibrationProcessor(Processor):
                 (unconstrained_a
                  / calibration_config.material.lattice_parameters))
             unconstrained_strain = np.mean(unconstrained_strains)
-            unconstrained_tth = tth_fit * (1.0 + unconstrained_strain)
 
             # Create the figure
             fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
@@ -1427,17 +1442,43 @@ class MCATthCalibrationProcessor(Processor):
                 axs[0,0].text(e_peak, 1, str(hkls_fit[i])[1:-1],
                               ha='right', va='top', rotation=90,
                               transform=axs[0,0].get_xaxis_transform())
-            axs[0,0].plot(mca_energies_fit, fit.best_fit, label='Fit result')
+            if flux_correct is None:
+                axs[0,0].plot(
+                    mca_energies_fit, mca_data_fit, marker='.', ls='',
+                    color='C2', label='MCA data')
+            else:
+                axs[0,0].plot(
+                    mca_energies_fit, mca_data_fit, marker='.', ls='',
+                    color='C2', label='Flux-corrected MCA data')
             axs[0,0].plot(
-                mca_energies_fit, mca_data_fit,
-                label='Flux-corrected & masked MCA data')
+                mca_energies_fit, fit.best_fit, color='C0',
+                label='Calibration fit')
+            if quadratic_energy_calibration:
+                axs[0,0].plot(
+                    mca_energies_fit, unconstraint_fit.best_fit,
+                    ls='--', color='C1',
+                    label='Unconstrained fit using calibrated a, b, and c')
+            else:
+                axs[0,0].plot(
+                    mca_energies_fit, unconstraint_fit.best_fit,
+                    ls='--', color='C1',
+                    label='Unconstrained fit using calibrated a and b')
             axs[0,0].legend()
 
             # Lower left axes: fit residual
             axs[1,0].set_title('Fit Residuals')
             axs[1,0].set_xlabel('Energy (keV)')
             axs[1,0].set_ylabel('Residual (a.u)')
-            axs[1,0].plot(mca_energies_fit, fit.residual)
+            axs[1,0].plot(
+                mca_energies_fit, fit.residual, label='Calibration fit')
+            if quadratic_energy_calibration:
+                axs[1,0].plot(
+                    mca_energies_fit, unconstraint_fit.residual, ls='--',
+                    label='Unconstrained fit using calibrated a, b, and c')
+            else:
+                axs[1,0].plot(
+                    mca_energies_fit, unconstraint_fit.residual, ls='--',
+                    label='Unconstrained fit using calibrated a and b')
             axs[1,0].legend()
 
             # Upper right axes: E vs strain for each fit
@@ -1445,9 +1486,9 @@ class MCATthCalibrationProcessor(Processor):
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
             axs[0,1].plot(E0_fit, unconstrained_strains * 1e6,
-                          color='C1', marker='s', label='Unconstrained')
+                          marker='o', label='Unconstrained')
             axs[0,1].axhline(unconstrained_strain * 1e6,
-                             color='C1', linestyle='--',
+                             color='C1', ls='--',
                              label='Unconstrained: unweighted mean')
             axs[0,1].legend()
 
@@ -1459,7 +1500,7 @@ class MCATthCalibrationProcessor(Processor):
                np.concatenate((calibration_config.peak_energies, E0_fit)),
                peak_energies_unconstraint,
                marker='o', ls='', label='Unconstrained')
-            if False and quadratic_energy_calibration:
+            if quadratic_energy_calibration:
                 axs[1,1].plot(
                     np.concatenate((calibration_config.peak_energies, E0_fit)),
                     (a_fit*peak_indices_fit + b_fit)
@@ -1474,7 +1515,7 @@ class MCATthCalibrationProcessor(Processor):
             # Add a text box showing calibrated values
             txt = 'Calibrated values:' \
                   f'\nTakeoff angle:\n    {tth_fit:.5f}$^\circ$'
-            if False and quadratic_energy_calibration:
+            if quadratic_energy_calibration:
                 txt += '\nQuadratic coefficient:' \
                        f'\n    {a_fit:.5e} $keV$/channel$^2$'
             txt += '\nLinear coefficient:' \
@@ -1493,7 +1534,7 @@ class MCATthCalibrationProcessor(Processor):
             if save_figures:
                 figfile = os.path.join(
                     outputdir,
-                    f'{detector.detector_name}_ceria_calibration_fits.png')
+                    f'{detector.detector_name}_tth_calibration_fits.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
@@ -1504,7 +1545,7 @@ class MCADataProcessor(Processor):
     """A Processor to return data from an MCA, restuctured to
     incorporate the shape & metadata associated with a map
     configuration to which the MCA data belongs, and linearly
-    transformed according to the results of a ceria calibration.
+    transformed according to the results of a energy/tth calibration.
     """
 
     def process(self,
@@ -1517,8 +1558,8 @@ class MCADataProcessor(Processor):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
 
-        :param data: Input map configuration and results of ceria
-            calibration.
+        :param data: Input map configuration and results of
+            energy/tth calibration.
         :type data: list[dict[str,object]]
         :return: Calibrated and flux-corrected MCA data.
         :rtype: nexusformat.nexus.NXentry
@@ -1528,9 +1569,9 @@ class MCADataProcessor(Processor):
         exit('Done Here')
         map_config = self.get_config(
             data, 'common.models.map.MapConfig', inputdir=inputdir)
-        ceria_calibration_config = self.get_config(
+        calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
-        nxroot = self.get_nxroot(map_config, ceria_calibration_config)
+        nxroot = self.get_nxroot(map_config, calibration_config)
 
         return nxroot
 
@@ -1700,7 +1741,7 @@ class StrainAnalysisProcessor(Processor):
         """Return strain analysis maps & associated metadata in an NXprocess.
 
         :param data: Input data containing configurations for a map,
-            completed ceria calibration, and parameters for strain
+            completed energy/tth calibration, and parameters for strain
             analysis
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
@@ -1729,7 +1770,7 @@ class StrainAnalysisProcessor(Processor):
 
         """
         # Get required configuration models from input data
-        ceria_calibration_config = self.get_config(
+        calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
@@ -1748,7 +1789,7 @@ class StrainAnalysisProcessor(Processor):
 
         nxroot = self.get_nxroot(
             strain_analysis_config.map_config,
-            ceria_calibration_config,
+            calibration_config,
             strain_analysis_config,
             save_figures=save_figures,
             outputdir=outputdir,
@@ -1759,7 +1800,7 @@ class StrainAnalysisProcessor(Processor):
 
     def get_nxroot(self,
                    map_config,
-                   ceria_calibration_config,
+                   calibration_config,
                    strain_analysis_config,
                    save_figures=False,
                    outputdir='.',
@@ -1769,8 +1810,8 @@ class StrainAnalysisProcessor(Processor):
 
         :param map_config: The map configuration.
         :type map_config: CHAP.common.models.map.MapConfig
-        :param ceria_calibration_config: The calibration configuration.
-        :type ceria_calibration_config:
+        :param calibration_config: The calibration configuration.
+        :type calibration_config:
             'CHAP.edd.models.MCATthCalibrationConfig'
         :param strain_analysis_config: Strain analysis processing
             configuration.
@@ -1901,7 +1942,7 @@ class StrainAnalysisProcessor(Processor):
 
             # Get and add the calibration info to the detector
             calibration = [
-                d for d in ceria_calibration_config.detectors \
+                d for d in calibration_config.detectors \
                 if d.detector_name == detector.detector_name][0]
             detector.add_calibration(calibration)
 
