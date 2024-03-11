@@ -1,56 +1,43 @@
+config:
+  root: examples/edd
+  log_level: DEBUG
+  interactive: false
+  profile: false
+  outputdir: output
+
 pipeline:
 
-  # Download example data
-  - common.URLReader:
-      url: https://gitlab01.classe.cornell.edu/api/v4/projects/308/repository/files/edd%2fdata.tar/raw?ref=main
-      headers:
-        PRIVATE-TOKEN: # your token here
-  - common.ExtractArchiveWriter:
-      filename: examples/edd
+  # # Calibrate detector
+  # - common.YAMLReader:
+  #     filename: ceria_calibration.yaml
+  #     schema: edd.models.MCACeriaCalibrationConfig
+  # - edd.MCACeriaCalibrationProcessor:
+  #     save_figures: true
+  # - common.YAMLWriter:
+  #     filename: ceria_calibrated.yaml
+  #     force_overwrite: true
 
-  # Calibrate detector
-  - common.YAMLReader:
-      filename: examples/edd/ceria_calibration_config.yaml
-      schema: edd.models.MCACeriaCalibrationConfig
-  - edd.MCACeriaCalibrationProcessor
-  - common.YAMLWriter:
-      filename: examples/edd/ceria_calibrated.yaml
-      force_overwrite: true
+  # # Measure diffraction volume length
+  # - common.YAMLReader:
+  #     filename: dvl.yaml
+  #     schema: edd.models.DiffractionVolumeLengthConfig
+  # - edd.DiffractionVolumeLengthProcessor:
+  #     save_figures: true
+  # - common.YAMLWriter:
+  #     filename: dvl_measured.yaml
+  #     force_overwrite: true
 
-  # Measure diffraction volume length
-  - common.YAMLReader:
-      filename: examples/edd/dvl_measurement.yaml
-      schema: edd.models.DiffractionVolumeLengthConfig
-  - edd.DiffractionVolumeLengthProcessor:
-      dvl_model: manual
-  - common.YAMLWriter:
-      filename: examples/edd/dvl_measured.yaml
-      force_overwrite: true
-
-  # Gather calibrated detector data
+  # Get microstrain maps
   - pipeline.MultiplePipelineItem:
       items:
         - common.YAMLReader:
-            filename: examples/edd/map.yaml
-            schema: common.models.map.MapConfig
-        - common.YAMLReader:
-            filename: examples/edd/ceria_calibrated.yaml
+            filename: output/ceria_calibrated.yaml
             schema: edd.models.MCACeriaCalibrationConfig
-  - edd.MCADataProcessor
-  - common.NexusWriter:
-      filename: examples/edd/map_detector_data.nxs
-      force_overwrite: true
-
-  # Compute sample strain map
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.NexusReader:
-            filename: examples/edd/map_detector_data.nxs
         - common.YAMLReader:
-            filename: examples/edd/strain_analysis_config.yaml
-            schema: StrainAnalysisConfig
-  - common.StrainAnalysisProcessor
-  - common.YAMLWriter:
-      filename: examples/edd/map_strain_data.yaml
-      force_overwrite: true
-
+            filename: strain_analysis.yaml
+            schema: edd.models.StrainAnalysisConfig
+  - edd.StrainAnalysisProcessor:
+      save_figures: true
+#  - common.NexusWriter:
+#      filename: strain_map.nxs
+#      force_overwrite: true

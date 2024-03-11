@@ -5,11 +5,10 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Module for Writers used in multiple experiment-specific workflows.
 """
 
-# system modules
-from os import mkdir
+# System modules
 from os import path as os_path
 
-# local modules
+# Local modules
 from CHAP import Writer
 
 def write_matplotlibfigure(data, filename, force_overwrite=False):
@@ -89,6 +88,9 @@ def write_yaml(data, filename, force_overwrite=False):
         yaml.dump(data, f, sort_keys=False)
 
 def write_filetree(data, outputdir, force_overwrite=False):
+    # System modules
+    from os import mkdir
+
     # Third party modules
     from nexusformat.nexus import (
         NXentry,
@@ -130,15 +132,15 @@ def write_filetree(data, outputdir, force_overwrite=False):
 class ExtractArchiveWriter(Writer):
     """Writer for tar files from binary data"""
     def write(self, data, filename):
-        """Take a .tar archive represented as bytes in `data` and
-        write the extracted archive to files.
+        """Take a .tar archive represented as bytes contained in `data`
+        and write the extracted archive to files.
 
-        :param data: the archive data
-        :type data: bytes
-        :param filename: the name of a directory to which the archive
-            files will be written
+        :param data: The data to write to archive.
+        :type data: list[PipelineData]
+        :param filename: The name of the directory to write the archive
+            files to.
         :type filename: str
-        :return: the original `data`
+        :return: The achived data
         :rtype: bytes
         """
         # System modules
@@ -153,104 +155,24 @@ class ExtractArchiveWriter(Writer):
         return data
 
 
-class MatplotlibFigureWriter(Writer):
-    """Writer for saving matplotlib figures to image files."""
-    def write(self, data, filename, savefig_kw={}, force_overwrite=False):
-        """Write the matplotlib.fgure.Figure contained in `data` to
-        the filename provided.
-
-        :param data: input containing a matplotlib figure
-        :type data: CHAP.pipeline.PipelineData
-        :param filename: name of the file to write to.
-        :param savefig_kw: keyword args to pass to
-            matplotlib.figure.Figure.savefig, defaults to {}
-        :type savefig_kw: dict, optional
-        :param force_overwrite: flag to allow data in `filename` to be
-            overwritten, if it already exists.
-        :return: the original input data
-        """
-        data = self.unwrap_pipelinedata(data)[-1]
-        write_matplotlibfigure(data, filename, force_overwrite)
-        return data
-
-
-class NexusWriter(Writer):
-    """Writer for NeXus files from `NXobject`-s"""
-    def write(self, data, filename, force_overwrite=False):
-        """Write `data` to a NeXus file
-
-        :param data: the data to write to `filename`.
-        :type data: nexusformat.nexus.NXobject
-        :param filename: name of the file to write to.
-        :param force_overwrite: flag to allow data in `filename` to be
-            overwritten, if it already exists.
-        :return: the original input data
-        """
-        data = self.unwrap_pipelinedata(data)[-1]
-        write_nexus(data, filename, force_overwrite)
-        return data
-
-
-class TXTWriter(Writer):
-    """Writer for plain text files from string or list of strings."""
-    def write(self, data, filename, force_overwrite=False, append=False):
-        """If `data` is a `str`, `tuple[str]` or `list[str]`, write it
-        to `filename`.
-
-        :param data: the string or tuple or list of strings to write to
-            `filename`.
-        :type data: str, tuple, list
-        :param filename: name of the file to write to.
-        :type filename: str
-        :param force_overwrite: flag to allow data in `filename` to be
-            overwritten if it already exists.
-        :type force_overwrite: bool
-        :raises TypeError: if `data` is not a `str`, `tuple[str]` or
-            `list[str]`
-        :raises RuntimeError: if `filename` already exists and
-            `force_overwrite` is `False`.
-        :return: the original input data
-        :rtype: str, tuple, list
-        """
-        data = self.unwrap_pipelinedata(data)[-1]
-        write_txt(data, filename, force_overwrite, append)
-        return data
-
-
-class YAMLWriter(Writer):
-    """Writer for YAML files from `dict`-s"""
-    def write(self, data, filename, force_overwrite=False):
-        """If `data` is a `dict`, write it to `filename`.
-
-        :param data: the dictionary to write to `filename`.
-        :type data: dict
-        :param filename: name of the file to write to.
-        :type filename: str
-        :param force_overwrite: flag to allow data in `filename` to be
-            overwritten if it already exists.
-        :type force_overwrite: bool
-        :raises TypeError: if `data` is not a `dict`
-        :raises RuntimeError: if `filename` already exists and
-            `force_overwrite` is `False`.
-        :return: the original input data
-        :rtype: dict
-        """
-        data = self.unwrap_pipelinedata(data)[-1]
-        write_yaml(data, filename, force_overwrite)
-        return data
-
-
 class FileTreeWriter(Writer):
     """Writer for a file tree in NeXus format"""
     def write(self, data, outputdir, force_overwrite=False):
-        """Write `data` to a NeXus file
+        """Write a NeXus format object contained in `data` to a 
+        directory tree stuctured like the NeXus tree.
 
-        :param data: the data to write to disk.
-        :type data: Union[nexusformat.nexus.NXroot,
+        :param data: The data to write to disk.
+        :type data: list[PipelineData]
+        :param outputdir: The name of the directory to write to.
+        :type outputdir: str
+        :param force_overwrite: Flag to allow data to be overwritten
+            if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to disk.
+        :rtype: Union[nexusformat.nexus.NXroot,
             nexusformat.nexus.NXentry]
-        :param force_overwrite: flag to allow data to be overwritten,
-            if it already exists.
-        :return: the original input data
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -278,9 +200,157 @@ class FileTreeWriter(Writer):
                             f'{type(data).__name__} as a file tree to disk.')
 
         write_filetree(nxentry, outputdir, force_overwrite)
+
+        return data
+
+
+class MatplotlibAnimationWriter(Writer):
+    """Writer for saving matplotlib animations."""
+    def write(self, data, filename, fps=1):
+        """Write the matplotlib.animation.ArtistAnimation object
+        contained in `data` to file.
+
+        :param data: The matplotlib animation.
+        :type data: list[PipelineData]
+        :param filename: The name of the file to write to.
+        :type filename: str
+        :param fps: Movie frame rate (frames per second),
+            defaults to `1`
+        :type fps: int, optional
+        :return: The original animation.
+        :rtype: matplotlib.animation.ArtistAnimation
+        """
+        data = self.unwrap_pipelinedata(data)[-1]
+        extension = os_path.splitext(filename)[1]
+        if not extension:
+            data.save(f'{filename}.gif', fps=fps)
+        elif extension == '.gif':
+            data.save(filename, fps=fps)
+        elif extension == '.mp4':
+            data.save(filename, writer='ffmpeg', fps=fps)
+
+        return data
+
+
+class MatplotlibFigureWriter(Writer):
+    """Writer for saving matplotlib figures to image files."""
+    def write(self, data, filename, savefig_kw={}, force_overwrite=False):
+        """Write the matplotlib.figure.Figure contained in `data` to
+        file.
+
+        :param data: The matplotlib figure
+        :type data: list[PipelineData]
+        :param filename: The name of the file to write to.
+        :type filename: str
+        :param savefig_kw: Keyword args to pass to
+            matplotlib.figure.Figure.savefig, defaults to {}.
+        :type savefig_kw: dict, optional
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The original figure object
+        :rtype: matplotlib.figure.Figure
+        """
+        data = self.unwrap_pipelinedata(data)[-1]
+        write_matplotlibfigure(data, filename, force_overwrite)
+
+        return data
+
+
+class NexusWriter(Writer):
+    """Writer for NeXus files from `NXobject`-s"""
+    def write(self, data, filename, force_overwrite=False):
+        """Write the NeXus object contained in `data` to file.
+
+        :param data: The data to write to file.
+        :type data: list[PipelineData]
+        :param filename: The name of the file to write to.
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to file.
+        :rtype: nexusformat.nexus.NXobject
+        """
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
+        data = self.unwrap_pipelinedata(data)[-1]
+        nxclass = data.nxclass
+        nxname = data.nxname
+        if nxclass == 'NXentry':
+            data = NXroot(data)
+            data[nxname].set_default()
+        elif nxclass != 'NXroot':
+            data = NXroot(NXentry(data))
+            if nxclass == 'NXdata':
+                data.entry[nxname].set_default()
+            data.entry.set_default()
+        write_nexus(data, filename, force_overwrite)
+
+        return data
+
+
+class TXTWriter(Writer):
+    """Writer for plain text files from string or tuples or lists of
+    strings."""
+    def write(self, data, filename, append=False, force_overwrite=False):
+        """Write a string or tuple or list of strings contained in 
+        `data` to file.
+
+        :param data: The data to write to disk.
+        :type data: str, tuple[str], list[str]
+        :param filename: The name of the file to write to.
+        :type filename: str
+        :param append: Flag to allow data in `filename` to be
+            be appended, defaults to `False`.
+        :type append: bool, optional
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises TypeError: If the object contained in `data` is not a
+            `str`, `tuple[str]` or `list[str]`.
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to file.
+        :rtype: str, tuple[str], list[str]
+        """
+        data = self.unwrap_pipelinedata(data)[-1]
+        write_txt(data, filename, force_overwrite, append)
+
+        return data
+
+
+class YAMLWriter(Writer):
+    """Writer for YAML files from `dict`-s"""
+    def write(self, data, filename, force_overwrite=False):
+        """Write the dictionary contained in `data` to file.
+
+        :param data: The data to write to file.
+        :type data: dict
+        :param filename: The name of the file to write to.
+        :type filename: str
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises TypeError: If the object contained in `data` is not a
+            `dict`.
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to file.
+        :rtype: dict
+        """
+        data = self.unwrap_pipelinedata(data)[-1]
+        write_yaml(data, filename, force_overwrite)
         return data
 
 
 if __name__ == '__main__':
+    # Local modules
     from CHAP.writer import main
+
     main()

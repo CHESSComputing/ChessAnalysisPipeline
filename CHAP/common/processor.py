@@ -8,19 +8,165 @@ Description: Module for Processors used in multiple experiment-specific
              workflows.
 """
 
-# system modules
-from json import dumps
-from time import time
+# Third party modules
+import numpy as np
 
-# local modules
+# Local modules
 from CHAP import Processor
+
+
+class AnimationProcessor(Processor):
+    """A Processor to show and return an animation.
+    """
+    def process(
+            self, data, num_frames, vmin=None, vmax=None, axis=None,
+            interval=1000, blit=True, repeat=True, repeat_delay=1000,
+            interactive=False):
+        """Show and return an animation of image slices from a dataset
+        contained in `data`.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param num_frames: Number of frames for the animation.
+        :type num_frames: int
+        :param vmin: Minimum array value in image slice, default to
+            `None`, which uses the actual minimum value in the slice.
+        :type vmin: float
+        :param vmax: Maximum array value in image slice, default to
+            `None`, which uses the actual maximum value in the slice.
+        :type vmax: float
+        :param axis: Axis direction or name of the image slices,
+            defaults to `0`
+        :type axis: Union[int, str], optional
+        :param interval: Delay between frames in milliseconds (only
+            used when interactive=True), defaults to `1000`
+        :type interval: int, optional
+        :param blit: Whether blitting is used to optimize drawing,
+            default to `True`
+        :type blit: bool, optional
+        :param repeat: Whether the animation repeats when the sequence
+            of frames is completed (only used when interactive=True),
+            defaults to `True`
+        :type repeat: bool, optional
+        :param repeat_delay: Delay in milliseconds between consecutive
+            animation runs if repeat is `True` (only used when
+            interactive=True), defaults to `1000`
+        :type repeat_delay: int, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :return: The matplotlib animation.
+        :rtype: matplotlib.animation.ArtistAnimation
+        """
+        # System modules
+        from os.path import (
+            isabs,
+            join,
+        )
+
+        # Third party modules
+        import matplotlib.animation as animation
+        import matplotlib.pyplot as plt
+
+        # Get the default Nexus NXdata object
+        data = self.unwrap_pipelinedata(data)[0]
+        try:
+            nxdata = data.get_default()
+        except:
+            if nxdata.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway to an NXdata object '
+                                 f'in ({data})')
+
+        # Get the frames
+        axes = nxdata.attrs.get('axes', None)
+        title = f'{nxdata.nxpath}/{nxdata.signal}'
+        if nxdata.nxsignal.ndim == 2:
+            exit('AnimationProcessor not tested yet for a 2D dataset')
+        elif nxdata.nxsignal.ndim == 3:
+            if isinstance(axis, int):
+                if not 0 <= axis < nxdata.nxsignal.ndim:
+                    raise ValueError(f'axis index out of range ({axis} not in '
+                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+                axis_name = 'axis {axis}'
+            elif isinstance(axis, str):
+                if axes is None or axis not in list(axes.nxdata):
+                    raise ValueError(
+                        f'Unable to match axis = {axis} in {nxdata.tree}')
+                axes = list(axes.nxdata)
+                axis_name = axis
+                axis = axes.index(axis)
+            else:
+                raise ValueError(f'Invalid parameter axis ({axis})')
+            delta = int(nxdata.nxsignal.shape[axis]/(num_frames+1))
+            indices = np.linspace(
+                delta, nxdata.nxsignal.shape[axis]-delta, num_frames)
+            if not axis:
+                frames = [nxdata[nxdata.signal][int(index),:,:]
+                          for index in indices]
+            elif axis == 1:
+                frames = [nxdata[nxdata.signal][:,int(index),:]
+                          for index in indices]
+            elif axis == 2:
+                frames = [nxdata[nxdata.signal][:,:,int(index)]
+                          for index in indices]
+            if axes is None:
+                axes = [i for i in range(3) if i != axis]
+                row_coords = range(a.shape[1])
+                row_label = f'axis {axes[1]} index'
+                column_coords = range(a.shape[0])
+                column_label = f'axis {axes[0]} index'
+            else:
+                axes.pop(axis)
+                row_coords = nxdata[axes[1]].nxdata
+                row_label = axes[1]
+                if 'units' in nxdata[axes[1]].attrs:
+                    row_label += f' ({nxdata[axes[1]].units})'
+                column_coords = nxdata[axes[0]].nxdata
+                column_label = axes[0]
+                if 'units' in nxdata[axes[0]].attrs:
+                    column_label += f' ({nxdata[axes[0]].units})'
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+
+
+        # Create the movie
+        if vmin is None or vmax is None:
+            a_max = frames[0].max()
+            for n in range(1, num_frames):
+                a_max = min(a_max, frames[n].max())
+            if vmin is None:
+                vmin = -a_max
+            if vmax is None:
+                vmax = a_max
+        extent = (
+            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        ax.set_title(title, fontsize='xx-large', pad=20)
+        ax.set_xlabel(row_label, fontsize='x-large')
+        ax.set_ylabel(column_label, fontsize='x-large')
+        fig.tight_layout()
+        ims = [[plt.imshow(
+                    frames[n], extent=extent, origin='lower',
+                    vmin=vmin, vmax=vmax, cmap='gray',
+                    animated=True)]
+               for n in range(num_frames)]
+        plt.colorbar()
+        if interactive:
+            ani = animation.ArtistAnimation(
+                fig, ims, interval=interval, blit=blit, repeat=repeat,
+                repeat_delay=repeat_delay)
+            plt.show()
+        else:
+            ani = animation.ArtistAnimation(fig, ims, blit=blit)
+
+        return ani
 
 
 class AsyncProcessor(Processor):
     """A Processor to process multiple sets of input data via asyncio
-    module
+    module.
 
-    :ivar mgr: The `Processor` used to process every set of input data
+    :ivar mgr: The `Processor` used to process every set of input data.
     :type mgr: Processor
     """
     def __init__(self, mgr):
@@ -31,31 +177,31 @@ class AsyncProcessor(Processor):
         """Asynchronously process the input documents with the
         `self.mgr` `Processor`.
 
-        :param data: input data documents to process
+        :param data: Input data documents to process.
         :type docs: iterable
         """
-
+        # System modules
         import asyncio
 
         async def task(mgr, doc):
-            """Process given data using provided `Processor`
+            """Process given data using provided `Processor`.
 
-            :param mgr: the object that will process given data
+            :param mgr: The object that will process given data.
             :type mgr: Processor
-            :param doc: the data to process
+            :param doc: The data to process.
             :type doc: object
-            :return: processed data
+            :return: The processed data.
             :rtype: object
             """
             return mgr.process(doc)
 
         async def execute_tasks(mgr, docs):
             """Process given set of documents using provided task
-            manager
+            manager.
 
-            :param mgr: the object that will process all documents
+            :param mgr: The object that will process all documents.
             :type mgr: Processor
-            :param docs: the set of data documents to process
+            :param docs: The set of data documents to process.
             :type doc: iterable
             """
             coroutines = [task(mgr, d) for d in docs]
@@ -64,22 +210,574 @@ class AsyncProcessor(Processor):
         asyncio.run(execute_tasks(self.mgr, data))
 
 
-class IntegrationProcessor(Processor):
-    """A processor for integrating 2D data with pyFAI"""
+class BinarizeProcessor(Processor):
+    """A Processor to binarize a dataset.
+    """
+    def process(
+            self, data, nxpath='', interactive=False, method='CHAP',
+            num_bin=256, axis=None, remove_original_data=False):
+        """Show and return a binarized dataset from a dataset
+        contained in `data`. The dataset must either be of type
+        `numpy.ndarray` or a NeXus NXobject object with a default path
+        to a NeXus NXfield object. 
 
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param nxpath: The relative path to a specific NeXus NXentry or
+            NeXus NXdata object in the NeXus file tree to read the
+            input data from (ignored for Numpy or NeXus NXfield input
+            datasets), defaults to `''`
+        :type nxpath: str, optional
+        :param interactive: Allows for user interactions (ignored
+            for any method other than `'manual'`), defaults to `False`.
+        :type interactive: bool, optional
+        :param method: Binarization method, defaults to `'CHAP'`
+            (CHAP's internal implementation of Otzu's method).
+        :type method: Literal['CHAP', 'manual', 'otsu', 'yen', 'isodata',
+            'minimum']
+        :param num_bin: The number of bins used to calculate the
+            histogram in the binarization algorithms (ignored for
+            method = `'manual'`), defaults to `256`.
+        :type num_bin: int, optional
+        :param axis: Axis direction of the image slices (ignored
+            for any method other than `'manual'`), defaults to `None`
+        :type axis: int, optional
+        :param remove_original_data: Removes the original data field
+            (ignored for Numpy input datasets), defaults to `False`.
+        :type force_remove_original_data: bool, optional
+        :raises ValueError: Upon invalid input parameters.
+        :return: The binarized dataset with a return type equal to
+            that of the input dataset.
+        :rtype: numpy.ndarray, nexusformat.nexus.NXobject
+        """
+        # System modules
+        from os.path import join as os_join
+        from os.path import relpath
+
+        # Local modules
+        from CHAP.utils.general import (
+            is_int,
+            nxcopy,
+        )
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+            NXlink,
+            NXprocess,
+            nxsetconfig,
+        )
+
+        if method not in [
+                'CHAP', 'manual', 'otsu', 'yen', 'isodata', 'minimum']:
+            raise ValueError(f'Invalid parameter method ({method})')
+        if not is_int(num_bin, gt=0):
+            raise ValueError(f'Invalid parameter num_bin ({num_bin})')
+        if not isinstance(remove_original_data, bool):
+            raise ValueError('Invalid parameter remove_original_data '
+                             f'({remove_original_data})')
+
+        nxsetconfig(memory=100000)
+
+        # Get the dataset and make a copy if it is a NeXus NXgroup
+        dataset = self.unwrap_pipelinedata(data)[-1]
+        if isinstance(dataset, np.ndarray):
+            if method == 'manual':
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
+                axes = ['i', 'j', 'k']
+            data = dataset
+        elif isinstance(dataset, NXfield):
+            if method == 'manual':
+                if axis is not None and not is_int(axis, gt=0, lt=3):
+                    raise ValueError(f'Invalid parameter axis ({axis})')
+                axes = ['i', 'j', 'k']
+            if isinstance(dataset, NXfield):
+                if nxpath not in ('', '/'):
+                    self.logger.warning('Ignoring parameter nxpath')
+                data = dataset.nxdata
+            else:
+                try:
+                    data = dataset[nxpath].nxdata
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+        else:
+            # Get the default Nexus NXdata object
+            try:
+                nxdefault = dataset.get_default()
+            except:
+                nxdefault = None
+            if nxdefault is not None and nxdefault.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway NXobject type '
+                                 f'({nxdefault.nxclass})')
+            # Get the requested NeXus NXdata object to binarize
+            if nxpath is None:
+                nxclass = dataset.nxclass
+            else:
+                try:
+                    nxclass = dataset[nxpath].nxclass
+                except:
+                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+            if nxclass == 'NXdata':
+                nxdata = dataset[nxpath]
+            else:
+                if nxdefault is None:
+                    raise ValueError(f'No default pathway to a NXdata object')
+                nxdata = nxdefault
+            nxsignal = nxdata.nxsignal
+            if method == 'manual':
+                if hasattr(nxdata.attrs, 'axes'):
+                    axes = nxdata.attrs['axes']
+                    if isinstance(axis, str):
+                        if axis not in axes:
+                            raise ValueError(f'Invalid parameter axis ({axis})')
+                        axis = axes.index(axis)
+                    elif axis is not None and not is_int(axis, gt=0, lt=3):
+                        raise ValueError(f'Invalid parameter axis ({axis})')
+                else:
+                    axes = ['i', 'j', 'k']
+                if nxsignal.ndim != 3:
+                    raise ValueError('Invalid data dimension (must be 3D)')
+            data = nxsignal.nxdata
+            # Create a copy of the input NeXus object, removing the
+            # default NeXus NXdata object as well as the original
+            # dateset if the remove_original_data parameter is set
+            exclude_nxpaths = []
+            if nxdefault is not None:
+                exclude_nxpaths.append(
+                    os_join(relpath(nxdefault.nxpath, dataset.nxpath)))
+            if remove_original_data:
+                if (nxdefault is None
+                        or nxdefault.nxpath != nxdata.nxpath):
+                    relpath_nxdata = relpath(nxdata.nxpath, dataset.nxpath)
+                    keys = list(nxdata.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxdata.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    elif relpath_nxdata == '.':
+                        exclude_nxpaths.append(nxsignal.nxname)
+                        if dataset.nxclass != 'NXdata':
+                            exclude_nxpaths += nxdata.axes
+                    else:
+                        exclude_nxpaths.append(relpath_nxdata)
+                if not (dataset.nxclass == 'NXdata'
+                        or nxdata.nxsignal.nxtarget is None):
+                    nxsignal = dataset[nxsignal.nxtarget]
+                    nxgroup = nxsignal.nxgroup
+                    keys = list(nxgroup.keys())
+                    keys.remove(nxsignal.nxname)
+                    for axis in nxgroup.axes:
+                        keys.remove(axis)
+                    if len(keys):
+                        raise RuntimeError('Not tested yet')
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                    else:
+                        exclude_nxpaths.append(os_join(
+                            relpath(nxgroup.nxpath, dataset.nxpath)))
+            nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
+
+        # Get a histogram of the data
+        if method not in ['manual', 'yen']:
+            counts, edges = np.histogram(data, bins=num_bin)
+            centers = edges[:-1] + 0.5 * np.diff(edges)
+
+        # Calculate the data cutoff threshold
+        if method == 'CHAP':
+            weights = np.cumsum(counts)
+            means = np.cumsum(counts * centers)
+            weights = weights[0:-1]/weights[-1]
+            means = means[0:-1]/means[-1]
+            variances = (means-weights)**2/(weights*(1.-weights))
+            threshold = centers[np.argmax(variances)]
+        elif method == 'otsu':
+            # Third party modules
+            from skimage.filters import threshold_otsu
+
+            threshold = threshold_otsu(hist=(counts, centers))
+        elif method == 'yen':
+            # Third party modules
+            from skimage.filters import threshold_yen
+
+            _min = data.min()
+            _max = data.max()
+            data = 1+(num_bin-1)*(data-_min)/(_max-_min)
+            counts, edges = np.histogram(data, bins=num_bin)
+            centers = edges[:-1] + 0.5 * np.diff(edges)
+
+            threshold = threshold_yen(hist=(counts, centers))
+        elif method == 'isodata':
+            # Third party modules
+            from skimage.filters import threshold_isodata
+
+            threshold = threshold_isodata(hist=(counts, centers))
+        elif method == 'minimum':
+            # Third party modules
+            from skimage.filters import threshold_minimum
+
+            threshold = threshold_minimum(hist=(counts, centers))
+        else:
+            # Third party modules
+            import matplotlib.pyplot as plt
+            from matplotlib.widgets import RadioButtons, Button
+
+            # Local modules
+            from CHAP.utils.general import (
+                select_roi_1d,
+                select_roi_2d,
+            )
+
+            def select_direction(direction):
+                """Callback function for the "Select direction" input."""
+                selected_direction.append(radio_btn.value_selected)
+                plt.close()
+
+            def accept(event):
+                """Callback function for the "Accept" button."""
+                selected_direction.append(radio_btn.value_selected)
+                plt.close()
+
+            # Select the direction for data averaging
+            if axis is not None:
+                mean_data = data.mean(axis=axis)
+                subaxes = [i for i in range(3) if i != axis]
+            else:
+                selected_direction = []
+
+                # Setup figure
+                title_pos = (0.5, 0.95)
+                title_props = {'fontsize': 'xx-large',
+                               'horizontalalignment': 'center',
+                               'verticalalignment': 'bottom'}
+                fig, axs = plt.subplots(ncols=3, figsize=(17, 8.5))
+                mean_data = []
+                for i, ax in enumerate(axs):
+                    mean_data.append(data.mean(axis=i))
+                    subaxes = [a for a in axes if a != axes[i]]
+                    ax.imshow(mean_data[i], aspect='auto', cmap='gray')
+                    ax.set_title(
+                        f'Data averaged in {axes[i]}-direction',
+                        fontsize='x-large')
+                    ax.set_xlabel(subaxes[1], fontsize='x-large')
+                    ax.set_ylabel(subaxes[0], fontsize='x-large')
+                fig_title = plt.figtext(
+                    *title_pos,
+                    'Select a direction or press "Accept" for the default one '
+                    f'({axes[0]}) to obtain the binary threshold value',
+                    **title_props)
+                fig.subplots_adjust(bottom=0.25, top=0.85)
+
+                # Setup RadioButtons
+                select_text = plt.figtext(
+                    0.225, 0.175, 'Averaging direction', fontsize='x-large',
+                    horizontalalignment='center', verticalalignment='center')
+                radio_btn = RadioButtons(
+                    plt.axes([0.175, 0.05, 0.1, 0.1]), labels=axes, active=0)
+                radio_cid = radio_btn.on_clicked(select_direction)
+
+                # Setup "Accept" button
+                accept_btn = Button(
+                    plt.axes([0.7, 0.05, 0.15, 0.075]), 'Accept')
+                accept_cid = accept_btn.on_clicked(accept)
+
+                plt.show()
+
+                axis = axes.index(selected_direction[0])
+                mean_data = mean_data[axis]
+                subaxes = [a for a in axes if a != axes[axis]]
+
+                plt.close()
+
+            # Select the ROI's orthogonal to the selected averaging direction
+            bounds = []
+            for i, bound in enumerate(['"0"', '"1"']):
+                _, roi = select_roi_2d(
+                    mean_data,
+                    title=f'Select the ROI to obtain the {bound} data value',
+                    title_a=f'Data averaged in the {axes[axis]}-direction',
+                    row_label=subaxes[0], column_label=subaxes[1])
+                plt.close()
+
+                # Select the index range in the selected averaging direction
+                if not axis:
+                    mean_roi_data = data[:,roi[2]:roi[3],roi[0]:roi[1]].mean(
+                        axis=(1,2))
+                elif axis == 1:
+                    mean_roi_data = data[roi[2]:roi[3],:,roi[0]:roi[1]].mean(
+                        axis=(0,2))
+                elif axis == 2:
+                    mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
+                        axis=(0,1))
+
+                _, _range = select_roi_1d(
+                    mean_roi_data, preselected_roi=(0, data.shape[axis]),
+                    title=f'Select the {axes[axis]}-direction range to obtain '
+                          f'the {bound} data bound',
+                    xlabel=axes[axis], ylabel='Average data')
+                plt.close()
+
+                # Obtain the lower/upper data bound
+                if not axis:
+                    bounds.append(
+                        data[
+                            _range[0]:_range[1],roi[2]:roi[3],roi[0]:roi[1]
+                        ].mean())
+                elif axis == 1:
+                    bounds.append(
+                        data[
+                            roi[2]:roi[3],_range[0]:_range[1],roi[0]:roi[1]
+                        ].mean())
+                elif axis == 2:
+                    bounds.append(
+                        data[
+                            roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
+                        ].mean())
+
+            # Get the data cutoff threshold
+            threshold = np.mean(bounds)
+
+        # Apply the data cutoff threshold and return the output
+        data = np.where(data<threshold, 0, 1).astype(np.ubyte)
+#        from CHAP.utils.general import quick_imshow
+#        quick_imshow(data[int(data.shape[0]/2),:,:], block=True)
+#        quick_imshow(data[:,int(data.shape[1]/2),:], block=True)
+#        quick_imshow(data[:,:,int(data.shape[2]/2)], block=True)
+        if isinstance(dataset, np.ndarray):
+            return data
+        if isinstance(dataset, NXfield):
+            attrs = dataset.attrs
+            attrs.pop('target', None)
+            return NXfield(
+                value=data, name=dataset.nxname, attrs=dataset.attrs)
+        name = nxsignal.nxname + '_binarized'
+        if nxobject.nxclass == 'NXdata':
+            nxobject[name] = data
+            nxobject.attrs['signal'] = name
+            return nxobject
+        if nxobject.nxclass == 'NXroot':
+            nxentry = nxobject[nxobject.default]
+        else:
+            nxentry = nxobject
+        axes = []
+        for axis in nxdata.axes:
+            attrs = nxdata[axis].attrs
+            attrs.pop('target', None)
+            axes.append(
+                NXfield(nxdata[axis], name=axis, attrs=attrs))
+        nxentry[name] = NXprocess(
+            NXdata(NXfield(data, name=name), axes),
+            attrs={'source': nxsignal.nxpath})
+        nxdata = nxentry[name].data
+        nxentry.data = NXdata(
+            NXlink(nxdata.nxsignal.nxpath),
+            [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+        return nxobject
+
+
+class ImageProcessor(Processor):
+    """A Processor to plot an image (slice) from a NeXus object.
+    """
+    def process(
+            self, data, vmin=None, vmax=None, axis=0, index=None,
+            coord=None, interactive=False, save_figure=True, outputdir='.',
+            filename='image.png'):
+        """Plot and/or save an image (slice) from a NeXus NXobject object with
+        a default data path contained in `data` and return the NeXus NXdata
+        data object.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param vmin: Minimum array value in image slice, default to
+            `None`, which uses the actual minimum value in the slice.
+        :type vmin: float
+        :param vmax: Maximum array value in image slice, default to
+            `None`, which uses the actual maximum value in the slice.
+        :type vmax: float
+        :param axis: Axis direction or name of the image slice,
+            defaults to `0`
+        :type axis: Union[int, str], optional
+        :param index: Array index of the slice of data to plot,
+            defaults to `None`
+        :type index: int, optional
+        :param coord: Coordinate value of the slice of data to plot,
+            defaults to `None`
+        :type coord: Union[int, float], optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :param save_figure: Save a .png of the image, defaults to `True`.
+        :type save_figure: bool, optional
+        :param outputdir: Directory to which any output figure will
+            be saved, defaults to `'.'`
+        :type outputdir: str, optional
+        :param filename: Image filename, defaults to `"image.png"`.
+        :type filename: str, optional
+        :return: The input data object.
+        :rtype: nexusformat.nexus.NXdata
+        """
+        # System modules
+        from os.path import (
+            isabs,
+            join,
+        )
+
+        # Third party modules
+        import matplotlib.pyplot as plt
+
+        # Local modules
+        from CHAP.utils.general import index_nearest
+
+        # Validate input parameters
+        if not isinstance(interactive, bool):
+            raise ValueError(f'Invalid parameter interactive ({interactive})')
+        if not isinstance(save_figure, bool):
+            raise ValueError(f'Invalid parameter save_figure ({save_figure})')
+        if not isinstance(outputdir, str):
+            raise ValueError(f'Invalid parameter outputdir ({outputdir})')
+        if not isinstance(filename, str):
+            raise ValueError(f'Invalid parameter filename ({filename})')
+        if not isabs(filename):
+            filename = join(outputdir, filename)
+
+        # Get the default Nexus NXdata object
+        data = self.unwrap_pipelinedata(data)[0]
+        try:
+            nxdata = data.get_default()
+        except:
+            if nxdata.nxclass != 'NXdata':
+                raise ValueError('Invalid default pathway to an NXdata object '
+                                 f'in ({data})')
+
+        # Get the data slice
+        axes = nxdata.attrs.get('axes', None)
+        if axes is not None:
+            axes = list(axes.nxdata)
+        coords = None
+        title = f'{nxdata.nxpath}/{nxdata.signal}'
+        if nxdata.nxsignal.ndim == 2:
+            exit('ImageProcessor not tested yet for a 2D dataset')
+            if axis is not None:
+                axis = None
+                self.logger.warning('Ignoring parameter axis')
+            if index is not None:
+                index = None
+                self.logger.warning('Ignoring parameter index')
+            if coord is not None:
+                coord = None
+                self.logger.warning('Ignoring parameter coord')
+            a = nxdata.nxsignal
+        elif nxdata.nxsignal.ndim == 3:
+            if isinstance(axis, int):
+                if not 0 <= axis < nxdata.nxsignal.ndim:
+                    raise ValueError(f'axis index out of range ({axis} not in '
+                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+            elif isinstance(axis, str):
+                if axes is None or axis not in axes:
+                    raise ValueError(
+                        f'Unable to match axis = {axis} in {nxdata.tree}')
+                axis = axes.index(axis)
+            else:
+                raise ValueError(f'Invalid parameter axis ({axis})')
+            if axes is not None and hasattr(nxdata, axes[axis]):
+                coords = nxdata[axes[axis]].nxdata
+                axis_name = axes[axis]
+            else:
+                axis_name = f'axis {axis}'
+            if index is None and coord is None:
+                index = nxdata.nxsignal.shape[axis] // 2
+            else:
+                if index is not None:
+                    if coord is not None:
+                        coord = None
+                        self.logger.warning('Ignoring parameter coord')
+                    if not isinstance(index, int):
+                        raise ValueError(f'Invalid parameter index ({index})')
+                    elif not 0 <= index < nxdata.nxsignal.shape[axis]:
+                        raise ValueError(
+                            f'index value out of range ({index} not in '
+                            f'[0, {nxdata.nxsignal.shape[axis]-1}])')
+                else:
+                    if not isinstance(coord, (int, float)):
+                        raise ValueError(f'Invalid parameter coord ({coord})')
+                    if coords is None:
+                        raise ValueError(
+                            f'Unable to get coordinates for {axis_name} '
+                            f'in {nxdata.tree}')
+                    index = index_nearest(nxdata[axis_name], coord)
+            if coords is None:
+                slice_info = f'slice at {axis_name} and index {index}'
+            else:
+                coord = coords[index]
+                slice_info = f'slice at {axis_name} = '\
+                             f'{nxdata[axis_name][index]:.3f}'
+                if 'units' in nxdata[axis_name].attrs:
+                    slice_info += f' ({nxdata[axis_name].units})'
+            if not axis:
+                a = nxdata[nxdata.signal][index,:,:]
+            elif axis == 1:
+                a = nxdata[nxdata.signal][:,index,:]
+            elif axis == 2:
+                a = nxdata[nxdata.signal][:,:,index]
+            if coords is None:
+                axes = [i for i in range(3) if i != axis]
+                row_coords = range(a.shape[1])
+                row_label = f'axis {axes[1]} index'
+                column_coords = range(a.shape[0])
+                column_label = f'axis {axes[0]} index'
+            else:
+                axes.pop(axis)
+                row_coords = nxdata[axes[1]].nxdata
+                row_label = axes[1]
+                if 'units' in nxdata[axes[1]].attrs:
+                    row_label += f' ({nxdata[axes[1]].units})'
+                column_coords = nxdata[axes[0]].nxdata
+                column_label = axes[0]
+                if 'units' in nxdata[axes[0]].attrs:
+                    column_label += f' ({nxdata[axes[0]].units})'
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+
+        # Create figure
+        a_max = a.max()
+        if vmin is None:
+            vmin = -a_max
+        if vmax is None:
+            vmax = a_max
+        extent = (
+            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        plt.imshow(
+            a, extent=extent, origin='lower', vmin=vmin, vmax=vmax,
+            cmap='gray')
+        fig.suptitle(title, fontsize='xx-large')
+        ax.set_title(slice_info, fontsize='xx-large', pad=20)
+        ax.set_xlabel(row_label, fontsize='x-large')
+        ax.set_ylabel(column_label, fontsize='x-large')
+        plt.colorbar()
+        fig.tight_layout()
+        if interactive:
+            plt.show()
+        if save_figure:
+            fig.savefig(filename)
+        plt.close()
+
+        return nxdata
+
+
+class IntegrationProcessor(Processor):
+    """A processor for integrating 2D data with pyFAI.
+    """
     def process(self, data):
         """Integrate the input data with the integration method and
-        keyword arguments supplied and return the results.
+        keyword arguments supplied in `data` and return the results.
 
-        :param data: input data, including raw data, integration
+        :param data: Input data, containing the raw data, integration
             method, and keyword args for the integration method.
-        :type data: tuple[typing.Union[numpy.ndarray,
-                          list[numpy.ndarray]], callable, dict]
-        :param integration_method: the method of a
-            `pyFAI.azimuthalIntegrator.AzimuthalIntegrator` or
-            `pyFAI.multi_geometry.MultiGeometry` that returns the
-            desired integration results.
-        :return: integrated raw data
+        :type data: list[PipelineData]
+        :return: Integrated raw data.
         :rtype: pyFAI.containers.IntegrateResult
         """
         detector_data, integration_method, integration_kwargs = data
@@ -88,26 +786,23 @@ class IntegrationProcessor(Processor):
 
 
 class IntegrateMapProcessor(Processor):
-    """Class representing a process that takes a map and integration
-    configuration and returns a `nexusformat.nexus.NXprocess`
-    containing a map of the integrated detector data requested.
+    """A processor that takes a map and integration configuration and
+    returns a NeXus NXprocesss object containing a map of the
+    integrated detector data requested.
     """
-
     def process(self, data):
         """Process the output of a `Reader` that contains a map and
-        integration configuration and return a
-        `nexusformat.nexus.NXprocess` containing a map of the
-        integrated detector data requested
+        integration configuration and return a NeXus NXprocess object
+        containing a map of the integrated detector data requested.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key, and at
-            least one item has the value `'IntegrationConfig'` for the
+        :param data: Input data, containing at least one item
+            with the value `'MapConfig'` for the `'schema'` key, and at
+            least one item with the value `'IntegrationConfig'` for the
             `'schema'` key.
-        :type data: list[dict[str,object]]
-        :return: integrated data and process metadata
+        :type data: list[PipelineData]
+        :return: Integrated data and process metadata.
         :rtype: nexusformat.nexus.NXprocess
         """
-
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
         integration_config = self.get_config(
@@ -118,26 +813,30 @@ class IntegrateMapProcessor(Processor):
 
     def get_nxprocess(self, map_config, integration_config):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
-        `nexusformat.nexus.NXprocess`
+        NeXus NXprocess object.
 
-        :param map_config: a valid map configuration
+        :param map_config: A valid map configuration.
         :type map_config: MapConfig
-        :param integration_config: a valid integration configuration
-        :type integration_config: IntegrationConfig
-        :return: the integrated detector data and metadata contained
-            in a NeXus structure
+        :param integration_config: A valid integration configuration
+        :type integration_config: IntegrationConfig.
+        :return: The integrated detector data and metadata.
         :rtype: nexusformat.nexus.NXprocess
         """
+        # System modules
+        from json import dumps
+        from time import time
+
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXfield,
+            NXprocess,
+        )
+        import pyFAI
 
         self.logger.debug('Constructing NXprocess')
         t0 = time()
-
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXfield,
-                                       NXprocess)
-        import numpy as np
-        import pyFAI
 
         nxprocess = NXprocess(name=integration_config.title)
 
@@ -255,24 +954,21 @@ class IntegrateMapProcessor(Processor):
 
 
 class MapProcessor(Processor):
-    """A Processor to take a map configuration and return a
-    `nexusformat.nexus.NXentry` representing that map's metadata and
-    any scalar-valued raw data requseted by the supplied map
-    configuration.
+    """A Processor that takes a map configuration and returns a NeXus
+    NXentry object representing that map's metadata and any
+    scalar-valued raw data requested by the supplied map configuration.
     """
-
     def process(self, data):
         """Process the output of a `Reader` that contains a map
-        configuration and return a `nexusformat.nexus.NXentry`
-        representing the map.
+        configuration and returns a NeXus NXentry object representing
+        the map.
 
         :param data: Result of `Reader.read` where at least one item
             has the value `'MapConfig'` for the `'schema'` key.
-        :type data: list[dict[str,object]]
-        :return: Map data & metadata
+        :type data: list[PipelineData]
+        :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
-
         map_config = self.get_config(data, 'common.models.map.MapConfig')
         nxentry = self.__class__.get_nxentry(map_config)
 
@@ -280,29 +976,29 @@ class MapProcessor(Processor):
 
     @staticmethod
     def get_nxentry(map_config):
-        """Use a `MapConfig` to construct a
-        `nexusformat.nexus.NXentry`
+        """Use a `MapConfig` to construct a NeXus NXentry object.
 
-        :param map_config: a valid map configuration
+        :param map_config: A valid map configuration.
         :type map_config: MapConfig
-        :return: the map's data and metadata contained in a NeXus
-            structure
+        :return: The map's data and metadata contained in a NeXus
+            structure.
         :rtype: nexusformat.nexus.NXentry
         """
+        # System modules
+        from json import dumps
 
-        from nexusformat.nexus import (NXcollection,
-                                       NXdata,
-                                       NXentry,
-                                       NXfield,
-                                       NXsample)
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
 
         nxentry = NXentry(name=map_config.title)
-
         nxentry.map_config = dumps(map_config.dict())
-
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
-
         nxentry.attrs['station'] = map_config.station
 
         nxentry.spec_scans = NXcollection()
@@ -313,7 +1009,8 @@ class MapProcessor(Processor):
                         attrs={'spec_file': str(scans.spec_file)})
 
         nxentry.data = NXdata()
-        nxentry.data.attrs['axes'] = map_config.dims
+        if map_config.map_type == 'structured':
+            nxentry.data.attrs['axes'] = map_config.dims
         for i, dim in enumerate(map_config.independent_dimensions[::-1]):
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
@@ -321,7 +1018,8 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-            nxentry.data.attrs[f'{dim.label}_indices'] = i
+            if map_config.map_type == 'structured':
+                nxentry.data.attrs[f'{dim.label}_indices'] = i
 
         signal = False
         auxilliary_signals = []
@@ -350,22 +1048,21 @@ class MapProcessor(Processor):
 
 
 class NexusToNumpyProcessor(Processor):
-    """A Processor to convert the default plottable data in an
-    `NXobject` into an `numpy.ndarray`.
+    """A Processor to convert the default plottable data in a NeXus
+    object into a `numpy.ndarray`.
     """
-
     def process(self, data):
-        """Return the default plottable data signal in `data` as an
-        `numpy.ndarray`.
+        """Return the default plottable data signal in a NeXus object 
+        contained in `data` as an `numpy.ndarray`.
 
-        :param data: input NeXus structure
-        :type data: nexusformat.nexus.tree.NXobject
-        :raises ValueError: if `data` has no default plottable data
-            signal
-        :return: default plottable data signal in `data`
+        :param data: Input data.
+        :type data: nexusformat.nexus.NXobject
+        :raises ValueError: If `data` has no default plottable data
+            signal.
+        :return: The default plottable data signal.
         :rtype: numpy.ndarray
         """
-
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         data = self.unwrap_pipelinedata(data)[-1]
@@ -392,22 +1089,21 @@ class NexusToNumpyProcessor(Processor):
 
 
 class NexusToXarrayProcessor(Processor):
-    """A Processor to convert the default plottable data in an
-    `NXobject` into an `xarray.DataArray`.
+    """A Processor to convert the default plottable data in a
+    NeXus object into an `xarray.DataArray`.
     """
-
     def process(self, data):
-        """Return the default plottable data signal in `data` as an
-        `xarray.DataArray`.
+        """Return the default plottable data signal in a NeXus object
+        contained in `data` as an `xarray.DataArray`.
 
-        :param data: input NeXus structure
-        :type data: nexusformat.nexus.tree.NXobject
-        :raises ValueError: if metadata for `xarray` is absent from
+        :param data: Input data.
+        :type data: nexusformat.nexus.NXobject
+        :raises ValueError: If metadata for `xarray` is absent from
             `data`
-        :return: default plottable data signal in `data`
+        :return: The default plottable data signal.
         :rtype: xarray.DataArray
         """
-
+        # Third party modules
         from nexusformat.nexus import NXdata
         from xarray import DataArray
 
@@ -456,18 +1152,15 @@ class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.
     """
-
     def process(self, data):
         """Print and return the input data.
 
-        :param data: Input data
+        :param data: Input data.
         :type data: object
         :return: `data`
         :rtype: object
         """
-
         print(f'{self.__name__} data :')
-
         if callable(getattr(data, '_str_tree', None)):
             # If data is likely an NXobject, print its tree
             # representation (since NXobjects' str representations are
@@ -480,23 +1173,23 @@ class PrintProcessor(Processor):
 
 
 class RawDetectorDataMapProcessor(Processor):
-    """A Processor to return a map of raw derector data in an NXroot"""
-
+    """A Processor to return a map of raw derector data in a
+    NeXus NXroot object.
+    """
     def process(self, data, detector_name, detector_shape):
         """Process configurations for a map and return the raw
         detector data data collected over the map.
 
-        :param data: input map configuration
-        :type data: list[dict[str,object]]
-        :param detector_name: detector prefix
+        :param data: Input map configuration.
+        :type data: list[PipelineData]
+        :param detector_name: The detector prefix.
         :type detector_name: str
-        :param detector_shape: shape of detector data for a single
-            scan step
+        :param detector_shape: The shape of detector data for a single
+            scan step.
         :type detector_shape: list
-        :return: map of raw detector data
+        :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-
         map_config = self.get_config(data)
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
@@ -504,17 +1197,18 @@ class RawDetectorDataMapProcessor(Processor):
 
     def get_config(self, data):
         """Get instances of the map configuration object needed by this
-        `Processor`
+        `Processor`.
 
         :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key
-        :type data: list[dict[str,object]]
+            has the value `'MapConfig'` for the `'schema'` key.
+        :type data: list[PipelineData]
         :raises Exception: If a valid map config object cannot be
             constructed from `data`.
-        :return: valid instances of the map configuration object with
+        :return: A valid instance of the map configuration object with
             field values taken from `data`.
         :rtype: MapConfig
         """
+        # Local modules
         from CHAP.common.models.map import MapConfig
 
         map_config = False
@@ -532,27 +1226,28 @@ class RawDetectorDataMapProcessor(Processor):
 
     def get_nxroot(self, map_config, detector_name, detector_shape):
         """Get a map of the detector data collected by the scans in
-        `map_config`.The data will be returned along with some
+        `map_config`. The data will be returned along with some
         relevant metadata in the form of a NeXus structure.
 
-        :param map_config: the map configuration
+        :param map_config: The map configuration.
         :type map_config: MapConfig
-        :param detector_name: detector prefix
+        :param detector_name: The detector prefix.
         :type detector_name: str
-        :param detector_shape: shape of detector data for a single
-            scan step
+        :param detector_shape: The shape of detector data for a single
+            scan step.
         :type detector_shape: list
-        :return: a map of the raw detector data
+        :return: A map of the raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        # third party modules
-        from nexusformat.nexus import (NXdata,
-                                       NXdetector,
-                                       NXinstrument,
-                                       NXroot)
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXinstrument,
+            NXroot,
+        )
 
-        # local modules
+        # Local modules
         from CHAP.common import MapProcessor
 
         nxroot = NXroot()
@@ -602,42 +1297,39 @@ class RawDetectorDataMapProcessor(Processor):
 
 
 class StrainAnalysisProcessor(Processor):
-    """A Processor to compute a map of sample strains by fitting bragg
+    """A Processor to compute a map of sample strains by fitting Bragg
     peaks in 1D detector data and analyzing the difference between
     measured peak locations and expected peak locations for the sample
     measured.
     """
-
     def process(self, data):
         """Process the input map detector data & configuration for the
         strain analysis procedure, and return a map of sample strains.
 
-        :param data: results of `MutlipleReader.read` containing input
+        :param data: Results of `MutlipleReader.read` containing input
             map detector data and strain analysis configuration
-        :type data: dict[list[str,object]]
-        :return: map of sample strains
+        :type data: list[PipelineData]
+        :return: A map of sample strains.
         :rtype: xarray.Dataset
         """
-
         strain_analysis_config = self.get_config(data)
 
         return data
 
     def get_config(self, data):
         """Get instances of the configuration objects needed by this
-        `Processor` from a returned value of `Reader.read`
+        `Processor`.
 
         :param data: Result of `Reader.read` where at least one item
             has the value `'StrainAnalysisConfig'` for the `'schema'`
             key.
-        :type data: list[dict[str,object]]
+        :type data: list[PipelineData]
         :raises Exception: If valid config objects cannot be
             constructed from `data`.
-        :return: valid instances of the configuration objects with
+        :return: A valid instance of the configuration object with
             field values taken from `data`.
         :rtype: StrainAnalysisConfig
         """
-
         strain_analysis_config = False
         if isinstance(data, list):
             for item in data:
@@ -653,25 +1345,25 @@ class StrainAnalysisProcessor(Processor):
 
 
 class XarrayToNexusProcessor(Processor):
-    """A Processor to convert the data in an `xarray` structure to an
-    `nexusformat.nexus.NXdata`.
+    """A Processor to convert the data in an `xarray` structure to a
+    NeXus NXdata object.
     """
-
     def process(self, data):
-        """Return `data` represented as an `nexusformat.nexus.NXdata`.
+        """Return `data` represented as a NeXus NXdata object.
 
-        :param data: The input `xarray` structure
+        :param data: The input `xarray` structure.
         :type data: typing.Union[xarray.DataArray, xarray.Dataset]
-        :return: The data and metadata in `data`
+        :return: The data and metadata in `data`.
         :rtype: nexusformat.nexus.NXdata
         """
-
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         data = self.unwrap_pipelinedata(data)[-1]
-
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
-
         axes = []
         for name, coord in data.coords.items():
             axes.append(
@@ -685,13 +1377,12 @@ class XarrayToNumpyProcessor(Processor):
     """A Processor to convert the data in an `xarray.DataArray`
     structure to an `numpy.ndarray`.
     """
-
     def process(self, data):
         """Return just the signal values contained in `data`.
 
-        :param data: The input `xarray.DataArray`
+        :param data: The input `xarray.DataArray`.
         :type data: xarray.DataArray
-        :return: The data in `data`
+        :return: The data in `data`.
         :rtype: numpy.ndarray
         """
 
@@ -699,5 +1390,7 @@ class XarrayToNumpyProcessor(Processor):
 
 
 if __name__ == '__main__':
+    # Local modules
     from CHAP.processor import main
+
     main()
