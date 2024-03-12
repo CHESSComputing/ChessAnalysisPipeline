@@ -913,15 +913,21 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     Class representing metadata required to perform a tth calibration
     for an MCA detector.
 
+    :ivar calibration_method: Type of calibration method,
+        defaults to `'direct_fit_residual'`.
+    :type calibration_method:
+        Literal['direct_fit_residual', 'iterate_tth'], optional
     :ivar max_iter: Maximum number of iterations of the calibration
-        routine, defaults to `10`.
+        routine (only used for `'iterate_tth'`), defaults to `10`.
     :type max_iter: int, optional
-    :ivar tune_tth_tol: Cutoff error for tuning 2&theta. Stop iterating
-        the calibration routine after an iteration produces a change in
-        the tuned value of 2&theta that is smaller than this cutoff,
-        defaults to `1e-8`.
+    :ivar tune_tth_tol: Cutoff error for tuning 2&theta (only used for
+        `'iterate_tth'`). Stop iterating the calibration routine after
+        an iteration produces a change in the tuned value of 2&theta
+        that is smaller than this cutoff, defaults to `1e-8`.
     :ivar tune_tth_tol: float, optional
     """
+    calibration_method: Optional[
+        Literal['direct_fit_residual', 'iterate_tth']] = 'direct_fit_residual'
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 

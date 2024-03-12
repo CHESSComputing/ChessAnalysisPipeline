@@ -1188,8 +1188,7 @@ class Fit:
                             {'name': 'amplitude', 'min': min_value},
                             {'name': 'center', 'value': centers[i],
                              'min': self._x[0], 'max': self._x[-1]},
-                            {'name': 'sigma', 'min': min_value,
-                             'max': sig_max},
+                            {'name': 'sigma', 'min': sig_min, 'max': sig_max},
                         ))
                 else:
                     self.add_model(
@@ -1200,8 +1199,7 @@ class Fit:
                             {'name': 'center', 'value': centers[i],
                              'min': centers[i]-centers_range,
                              'max': centers[i]+centers_range},
-                            {'name': 'sigma', 'min': min_value,
-                             'max': sig_max},
+                            {'name': 'sigma', 'min': sig_min, 'max': sig_max},
                         ))
 
     def eval(self, x, result=None):
