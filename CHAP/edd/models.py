@@ -964,9 +964,9 @@ class StrainAnalysisConfig(BaseModel):
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
     :type flux_file: str, optional
-    :ivar sum_fly_axes: Whether to sum over the fly axis or not
+    :ivar sum_axes: Whether to sum over the fly axis or not
         for EDD scan types not 0, defaults to `True`.
-    :type sum_fly_axes: bool, optional
+    :type sum_axes: bool, optional
     """
     inputdir: Optional[DirectoryPath]
     map_config: Optional[MapConfig]
@@ -977,7 +977,7 @@ class StrainAnalysisConfig(BaseModel):
     detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
     flux_file: Optional[FilePath]
-    sum_fly_axes: Optional[StrictBool]
+    sum_axes: Optional[list[str]]
     oversampling: Optional[dict] = {'num': 10}
 
     _parfile: Optional[ParFile]
@@ -1054,24 +1054,24 @@ class StrainAnalysisConfig(BaseModel):
                         + f'{detector.tth_file}') from e
         return detector
 
-    @validator('sum_fly_axes', always=True)
-    def validate_sum_fly_axes(cls, value, values):
-        """Validate the sum_fly_axes field.
+    @validator('sum_axes', always=True)
+    def validate_sum_axes(cls, value, values):
+        """Validate the sum_axes field.
 
-        :param value: Field value to validate (`sum_fly_axes`).
+        :param value: Field value to validate (`sum_axes`).
         :type value: bool
         :param values: Dictionary of validated class field values.
         :type values: dict
-        :return: The validated value for sum_fly_axes.
+        :return: The validated value for sum_axes.
         :rtype: bool
         """
         if value is None:
             map_config = values.get('map_config')
             if map_config is not None:
                 if map_config.attrs['scan_type'] < 3:
-                    value = False
+                    value = value
                 else:
-                    value = True
+                    value = map_config.attrs.get('fly_axis_labels', [])
         return value
 
     @validator('oversampling', always=True)
@@ -1144,37 +1144,66 @@ class StrainAnalysisConfig(BaseModel):
                     raise ValueError('Invalid parameter detector ({detector})')
                 detector_config = detector
             if map_index is None:
-                fly_axis_labels = self.map_config.attrs.get('fly_axis_labels')
                 mca_data = []
                 for map_index in np.ndindex(self.map_config.shape):
                     mca_data.append(self.mca_data(
                         detector_config, map_index))
                 mca_data = np.reshape(
                     mca_data, (*self.map_config.shape, len(mca_data[0])))
-                if self.sum_fly_axes and fly_axis_labels:
+                if self.sum_axes:
                     scan_type = self.map_config.attrs['scan_type']
-                    if scan_type in (3, 5):
-                        sum_indices = []
-                        for axis in fly_axis_labels:
-                            sum_indices.append(self.map_config.dims.index(axis))
-                        return np.sum(mca_data, tuple(sorted(sum_indices)))
-                    elif scan_type == 4:
-                        # Local modules
-                        from CHAP.edd.utils import get_rolling_sum_spectra
-
-                        return get_rolling_sum_spectra(
-                            mca_data,
-                            self.map_config.dims.index(fly_axis_labels[0]),
-                            self.oversampling.get('start', 0),
-                            self.oversampling.get('end'),
-                            self.oversampling.get('width'),
-                            self.oversampling.get('stride'),
-                            self.oversampling.get('num'),
-                            self.oversampling.get('mode', 'valid'))
+                    if self.map_config.map_type == 'structured':
+                        sum_axis_indices = []
+                        for axis in self.sum_axes:
+                            sum_axis_indices.append(
+                                self.map_config.dims.index(axis))
+                        mca_data = np.sum(
+                            mca_data, tuple(sorted(sum_axis_indices)))
+                        if scan_type == 4:
+                            raise NotImplementedError(
+                                'Oversampling scan types not tested yet.')
+                            from CHAP.edd.utils import get_rolling_sum_spectra
+                            mca_data = get_rolling_sum_spectra(
+                                mca_data,
+                                self.map_config.dims.index(fly_axis_labels[0]),
+                                self.oversampling.get('start', 0),
+                                self.oversampling.get('end'),
+                                self.oversampling.get('width'),
+                                self.oversampling.get('stride'),
+                                self.oversampling.get('num'),
+                                self.oversampling.get('mode', 'valid'))
+                        elif scan_type not in (0, 1, 2, 3, 5):
+                            raise ValueError(
+                                f'scan_type {scan_type} not implemented yet '
+                                'in StrainAnalysisConfig.mca_data()')
                     else:
-                        raise ValueError(
-                            f'scan_type {scan_type} not implemented yet '
-                            'in StrainAnalysisConfig.mca_data()')
+                        # Perform summing along axes of an unstructured map
+                        mca_data = np.asarray(mca_data)
+                        map_dims = self.map_config.dims
+                        map_coords = self.map_config.coords
+                        map_length = len(map_coords[map_dims[0]])
+                        for sum_axis in self.sum_axes:
+                            axis_index = map_dims.index(sum_axis)
+                            sum_map_indices = {}
+                            for i in range(map_length):
+                                coord = tuple(
+                                    v[i] for k, v in map_coords.items() \
+                                    if k != sum_axis)
+                                if coord not in sum_map_indices:
+                                    sum_map_indices[coord] = []
+                                sum_map_indices[coord].append(i)
+                            map_dims = (*map_dims[:axis_index],
+                                        *map_dims[axis_index + 1:])
+                            sum_indices_list = sum_map_indices.values()
+                            map_coords = {
+                                dim: [map_coords[dim][sum_indices[0]] \
+                                      for sum_indices in sum_indices_list] \
+                                for dim in map_dims}
+                            map_length = len(map_coords[map_dims[0]])
+                            mca_data = np.asarray(
+                                [np.sum(mca_data[sum_indices], axis=0) \
+                                 for sum_indices in sum_indices_list])
+                    return mca_data
                 else:
                     return np.asarray(mca_data)
             else:
