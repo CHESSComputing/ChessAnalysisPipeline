@@ -128,6 +128,12 @@ class DiffractionVolumeLengthProcessor(Processor):
         # Get raw MCA data from raster scan
         mca_data = dvl_config.mca_data(detector)
 
+        # Blank out data below bin 500 (~25keV) as well as the last bin
+        energy_mask = np.ones(detector.num_bins, dtype=np.int16)
+        energy_mask[:500] = 0
+        energy_mask[-1] = 0
+        mca_data = mca_data*energy_mask
+
         # Interactively set or update mask, if needed & possible.
         if interactive or save_figures:
             if interactive:
@@ -138,9 +144,9 @@ class DiffractionVolumeLengthProcessor(Processor):
                     outputdir, f'{detector.detector_name}_dvl_mask.png')
             else:
                 filename = None
-            _, include_bin_ranges = select_mask_1d(
+            _, detector.include_bin_ranges = select_mask_1d(
                 np.sum(mca_data, axis=0),
-                x=np.linspace(0, detector.max_energy_kev, detector.num_bins),
+                x=np.arange(detector.num_bins, dtype=np.int16),
                 label='Sum of MCA spectra over all scan points',
                 preselected_index_ranges=detector.include_bin_ranges,
                 title='Click and drag to select data range to include when '
@@ -149,14 +155,12 @@ class DiffractionVolumeLengthProcessor(Processor):
                 ylabel='MCA intensity (counts)',
                 min_num_index_ranges=1,
                 interactive=interactive, filename=filename)
-            detector.include_energy_ranges = \
-                detector.get_include_energy_ranges(include_bin_ranges)
             self.logger.debug(
-                'Mask selected. Including detector energy ranges: '
-                + str(detector.include_energy_ranges))
-        if not detector.include_energy_ranges:
+                'Mask selected. Including detector bin ranges: '
+                + str(detector.include_bin_ranges))
+        if not detector.include_bin_ranges:
             raise ValueError(
-                'No value provided for include_energy_ranges. '
+                'No value provided for include_bin_ranges. '
                 'Provide them in the Diffraction Volume Length '
                 'Measurement Configuration, or re-run the pipeline '
                 'with the --interactive flag.')
@@ -619,8 +623,9 @@ class MCAEnergyCalibrationProcessor(Processor):
     def process(self,
                 data,
                 config=None,
-                peak_index_fit_delta=1.0,
+                peak_index_fit_delta=20,
                 max_energy_kev=200.0,
+                background=None,
                 save_figures=False,
                 interactive=False,
                 inputdir='.',
@@ -649,6 +654,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to 200.0.
         :type max_energy_kev: float, optional
+        :param background: Background model for peak fitting.
+        :type background: str, list[str], optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -701,10 +708,11 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Calibrate detector channel energies based on fluorescence peaks.
         for detector in calibration_config.detectors:
-            energy_calibration_coeffs = self.calibrate(
+            if background is not None:
+                detector.background = background
+            detector.energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, peak_index_fit_delta,
                 max_energy_kev, save_figures, interactive, outputdir)
-            detector.energy_calibration_coeffs = energy_calibration_coeffs
 
         return calibration_config.dict()
 
@@ -747,7 +755,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             select_mask_1d,
         )
 
-        self.logger.debug(f'Calibrating detector {detector.detector_name}')
+        self.logger.info(f'Calibrating detector {detector.detector_name}')
+
         spectrum = calibration_config.mca_data(detector)
         uncalibrated_energies = np.linspace(
             0, max_energy_kev, detector.num_bins)
@@ -770,7 +779,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             spectrum, x=bins,
             preselected_index_ranges=calibration_config.fit_index_ranges,
             xlabel='Detector channel', ylabel='Intensity',
-            min_num_index_ranges=1, interactive=False,#RV interactive,
+            min_num_index_ranges=1, interactive=interactive,
             filename=filename)
         self.logger.debug(
             f'Selected index ranges to fit: {fit_index_ranges}')
@@ -794,6 +803,12 @@ class MCAEnergyCalibrationProcessor(Processor):
             max_peak_index, interactive, filename, detector.detector_name)
 
         spectrum_fit = Fit(spectrum[mask], x=bins[mask])
+        if detector.background is not None:
+            if isinstance(detector.background, str):
+                spectrum_fit.add_model(detector.background)
+            else:
+                for model in detector.background:
+                    spectrum_fit.add_model(model)
         for i, index in enumerate(initial_peak_indices):
             spectrum_fit.add_model(
                 'gaussian', prefix=f'peak{i+1}_', parameters=(
@@ -1082,6 +1097,7 @@ class MCATthCalibrationProcessor(Processor):
                 config=None,
                 tth_initial_guess=None,
                 include_energy_ranges=None,
+                background=None,
                 quadratic_energy_calibration=False,
                 save_figures=False,
                 inputdir='.',
@@ -1108,6 +1124,8 @@ class MCATthCalibrationProcessor(Processor):
             values from the energy calibration detector cofiguration on
             each of the detectors.
         :type include_energy_ranges: list[[float, float]], optional
+        :param background: Background model for peak fitting.
+        :type background: str, list[str], optional
         :param quadratic_energy_calibration: Adds a quadratic term to
             the detector channel index to energy conversion, defaults
             to `False` (linear only).
@@ -1154,6 +1172,8 @@ class MCATthCalibrationProcessor(Processor):
                 detector.tth_initial_guess = tth_initial_guess
             if include_energy_ranges is not None:
                 detector.include_energy_ranges = include_energy_ranges
+            if background is not None:
+                detector.background = background
             tth, energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, 
                 quadratic_energy_calibration=quadratic_energy_calibration,
@@ -1211,6 +1231,8 @@ class MCATthCalibrationProcessor(Processor):
         from CHAP.edd.utils import get_peak_locations
         from CHAP.utils.fit import Fit
 
+        self.logger.info('Calibrating detector {detector.detector_name}')
+
         # Get the unique HKLs and lattice spacings for the calibration
         # material
         hkls, ds = calibration_config.material.unique_hkls_ds(
@@ -1234,7 +1256,7 @@ class MCATthCalibrationProcessor(Processor):
             filename = None
         detector.tth_initial_guess = select_tth_initial_guess(
             mca_bin_energies, mca_data, hkls, ds,
-            detector.tth_initial_guess)#RV FIX, interactive, filename)
+            detector.tth_initial_guess, interactive, filename)
         self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
 
         # Select mask & HKLs for fitting
@@ -1414,10 +1436,13 @@ class MCATthCalibrationProcessor(Processor):
             axs[0,1].set_title('HKL Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
-            axs[0,1].axhline(uniform_strain * 1e6,
-                             linestyle='--', label='Single strain')
+#            self.logger.debug('uniform micro strain: '
+#                               f'{uniform_strain * 1e6}')
+#            axs[0,1].axhline(uniform_strain * 1e6,
+#                             linestyle='--', label='Single strain')
             axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
-                          color='C1', marker='s', label='Unconstrained')
+                          c='b', marker='o', ms=6, ls='',
+                          label='Unconstrained')
             axs[0,1].axhline(unconstrained_strain * 1e6,
                              color='C1', linestyle='--',
                              label='Unconstrained: unweighted mean')
@@ -1429,10 +1454,10 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
             axs[1,1].plot(fit_E0, uniform_fit_centers,
-                          c='b', marker='o', ms=6, mfc='none', ls='',
+                          c='b', marker='x', ms=6, ls='',
                           label='Single strain')
             axs[1,1].plot(fit_E0, unconstrained_fit_centers,
-                          c='k', marker='+', ms=6, ls='',
+                          c='b', marker='o', ms=6, mfc='none', ls='',
                           label='Unconstrained')
             if quadratic_energy_calibration:
                 axs[1,1].plot(fit_E0, (a_fit*_fit_E0 + b_fit)*_fit_E0 + c_fit,
@@ -1872,7 +1897,8 @@ class StrainAnalysisProcessor(Processor):
                     num=oversampling.get('num'),
                     mode=oversampling.get('mode', 'valid'))
 
-        # Loop over the detectors to perform the strain analysis
+        # Loop over the detectors to adjust the material properties
+        # and the mask and HKLs used in the strain analysis
         for i, detector in enumerate(strain_analysis_config.detectors):
 
             # Get and add the calibration info to the detector
@@ -1934,7 +1960,6 @@ class StrainAnalysisProcessor(Processor):
                     hkls, ds, detector.tth_calibrated,
                     detector.include_bin_ranges, detector.hkl_indices,
                     detector.detector_name, mca_data[i]*energy_mask,
-                    #calibration_mask=calibration_mask,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of all spectra in the map',
                     interactive=interactive, filename=filename)
@@ -1957,6 +1982,21 @@ class StrainAnalysisProcessor(Processor):
                     'No value provided for hkl_indices. Provide them in '
                     'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
+
+        # Loop over the detectors to perform the strain analysis
+        for i, detector in enumerate(strain_analysis_config.detectors):
+
+            self.logger.info(f'Analysing detector {detector.detector_name}')
+
+            # Get the MCA bin energies
+            mca_bin_energies = detector.energies
+
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials,
+                tth_tol=detector.hkl_tth_tol,
+                tth_max=detector.tth_max)
 
             # Setup NXdata group
             self.logger.debug(

@@ -277,6 +277,9 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """Class representing metadata required to perform a diffraction
     volume length measurement for a single MCA detector element.
 
+    :ivar include_bin_ranges: List of MCA channel index ranges
+        whose data is included in the measurement.
+    :type include_bin_ranges: list[[int, int]], optional
     :ivar measurement_mode: Placeholder for recording whether the
         measured DVL value was obtained through the automated
         calculation or a manual selection, defaults to `'auto'`.
@@ -296,12 +299,33 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
     :type fit_sigma: float, optional
     """
+    include_bin_ranges: Optional[
+        conlist(
+            min_items=1,
+            item_type=conlist(
+                item_type=conint(ge=0),
+                min_items=2,
+                max_items=2))]
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
     fit_amplitude: Optional[float] = None
     fit_center: Optional[float] = None
     fit_sigma: Optional[float] = None
+
+    def mca_mask(self):
+        """Get a boolean mask array to use on this MCA element's data.
+        Note that the bounds of self.include_energy_ranges are inclusive.
+
+        :return: Boolean mask array.
+        :rtype: numpy.ndarray
+        """
+        mask = np.asarray([False] * self.num_bins)
+        bin_indices = np.arange(self.num_bins)
+        for min_, max_ in self.include_bin_ranges:
+            mask = np.logical_or(
+                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
+        return mask
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -358,7 +382,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type energy_calibration_coeffs:
         list[float, float, float], optional
     :ivar calibration_bin_ranges: List of MCA channel index ranges
-        whose data was included in the calibration.
+        whose data is included in the calibration.
     :type calibration_bin_ranges: list[[int, int]], optional
     :ivar tth_file: Path to the file with the 2&theta map.
     :type tth_file: FilePath, optional
@@ -1178,7 +1202,6 @@ class StrainAnalysisConfig(BaseModel):
                                 'in StrainAnalysisConfig.mca_data()')
                     else:
                         # Perform summing along axes of an unstructured map
-                        mca_data = np.asarray(mca_data)
                         map_dims = self.map_config.dims
                         map_coords = self.map_config.coords
                         map_length = len(map_coords[map_dims[0]])

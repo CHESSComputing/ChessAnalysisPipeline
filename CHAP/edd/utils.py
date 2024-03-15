@@ -862,7 +862,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     def hkl_locations_in_any_span(hkl_index):
         """Return the index of the span where the location of a specific
         HKL resides. Return(-1 if outside any span."""
-        if hkl_index < 0 or hkl_index>= len(hkl_locations):
+        if hkl_index < 0 or hkl_index >= len(hkl_locations):
             return -1
         for i, span in enumerate(spans):
             if (span.extents[0] <= hkl_locations[hkl_index] and
@@ -1005,9 +1005,50 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     f'Adjusted the selected energy mask to reflect the '
                     'removed HKL')
             else:
+                hkl_vline.set(**included_hkl_props)
+                prev_hkl = hkl_index-1 in selected_hkl_indices
+                next_hkl = hkl_index+1 in selected_hkl_indices
+                if prev_hkl and next_hkl:
+                    span_prev = spans[hkl_locations_in_any_span(hkl_index-1)]
+                    span_next = spans[hkl_locations_in_any_span(hkl_index+1)]
+                    span_prev.extents = (
+                        span_prev.extents[0], span_next.extents[1])
+                    span_next.set_visible(False)
+                elif prev_hkl:
+                    span_prev = spans[hkl_locations_in_any_span(hkl_index-1)]
+                    if hkl_index < len(hkl_locations)-1:
+                        max_ = 0.5*(
+                            hkl_locations[hkl_index]
+                            + hkl_locations[hkl_index+1])
+                    else:
+                        max_ = 0.5*(hkl_locations[hkl_index] + max_x)
+                    span_prev.extents = (span_prev.extents[0], max_)
+                elif next_hkl:
+                    span_next = spans[hkl_locations_in_any_span(hkl_index+1)]
+                    if hkl_index > 0:
+                        min_ = 0.5*(
+                            hkl_locations[hkl_index-1]
+                            + hkl_locations[hkl_index])
+                    else:
+                        min_ = 0.5*(min_x + hkl_locations[hkl_index])
+                    span_next.extents = (min_, span_next.extents[1])
+                else:
+                    if hkl_index > 0:
+                        min_ = 0.5*(
+                            hkl_locations[hkl_index-1]
+                            + hkl_locations[hkl_index])
+                    else:
+                        min_ = 0.5*(min_x + hkl_locations[hkl_index])
+                    if hkl_index < len(hkl_locations)-1:
+                        max_ = 0.5*(
+                            hkl_locations[hkl_index]
+                            + hkl_locations[hkl_index+1])
+                    else:
+                        max_ = 0.5*(hkl_locations[hkl_index] + max_x)
+                    add_span(None, xrange_init=(min_, max_))
                 change_error_text(
-                    f'Selected HKL is outside any current span, '
-                    'extend or add spans before adding this value')
+                    f'Adjusted the selected energy mask to reflect the '
+                    'added HKL')
             plt.draw()
 
     def reset(event):
