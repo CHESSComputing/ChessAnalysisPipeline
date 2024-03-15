@@ -263,7 +263,7 @@ class LatticeParameterRefinementProcessor(Processor):
         contining refined values for the materials' lattice
         parameters."""
         ceria_calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
@@ -607,399 +607,6 @@ class LatticeParameterRefinementProcessor(Processor):
             intensities, energies, peak_locations, detector)
 
 
-class MCACeriaCalibrationProcessor(Processor):
-    """A Processor using a CeO2 scan to obtain tuned values for the
-    bragg diffraction angle and linear correction parameters for MCA
-    channel energies for an EDD experimental setup.
-    """
-
-    def process(self,
-                data,
-                config=None,
-                quadratic_energy_calibration=False,
-                save_figures=False,
-                inputdir='.',
-                outputdir='.',
-                interactive=False):
-        """Return tuned values for 2&theta and linear correction
-        parameters for the MCA channel energies.
-
-        :param data: Input configuration for the raw data & tuning
-            procedure.
-        :type data: list[PipelineData]
-        :param config: Initialization parameters for an instance of
-            CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
-            None.
-        :type config: dict, optional
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to False.
-        :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to '.'.
-        :type outputdir: str, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to '.'.
-        :type inputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            False.
-        :type interactive: bool, optional
-        :raises RuntimeError: Invalid or missing input configuration.
-        :return: Original configuration with the tuned values for
-            2&theta and the linear correction parameters added.
-        :rtype: dict[str,float]
-        """
-        try:
-            calibration_config = self.get_config(
-                data, 'edd.models.MCACeriaCalibrationConfig',
-                inputdir=inputdir)
-        except Exception as data_exc:
-            self.logger.info('No valid calibration config in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.edd.models import MCACeriaCalibrationConfig
-
-                calibration_config = MCACeriaCalibrationConfig(
-                    **config, inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
-
-        self.logger.debug(f'In process: save_figures = {save_figures}; '
-                          f'interactive = {interactive}')
-
-        for detector in calibration_config.detectors:
-            tth, energy_calibration_coeffs = self.calibrate(
-                calibration_config, detector, 
-                quadratic_energy_calibration=quadratic_energy_calibration,
-                save_figures=save_figures, interactive=interactive,
-                outputdir=outputdir)
-            detector.tth_calibrated = tth
-            detector.energy_calibration_coeffs = energy_calibration_coeffs
-
-        return calibration_config.dict()
-
-    def calibrate(self,
-                  calibration_config,
-                  detector,
-                  quadratic_energy_calibration=False,
-                  save_figures=False,
-                  outputdir='.',
-                  interactive=False):
-        """Iteratively calibrate 2&theta by fitting selected peaks of
-        an MCA spectrum until the computed strain is sufficiently
-        small. Use the fitted peak locations to determine linear
-        correction parameters for the MCA channel energies.
-
-        :param calibration_config: Object configuring the CeO2
-            calibration procedure for an MCA detector.
-        :type calibration_config:
-            CHAP.edd.models.MCACeriaCalibrationConfig
-        :param detector: A single MCA detector element configuration.
-        :type detector: CHAP.edd.models.MCAElementCalibrationConfig
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to False.
-        :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to '.'.
-        :type outputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            False.
-        :type interactive: bool, optional
-        :raises ValueError: No value provided for included bin ranges
-            or the fitted HKLs for the MCA detector element.
-        :return: Calibrated values of 2&theta and the correction
-            parameters for MCA channel energies: tth, and
-            energy_calibration_coeffs.
-        :rtype: float, [float, float, float]
-        """
-        # Local modules
-        if interactive or save_figures:
-            from CHAP.edd.utils import (
-                select_tth_initial_guess,
-                select_mask_and_hkls,
-            )
-        from CHAP.edd.utils import get_peak_locations
-        from CHAP.utils.fit import Fit
-
-        # Get the unique HKLs and lattice spacings for the calibration
-        # material
-        hkls, ds = calibration_config.material.unique_hkls_ds(
-            tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
-
-        # Collect raw MCA data of interest
-        mca_bin_energies = detector.energies
-        mca_data = calibration_config.mca_data(detector)
-
-        # Blank out data below 25 keV as well as the last bin
-        energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
-        energy_mask[-1] = 0
-        mca_data = mca_data*energy_mask
-
-        # Adjust initial tth guess
-        if save_figures:
-            filename = os.path.join(
-               outputdir,
-               f'{detector.detector_name}_calibration_tth_initial_guess.png')
-        else:
-            filename = None
-        detector.tth_initial_guess = select_tth_initial_guess(
-            mca_bin_energies, mca_data, hkls, ds,
-            detector.tth_initial_guess, interactive, filename)
-        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
-
-        # Select mask & HKLs for fitting
-        if save_figures:
-            filename = os.path.join(
-                outputdir,
-                f'{detector.detector_name}_calibration_fit_mask_hkls.png')
-        include_bin_ranges, hkl_indices = select_mask_and_hkls(
-            mca_bin_energies, mca_data, hkls, ds,
-            detector.tth_initial_guess, detector.include_bin_ranges,
-            detector.hkl_indices, detector.detector_name,
-            flux_energy_range=calibration_config.flux_file_energy_range,
-            label='MCA data', interactive=interactive, filename=filename)
-        detector.include_energy_ranges = detector.get_include_energy_ranges(
-            include_bin_ranges)
-        detector.hkl_indices = hkl_indices
-        self.logger.debug(
-            f'include_energy_ranges = {detector.include_energy_ranges}')
-        if not detector.include_energy_ranges:
-            raise ValueError(
-                'No value provided for include_energy_ranges. '
-                'Provide them in the MCA Ceria Calibration Configuration '
-                'or re-run the pipeline with the --interactive flag.')
-        if not detector.hkl_indices:
-            raise ValueError(
-                'No value provided for hkl_indices. Provide them in '
-                'the detector\'s MCA Ceria Calibration Configuration or '
-                're-run the pipeline with the --interactive flag.')
-        mca_mask = detector.mca_mask()
-        fit_mca_energies = mca_bin_energies[mca_mask]
-        fit_mca_intensities = mca_data[mca_mask]
-
-        # Correct raw MCA data for variable flux at different energies
-        flux_correct = \
-            calibration_config.flux_correction_interpolation_function()
-        mca_intensity_weights = flux_correct(fit_mca_energies)
-        fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
-
-        # Get the HKLs and lattice spacings that will be used for
-        # fitting
-        # Restrict the range for the centers with some margin to 
-        # prevent having centers near the edge of the fitting range
-        delta = 0.1 * (fit_mca_energies[-1]-fit_mca_energies[0])
-        centers_range = (
-            max(0.0, fit_mca_energies[0]-delta), fit_mca_energies[-1]+delta)
-        fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
-        fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
-        c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
-        tth = float(detector.tth_initial_guess)
-        fit_E0 = get_peak_locations(fit_ds, tth)
-        for iter_i in range(calibration_config.max_iter):
-            self.logger.debug(
-                f'Tuning tth: iteration no. {iter_i}, starting value = {tth} ')
-
-            # Perform the uniform fit first
-
-            # Get expected peak energy locations for this iteration's
-            # starting value of tth
-            _fit_E0 = get_peak_locations(fit_ds, tth)
-
-            # Run the uniform fit
-            fit = Fit(fit_mca_intensities, x=fit_mca_energies)
-#            fit.create_multipeak_model(
-#                _fit_E0, fit_type='uniform', background=detector.background,
-#                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
-#            fit.fit()
-
-            # Extract values of interest from the best values for the
-            # uniform fit parameters
-#            uniform_best_fit = fit.best_fit
-#            uniform_residual = fit.residual
-#            uniform_fit_centers = [
-#                fit.best_values[f'peak{i+1}_center']
-#                for i in range(len(fit_hkls))]
-#            uniform_a = fit.best_values['scale_factor']
-#            uniform_strain = np.log(
-#                (uniform_a
-#                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
-
-            # Next, perform the unconstrained fit
-
-            # Use the peak parameters from the uniform fit as the
-            # initial guesses for peak locations in the unconstrained
-            # fit
-#            fit.create_multipeak_model(fit_type='unconstrained')
-            fit.create_multipeak_model(
-                _fit_E0, background=detector.background,
-                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
-            fit.fit()
-
-            # Extract values of interest from the best values for the
-            # unconstrained fit parameters
-            unconstrained_best_fit = fit.best_fit
-            unconstrained_residual = fit.residual
-            unconstrained_fit_centers = np.array(
-                [fit.best_values[f'peak{i+1}_center']
-                 for i in range(len(fit_hkls))])
-            unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
-                unconstrained_fit_centers, tth))
-            unconstrained_strains = np.log(
-                (unconstrained_a
-                 / calibration_config.material.lattice_parameters))
-            unconstrained_strain = np.mean(unconstrained_strains)
-            unconstrained_tth = tth * (1.0 + unconstrained_strain)
-
-            # Update tth for the next iteration of tuning
-            prev_tth = tth
-            tth = float(unconstrained_tth)
-
-            # Stop tuning tth at this iteration if differences are
-            # small enough
-            if abs(tth - prev_tth) < calibration_config.tune_tth_tol:
-                break
-
-        # Fit line to expected / computed peak locations from the last
-        # unconstrained fit.
-#        E_XRF = np.array([34.28, 34.72,  39.257, 40.236])
-#        x_test = np.concatenate((E_XRF, unconstrained_fit_centers))        
-#        y_test = np.concatenate((E_XRF, _fit_E0))
-        a_init, b_init, c_init = detector.energy_calibration_coeffs
-        if quadratic_energy_calibration:
-            fit = Fit.fit_data(
-#                y_test, 'quadratic', x=x_test, nan_policy='omit')
-                _fit_E0, 'quadratic', x=unconstrained_fit_centers,
-                nan_policy='omit')
-            a_fit = fit.best_values['a']
-            b_fit = fit.best_values['b']
-            c_fit = fit.best_values['c']
-        else:
-            fit = Fit.fit_data(
-#                y_test, 'linear', x=x_test, nan_policy='omit')
-                _fit_E0, 'linear', x=unconstrained_fit_centers,
-                nan_policy='omit')
-            a_fit = 0.0
-            b_fit = fit.best_values['slope']
-            c_fit = fit.best_values['intercept']
-        a_final = float(b_init**2*a_fit)
-        b_final = float(2*b_init*c_init*a_fit + b_init*b_fit)
-        c_final = float(c_init**2*a_fit + c_init*b_fit + c_fit)
-
-        if interactive or save_figures:
-            # Third party modules
-            import matplotlib.pyplot as plt
-
-            fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
-            fig.suptitle(
-                f'Detector {detector.detector_name} Ceria Calibration')
-
-            # Upper left axes: Input data & best fits
-            axs[0,0].set_title('Ceria Calibration Fits')
-            axs[0,0].set_xlabel('Energy (keV)')
-            axs[0,0].set_ylabel('Intensity (a.u)')
-            for i, hkl_E in enumerate(fit_E0):
-                # KLS: annotate indicated HKLs w millier indices
-                axs[0,0].axvline(hkl_E, color='k', linestyle='--')
-                axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
-                              ha='right', va='top', rotation=90,
-                              transform=axs[0,0].get_xaxis_transform())
-#            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
-#                          label='Single strain')
-            axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
-                          label='Unconstrained')
-            #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
-            axs[0,0].plot(fit_mca_energies, fit_mca_intensities,
-                          label='Flux-corrected & wasked MCA data')
-            axs[0,0].legend()
-
-            # Lower left axes: fit residuals
-            axs[1,0].set_title('Fit Residuals')
-            axs[1,0].set_xlabel('Energy (keV)')
-            axs[1,0].set_ylabel('Residual (a.u)')
-#            axs[1,0].plot(fit_mca_energies,
-#                          uniform_residual,
-#                          label='Single strain')
-            axs[1,0].plot(fit_mca_energies,
-                          unconstrained_residual,
-                          label='Unconstrained')
-            axs[1,0].legend()
-
-            # Upper right axes: E vs strain for each fit
-            axs[0,1].set_title('HKL Energy vs. Microstrain')
-            axs[0,1].set_xlabel('Energy (keV)')
-            axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
-#            axs[0,1].axhline(uniform_strain * 1e6,
-#                             linestyle='--', label='Single strain')
-            axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
-#                          color='C1', marker='o', label='Unconstrained')
-                          marker='o', label='Unconstrained')
-            axs[0,1].axhline(unconstrained_strain * 1e6,
-                             color='C1', linestyle='--',
-                             label='Unconstrained: unweighted mean')
-            axs[0,1].legend()
-
-            # Lower right axes: theoretical HKL E vs fit HKL E for
-            # each fit
-            axs[1,1].set_title('Theoretical vs. Fit HKL Energies')
-            axs[1,1].set_xlabel('Energy (keV)')
-            axs[1,1].set_ylabel('Energy (keV)')
-#            axs[1,1].plot(fit_E0, uniform_fit_centers,
-#                          c='b', marker='o', ms=6, mfc='none', ls='',
-#                          label='Single strain')
-            axs[1,1].plot(fit_E0, unconstrained_fit_centers,
-#                          c='k', marker='+', ms=6, ls='',
-                          marker='o', ls='', label='Unconstrained')
-            if quadratic_energy_calibration:
-                axs[1,1].plot(fit_E0, (a_fit*_fit_E0 + b_fit)*_fit_E0 + c_fit,
-                              color='C1', label='Unconstrained: quadratic fit')
-            else:
-                axs[1,1].plot(fit_E0, b_fit*_fit_E0 + c_fit, color='C1',
-                              label='Unconstrained: linear fit')
-            axs[1,1].legend()
-
-            # Add a text box showing final calibrated values
-            txt = 'Calibrated values:' \
-                  f'\nTakeoff angle:\n    {tth:.5f}$^\circ$'
-            if True or recalibrate_energy:
-                if quadratic_energy_calibration:
-                    txt += '\nQuadratic coefficient:' \
-                           f'\n    {a_final:.5e} $keV$/channel$^2$'
-                txt += '\nLinear coefficient:' \
-                       f'\n    {b_final:.5f} $keV$/channel' \
-                       f'\nConstant offset:\n    {c_final:.5f}'
-            axs[1,1].text(
-                0.98, 0.02, txt,
-                ha='right', va='bottom', ma='left',
-                transform=axs[1,1].transAxes,
-                bbox=dict(boxstyle='round',
-                          ec=(1., 0.5, 0.5),
-                          fc=(1., 0.8, 0.8, 0.8)))
-
-            fig.tight_layout()
-
-            if save_figures:
-                figfile = os.path.join(
-                    outputdir,
-                    f'{detector.detector_name}_ceria_calibration_fits.png')
-                plt.savefig(figfile)
-                self.logger.info(f'Saved figure to {figfile}')
-            if interactive:
-                plt.show()
-
-        # Return the calibrated 2&theta value and the final energy
-        # calibration coefficients
-        return tth, [a_final, b_final, c_final]
-
-
 class MCAEnergyCalibrationProcessor(Processor):
     """Processor to return parameters for linearly transforming MCA
     channel indices to energies (in keV). Procedure: provide a
@@ -1011,45 +618,29 @@ class MCAEnergyCalibrationProcessor(Processor):
     2&theta."""
     def process(self,
                 data,
-                peak_energies,
-                max_peak_index,
                 config=None,
-                fit_index_ranges=None,
                 peak_index_fit_delta=1.0,
                 max_energy_kev=200.0,
                 save_figures=False,
                 interactive=False,
                 inputdir='.',
                 outputdir='.'):
-        """For each detector in the `MCACeriaCalibrationConfig`
+        """For each detector in the `MCAEnergyCalibrationConfig`
         provided with `data`, fit the specified peaks in the MCA
         spectrum specified. Using the difference between the provided
         peak locations and the fit centers of those peaks, compute
         the correction coefficients to convert uncalibrated MCA
-        channel energies to calibrated channel energies. Set the
-        values in the calibration config provided for
-        `energy_calibration_coeffs` to these values (for each detector)
-        and return the updated configuration.
+        channel energies to calibrated channel energies. For each
+        detector, set `energy_calibration_coeffs` in the calibration
+        config provided to these values and return the updated
+        configuration.
 
-        :param data: A Ceria Calibration configuration.
+        :param data: An energy Calibration configuration.
         :type data: PipelineData
-        :param peak_energies: Theoretical locations of peaks to use
-            for calibrating the MCA channel energies. It is _strongly_
-            recommended to use fluorescence peaks.
-        :type peak_energies: list[float], optional
-        :param max_peak_index: Index of the peak in `peak_energies`
-            with the highest amplitude
-        :type max_peak_index: int
         :param config: Initialization parameters for an instance of
-            CHAP.edd.models.MCACeriaCalibrationConfig, defaults to
+            CHAP.edd.models.MCAEnergyCalibrationConfig, defaults to
             `None`.
         :type config: dict, optional
-        :param fit_index_ranges: Explicit ranges of uncalibrated MCA
-            channel index ranges to include when performing a fit of
-            the given peaks to the provied MCA spectrum. Use this
-            parameter or select it interactively by running a pipeline
-            with `config.interactive: True`.
-        :type fit_index_ranges: list[list[int]], optional
         :param peak_index_fit_delta: Set boundaries on the fit peak
             centers when performing the fit. The min/max possible
             values for the peak centers will be the initial values
@@ -1082,92 +673,51 @@ class MCAEnergyCalibrationProcessor(Processor):
             is_num_series,
         )
 
-        # Validate arguments: fit_ranges & interactive
-        if not is_num_series(peak_energies, gt=0):
-            self.logger.exception(
-                ValueError(
-                    f'Invalid parameter `peak_energies`: {peak_energies}'),
-                exc_info=False)
-        if len(peak_energies) < 2:
-            self.logger.exception(
-                ValueError('Invalid parameter `peak_energies`: '
-                           f'{peak_energies} (at least two values required)'),
-                exc_info=False)
-        if not is_int(max_peak_index, ge=0, lt=len(peak_energies)):
-            self.logger.exception(
-                ValueError(
-                    f'Invalid parameter `max_peak_index`: {max_peak_index}'),
-                exc_info=False)
-        if fit_index_ranges is None and not interactive:
-            self.logger.exception(
-                RuntimeError(
-                    'If `fit_index_ranges` is not explicitly provided, '
-                    + self.__class__.__name__
-                    + ' must be run with `interactive=True`.'),
-                exc_info=False)
-        if (fit_index_ranges is not None
-                and (not isinstance(fit_index_ranges, list)
-                     or any(not is_int_pair(v, ge=0)
-                            for v in fit_index_ranges))):
-            self.logger.exception(
-                ValueError('Invalid parameter `fit_index_ranges`: '
-                           f'{fit_index_ranges}'),
-                exc_info=False)
-        max_peak_energy = peak_energies[max_peak_index]
-        peak_energies.sort()
-        max_peak_index = peak_energies.index(max_peak_energy)
-
-        # Validate arguments: load the calibration configuration
+        # Load the validated energy calibration configuration
         try:
             calibration_config = self.get_config(
-                data, 'edd.models.MCACeriaCalibrationConfig',
+                data, 'edd.models.MCAEnergyCalibrationConfig',
                 inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
                 # Local modules
-                from CHAP.edd.models import MCACeriaCalibrationConfig
+                from CHAP.edd.models import MCAEnergyCalibrationConfig
 
-                calibration_config = MCACeriaCalibrationConfig(
+                calibration_config = MCAEnergyCalibrationConfig(
                     **config, inputdir=inputdir)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
+        # Validate the fit index range
+        if calibration_config.fit_index_ranges is None and not interactive:
+            self.logger.exception(
+                RuntimeError(
+                    'If `fit_index_ranges` is not explicitly provided, '
+                    + self.__class__.__name__
+                    + ' must be run with `interactive=True`.'),
+                exc_info=False)
+
         # Calibrate detector channel energies based on fluorescence peaks.
         for detector in calibration_config.detectors:
             energy_calibration_coeffs = self.calibrate(
-                calibration_config, detector, fit_index_ranges,
-                peak_energies, max_peak_index, peak_index_fit_delta,
+                calibration_config, detector, peak_index_fit_delta,
                 max_energy_kev, save_figures, interactive, outputdir)
             detector.energy_calibration_coeffs = energy_calibration_coeffs
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config, detector, fit_index_ranges,
-            peak_energies, max_peak_index, peak_index_fit_delta,
+    def calibrate(self, calibration_config, detector, peak_index_fit_delta,
             max_energy_kev, save_figures, interactive, outputdir):
         """Return energy_calibration_coeffs (a, b, and c) for
         quadratically converting the current detector's MCA channels
         to bin energies.
 
-        :param calibration_config: Calibration configuration.
-        :type calibration_config: MCACeriaCalibrationConfig
+        :param calibration_config: Energy calibration configuration.
+        :type calibration_config: MCAEnergyCalibrationConfig
         :param detector: Configuration of the current detector.
         :type detector: MCAElementCalibrationConfig
-        :param fit_index_ranges: Explicit ranges of uncalibrated MCA
-            channel index ranges to include when performing a fit of
-            the given peaks to the provied MCA spectrum. Use this
-            parameter or select it interactively by running a pipeline
-            with `config.interactive: True`.
-        :type fit_ranges: list[list[float]]
-        :param peak_energies: Theoretical locations of peaks to use
-            for calibrating the MCA channel energies. It is _strongly_
-            recommended to use fluorescence peaks.
-        :type peak_energies: list[float]
-        :param max_peak_index: Index of the peak in `peak_energies`
-            with the highest amplitude.
-        :type peak_energies: int
         :param peak_index_fit_delta: Set boundaries on the fit peak
             centers when performing the fit. The min/max possible
             values for the peak centers will be the initial values
@@ -1217,7 +767,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         else:
             filename = None
         mask, fit_index_ranges = select_mask_1d(
-            spectrum, x=bins, preselected_index_ranges=fit_index_ranges,
+            spectrum, x=bins,
+            preselected_index_ranges=calibration_config.fit_index_ranges,
             xlabel='Detector channel', ylabel='Intensity',
             min_num_index_ranges=1, interactive=False,#RV interactive,
             filename=filename)
@@ -1225,6 +776,10 @@ class MCAEnergyCalibrationProcessor(Processor):
             f'Selected index ranges to fit: {fit_index_ranges}')
 
         # Get the intial peak positions for fitting
+        max_peak_energy = calibration_config.peak_energies[
+            calibration_config.max_peak_index]
+        peak_energies = list(np.sort(calibration_config.peak_energies))
+        max_peak_index = peak_energies.index(max_peak_energy)
         if save_figures:
             filename = os.path.join(
                 outputdir,
@@ -1512,9 +1067,413 @@ class MCAEnergyCalibrationProcessor(Processor):
         if interactive and len(peak_indices) != num_peak:
             reset_flag += 1
             return self._get_initial_peak_positions(
-                y, index_ranges, input_indices, max_peak_index,interactive,
+                y, index_ranges, input_indices, max_peak_index, interactive,
                 filename, detector_name, reset_flag=reset_flag)
         return peak_indices
+
+
+class MCATthCalibrationProcessor(Processor):
+    """Processor to calibrate the 2&theta angle and fine tune the
+    energy calibration coefficients for an EDD experimental setup.
+    """
+
+    def process(self,
+                data,
+                config=None,
+                tth_initial_guess=None,
+                include_energy_ranges=None,
+                quadratic_energy_calibration=False,
+                save_figures=False,
+                inputdir='.',
+                outputdir='.',
+                interactive=False):
+        """Return the calibrated 2&theta value and the fine tuned
+        energy calibration coefficients to convert MCA channel
+        indices to MCA channel energies.
+
+        :param data: Input configuration for the raw data & tuning
+            procedure.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.edd.models.MCATthCalibrationConfig, defaults to
+            None.
+        :type config: dict, optional
+        :param tth_initial_guess: Initial guess for 2&theta to supercede
+            the values from the energy calibration detector cofiguration on
+            each of the detectors.
+        :type tth_initial_guess: float, optional
+        :param include_energy_ranges: List of MCA channel energy ranges
+            in keV whose data should be included after applying a mask
+            (bounds are inclusive). If specified, these supercede the
+            values from the energy calibration detector cofiguration on
+            each of the detectors.
+        :type include_energy_ranges: list[[float, float]], optional
+        :param quadratic_energy_calibration: Adds a quadratic term to
+            the detector channel index to energy conversion, defaults
+            to `False` (linear only).
+        :type quadratic_energy_calibration: bool, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False.
+        :type save_figures: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'.
+        :type outputdir: str, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to '.'.
+        :type inputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :raises RuntimeError: Invalid or missing input configuration.
+        :return: Original configuration with the tuned values for
+            2&theta and the linear correction parameters added.
+        :rtype: dict[str,float]
+        """
+        try:
+            calibration_config = self.get_config(
+                data, 'edd.models.MCATthCalibrationConfig',
+                inputdir=inputdir)
+        except Exception as data_exc:
+            self.logger.info('No valid calibration config in input pipeline '
+                             'data, using config parameter instead.')
+            try:
+                # Local modules
+                from CHAP.edd.models import MCATthCalibrationConfig
+
+                calibration_config = MCATthCalibrationConfig(
+                    **config, inputdir=inputdir)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
+
+        self.logger.debug(f'In process: save_figures = {save_figures}; '
+                          f'interactive = {interactive}')
+
+        for detector in calibration_config.detectors:
+            if tth_initial_guess is not None:
+                detector.tth_initial_guess = tth_initial_guess
+            if include_energy_ranges is not None:
+                detector.include_energy_ranges = include_energy_ranges
+            tth, energy_calibration_coeffs = self.calibrate(
+                calibration_config, detector, 
+                quadratic_energy_calibration=quadratic_energy_calibration,
+                save_figures=save_figures, interactive=interactive,
+                outputdir=outputdir)
+            detector.tth_calibrated = tth
+            detector.energy_calibration_coeffs = energy_calibration_coeffs
+
+        return calibration_config.dict()
+
+    def calibrate(self,
+                  calibration_config,
+                  detector,
+                  quadratic_energy_calibration=False,
+                  save_figures=False,
+                  outputdir='.',
+                  interactive=False):
+        """Iteratively calibrate 2&theta by fitting selected peaks of
+        an MCA spectrum until the computed strain is sufficiently
+        small. Use the fitted peak locations to determine linear
+        correction parameters for the MCA channel energies.
+
+        :param calibration_config: Object configuring the CeO2
+            calibration procedure for an MCA detector.
+        :type calibration_config:
+            CHAP.edd.models.MCATthCalibrationConfig
+        :param detector: A single MCA detector element configuration.
+        :type detector: CHAP.edd.models.MCAElementCalibrationConfig
+        :param quadratic_energy_calibration: Adds a quadratic term to
+            the detector channel index to energy conversion, defaults
+            to `False` (linear only).
+        :type quadratic_energy_calibration: bool, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False.
+        :type save_figures: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :raises ValueError: No value provided for included bin ranges
+            or the fitted HKLs for the MCA detector element.
+        :return: Calibrated values of 2&theta and the correction
+            parameters for MCA channel energies: tth, and
+            energy_calibration_coeffs.
+        :rtype: float, [float, float, float]
+        """
+        # Local modules
+        if interactive or save_figures:
+            from CHAP.edd.utils import (
+                select_tth_initial_guess,
+                select_mask_and_hkls,
+            )
+        from CHAP.edd.utils import get_peak_locations
+        from CHAP.utils.fit import Fit
+
+        # Get the unique HKLs and lattice spacings for the calibration
+        # material
+        hkls, ds = calibration_config.material.unique_hkls_ds(
+            tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
+
+        # Collect raw MCA data of interest
+        mca_bin_energies = detector.energies
+        mca_data = calibration_config.mca_data(detector)
+
+        # Blank out data below 25 keV as well as the last bin
+        energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
+        energy_mask[-1] = 0
+        mca_data = mca_data*energy_mask
+
+        # Adjust initial tth guess
+        if save_figures:
+            filename = os.path.join(
+               outputdir,
+               f'{detector.detector_name}_calibration_tth_initial_guess.png')
+        else:
+            filename = None
+        detector.tth_initial_guess = select_tth_initial_guess(
+            mca_bin_energies, mca_data, hkls, ds,
+            detector.tth_initial_guess)#RV FIX, interactive, filename)
+        self.logger.debug(f'tth_initial_guess = {detector.tth_initial_guess}')
+
+        # Select mask & HKLs for fitting
+        if save_figures:
+            filename = os.path.join(
+                outputdir,
+                f'{detector.detector_name}_calibration_fit_mask_hkls.png')
+        include_bin_ranges, hkl_indices = select_mask_and_hkls(
+            mca_bin_energies, mca_data, hkls, ds,
+            detector.tth_initial_guess, detector.include_bin_ranges,
+            detector_name=detector.detector_name,
+            flux_energy_range=calibration_config.flux_file_energy_range(),
+            label='MCA data', interactive=interactive, filename=filename)
+        detector.include_energy_ranges = detector.get_include_energy_ranges(
+            include_bin_ranges)
+        detector.set_hkl_indices(hkl_indices)
+        self.logger.debug(
+            f'include_energy_ranges = {detector.include_energy_ranges}')
+        self.logger.debug(
+            f'hkl_indices = {detector.hkl_indices}')
+        if not detector.include_energy_ranges:
+            raise ValueError(
+                'No value provided for include_energy_ranges. '
+                'Provide them in the MCA Tth Calibration Configuration '
+                'or re-run the pipeline with the --interactive flag.')
+        if not detector.hkl_indices:
+            raise ValueError(
+                'Unable to get values for hkl_indices for the provided '
+                'value of include_energy_ranges. Change its value in '
+                'the detector\'s MCA Tth Calibration Configuration or '
+                're-run the pipeline with the --interactive flag.')
+        mca_mask = detector.mca_mask()
+        fit_mca_energies = mca_bin_energies[mca_mask]
+        fit_mca_intensities = mca_data[mca_mask]
+
+        # Correct raw MCA data for variable flux at different energies
+        flux_correct = \
+            calibration_config.flux_correction_interpolation_function()
+        if flux_correct is not None:
+            mca_intensity_weights = flux_correct(fit_mca_energies)
+            fit_mca_intensities = fit_mca_intensities / mca_intensity_weights
+
+        # Get the HKLs and lattice spacings that will be used for
+        # fitting
+        # Restrict the range for the centers with some margin to 
+        # prevent having centers near the edge of the fitting range
+        delta = 0.1 * (fit_mca_energies[-1]-fit_mca_energies[0])
+        centers_range = (
+            max(0.0, fit_mca_energies[0]-delta), fit_mca_energies[-1]+delta)
+        fit_hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
+        fit_ds  = np.asarray([ds[i] for i in detector.hkl_indices])
+        c_1 = fit_hkls[:,0]**2 + fit_hkls[:,1]**2 + fit_hkls[:,2]**2
+        tth = float(detector.tth_initial_guess)
+        fit_E0 = get_peak_locations(fit_ds, tth)
+        for iter_i in range(calibration_config.max_iter):
+            self.logger.debug(
+                f'Tuning tth: iteration no. {iter_i}, starting value = {tth} ')
+
+            # Perform the uniform fit first
+
+            # Get expected peak energy locations for this iteration's
+            # starting value of tth
+            _fit_E0 = get_peak_locations(fit_ds, tth)
+
+            # Run the uniform fit
+            fit = Fit(fit_mca_intensities, x=fit_mca_energies)
+            fit.create_multipeak_model(
+                _fit_E0, fit_type='uniform', background=detector.background,
+                centers_range=centers_range, fwhm_min=0.1, fwhm_max=1.0)
+            fit.fit()
+
+            # Extract values of interest from the best values for the
+            # uniform fit parameters
+            uniform_best_fit = fit.best_fit
+            uniform_residual = fit.residual
+            uniform_fit_centers = [
+                fit.best_values[f'peak{i+1}_center']
+                for i in range(len(fit_hkls))]
+            uniform_a = fit.best_values['scale_factor']
+            uniform_strain = np.log(
+                (uniform_a
+                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
+
+            # Next, perform the unconstrained fit
+
+            # Use the peak parameters from the uniform fit as the
+            # initial guesses for peak locations in the unconstrained
+            # fit
+            fit.create_multipeak_model(fit_type='unconstrained')
+            fit.fit()
+
+            # Extract values of interest from the best values for the
+            # unconstrained fit parameters
+            unconstrained_best_fit = fit.best_fit
+            unconstrained_residual = fit.residual
+            unconstrained_fit_centers = np.array(
+                [fit.best_values[f'peak{i+1}_center']
+                 for i in range(len(fit_hkls))])
+            unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
+                unconstrained_fit_centers, tth))
+            unconstrained_strains = np.log(
+                (unconstrained_a
+                 / calibration_config.material.lattice_parameters))
+            unconstrained_strain = np.mean(unconstrained_strains)
+            unconstrained_tth = tth * (1.0 + unconstrained_strain)
+
+            # Update tth for the next iteration of tuning
+            prev_tth = tth
+            tth = float(unconstrained_tth)
+
+            # Stop tuning tth at this iteration if differences are
+            # small enough
+            if abs(tth - prev_tth) < calibration_config.tune_tth_tol:
+                break
+
+        # Fit line to expected / computed peak locations from the last
+        # unconstrained fit.
+        a_init, b_init, c_init = detector.energy_calibration_coeffs
+        if quadratic_energy_calibration:
+            fit = Fit.fit_data(
+                _fit_E0, 'quadratic', x=unconstrained_fit_centers,
+                nan_policy='omit')
+            a_fit = fit.best_values['a']
+            b_fit = fit.best_values['b']
+            c_fit = fit.best_values['c']
+        else:
+            fit = Fit.fit_data(
+                _fit_E0, 'linear', x=unconstrained_fit_centers,
+                nan_policy='omit')
+            a_fit = 0.0
+            b_fit = fit.best_values['slope']
+            c_fit = fit.best_values['intercept']
+        a_final = float(b_init**2*a_fit)
+        b_final = float(2*b_init*c_init*a_fit + b_init*b_fit)
+        c_final = float(c_init**2*a_fit + c_init*b_fit + c_fit)
+
+        if interactive or save_figures:
+            # Third party modules
+            import matplotlib.pyplot as plt
+
+            fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
+            fig.suptitle(
+                f'Detector {detector.detector_name} Tth Calibration')
+
+            # Upper left axes: Input data & best fits
+            axs[0,0].set_title('Tth Calibration Fits')
+            axs[0,0].set_xlabel('Energy (keV)')
+            axs[0,0].set_ylabel('Intensity (a.u)')
+            for i, hkl_E in enumerate(fit_E0):
+                # KLS: annotate indicated HKLs w millier indices
+                axs[0,0].axvline(hkl_E, color='k', linestyle='--')
+                axs[0,0].text(hkl_E, 1, str(fit_hkls[i])[1:-1],
+                              ha='right', va='top', rotation=90,
+                              transform=axs[0,0].get_xaxis_transform())
+            axs[0,0].plot(fit_mca_energies, uniform_best_fit,
+                          label='Single strain')
+            axs[0,0].plot(fit_mca_energies, unconstrained_best_fit,
+                          label='Unconstrained')
+            #axs[0,0].plot(fit_mca_energies, MISSING?, label='least squares')
+            axs[0,0].plot(fit_mca_energies, fit_mca_intensities,
+                          label='Flux-corrected & wasked MCA data')
+            axs[0,0].legend()
+
+            # Lower left axes: fit residuals
+            axs[1,0].set_title('Fit Residuals')
+            axs[1,0].set_xlabel('Energy (keV)')
+            axs[1,0].set_ylabel('Residual (a.u)')
+            axs[1,0].plot(fit_mca_energies,
+                          uniform_residual,
+                          label='Single strain')
+            axs[1,0].plot(fit_mca_energies,
+                          unconstrained_residual,
+                          label='Unconstrained')
+            axs[1,0].legend()
+
+            # Upper right axes: E vs strain for each fit
+            axs[0,1].set_title('HKL Energy vs. Microstrain')
+            axs[0,1].set_xlabel('Energy (keV)')
+            axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
+            axs[0,1].axhline(uniform_strain * 1e6,
+                             linestyle='--', label='Single strain')
+            axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
+                          color='C1', marker='s', label='Unconstrained')
+            axs[0,1].axhline(unconstrained_strain * 1e6,
+                             color='C1', linestyle='--',
+                             label='Unconstrained: unweighted mean')
+            axs[0,1].legend()
+
+            # Lower right axes: theoretical HKL E vs fit HKL E for
+            # each fit
+            axs[1,1].set_title('Theoretical vs. Fit HKL Energies')
+            axs[1,1].set_xlabel('Energy (keV)')
+            axs[1,1].set_ylabel('Energy (keV)')
+            axs[1,1].plot(fit_E0, uniform_fit_centers,
+                          c='b', marker='o', ms=6, mfc='none', ls='',
+                          label='Single strain')
+            axs[1,1].plot(fit_E0, unconstrained_fit_centers,
+                          c='k', marker='+', ms=6, ls='',
+                          label='Unconstrained')
+            if quadratic_energy_calibration:
+                axs[1,1].plot(fit_E0, (a_fit*_fit_E0 + b_fit)*_fit_E0 + c_fit,
+                              color='C1', label='Unconstrained: quadratic fit')
+            else:
+                axs[1,1].plot(fit_E0, b_fit*_fit_E0 + c_fit, color='C1',
+                              label='Unconstrained: linear fit')
+            axs[1,1].legend()
+
+            # Add a text box showing final calibrated values
+            txt = 'Calibrated values:' \
+                  f'\nTakeoff angle:\n    {tth:.5f}$^\circ$'
+            if True or recalibrate_energy:
+                if quadratic_energy_calibration:
+                    txt += '\nQuadratic coefficient:' \
+                           f'\n    {a_final:.5e} $keV$/channel$^2$'
+                txt += '\nLinear coefficient:' \
+                       f'\n    {b_final:.5f} $keV$/channel' \
+                       f'\nConstant offset:\n    {c_final:.5f}'
+            axs[1,1].text(
+                0.98, 0.02, txt,
+                ha='right', va='bottom', ma='left',
+                transform=axs[1,1].transAxes,
+                bbox=dict(boxstyle='round',
+                          ec=(1., 0.5, 0.5),
+                          fc=(1., 0.8, 0.8, 0.8)))
+
+            fig.tight_layout()
+
+            if save_figures:
+                figfile = os.path.join(
+                    outputdir,
+                    f'{detector.detector_name}_ceria_calibration_fits.png')
+                plt.savefig(figfile)
+                self.logger.info(f'Saved figure to {figfile}')
+            if interactive:
+                plt.show()
+
+        # Return the calibrated 2&theta value and the final energy
+        # calibration coefficients
+        return tth, [a_final, b_final, c_final]
 
 
 class MCADataProcessor(Processor):
@@ -1546,7 +1505,7 @@ class MCADataProcessor(Processor):
         map_config = self.get_config(
             data, 'common.models.map.MapConfig', inputdir=inputdir)
         ceria_calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         nxroot = self.get_nxroot(map_config, ceria_calibration_config)
 
         return nxroot
@@ -1562,7 +1521,7 @@ class MCADataProcessor(Processor):
         :type map_config: CHAP.common.models.MapConfig.
         :param calibration_config: The calibration configuration.
         :type calibration_config:
-            CHAP.edd.models.MCACeriaCalibrationConfig
+            CHAP.edd.models.MCATthCalibrationConfig
         :return: A map of the calibrated and flux-corrected MCA data.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -1673,7 +1632,7 @@ class MCACalibratedDataPlotter(Processor):
                     raise TypeError(msg)
 
         calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig')
+            data, 'edd.models.MCATthCalibrationConfig')
         scanparser = ScanParser(spec_file, scan_number)
 
         fig, ax = plt.subplots(1, 1, figsize=(11, 8.5))
@@ -1747,7 +1706,7 @@ class StrainAnalysisProcessor(Processor):
         """
         # Get required configuration models from input data
         ceria_calibration_config = self.get_config(
-            data, 'edd.models.MCACeriaCalibrationConfig', inputdir=inputdir)
+            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
@@ -1788,7 +1747,7 @@ class StrainAnalysisProcessor(Processor):
         :type map_config: CHAP.common.models.map.MapConfig
         :param ceria_calibration_config: The calibration configuration.
         :type ceria_calibration_config:
-            'CHAP.edd.models.MCACeriaCalibrationConfig'
+            'CHAP.edd.models.MCATthCalibrationConfig'
         :param strain_analysis_config: Strain analysis processing
             configuration.
         :type strain_analysis_config:
@@ -1991,12 +1950,12 @@ class StrainAnalysisProcessor(Processor):
             if not detector.include_energy_ranges:
                 raise ValueError(
                     'No value provided for include_energy_ranges. '
-                    'Provide them in the MCA Ceria Calibration Configuration, '
+                    'Provide them in the MCA Tth Calibration Configuration, '
                     'or re-run the pipeline with the --interactive flag.')
             if not detector.hkl_indices:
                 raise ValueError(
                     'No value provided for hkl_indices. Provide them in '
-                    'the detector\'s MCA Ceria Calibration Configuration, or'
+                    'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
 
             # Setup NXdata group

@@ -1,199 +1,440 @@
 # General Pipeline-wide parameters.
 config:
-  # Optional (defaults to the current working directory in which the `CHAP` command is executed). "Root" directory used if `inputdir` or `outputdir` is a relative path.
+  # Optional (defaults to the current working directory in which the
+  # `CHAP` command is executed). "Root" directory used if `inputdir`
+  # or `outputdir` is a relative path.
   root: /path/to/analysis/area
 
-  # Optional (defaults to the value for `root` above). Relative or absolute path to a directory containing files used as input parameters to any PipelineItems used in the `pipeline` section below.
+  # Optional (defaults to the value for `root` above). Relative or
+  # absolute path to a directory containing files used as input
+  # parameters to any PipelineItems used in the `pipeline` section
+  # below.
   inputdir: input
 
-  # Optional (defaults to the value for `root` above). Relative or absolute path to a directory to which all output files should be written.
+  # Optional (defaults to the value for `root` above). Relative or
+  # absolute path to a directory to which all output files should be
+  # written.
   outputdir: output
 
-  # Optional (defaults to `INFO`). Logging level for the pipeline; may be the name (case insensitive) of any of the python logger logging levels -- `debug`, `info`, `warning`, `error`, or `critical`.
+  # Optional (defaults to `INFO`). Logging level for the pipeline; may
+  # be the name (case insensitive) of any of the python logger logging
+  # levels -- `debug`, `info`, `warning`, `error`, or `critical`.
   log_level: debug
 
-  # Optional (defaults to `false`). Boolean indicating whether or not user interaction points will be presented (usually pop-up matplotlib figures used to select data masks, etc.).
+  # Optional (defaults to `false`). Boolean indicating whether or not
+  # user interaction points will be presented (usually pop-up
+  # matplotlib figures used to select data masks, etc.).
   interactive: false
 
-  # Optional (defaults to `false`). Boolean indicating whether or not to profile and print a report on the code executed by the pipeline.
+  # Optional (defaults to `false`). Boolean indicating whether or not
+  # to profile and print a report on the code executed by the
+  # pipeline.
   profile: false
 
 # The specific EDD Pipeline to execute.
 pipeline:
 
-  ##### Calibrate detector channel energies and 2&theta angles #####
-  - edd.MCACeriaCalibrationProcessor:
-      # Ceria calibration input parameters.
+  #### Calibrate detector channel energies ####
+  - edd.MCAEnergyCalibrationProcessor:
+      # Energy calibration input parameters.
       config:
-        # Optional (defaults to the pipeline-wide value for `inputdir` set in the `config` section above). Used only if the value for `spec_file` or `flux_file` (below) is a relative path.
+        # Optional (defaults to the pipeline-wide value for `inputdir`
+        # set in the `config` section above). Used only if the value
+        # for `spec_file` or `flux_file` (below) is a relative path.
         inputdir: /path/to/input/data/
 
-        # Spec file containing the ceria scan -- may be relative to `inputdir` or may be an absolute path
+        # Spec file containing the energy calibration scan -- may be
+        # relative to `inputdir` or may be an absolute path
+        spec_file: samplename/spec.log
+
+        # Integer number of the energy calibration scan within
+        # `spec_file`
+        scan_number: 1
+
+        # Optional scan step indices to use for the calibration. If
+        # not specified, the calibration will be performed on the
+        # average of all MCA spectra for the scan.
+        scan_step_indices: 1-10
+
+        # List of theoretical locations of peaks in keV to use for
+        # calibrating the MCA channel energies. It is _strongly_
+        # recommended to use fluorescence peaks for the energy
+        # calibration.
+        peak_energies: [34.28, 34.72, 39.26, 40.2]
+
+        # Index of the peak in `peak_energies` with the highest
+        # amplitude.
+        max_peak_index: 1
+
+        # Optional, can be selected during prcessing if
+        # `config.interactive` is `true`.  Explicit ranges of
+        # uncalibrated MCA channel index ranges to include during
+        # energy calibration when the given peaks are fitted to the
+        # provied MCA spectrum. Use this parameter or leave it out and
+        # select it interactively instead by running a pipeline with
+        # `config.interactive: True`.
+        fit_index_ranges: [[650, 850]]
+
+        # List of calibration parameters for each detector element to calibrate.
+        detectors:
+          -
+            # Name of the detector element. For 23 element data
+            # collected in .h5 format, this should be the integer
+            # index of the element of interest. For detector data
+            # collected in spec.mca format, this is usually "mca1".
+            detector_name: 10
+
+            # Optional (defaults to `90`). Detector rotation about lab
+            # frame x axis.
+            tth_max: 90
+
+            # Optional (defaults to `0.15`). Minimum resolvable
+            # difference in 2&theta between two unique HKL peaks.
+            hkl_tth_tol: 0.15
+
+            # Optional (defaults to `[0, 0, 1]`). List of
+            # second-degree pylynomial coefficients for transforming
+            # detector channel index -> calibrated energy in
+            # keV. Order of list is highest-degree coefficient fist,
+            # 0th degree coefficient last. If the value of this
+            # parameter is [a, b, c], the energy in keV of the ith
+            # channel on this detector can be expressed as:
+            # E_i = a*i^2 + b*i + c.
+            energy_calibration_coeffs: [0, 0, 1]
+
+            # Optional name or list of names of the model(s) to use as
+            # the spectrum's background.
+            background: linear
+
+            # Optional only if `interactive` is `true`. Initial guess
+            # for 2&theta in degrees.
+            tth_initial_guess: 8.25
+
+        # Optional. Name of an energy vs intensity flux.dft file for
+        # the beamline used to correct the calibration spectrum for
+        # flux before performing the energy calibration procedure.
+        flux_file: flux.dft
+
+      # Optional, defaults to `1.0`. Parameter to set boundaries on
+      # the fit peak centers when performing the fit. The min/max
+      # possible values for the peak centers will be the initial
+      # values &pm; `peak_index_fit_delta`.
+      peak_index_fit_delta: 1.0
+
+     # Optional, defaults to `200.0`. Maximum channel energy of the
+     # MCA in keV
+     max_energy_kev: 200.0
+
+  - common.YAMLWriter:
+      # Name of a file in which to save the energy calibration inputs
+      # & results (will be written reltive to `outputdir`).
+      filename: calibrated_energy.yaml
+
+      # Optional (defaults to `false`). If the file indicated by the
+      # pipeline's `outputdir` and this Writer's `filename` exists,
+      # force an overwrite of the existing file.
+      force_overwrite: false
+
+  ##### Calibrate detector 2&theta angles #####
+  - common.YAMLReader:
+      filename: output/calibrated_energy.yaml
+      # Do not change this value:
+      schema: edd.models.MCATthCalibrationConfig
+  - edd.MCATthCalibrationProcessor:
+      # Optional, defaults to using the parameters present in
+      # calibrated_energy.yaml. Initial guess for tth value.
+      tth_initial_guess: null
+
+      # Optional, defaults to using the parameters present in
+      # calibrated_energy.yaml. List of energy ranges to include in
+      # the tth calibration fit.
+      include_energy_ranges: null
+
+      # Optional, defaults to `False`. If `True`, adds a quadratic
+      # term to the detector channel index to energy conversion,
+      # defaults to `False` (linear only).
+      quadratic_energy_calibration: false
+
+      # Optional, defaults to using the configuration provided with
+      # common.YAMLReader. Ceria calibration input parameters.
+      config:
+        # Optional (defaults to the pipeline-wide value for `inputdir`
+        # set in the `config` section above). Used only if the value
+        # for `spec_file` or `flux_file` (below) is a relative path.
+        inputdir: /path/to/input/data/
+
+        # Spec file containing the ceria scan -- may be relative to
+        # `inputdir` or may be an absolute path
         spec_file: samplename/spec.log
 
         # Integer number of the ceria scan within `spec_file`
         scan_number: 1
 
-        # Index of a single step within the specified scan to use for calibration.
-        scan_step_index: 0
+        # Optional scan step indices to use for the calibration. If
+        # not specified, the calibration will be performed on the
+        # average of all MCA spectra for the scan.
+        scan_step_indices: 1-10
 
-        # File name of the csv flux file containing station beam energy in eV (column 0) versus flux (column 1). May be a path relative to `inputdir`, or may be an absolute path.
+        # Optional. File name of the csv flux file containing station
+        # beam energy in eV (column 0) versus flux (column 1). May be
+        # a path relative to `inputdir`, or may be an absolute path.
         flux_file: flux.dft
 
-        # List of calibration parameters for each detector element to calibrate.
+        # Optional, defaults to 10. Maximum possible number of
+        # iterations for the tth tuning procedure.
+        max_iter: 10
+
+        # Optional, defaults to 1e-8. Cutoff error for tuning
+        # 2&theta. Stop iterating the calibration routine after an
+        # iteration produces a change in the tuned value of 2&theta
+        # that is smaller than this cutoff
+        tune_tth_tol: 1e-8
+
+        # List of calibration parameters for each detector element to
+        # calibrate.
         detectors:
-          - 
-            # Name of the detector element. For 23 element data collected in .h5 format, this should be the integer index of the element of interest. For detector data collected in spec.mca format, this is usually "mca1".
+          -
+            # Name of the detector element. For 23 element data
+            # collected in .h5 format, this should be the integer
+            # index of the element of interest. For detector data
+            # collected in spec.mca format, this is usually "mca1".
             detector_name: 10
 
-            # Maximum channel energy of this detector element in keV.
-            max_energy_kev: 200
-
-            # Optional only if `interactive` is `true`. Initial guess for 2&theta in degrees.
-            tth_initial_guess: 8.25
-
-            # Optional only if `interactive` is `true`. List of MCA channel index ranges whose data should be included (a list of lists where the inner lists contain just two integers).
-            include_bin_ranges: [[1021,2582]]
-
-            # List of unique HKL peak indices to fit. May be a specified using the usual syntax for a list of integers in a YAML file, or using a string like `3, 5, 7-13, 15-20`. Optional only if `interactive` is `true`.
-            hkl_indices: 3-20
-
-            # Optional (defaults to `90`). Detector rotation about lab frame x axis.
+            # Optional (defaults to `90`). Detector rotation about lab
+            # frame x axis.
             tth_max: 90
 
-            # Optional (defaults to `0.15`). Minimum resolvable difference in 2&theta between two unique HKL peaks.
+            # Optional (defaults to `0.15`). Minimum resolvable
+            # difference in 2&theta between two unique HKL peaks.
             hkl_tth_tol: 0.15
 
-        # Optional (defaults to `false`). Boolean indicating whether or not to save .pngs of matplotlib figures showing the calibration fit inputs and results.
+            # Optional (defaults to `[0, 0, 1]`). List of
+            # second-degree pylynomial coefficients for transforming
+            # detector channel index -> calibrated energy in
+            # keV. Order of list is highest-degree coefficient fist,
+            # 0th degree coefficient last. If the value of this
+            # parameter is [a, b, c], the energy in keV of the ith
+            # channel on this detector can be expressed as:
+            # E_i = a*i^2 + b*i + c.
+            energy_calibration_coeffs: [0, 0, 1]
+
+            # Optional name or list of names of the model(s) to use as
+            # the spectrum's background.
+            background: linear
+
+            # Optional only if `interactive` is `true`. Initial guess
+            # for 2&theta in degrees.
+            tth_initial_guess: 8.25
+
+        # Optional (defaults to `false`). Boolean indicating whether
+        # or not to save .pngs of matplotlib figures showing the
+        # calibration fit inputs and results.
         save_figures: true
 
   - common.YAMLWriter:
-      # Name of a file in which to save the final ceria calibration inputs & results (will be written reltive to `outputdir`).
-      filename: ceria_calibrated.yaml
+      # Name of a file in which to save the final
+      # energy-and-tth-calibrated inputs & results (will be written
+      # reltive to `outputdir`).
+      filename: calibrated_final.yaml
 
-      # Optional (defaults to `false`). If the file indicated by the pipeline's `outputdir` and this Writer's `filename` exists, force an overwrite of the existing file.
-      force_overwrite: true
+      # Optional (defaults to `false`). If the file indicated by the
+      # pipeline's `outputdir` and this Writer's `filename` exists,
+      # force an overwrite of the existing file.
+      force_overwrite: false
   #####
 
   ##### Measure diffraction volume length #####
   - edd.DiffractionVolumeLengthProcessor:
       # Diffraction volume length measurement input parameters.
       config:
-        # Optional (defaults to the pipeline-wide value for `inputdir` set in the `config` section above). Used only if the value for `spec_file`/`par_file` (below) is a relative path.
+        # Optional (defaults to the pipeline-wide value for `inputdir`
+        # set in the `config` section above). Used only if the value
+        # for `spec_file`/`par_file` (below) is a relative path.
         inputdir: /path/to/input/data/
 
-        ### Use only one of the following two groups of parameters to specify the location of the foil raster scan data:
-        # Group 1: Use this group if the foil was rastered with a single spec scan like an "ascan" or "dscan"
-        # Spec file containing the foil raster scan -- may be relative to `inputdir` or may be an absolute path.
-        spec_file: samplename/spec.log
+        ### Use only one of the following two groups of parameters to
+        ### specify the location of the foil raster scan data:
 
+        # Group 1: Use this group if the foil was rastered with a
+        # single spec scan like an "ascan" or "dscan"
+        # Spec file containing the foil raster scan -- may be relative
+        # to `inputdir` or may be an absolute path.
+        spec_file: samplename/spec.log
         # Integer number of the foil raster scan within `spec_file`
         scan_number: 1
 
-        # Group 2: Use this group of the foil was rastered with multiple single-frame scans like a sequence of "tseries".
-        # SMB-style .par file associated with the foil raster scan sequence -- may be relative to `inputdir` or may be an absolute path.
+        # Group 2: Use this group of the foil was rastered with
+        # multiple single-frame scans like a sequence of "tseries".
+        # SMB-style .par file associated with the foil raster scan
+        # sequence -- may be relative to `inputdir` or may be an
+        # absolute path.
         par_file: samplename/filename.par
-        # Name of the column in `par_file` representing the raster-scanned axis.
+        # Name of the column in `par_file` representing the
+        # raster-scanned axis.
         scan_column: labx
+
         ###
 
-        # Through-beam tickness of scanned foil sample. Quantity must be provided in the same units as the ones in which values of the scanning motor were recorded in the .par file.
+        # Through-beam tickness of scanned foil sample. Quantity must
+        # be provided in the same units as the ones in which values of
+        # the scanning motor were recorded in the .par file.
         sample_thickness: 0.25
 
         # List of parameters for measuring the DVL on each detector element.
         detectors:
-          - 
-            # Name of the detector element. For 23 element data collected in .h5 format, this should be the integer index of the element of interest. For detector data collected in spec.mca format, this is usually "mca1".
+          -
+            # Name of the detector element. For 23 element data
+            # collected in .h5 format, this should be the integer
+            # index of the element of interest. For detector data
+            # collected in spec.mca format, this is usually "mca1".
             detector_name: 10
 
-            # Optional (defaults to `auto`). Allowed values: `auto`, `manual`. Choose whether the recorded diffraction volume length should be calculated automatically based on the standard deviation of the fit gaussian (`auto`), or whether it should be manually selected based on an interactive user selection from a reference plot of the fit gaussian (`manual`). The value `manual` may onnly be used if `interactive` is `true`.
-            measurement_mode: auto 
+            # Optional (defaults to `auto`). Allowed values: `auto`,
+            # `manual`. Choose whether the recorded diffraction volume
+            # length should be calculated automatically based on the
+            # standard deviation of the fit gaussian (`auto`), or
+            # whether it should be manually selected based on an
+            # interactive user selection from a reference plot of the
+            # fit gaussian (`manual`). The value `manual` may onnly be
+            # used if `interactive` is `true`.
+            measurement_mode: auto
 
-            # Optional (defaults to 3.5). Select the scalar factor used to convert the standard deviation of the fit gaussian to the recorded diffraction volume length. May be 3.5, 0, or 4.0.
+            # Optional (defaults to 3.5). Select the scalar factor
+            # used to convert the standard deviation of the fit
+            # gaussian to the recorded diffraction volume length. May
+            # be 3.5, 0, or 4.0.
             sigma_to_dvl_factor: 3.5
 
-      # Boolean indicating whether or not to save .pngs of matplotlib figures showing the diffraction volume length measurement inputs and results. Optional (defaults to `false`).
+      # Boolean indicating whether or not to save .pngs of matplotlib
+      # figures showing the diffraction volume length measurement
+      # inputs and results. Optional (defaults to `false`).
       save_figures: true
 
   - common.YAMLWriter:
-      # Name of a file in which to save final DVL measurement parameters & results (will be written reltive to `outputdir`).
+      # Name of a file in which to save final DVL measurement
+      # parameters & results (will be written reltive to `outputdir`).
       filename: dvl_measured.yaml
 
-      # Optional (deafults to `false`). If the file indicated by the pipeline's `outputdir` and this Writer's `filename` exists, force an overwrite of the existing file.
+      # Optional (defaults to `false`). If the file indicated by the
+      # pipeline's `outputdir` and this Writer's `filename` exists,
+      # force an overwrite of the existing file.
       force_overwrite: true
   #####
 
 
   ##### Get microstrain maps #####
   - common.YAMLReader:
-      # The output if the ceria calibration is a required intput for strain analysis. Read in the results of the ceria calibration performed earlier to pass to edd.StrainAnalysisProcessor below.
-      filename: output/ceria_calibrated.yaml
+      # The output if the ceria calibration is a required intput for
+      # strain analysis. Read in the results of the ceria calibration
+      # performed earlier to pass to edd.StrainAnalysisProcessor
+      # below.
+      filename: output/calibrated_final.yaml
 
-      # Must be `edd.models.MCACeriaCalibrationConfig` -- do not change this value.
-      schema: edd.models.MCACeriaCalibrationConfig
+      # Must be `edd.models.MCATthCalibrationConfig` -- do not
+      # change this value.
+      schema: edd.models.MCATthCalibrationConfig
 
   - edd.StrainAnalysisProcessor:
       # Strain analysis input parameters.
       config:
-        # Optional (defaults to the pipeline-wide value for `inputdir` set in the `config` section above). Used only if the value for `spec_file`/`par_file` or `flux_file` (below) is a relative path
+        # Optional (defaults to the pipeline-wide value for `inputdir`
+        # set in the `config` section above). Used only if the value
+        # for `spec_file`/`par_file` or `flux_file` (below) is a
+        # relative path
         inputdir: /path/to/input/data/
 
-        ### Use only one of the following two groups of parameters to specify the location of the sample scan data:
-        # Group 1: Does not require that data were collected in SMB-style -- explicitly defines the sample map to analyze.
+        ### Use only one of the following two groups of parameters to
+        ### specify the location of the sample scan data:
+        # Group 1: Does not require that data were collected in
+        # SMB-style -- explicitly defines the sample map to analyze.
         map_config:
-          # What to call this group of scans / "map". Recommended: use snake_case. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
+          # What to call this group of scans / "map". Recommended: use
+          # snake_case. Used simply as metadata to help the user
+          # navigate the output of this Processor; does not determine
+          # data location.
           title: my_map_title
 
-          # Name of the station at which the data were collected. Currently, allowed values are: `id1a3`, `id3a`, and `id3b` (case insensitive).
+          # Name of the station at which the data were
+          # collected. Currently, allowed values are: `id1a3`, `id3a`,
+          # and `id3b` (case insensitive).
           station: id1a3
 
           # MUST be `EDD`. Do not change this value.
           experiment_type: EDD
 
           sample:
-            # Name of the sample characterized by this map. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
+            # Name of the sample characterized by this map. Used
+            # simply as metadata to help the user navigate the output
+            # of this Processor; does not determine data location.
             name: v7-p3-chevside-10s
 
-            # Optional (defaults to `null`). A free-text description of the sample to include as metadata in the output.
+            # Optional (defaults to `null`). A free-text description
+            # of the sample to include as metadata in the output.
             description: Your sample description here.
 
           spec_scans:
             # List of the individual spec scans that compose this map
-            - 
-              # A spec file containing at least one scan to include in the map -- may be relative to `inputdir` or may be an absolute path
+            -
+              # A spec file containing at least one scan to include in
+              # the map -- may be relative to `inputdir` or may be an
+              # absolute path
               spec_file: v7-p3-chevside-10s/spec.log
 
-              # A list of scan numbers from this `spec_file` to include in the map. May be a specified using the usual syntax for a list of integers in a YAML file, or using a string like `3, 5, 7-13, 15-20`
+              # A list of scan numbers from this `spec_file` to
+              # include in the map. May be a specified using the usual
+              # syntax for a list of integers in a YAML file, or using
+              # a string like `3, 5, 7-13, 15-20`
               scan_numbers: 100-110
 
           independent_dimensions:
-            # A list specifying the axes along which this map scanned (the map's "independent dimensions" -- usually the values of one or more spec motors)
-            - 
-              # A label to use for this axis. Recommended: use snake_case. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
+            # A list specifying the axes along which this map scanned
+            # (the map's "independent dimensions" -- usually the
+            # values of one or more spec motors)
+            -
+              # A label to use for this axis. Recommended: use
+              # snake_case. Used simply as metadata to help the user
+              # navigate the output of this Processor; does not
+              # determine data location.
               label: labx
 
-              # A string indicating the units in which the values for this axis were recorded in the raw data. 
+              # A string indicating the units in which the values for
+              # this axis were recorded in the raw data.
               units: mm
 
-              # How values were recorded in the raw data files. Choices:
-              # spec_motor, scan_column, smb_par, or expression (for expressions
-              # involving values from one or more of the data streams configured
-              # in scalar_data). smb_par is only a valid choice if data for this
-              # map was collected at station id1a3 or station id3a.       
+              # How values were recorded in the raw data
+              # files. Choices: spec_motor, scan_column, smb_par, or
+              # expression (for expressions involving values from one
+              # or more of the data streams configured in
+              # scalar_data). smb_par is only a valid choice if data
+              # for this map was collected at station id1a3 or station
+              # id3a.
               data_type: smb_par
 
-              # For data_type == spec_motor: the SPEC motor's mnemonic.
-              # For data_type == scan_column: the SPEC data column label.
-              # For data_type == smb_par: the name of the .par file column (found
-              # in the corresponding .json file).
+              # For data_type == spec_motor: the SPEC motor's
+              # mnemonic.
+              # For data_type == scan_column: the SPEC data column
+              # label.
+              # For data_type == smb_par: the name of the .par file
+              # column (found in the corresponding .json file).
               name: labx
 
-              # The following three parameters are optional and can be used to "sparsify" the map along this axis. They can be useful if you just want to just test a certain set of fitting parameters on a specific map, but the map is very large, so analyzing the full map just to see if the parameters are ok would be impractical. The `start`, `stop` and `slice` parameters can be used to carry out the trial analysis on a down-sampled version of the full map.
-              # Optional (defaults to `0`). Sarting index for slicing all datasets along this axis.
+              # The following three parameters are optional and can be
+              # used to "sparsify" the map along this axis. They can
+              # be useful if you just want to just test a certain set
+              # of fitting parameters on a specific map, but the map
+              # is very large, so analyzing the full map just to see
+              # if the parameters are ok would be impractical. The
+              # `start`, `stop` and `slice` parameters can be used to
+              # carry out the trial analysis on a down-sampled version
+              # of the full map.
+              # Optional (defaults to `0`). Sarting index for slicing
+              # all datasets along this axis.
               start: 0
-              # Optional (deafults to `null`). Ending index for slicing all datasets along this axis.
+              # Optional (deafults to `null`). Ending index for
+              # slicing all datasets along this axis.
               end: null
-              # Optional (defaults to `1`). Step size for slicing all datasets along this axis.
+              # Optional (defaults to `1`). Step size for slicing all
+              # datasets along this axis.
               step: 1
 
             # Example of a second independent dimension:
@@ -202,17 +443,25 @@ pipeline:
               data_type: smb_par
               name: labz
 
-        # Group 2: Data must be collected in SMB-style to use this group. Implicitly defines the sample map to analyze.
+        # Group 2: Data must be collected in SMB-style to use this
+        # group. Implicitly defines the sample map to analyze.
         # SMB-style .par file associated with the sample scan data.
         par_file: v7-p3-chevside-10s/id1a3-wbmapscan-v7-p3-chevside-10s.par
 
-        # A list specifying the par file columns representing the axes along which this map scanned (the map's "independent dimensions" -- usually the values of one or more spec motors)
+        # A list specifying the par file columns representing the axes
+        # along which this map scanned (the map's "independent
+        # dimensions" -- usually the values of one or more spec
+        # motors)
         par_dims:
-          - 
-            # A label to use for this axis. Recommended: use snake_case. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
+          -
+            # A label to use for this axis. Recommended: use
+            # snake_case. Used simply as metadata to help the user
+            # navigate the output of this Processor; does not
+            # determine data location.
             label: labx
 
-            # A string indicating the units in which the values for this axis were recorded in the par file.
+            # A string indicating the units in which the values for
+            # this axis were recorded in the par file.
             units: mm
 
             # The name of the .par file column
@@ -223,95 +472,172 @@ pipeline:
             units: mm
             name: labz
 
-        # Optional (defaults to `null`). A list of other independent dimensions of the map, not included in the .par file. Use this when the scans in the par file are not point-scans, but something like an "ascan" or "dscan" and the scanned motor of those 1D scans should be considered another independednt dimension of the map.
+        # Optional (defaults to `null`). A list of other independent
+        # dimensions of the map, not included in the .par file. Use
+        # this when the scans in the par file are not point-scans, but
+        # something like an "ascan" or "dscan" and the scanned motor
+        # of those 1D scans should be considered another independednt
+        # dimension of the map.
         other_dims:
-          - 
-             # A label to use for this axis. Recommended: use snake_case. Used simply as metadata to help the user navigate the output of this Processor; does not determine data location.
+          -
+             # A label to use for this axis. Recommended: use
+             # snake_case. Used simply as metadata to help the user
+             # navigate the output of this Processor; does not
+             # determine data location.
              label: labx
 
-             # A string indicating the units in which the values for this axis were recorded in the raw data. 
+             # A string indicating the units in which the values for
+             # this axis were recorded in the raw data.
              units: mm
 
-             # How values were recorded in the raw data files. Choices:
-             # spec_motor, scan_column, smb_par, or expression (for expressions
-             # involving values from one or more of the data streams configured
-             # in scalar_data). smb_par is only a valid choice if data for this
-             # map was collected at station id1a3 or station id3a.       
+             # How values were recorded in the raw data
+             # files. Choices: spec_motor, scan_column, smb_par, or
+             # expression (for expressions involving values from one
+             # or more of the data streams configured in
+             # scalar_data). smb_par is only a valid choice if data
+             # for this map was collected at station id1a3 or station
+             # id3a.
              data_type: smb_par
 
              # For data_type == spec_motor: the SPEC motor's mnemonic.
-             # For data_type == scan_column: the SPEC data column label.
-             # For data_type == smb_par: the name of the .par file column (found
-             # in the corresponding .json file).
+             # For data_type == scan_column: the SPEC data column
+             # label.
+             # For data_type == smb_par: the name of the .par file
+             # column (found in the corresponding .json file).
              name: labx
 
-             # The following three parameters are optional and can be used to "sparsify" the map along this axis. They can be useful if you just want to just test a certain set of fitting parameters on a specific map, but the map is very large, so analyzing the full map just to see if the parameters are ok would be impractical. The `start`, `stop` and `slice` parameters can be used to carry out the trial analysis on a down-sampled version of the full map.
-             # Optional (defaults to `0`). Sarting index for slicing all datasets along this axis.
+             # The following three parameters are optional and can be
+             # used to "sparsify" the map along this axis. They can be
+             # useful if you just want to just test a certain set of
+             # fitting parameters on a specific map, but the map is
+             # very large, so analyzing the full map just to see if
+             # the parameters are ok would be impractical. The
+             # `start`, `stop` and `slice` parameters can be used to
+             # carry out the trial analysis on a down-sampled version
+             # of the full map.
+             # Optional (defaults to `0`). Sarting index for slicing
+             # all datasets along this axis.
              start: 0
-             # Optional (deafults to `null`). Ending index for slicing all datasets along this axis.
+             # Optional (deafults to `null`). Ending index for slicing
+             # all datasets along this axis.
              end: null
-             # Optional (defaults to `1`). Step size for slicing all datasets along this axis.
+             # Optional (defaults to `1`). Step size for slicing all
+             # datasets along this axis.
              step: 1
         ###
 
-        # File name of the csv flux file containing station beam energy in eV (column 0) versus flux (column 1). May be a path relative to `inputdir`, or may be an absolute path.
+        # Optional, defaults to `True`. Whether to sum over the fly
+        # axis or not for EDD scan types not 0, defaults to `True`.
+        sum_fly_axes: true
+
+        # Optional, defaults to `{'num': 10}`. Dictionary of
+        # parameters for how to treat any oversampled axes of the map.
+        oversampling:
+          num: 10
+
+        # Optional. File name of the csv flux file containing station
+        # beam energy in eV (column 0) versus flux (column 1). May be
+        # a path relative to `inputdir`, or may be an absolute path.
         flux_file: flux.dft
 
-        # List of element-by-element parameters to use when fitting MCA data during strain analysis.
+        # List of element-by-element parameters to use when fitting
+        # MCA data during strain analysis.
         detectors:
-          - 
-            # Name of the detector element. For 23 element data collected in .h5 format, this should be the integer index of the element of interest. For detector data collected in spec.mca format, this is usually "mca1".
+          -
+            # Name of the detector element. For 23 element data
+            # collected in .h5 format, this should be the integer
+            # index of the element of interest. For detector data
+            # collected in spec.mca format, this is usually "mca1".
             detector_name: 0
-
-            # Maximum channel energy of this detector element in keV.
-            max_energy_kev: 200
 
             # Optional (defaults to `90`). Detector rotation about lab frame x axis.
             tth_max: 90
 
-            # Optional (defaults to `0.15`). Minimum resolvable difference in 2&theta between two unique HKL peaks.
+            # Optional (defaults to `0.15`). Minimum resolvable
+            # difference in 2&theta between two unique HKL peaks.
             hkl_tth_tol: 0.15
 
-            # List of unique HKL peak indices to fit. May be a specified using the usual syntax for a list of integers in a YAML file, or using a string like `3, 5, 7-13, 15-20`. Optional only if `interactive` is `true`.
-            hkl_indices: 3-15
-
-            # Optional (defaults to `null`). Name(s) of the model(s) or to use as a background when fitting. May be a string or list of strings with the allowed values being: `constant`, `linear`, `quadratic`, `polynomial`, `gaussian`, `lorentzian`, `exponential`, `step`, or `rectangle`. If a list is provided, the fit background will be a superposiiton of every model in that list.
+            # Optional (defaults to `null`). Name(s) of the model(s)
+            # or to use as a background when fitting. May be a string
+            # or list of strings with the allowed values being:
+            # `constant`, `linear`, `quadratic`, `polynomial`,
+            # `gaussian`, `lorentzian`, `exponential`, `step`, or
+            # `rectangle`. If a list is provided, the fit background
+            # will be a superposiiton of every model in that list.
             background: null
 
-            # Optional (defaults to `gaussian`). Peak model for peak fitting. May be a string or a list of strings with the allowed values being `gaussian` or `lorentzian`. If a string is provided, all HKL peaks will be fit using the same peak shape. If a list is provided, there must be the same number of items in the list as `hkl_indices`, and each HKL peak will be fit with the corresponding peak shape in the list.
+            # Optional (defaults to `gaussian`). Peak model for peak
+            # fitting. May be a string or a list of strings with the
+            # allowed values being `gaussian` or `lorentzian`. If a
+            # string is provided, all HKL peaks will be fit using the
+            # same peak shape. If a list is provided, there must be
+            # the same number of items in the list as `hkl_indices`,
+            # and each HKL peak will be fit with the corresponding
+            # peak shape in the list.
             peak_models:
 
-            # Optional (defaults to `1.0`). Minimum FWHM for peak fitting.
-            fwhm_min:
+            # Optional (defaults to `0.25`). Minimum FWHM for peak
+            # fitting.
+            fwhm_min: 0.25
 
-            # Optional (defaults to `5.0`). Maximum FWHM for peak fitting.
-            fwhm_max:
+            # Optional (defaults to `2.0`). Maximum FWHM for peak
+            # fitting.
+            fwhm_max: 2.0
 
-            # Optional (defaults to `null`). Relative peak amplitude cutoff for peak fitting (any peak with an amplitude smaller than `rel_amplitude_cutoff` times the sum of all peak amplitudes gets removed from the fit model).
+            # Optional (defaults to `null`). Relative peak amplitude
+            # cutoff for peak fitting (any peak with an amplitude
+            # smaller than `rel_amplitude_cutoff` times the sum of all
+            # peak amplitudes gets removed from the fit model). This
+            # value must be greater than 0 and less than 1.
             rel_amplitude_cutoff: null
 
-            # Optional, and may only be used if the location of the sample scan data were specified above with Group #2 AND `other_dims` was NOT used (defaults to `null`). Absolute or relative path to a .txt file containing the 2&theta values to use at each map point (instead of using the same calibrated 2&theta value for every point in the map). The file's contents must have the same number of lines as the number of good scans in the par file. Each 2&theta value for each map point should be on its own line in the file. 
+            # Optional, and may only be used if the location of the
+            # sample scan data were specified above with Group #2 AND
+            # `other_dims` was NOT used (defaults to `null`). Absolute
+            # or relative path to a .txt file containing the 2&theta
+            # values to use at each map point (instead of using the
+            # same calibrated 2&theta value for every point in the
+            # map). The file's contents must have the same number of
+            # lines as the number of good scans in the par file. Each
+            # 2&theta value for each map point should be on its own
+            # line in the file.
             tth_file: null
 
-        # List of materials in the sample. Currently, this list may have ONLY ONE item.
+           # Optional, defaults to `[[50,150]]`, and may be adjust
+           # interactively if `config.interactive` is `true`. List of
+           # energy ranges to include in the strain analysis fits.
+           include_energy_ranges: [[50, 150]]
+
+
+        # List of materials in the sample.
         materials:
-          - 
-            # Material name -- used only fpr recording metadata, not used to determine any material properties.
+          -
+            # Material name -- used only fpr recording metadata, not
+            # used to determine any material properties.
             material_name: In718
 
             # Space group number
             sgnum: 225
 
-            # List of up to six floats corresponding to the lattice parameters of the material [a, b, c, alpha, beta, gamma]. Fewer than six floats is allowed if the symmetry of the space group permits. For cubic materials, just a float may be provided (a). 
+            # List of up to six floats corresponding to the lattice
+            # parameters of the material [a, b, c, alpha, beta,
+            # gamma]. Fewer than six floats is allowed if the symmetry
+            # of the space group permits. For cubic materials, just a
+            # float may be provided (a).
             lattice_parameters: 3.6
 
-      # Boolean indicating whether or not to save .pngs of matplotlib figures showing the strain analysis results.
+      # Boolean indicating whether or not to save .pngs of matplotlib
+      # figures showing the strain analysis results.
       save_figures: true
 
   - common.NexusWriter:
-      # Name of a file in which to save the NXprocess output by StrainAnalysisProcessor (will be written reltive to `outputdir`).
+      # Name of a file in which to save the NXprocess output by
+      # StrainAnalysisProcessor (will be written reltive to
+      # `outputdir`).
       filename: strain.nxs
 
-      # Optional (deafults to `false`). If the file indicated by the pipeline's `outputdir` and this Writer's `filename` exists, force an overwrite of the existing file.
+      # Optional (deafults to `false`). If the file indicated by the
+      # pipeline's `outputdir` and this Writer's `filename` exists,
+      # force an overwrite of the existing file.
       force_overwrite: true
   #####

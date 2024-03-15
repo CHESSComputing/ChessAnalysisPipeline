@@ -240,7 +240,8 @@ class PointByPointScanData(BaseModel):
     """
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
-    data_type: Literal['spec_motor', 'scan_column', 'smb_par', 'expression']
+    data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
+                       'smb_par', 'expression']
     name: constr(strip_whitespace=True, min_length=1)
 
     @validator('label')
@@ -355,7 +356,7 @@ class PointByPointScanData(BaseModel):
 
     def get_value(
             self, spec_scans:SpecScans, scan_number:int, scan_step_index:int=0,
-            scalar_data=[], relative=False, ndigits=None):
+            scalar_data=[], relative=True, ndigits=None):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -373,7 +374,7 @@ class PointByPointScanData(BaseModel):
             `data_type == 'expression'`, defaults to `[]`.
         :type scalar_data: list[PointByPointScanData], optional
         :param relative: Whether to return a relative value or not,
-            defaults to `False` (only applies to SPEC motor values).
+            defaults to `True` (only applies to SPEC motor values).
         :type relative: bool, optional
         :params ndigits: Round SPEC motor values to the specified
             number of decimals if set, defaults to `None`.
@@ -383,7 +384,9 @@ class PointByPointScanData(BaseModel):
             requested.
         :rtype: float
         """
-        if self.data_type == 'spec_motor':
+        if 'spec_motor' in self.data_type:
+            if 'absolute' in self.data_type:
+                relative = False
             return get_spec_motor_value(spec_scans.spec_file,
                                         scan_number,
                                         scan_step_index,
@@ -410,7 +413,7 @@ class PointByPointScanData(BaseModel):
 @cache
 def get_spec_motor_value(spec_file:str, scan_number:int,
                          scan_step_index:int, spec_mnemonic:str,
-                         relative=False, ndigits=None):
+                         relative=True, ndigits=None):
     """Return the value recorded for a SPEC motor at a specific scan
     step.
 
@@ -425,7 +428,7 @@ def get_spec_motor_value(spec_file:str, scan_number:int,
     :param spec_mnemonic: The menmonic of a SPEC motor.
     :type spec_mnemonic: str
     :param relative: Whether to return a relative value or not,
-        defaults to `False`.
+        defaults to `True`.
     :type relative: bool, optional
     :params ndigits: Round SPEC motor values to the specified
         number of decimals if set, defaults to `None`.
@@ -911,6 +914,8 @@ class MapConfig(BaseModel):
             value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}
+            if value['scan_type'] is None:
+                return value
             if value['scan_type'] != 0:
                 value['fly_axis_labels'] = [
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
@@ -932,7 +937,7 @@ class MapConfig(BaseModel):
         :rtype: str
         """
         dims = {}
-        attrs = values['attrs']
+        attrs = values.get('attrs', {})
         scan_type = attrs.get('scan_type', -1)
         fly_axis_labels = attrs.get('fly_axis_labels', [])
         spec_scans = values['spec_scans']
@@ -940,7 +945,7 @@ class MapConfig(BaseModel):
         scalar_data = values['scalar_data']
         import_scanparser(values['station'], values['experiment_type'])
         for i, dim in enumerate(deepcopy(independent_dimensions)):
-            if scan_type > 2 and dim.label in fly_axis_labels:
+            if dim.label in fly_axis_labels:
                 relative = True
                 ndigits = 3
             else:
@@ -971,7 +976,7 @@ class MapConfig(BaseModel):
                         list(dims[dim.label]).index(
                             dim.get_value(scans, scan_number, scan_step_index,
                                           scalar_data, True, 3))
-                        if scan_type > 2 and dim.label in fly_axis_labels else
+                        if dim.label in fly_axis_labels else
                         list(dims[dim.label]).index(
                             dim.get_value(scans, scan_number, scan_step_index,
                                           scalar_data))
@@ -992,9 +997,14 @@ class MapConfig(BaseModel):
         for scans in class_fields.get('spec_scans'):
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                for index in range(scanparser.spec_scan_npts):
-                    values.append(
-                        scalar_data.get_value(scans, scan_number, index))
+                try:
+                    values.append(scanparser.pars[name])
+                except:
+                    print(
+                        f'Warning: No value found for .par file value "{name}"'
+                        + f' on scan {scan_number} in spec file '
+                        + f'{scans.spec_file}.')
+                    values.append(None)
         values = list(set(values))
         if len(values) != 1:
             raise ValueError(f'More than one {name} in map not allowed '
@@ -1025,7 +1035,7 @@ class MapConfig(BaseModel):
             fly_axis_labels = self.attrs.get('fly_axis_labels', [])
             coords = {}
             for dim in self.independent_dimensions:
-                if scan_type > 2 and dim.label in fly_axis_labels:
+                if dim.label in fly_axis_labels:
                     relative = True
                     ndigits = 3
                 else:
@@ -1146,7 +1156,7 @@ class MapConfig(BaseModel):
                               dim.get_value(
                                   scans, scan_number, scan_step_index,
                                   self.scalar_data, True, 3)
-                              if scan_type > 2 and dim.label in fly_axis_labels
+                              if dim.label in fly_axis_labels
                               else
                               dim.get_value(
                                   scans, scan_number, scan_step_index,

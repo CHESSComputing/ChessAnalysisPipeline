@@ -1209,8 +1209,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             # workflows, obtain them from relevant values available in
             # the .par file, and defer implementation for absolute
             # motor postions to later.
-            # return super().get_spec_scan_motor_vals(relative=True)
-            raise NotImplementedError('Only relative motor values are available.')
+            return super().get_spec_scan_motor_vals(relative=True)
+            # raise NotImplementedError('Only relative motor values are available.')
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             mot_vals_axis0 = np.linspace(self.pars['fly_axis0_start'],
                                          self.pars['fly_axis0_end'],

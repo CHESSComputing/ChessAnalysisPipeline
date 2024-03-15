@@ -4,10 +4,12 @@ processing workflows.
 from CHAP.edd.reader import (EddMapReader,
                              ScanToMapReader,
                              SetupNXdataReader,
-                             UpdateNXdataReader)
+                             UpdateNXdataReader,
+                             NXdataSliceReader)
 from CHAP.edd.processor import (DiffractionVolumeLengthProcessor,
                                 LatticeParameterRefinementProcessor,
-                                MCACeriaCalibrationProcessor,
+                                MCAEnergyCalibrationProcessor,
+                                MCATthCalibrationProcessor,
                                 MCADataProcessor,
                                 MCAEnergyCalibrationProcessor,
                                 MCACalibratedDataPlotter,
