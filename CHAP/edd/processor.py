@@ -799,8 +799,9 @@ class MCAEnergyCalibrationProcessor(Processor):
         input_indices = [index_nearest(uncalibrated_energies, energy)
                          for energy in peak_energies]
         initial_peak_indices = self._get_initial_peak_positions(
-            spectrum*mask.astype(np.int32), fit_index_ranges, input_indices,
-            max_peak_index, interactive, filename, detector.detector_name)
+            spectrum*np.asarray(mask).astype(np.int32), fit_index_ranges,
+            input_indices, max_peak_index, interactive, filename,
+            detector.detector_name)
 
         spectrum_fit = Fit(spectrum[mask], x=bins[mask])
         if detector.background is not None:
