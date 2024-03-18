@@ -1336,9 +1336,7 @@ class MCATthCalibrationProcessor(Processor):
                 fit.best_values[f'peak{i+1}_center']
                 for i in range(len(fit_hkls))]
             uniform_a = fit.best_values['scale_factor']
-            uniform_strain = np.log(
-                (uniform_a
-                 / calibration_config.material.lattice_parameters)) # CeO2 is cubic, so this is fine here.
+            uniform_strain = -np.log(uniform_a)
 
             # Next, perform the unconstrained fit
 
@@ -1436,10 +1434,8 @@ class MCATthCalibrationProcessor(Processor):
             axs[0,1].set_title('HKL Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
-#            self.logger.debug('uniform micro strain: '
-#                               f'{uniform_strain * 1e6}')
-#            axs[0,1].axhline(uniform_strain * 1e6,
-#                             linestyle='--', label='Single strain')
+            axs[0,1].axhline(uniform_strain * 1e6,
+                             linestyle='--', label='Single strain')
             axs[0,1].plot(fit_E0, unconstrained_strains * 1e6,
                           c='b', marker='o', ms=6, ls='',
                           label='Unconstrained')
