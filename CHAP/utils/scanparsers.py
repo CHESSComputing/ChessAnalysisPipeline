@@ -667,8 +667,21 @@ class FMBSAXSWAXSScanParser(FMBLinearScanParser):
     def get_detector_data_file(self, detector_prefix, scan_step_index:int):
         detector_files = list_fmb_saxswaxs_detector_files(
             self.detector_data_path, detector_prefix)
-        return os.path.join(
-            self.detector_data_path, detector_files[scan_step_index])
+        if len(detector_files) == self.spec_scan_npts:
+            return os.path.join(
+                self.detector_data_path, detector_files[scan_step_index])
+        else:
+            scan_step = self.get_scan_step(scan_step_index)
+            for f in detector_files:
+                filename, _ = os.path.splitext(f)
+                file_indices = tuple(
+                    [int(i) for i in \
+                     filename.split('_')[-len(self.spec_scan_shape):]])
+                if file_indices == scan_step:
+                    return os.path.join(self.detector_data_path, f)
+            raise RuntimeError(
+                'Could not find a matching detector data file for detector '
+                + f'{detector_prefix} at scan step index {scan_step_index}')
 
     def get_detector_data(self, detector_prefix, scan_step_index:int):
         import fabio
