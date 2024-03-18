@@ -33,6 +33,7 @@ from CHAP.common.processor import (
     StrainAnalysisProcessor,
     SetupNXdataProcessor,
     UpdateNXdataProcessor,
+    NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
 )
