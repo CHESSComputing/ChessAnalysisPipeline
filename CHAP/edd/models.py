@@ -950,8 +950,10 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
         that is smaller than this cutoff, defaults to `1e-8`.
     :ivar tune_tth_tol: float, optional
     """
-    calibration_method: Optional[
-        Literal['direct_fit_residual', 'iterate_tth']] = 'direct_fit_residual'
+    calibration_method: Optional[Literal[
+        'direct_fit_residual',
+        'direct_fit_peak_energies',
+        'iterate_tth']] = 'iterate_tth'
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 

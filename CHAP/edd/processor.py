@@ -18,6 +18,8 @@ import numpy as np
 # Local modules
 from CHAP.processor import Processor
 
+# Current good detector channels for the 23 channel EDD detector:
+#    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
 class DiffractionVolumeLengthProcessor(Processor):
     """A Processor using a steel foil raster scan to calculate the
@@ -1157,6 +1159,7 @@ class MCATthCalibrationProcessor(Processor):
         try:
             calibration_config = self.get_config(
                 data, 'edd.models.MCATthCalibrationConfig',
+                calibration_method=calibration_method,
                 inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid calibration config in input pipeline '
@@ -1166,10 +1169,10 @@ class MCATthCalibrationProcessor(Processor):
                 from CHAP.edd.models import MCATthCalibrationConfig
 
                 calibration_config = MCATthCalibrationConfig(
-                    **config, inputdir=inputdir)
+                    **config, calibration_method=calibration_method,
+                    inputdir=inputdir)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
-        calibration_config.calibration_method = calibration_method
 
         self.logger.debug(f'In process: save_figures = {save_figures}; '
                           f'interactive = {interactive}')
@@ -1317,11 +1320,16 @@ class MCATthCalibrationProcessor(Processor):
                  detector.energies[mca_mask])
             mca_data_fit = mca_data_fit / mca_intensity_weights
 
+        # Get the fluorescence peak info
+        e_xrf = calibration_config.peak_energies
+        num_xrf = len(e_xrf)
+
         # Get the Bragg peak HKLs, lattice spacings and energies
         hkls_fit  = np.asarray([hkls[i] for i in detector.hkl_indices])
         ds_fit  = np.asarray([ds[i] for i in detector.hkl_indices])
-        c_1 = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
-        E0_fit = get_peak_locations(ds_fit, tth_init)
+        c_1_fit = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
+        e_bragg_init = get_peak_locations(ds_fit, tth_init)
+        num_bragg = len(e_bragg_init)
 
         # Perform the fit
         if calibration_method == 'direct_fit_residual':
@@ -1335,7 +1343,6 @@ class MCATthCalibrationProcessor(Processor):
             a_init, b_init, c_init = detector.energy_calibration_coeffs
 
             # For testing: hardwired limits:
-            FLOAT_MIN = float_info.min
             if False:
                 min_value = None
                 tth_min = None
@@ -1345,7 +1352,7 @@ class MCATthCalibrationProcessor(Processor):
                 sig_min = None
                 sig_max = None
             else:
-                min_value = FLOAT_MIN
+                min_value = float_info.min
                 tth_min = 0.9*tth_init
                 tth_max = 1.1*tth_init
                 b_min = 0.9*b_init
@@ -1364,10 +1371,15 @@ class MCATthCalibrationProcessor(Processor):
             fit.add_parameter(name='c', value=c_init)
 
             # Add the background:
-            #detector.background
+            if detector.background is not None:
+                if isinstance(detector.background, str):
+                    fit.add_model(detector.background)
+                else:
+                    for model in detector.background:
+                        fit.add_model(model)
 
             # Add the fluorescent peaks
-            for i, e_peak in enumerate(calibration_config.peak_energies):
+            for i, e_peak in enumerate(e_xrf):
                 expr = f'({e_peak}-c)/b'
                 if quadratic_energy_calibration:
                     expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
@@ -1382,7 +1394,7 @@ class MCATthCalibrationProcessor(Processor):
             # Add the Bragg peaks
             hc = 1.e7 * physical_constants['Planck constant in eV/Hz'][0] \
                  * physical_constants['speed of light in vacuum'][0]
-            for i, (e_peak, ds) in enumerate(zip(E0_fit, ds_fit)):
+            for i, (e_peak, ds) in enumerate(zip(e_bragg_init, ds_fit)):
                 norm = 0.5*hc/ds
                 expr = f'(({norm}/sin(0.5*tth))-c)/b'
                 if quadratic_energy_calibration:
@@ -1399,8 +1411,6 @@ class MCATthCalibrationProcessor(Processor):
 
             # Perform the fit
             fit.fit()
-#            fit.print_fit_report()
-#            fit.plot(skip_init=True)
 
             # Extract values of interest from the best values
             best_fit_uniform = fit.best_fit
@@ -1413,21 +1423,112 @@ class MCATthCalibrationProcessor(Processor):
             b_fit = fit.best_values['b']
             c_fit = fit.best_values['c']
             peak_indices_fit = np.asarray(
-                [fit.best_values[f'xrf{i+1}_center']
-                 for i in range(len(calibration_config.peak_energies))]
+                [fit.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
                 + [fit.best_values[f'peak{i+1}_center']
-                   for i in range(len(E0_fit))])
+                   for i in range(num_bragg)])
             peak_energies_fit = ((a_fit*peak_indices_fit + b_fit)
                                 * peak_indices_fit + c_fit)
+            e_bragg_uniform = peak_energies_fit[num_xrf:]
+            a_uniform = np.sqrt(c_1_fit) * abs(
+                get_peak_locations(e_bragg_uniform, tth_fit))
+            strains_uniform = np.log(
+                (a_uniform
+                 / calibration_config.material.lattice_parameters))
+            strain_uniform = np.mean(strains_uniform)
 
         elif calibration_method == 'direct_fit_peak_energies':
+            # Third party modules
+            from scipy.optimize import minimize
 
-            raise NotImplementedError(
-                f'calibration_method ({calibration_method}) not implemented')
+            def cost_function(pars, x, y):
+                tth = pars[0]
+                b = pars[1]
+                c = pars[2]
+                xx = b*x + c
+                energies_unconstrained = b*indices_unconstrained + c
+                if quadratic_energy_calibration:
+                    a = pars[3]
+                    xx += a*x**2
+                    energies_unconstrained += a*indices_unconstrained**2
+                else:
+                    a = 0.0
+                e_xrf = energies_unconstrained[:num_xrf]
+                e_bragg = get_peak_locations(ds_fit, tth)
+                peak_energies = np.concatenate((e_xrf, e_bragg))
+                return np.sqrt(np.sum(
+                    (energies_unconstrained-np.asarray(peak_energies))**2))
+
+            # Get the initial free fit parameters
+            a_init, b_init, c_init = detector.energy_calibration_coeffs
+
+            # Perform an unconstrained fit in terms of MCS bin index
+            mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
+            peak_indices = [index_nearest(mca_bin_energies, e_peak)
+                            for e_peak in np.concatenate((
+                                e_xrf, e_bragg_init))]
+            fit = Fit(mca_data_fit, x=mca_bins_fit)
+            fit.create_multipeak_model(
+                peak_indices, background=detector.background,
+                centers_range=5, fwhm_min=0.2, fwhm_max=20)
+            fit.fit()
+
+            # Extract the peak properties from the fit
+            indices_unconstrained = np.asarray(
+                [fit.best_values[f'peak{i+1}_center']
+                 for i in range(len(peak_indices))])
+
+            # Perform a peak center fit using the theoretical values
+            # for the fluorescense peaks and Bragg's law for the Bragg
+            # peaks for given material properties and a freely
+            # adjustable 2&theta angle and MCA energy axis calibration
+            pars_init = [tth_init, b_init, c_init]
+            if quadratic_energy_calibration:
+                pars_init += [a_init]
+            # For testing: hardwired limits:
+            if True:
+                bounds = [
+                    (0.9*tth_init, 1.1*tth_init),
+                    (0.9*b_init, 1.1*b_init),
+                    (0.9*c_init, 1.1*c_init)]
+                if quadratic_energy_calibration:
+                    if a_init:
+                        bounds += [(0.2*a_init, 5.0*a_init)]
+                    else:
+                        bounds += [(None, None)]
+            else:
+                bounds = None
+            result = minimize(
+                cost_function, pars_init, args=(mca_bins_fit, mca_data_fit),
+                method='SLSQP', bounds=bounds)
+
+            # Extract values of interest from the best values
+            best_fit_uniform = None
+            residual_uniform = None
+            tth_fit = float(result['x'][0])
+            b_fit = float(result['x'][1])
+            c_fit = float(result['x'][2])
+            if quadratic_energy_calibration:
+                a_fit = float(result['x'][3])
+            else:
+                a_fit = 0.0
+            e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
+            peak_energies_fit = [
+                (a_fit*i + b_fit) * i + c_fit
+                for i in indices_unconstrained[:num_xrf]] \
+                + list(e_bragg_fit)
+            peak_indices_fit = [
+                index_nearest(mca_bin_energies, e_peak)
+                for e_peak in peak_energies_fit]
+
+            fit_uniform = None
+            residual_uniform = None
+            e_bragg_uniform = e_bragg_fit
+            strain_uniform = None
 
         elif calibration_method == 'iterate_tth':
 
             tth_fit = tth_init
+            e_bragg_fit = e_bragg_init
             mca_bin_energies_fit = mca_bin_energies[mca_mask]
             for iter_i in range(calibration_config.max_iter):
                 self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
@@ -1438,7 +1539,8 @@ class MCATthCalibrationProcessor(Processor):
 
                 # Perform the uniform fit first
                 fit.create_multipeak_model(
-                    E0_fit, fit_type='uniform', background=detector.background,
+                    e_bragg_fit, fit_type='uniform',
+                    background=detector.background,
                     centers_range=0.25, fwhm_min=0.01, fwhm_max=1.0)
                 fit.fit()
 
@@ -1446,9 +1548,10 @@ class MCATthCalibrationProcessor(Processor):
                 # the uniform fit parameters
                 best_fit_uniform = fit.best_fit
                 residual_uniform = fit.residual
-                peak_energies_uniform = [
+                e_bragg_uniform = [
                     fit.best_values[f'peak{i+1}_center']
-                    for i in range(len(hkls_fit))]
+                    for i in range(num_bragg)]
+                strain_uniform = -np.log(fit.best_values['scale_factor'])
 
                 # Next, perform the unconstrained fit
 
@@ -1462,23 +1565,23 @@ class MCATthCalibrationProcessor(Processor):
                 # the unconstrained fit parameters
                 best_fit_unconstrained = fit.best_fit
                 residual_unconstrained = fit.residual
-                peak_energies_unconstrained = np.array(
+                e_bragg_unconstrained = np.array(
                     [fit.best_values[f'peak{i+1}_center']
-                     for i in range(len(hkls_fit))])
-                unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
-                    peak_energies_unconstrained, tth_fit))
-                unconstrained_strains = np.log(
-                    (unconstrained_a
+                     for i in range(num_bragg)])
+                a_unconstrained = np.sqrt(c_1_fit)*abs(get_peak_locations(
+                    e_bragg_unconstrained, tth_fit))
+                strains_unconstrained = np.log(
+                    (a_unconstrained
                      / calibration_config.material.lattice_parameters))
-                unconstrained_strain = np.mean(unconstrained_strains)
-                unconstrained_tth = tth_fit * (1.0 + unconstrained_strain)
+                strain_unconstrained = np.mean(strains_unconstrained)
+                tth_unconstrained = tth_fit * (1.0 + strain_unconstrained)
 
                 # Update tth for the next iteration of tuning
                 prev_tth = tth_fit
-                tth_fit = float(unconstrained_tth)
+                tth_fit = float(tth_unconstrained)
 
                 # Update the peak energy locations for this iteration
-                E0_fit = get_peak_locations(ds_fit, tth_fit)
+                e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
 
                 # Stop tuning tth at this iteration if differences are
                 # small enough
@@ -1487,25 +1590,29 @@ class MCATthCalibrationProcessor(Processor):
 
             # Fit line to expected / computed peak locations from the
             # last unconstrained fit.
-            a_init, b_init, c_init = detector.energy_calibration_coeffs
             if quadratic_energy_calibration:
                 fit = Fit.fit_data(
-                    E0_fit, 'quadratic', x=peak_energies_unconstrained,
+                    e_bragg_fit, 'quadratic', x=e_bragg_unconstrained,
                     nan_policy='omit')
                 a = fit.best_values['a']
                 b = fit.best_values['b']
                 c = fit.best_values['c']
             else:
                 fit = Fit.fit_data(
-                    E0_fit, 'linear', x=peak_energies_unconstrained,
-                     nan_policy='omit')
+                    e_bragg_fit, 'linear', x=e_bragg_unconstrained,
+                    nan_policy='omit')
                 a = 0.0
                 b = fit.best_values['slope']
                 c = fit.best_values['intercept']
+            a_init, b_init, c_init = detector.energy_calibration_coeffs
+            # The following assumes that a_init = 0
+            if a_init:
+                raise NotImplemented(
+                    f'A linear energy calibration is required at this time')
             a_fit = float(a*b_init**2)
-            b_fit = float(2*a*b_init*c_init + b*b_init*b)
+            b_fit = float(2*a*b_init*c_init + b*b_init)
             c_fit = float(a*c_init**2 + b*c_init + c)
-            peak_indices_fit = peak_energies_unconstrained
+            peak_indices_fit = e_bragg_unconstrained
             peak_energies_fit = ((a*peak_indices_fit + b)
                                 * peak_indices_fit + c)
 
@@ -1517,9 +1624,8 @@ class MCATthCalibrationProcessor(Processor):
             # Third party modules
             import matplotlib.pyplot as plt
 
-            #RV FIX keep xrf and bragg peak separate
             # Update the peak energies and the MCA channel energies
-            E0_fit = get_peak_locations(ds_fit, tth_fit)
+            e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
             mca_energies_fit = detector.energies[mca_mask]
 
             # Get an unconstrained fit
@@ -1527,22 +1633,19 @@ class MCATthCalibrationProcessor(Processor):
                 fit = Fit(mca_data_fit, x=mca_energies_fit)
                 fit.create_multipeak_model(
                     peak_energies_fit, background=detector.background,
-                    centers_range=0.25, fwhm_min=0.1, fwhm_max=1.0)
+                    centers_range=1.0, fwhm_min=0.1, fwhm_max=1.0)
                 fit.fit()
-#                fit.print_fit_report()
-#                fit.plot(skip_init=True)
                 best_fit_unconstrained = fit.best_fit
                 residual_unconstrained = fit.residual
-                peak_energies_unconstrained = np.sort(
+                e_bragg_unconstrained = np.sort(
                     [fit.best_values[f'peak{i+1}_center']
-                     for i in range(len(peak_indices_fit))])
-                unconstrained_a = np.sqrt(c_1)*abs(get_peak_locations(
-                    peak_energies_unconstrained[
-                        len(calibration_config.peak_energies):], tth_fit))
-                unconstrained_strains = np.log(
-                    (unconstrained_a
+                     for i in range(num_xrf, num_xrf+num_bragg)])
+                a_unconstrained = np.sqrt(c_1_fit) * abs(
+                    get_peak_locations(e_bragg_unconstrained, tth_fit))
+                strains_unconstrained = np.log(
+                    (a_unconstrained
                      / calibration_config.material.lattice_parameters))
-                unconstrained_strain = np.mean(unconstrained_strains)
+                strain_unconstrained = np.mean(strains_unconstrained)
 
             # Create the figure
             fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
@@ -1554,7 +1657,7 @@ class MCATthCalibrationProcessor(Processor):
             axs[0,0].set_title(r'2$\theta$ Calibration Fits')
             axs[0,0].set_xlabel('Energy (keV)')
             axs[0,0].set_ylabel('Intensity (a.u)')
-            for i, e_peak in enumerate(E0_fit):
+            for i, e_peak in enumerate(e_bragg_fit):
                 axs[0,0].axvline(e_peak, c='k', ls='--')
                 axs[0,0].text(e_peak, 1, str(hkls_fit[i])[1:-1],
                               ha='right', va='top', rotation=90,
@@ -1568,43 +1671,57 @@ class MCATthCalibrationProcessor(Processor):
                     mca_energies_fit, mca_data_fit, marker='.', c='C2', ms=3,
                     ls='', label='Flux-corrected MCA data')
             if calibration_method == 'iterate_tth':
-                label_uniform = 'Single strain'
                 label_unconstrained = 'Unconstrained'
             else:
-                label_uniform = 'Calibration fit'
                 if quadratic_energy_calibration:
                     label_unconstrained = \
                         'Unconstrained fit using calibrated a, b, and c'
                 else:
                     label_unconstrained = \
-                        'Unconstrained fit using calibrated a and b'
-            axs[0,0].plot(
-                mca_energies_fit, best_fit_uniform, c='C0',
-                label=label_uniform)
-            axs[0,0].plot(
-                mca_energies_fit, best_fit_unconstrained, c='C1', ls='--',
-                label=label_unconstrained)
+                        'Unconstrained fit using calibrated b and c'
+            if best_fit_uniform is None:
+                axs[0,0].plot(
+                    mca_energies_fit, best_fit_unconstrained, c='C1',
+                    label=label_unconstrained)
+            else:
+                axs[0,0].plot(
+                    mca_energies_fit, best_fit_uniform, c='C0',
+                    label='Single strain')
+                axs[0,0].plot(
+                    mca_energies_fit, best_fit_unconstrained, c='C1', ls='--',
+                    label=label_unconstrained)
             axs[0,0].legend()
 
             # Lower left axes: fit residual
             axs[1,0].set_title('Fit Residuals')
             axs[1,0].set_xlabel('Energy (keV)')
             axs[1,0].set_ylabel('Residual (a.u)')
-            axs[1,0].plot(
-                mca_energies_fit, residual_uniform, label=label_uniform)
-            axs[1,0].plot(
-                mca_energies_fit, residual_unconstrained, ls='--',
-                label=label_unconstrained)
+            if residual_uniform is None:
+                axs[1,0].plot(
+                    mca_energies_fit, residual_unconstrained, c='C1',
+                    label=label_unconstrained)
+            else:
+                axs[1,0].plot(
+                    mca_energies_fit, residual_uniform, c='C0',
+                    label='Single strain')
+                axs[1,0].plot(
+                    mca_energies_fit, residual_unconstrained, c='C1', ls='--',
+                    label=label_unconstrained)
             axs[1,0].legend()
 
             # Upper right axes: E vs strain for each fit
             axs[0,1].set_title('HKL Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
-            axs[0,1].plot(E0_fit, unconstrained_strains * 1e6,
-                          marker='o', mfc='none', label='Unconstrained')
-            axs[0,1].axhline(unconstrained_strain * 1e6,
-                             c='C1', label='Unconstrained: unweighted mean')
+            if strain_uniform is not None:
+                axs[0,1].axhline(strain_uniform * 1e6,
+                                 ls='--', label='Single strain')
+            axs[0,1].plot(e_bragg_fit, strains_unconstrained * 1e6,
+                          marker='o', mfc='none', c='C1',
+                          label='Unconstrained')
+            axs[0,1].axhline(strain_unconstrained* 1e6,
+                             ls='--', c='C1',
+                             label='Unconstrained: unweighted mean')
             axs[0,1].legend()
 
             # Lower right axes: theoretical E vs fitted E for all peaks
@@ -1612,31 +1729,37 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
             if calibration_method == 'iterate_tth':
+                e_fit = e_bragg_fit
+                e_unconstrained = e_bragg_unconstrained
                 if quadratic_energy_calibration:
                     label = 'Unconstrained: quadratic fit'
                 else:
                     label = 'Unconstrained: linear fit'
             else:
-                E0_fit = np.concatenate(
-                    (calibration_config.peak_energies, E0_fit))
+                e_fit = np.concatenate((e_xrf, e_bragg_fit))
+                e_unconstrained = np.concatenate(
+                    (e_xrf, e_bragg_unconstrained))
                 if quadratic_energy_calibration:
                     label = 'Quadratic fit'
                 else:
                     label = 'Linear fit'
             axs[1,1].plot(
-               E0_fit, peak_energies_unconstrained,
-               marker='o', mfc='none', ls='', label='Unconstrained')
+                e_bragg_fit, e_bragg_uniform, marker='x', ls='',
+                label='Single strain')
             axs[1,1].plot(
-                E0_fit, peak_energies_fit, c='C1', label=label)
+                e_fit, e_unconstrained, marker='o', mfc='none', ls='',
+                label='Unconstrained')
+            axs[1,1].plot(
+                e_fit, peak_energies_fit, c='C1', label=label)
             axs[1,1].legend()
             txt = 'Calibrated values:' \
                   f'\nTakeoff angle:\n    {tth_fit:.5f}$^\circ$'
             if quadratic_energy_calibration:
-                txt += '\nQuadratic coefficient:' \
+                txt += '\nQuadratic coefficient (a):' \
                        f'\n    {a_fit:.5e} $keV$/channel$^2$'
-            txt += '\nLinear coefficient:' \
+            txt += '\nLinear coefficient (b):' \
                    f'\n    {b_fit:.5f} $keV$/channel' \
-                   f'\nConstant offset:\n    {c_fit:.5f}'
+                   f'\nConstant offset (c):\n    {c_fit:.5f}'
             axs[1,1].text(
                 0.98, 0.02, txt,
                 ha='right', va='bottom', ma='left',
