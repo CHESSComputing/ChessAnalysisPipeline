@@ -1317,7 +1317,7 @@ class MCATthCalibrationProcessor(Processor):
             calibration_config.flux_correction_interpolation_function()
         if flux_correct is not None:
             mca_intensity_weights = flux_correct(
-                 detector.energies[mca_mask])
+                 mca_bin_energies[mca_mask])
             mca_data_fit = mca_data_fit / mca_intensity_weights
 
         # Get the fluorescence peak info
@@ -1330,6 +1330,83 @@ class MCATthCalibrationProcessor(Processor):
         c_1_fit = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
         e_bragg_init = get_peak_locations(ds_fit, tth_init)
         num_bragg = len(e_bragg_init)
+
+        # Subtract the background
+        # RV: Cooked up a quick and dirty subtraction, need something nicer
+        # if we want to keep this
+        if detector.background == 'auto':
+            # Third party modules
+            from scipy.signal import find_peaks
+
+            # Local modules
+            from CHAP.utils.general import (
+                index_nearest,
+                index_nearest_down,
+                index_nearest_up,
+            )
+
+            # Find matching peaks
+            x = np.arange(mca_data.size)
+            peaks = find_peaks(mca_data*mca_mask.astype(np.int32),
+                prominence=0.01*mca_data_fit.max(), width=3)
+            widths = peaks[1]['widths']
+            peaks = list(peaks[0])
+            indices_xrf = [index_nearest(mca_bin_energies, e) for e in e_xrf]
+            indices_bragg = [
+                index_nearest(mca_bin_energies, e) for e in e_bragg_init]
+            found_xrf = num_xrf*[0]
+            found_bragg = num_bragg*[0]
+            for n, peak in enumerate(peaks.copy()):
+                found_match = False
+                for i, index in enumerate(indices_xrf):
+                    if index-5 < peak < index+5:
+                        found_xrf[i] = 1
+                        found_match = True
+                        break
+                if found_match:
+                    continue
+                for i, index in enumerate(indices_bragg):
+                    if index-5 < peak < index+5:
+                        found_bragg[i] = 1
+                        found_match = True
+                        break
+                if not found_match:
+                    peaks.remove(peak)
+            e_xrf = [e for i, e in enumerate(e_xrf) if found_xrf[i]]
+            num_xrf = len(e_xrf)
+            hkls_fit  = np.asarray([
+                hkl for i, hkl in enumerate(hkls_fit) if found_bragg[i]])
+            ds_fit  = np.asarray([
+                d for i, d in enumerate(ds_fit) if found_bragg[i]])
+            c_1_fit = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
+            e_bragg_init = [
+                e for i, e in enumerate(e_bragg_init) if found_bragg[i]]
+            num_bragg = len(e_bragg_init)
+                
+            # Subtract background
+            spans = []
+            for peak, width in zip(peaks, widths):
+                min_ = index_nearest_down(x, peak-3.0*width)
+                max_ = index_nearest_up(x, peak+3.0*width)
+                if spans and min_ <= spans[-1][1]:
+                    spans[-1] = (
+                        min(spans[-1][0], min_),
+                        max(spans[-1][1], max_))
+                else:
+                    spans.append((min_, max_))
+            bkgd = mca_data.copy()
+            for min_, max_ in spans:
+                x1 = min_-1
+                x2 = max_+1
+                y1 = 0.5 * (mca_data[x1-1]+mca_data[x1])
+                y2 = 0.5 * (mca_data[x2]+mca_data[x2+1])
+                a = (y2-y1) / (x2-x1)
+                b = y1 - a*x1
+                for i in range(min_, max_+1):
+                    bkgd[i] = a*i + b
+            mca_data -= bkgd
+            mca_data_fit = mca_data[mca_mask]
+            detector.background = None
 
         # Perform the fit
         if calibration_method == 'direct_fit_residual':
@@ -1370,7 +1447,7 @@ class MCATthCalibrationProcessor(Processor):
             fit.add_parameter(name='b', value=b_init, min=b_min, max=b_max)
             fit.add_parameter(name='c', value=c_init)
 
-            # Add the background:
+            # Add the background
             if detector.background is not None:
                 if isinstance(detector.background, str):
                     fit.add_model(detector.background)
@@ -1440,42 +1517,41 @@ class MCATthCalibrationProcessor(Processor):
             # Third party modules
             from scipy.optimize import minimize
 
-            def cost_function(pars, x, y):
+            def cost_function(
+                    pars, quadratic_energy_calibration, ds_fit,
+                    indices_unconstrained, e_xrf):
                 tth = pars[0]
                 b = pars[1]
                 c = pars[2]
-                xx = b*x + c
-                energies_unconstrained = b*indices_unconstrained + c
                 if quadratic_energy_calibration:
                     a = pars[3]
-                    xx += a*x**2
-                    energies_unconstrained += a*indices_unconstrained**2
                 else:
                     a = 0.0
-                e_xrf = energies_unconstrained[:num_xrf]
-                e_bragg = get_peak_locations(ds_fit, tth)
-                peak_energies = np.concatenate((e_xrf, e_bragg))
+                energies_unconstrained = (
+                    (a*indices_unconstrained + b) * indices_unconstrained + c)
+                target_energies = np.concatenate(
+                    (e_xrf, get_peak_locations(ds_fit, tth)))
                 return np.sqrt(np.sum(
-                    (energies_unconstrained-np.asarray(peak_energies))**2))
+                    (energies_unconstrained-target_energies)**2))
 
             # Get the initial free fit parameters
             a_init, b_init, c_init = detector.energy_calibration_coeffs
 
-            # Perform an unconstrained fit in terms of MCS bin index
+            # Perform an unconstrained fit in terms of MCA bin index
             mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
-            peak_indices = [index_nearest(mca_bin_energies, e_peak)
+            centers = [index_nearest(mca_bin_energies, e_peak)
                             for e_peak in np.concatenate((
                                 e_xrf, e_bragg_init))]
             fit = Fit(mca_data_fit, x=mca_bins_fit)
             fit.create_multipeak_model(
-                peak_indices, background=detector.background,
-                centers_range=5, fwhm_min=0.2, fwhm_max=20)
+                centers, background=detector.background, centers_range=5,
+                fwhm_min=0.2, fwhm_max=20)
             fit.fit()
 
             # Extract the peak properties from the fit
             indices_unconstrained = np.asarray(
                 [fit.best_values[f'peak{i+1}_center']
-                 for i in range(len(peak_indices))])
+                 for i in range(num_xrf+num_bragg)])
 
             # Perform a peak center fit using the theoretical values
             # for the fluorescense peaks and Bragg's law for the Bragg
@@ -1483,7 +1559,7 @@ class MCATthCalibrationProcessor(Processor):
             # adjustable 2&theta angle and MCA energy axis calibration
             pars_init = [tth_init, b_init, c_init]
             if quadratic_energy_calibration:
-                pars_init += [a_init]
+                pars_init.append(a_init)
             # For testing: hardwired limits:
             if True:
                 bounds = [
@@ -1492,14 +1568,17 @@ class MCATthCalibrationProcessor(Processor):
                     (0.9*c_init, 1.1*c_init)]
                 if quadratic_energy_calibration:
                     if a_init:
-                        bounds += [(0.2*a_init, 5.0*a_init)]
+                        bounds.append((0.1*a_init, 10.0*a_init))
                     else:
-                        bounds += [(None, None)]
+                        bounds.append((None, None))
             else:
                 bounds = None
             result = minimize(
-                cost_function, pars_init, args=(mca_bins_fit, mca_data_fit),
-                method='SLSQP', bounds=bounds)
+                cost_function, pars_init,
+                args=(
+                    quadratic_energy_calibration, ds_fit,
+                    indices_unconstrained, e_xrf),
+                method='Nelder-Mead', bounds=bounds)
 
             # Extract values of interest from the best values
             best_fit_uniform = None
@@ -1516,9 +1595,6 @@ class MCATthCalibrationProcessor(Processor):
                 (a_fit*i + b_fit) * i + c_fit
                 for i in indices_unconstrained[:num_xrf]] \
                 + list(e_bragg_fit)
-            peak_indices_fit = [
-                index_nearest(mca_bin_energies, e_peak)
-                for e_peak in peak_energies_fit]
 
             fit_uniform = None
             residual_uniform = None
@@ -1612,13 +1688,16 @@ class MCATthCalibrationProcessor(Processor):
             a_fit = float(a*b_init**2)
             b_fit = float(2*a*b_init*c_init + b*b_init)
             c_fit = float(a*c_init**2 + b*c_init + c)
-            peak_indices_fit = e_bragg_unconstrained
-            peak_energies_fit = ((a*peak_indices_fit + b)
-                                * peak_indices_fit + c)
+            peak_energies_fit = ((a*e_bragg_unconstrained + b)
+                                * e_bragg_unconstrained + c)
 
         # Store the results in the detector object
         detector.tth_calibrated = tth_fit
         detector.energy_calibration_coeffs = [a_fit, b_fit, c_fit]
+
+        # Update the MCA channel energies with the newly calibrated
+        # coefficients
+        mca_bin_energies = detector.energies
 
         if interactive or save_figures:
             # Third party modules
@@ -1626,7 +1705,7 @@ class MCATthCalibrationProcessor(Processor):
 
             # Update the peak energies and the MCA channel energies
             e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
-            mca_energies_fit = detector.energies[mca_mask]
+            mca_energies_fit = mca_bin_energies[mca_mask]
 
             # Get an unconstrained fit
             if calibration_method != 'iterate_tth':
