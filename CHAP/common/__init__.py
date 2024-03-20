@@ -9,6 +9,7 @@ validating input data in some `Processor`s.
 
 from CHAP.common.reader import (
     BinaryFileReader,
+    FabioImageReader,
     H5Reader,
     MapReader,
     NexusReader,
@@ -27,6 +28,7 @@ from CHAP.common.processor import (
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
     PrintProcessor,
+    PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
     StrainAnalysisProcessor,
     XarrayToNexusProcessor,
@@ -38,6 +40,7 @@ from CHAP.common.writer import (
     MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,
+    PyfaiResultsWriter,
     YAMLWriter,
     TXTWriter,
 )

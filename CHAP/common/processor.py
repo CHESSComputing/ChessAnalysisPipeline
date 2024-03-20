@@ -1172,6 +1172,55 @@ class PrintProcessor(Processor):
         return data
 
 
+class PyfaiAzimuthalIntegrationProcessor(Processor):
+    """Processor to azimuthally integrate one or more frames of 2d
+    detector data using the
+    [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/index.html)
+    package.
+    """
+    def process(self, data, poni_file, npt, integrate1d_kwargs=None,
+                inputdir='.'):
+        """Azimuthally integrate the detector data provided and return
+        the result as a dictionary of numpy arrays containing the
+        values of the radial coordinate of the result, the intensities
+        along the radial direction, and the poisson errors for each
+        intensity spectrum.
+
+        :param data: Detector data to integrate.
+        :type data: Union[PipelineData, list[np.ndarray]]
+        :param poni_file: Name of the [pyFAI PONI
+            file](https://pyfai.readthedocs.io/en/v2023.1/glossary.html?highlight=poni%20file#poni-file)
+        containing the detector properties pyFAI needs to perform
+        azimuthal integration.
+        :type poni_file: str
+        :param npt: Number of points in the output pattern.
+        :type npt: int
+        :param integrate1d_kwargs: Optional dictionary of keyword
+            arguments to use with
+            [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d). Defaults
+            to `None`.
+        :type integrate1d_kwargs: Optional[dict]
+        :returns: Azimuthal integration results as a dictionary of
+            numpy arrays.
+        """
+        import os
+        from pyFAI import load
+
+        if not os.path.isabs(poni_file):
+            poni_file = os.path.join(inputdir, poni_file)
+        ai = load(poni_file)
+
+        try:
+            det_data = self.unwrap_pipelinedata(data)[0]
+        except:
+            det_data = det_data
+
+        if integrate1d_kwargs is None:
+            integrate1d_kwargs = {}
+
+        return [ai.integrate1d(d, npt, **integrate1d_kwargs) for d in det_data]
+
+
 class RawDetectorDataMapProcessor(Processor):
     """A Processor to return a map of raw derector data in a
     NeXus NXroot object.

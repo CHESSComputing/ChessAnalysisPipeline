@@ -295,6 +295,78 @@ class NexusWriter(Writer):
         return data
 
 
+class PyfaiResultsWriter(Writer):
+    """Writer for results of one or more pyFAI integrations. Able to
+    handle multiple output formats. Currently supported formats are:
+    .npz, .nxs.
+    """
+    def write(self, data, filename, force_overwrite=False):
+        """Save pyFAI integration results to a file. Format is
+        determined automatically form the extension of `filename`.
+
+        :param data: Integration results to save.
+        :type data: Union[PipelineData,
+            list[pyFAI.containers.IntegrateResult]]
+        :param filename: Name of the file to which results will be
+            saved. Format of output is determined ffrom the
+            extension. Currently supported formats are: `.npz`,
+            `.nxs`
+        :type filename: str
+        """
+        import os
+
+        from pyFAI.containers import Integrate1dResult, Integrate2dResult
+
+        try:
+            results = self.unwrap_pipelinedata(data)[0]
+        except:
+            results = data
+        if not isinstance(results, list):
+            results = [results]
+        if not all([isinstance(r, Integrate1dResult) for r in results]) \
+           and not all([isinstance(r, Integrate2dResult) for r in results]):
+            raise Exception(
+                'Bad input data: all items must have the same type -- either '
+                + 'all pyFAI.containers.Integrate1dResult, or all '
+                + 'pyFAI.containers.Integrate2dResult.')
+
+        if os.path.isfile(filename):
+            if force_overwrite:
+                self.logger.warning(f'Removing existing file {filename}')
+                os.remove(filename)
+            else:
+                raise Exception(f'{filename} already exists.')
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.npz':
+            self.write_npz(results, filename)
+        elif ext.lower() == '.nxs':
+            self.write_nxs(results, filename)
+        else:
+            raise Exception(f'Unsupported file format: {ext}')
+        self.logger.info(f'Wrote to {filename}')
+        return results
+
+    def write_npz(self, results, filename):
+        """Save `results` to the .npz file, `filename`"""
+        import numpy as np
+
+        data = {'radial': results[0].radial,
+                'intensity': [r.intensity for r in results]}
+        if hasattr(results[0], 'azimuthal'):
+            # 2d results
+            data['azimuthal'] = results[0].azimuthal
+        if all([r.sigma for r in results]):
+            # errors were included
+            data['sigma'] = [r.sigma for r in results]
+
+        np.savez(filename, **data)
+
+    def write_nxs(results, filename):
+        """Save `results` to the .nxs file, `filename`"""
+        raise NotImplementedError
+
+
+
 class TXTWriter(Writer):
     """Writer for plain text files from string or tuples or lists of
     strings."""

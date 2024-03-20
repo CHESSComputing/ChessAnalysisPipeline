@@ -36,6 +36,32 @@ class BinaryFileReader(Reader):
         return data
 
 
+class FabioImageReader(Reader):
+    """Reader for images using the python package
+    [`fabio`](https://fabio.readthedocs.io/en/main/).
+    """
+    def read(self, filename, inputdir='.'):
+        """Return the data from the image file(s) provided.
+
+        :param filename: The image filename, or glob pattern for image
+            filenames, to read.
+        :type filename: str
+        :returns: Image data as a numpy array (or list of numpy
+            arrays, if a glob pattern matching more than one file was
+            provided).
+        """
+        from glob import glob
+        import fabio
+
+        filenames = glob(filename)
+        data = []
+        for f in filenames:
+            image = fabio.open(f)
+            data.append(image.data)
+            image.close()
+        return data
+
+
 class H5Reader(Reader):
     """Reader for h5 files.
     """
