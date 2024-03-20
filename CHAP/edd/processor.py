@@ -1540,8 +1540,7 @@ class MCATthCalibrationProcessor(Processor):
             # Perform an unconstrained fit in terms of MCA bin index
             mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
             centers = [index_nearest(mca_bin_energies, e_peak)
-                            for e_peak in np.concatenate((
-                                e_xrf, e_bragg_init))]
+                       for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             fit = Fit(mca_data_fit, x=mca_bins_fit)
             fit.create_multipeak_model(
                 centers, background=detector.background, centers_range=5,
@@ -1600,6 +1599,130 @@ class MCATthCalibrationProcessor(Processor):
             residual_uniform = None
             e_bragg_uniform = e_bragg_fit
             strain_uniform = None
+
+        elif calibration_method == 'direct_fit_combined':
+            # Third party modules
+            from scipy.optimize import minimize
+
+            def gaussian(x, a, b, c, amp, sig, e_peak):
+                sig2 = 2.*sig**2
+                norm = sig*np.sqrt(2.0*np.pi)
+                cen = (e_peak-c) * (1.0 - a * (e_peak-c) / b**2) / b
+                return amp*np.exp(-(x-cen)**2/sig2)/norm
+
+            def cost_function_combined(
+                    pars, x, y, quadratic_energy_calibration, ds_fit,
+                    indices_unconstrained, e_xrf):
+                tth = pars[0]
+                b = pars[1]
+                c = pars[2]
+                amplitudes = pars[3::2]
+                sigmas = pars[4::2]
+                if quadratic_energy_calibration:
+                    a = pars[-1]
+                else:
+                    a = 0.0
+                energies_unconstrained = (
+                    (a*indices_unconstrained + b) * indices_unconstrained + c)
+                target_energies = np.concatenate(
+                    (e_xrf, get_peak_locations(ds_fit, tth)))
+                y_fit = np.zeros((x.size))
+                for i, e_peak in enumerate(target_energies):
+                    y_fit += gaussian(
+                        x, a, b, c, amplitudes[i], sigmas[i], e_peak)
+                target_energies_error = np.sqrt(
+                    np.sum(
+                        (energies_unconstrained
+                         - np.asarray(target_energies))**2)
+                    / len(target_energies))
+                residual_error = np.sqrt(
+                    np.sum((y-y_fit)**2)
+                    / (np.sum(y**2) * len(target_energies)))
+                return target_energies_error+residual_error
+
+            # Get the initial free fit parameters
+            a_init, b_init, c_init = detector.energy_calibration_coeffs
+
+            # Perform an unconstrained fit in terms of MCS bin index
+            mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
+            centers = [index_nearest(mca_bin_energies, e_peak)
+                       for e_peak in np.concatenate((e_xrf, e_bragg_init))]
+            fit = Fit(mca_data_fit, x=mca_bins_fit)
+            fit.create_multipeak_model(
+                centers, background=detector.background, centers_range=5,
+                fwhm_min=0.2, fwhm_max=20)
+            fit.fit()
+
+            # Extract the peak properties from the fit
+            num_peak = num_xrf+num_bragg
+            indices_unconstrained = np.asarray(
+                [fit.best_values[f'peak{i+1}_center']
+                 for i in range(num_peak)])
+            amplitudes_init = np.asarray(
+                [fit.best_values[f'peak{i+1}_amplitude']
+                 for i in range(num_peak)])
+            sigmas_init = np.asarray(
+                [fit.best_values[f'peak{i+1}_sigma']
+                 for i in range(num_peak)])
+
+            # Perform a peak center fit using the theoretical values
+            # for the fluorescense peaks and Bragg's law for the Bragg
+            # peaks for given material properties and a freely
+            # adjustable 2&theta angle and MCA energy axis calibration
+            norm = mca_data_fit.max()
+            pars_init = [tth_init, b_init, c_init]
+            for amp, sig in zip(amplitudes_init, sigmas_init):
+                pars_init += [amp/norm, sig]
+            if quadratic_energy_calibration:
+                pars_init += [a_init]
+            # For testing: hardwired limits:
+            if True:
+                bounds = [
+                    (0.9*tth_init, 1.1*tth_init),
+                    (0.9*b_init, 1.1*b_init),
+                    (0.9*c_init, 1.1*c_init)]
+                for amp, sig in zip(amplitudes_init, sigmas_init):
+                    bounds += [
+                        (0.9*amp/norm, 1.1*amp/norm), (0.9*sig, 1.1*sig)]
+                if quadratic_energy_calibration:
+                    if a_init:
+                        bounds += [(0.2*a_init, 5.0*a_init)]
+                    else:
+                        bounds += [(None, None)]
+            else:
+                bounds = None
+            result = minimize(
+                cost_function_combined, pars_init,
+                args=(
+                    mca_bins_fit, mca_data_fit/norm,
+                    quadratic_energy_calibration, ds_fit,
+                    indices_unconstrained, e_xrf),
+                method='Nelder-Mead', bounds=bounds)
+
+            # Extract values of interest from the best values
+            tth_fit = float(result['x'][0])
+            b_fit = float(result['x'][1])
+            c_fit = float(result['x'][2])
+            amplitudes_fit = norm * result['x'][3::2]
+            sigmas_fit = result['x'][4::2]
+            if quadratic_energy_calibration:
+                a_fit = float(result['x'][-1])
+            else:
+                a_fit = 0.0
+            e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
+            peak_energies_fit = [
+                (a_fit*i + b_fit) * i + c_fit
+                for i in indices_unconstrained[:num_xrf]] \
+                + list(e_bragg_fit)
+
+            best_fit_uniform = np.zeros((mca_bins_fit.size))
+            for i, e_peak in enumerate(peak_energies_fit):
+                best_fit_uniform += gaussian(
+                    mca_bins_fit, a_fit, b_fit, c_fit, amplitudes_fit[i],
+                    sigmas_fit[i], e_peak)
+            residual_uniform = mca_data_fit - best_fit_uniform
+            e_bragg_uniform = e_bragg_fit
+            strain_uniform = 0.0
 
         elif calibration_method == 'iterate_tth':
 

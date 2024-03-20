@@ -953,6 +953,7 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     calibration_method: Optional[Literal[
         'direct_fit_residual',
         'direct_fit_peak_energies',
+        'direct_fit_combined',
         'iterate_tth']] = 'iterate_tth'
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8

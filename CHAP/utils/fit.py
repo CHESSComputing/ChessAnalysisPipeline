@@ -389,7 +389,9 @@ class Fit:
         """Return the residual in the best fit."""
         if self._result is None:
             return None
-        return self._result.residual
+        # lmfit return the negative of the residual in its common
+        # definition as (data - fit)
+        return -self._result.residual
 
     @property
     def success(self):
@@ -1846,7 +1848,7 @@ class Fit:
                         value = par.value/self._norm[1]
                         self._parameters[name].set(value=value)
                         self._result.params[name].set(value=value)
-        self._result.residual = self._result.best_fit-y
+        self._result.residual = y-self._result.best_fit
         self._result.components = self._model.components
         self._result.init_params = None
 
