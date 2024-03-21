@@ -1052,6 +1052,94 @@ def rolling_average(
     return ry, rx
 
 
+def baseline_arPLS(
+        y, mask=None, tol=1.e-8, lam=1.e6, max_iter=20, full_output=False):
+    """Returns the smoothed baseline estimate of a spectrum.
+
+    Based on S.-J. Baek, A. Park, Y.-J Ahn, and J. Choo,
+    "Baseline correction using asymmetrically reweighted penalized
+    least squares smoothing", Analyst, 2015,140, 250-257
+
+    :param y: The spectrum.
+    :type y: array-like
+    :param mask: A mask to apply to the spectrum before baseline
+       construction, default to `None`.
+    :type mask: array-like, optional
+    :param tol: The convergence tolerence, defaults to `1.e-8`.
+    :type tol: float, optional
+    :param lam: The &lambda (smoothness) parameter (the balance
+        between the residual of the data and the baseline and the
+        smoothness of the baseline). The suggested range is between
+        100 and 10^8, defaults to `10^6`.
+    :type lam: float, optional
+    :param max_iter: The maximum number of iterations,
+        defaults to `20`.
+    :type max_iter: int, optional
+    :param full_output: Whether or not to also output the baseline
+        corrected spectrum, the number of iterations and error in the
+        returned result, defaults to `False`.
+    :type full_output: bool, optional
+    :return: The smoothed baseline, with optionally the baseline
+        corrected spectrum, the number of iterations and error in the
+        returned result.
+    :rtype: numpy.array [, numpy.array, int, float]
+    """
+    # With credit to: Daniel Casas-Orozco
+    # https://stackoverflow.com/questions/29156532/python-baseline-correction-library
+    # System modules
+    from sys import float_info
+
+    # Third party modules
+    from scipy.sparse import (
+        spdiags,
+        linalg,
+    )
+
+    y = np.asarray(y)
+    if mask is not None:
+        mask = mask.astype(bool)
+        y_org = y
+        y = y[mask]
+    num = y.size
+
+    diag = np.ones((num-2))
+    D = spdiags([diag, -2*diag, diag], [0, -1, -2], num, num-2)
+
+    H = lam * D.dot(D.T)
+
+    w = np.ones(num)
+    W = spdiags(w, 0, num, num)
+
+    error = 1
+    num_iter = 0
+
+    exp_max = int(np.log(float_info.max))
+    while error > tol and num_iter < max_iter:
+        z = linalg.spsolve(W + H, W * y)
+        d = y - z
+        dn = d[d < 0]
+
+        m = np.mean(dn)
+        s = np.std(dn)
+
+        w_new = 1.0 / (1.0 + np.exp(
+            np.clip(2.0 * (d - (2.0*s - m))/s, None, exp_max)))
+        error = np.linalg.norm(w_new - w) / np.linalg.norm(w)
+        num_iter += 1
+        w = w_new
+        W.setdiag(w)
+
+    if mask is not None:
+        zz = np.zeros(y_org.size)
+        zz[mask] = z
+        z = zz
+        if full_output:
+            d = y_org - z
+    if full_output:
+        return z, d, num_iter, error
+    return z
+
+
 def select_mask_1d(
         y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
         preselected_mask=None, title=None, xlabel=None, ylabel=None,

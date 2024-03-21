@@ -1260,6 +1260,41 @@ class MCATthCalibrationProcessor(Processor):
         energy_mask[-1] = 0
         mca_data = mca_data*energy_mask
 
+        # Get the baseline
+        baseline = None
+        if detector.background == 'auto':
+            # Local modules
+            from CHAP.utils.general import baseline_arPLS
+
+            baseline, _, num_iter, error = baseline_arPLS(
+                mca_data, lam=1.e7, mask=energy_mask, max_iter=100,
+                full_output=True)
+            self.logger.info(f'Preformed {num_iter} iteraction to find '
+                             'a baseline for the MCA data')
+
+            if interactive or save_figures:
+                # Third party modules
+                import matplotlib.pyplot as plt
+
+                fig, ax = plt.subplots(figsize=(11, 8.5))
+                ax.set(xlabel='Energy (keV)', ylabel='Intensity (counts)')
+                ax.plot(mca_bin_energies, mca_data, label='MCA data')
+                ax.plot(mca_bin_energies, baseline, label='baseline')
+#                ax.plot(
+#                    mca_bin_energies, mca_data-baseline,
+#                    label='baseline corrected MCA data')
+                ax.legend()
+                if save_figures:
+                    fig.tight_layout()
+                    filename = os.path.join(outputdir,
+                                            f'{detector.detector_name}_tth_'
+                                            'calibration_baseline.png')
+                    plt.savefig(filename)
+                plt.show()
+                plt.close()
+
+            detector.background = None
+
         # Adjust initial tth guess
         if save_figures:
             filename = os.path.join(
@@ -1330,83 +1365,6 @@ class MCATthCalibrationProcessor(Processor):
         c_1_fit = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
         e_bragg_init = get_peak_locations(ds_fit, tth_init)
         num_bragg = len(e_bragg_init)
-
-        # Subtract the background
-        # RV: Cooked up a quick and dirty subtraction, need something nicer
-        # if we want to keep this
-        if detector.background == 'auto':
-            # Third party modules
-            from scipy.signal import find_peaks
-
-            # Local modules
-            from CHAP.utils.general import (
-                index_nearest,
-                index_nearest_down,
-                index_nearest_up,
-            )
-
-            # Find matching peaks
-            x = np.arange(mca_data.size)
-            peaks = find_peaks(mca_data*mca_mask.astype(np.int32),
-                prominence=0.01*mca_data_fit.max(), width=3)
-            widths = peaks[1]['widths']
-            peaks = list(peaks[0])
-            indices_xrf = [index_nearest(mca_bin_energies, e) for e in e_xrf]
-            indices_bragg = [
-                index_nearest(mca_bin_energies, e) for e in e_bragg_init]
-            found_xrf = num_xrf*[0]
-            found_bragg = num_bragg*[0]
-            for n, peak in enumerate(peaks.copy()):
-                found_match = False
-                for i, index in enumerate(indices_xrf):
-                    if index-5 < peak < index+5:
-                        found_xrf[i] = 1
-                        found_match = True
-                        break
-                if found_match:
-                    continue
-                for i, index in enumerate(indices_bragg):
-                    if index-5 < peak < index+5:
-                        found_bragg[i] = 1
-                        found_match = True
-                        break
-                if not found_match:
-                    peaks.remove(peak)
-            e_xrf = [e for i, e in enumerate(e_xrf) if found_xrf[i]]
-            num_xrf = len(e_xrf)
-            hkls_fit  = np.asarray([
-                hkl for i, hkl in enumerate(hkls_fit) if found_bragg[i]])
-            ds_fit  = np.asarray([
-                d for i, d in enumerate(ds_fit) if found_bragg[i]])
-            c_1_fit = hkls_fit[:,0]**2 + hkls_fit[:,1]**2 + hkls_fit[:,2]**2
-            e_bragg_init = [
-                e for i, e in enumerate(e_bragg_init) if found_bragg[i]]
-            num_bragg = len(e_bragg_init)
-                
-            # Subtract background
-            spans = []
-            for peak, width in zip(peaks, widths):
-                min_ = index_nearest_down(x, peak-3.0*width)
-                max_ = index_nearest_up(x, peak+3.0*width)
-                if spans and min_ <= spans[-1][1]:
-                    spans[-1] = (
-                        min(spans[-1][0], min_),
-                        max(spans[-1][1], max_))
-                else:
-                    spans.append((min_, max_))
-            bkgd = mca_data.copy()
-            for min_, max_ in spans:
-                x1 = min_-1
-                x2 = max_+1
-                y1 = 0.5 * (mca_data[x1-1]+mca_data[x1])
-                y2 = 0.5 * (mca_data[x2]+mca_data[x2+1])
-                a = (y2-y1) / (x2-x1)
-                b = y1 - a*x1
-                for i in range(min_, max_+1):
-                    bkgd[i] = a*i + b
-            mca_data -= bkgd
-            mca_data_fit = mca_data[mca_mask]
-            detector.background = None
 
         # Perform the fit
         if calibration_method == 'direct_fit_residual':
