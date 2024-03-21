@@ -776,7 +776,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         flux_energy_range=None, calibration_bin_ranges=None,
         label='Reference Data', interactive=False, filename=None):
     """Return a matplotlib figure to indicate data ranges and HKLs to
-    include for fitting in EDD Ceria calibration and/or strain
+    include for fitting in EDD energy/tth calibration and/or strain
     analysis.
 
     :param x: MCA channel energies.
