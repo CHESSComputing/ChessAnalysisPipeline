@@ -131,6 +131,7 @@ class DiffractionVolumeLengthProcessor(Processor):
         mca_data = dvl_config.mca_data(detector)
 
         # Blank out data below bin 500 (~25keV) as well as the last bin
+        # RV Not backward compatible with old detector
         energy_mask = np.ones(detector.num_bins, dtype=np.int16)
         energy_mask[:500] = 0
         energy_mask[-1] = 0
@@ -625,7 +626,9 @@ class MCAEnergyCalibrationProcessor(Processor):
     def process(self,
                 data,
                 config=None,
-                peak_index_fit_delta=20,
+                centers_range=20,
+                fwhm_min=None,
+                fwhm_max=None,
                 max_energy_kev=200.0,
                 background=None,
                 save_figures=False,
@@ -648,11 +651,17 @@ class MCAEnergyCalibrationProcessor(Processor):
             CHAP.edd.models.MCAEnergyCalibrationConfig, defaults to
             `None`.
         :type config: dict, optional
-        :param peak_index_fit_delta: Set boundaries on the fit peak
-            centers when performing the fit. The min/max possible
-            values for the peak centers will be the initial values
-            &pm; `peak_index_fit_delta`. Defaults to `20`.
-        :type peak_index_fit_delta: int, optional
+        :param centers_range: Set boundaries on the peak centers in
+            MCA channels when performing the fit. The min/max
+            possible values for the peak centers will be the initial
+            values &pm; `centers_range`. Defaults to `20`.
+        :type centers_range: int, optional
+        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_min: float, optional
+        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to 200.0.
         :type max_energy_kev: float, optional
@@ -713,13 +722,14 @@ class MCAEnergyCalibrationProcessor(Processor):
             if background is not None:
                 detector.background = background
             detector.energy_calibration_coeffs = self.calibrate(
-                calibration_config, detector, peak_index_fit_delta,
-                max_energy_kev, save_figures, interactive, outputdir)
+                calibration_config, detector, centers_range, fwhm_min,
+                fwhm_max, max_energy_kev, save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config, detector, peak_index_fit_delta,
-            max_energy_kev, save_figures, interactive, outputdir):
+    def calibrate(self, calibration_config, detector, centers_range,
+            fwhm_min, fwhm_max, max_energy_kev, save_figures, interactive,
+            outputdir):
         """Return energy_calibration_coeffs (a, b, and c) for
         quadratically converting the current detector's MCA channels
         to bin energies.
@@ -728,11 +738,17 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type calibration_config: MCAEnergyCalibrationConfig
         :param detector: Configuration of the current detector.
         :type detector: MCAElementCalibrationConfig
-        :param peak_index_fit_delta: Set boundaries on the fit peak
-            centers when performing the fit. The min/max possible
-            values for the peak centers will be the initial values
-            &pm; `peak_index_fit_delta`.
-        :type peak_index_fit_delta: int
+        :param centers_range: Set boundaries on the peak centers in
+            MCA channels when performing the fit. The min/max
+            possible values for the peak centers will be the initial
+            values &pm; `centers_range`. Defaults to `20`.
+        :type centers_range: int, optional
+        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_min: float, optional
+        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to 200.0.
         :type max_energy_kev: float
@@ -764,11 +780,49 @@ class MCAEnergyCalibrationProcessor(Processor):
             0, max_energy_kev, detector.num_bins)
         bins = np.arange(detector.num_bins, dtype=np.int16)
 
-        # Blank out data below bin 500 (~25keV) as well as the last bin
-        energy_mask = np.ones(detector.num_bins, dtype=np.int16)
-        energy_mask[:500] = 0
+        # Blank out data below 25keV as well as the last bin
+        energy_mask = np.where(uncalibrated_energies >= 25.0, 1, 0)
         energy_mask[-1] = 0
         spectrum = spectrum*energy_mask
+
+        # Get the baseline
+        if detector.background == 'auto':
+            # Local modules
+            from CHAP.utils.general import baseline_arPLS
+
+            baseline, _, num_iter, error = baseline_arPLS(
+                spectrum, lam=1.e7, mask=energy_mask, max_iter=100,
+                full_output=True)
+            self.logger.info(f'Performed {num_iter} iteraction to find '
+                             'a baseline for the MCA data')
+
+            if interactive or save_figures:
+                # Third party modules
+                import matplotlib.pyplot as plt
+
+                fig, ax = plt.subplots(figsize=(11, 8.5))
+                ax.set_title(
+                    f'Baseline for detector {detector.detector_name}',
+                    fontsize='xx-large')
+                ax.set_xlabel('Energy (keV)', fontsize='x-large')
+                ax.set_ylabel('Intensity (counts)', fontsize='x-large')
+                ax.plot(bins, spectrum, label='MCA data')
+                ax.plot(bins, baseline, label='baseline')
+#                ax.plot(
+#                    bins, spectrum-baseline,
+#                    label='baseline corrected MCA data')
+                ax.legend()
+                if save_figures:
+                    fig.tight_layout()
+                    filename = os.path.join(outputdir,
+                                            f'{detector.detector_name}_energy_'
+                                            'calibration_baseline.png')
+                    plt.savefig(filename)
+                plt.show()
+                plt.close()
+
+            spectrum -= baseline
+            detector.background = None
 
         # Select the mask/detector channel ranges for fitting
         if save_figures:
@@ -812,14 +866,23 @@ class MCAEnergyCalibrationProcessor(Processor):
             else:
                 for model in detector.background:
                     spectrum_fit.add_model(model)
+        if isinstance(fwhm_min, (int, float)):
+            sig_min = fwhm_min/2.35482
+        else:
+            sig_min = None
+        if isinstance(fwhm_max, (int, float)):
+            sig_max = fwhm_max/2.35482
+        else:
+            sig_max = None
         for i, index in enumerate(initial_peak_indices):
             spectrum_fit.add_model(
                 'gaussian', prefix=f'peak{i+1}_', parameters=(
                     {'name': 'amplitude', 'min': 0.0},
                     {'name': 'center', 'value': index,
-                     'min': index - peak_index_fit_delta,
-                     'max': index + peak_index_fit_delta},
-                    {'name': 'sigma', 'value': 1.0, 'min': 0.2, 'max': 8.0},
+                     'min': index - centers_range,
+                     'max': index + centers_range},
+                    {'name': 'sigma', 'value': 1.0, 'min': sig_min,
+                     'max': sig_max},
                 ))
         self.logger.debug('Fitting spectrum')
         spectrum_fit.fit()
@@ -1085,8 +1148,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         if interactive and len(peak_indices) != num_peak:
             reset_flag += 1
             return self._get_initial_peak_positions(
-                y, index_ranges, input_indices, max_peak_index, interactive,
-                filename, detector_name, reset_flag=reset_flag)
+                y, index_ranges, input_indices, input_max_peak_index,
+                interactive, filename, detector_name, reset_flag=reset_flag)
         return peak_indices
 
 
@@ -1103,6 +1166,9 @@ class MCATthCalibrationProcessor(Processor):
                 calibration_method='direct_fit_residual',
                 background=None,
                 quadratic_energy_calibration=False,
+                centers_range=20,
+                fwhm_min=None,
+                fwhm_max=None,
                 save_figures=False,
                 inputdir='.',
                 outputdir='.',
@@ -1138,6 +1204,17 @@ class MCATthCalibrationProcessor(Processor):
             the detector channel index to energy conversion, defaults
             to `False` (linear only).
         :type quadratic_energy_calibration: bool, optional
+        :param centers_range: Set boundaries on the peak centers in
+            MCA channels when performing the fit. The min/max
+            possible values for the peak centers will be the initial
+            values &pm; `centers_range`. Defaults to `20`.
+        :type centers_range: int, optional
+        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_min: float, optional
+        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_max: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -1185,10 +1262,9 @@ class MCATthCalibrationProcessor(Processor):
             if background is not None:
                 detector.background = background
             self.calibrate(
-                calibration_config, detector, 
-                quadratic_energy_calibration=quadratic_energy_calibration,
-                save_figures=save_figures, interactive=interactive,
-                outputdir=outputdir)
+                calibration_config, detector, quadratic_energy_calibration,
+                centers_range, fwhm_min, fwhm_max, save_figures, interactive,
+                outputdir)
 
         return calibration_config.dict()
 
@@ -1196,9 +1272,12 @@ class MCATthCalibrationProcessor(Processor):
                   calibration_config,
                   detector,
                   quadratic_energy_calibration=False,
+                  centers_range=20,
+                  fwhm_min=None,
+                  fwhm_max=None,
                   save_figures=False,
-                  outputdir='.',
-                  interactive=False):
+                  interactive=False,
+                  outputdir='.'):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
         small. Use the fitted peak locations to determine linear
@@ -1214,15 +1293,26 @@ class MCATthCalibrationProcessor(Processor):
             the detector channel index to energy conversion, defaults
             to `False` (linear only).
         :type quadratic_energy_calibration: bool, optional
+        :param centers_range: Set boundaries on the peak centers in
+            MCA channels when performing the fit. The min/max
+            possible values for the peak centers will be the initial
+            values &pm; `centers_range`. Defaults to `20`.
+        :type centers_range: int, optional
+        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_min: float, optional
+        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
+            when performing the fit, defaults to `None`.
+        :type fwhm_max: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to '.'.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             False.
         :type interactive: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'.
+        :type outputdir: str, optional
         :raises ValueError: No value provided for included bin ranges
             or the fitted HKLs for the MCA detector element.
         """
@@ -1242,7 +1332,7 @@ class MCATthCalibrationProcessor(Processor):
         from CHAP.utils.fit import Fit
         from CHAP.utils.general import index_nearest
 
-        self.logger.info('Calibrating detector {detector.detector_name}')
+        self.logger.info(f'Calibrating detector {detector.detector_name}')
 
         calibration_method = calibration_config.calibration_method
 
@@ -1261,7 +1351,6 @@ class MCATthCalibrationProcessor(Processor):
         mca_data = mca_data*energy_mask
 
         # Get the baseline
-        baseline = None
         if detector.background == 'auto':
             # Local modules
             from CHAP.utils.general import baseline_arPLS
@@ -1269,7 +1358,7 @@ class MCATthCalibrationProcessor(Processor):
             baseline, _, num_iter, error = baseline_arPLS(
                 mca_data, lam=1.e7, mask=energy_mask, max_iter=100,
                 full_output=True)
-            self.logger.info(f'Preformed {num_iter} iteraction to find '
+            self.logger.info(f'Performed {num_iter} iteraction to find '
                              'a baseline for the MCA data')
 
             if interactive or save_figures:
@@ -1293,6 +1382,7 @@ class MCATthCalibrationProcessor(Processor):
                 plt.show()
                 plt.close()
 
+            mca_data -= baseline
             detector.background = None
 
         # Adjust initial tth guess
@@ -1390,12 +1480,16 @@ class MCATthCalibrationProcessor(Processor):
                 min_value = float_info.min
                 tth_min = 0.9*tth_init
                 tth_max = 1.1*tth_init
-                b_min = 0.9*b_init
-                b_max = 1.1*b_init
-                fwhm_min = 5
-                fwhm_max = 100
-                sig_min = fwhm_min/2.35482
-                sig_max = fwhm_max/2.35482
+                b_min = 0.1*b_init
+                b_max = 10.0*b_init
+                if isinstance(fwhm_min, (int,float)):
+                    sig_min = fwhm_min/2.35482
+                else:
+                    sig_min = None
+                if isinstance(fwhm_max, (int,float)):
+                    sig_max = fwhm_max/2.35482
+                else:
+                    sig_max = None
 
             # Add the free fit parameters
             fit.add_parameter(
@@ -1501,8 +1595,9 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             fit = Fit(mca_data_fit, x=mca_bins_fit)
             fit.create_multipeak_model(
-                centers, background=detector.background, centers_range=5,
-                fwhm_min=0.2, fwhm_max=20)
+                centers, background=detector.background,
+                centers_range=centers_range, fwhm_min=fwhm_min,
+                fwhm_max=fwhm_max)
             fit.fit()
 
             # Extract the peak properties from the fit
@@ -1521,8 +1616,8 @@ class MCATthCalibrationProcessor(Processor):
             if True:
                 bounds = [
                     (0.9*tth_init, 1.1*tth_init),
-                    (0.9*b_init, 1.1*b_init),
-                    (0.9*c_init, 1.1*c_init)]
+                    (0.1*b_init, 10.*b_init),
+                    (0.1*c_init, 10.*c_init)]
                 if quadratic_energy_calibration:
                     if a_init:
                         bounds.append((0.1*a_init, 10.0*a_init))
@@ -1607,8 +1702,9 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             fit = Fit(mca_data_fit, x=mca_bins_fit)
             fit.create_multipeak_model(
-                centers, background=detector.background, centers_range=5,
-                fwhm_min=0.2, fwhm_max=20)
+                centers, background=detector.background,
+                centers_range=centers_range, fwhm_min=fwhm_min,
+                fwhm_max=fwhm_max)
             fit.fit()
 
             # Extract the peak properties from the fit
@@ -1637,14 +1733,14 @@ class MCATthCalibrationProcessor(Processor):
             if True:
                 bounds = [
                     (0.9*tth_init, 1.1*tth_init),
-                    (0.9*b_init, 1.1*b_init),
-                    (0.9*c_init, 1.1*c_init)]
+                    (0.1*b_init, 10.*b_init),
+                    (0.1*c_init, 10.*c_init)]
                 for amp, sig in zip(amplitudes_init, sigmas_init):
                     bounds += [
                         (0.9*amp/norm, 1.1*amp/norm), (0.9*sig, 1.1*sig)]
                 if quadratic_energy_calibration:
                     if a_init:
-                        bounds += [(0.2*a_init, 5.0*a_init)]
+                        bounds += [(0.1*a_init, 10.*a_init)]
                     else:
                         bounds += [(None, None)]
             else:
@@ -1687,6 +1783,15 @@ class MCATthCalibrationProcessor(Processor):
             tth_fit = tth_init
             e_bragg_fit = e_bragg_init
             mca_bin_energies_fit = mca_bin_energies[mca_mask]
+            a_init, b_init, c_init = detector.energy_calibration_coeffs
+            if isinstance(fwhm_min, (int, float)):
+                fwhm_min = fwhm_min*b_init
+            else:
+                fwhm_min = None
+            if isinstance(fwhm_max, (int, float)):
+                fwhm_max = fwhm_max*b_init
+            else:
+                fwhm_max = None
             for iter_i in range(calibration_config.max_iter):
                 self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
                                   f'starting value = {tth_fit} ')
@@ -1698,7 +1803,8 @@ class MCATthCalibrationProcessor(Processor):
                 fit.create_multipeak_model(
                     e_bragg_fit, fit_type='uniform',
                     background=detector.background,
-                    centers_range=0.25, fwhm_min=0.01, fwhm_max=1.0)
+                    centers_range=centers_range*b_init,
+                    fwhm_min=fwhm_min, fwhm_max=fwhm_max)
                 fit.fit()
 
                 # Extract values of interest from the best values for
@@ -1761,7 +1867,6 @@ class MCATthCalibrationProcessor(Processor):
                 a = 0.0
                 b = fit.best_values['slope']
                 c = fit.best_values['intercept']
-            a_init, b_init, c_init = detector.energy_calibration_coeffs
             # The following assumes that a_init = 0
             if a_init:
                 raise NotImplemented(
@@ -1791,9 +1896,18 @@ class MCATthCalibrationProcessor(Processor):
             # Get an unconstrained fit
             if calibration_method != 'iterate_tth':
                 fit = Fit(mca_data_fit, x=mca_energies_fit)
+                if isinstance(fwhm_min, (int, float)):
+                    fwhm_min = fwhm_min*b_fit
+                else:
+                    fwhm_min = None
+                if isinstance(fwhm_max, (int, float)):
+                    fwhm_max = fwhm_max*b_fit
+                else:
+                    fwhm_max = None
                 fit.create_multipeak_model(
                     peak_energies_fit, background=detector.background,
-                    centers_range=1.0, fwhm_min=0.1, fwhm_max=1.0)
+                    centers_range=centers_range*b_fit, fwhm_min=fwhm_min,
+                    fwhm_max=fwhm_max)
                 fit.fit()
                 best_fit_unconstrained = fit.best_fit
                 residual_unconstrained = fit.residual

@@ -809,7 +809,7 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
     material: Optional[MaterialConfig] = MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)
     peak_energies: conlist(item_type=confloat(gt=0), min_items=2)
-    max_peak_index: conint(gt=0)
+    max_peak_index: conint(ge=0)
     fit_index_ranges: Optional[
         conlist(
             min_items=1,
