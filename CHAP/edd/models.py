@@ -365,15 +365,19 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         defaults to `'gaussian'`.
     :type peak_models: Literal['gaussian', 'lorentzian']],
         list[Literal['gaussian', 'lorentzian']]], optional
-    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `1.0`.
+    :ivar fwhm_min: Minimum FWHM for peak fitting, defaults to `0.25`.
     :type fwhm_min: float, optional
-    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `5.0`.
+    :ivar fwhm_max: Maximum FWHM for peak fitting, defaults to `2.0`.
     :type fwhm_max: float, optional
-    :ivar rel_amplitude_cutoff: Relative peak amplitude cutoff for
-        peak fitting (any peak with an amplitude smaller than
-        `rel_amplitude_cutoff` times the sum of all peak amplitudes
+    :ivar centers_range: Peak centers range for peak fitting.
+        The allowed range the peak centers will be the initial
+        values &pm; `centers_range`. Defaults to `2.0`.
+    :type centers_range: float, optional
+    :ivar rel_height_cutoff: Relative peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `rel_height_cutoff` times the maximum height of all peaks 
         gets removed from the fit model), defaults to `None`.
-    :type rel_amplitude_cutoff: float, optional
+    :type rel_height_cutoff: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
     :type tth_calibrated: float, optional
     :ivar energy_calibration_coeffs: Detector channel index to energy
@@ -403,7 +407,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         Literal['gaussian', 'lorentzian']] = 'gaussian'
     fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
     fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
-    rel_amplitude_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
+    centers_range: confloat(gt=0, allow_inf_nan=False) = 2.0
+    rel_height_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
 
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     energy_calibration_coeffs: conlist(

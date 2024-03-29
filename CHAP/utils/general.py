@@ -1053,7 +1053,8 @@ def rolling_average(
 
 
 def baseline_arPLS(
-        y, mask=None, tol=1.e-8, lam=1.e6, max_iter=20, full_output=False):
+        y, mask=None, w=None, tol=1.e-8, lam=1.e6, max_iter=20,
+        full_output=False):
     """Returns the smoothed baseline estimate of a spectrum.
 
     Based on S.-J. Baek, A. Park, Y.-J Ahn, and J. Choo,
@@ -1065,6 +1066,9 @@ def baseline_arPLS(
     :param mask: A mask to apply to the spectrum before baseline
        construction, default to `None`.
     :type mask: array-like, optional
+    :param w: The weights (allows restart for additional ieterations),
+        defaults to None.
+    :type w: numpy.array, optional
     :param tol: The convergence tolerence, defaults to `1.e-8`.
     :type tol: float, optional
     :param lam: The &lambda (smoothness) parameter (the balance
@@ -1080,8 +1084,8 @@ def baseline_arPLS(
         returned result, defaults to `False`.
     :type full_output: bool, optional
     :return: The smoothed baseline, with optionally the baseline
-        corrected spectrum, the number of iterations and error in the
-        returned result.
+        corrected spectrum, the weights, the number of iterations and
+        the error in the returned result.
     :rtype: numpy.array [, numpy.array, int, float]
     """
     # With credit to: Daniel Casas-Orozco
@@ -1095,6 +1099,14 @@ def baseline_arPLS(
         linalg,
     )
 
+    if not is_num(tol, gt=0):
+        raise ValueError(f'Invalid tol parameter ({tol})')
+    if not is_num(lam, gt=0):
+        raise ValueError(f'Invalid lam parameter ({lam})')
+    if not is_int(max_iter, gt=0):
+        raise ValueError(f'Invalid max_iter parameter ({max_iter})')
+    if not isinstance(full_output, bool):
+        raise ValueError(f'Invalid full_output parameter ({max_iter})')
     y = np.asarray(y)
     if mask is not None:
         mask = mask.astype(bool)
@@ -1107,7 +1119,8 @@ def baseline_arPLS(
 
     H = lam * D.dot(D.T)
 
-    w = np.ones(num)
+    if w is None:
+        w = np.ones(num)
     W = spdiags(w, 0, num, num)
 
     error = 1
@@ -1136,7 +1149,7 @@ def baseline_arPLS(
         if full_output:
             d = y_org - z
     if full_output:
-        return z, d, num_iter, error
+        return z, d, w, num_iter, error
     return z
 
 

@@ -1377,9 +1377,6 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
     else:
         fit = FitMap(spectra, x=energies)
     num_peak = len(peak_locations)
-    delta = 0.1 * (energies[-1]-energies[0])
-    centers_range = (
-        max(0.0, energies[0]-delta), energies[-1]+delta)
     fit.create_multipeak_model(
         peak_locations,
         fit_type='uniform',
@@ -1387,21 +1384,33 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         background=fit_params.background,
         fwhm_min=fit_params.fwhm_min,
         fwhm_max=fit_params.fwhm_max,
-        centers_range=centers_range)
-    fit.fit(num_proc=fit_params.num_proc)
+        centers_range=fit_params.centers_range)
+    fit.fit(num_proc=fit_params.num_proc,
+            rel_height_cutoff=fit_params.rel_height_cutoff)
+    uniform_success = fit.success
     if spectra.ndim == 1:
-        uniform_fit_centers = [
-            fit.best_values[f'peak{i+1}_center'] for i in range(num_peak)]
-        uniform_fit_centers_errors = [
-            fit.best_errors[f'peak{i+1}_center'] for i in range(num_peak)]
-        uniform_fit_amplitudes = [
-            fit.best_values[f'peak{i+1}_amplitude'] for i in range(num_peak)]
-        uniform_fit_amplitudes_errors = [
-            fit.best_errors[f'peak{i+1}_amplitude'] for i in range(num_peak)]
-        uniform_fit_sigmas = [
-            fit.best_values[f'peak{i+1}_sigma'] for i in range(num_peak)]
-        uniform_fit_sigmas_errors = [
-            fit.best_errors[f'peak{i+1}_sigma'] for i in range(num_peak)]
+        if fit.success:
+            uniform_fit_centers = [
+                fit.best_values[f'peak{i+1}_center'] for i in range(num_peak)]
+            uniform_fit_centers_errors = [
+                fit.best_errors[f'peak{i+1}_center'] for i in range(num_peak)]
+            uniform_fit_amplitudes = [
+                fit.best_values[
+                    f'peak{i+1}_amplitude'] for i in range(num_peak)]
+            uniform_fit_amplitudes_errors = [
+                fit.best_errors[
+                    f'peak{i+1}_amplitude'] for i in range(num_peak)]
+            uniform_fit_sigmas = [
+                fit.best_values[f'peak{i+1}_sigma'] for i in range(num_peak)]
+            uniform_fit_sigmas_errors = [
+                fit.best_errors[f'peak{i+1}_sigma'] for i in range(num_peak)]
+        else:
+            uniform_fit_centers = list(peak_locations)
+            uniform_fit_centers_errors = [0]
+            uniform_fit_amplitudes = [0]
+            uniform_fit_amplitudes_errors = [0]
+            uniform_fit_sigmas = [0]
+            uniform_fit_sigmas_errors = [0]
     else:
         uniform_fit_centers = [
             fit.best_values[
@@ -1427,28 +1436,47 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
             fit.best_errors[
                 fit.best_parameters().index(f'peak{i+1}_sigma')]
             for i in range(num_peak)]
+        if not np.asarray(uniform_success).all():
+            for n in range(num_peak):
+                uniform_fit_centers[n] = np.where(
+                    uniform_success, uniform_fit_centers[n], peak_locations[n])
+                uniform_fit_centers_errors[n] *= uniform_success
+                uniform_fit_amplitudes[n] *= uniform_success
+                uniform_fit_amplitudes_errors[n] *= uniform_success
+                uniform_fit_sigmas[n] *= uniform_success
+                uniform_fit_sigmas_errors[n] *= uniform_success
     uniform_best_fit = fit.best_fit
     uniform_residuals = fit.residual
     uniform_redchi = fit.redchi
-    uniform_success = fit.success
 
     # Perform unconstrained fit
     fit.create_multipeak_model(fit_type='unconstrained')
     fit.fit(num_proc=fit_params.num_proc,
-            rel_amplitude_cutoff=fit_params.rel_amplitude_cutoff)
+            rel_height_cutoff=fit_params.rel_height_cutoff)
+    unconstrained_success = fit.success
     if spectra.ndim == 1:
-        unconstrained_fit_centers = [
-            fit.best_values[f'peak{i+1}_center'] for i in range(num_peak)]
-        unconstrained_fit_centers_errors = [
-            fit.best_errors[f'peak{i+1}_center'] for i in range(num_peak)]
-        unconstrained_fit_amplitudes = [
-            fit.best_values[f'peak{i+1}_amplitude'] for i in range(num_peak)]
-        unconstrained_fit_amplitudes_errors = [
-            fit.best_errors[f'peak{i+1}_amplitude'] for i in range(num_peak)]
-        unconstrained_fit_sigmas = [
-            fit.best_values[f'peak{i+1}_sigma'] for i in range(num_peak)]
-        unconstrained_fit_sigmas_errors = [
-            fit.best_errors[f'peak{i+1}_sigma'] for i in range(num_peak)]
+        if fit.success:
+            unconstrained_fit_centers = [
+                fit.best_values[f'peak{i+1}_center'] for i in range(num_peak)]
+            unconstrained_fit_centers_errors = [
+                fit.best_errors[f'peak{i+1}_center'] for i in range(num_peak)]
+            unconstrained_fit_amplitudes = [
+                fit.best_values[
+                    f'peak{i+1}_amplitude'] for i in range(num_peak)]
+            unconstrained_fit_amplitudes_errors = [
+                fit.best_errors[
+                    f'peak{i+1}_amplitude'] for i in range(num_peak)]
+            unconstrained_fit_sigmas = [
+                fit.best_values[f'peak{i+1}_sigma'] for i in range(num_peak)]
+            unconstrained_fit_sigmas_errors = [
+                fit.best_errors[f'peak{i+1}_sigma'] for i in range(num_peak)]
+        else:
+            uniform_fit_centers = list(peak_locations)
+            uniform_fit_centers_errors = [0]
+            uniform_fit_amplitudes = [0]
+            uniform_fit_amplitudes_errors = [0]
+            uniform_fit_sigmas = [0]
+            uniform_fit_sigmas_errors = [0]
     else:
         unconstrained_fit_centers = np.array(
             [fit.best_values[
@@ -1474,10 +1502,19 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
             fit.best_errors[
                 fit.best_parameters().index(f'peak{i+1}_sigma')]
             for i in range(num_peak)]
+        if not np.asarray(unconstrained_success).all():
+            for n in range(num_peak):
+                unconstrained_fit_centers[n] = np.where(
+                    unconstrained_success, unconstrained_fit_centers[n],
+                    peak_locations[n])
+                unconstrained_fit_centers_errors[n] *= unconstrained_success
+                unconstrained_fit_amplitudes[n] *= unconstrained_success
+                unconstrained_fit_amplitudes_errors[n] *= unconstrained_success
+                unconstrained_fit_sigmas[n] *= unconstrained_success
+                unconstrained_fit_sigmas_errors[n] *= unconstrained_success
     unconstrained_best_fit = fit.best_fit
     unconstrained_residuals = fit.residual
     unconstrained_redchi = fit.redchi
-    unconstrained_success = fit.success
 
     return (
         uniform_fit_centers, uniform_fit_centers_errors,

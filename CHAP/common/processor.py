@@ -167,7 +167,7 @@ class BinarizeProcessor(Processor):
         :raises ValueError: Upon invalid input parameters.
         :return: The binarized dataset with a return type equal to
             that of the input dataset.
-        :rtype: numpy.ndarray, nexusformat.nexus.NXobject
+        :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # System modules
         from os.path import join as os_join
@@ -492,6 +492,255 @@ class BinarizeProcessor(Processor):
             NXlink(nxdata.nxsignal.nxpath),
             [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
         return nxobject
+
+
+class ConstructBaseline(Processor):
+    """A Processor to construct a baseline for a dataset.
+    """
+    def process(
+            self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            save_figures=False, outputdir='.', interactive=False):
+        """Construct and return the baseline for a dataset.
+
+        :param data: Input data.
+        :type data: CHAP.pipeline.PipelineData
+        :param mask: A mask to apply to the spectrum before baseline
+           construction, default to `None`.
+        :type mask: array-like, optional
+        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :type tol: float, optional
+        :param lam: The &lambda (smoothness) parameter (the balance
+            between the residual of the data and the baseline and the
+            smoothness of the baseline). The suggested range is between
+            100 and 10^8, defaults to `10^6`.
+        :type lam: float, optional
+        :param max_iter: The maximum number of iterations,
+            defaults to `20`.
+        :type max_iter: int, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False.
+        :type save_figures: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :return: The smoothed baseline and the configuration.
+        :rtype: numpy.array, dict
+        """
+        try:
+            data = np.asarray(self.unwrap_pipelinedata(data)[0])
+        except:
+            raise ValueError(
+                f'The structure of {data} contains no valid data')
+
+        return self.construct_baseline(
+            data, mask, tol, lam, max_iter, save_figures, outputdir,
+            interactive)
+
+    @staticmethod
+    def construct_baseline(
+        y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
+        xlabel=None, ylabel=None, interactive=False, filename=None):
+        """Construct and return the baseline for a dataset.
+
+        :param y: Input data.
+        :type y: numpy.array
+        :param x: Independent dimension (only used when interactive is
+            `True` of when filename is set), defaults to `None`.
+        :type x: array-like, optional
+        :param mask: A mask to apply to the spectrum before baseline
+           construction, default to `None`.
+        :type mask: array-like, optional
+        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :type tol: float, optional
+        :param lam: The &lambda (smoothness) parameter (the balance
+            between the residual of the data and the baseline and the
+            smoothness of the baseline). The suggested range is between
+            100 and 10^8, defaults to `10^6`.
+        :type lam: float, optional
+        :param max_iter: The maximum number of iterations,
+            defaults to `20`.
+        :type max_iter: int, optional
+        :param xlabel: Label for the x-axis of the displayed figure,
+            defaults to `None`.
+        :param title: Title for the displayed figure, defaults to `None`.
+        :type title: str, optional
+        :type xlabel: str, optional
+        :param ylabel: Label for the y-axis of the displayed figure,
+            defaults to `None`.
+        :type ylabel: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :param filename: Save a .png of the plot to filename, defaults to
+            `None`, in which case the plot is not saved.
+        :type filename: str, optional
+        :return: The smoothed baseline and the configuration.
+        :rtype: numpy.array, dict
+        """
+        # Third party modules
+        if interactive or filename is not None:
+            from matplotlib.widgets import TextBox, Button
+            import matplotlib.pyplot as plt
+
+        # Local modules
+        from CHAP.utils.general import baseline_arPLS
+
+        def change_fig_subtitle(maxed_out=False, subtitle=None):
+            if fig_subtitles:
+                fig_subtitles[0].remove()
+                fig_subtitles.pop()
+            if subtitle is None:
+                subtitle = r'$\lambda$ = 'f'{lambdas[-1]:.2e}, '
+                if maxed_out:
+                    subtitle += f'# iter = {num_iters[-1]} (maxed out) '
+                else:
+                    subtitle += f'# iter = {num_iters[-1]} '
+                subtitle += f'error = {errors[-1]:.2e}'
+            fig_subtitles.append(
+                plt.figtext(*subtitle_pos, subtitle, **subtitle_props))
+
+        def select_lambda(expression):
+            """Callback function for the "Select lambda" TextBox.
+            """
+            if not len(expression):
+                return
+            try:
+                lam = float(expression)
+                if lam < 0:
+                    raise ValueError
+            except ValueError:
+                change_fig_subtitle(
+                    subtitle=f'Invalid lambda, enter a positive number')
+            else:
+                lambdas.pop()
+                lambdas.append(10**lam)
+                baseline, _, w, num_iter, error = baseline_arPLS(
+                    y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter,
+                    full_output=True)
+                num_iters.pop()
+                num_iters.append(num_iter)
+                errors.pop()
+                errors.append(error)
+                if num_iter < max_iter:
+                    change_fig_subtitle()
+                else:
+                    change_fig_subtitle(maxed_out=True)
+                baseline_handle.set_ydata(baseline)
+            lambda_box.set_val('')
+            plt.draw()
+
+        def continue_iter(event):
+            """Callback function for the "Continue" button."""
+            baseline, _, w, n_iter, error = baseline_arPLS(
+                y, mask=mask, w=weights[-1], tol=tol, lam=lambdas[-1],
+                max_iter=max_iter, full_output=True)
+            num_iters[-1] += n_iter
+            errors.pop()
+            errors.append(error)
+            if n_iter < max_iter:
+                change_fig_subtitle()
+            else:
+                change_fig_subtitle(maxed_out=True)
+            baseline_handle.set_ydata(baseline)
+            plt.draw()
+            weights.pop()
+            weights.append(w)
+
+        def confirm(event):
+            """Callback function for the "Confirm" button."""
+            plt.close()
+
+        baseline, _, w, num_iter, error = baseline_arPLS(
+            y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+            full_output=True)
+
+        if not interactive and filename is None:
+            return baseline
+
+        lambdas = [lam]
+        weights = [w]
+        num_iters = [num_iter]
+        errors = [error]
+        fig_subtitles = []
+
+        # Check inputs
+        if x is None:
+            x = np.arange(y.size)
+
+        # Setup the Matplotlib figure
+        title_pos = (0.5, 0.95)
+        title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        subtitle_pos = (0.5, 0.90)
+        subtitle_props = {'fontsize': 'x-large',
+                          'horizontalalignment': 'center',
+                          'verticalalignment': 'bottom'}
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        if mask is None:
+            ax.plot(x, y, label='input data')
+        else:
+            ax.plot(
+                x[mask.astype(bool)], y[mask.astype(bool)], label='input data')
+        baseline_handle = ax.plot(x, baseline, label='baseline')[0]
+#        ax.plot(x, y-baseline, label='baseline corrected data')
+        ax.set_xlabel(xlabel, fontsize='x-large')
+        ax.set_ylabel(ylabel, fontsize='x-large')
+        ax.legend()
+        if title is None:
+            fig_title = plt.figtext(*title_pos, 'Baseline', **title_props)
+        else:
+            fig_title = plt.figtext(*title_pos, title, **title_props)
+        if num_iter < max_iter:
+            change_fig_subtitle()
+        else:
+            change_fig_subtitle(maxed_out=True)
+        fig.subplots_adjust(bottom=0.0, top=0.85)
+
+        if interactive:
+
+            fig.subplots_adjust(bottom=0.2)
+
+            # Setup TextBox
+            lambda_box = TextBox(
+                plt.axes([0.15, 0.05, 0.15, 0.075]), r'log($\lambda$)')
+            lambda_cid = lambda_box.on_submit(select_lambda)
+
+            # Setup "Continue" button
+            continue_btn = Button(
+                plt.axes([0.45, 0.05, 0.15, 0.075]), 'Continue smoothing')
+            continue_cid = continue_btn.on_clicked(continue_iter)
+
+            # Setup "Confirm" button
+            confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+            confirm_cid = confirm_btn.on_clicked(confirm)
+
+            # Show figure for user interaction
+            plt.show()
+
+            # Disconnect all widget callbacks when figure is closed
+            lambda_box.disconnect(lambda_cid)
+            continue_btn.disconnect(continue_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ... and remove the buttons before returning the figure
+            lambda_box.ax.remove()
+            continue_btn.ax.remove()
+            confirm_btn.ax.remove()
+
+        if filename is not None:
+            fig_title.set_in_layout(True)
+            fig_subtitles[-1].set_in_layout(True)
+            fig.tight_layout(rect=(0, 0, 1, 0.90))
+            fig.savefig(filename)
+        plt.close()
+
+        config = {
+            'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
+            'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
+        return baseline, config
 
 
 class ImageProcessor(Processor):
