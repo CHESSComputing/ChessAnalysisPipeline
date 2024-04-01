@@ -590,7 +590,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
                                    int(self.spec_args[3])+1)
             return (mot_vals,)
         if self.spec_macro in ('tseries', 'loopscan'):
-            return self.spec_scan.data[:,0]
+            return (self.spec_scan.data[:,0],)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan motors '
                            f'for scans of type {self.spec_macro}')
 
@@ -611,7 +611,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             mot_npts = int(self.spec_args[3])+1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
-            return len(np.array(self.spec_scan.data[:,0]))
+            return (len(np.array(self.spec_scan.data[:,0])),)
         raise RuntimeError(f'{self.scan_title}: cannot determine scan shape '
                            f'for scans of type {self.spec_macro}')
 
