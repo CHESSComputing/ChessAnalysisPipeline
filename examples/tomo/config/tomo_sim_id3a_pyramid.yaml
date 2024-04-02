@@ -1,0 +1,17 @@
+station: id3a
+detector:
+  prefix: sim
+  rows: 80
+  columns: 400
+  pixel_size:
+  - 0.025
+  - 0.005
+  lens_magnification: 1.0
+sample_type: hollow_pyramid
+sample_size:
+- 2.5
+- 1.0
+- 0.4
+wall_thickness: 0.1
+theta_step: 1.0
+slit_size: 1.0

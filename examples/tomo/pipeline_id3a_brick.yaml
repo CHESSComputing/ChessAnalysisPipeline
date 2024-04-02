@@ -1,7 +1,7 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: hollow_cube
+  outputdir: hollow_brick
   interactive: true
   log_level: INFO
   profile: false
@@ -13,29 +13,29 @@ pipeline:
       items:
         - common.SpecReader:
             spec_config:
-              station: id3b
+              station: id3a
               experiment_type: TOMO
               spec_scans:
-              - spec_file: ../data/hollow_cube/hollow_cube
+              - spec_file: ../data/hollow_brick/spec.log
                 scan_numbers:
                 - 1
             detector_names:
               - sim
             schema: darkfield
         - common.SpecReader:
-            inputdir: ../data/hollow_cube
+            inputdir: ../data/hollow_brick
             spec_config:
-              station: id3b
+              station: id3a
               experiment_type: TOMO
               spec_scans:
-              - spec_file: hollow_cube
+              - spec_file: spec.log
                 scan_numbers:
                 - 2
             detector_names:
               - sim
             schema: brightfield
         - common.MapReader:
-            filename: map_id3b.yaml
+            filename: map_id3a_brick.yaml
             detector_names:
               - sim
             schema: tomofields
@@ -48,18 +48,19 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
         - common.YAMLReader:
-            filename: reduce_data_id3b.yaml
-            schema: tomo.models.TomoReduceConfig
-        - common.YAMLReader:
-            filename: find_center_id3b.yaml
+            filename: find_center_id3a.yaml
             schema: tomo.models.TomoFindCenterConfig
         - common.YAMLReader:
             filename: reconstruct_data.yaml
             schema: tomo.models.TomoReconstructConfig
+        - common.YAMLReader:
+            filename: combine_data_id3a.yaml
+            schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
+      reduce_data: True
       outputdir: saved_figs
       save_figs: 'only'
   - common.NexusWriter:
-      filename: reconstructed_data.nxs
+      filename: combined_hollow_brick.nxs
       force_overwrite: true
 

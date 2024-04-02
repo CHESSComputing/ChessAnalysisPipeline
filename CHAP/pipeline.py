@@ -227,7 +227,7 @@ class MultiplePipelineItem(PipelineItem):
                 outputdir = os.path.normpath(os.path.join(
                     args['outputdir'], item_args.pop('outputdir')))
                 if not os.path.isdir(outputdir):
-                    os.mkdir(outputdir)
+                    os.makedirs(outputdir)
                 try:
                     tmpfile = NamedTemporaryFile(dir=outputdir)
                 except:

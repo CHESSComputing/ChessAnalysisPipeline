@@ -2564,7 +2564,7 @@ class FitMap(Fit):
                     np.zeros(self._map_dim, dtype=np.float64)
                     for _ in range(num_new_parameters)]
         else:
-            self._memfolder = './joblib_memmap'
+            self._memfolder = 'joblib_memmap'
             try:
                 mkdir(self._memfolder)
             except FileExistsError:

@@ -89,7 +89,7 @@ def write_yaml(data, filename, force_overwrite=False):
 
 def write_filetree(data, outputdir, force_overwrite=False):
     # System modules
-    from os import mkdir
+    from os import makedirs
 
     # Third party modules
     from nexusformat.nexus import (
@@ -104,7 +104,7 @@ def write_filetree(data, outputdir, force_overwrite=False):
                         f'{type(data).__name__} as a file tree to disk.')
 
     if not os_path.isdir(outputdir):
-        mkdir(outputdir)
+        makedirs(outputdir)
 
     for k, v in data.items():
         if isinstance(v, NXsubentry) and 'schema' in v.attrs:
@@ -204,6 +204,44 @@ class FileTreeWriter(Writer):
         return data
 
 
+class H5Writer(Writer):
+    """Writer for H5 files from an `nexusformat.nexus.NXdata` object"""
+    def write(self, data, filename, force_overwrite=False):
+        """Write the NeXus object contained in `data` to hdf5 file.
+
+        :param data: The data to write to file.
+        :type data: CHAP.pipeline.PipelineData
+        :param filename: The name of the file to write to.
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to file.
+        :rtype: nexusformat.nexus.NXobject
+        """
+        # Third party modules
+        from h5py import File
+        from nexusformat.nexus import NXdata
+
+        data = self.unwrap_pipelinedata(data)[-1]
+        if not isinstance(data, NXdata):
+            raise ValueError('Invalid data parameter {(data)}')
+
+        mode = 'w' if force_overwrite else 'w-'
+        with File(filename, mode) as f:
+            f[data.signal] = data.nxsignal
+            for i, axes in enumerate(data.attrs['axes']):
+                f[axes] = data[axes]
+                f[data.signal].dims[i].label = \
+                    f'{axes} ({data[axes].units})' \
+                    if 'units' in data[axes].attrs else axes
+                f[axes].make_scale(axes)
+                f[data.signal].dims[i].attach_scale(f[axes])
+
+        return data
+
+
 class MatplotlibAnimationWriter(Writer):
     """Writer for saving matplotlib animations."""
     def write(self, data, filename, fps=1):
@@ -275,6 +313,7 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
+        # Third party modules
         from nexusformat.nexus import (
             NXentry,
             NXroot,

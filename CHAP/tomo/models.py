@@ -168,9 +168,11 @@ class TomoSimConfig(BaseModel):
     :type detector: Detector
     :ivar sample_type: Sample type for the tomography simulator.
     :type sample_type: Literal['square_rod', 'square_pipe',
-        'hollow_cube', 'hollow_brick']
+        'hollow_cube', 'hollow_brick', 'hollow_pyramid']
     :ivar sample_size: Size of each sample dimension in mm (internally
-        converted to an integer number of pixels).
+        converted to an integer number of pixels). Enter three values
+        for sample_type == `'hollow_pyramid'`, the height and the side
+        at the respective bottom and the top of the pyramid.
     :type sample_size: list[float]
     :ivar wall_thickness: Wall thickness for pipe, cube, and brick in
         mm (internally converted to an integer number of pixels).
@@ -192,10 +194,11 @@ class TomoSimConfig(BaseModel):
     station: Literal['id1a3', 'id3a', 'id3b']
     detector: Detector.construct()
     sample_type: Literal[
-        'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick']
+        'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick',
+        'hollow_pyramid']
     sample_size: conlist(
         item_type=confloat(gt=0, allow_inf_nan=False),
-        min_items=1, max_items=2)
+        min_items=1, max_items=3)
     wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
     mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
     theta_step: confloat(gt=0, allow_inf_nan=False)
