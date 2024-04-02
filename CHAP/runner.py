@@ -37,7 +37,7 @@ class RunConfig():
 
         # Check if root exists (create it if not) and is readable
         if not os.path.isdir(self.root):
-            os.mkdir(self.root)
+            os.makedirs(self.root)
         if not os.access(self.root, os.R_OK):
             raise OSError('root directory is not accessible for reading '
                           f'({self.root})')
@@ -57,7 +57,7 @@ class RunConfig():
             self.outputdir = os.path.realpath(
                 os.path.join(self.root, self.outputdir))
         if not os.path.isdir(self.outputdir):
-            os.mkdir(self.outputdir)
+            os.makedirs(self.outputdir)
         try:
             tmpfile = NamedTemporaryFile(dir=self.outputdir)
         except:
@@ -170,7 +170,7 @@ def run(
                 newoutputdir = os.path.normpath(os.path.join(
                     kwargs['outputdir'], item_args.pop('outputdir')))
                 if not os.path.isdir(newoutputdir):
-                    os.mkdir(newoutputdir)
+                    os.makedirs(newoutputdir)
                 try:
                     tmpfile = NamedTemporaryFile(dir=newoutputdir)
                 except:

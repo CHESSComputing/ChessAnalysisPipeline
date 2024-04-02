@@ -37,6 +37,7 @@ from CHAP.common.processor import (
 from CHAP.common.writer import (
     ExtractArchiveWriter,
     FileTreeWriter,
+    H5Writer,
     MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,
