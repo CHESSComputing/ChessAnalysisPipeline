@@ -89,7 +89,7 @@ def write_yaml(data, filename, force_overwrite=False):
 
 def write_filetree(data, outputdir, force_overwrite=False):
     # System modules
-    from os import mkdir
+    from os import makedirs
 
     # Third party modules
     from nexusformat.nexus import (
@@ -104,7 +104,7 @@ def write_filetree(data, outputdir, force_overwrite=False):
                         f'{type(data).__name__} as a file tree to disk.')
 
     if not os_path.isdir(outputdir):
-        mkdir(outputdir)
+        makedirs(outputdir)
 
     for k, v in data.items():
         if isinstance(v, NXsubentry) and 'schema' in v.attrs:
@@ -136,7 +136,7 @@ class ExtractArchiveWriter(Writer):
         and write the extracted archive to files.
 
         :param data: The data to write to archive.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the directory to write the archive
             files to.
         :type filename: str
@@ -162,7 +162,7 @@ class FileTreeWriter(Writer):
         directory tree stuctured like the NeXus tree.
 
         :param data: The data to write to disk.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param outputdir: The name of the directory to write to.
         :type outputdir: str
         :param force_overwrite: Flag to allow data to be overwritten
@@ -204,6 +204,44 @@ class FileTreeWriter(Writer):
         return data
 
 
+class H5Writer(Writer):
+    """Writer for H5 files from an `nexusformat.nexus.NXdata` object"""
+    def write(self, data, filename, force_overwrite=False):
+        """Write the NeXus object contained in `data` to hdf5 file.
+
+        :param data: The data to write to file.
+        :type data: CHAP.pipeline.PipelineData
+        :param filename: The name of the file to write to.
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The data written to file.
+        :rtype: nexusformat.nexus.NXobject
+        """
+        # Third party modules
+        from h5py import File
+        from nexusformat.nexus import NXdata
+
+        data = self.unwrap_pipelinedata(data)[-1]
+        if not isinstance(data, NXdata):
+            raise ValueError('Invalid data parameter {(data)}')
+
+        mode = 'w' if force_overwrite else 'w-'
+        with File(filename, mode) as f:
+            f[data.signal] = data.nxsignal
+            for i, axes in enumerate(data.attrs['axes']):
+                f[axes] = data[axes]
+                f[data.signal].dims[i].label = \
+                    f'{axes} ({data[axes].units})' \
+                    if 'units' in data[axes].attrs else axes
+                f[axes].make_scale(axes)
+                f[data.signal].dims[i].attach_scale(f[axes])
+
+        return data
+
+
 class MatplotlibAnimationWriter(Writer):
     """Writer for saving matplotlib animations."""
     def write(self, data, filename, fps=1):
@@ -211,7 +249,7 @@ class MatplotlibAnimationWriter(Writer):
         contained in `data` to file.
 
         :param data: The matplotlib animation.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param fps: Movie frame rate (frames per second),
@@ -224,7 +262,7 @@ class MatplotlibAnimationWriter(Writer):
         extension = os_path.splitext(filename)[1]
         if not extension:
             data.save(f'{filename}.gif', fps=fps)
-        elif extension in '.gif':
+        elif extension == '.gif':
             data.save(filename, fps=fps)
         elif extension == '.mp4':
             data.save(filename, writer='ffmpeg', fps=fps)
@@ -239,7 +277,7 @@ class MatplotlibFigureWriter(Writer):
         file.
 
         :param data: The matplotlib figure
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param savefig_kw: Keyword args to pass to
@@ -265,7 +303,7 @@ class NexusWriter(Writer):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
@@ -275,6 +313,7 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
+        # Third party modules
         from nexusformat.nexus import (
             NXentry,
             NXroot,
@@ -293,6 +332,78 @@ class NexusWriter(Writer):
         write_nexus(data, filename, force_overwrite)
 
         return data
+
+
+class PyfaiResultsWriter(Writer):
+    """Writer for results of one or more pyFAI integrations. Able to
+    handle multiple output formats. Currently supported formats are:
+    .npz, .nxs.
+    """
+    def write(self, data, filename, force_overwrite=False):
+        """Save pyFAI integration results to a file. Format is
+        determined automatically form the extension of `filename`.
+
+        :param data: Integration results to save.
+        :type data: Union[PipelineData,
+            list[pyFAI.containers.IntegrateResult]]
+        :param filename: Name of the file to which results will be
+            saved. Format of output is determined ffrom the
+            extension. Currently supported formats are: `.npz`,
+            `.nxs`
+        :type filename: str
+        """
+        import os
+
+        from pyFAI.containers import Integrate1dResult, Integrate2dResult
+
+        try:
+            results = self.unwrap_pipelinedata(data)[0]
+        except:
+            results = data
+        if not isinstance(results, list):
+            results = [results]
+        if not all([isinstance(r, Integrate1dResult) for r in results]) \
+           and not all([isinstance(r, Integrate2dResult) for r in results]):
+            raise Exception(
+                'Bad input data: all items must have the same type -- either '
+                + 'all pyFAI.containers.Integrate1dResult, or all '
+                + 'pyFAI.containers.Integrate2dResult.')
+
+        if os.path.isfile(filename):
+            if force_overwrite:
+                self.logger.warning(f'Removing existing file {filename}')
+                os.remove(filename)
+            else:
+                raise Exception(f'{filename} already exists.')
+        _, ext = os.path.splitext(filename)
+        if ext.lower() == '.npz':
+            self.write_npz(results, filename)
+        elif ext.lower() == '.nxs':
+            self.write_nxs(results, filename)
+        else:
+            raise Exception(f'Unsupported file format: {ext}')
+        self.logger.info(f'Wrote to {filename}')
+        return results
+
+    def write_npz(self, results, filename):
+        """Save `results` to the .npz file, `filename`"""
+        import numpy as np
+
+        data = {'radial': results[0].radial,
+                'intensity': [r.intensity for r in results]}
+        if hasattr(results[0], 'azimuthal'):
+            # 2d results
+            data['azimuthal'] = results[0].azimuthal
+        if all([r.sigma for r in results]):
+            # errors were included
+            data['sigma'] = [r.sigma for r in results]
+
+        np.savez(filename, **data)
+
+    def write_nxs(results, filename):
+        """Save `results` to the .nxs file, `filename`"""
+        raise NotImplementedError
+
 
 
 class TXTWriter(Writer):

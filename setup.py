@@ -54,6 +54,7 @@ setuptools.setup(
         'CHAP.sin2psi',
         'CHAP.tomo',
         'CHAP.utils',
+        'CHAP.foxden',
         'MLaaS'
     ],
     package_dir={
@@ -65,6 +66,7 @@ setuptools.setup(
         'CHAP.saxswaxs': 'CHAP/saxswaxs',
         'CHAP.sin2psi': 'CHAP/sin2psi',
         'CHAP.tomo': 'CHAP/tomo',
+        'CHAP.foxden': 'CHAP/foxden',
         'CHAP.utils': 'CHAP/utils',
         'MLaaS': 'MLaaS'
     },

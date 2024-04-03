@@ -1110,18 +1110,6 @@ def select_mask_1d(
                        for v in preselected_index_ranges)):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
-        if (min_num_index_ranges is not None
-                and len(preselected_index_ranges) < min_num_index_ranges):
-            raise ValueError(
-                'Invalid parameter preselected_index_ranges '
-                f'({preselected_index_ranges}), number of selected index '
-                f'ranges must be >= {min_num_index_ranges}')
-        if (max_num_index_ranges is not None
-                and len(preselected_index_ranges) > max_num_index_ranges):
-            raise ValueError(
-                'Invalid parameter preselected_index_ranges '
-                f'({preselected_index_ranges}), number of selected index '
-                f'ranges must be <= {max_num_index_ranges}')
 
     spans = []
     fig_title = []
@@ -1196,8 +1184,6 @@ def select_mask_1d(
         plt.subplots_adjust(bottom=0.0)
 
     selected_index_ranges = get_selected_index_ranges()
-    if not selected_index_ranges:
-        selected_index_ranges = None
 
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
@@ -1549,7 +1535,7 @@ def select_image_indices(
         try:
             index = int(expression)
             if (index < axis_index_offset
-                    or index >= axis_index_offset+a.shape[axis]):
+                    or index > axis_index_offset+a.shape[axis]):
                 raise ValueError
         except ValueError:
             change_error_text(

@@ -1,12 +1,11 @@
-title: hollow_cube
-station: id3b
+title: hollow_pyramid
+station: id3a
 experiment_type: TOMO
 sample:
-  name: hollow_cube
+  name: hollow_pyramid
 spec_scans:
-- spec_file: ../data/hollow_cube/hollow_cube
-  scan_numbers:
-  - 3
+- spec_file: ../data/hollow_pyramid/spec.log
+  scan_numbers: [3, 4, 5]
 independent_dimensions:
 - label: rotation_angles
   units: degrees
@@ -14,9 +13,10 @@ independent_dimensions:
   name: theta
 - label: x_translation
   units: mm
-  data_type: spec_motor
-  name: GI_samx
+  data_type: smb_par
+  name: ramsx
 - label: z_translation
   units: mm
-  data_type: spec_motor
-  name: GI_samz
+  data_type: smb_par
+  name: ramsz
+

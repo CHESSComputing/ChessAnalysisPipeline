@@ -8,7 +8,6 @@ Description: Module for Processors used only by tomography experiments
 """
 
 # System modules
-from os import mkdir
 from os import path as os_path
 from sys import exit as sys_exit
 from time import time
@@ -715,6 +714,12 @@ class Tomo:
                 f'num_core = {self._num_core} is larger than the number '
                 f'of available processors and reduced to {cpu_count()}')
             self._num_core = cpu_count()
+        # Tompy py uses numexpr with NUMEXPR_MAX_THREADS = 64
+        if self._num_core > 64:
+            self._logger.warning(
+                f'num_core = {self._num_core} is larger than the number '
+                f'of processors suitable to Tomopy and reduced to 64')
+            self._num_core = 64
 
     def reduce_data(
             self, nxroot, tool_config=None, calibrate_center_rows=False):
@@ -2695,7 +2700,7 @@ class Tomo:
                 select_text.remove()
         fig_subtitle.remove()
         fig.tight_layout(rect=(0, 0, 1, 0.95))
-        if not selected_offset and num_plots == 1:
+        if not selected_offset:# and num_plots == 1:
             selected_offset.append(
                 (True, preselected_offsets[default_offset_index]))
 
@@ -2951,6 +2956,9 @@ class TomoSimFieldProcessor(Processor):
         sample_size = config.sample_size
         if len(sample_size) == 1:
             sample_size = (sample_size[0], sample_size[0])
+        if sample_type == 'hollow_pyramid' and len(sample_size) != 3:
+            raise ValueError('Invalid combindation of sample_type '
+                             f'({sample_type}) and sample_size ({sample_size}')
         wall_thickness = config.wall_thickness
         mu = config.mu
         theta_step = config.theta_step
@@ -2987,15 +2995,22 @@ class TomoSimFieldProcessor(Processor):
 
         # Get the number of horizontal stacks bases on the diagonal
         # of the square and for now don't allow more than one
-        num_tomo_stack = 1 + int((sample_size[1]*np.sqrt(2)-pixel_size[1])
-                                 / (detector_size[1]*pixel_size[1]))
+        if (sample_size) == 3:
+            num_tomo_stack = 1 + int(
+                (max(sample_size[1:2])*np.sqrt(2)-pixel_size[1])
+                / (detector_size[1]*pixel_size[1]))
+        else:
+            num_tomo_stack = 1 + int((sample_size[1]*np.sqrt(2)-pixel_size[1])
+                                     / (detector_size[1]*pixel_size[1]))
         if num_tomo_stack > 1:
             raise ValueError('Sample is too wide for the detector')
 
         # Create the x-ray path length through a solid square
         # crosssection for a set of rotation angles.
-        path_lengths_solid = self._create_pathlength_solid_square(
-                sample_size[1], thetas, pixel_size[1], detector_size[1])
+        path_lengths_solid = None
+        if sample_type != 'hollow_pyramid':
+            path_lengths_solid = self._create_pathlength_solid_square(
+                    sample_size[1], thetas, pixel_size[1], detector_size[1])
 
         # Create the x-ray path length through a hollow square
         # crosssection for a set of rotation angles.
@@ -3021,7 +3036,12 @@ class TomoSimFieldProcessor(Processor):
         num_theta = len(thetas)
         vertical_shifts = []
         tomo_fields_stack = []
-        img_dim = (len(img_row_coords), path_lengths_solid.shape[1])
+        len_img_y = (detector_size[1]+1)//2
+        if len_img_y%2:
+            len_img_y = 2*len_img_y - 1
+        else:
+            len_img_y = 2*len_img_y
+        img_dim = (len(img_row_coords), len_img_y)
         intensities_solid = None
         intensities_hollow = None
         for n in range(num_tomo_stack):
@@ -3038,6 +3058,37 @@ class TomoSimFieldProcessor(Processor):
                     beam_intensity * np.exp(-mu*path_lengths_hollow)
                 for n in range(num_theta):
                     tomo_field[n,:,:] = intensities_hollow[n]
+            elif sample_type == 'hollow_pyramid':
+                outer_indices = \
+                    np.where(abs(img_row_coords) <= sample_size[0]/2)[0]
+                inner_indices = np.where(
+                    abs(img_row_coords) < sample_size[0]/2 - wall_thickness)[0]
+                wall_indices = list(set(outer_indices)-set(inner_indices))
+                ratio = abs(sample_size[1]-sample_size[2])/sample_size[0]
+                baselength = max(sample_size[1:2])
+                for i in wall_indices:
+                    path_lengths_solid = self._create_pathlength_solid_square(
+                        baselength - ratio*(
+                            img_row_coords[i] + 0.5*sample_size[0]),
+                        thetas, pixel_size[1], detector_size[1])
+                    intensities_solid = \
+                        beam_intensity * np.exp(-mu*path_lengths_solid)
+                    for n in range(num_theta):
+                        tomo_field[n,i] = intensities_solid[n]
+                for i in inner_indices:
+                    path_lengths_hollow = (
+                        self._create_pathlength_solid_square(
+                            baselength - ratio*(
+                                img_row_coords[i] + 0.5*sample_size[0]),
+                            thetas, pixel_size[1], detector_size[1])
+                        - self._create_pathlength_solid_square(
+                            baselength - 2*wall_thickness - ratio*(
+                                img_row_coords[i] + 0.5*sample_size[0]),
+                            thetas, pixel_size[1], detector_size[1]))
+                    intensities_hollow = \
+                        beam_intensity * np.exp(-mu*path_lengths_hollow)
+                    for n in range(num_theta):
+                        tomo_field[n,i] = intensities_hollow[n]
             else:
                 intensities_solid = \
                     beam_intensity * np.exp(-mu*path_lengths_solid)
@@ -3130,7 +3181,7 @@ class TomoSimFieldProcessor(Processor):
         """
         # Get the column coordinates
         img_y_coords = pixel_size * (0.5 * (1 - detector_size%2)
-            + np.asarray(range(int(0.5 * (detector_size+1)))))
+            + np.asarray(range((detector_size+1)//2)))
 
         # Get the path lenghts for position column coordinates
         lengths = np.zeros((len(thetas), len(img_y_coords)), dtype=np.float64)

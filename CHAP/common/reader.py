@@ -36,10 +36,36 @@ class BinaryFileReader(Reader):
         return data
 
 
+class FabioImageReader(Reader):
+    """Reader for images using the python package
+    [`fabio`](https://fabio.readthedocs.io/en/main/).
+    """
+    def read(self, filename, inputdir='.'):
+        """Return the data from the image file(s) provided.
+
+        :param filename: The image filename, or glob pattern for image
+            filenames, to read.
+        :type filename: str
+        :returns: Image data as a numpy array (or list of numpy
+            arrays, if a glob pattern matching more than one file was
+            provided).
+        """
+        from glob import glob
+        import fabio
+
+        filenames = glob(filename)
+        data = []
+        for f in filenames:
+            image = fabio.open(f)
+            data.append(image.data)
+            image.close()
+        return data
+
+
 class H5Reader(Reader):
     """Reader for h5 files.
     """
-    def read(self, filename, h5path='/'):
+    def read(self, filename, h5path='/', idx=None):
         """Return the data object stored at `h5path` in an h5-file.
 
         :param filename: The name of the h5-file to read from.
@@ -54,6 +80,8 @@ class H5Reader(Reader):
         from h5py import File
 
         data = File(filename, 'r')[h5path]
+        if idx is not None:
+            data = data[tuple(idx)]
         return data
 
 
@@ -166,6 +194,8 @@ class MapReader(Reader):
         # Create empty NXfields of appropriate shape for raw
         # detector data
         for detector_name in detector_names:
+            if not isinstance(detector_name, str):
+                detector_name = str(detector_name)
             detector_data = map_config.get_detector_data(
                 detector_name, (0,) * len(map_config.shape))
             nxentry.data[detector_name] = NXfield(value=np.zeros(
@@ -179,6 +209,8 @@ class MapReader(Reader):
                     nxentry.data[data.label][map_index] = map_config.get_value(
                         data, map_index)
                 for detector_name in detector_names:
+                    if not isinstance(detector_name, str):
+                        detector_name = str(detector_name)
                     nxentry.data[detector_name][map_index] = \
                         map_config.get_detector_data(detector_name, map_index)
 

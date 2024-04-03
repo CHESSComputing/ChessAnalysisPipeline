@@ -4,7 +4,7 @@ experiment_type: TOMO
 sample:
   name: hollow_brick
 spec_scans:
-- spec_file: ../hollow_brick/spec.log
+- spec_file: ../data/hollow_brick/spec.log
   scan_numbers: [3, 4, 5]
 independent_dimensions:
 - label: rotation_angles

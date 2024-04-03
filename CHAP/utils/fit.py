@@ -862,9 +862,13 @@ class Fit:
         # Third party modules
         from asteval import Interpreter
 
+        # Local modules
+        from CHAP.utils.general import is_num_pair
+
         if centers_range is None:
             centers_range = (self._x[0], self._x[-1])
-        elif not is_index_range(centers_range, ge=self._x[0], le=self._x[-1]):
+        elif (not is_num_pair(centers_range) or len(centers_range) != 2
+                or centers_range[0] >= centers_range[1]):
             raise ValueError(
                 f'Invalid parameter centers_range ({centers_range})')
         if self._model is not None:
@@ -1021,9 +1025,8 @@ class Fit:
                                         {'name': par_name, 'min': min_value})
                                 elif len(index) == 1:
                                     parameter = parameters[index[0]]
-                                    _min = parameter.get('min', None)
-                                    if _min is None or _min < min_value:
-                                        parameter['min'] = min_value
+                                    _min = parameter.get('min', min_value)
+                                    parameter['min'] = max(_min, min_value)
                                 else:
                                     raise ValueError(
                                         'Invalid parameters value in '
@@ -1045,14 +1048,47 @@ class Fit:
                                         {'name': par_name, 'min': min_value})
                                 elif len(index) == 1:
                                     parameter = parameters[index[0]]
-                                    _min = parameter.get('min', None)
-                                    if _min is None or _min < min_value:
-                                        parameter['min'] = min_value
+                                    _min = parameter.get('min', min_value)
+                                    parameter['min'] = max(_min, min_value)
                                 else:
                                     raise ValueError(
                                         'Invalid parameters value in '
                                         f'background model {name} '
                                         f'({parameters})')
+                    if name == 'gaussian':
+                        if parameters is None:
+                            parameters = {
+                                'name': 'center',
+                                'value': 0.5 * (
+                                    centers_range[0] + centers_range[1]),
+                                'min': centers_range[0],
+                                'min': centers_range[1],
+                            }
+                        else:
+                            index = [i for i, par in enumerate(parameters)
+                                     if par['name'] == 'center']
+                            if not len(index):
+                                parameters.append({
+                                    'name': 'center',
+                                    'value': 0.5 * (
+                                        centers_range[0] + centers_range[1]),
+                                    'min': centers_range[0],
+                                    'max': centers_range[1],
+                                })
+                            elif len(index) == 1:
+                                parameter = parameters[index[0]]
+                                if 'value' not in parameter:
+                                    parameter['value'] = 0.5 * (
+                                        centers_range[0]+centers_range[1])
+                                _min = parameter.get('min', centers_range[0])
+                                parameter['min'] = max(_min, centers_range[0])
+                                _max = parameter.get('max', centers_range[1])
+                                parameter['max'] = min(_max, centers_range[1])
+                            else:
+                                raise ValueError(
+                                    'Invalid parameters value in '
+                                    f'background model {name} '
+                                    f'({parameters})')
                     self.add_model(
                         name, prefix=prefix, parameters=parameters,
                         **model)
@@ -1320,14 +1356,11 @@ class Fit:
             self._reset_par_at_boundary()
 
             # Perform the fit
-            fit_kws = None
-#            if 'Dfun' in kwargs:
-#                fit_kws = {'Dfun': kwargs.pop('Dfun')}
-#            self._result = self._model.fit(
-#                self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
-#                **kwargs)
+            fit_kws = {}
             if self._param_constraint:
                 fit_kws = {'xtol': 1.e-5, 'ftol': 1.e-5, 'gtol': 1.e-5}
+#            if 'Dfun' in kwargs:
+#                fit_kws['Dfun'] = kwargs.pop('Dfun')
             if self._mask is None:
                 self._result = self._model.fit(
                     self._y_norm, self._parameters, x=self._x, fit_kws=fit_kws,
@@ -1866,6 +1899,7 @@ class Fit:
             self._result.residual *= self._norm[1]
 
     def _reset_par_at_boundary(self):
+        fraction = 0.02
         for name, par in self._parameters.items():
             if par.vary:
                 value = par.value
@@ -1874,26 +1908,26 @@ class Fit:
                 if np.isinf(_min):
                     if not np.isinf(_max):
                         if self._parameter_norms.get(name, False):
-                            upp = _max-0.1*self._y_range
+                            upp = _max - fraction*self._y_range
                         elif _max == 0.0:
-                            upp = _max-0.1
+                            upp = _max - fraction
                         else:
-                            upp = _max-0.1*abs(_max)
+                            upp = _max - fraction*abs(_max)
                         if value >= upp:
                             par.set(value=upp)
                 else:
                     if np.isinf(_max):
                         if self._parameter_norms.get(name, False):
-                            low = _min + 0.1*self._y_range
+                            low = _min + fraction*self._y_range
                         elif _min == 0.0:
-                            low = _min+0.1
+                            low = _min + fraction
                         else:
-                            low = _min + 0.1*abs(_min)
+                            low = _min + fraction*abs(_min)
                         if value <= low:
                             par.set(value=low)
                     else:
-                        low = 0.9*_min + 0.1*_max
-                        upp = 0.1*_min + 0.9*_max
+                        low = (1.0-fraction)*_min + fraction*_max
+                        upp = fraction*_min + (1.0-fraction)*_max
                         if value <= low:
                             par.set(value=low)
                         if value >= upp:
@@ -1917,6 +1951,7 @@ class FitMap(Fit):
         self._max_nfev = None
         self._memfolder = None
         self._new_parameters = None
+        self._num_func_eval = None
         self._out_of_bounds = None
         self._plot = False
         self._print_report = False
@@ -1932,6 +1967,7 @@ class FitMap(Fit):
         #     map dimensions
         if isinstance(ymap, (tuple, list, np.ndarray)):
             self._x = np.asarray(x)
+            ymap = np.asarray(ymap)
         elif HAVE_XARRAY and isinstance(ymap, xr.DataArray):
             if x is not None:
                 logger.warning('Ignoring superfluous input x ({x})')
@@ -2149,7 +2185,8 @@ class FitMap(Fit):
     @property
     def max_nfev(self):
         """
-        Return the maximum number of function evaluations for each fit.
+        Return if the maximum number of function evaluations is reached
+        for each fit.
         """
         return self._max_nfev
 
@@ -2158,7 +2195,7 @@ class FitMap(Fit):
         """
         Return the number of function evaluations for each best fit.
         """
-        logger.warning('Undefined property num_func_eval')
+        return self._num_func_eval
 
     @property
     def out_of_bounds(self):
@@ -2466,6 +2503,7 @@ class FitMap(Fit):
         if self._result is not None:
             self._out_of_bounds = None
             self._max_nfev = None
+            self._num_func_eval = None
             self._redchi = None
             self._success = None
             self._best_fit = None
@@ -2508,6 +2546,7 @@ class FitMap(Fit):
         if num_proc == 1:
             self._out_of_bounds_flat = np.zeros(self._map_dim, dtype=bool)
             self._max_nfev_flat = np.zeros(self._map_dim, dtype=bool)
+            self._num_func_eval_flat = np.zeros(self._map_dim, dtype=np.intc)
             self._redchi_flat = np.zeros(self._map_dim, dtype=np.float64)
             self._success_flat = np.zeros(self._map_dim, dtype=bool)
             self._best_fit_flat = np.zeros(
@@ -2525,7 +2564,7 @@ class FitMap(Fit):
                     np.zeros(self._map_dim, dtype=np.float64)
                     for _ in range(num_new_parameters)]
         else:
-            self._memfolder = './joblib_memmap'
+            self._memfolder = 'joblib_memmap'
             try:
                 mkdir(self._memfolder)
             except FileExistsError:
@@ -2537,6 +2576,11 @@ class FitMap(Fit):
             filename_memmap = path.join(self._memfolder, 'max_nfev_memmap')
             self._max_nfev_flat = np.memmap(
                 filename_memmap, dtype=bool, shape=(self._map_dim), mode='w+')
+            filename_memmap = path.join(
+                self._memfolder, 'num_func_eval_memmap')
+            self._num_func_eval_flat = np.memmap(
+                filename_memmap, dtype=np.intc, shape=(self._map_dim),
+                mode='w+')
             filename_memmap = path.join(self._memfolder, 'redchi_memmap')
             self._redchi_flat = np.memmap(
                 filename_memmap, dtype=np.float64, shape=(self._map_dim),
@@ -2598,29 +2642,32 @@ class FitMap(Fit):
             except AttributeError:
                 pass
 
-        if num_proc == 1:
-            # Perform the remaining fits serially
-            for n in range(1, self._map_dim):
-                self._fit(n, current_best_values, **kwargs)
-        else:
-            # Perform the remaining fits in parallel
-            num_fit = self._map_dim-1
-            if num_proc > num_fit:
-                logger.warning(
-                    f'The requested number of processors ({num_proc}) exceeds '
-                    f'the number of fits, num_proc reduced to {num_fit}')
-                num_proc = num_fit
-                num_fit_per_proc = 1
+        if self._map_dim > 1:
+            if num_proc == 1:
+                # Perform the remaining fits serially
+                for n in range(1, self._map_dim):
+                    self._fit(n, current_best_values, **kwargs)
             else:
-                num_fit_per_proc = round((num_fit)/num_proc)
-                if num_proc*num_fit_per_proc < num_fit:
-                    num_fit_per_proc += 1
-            num_fit_batch = min(num_fit_per_proc, 40)
-            with Parallel(n_jobs=num_proc) as parallel:
-                parallel(
-                    delayed(self._fit_parallel)
-                        (current_best_values, num_fit_batch, n_start, **kwargs)
-                    for n_start in range(1, self._map_dim, num_fit_batch))
+                # Perform the remaining fits in parallel
+                num_fit = self._map_dim-1
+                if num_proc > num_fit:
+                    logger.warning(
+                        f'The requested number of processors ({num_proc}) '
+                        'exceeds the number of fits, num_proc reduced to '
+                        f'{num_fit}')
+                    num_proc = num_fit
+                    num_fit_per_proc = 1
+                else:
+                    num_fit_per_proc = round((num_fit)/num_proc)
+                    if num_proc*num_fit_per_proc < num_fit:
+                        num_fit_per_proc += 1
+                num_fit_batch = min(num_fit_per_proc, 40)
+                with Parallel(n_jobs=num_proc) as parallel:
+                    parallel(
+                        delayed(self._fit_parallel)
+                            (current_best_values, num_fit_batch, n_start,
+                             **kwargs)
+                        for n_start in range(1, self._map_dim, num_fit_batch))
 
         # Renormalize the initial parameters for external use
         if self._norm is not None and self._normalized:
@@ -2649,6 +2696,8 @@ class FitMap(Fit):
             self._out_of_bounds_flat, self._map_shape))
         self._max_nfev = np.copy(np.reshape(
             self._max_nfev_flat, self._map_shape))
+        self._num_func_eval = np.copy(np.reshape(
+            self._num_func_eval_flat, self._map_shape))
         self._redchi = np.copy(np.reshape(self._redchi_flat, self._map_shape))
         self._success = np.copy(np.reshape(
             self._success_flat, self._map_shape))
@@ -2662,6 +2711,8 @@ class FitMap(Fit):
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
             self._max_nfev = np.transpose(self._max_nfev, self._inv_transpose)
+            self._num_func_eval = np.transpose(
+                self._num_func_eval, self._inv_transpose)
             self._redchi = np.transpose(self._redchi, self._inv_transpose)
             self._success = np.transpose(self._success, self._inv_transpose)
             self._best_fit = np.transpose(
@@ -2673,6 +2724,7 @@ class FitMap(Fit):
                 self._best_errors, [0] + [i+1 for i in self._inv_transpose])
         del self._out_of_bounds_flat
         del self._max_nfev_flat
+        del self._num_func_eval_flat
         del self._redchi_flat
         del self._success_flat
         del self._best_fit_flat
@@ -2761,6 +2813,7 @@ class FitMap(Fit):
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
+        self._num_func_eval_flat[n] = result.nfev
         if result.nfev == result.max_nfev:
             if result.redchi < self._redchi_cutoff:
                 result.success = True
