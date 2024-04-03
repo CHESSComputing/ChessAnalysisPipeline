@@ -54,7 +54,7 @@ conda activate CHAP_tomo
     - 0.0065
     lens_magnification: 5.0
     ``` 
-Here, the base file name and the prefix field must equal the detector name and mach any `detector_names` fields in the pipeline input file.
+    Here, the base file name and the prefix field must equal the detector name and mach any `detector_names` fields in the pipeline input file.
 1. Run the reconstruction:
    ```bash
    CHAP <pipelinefilename>
@@ -243,5 +243,6 @@ To perform the reconstruction:
 1. Inspect the results:
     - In NeXpy as instructed above, navigate to `<your_work_directory>/hollow_pyramid` and open `combined_hollow_pyramid.nxs`
     - By displaying the output figures in `<your_work_directory>/hollow_pyramid/save_figs`
+
 
 
