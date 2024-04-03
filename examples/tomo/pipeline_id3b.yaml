@@ -2,7 +2,7 @@ config:
   root: examples/tomo
   inputdir: config
   outputdir: hollow_cube
-  interactive: false
+  interactive: true
   log_level: INFO
   profile: false
 
