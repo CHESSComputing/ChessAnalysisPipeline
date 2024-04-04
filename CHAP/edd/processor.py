@@ -484,10 +484,11 @@ class LatticeParameterRefinementProcessor(Processor):
             select_mask_and_hkls(
                 mca_bin_energies[detector_i],
                 np.sum(mca_data[detector_i], axis=0),
-                hkls, ds,
-                detector.tth_calibrated,
-                detector.include_bin_ranges, detector.hkl_indices,
-                detector.detector_name, mca_data[detector_i],
+                hkls, ds, detector.tth_calibrated,
+                preselected_bin_ranges=detector.include_bin_ranges,
+                preselected_hkl_indices=detector.hkl_indices,
+                detector_name=detector.detector_name,
+                ref_map=mca_data[detector_i],
                 calibration_bin_ranges=detector.calibration_bin_ranges,
                 label='Sum of all spectra in the map',
                 interactive=interactive)
@@ -1444,10 +1445,15 @@ class MCATthCalibrationProcessor(Processor):
             filename = os.path.join(
                 outputdir,
                 f'{detector.detector_name}_calibration_fit_mask_hkls.png')
+        if calibration_method == 'iterate_tth':
+            num_hkl_min = 2
+        else:
+            num_hkl_min = 1
         include_bin_ranges, hkl_indices = select_mask_and_hkls(
             mca_bin_energies, mca_data, hkls, ds,
-            detector.tth_initial_guess, detector.include_bin_ranges,
-            detector_name=detector.detector_name,
+            detector.tth_initial_guess,
+            preselected_bin_ranges=detector.include_bin_ranges,
+            num_hkl_min=num_hkl_min, detector_name=detector.detector_name,
             flux_energy_range=calibration_config.flux_file_energy_range(),
             label='MCA data', interactive=interactive, filename=filename)
 
@@ -2285,6 +2291,7 @@ class StrainAnalysisProcessor(Processor):
     def process(self,
                 data,
                 config=None,
+                find_peaks=False,
                 save_figures=False,
                 inputdir='.',
                 outputdir='.',
@@ -2299,6 +2306,11 @@ class StrainAnalysisProcessor(Processor):
             CHAP.edd.models.StrainAnalysisConfig, defaults to
             None.
         :type config: dict, optional
+        :param find_peaks: Exclude peaks where the average spectrum
+            is below the `rel_height_cutoff` (in the detector
+            configuration) cutoff relative to the maximum value of the
+            average spectrum, defaults to `False`.
+        :type find_peaks: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -2342,6 +2354,7 @@ class StrainAnalysisProcessor(Processor):
             strain_analysis_config.map_config,
             calibration_config,
             strain_analysis_config,
+            find_peaks=find_peaks,
             save_figures=save_figures,
             outputdir=outputdir,
             interactive=interactive)
@@ -2465,7 +2478,9 @@ class StrainAnalysisProcessor(Processor):
         linkdims(nxdata)
 
         # Collect the raw MCA data
+        self.logger.debug(f'Reading data ...')
         mca_data = strain_analysis_config.mca_data()
+        self.logger.debug(f'... done')
         self.logger.debug(f'mca_data.shape: {mca_data.shape}')
         if mca_data.ndim == 2:
             mca_data_summed = mca_data
@@ -2586,8 +2601,10 @@ class StrainAnalysisProcessor(Processor):
                 select_mask_and_hkls(
                     mca_bin_energies, mca_data_summed[i]*energy_mask,
                     hkls, ds, detector.tth_calibrated,
-                    detector.include_bin_ranges, detector.hkl_indices,
-                    detector.detector_name, mca_data[i]*energy_mask,
+                    preselected_bin_ranges=detector.include_bin_ranges,
+                    preselected_hkl_indices=detector.hkl_indices,
+                    detector_name=detector.detector_name,
+                    ref_map=mca_data[i]*energy_mask,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of all spectra in the map',
                     interactive=interactive, filename=filename)
@@ -2688,7 +2705,7 @@ class StrainAnalysisProcessor(Processor):
 
             # Find peaks
             if not find_peaks or detector.rel_height_cutoff is None:
-                use_peaks = np.ones((peak_locations.size))
+                use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
                 from scipy.signal import find_peaks as find_peaks_scipy
@@ -2704,19 +2721,32 @@ class StrainAnalysisProcessor(Processor):
                 heights = peaks[1]['peak_heights']
                 widths = peaks[1]['widths']
                 centers = [mca_bin_energies[v] for v in peaks[0]]
-                use_peaks = np.zeros((peak_locations.size))
-                peak_heights = np.zeros((peak_locations.size))
-                peak_widths = np.zeros((peak_locations.size))
+                use_peaks = np.zeros((peak_locations.size)).astype(bool)
+                # RV Potentially use peak_heights/widths as initial
+                # values in fit?
+                # peak_heights = np.zeros((peak_locations.size))
+                # peak_widths = np.zeros((peak_locations.size))
                 delta = mca_bin_energies[1]-mca_bin_energies[0]
                 for height, width, center in zip(heights, widths, centers):
                     for n, loc in enumerate(peak_locations):
-                        if center-0.5*width*delta < loc < center+0.5*width*delta:
-                            use_peaks[n] = 1
-                            peak_heights[n] = height
-                            peak_widths[n] = width*delta
+                        # RV Hardwired range now, use detector.centers_range?
+                        if center-width*delta < loc < center+width*delta:
+                            use_peaks[n] = True
+                            # peak_heights[n] = height
+                            # peak_widths[n] = width*delta
                             break
 
+            if any(use_peaks):
+                self.logger.debug(
+                    f'Using peaks with centers at {peak_locations[use_peaks]}')
+            else:
+                self.logger.warning(
+                    'No matching peaks with heights above the threshold, '
+                    f'skipping the fit for detector {detector.detector_name}')
+                continue
+
             # Perform the fit
+            self.logger.debug(f'Fitting {detector.detector_name} ...')
             (uniform_fit_centers, uniform_fit_centers_errors,
              uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
              uniform_fit_sigmas, uniform_fit_sigmas_errors,
@@ -2729,7 +2759,8 @@ class StrainAnalysisProcessor(Processor):
              unconstrained_redchi, unconstrained_success) = \
                 get_spectra_fits(
                     det_nxdata.intensity.nxdata, energies,
-                    peak_locations[use_peaks.astype(bool)], detector)
+                    peak_locations[use_peaks], detector)
+            self.logger.debug(f'... done')
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -2814,8 +2845,8 @@ class StrainAnalysisProcessor(Processor):
                         unconstrained_best_fit[map_index] / norm)
                     index.set_text('\n'.join(
                         [f'norm = {int(norm)}'] +
-                        [f'relative norm = '
-                         '{(norm / det_nxdata.intensity.max()):.5f}'] +
+                        ['relative norm = '
+                         f'{(norm / det_nxdata.intensity.max()):.5f}'] +
                         [f'{k}[{i}] = {v}'
                          for k, v in map_config.get_coords(map_index).items()]))
                     if save_figures:

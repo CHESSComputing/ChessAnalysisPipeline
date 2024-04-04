@@ -1926,6 +1926,8 @@ class Fit:
                 elif self._parameter_norms[name]:
                     init_values[name] = value*self._norm[1]
             self._result.init_values = init_values
+        if (hasattr(self._result, 'init_params')
+                and self._result.init_params is not None):
             for name, par in self._result.init_params.items():
                 if par.expr is None and self._parameter_norms.get(name, False):
                     value = par.value
@@ -2719,25 +2721,29 @@ class FitMap(Fit):
 
         # Renormalize the initial parameters for external use
         if self._norm is not None and self._normalized:
-            init_values = {}
-            for name, value in self._result.init_values.items():
-                if (name not in self._parameter_norms
-                        or self._parameters[name].expr is not None):
-                    init_values[name] = value
-                elif self._parameter_norms[name]:
-                    init_values[name] = value*self._norm[1]
-            self._result.init_values = init_values
-            for name, par in self._result.init_params.items():
-                if par.expr is None and self._parameter_norms.get(name, False):
-                    _min = par.min
-                    _max = par.max
-                    value = par.value*self._norm[1]
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
-                par.init_value = par.value
+            if hasattr(self._result, 'init_values'):
+                init_values = {}
+                for name, value in self._result.init_values.items():
+                    if (name not in self._parameter_norms
+                            or self._parameters[name].expr is not None):
+                        init_values[name] = value
+                    elif self._parameter_norms[name]:
+                        init_values[name] = value*self._norm[1]
+                self._result.init_values = init_values
+            if (hasattr(self._result, 'init_params')
+                    and self._result.init_params is not None):
+                for name, par in self._result.init_params.items():
+                    if (par.expr is None
+                            and self._parameter_norms.get(name, False)):
+                        _min = par.min
+                        _max = par.max
+                        value = par.value*self._norm[1]
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
+                    par.init_value = par.value
 
         # Remap the best results
         self._out_of_bounds = np.copy(np.reshape(
