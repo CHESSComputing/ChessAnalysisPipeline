@@ -632,6 +632,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 fwhm_max=None,
                 max_energy_kev=200.0,
                 background=None,
+                baseline=False,
                 save_figures=False,
                 interactive=False,
                 inputdir='.',
@@ -668,6 +669,9 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type max_energy_kev: float, optional
         :param background: Background model for peak fitting.
         :type background: str, list[str], optional
+        :param baseline: Automated baseline subtraction configuration,
+            defaults to `False`.
+        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -686,6 +690,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         :rtype: dict
         """
         # Local modules
+        from CHAP.edd.models import BaselineConfig
         from CHAP.utils.general import (
             is_int,
             is_num,
@@ -711,47 +716,43 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
-            self.logger.exception(
-                RuntimeError(
-                    'If `fit_index_ranges` is not explicitly provided, '
-                    + self.__class__.__name__
-                    + ' must be run with `interactive=True`.'),
-                exc_info=False)
+            raise RuntimeError(
+                'If `fit_index_ranges` is not explicitly provided, '
+                + self.__class__.__name__
+                + ' must be run with `interactive=True`.')
 
         # Validate the optional inputs
         if not is_int(centers_range, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid centers_range paremeter ({centers_range})'),
-                exc_info=False)
+            raise RuntimeError(
+                f'Invalid centers_range parameter ({centers_range})')
         if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid fwhm_min paremeter ({fwhm_min})'),
-                exc_info=False)
+            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
         if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid fwhm_max paremeter ({fwhm_max})'),
-                exc_info=False)
+            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
         if not is_num(max_energy_kev, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid max_energy_kev paremeter ({max_energy_kev})'),
-                exc_info=False)
+            raise RuntimeError(
+                f'Invalid max_energy_kev parameter ({max_energy_kev})')
         if background is not None:
             if isinstance(background, str):
                 background = [background]
             elif not is_str_series(background, log=False):
-                self.logger.exception(
-                    RuntimeError(
-                        'Invalid background paremeter ({background})'),
-                    exc_info=False)
+                raise RuntimeError(
+                    f'Invalid background parameter ({background})')
+        if isinstance(baseline, bool):
+            if baseline:
+                baseline = BaselineConfig()
+        else:
+            try:
+                baseline = BaselineConfig(**baseline)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
 
         # Calibrate detector channel energies based on fluorescence peaks.
         for detector in calibration_config.detectors:
             if background is not None:
                 detector.background = background.copy()
+            if baseline:
+                detector.baseline = baseline.copy()
             detector.energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, centers_range, fwhm_min,
                 fwhm_max, max_energy_kev, save_figures, interactive, outputdir)
@@ -816,16 +817,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         energy_mask[-1] = 0
         spectrum = spectrum*energy_mask
 
-        # Determine the background model(s)
-        if detector.background is None:
-            background = []
-        elif isinstance(detector.background, str):
-            background = [detector.background]
-        else:
-            background = detector.background
-
         # Subtract the baseline
-        if 'auto' in background:
+        if detector.baseline:
             # Local modules
             from CHAP.common.processor import ConstructBaseline
 
@@ -836,13 +829,16 @@ class MCAEnergyCalibrationProcessor(Processor):
             else:
                 filename = None
             baseline, baseline_config = ConstructBaseline.construct_baseline(
-                spectrum, mask=energy_mask, max_iter=100,
+                spectrum, mask=energy_mask, tol=detector.baseline.tol,
+                lam=detector.baseline.lam, max_iter=detector.baseline.max_iter,
                 title=f'Baseline for detector {detector.detector_name}',
                 xlabel='Energy (keV)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
             spectrum -= baseline
-            background.remove('auto')
+            detector.baseline.lam = baseline_config['lambda']
+            detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
+            detector.baseline.attrs['error'] = baseline_config['error']
 
         # Select the mask/detector channel ranges for fitting
         if save_figures:
@@ -881,8 +877,12 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Construct the fit model
         spectrum_fit = Fit(spectrum[mask], x=bins[mask])
-        for model in background:
-            spectrum_fit.add_model(model, prefix=f'{model}_')
+        if detector.background is not None:
+            if isinstance(detector.background, str):
+                spectrum_fit.add_model(detector.background, prefix=f'bkgd_')
+            else:
+                for model in detector.background:
+                    spectrum_fit.add_model(model, prefix=f'{model}_')
         if isinstance(fwhm_min, (int, float)):
             sig_min = fwhm_min/2.35482
         else:
@@ -1186,6 +1186,7 @@ class MCATthCalibrationProcessor(Processor):
                 fwhm_min=None,
                 fwhm_max=None,
                 background=None,
+                baseline=False,
                 save_figures=False,
                 inputdir='.',
                 outputdir='.',
@@ -1233,6 +1234,9 @@ class MCATthCalibrationProcessor(Processor):
         :type fwhm_max: float, optional
         :param background: Background model for peak fitting.
         :type background: str, list[str], optional
+        :param baseline: Automated baseline subtraction configuration,
+            defaults to `False`.
+        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to False.
         :type save_figures: bool, optional
@@ -1252,6 +1256,7 @@ class MCATthCalibrationProcessor(Processor):
         :rtype: dict[str,float]
         """
         # Local modules
+        from CHAP.edd.models import BaselineConfig
         from CHAP.utils.general import (
             is_int,
             is_str_series,
@@ -1277,28 +1282,24 @@ class MCATthCalibrationProcessor(Processor):
 
         # Validate the optional inputs
         if not is_int(centers_range, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid centers_range paremeter ({centers_range})'),
-                exc_info=False)
+            RuntimeError(f'Invalid centers_range parameter ({centers_range})')
         if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid fwhm_min paremeter ({fwhm_min})'),
-                exc_info=False)
+            RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
         if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            self.logger.exception(
-                RuntimeError(
-                    'Invalid fwhm_max paremeter ({fwhm_max})'),
-                exc_info=False)
+            RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
         if background is not None:
             if isinstance(background, str):
                 background = [background]
             elif not is_str_series(background, log=False):
-                self.logger.exception(
-                    RuntimeError(
-                        'Invalid background paremeter ({background})'),
-                    exc_info=False)
+                RuntimeError(f'Invalid background parameter ({background})')
+        if isinstance(baseline, bool):
+            if baseline:
+                baseline = BaselineConfig()
+        else:
+            try:
+                baseline = BaselineConfig(**baseline)
+            except Exception as dict_exc:
+                raise RuntimeError from dict_exc
 
         self.logger.debug(f'In process: save_figures = {save_figures}; '
                           f'interactive = {interactive}')
@@ -1310,6 +1311,8 @@ class MCATthCalibrationProcessor(Processor):
                 detector.include_energy_ranges = include_energy_ranges
             if background is not None:
                 detector.background = background.copy()
+            if baseline:
+                detector.baseline = baseline
             self.calibrate(
                 calibration_config, detector, quadratic_energy_calibration,
                 centers_range, fwhm_min, fwhm_max, save_figures, interactive,
@@ -1399,16 +1402,8 @@ class MCATthCalibrationProcessor(Processor):
         energy_mask[-1] = 0
         mca_data = mca_data*energy_mask
 
-        # Determine the background model(s)
-        if detector.background is None:
-            background = []
-        elif isinstance(detector.background, str):
-            background = [detector.background]
-        else:
-            background = detector.background
-
         # Subtract the baseline
-        if 'auto' in background:
+        if detector.baseline:
             # Local modules
             from CHAP.common.processor import ConstructBaseline
 
@@ -1419,13 +1414,16 @@ class MCATthCalibrationProcessor(Processor):
             else:
                 filename = None
             baseline, baseline_config = ConstructBaseline.construct_baseline(
-                mca_data, mask=energy_mask, max_iter=100,
+                mca_data, mask=energy_mask, tol=detector.baseline.tol,
+                lam=detector.baseline.lam, max_iter=detector.baseline.max_iter,
                 title=f'Baseline for detector {detector.detector_name}',
                 xlabel='Energy (keV)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
             mca_data -= baseline
-            background.remove('auto')
+            detector.baseline.lam = baseline_config['lambda']
+            detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
+            detector.baseline.attrs['error'] = baseline_config['error']
 
         # Adjust initial tth guess
         if save_figures:
@@ -1547,8 +1545,12 @@ class MCATthCalibrationProcessor(Processor):
             fit.add_parameter(name='c', value=c_init)
 
             # Add the background
-            for model in background:
-                fit.add_model(model, prefix=f'{model}_')
+            if detector.background is not None:
+                if isinstance(detector.background, str):
+                    fit.add_model(detector.background, prefix=f'bkgd_')
+                else:
+                    for model in detector.background:
+                        fit.add_model(model, prefix=f'{model}_')
 
             # Add the fluorescent peaks
             for i, e_peak in enumerate(e_xrf):
@@ -2527,19 +2529,14 @@ class StrainAnalysisProcessor(Processor):
             energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
             energy_mask[-1] = 0
 
-            # Determine the background model(s)
-            if detector.background is None:
-                background = []
-            elif isinstance(detector.background, str):
-                background = [detector.background]
-            else:
-                background = detector.background
-
             # Subtract the baseline
-            if 'auto' in background:
+            if detector.baseline:
                 # Local modules
+                from CHAP.edd.models import BaselineConfig
                 from CHAP.common.processor import ConstructBaseline
 
+                if isinstance(detector.baseline, bool):
+                    detector.baseline = BaselineConfig()
                 if save_figures:
                     filename = os.path.join(outputdir,
                                             f'{detector.detector_name}_strain_'
@@ -2548,14 +2545,20 @@ class StrainAnalysisProcessor(Processor):
                     filename = None
                 baseline, baseline_config = \
                     ConstructBaseline.construct_baseline(
-                        mca_data_summed[i], mask=energy_mask, max_iter=100,
+                        mca_data_summed[i], mask=energy_mask,
+                        tol=detector.baseline.tol, lam=detector.baseline.lam,
+                        max_iter=detector.baseline.max_iter,
                         title=
                             f'Baseline for detector {detector.detector_name}',
                         xlabel='Energy (keV)', ylabel='Intensity (counts)',
                         interactive=interactive, filename=filename)
 
-                baselines.append(baseline)
                 mca_data_summed[i] -= baseline
+                baselines.append(baseline)
+                detector.baseline.lam = baseline_config['lambda']
+                detector.baseline.attrs['num_iter'] = \
+                    baseline_config['num_iter']
+                detector.baseline.attrs['error'] = baseline_config['error']
 
             # Interactively adjust the material properties based on the
             # first detector calibration information and/or save figure

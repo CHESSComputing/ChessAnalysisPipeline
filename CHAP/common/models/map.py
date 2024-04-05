@@ -792,11 +792,11 @@ class MapConfig(BaseModel):
         times for SPEC scans. Required when applying a
         CorrectionConfig tool.
     :type dwell_time_actual: DwellTimeActual, optional
-    :ivar presample_intensity: A source of point-by-point postsample
+    :ivar postsample_intensity: A source of point-by-point postsample
         beam intensity data. Required when applying a CorrectionConfig
         tool with `correction_type='flux_absorption'` or
         `correction_type='flux_absorption_background'`.
-    :type presample_intensity: PresampleIntensity, optional
+    :type postsample_intensity: PresampleIntensity, optional
     :ivar scalar_data: A list of the sources of data representing
         other scalar raw data values collected at each point on the
         map. In the NeXus file representation of the map, datasets for
@@ -811,12 +811,12 @@ class MapConfig(BaseModel):
     experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
-    scalar_data: Optional[list[PointByPointScanData]] = []
     independent_dimensions: conlist(
         item_type=IndependentDimension, min_items=1)
     presample_intensity: Optional[PresampleIntensity]
     dwell_time_actual: Optional[DwellTimeActual]
     postsample_intensity: Optional[PostsampleIntensity]
+    scalar_data: Optional[list[PointByPointScanData]] = []
     attrs: Optional[dict] = {}
     map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
     _coords: dict = PrivateAttr()

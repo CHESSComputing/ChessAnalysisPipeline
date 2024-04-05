@@ -1149,7 +1149,7 @@ def baseline_arPLS(
         if full_output:
             d = y_org - z
     if full_output:
-        return z, d, w, num_iter, error
+        return z, d, w, num_iter, float(error)
     return z
 
 

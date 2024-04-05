@@ -1006,8 +1006,6 @@ class Fit:
                             'Missing keyword "model" in model in background '
                             f'({model})')
                     name = model.pop('model')
-                    if name == 'auto':
-                        continue
                     if num_background == 1:
                         prefix = f'bkgd_'
                     else:

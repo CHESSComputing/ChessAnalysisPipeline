@@ -31,6 +31,28 @@ from CHAP.utils.parfile import ParFile
 from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
 
+# Baseline configuration class
+
+class BaselineConfig(BaseModel):
+    """Baseline model configuration
+
+    :ivar tol: The convergence tolerence, defaults to `1.e-6`.
+    :type tol: float, optional
+    :ivar lam: The &lambda (smoothness) parameter (the balance
+        between the residual of the data and the baseline and the
+        smoothness of the baseline). The suggested range is between
+        100 and 10^8, defaults to `10^6`.
+    :type lam: float, optional
+    :ivar max_iter: The maximum number of iterations,
+        defaults to `100`.
+    :type max_iter: int, optional
+    """
+    tol: confloat(gt=0, allow_inf_nan=False) = 1.e-6
+    lam: confloat(gt=0, allow_inf_nan=False) = 1.e6
+    max_iter: conint(gt=0) = 100
+    attrs: Optional[dict] = {}
+
+
 # Material configuration classes
 
 class MaterialConfig(BaseModel):
@@ -147,6 +169,9 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         list[float, float, float], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
+    :ivar baseline: Automated baseline subtraction configuration,
+        defaults to `False`.
+    :type baseline: Union(bool, BaselineConfig), optional
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
@@ -163,6 +188,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         min_items=3, max_items=3,
         item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
     background: Optional[Union[str, list]]
+    baseline: Optional[Union[bool, BaselineConfig]] = False
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
     include_energy_ranges: conlist(
@@ -359,6 +385,9 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type hkl_indices: list[int], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
+    :ivar baseline: Automated baseline subtraction configuration,
+        defaults to `False`.
+    :type baseline: Union(bool, BaselineConfig), optional
     :ivar num_proc: Number of processors used for peak fitting.
     :type num_proc: int, optional
     :ivar peak_models: Peak model for peak fitting,
@@ -401,6 +430,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
     background: Optional[Union[str, list]]
+    baseline: Optional[Union[bool, BaselineConfig]] = False
     num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
         conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
