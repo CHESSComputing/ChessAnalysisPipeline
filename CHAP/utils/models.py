@@ -195,6 +195,18 @@ class FitParameter(BaseModel):
             supply an empty string.
         :type expr: str, optional
         """
+        if expr is not None:
+            if not isinstance(expr, str):
+                raise ValueError(f'Invalid parameter expr ({expr})')
+            if expr == '':
+                expr = None
+            self.expr = expr
+            if expr is not None:
+                self.value = None
+                self.min = -np.inf
+                self.max = np.inf
+                self.vary = False
+                return
         if min is not None:
             if not isinstance(min, (int, float)):
                 raise ValueError(f'Invalid parameter min ({min})')
@@ -216,14 +228,6 @@ class FitParameter(BaseModel):
             elif self.value < self.min:
                 self.value = self.min
             self.expr = None
-        if expr is not None:
-            if not isinstance(expr, str):
-                raise ValueError(f'Invalid parameter expr ({expr})')
-            if expr == '':
-                expr = None
-            self.expr = expr
-            if expr is not None:
-                self.vary = False
 
 class Constant(BaseModel):
     """

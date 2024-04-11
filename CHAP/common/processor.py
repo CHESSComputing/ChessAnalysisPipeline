@@ -134,6 +134,7 @@ class AnimationProcessor(Processor):
             a_max = frames[0].max()
             for n in range(1, num_frames):
                 a_max = min(a_max, frames[n].max())
+            a_max = float(a_max)
             if vmin is None:
                 vmin = -a_max
             if vmax is None:
@@ -574,6 +575,7 @@ class BinarizeProcessor(Processor):
         nxentry.data = NXdata(
             NXlink(nxdata.nxsignal.nxpath),
             [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+        nxentry.data.set_default()
         return nxobject
 
 

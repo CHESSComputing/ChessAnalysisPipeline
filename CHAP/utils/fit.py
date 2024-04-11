@@ -32,13 +32,6 @@ except ImportError:
     HAVE_JOBLIB = False
 from nexusformat.nexus import NXdata
 import numpy as np
-try:
-    from sympy import (
-        diff,
-        simplify,
-    )
-except ImportError:
-    pass
 
 # Local modules
 from CHAP.processor import Processor
@@ -124,7 +117,7 @@ class FitProcessor(Processor):
             if model.model == 'expression' and fit_config.code != 'lmfit':
                 fit_config.code = 'lmfit'
                 self.logger.warning(
-                    'Using lmfit instead of scipy with and expression model')
+                    'Using lmfit instead of scipy with an expression model')
             names.append(model.model)
         counts = Counter(names)
         for model, count in counts.items():
@@ -149,27 +142,6 @@ class FitProcessor(Processor):
                 num_proc=fit_config.num_proc, plot=fit_config.plot,
                 print_report=fit_config.print_report)
         
-#        print(f'\nbest_errors: {fit.best_errors}')
-#        print(f'\nbest_fit: {fit.best_fit}')
-#        print(f'\nbest_parameters: {fit.best_parameters}')
-#        print(f'\nbest_values: {fit.best_values}')
-#        print(f'\nchisqr: {fit.chisqr}')
-#        print(f'\ncomponents: {fit.components}')
-#        print(f'\ncovar: {fit.covar}')
-#        print(f'\ninit_parameters: {fit.init_parameters}')
-#        print(f'\ninit_values: {fit.init_values}')
-#        print(f'\nnormalization_offset: {fit.normalization_offset}')
-#        if np.squeeze(nxdata.nxsignal).ndim > 1:
-#            print(f'\nmax_nfev: {fit.max_nfev}')
-#        print(f'\nnum_func_eval: {fit.num_func_eval}')
-#        if np.squeeze(nxdata.nxsignal).ndim > 1:
-#            print(f'\nout_of_bounds: {fit.out_of_bounds}')
-#        print(f'\nparameters: {fit.parameters}')
-#        print(f'\nredchi: {fit.redchi}')
-#        print(f'\nresidual: {fit.residual}')
-#        print(f'\nsuccess: {fit.success}')
-#        print(f'\nvar_names: {fit.var_names}')
-
         return fit
 
 
@@ -228,6 +200,8 @@ class Parameters(dict):
         # Local modules
         from .models import FitParameter
 
+        if key in self:
+            raise KeyError(f'Duplicate name for FitParameter ({key})')
         if key not in self and not isinstance(key, str):
             raise KeyError(f'Invalid FitParameter name ({key})')
         if value is not None and not isinstance(value, FitParameter):
@@ -235,15 +209,15 @@ class Parameters(dict):
         dict.__setitem__(self, key, value)
         value.name = key
 
-    def add(self, parameter, prefix):
+    def add(self, parameter, prefix=''):
         """
         Add a fit parameter.
 
         :param parameter: The fit parameter to add to the dictionary.
         :type parameter: Union[str, FitParameter]
         :param prefix: The prefix for the model to which this
-             parameter belongs.
-        :type prefix: str
+             parameter belongs, defaults to `''`.
+        :type prefix: str, optional
         """
         # Local modules
         from .models import FitParameter
@@ -265,7 +239,9 @@ class ModelResult():
     The result of a model fit, mimicking the functionality of a
     similarly named class in the lmfit library.
     """
-    def __init__(self, x, y, model, parameters, par_indices, result):
+    def __init__(
+            self, x, y, model, parameters, ast, res_par_exprs, res_par_indices,
+            res_par_names, result):
         self.residual = result[2]['fvec']
         self.best_fit = y + self.residual
         self.ier = result[4]
@@ -273,9 +249,11 @@ class ModelResult():
         self.message = result[3]
         self.ndata = len(self.residual)
         self.nfev = result[2]['nfev']
-        self.nvarys = len(par_indices)
+        self.nvarys = len(res_par_indices)
         self.success = 1 <= result[4] <= 4
         self.x = x
+        self._ast = ast
+        self._expr_pars = {}
 
         # Copy the model info
         self.components = model.components
@@ -283,20 +261,51 @@ class ModelResult():
         # Get the covarience matrix
         self.chisqr = (self.residual**2).sum()
         self.redchi = self.chisqr / (self.ndata-self.nvarys)
-        self.covar = result[1]*self.redchi
+        self.covar = None
+        if result[1] is not None:
+            self.covar = result[1]*self.redchi
 
         # Update the fit parameters with the fit result
         self.params = deepcopy(parameters)
         par_names = list(self.params.keys())
         self.var_names = []
-        for value, index in zip(result[0], par_indices):
+        for i, (value, index) in enumerate(zip(result[0], res_par_indices)):
             par = self.params[par_names[index]]
             par.set(value=value)
-            stderr = self.covar[index,index]
-            if stderr is not None:
-                stderr = np.sqrt(stderr)
+            stderr = None
+            if self.covar is not None:
+                stderr = self.covar[i,i]
+                if stderr is not None:
+                    stderr = np.sqrt(stderr)
             setattr(par, '_stderr', stderr)
             self.var_names.append(par.name)
+        if res_par_exprs:
+            # Third party modules
+            from sympy import diff
+            for value, name in zip(result[0], res_par_names):
+                self._ast.symtable[name] = value
+            for par_expr in res_par_exprs:
+                name = par_names[par_expr['index']]
+                expr = par_expr['expr']
+                par = self.params[name]
+                par.set(value=self._ast.eval(expr))
+                self._expr_pars[name] = expr
+                stderr = None
+                if self.covar is not None:
+                    stderr = 0
+                    for i, name in enumerate(self.var_names):
+                        d = diff(expr, name)
+                        if not d:
+                            continue
+                        for ii, nname in enumerate(self.var_names):
+                            dd = diff(expr, nname)
+                            if not dd:
+                                continue
+                            stderr += (self._ast.eval(str(d))
+                                       * self._ast.eval(str(dd))
+                                       * self.covar[i,ii])
+                    stderr = np.sqrt(stderr)
+                setattr(par, '_stderr', stderr)
 
     def eval_components(self, x=None, parameters=None):
         """
@@ -369,21 +378,26 @@ class ModelResult():
             inval = '(init = ?)'
             if par.init_value is not None:
                 inval = f'(init = {par.init_value:.7g})'
+            expr = self._expr_pars.get(name, par.expr)
+            if expr is not None:
+                val = self._ast.eval(expr)
+            else:
+                val = par.value
             try:
-                sval = gformat(par.value)
+                val = gformat(par.value)
             except (TypeError, ValueError):
-                sval = ' Non Numeric Value?'
+                val = ' Non Numeric Value?'
             if par.stderr is not None:
                 serr = gformat(par.stderr)
                 try:
                     spercent = f'({abs(par.stderr/par.value):.2%})'
                 except ZeroDivisionError:
                     spercent = ''
-                sval = f'{sval} +/-{serr} {spercent}'
+                val = f'{val} +/-{serr} {spercent}'
             if par.vary:
-                add(f'    {nout} {sval} {inval}')
-            elif par.expr is not None:
-                add(f'    {nout} {sval} == "{par.expr}"')
+                add(f'    {nout} {val} {inval}')
+            elif expr is not None:
+                add(f"    {nout} {val} == '{expr}'")
             else:
                 add(f'    {nout} {par.value:.7g} (fixed)')
 
@@ -407,9 +421,15 @@ class Fit:
         self._model = None
         self._norm = None
         self._normalized = False
+        self._num_free_parameters = 0
         self._parameters = Parameters()
         if self._code == 'scipy':
-            self._num_pars = []
+            self._ast = None
+            self._res_num_pars = []
+            self._res_par_exprs = []
+            self._res_par_indices = []
+            self._res_par_names = []
+            self._res_par_values = []
         self._parameter_bounds = None
         self._linear_parameters = []
         self._nonlinear_parameters = []
@@ -697,7 +717,11 @@ class Fit:
                 f'Ignoring max in parameter {name} in '
                 f'Fit.add_parameter (vary = {parameter["vary"]})')
             parameter['max'] = np.inf
-        self._parameters.add(**parameter)
+        if self._code == 'scipy':
+            self._parameters.add(FitParameter(**parameter))
+        else:
+            self._parameters.add(**parameter)
+        self._num_free_parameters += 1
 
     def add_model(self, model, prefix):
         """Add a model component to the fit model."""
@@ -730,9 +754,11 @@ class Fit:
             new_parameters = []
             for par in deepcopy(parameters):
                 self._parameters.add(par, pprefix)
-                self._parameters[par.name].set(value=par.default)
+                if self._parameters[par.name].expr is None:
+                    self._parameters[par.name].set(value=par.default)
                 new_parameters.append(par.name)
-            self._num_pars += [len(parameters)]
+            self._res_num_pars += [len(parameters)]
+
         if model_name == 'constant':
             # Par: c
             if self._code == 'lmfit':
@@ -843,7 +869,7 @@ class Fit:
                     expr = sub(rf'\b{name}\b', f'{prefix}{name}', expr)
                 expr_parameters = [
                     f'{prefix}{name}' for name in expr_parameters]
-            newmodel = ExpressionModel(expr=expr, name=name)
+            newmodel = ExpressionModel(expr=expr, name=model_name)
             # Remove already existing names
             for name in newmodel.param_names.copy():
                 if name not in expr_parameters:
@@ -867,6 +893,8 @@ class Fit:
 
         # Check linearity of expression model parameters
         if self._code == 'lmfit' and isinstance(newmodel, ExpressionModel):
+            # Third party modules
+            from sympy import diff
             for name in newmodel.param_names:
                 if not diff(newmodel.expr, name, name):
                     if name not in self._linear_parameters:
@@ -874,11 +902,6 @@ class Fit:
                 else:
                     if name not in self._nonlinear_parameters:
                         self._nonlinear_parameters.append(name)
-
-#        print(f'\n\nnew_parameters:\n\t{new_parameters}')
-#        print(f'\n\nself._linear_parameters:\n\t{self._linear_parameters}')
-#        print(f'\n\nself._nonlinear_parameters:\n\t{self._nonlinear_parameters}')
-#        exit('Done')
 
         # Scale the default initial model parameters
         if self._norm is not None:
@@ -914,6 +937,21 @@ class Fit:
                 self._parameters[name].set(
                     value=parameter.value, min=parameter.min,
                     max=parameter.max, vary=parameter.vary)
+            else:
+                if parameter.value is not None:
+                    logger.warning(
+                        'Ignoring input "value" for expression parameter'
+                        f'{name} = {parameter.expr}')
+                if not np.isinf(parameter.min):
+                    logger.warning(
+                        'Ignoring input "min" for expression parameter'
+                        f'{name} = {parameter.expr}')
+                if not np.isinf(parameter.max):
+                    logger.warning(
+                        'Ignoring input "max" for expression parameter'
+                        f'{name} = {parameter.expr}')
+                self._parameters[name].set(
+                    value=None, min=-np.inf, max=np.inf, expr=parameter.expr)
 
     def eval(self, x, result=None):
         """Evaluate the best fit."""
@@ -1299,6 +1337,8 @@ class Fit:
         return height, center, fwhm
 
     def _setup_fit_model(self, config, prefixes):
+            # Third party modules
+            from sympy import diff
 
             # Add the free fit parameters
             for par in config.parameters:
@@ -1308,11 +1348,19 @@ class Fit:
             for i, model in enumerate(config.models):
                 self.add_model(model, prefixes[i])
 
-            print('\n\nparameters:')
-            for name, par in self._parameters.items():
-                print(f'\t{name}: {par.value}')
-            print(f'\n\nself._linear_parameters:\n\t{self._linear_parameters}')
-            print(f'\n\nself._nonlinear_parameters:\n\t{self._nonlinear_parameters}')
+            # Check linearity of free fit parameters:
+            known_parameters = (
+                self._linear_parameters + self._nonlinear_parameters)
+            for name in reversed(self._parameters):
+                if name not in known_parameters:
+                    for nname, par in self._parameters.items():
+                        if par.expr is not None:
+                            if nname in self._nonlinear_parameters:
+                                self._nonlinear_parameters.insert(0, name)
+                            elif diff(par.expr, name, name):
+                                self._nonlinear_parameters.insert(0, name)
+                            else:
+                                self._linear_parameters.insert(0, name)
 
     def _check_linearity_model(self):
         """
@@ -1321,6 +1369,8 @@ class Fit:
         """
         # Third party modules
         from lmfit.models import ExpressionModel
+        # Third party modules
+        from sympy import diff
 
         if not self._try_linear_fit:
             logger.info(
@@ -1375,6 +1425,11 @@ class Fit:
             LinearModel,
             QuadraticModel,
             ExpressionModel,
+        )
+        # Third party modules
+        from sympy import (
+            diff,
+            simplify,
         )
 
         # Construct the matrix and the free parameter vector
@@ -1441,8 +1496,6 @@ class Fit:
                             raise ValueError(
                                 f'Unable to evaluate {dexpr_dname}')
                         mat_a[:,free_parameters.index(name)] += y_expr
-                # RV find another solution if expr not supported by
-                #     simplify
                 const_expr = str(simplify(f'({const_expr})/{norm}'))
                 delta_y_const = [(lambda _: ast.eval(const_expr))
                                  (ast(f'x = {v}')) for v in x]
@@ -1576,6 +1629,7 @@ class Fit:
             y = np.asarray(y)[~self._mask]
         if self._code == 'scipy':
             # Third party modules
+            from asteval import Interpreter
             from scipy.optimize import leastsq
 
             lskws = {
@@ -1585,17 +1639,22 @@ class Fit:
                 'maxfev': 64000,
             }
             assert self._mask is None
+            self._ast = Interpreter()
+            self._ast.basesymtable = {
+                k:v for k, v in self._ast.symtable.items()}
             pars_init = []
-            self._par_indices = []
-            self._par_values = []
-            i = 0
-            for name, par in self._parameters.items():
+            for i, (name, par) in enumerate(self._parameters.items()):
                 setattr(par, '_init_value', par.value)
-                self._par_values.append(par.value)
-                if par.vary:
-                    pars_init.append(par.value)
-                    self._par_indices.append(i)
-                    i += 1
+                self._res_par_values.append(par.value)
+                if par.expr:
+                    self._res_par_exprs.append(
+                        {'expr': par.expr, 'index': i})
+                else:
+                    self._ast.symtable[name] = par.value
+                    if par.vary:
+                        pars_init.append(par.value)
+                        self._res_par_indices.append(i)
+                        self._res_par_names.append(name)
             init_params = deepcopy(self._parameters)
 #            t0 = time()
             result = leastsq(
@@ -1604,8 +1663,9 @@ class Fit:
 #            t1 = time()
 #            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
             model_result = ModelResult(
-                x, y, self._model, self._parameters,
-                self._par_indices, result)
+                x, y, self._model, self._parameters, self._ast,
+                self._res_par_exprs, self._res_par_indices,
+                self._res_par_names, result)
             model_result.init_params = init_params
             model_result.init_values = {}
             for name, par in init_params.items():
@@ -1620,7 +1680,6 @@ class Fit:
                 y, self._parameters, x=x, fit_kws=fit_kws, **kwargs)
 #            t1 = time()
 #            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
-        covar = model_result.covar
 
         return model_result
 
@@ -1721,13 +1780,16 @@ class Fit:
         #     physical units
 #        self._result.chisqr *= self._norm[1]*self._norm[1]
         if self._result.covar is not None:
+            norm_sq = self._norm[1]*self._norm[1]
             for i, name in enumerate(self._result.var_names):
                 if name in self._linear_parameters:
                     for j in range(len(self._result.var_names)):
                         if self._result.covar[i,j] is not None:
-                            self._result.covar[i,j] *= self._norm[1]
+                            #self._result.covar[i,j] *= self._norm[1]
+                            self._result.covar[i,j] *= norm_sq
                         if self._result.covar[j,i] is not None:
-                            self._result.covar[j,i] *= self._norm[1]
+                            #self._result.covar[j,i] *= self._norm[1]
+                            self._result.covar[j,i] *= norm_sq
         # Don't renormalize redchi, it has no useful meaning in
         #     physical units
 #        self._result.redchi *= self._norm[1]*self._norm[1]
@@ -1771,13 +1833,19 @@ class Fit:
 
     def _residual(self, pars, x, y):
         res = np.zeros((x.size))
-        n_par = 0
-        for par, index in zip(pars, self._par_indices):
-            self._par_values[index] = par
-        for component, num_par in zip(self._model.components, self._num_pars):
-            tmp = tuple(pars[n_par:n_par+num_par])
+        n_par = self._num_free_parameters
+        for par, index in zip(pars, self._res_par_indices):
+            self._res_par_values[index] = par
+        if self._res_par_exprs:
+            for par, name in zip(pars, self._res_par_names):
+                self._ast.symtable[name] = par
+            for expr in self._res_par_exprs:
+                self._res_par_values[expr['index']] = \
+                    self._ast.eval(expr['expr'])
+        for component, num_par in zip(
+                self._model.components, self._res_num_pars):
             res += component.func(
-                x, *tuple(self._par_values[n_par:n_par+num_par]))
+                x, *tuple(self._res_par_values[n_par:n_par+num_par]))
             n_par += num_par
         return res - y
 

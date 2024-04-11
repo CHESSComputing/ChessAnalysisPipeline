@@ -13,6 +13,7 @@ dependencies:
   - nexpy==1.0.4
   - pip==22.3.1
   - pydantic==1.10.7
+  - sympy==1.12
   - tomopy==1.12.2
   - pip:
     - certif-pyspec==1.5.3
