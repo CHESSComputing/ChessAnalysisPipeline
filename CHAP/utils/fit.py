@@ -112,13 +112,14 @@ class FitProcessor(Processor):
 
         # Check for duplicate models and create prefixes as needed
         names = []
-        prefixes = [None]*len(fit_config.models)
-        for model in fit_config.models:
+        prefixes = []
+        for i, model in enumerate(fit_config.models):
             if model.model == 'expression' and fit_config.code != 'lmfit':
                 fit_config.code = 'lmfit'
                 self.logger.warning(
                     'Using lmfit instead of scipy with an expression model')
-            names.append(model.model)
+            names.append(f'{model.prefix}{model.model}')
+            prefixes.append(model.prefix)
         counts = Counter(names)
         for model, count in counts.items():
             if count > 1:

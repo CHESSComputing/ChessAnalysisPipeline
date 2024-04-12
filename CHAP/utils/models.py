@@ -240,9 +240,12 @@ class Constant(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['constant']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -259,9 +262,12 @@ class Linear(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['linear']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -278,9 +284,12 @@ class Quadratic(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['quadratic']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -297,9 +306,12 @@ class Exponential(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['exponential']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -316,9 +328,12 @@ class Gaussian(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['gaussian']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -335,9 +350,12 @@ class Lorentzian(BaseModel):
         generated from the function signature (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['lorentzian']
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
@@ -357,10 +375,13 @@ class Expression(BaseModel):
         generated from the model expression (excluding the
         independent variable), defaults to `[]`.
     :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
     """
     model: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
     parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
 
     _validate_parameters_parameters = validator(
         'parameters', always=True, allow_reuse=True)(validate_parameters)
