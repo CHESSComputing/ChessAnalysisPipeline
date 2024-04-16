@@ -1378,8 +1378,11 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
     # Perform fit to get measured peak positions
     if spectra.ndim == 1:
         fit = Fit(spectra, x=energies)
+        fit_kws = {}
     else:
         fit = FitMap(spectra, x=energies)
+        fit_kws = {'num_proc': fit_params.num_proc,
+                   'rel_height_cutoff': fit_params.rel_height_cutoff}
     num_peak = len(peak_locations)
     fit.create_multipeak_model(
         peak_locations,
@@ -1389,8 +1392,7 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         fwhm_min=fit_params.fwhm_min,
         fwhm_max=fit_params.fwhm_max,
         centers_range=fit_params.centers_range)
-    fit.fit(num_proc=fit_params.num_proc,
-            rel_height_cutoff=fit_params.rel_height_cutoff)
+    fit.fit(**fit_kws)
     uniform_success = fit.success
     if spectra.ndim == 1:
         if fit.success:
@@ -1493,9 +1495,9 @@ def get_spectra_fits(spectra, energies, peak_locations, fit_params):
         )
 
     # Perform unconstrained fit
-    fit.create_multipeak_model(fit_type='unconstrained')
-    fit.fit(num_proc=fit_params.num_proc,
-            rel_height_cutoff=fit_params.rel_height_cutoff)
+    fit.create_multipeak_model(
+        fit_type='unconstrained', centers_range=fit_params.centers_range)
+    fit.fit(**fit_kws)
     unconstrained_success = fit.success
     if spectra.ndim == 1:
         if fit.success:

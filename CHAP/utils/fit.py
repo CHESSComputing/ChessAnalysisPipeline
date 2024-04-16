@@ -884,6 +884,9 @@ class Fit:
                     self._best_errors = np.delete(
                         self._best_errors, scale_factor_index, 0)
                 for name, par in self._parameters.items():
+                    #RV This does not yet set the centers to the uniform
+                    # result for the entire map, it sets them to the
+                    # initial values set by HKLs and ds
                     if re_search('peak\d+_center', name) is not None:
                         if centers_range is None:
                             par.set(
@@ -895,7 +898,6 @@ class Fit:
                             }
                         else:
                             value = par.value
-                            raise RuntimeError('Needs testing')
                             par.set(
                                 value=value, min=value-centers_range,
                                 max=value+centers_range, vary=True,
@@ -903,14 +905,6 @@ class Fit:
                             self._parameter_bounds[name] = {
                                 'min': value-centers_range,
                                 'max': value+centers_range,
-                            }
-
-                            par.set(
-                                min=centers_range[0], max=centers_range[1],
-                                vary=True, expr=None)
-                            self._parameter_bounds[name] = {
-                                'min': centers_range[0],
-                                'max': centers_range[1],
                             }
                 self._parameters.pop('scale_factor')
                 self._parameter_bounds.pop('scale_factor')
