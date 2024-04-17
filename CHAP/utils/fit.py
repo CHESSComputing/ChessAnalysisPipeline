@@ -35,7 +35,7 @@ import numpy as np
 
 # Local modules
 from CHAP.processor import Processor
-from .general import (
+from CHAP.utils.general import (
     is_int,
     is_num,
     is_dict_series,
@@ -85,63 +85,69 @@ class FitProcessor(Processor):
         :return: The fitted data object.
         :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
         """
-        # Get the default NeXus NXdata object
-        if not isinstance(data, NXdata):
+        # Local modules
+        from CHAP.utils.models import FitConfig
+
+        # Unwrap the PipelineData if called as a Pipeline Processor
+        if not isinstance(data, (Fit, FitMap)) and not isinstance(data, NXdata):
             data = self.unwrap_pipelinedata(data)[0]
-        try:
-            nxdata = data.get_default()
-            assert nxdata is not None
-        except:
-            if nxdata is None or nxdata.nxclass != 'NXdata':
-                raise ValueError('Invalid default pathway to an NXdata object '
-                                 f'in ({data})')
 
-        # Get the fit configuration
-        try:
-            fit_config = self.get_config(data, 'utils.models.FitConfig')
-        except Exception as data_exc:
-            self.logger.info('No valid fit config in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from .models import FitConfig
+        if isinstance(data, (Fit, FitMap)):
 
-                fit_config = FitConfig(**config)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            # Refit/continue the fit with possibly updated parameters
+            fit = data
+            fit_config = None
+            if config is not None:
+                try:
+                    fit_config = FitConfig(**config)
+                except Exception as dict_exc:
+                    raise RuntimeError from dict_exc
 
-        # Check for duplicate models and create prefixes as needed
-        names = []
-        prefixes = []
-        for i, model in enumerate(fit_config.models):
-            if model.model == 'expression' and fit_config.code != 'lmfit':
-                fit_config.code = 'lmfit'
-                self.logger.warning(
-                    'Using lmfit instead of scipy with an expression model')
-            names.append(f'{model.prefix}{model.model}')
-            prefixes.append(model.prefix)
-        counts = Counter(names)
-        for model, count in counts.items():
-            if count > 1:
-                n = 0
-                for i, name in enumerate(names):
-                    if name == model:
-                        n += 1
-                        prefixes[i] = f'{name}{n}_'
+            if isinstance(data, Fit):
+                fit.fit(config=fit_config)
+                if fit_config is not None:
+                    if fit_config.print_report:
+                        fit.print_fit_report()
+                    if fit_config.plot:
+                        fit.plot(skip_init=True)
+            else:
+                fit.fit(config=fit_config)
 
-        # Instantiate the Fit or FitMap object and fit the data
-        if np.squeeze(nxdata.nxsignal).ndim == 1:
-            fit = Fit(nxdata, fit_config, prefixes)
-            fit.fit()
-            if fit_config.print_report:
-                fit.print_fit_report()
-            if fit_config.plot:
-                fit.plot(skip_init=True)
         else:
-            fit = FitMap(nxdata, fit_config, prefixes)
-            fit.fit(
-                num_proc=fit_config.num_proc, plot=fit_config.plot,
-                print_report=fit_config.print_report)
+
+            # Get the default NXdata object
+            try:
+                nxdata = data.get_default()
+                assert nxdata is not None
+            except:
+                if nxdata is None or nxdata.nxclass != 'NXdata':
+                    raise ValueError('Invalid default pathway to an NXdata '
+                                     f'object in ({data})')
+
+            # Get the fit configuration
+            try:
+                fit_config = self.get_config(data, 'utils.models.FitConfig')
+            except Exception as data_exc:
+                self.logger.info('No valid fit config in input pipeline '
+                                 'data, using config parameter instead.')
+                try:
+                    fit_config = FitConfig(**config)
+                except Exception as dict_exc:
+                    raise RuntimeError from dict_exc
+
+            # Instantiate the Fit or FitMap object and fit the data
+            if np.squeeze(nxdata.nxsignal).ndim == 1:
+                fit = Fit(nxdata, fit_config)
+                fit.fit()
+                if fit_config.print_report:
+                    fit.print_fit_report()
+                if fit_config.plot:
+                    fit.plot(skip_init=True)
+            else:
+                fit = FitMap(nxdata, fit_config)
+                fit.fit(
+                    num_proc=fit_config.num_proc, plot=fit_config.plot,
+                    print_report=fit_config.print_report)
         
         return fit
 
@@ -149,7 +155,7 @@ class FitProcessor(Processor):
 class Component():
     def __init__(self, model, prefix=None):
         # Local modules
-        from .models import models
+        from CHAP.utils.models import models
 
         self.func = models[model.model]
         if prefix is None:
@@ -159,6 +165,7 @@ class Component():
                                 for par in model.parameters]
         self.prefix = prefix
         self._name = model.model
+
 
 class Components(dict):
     def __init__(self):
@@ -174,7 +181,7 @@ class Components(dict):
 
     def add(self, model, prefix=None):
         # Local modules
-        from .models import model_classes
+        from CHAP.utils.models import model_classes
 
         if not isinstance(model, model_classes):
             raise ValueError(f'Invalid parameter model ({model})')
@@ -189,6 +196,7 @@ class Components(dict):
     def components(self):
         return self.values()
 
+
 class Parameters(dict):
     """
     A dictionary of FitParameter objects, mimicking the functionality
@@ -199,7 +207,7 @@ class Parameters(dict):
 
     def __setitem__(self, key, value):
         # Local modules
-        from .models import FitParameter
+        from CHAP.utils.models import FitParameter
 
         if key in self:
             raise KeyError(f'Duplicate name for FitParameter ({key})')
@@ -221,7 +229,7 @@ class Parameters(dict):
         :type prefix: str, optional
         """
         # Local modules
-        from .models import FitParameter
+        from CHAP.utils.models import FitParameter
 
         if isinstance(parameter, FitParameter):
             name = f'{prefix}{parameter.name}'
@@ -349,7 +357,7 @@ class ModelResult():
         :type show_correl: bool, optional
         """
         # Local modules
-        from .general import (
+        from CHAP.utils.general import (
             getfloat_attr,
             gformat,
         )
@@ -409,12 +417,12 @@ class Fit:
     """
     Wrapper class for scipy/lmfit.
     """
-    def __init__(self, nxdata, config, prefixes):
+    def __init__(self, nxdata, config):
         """Initialize Fit."""
         self._code = config.code
         if self._code == 'scipy':
             # Local modules
-            from .fit import Parameters
+            from CHAP.utils.fit import Parameters
         else:
             # Third party modules
             from lmfit import Parameters
@@ -484,7 +492,7 @@ class Fit:
 #                    self._norm = (y_min, self._y_range)
 
             # Setup fit model
-            self._setup_fit_model(config, prefixes)
+            self._setup_fit_model(config.parameters, config.models)
 
     @property
     def best_errors(self):
@@ -703,7 +711,7 @@ class Fit:
 
     def add_parameter(self, parameter):
         # Local modules
-        from .models import FitParameter
+        from CHAP.utils.models import FitParameter
 
         """Add a fit parameter to the fit model."""
         if parameter.get('expr') is not None:
@@ -962,7 +970,7 @@ class Fit:
             return None
         return result.eval(x=np.asarray(x))-self.normalization_offset
 
-    def fit(self, **kwargs):
+    def fit(self, config=None, **kwargs):
         """Fit the model to the input data."""
 
         # Check input parameters
@@ -1023,6 +1031,7 @@ class Fit:
                 # Third party modules
                 from asteval import Interpreter
                 from lmfit.models import GaussianModel
+
                 ast = Interpreter()
                 # Should work for other peak-like models,
                 #   but will need tests first
@@ -1070,17 +1079,30 @@ class Fit:
             self.add_model(model, 'tmp_normalization_offset_')
 
         # Adjust existing parameters for refit:
-        if 'parameters' in kwargs:
-            raise RuntimeError('Refit needs testing')
-            parameters = kwargs.pop('parameters')
-            if isinstance(parameters, dict):
-                parameters = (parameters, )
-            elif not is_dict_series(parameters):
-                raise ValueError(
-                    'Invalid value of keyword argument parameters '
-                    f'({parameters})')
+        if config is not None:
+            # Local modules
+            from CHAP.utils.models import FitConfig
+
+            # Reset model configuration for refit
+            if self._code == 'scipy':
+                self._res_par_exprs = []
+                self._res_par_indices = []
+                self._res_par_names = []
+                self._res_par_values = []
+
+            # Check for duplicate model names and create prefixes
+            prefixes = self._create_prefixes(config.models)
+            if not isinstance(config, FitConfig):
+                raise ValueError(f'Invalid parameter config ({config})')
+            parameters = config.parameters
+            for prefix, model in zip(prefixes, config.models):
+                for par in model.parameters:
+                    par.name = f'{prefix}{par.name}'
+                parameters += model.parameters
+
+            # Adjust parameters for refit as needed
             for par in parameters:
-                name = par['name']
+                name = par.name
                 if name not in self._parameters:
                     raise ValueError(
                         f'Unable to match {name} parameter {par} to an '
@@ -1089,24 +1111,13 @@ class Fit:
                     raise ValueError(
                         f'Unable to modify {name} parameter {par} '
                         '(currently an expression)')
-                if par.get('expr') is not None:
+                if par.expr is not None:
                     raise KeyError(
                         f'Invalid "expr" key in {name} parameter {par}')
-                self._parameters[name].set(vary=par.get('vary'))
-                self._parameters[name].set(min=par.get('min'))
-                self._parameters[name].set(max=par.get('max'))
-                self._parameters[name].set(value=par.get('value'))
-
-        # Apply parameter updates through keyword arguments
-        for name in set(self._parameters) & set(kwargs):
-            raise RuntimeError('parameters as keyword args needs testing')
-            value = kwargs.pop(name)
-            if self._parameters[name].expr is None:
-                self._parameters[name].set(value=value)
-            else:
-                logger.warning(
-                    f'Ignoring parameter {name} (set by expression: '
-                    f'{self._parameters[name].expr})')
+                self._parameters[name].set(vary=par.vary)
+                self._parameters[name].set(min=par.min)
+                self._parameters[name].set(max=par.max)
+                self._parameters[name].set(value=par.value)
 
         # Check for uninitialized parameters
         for name, par in self._parameters.items():
@@ -1337,31 +1348,56 @@ class Fit:
 
         return height, center, fwhm
 
-    def _setup_fit_model(self, config, prefixes):
-            # Third party modules
-            from sympy import diff
+    def _create_prefixes(self, models):
+        # Check for duplicate model names and create prefixes
+        names = []
+        prefixes = []
+        for model in models:
+            if model.model == 'expression' and self._code != 'lmfit':
+                self._code = 'lmfit'
+                self.logger.warning('Using lmfit instead of scipy with '
+                                    'an expression model')
+            names.append(f'{model.prefix}{model.model}')
+            prefixes.append(model.prefix)
+        counts = Counter(names)
+        for model, count in counts.items():
+            if count > 1:
+                n = 0
+                for i, name in enumerate(names):
+                    if name == model:
+                        n += 1
+                        prefixes[i] = f'{name}{n}_'
 
-            # Add the free fit parameters
-            for par in config.parameters:
-                self.add_parameter(par.dict())
+        return prefixes
 
-            # Add the model functions
-            for i, model in enumerate(config.models):
-                self.add_model(model, prefixes[i])
+    def _setup_fit_model(self, parameters, models):
+        # Third party modules
+        from sympy import diff
 
-            # Check linearity of free fit parameters:
-            known_parameters = (
-                self._linear_parameters + self._nonlinear_parameters)
-            for name in reversed(self._parameters):
-                if name not in known_parameters:
-                    for nname, par in self._parameters.items():
-                        if par.expr is not None:
-                            if nname in self._nonlinear_parameters:
-                                self._nonlinear_parameters.insert(0, name)
-                            elif diff(par.expr, name, name):
-                                self._nonlinear_parameters.insert(0, name)
-                            else:
-                                self._linear_parameters.insert(0, name)
+        # Check for duplicate model names and create prefixes
+        prefixes = self._create_prefixes(models)
+
+        # Add the free fit parameters
+        for par in parameters:
+            self.add_parameter(par.dict())
+
+        # Add the model functions
+        for prefix, model in zip(prefixes, models):
+            self.add_model(model, prefix)
+
+        # Check linearity of free fit parameters:
+        known_parameters = (
+            self._linear_parameters + self._nonlinear_parameters)
+        for name in reversed(self._parameters):
+            if name not in known_parameters:
+                for nname, par in self._parameters.items():
+                    if par.expr is not None:
+                        if nname in self._nonlinear_parameters:
+                            self._nonlinear_parameters.insert(0, name)
+                        elif diff(par.expr, name, name):
+                            self._nonlinear_parameters.insert(0, name)
+                        else:
+                            self._linear_parameters.insert(0, name)
 
     def _check_linearity_model(self):
         """
@@ -1370,7 +1406,6 @@ class Fit:
         """
         # Third party modules
         from lmfit.models import ExpressionModel
-        # Third party modules
         from sympy import diff
 
         if not self._try_linear_fit:
@@ -1855,9 +1890,9 @@ class FitMap(Fit):
     """
     Wrapper to the Fit class to fit data on a N-dimensional map
     """
-    def __init__(self, nxdata, config, prefixes):
+    def __init__(self, nxdata, config):
         """Initialize FitMap."""
-        super().__init__(None, config, prefixes)
+        super().__init__(None, config)
         self._best_errors = None
         self._best_fit = None
         self._best_parameters = None
@@ -1922,7 +1957,7 @@ class FitMap(Fit):
             self._redchi_cutoff *= self._y_range**2
 
         # Setup fit model
-        self._setup_fit_model(config, prefixes)
+        self._setup_fit_model(config.parameters, config.models)
 
     @property
     def best_errors(self):
