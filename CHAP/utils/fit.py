@@ -86,7 +86,10 @@ class FitProcessor(Processor):
         :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
         """
         # Local modules
-        from CHAP.utils.models import FitConfig
+        from CHAP.utils.models import (
+            FitConfig,
+            Multipeak,
+        )
 
         # Unwrap the PipelineData if called as a Pipeline Processor
         if not isinstance(data, (Fit, FitMap)) and not isinstance(data, NXdata):
@@ -135,6 +138,21 @@ class FitProcessor(Processor):
                 except Exception as dict_exc:
                     raise RuntimeError from dict_exc
 
+            # Expand multipeak model if present
+            found_multipeak = False
+            for i, model in enumerate(deepcopy(fit_config.models)):
+                if isinstance(model, Multipeak):
+                    if found_multipeak:
+                        raise ValueError(
+                            f'Invalid parameter models ({fit_config.models}) '
+                            '(multiple instances of multipeak not allowed)')
+                    parameters, models = self.create_multipeak_model(model)
+                    if parameters:
+                        fit_config.parameters += parameters
+                    fit_config.models += models
+                    fit_config.models.remove(model)
+                    found_multipeak = True
+
             # Instantiate the Fit or FitMap object and fit the data
             if np.squeeze(nxdata.nxsignal).ndim == 1:
                 fit = Fit(nxdata, fit_config)
@@ -150,6 +168,67 @@ class FitProcessor(Processor):
                     print_report=fit_config.print_report)
         
         return fit
+
+    @staticmethod
+    def create_multipeak_model(model_config):
+        """Create a multipeak model."""
+        # Local modules
+        from CHAP.utils.models import (
+            FitParameter,
+            Gaussian,
+        )
+
+        parameters = []
+        models = []
+        num_peaks = len(model_config.centers)
+        if num_peaks == 1 and model_config.fit_type == 'uniform':
+            logger.debug('Ignoring fit_type input for fitting one peak')
+            model_config.fit_type = 'unconstrained'
+
+        sig_min = FLOAT_MIN
+        sig_max = np.inf
+        if (model_config.fwhm_min is not None
+                or model_config.fwhm_max is not None):
+            # Third party modules
+            from asteval import Interpreter
+            ast = Interpreter()
+
+            if model_config.fwhm_min is not None:
+                ast(f'fwhm = {model_config.fwhm_min}')
+                sig_min = ast(fwhm_factor[model_config.peak_models])
+            if model_config.fwhm_max is not None:
+                ast(f'fwhm = {model_config.fwhm_max}')
+                sig_max = ast(fwhm_factor[model_config.peak_models])
+
+        if model_config.fit_type == 'uniform':
+            parameters.append(FitParameter(
+                name='scale_factor', value=1.0, min=FLOAT_MIN))
+            for i, cen in enumerate(model_config.centers):
+                models.append(Gaussian(
+                    model='gaussian',
+                    prefix=f'peak{i+1}_',
+                    parameters=[
+                         {'name': 'amplitude', 'min': FLOAT_MIN},
+                         {'name': 'center', 'expr': f'scale_factor*{cen}'},
+                         {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
+        else:
+            for i, cen in enumerate(model_config.centers):
+                if model_config.centers_range is None:
+                    cen_min = None
+                    cen_max = None
+                else:
+                    cen_min = cen - model_config.centers_range
+                    cen_max = cen + model_config.centers_range
+                models.append(Gaussian(
+                    model='gaussian',
+                    prefix=f'peak{i+1}_',
+                    parameters=[
+                         {'name': 'amplitude', 'min': FLOAT_MIN},
+                         {'name': 'center', 'value': cen, 'min': cen_min,
+                          'max': cen_max},
+                         {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
+
+        return parameters, models
 
 
 class Component():
@@ -430,7 +509,7 @@ class Fit:
         self._model = None
         self._norm = None
         self._normalized = False
-        self._num_free_parameters = 0
+        self._free_parameters = []
         self._parameters = Parameters()
         if self._code == 'scipy':
             self._ast = None
@@ -510,6 +589,7 @@ class Fit:
             return None
         return self._result.best_fit
 
+    @property
     def best_parameters(self):
         """Return the best fit parameters."""
         if self._result is None:
@@ -730,7 +810,7 @@ class Fit:
             self._parameters.add(FitParameter(**parameter))
         else:
             self._parameters.add(**parameter)
-        self._num_free_parameters += 1
+        self._free_parameters.append(name)
 
     def add_model(self, model, prefix):
         """Add a model component to the fit model."""
@@ -1081,7 +1161,10 @@ class Fit:
         # Adjust existing parameters for refit:
         if config is not None:
             # Local modules
-            from CHAP.utils.models import FitConfig
+            from CHAP.utils.models import (
+                FitConfig,
+                Multipeak,
+            )
 
             # Reset model configuration for refit
             if self._code == 'scipy':
@@ -1089,6 +1172,38 @@ class Fit:
                 self._res_par_indices = []
                 self._res_par_names = []
                 self._res_par_values = []
+
+            # Expand multipeak model if present
+            scale_factor = None
+            for i, model in enumerate(deepcopy(config.models)):
+                found_multipeak = False
+                if isinstance(model, Multipeak):
+                    if found_multipeak:
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(multiple instances of multipeak not allowed)')
+                    if (model.fit_type == 'uniform'
+                            and 'scale_factor' not in self._free_parameters):
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(uniform multipeak fit after unconstrained fit)')
+                    parameters, models = FitProcessor.create_multipeak_model(
+                        model)
+                    if (model.fit_type == 'unconstrained'
+                            and 'scale_factor' in self._free_parameters):
+                        # Third party modules
+                        from asteval import Interpreter
+
+                        scale_factor = self._parameters['scale_factor'].value
+                        self._parameters.pop('scale_factor')
+                        self._free_parameters.remove('scale_factor')
+                        ast = Interpreter()
+                        ast(f'scale_factor = {scale_factor}')
+                    if parameters:
+                        config.parameters += parameters
+                    config.models += models
+                    config.models.remove(model)
+                    found_multipeak = True
 
             # Check for duplicate model names and create prefixes
             prefixes = self._create_prefixes(config.models)
@@ -1107,17 +1222,23 @@ class Fit:
                     raise ValueError(
                         f'Unable to match {name} parameter {par} to an '
                         'existing one')
-                if self._parameters[name].expr is not None:
-                    raise ValueError(
-                        f'Unable to modify {name} parameter {par} '
-                        '(currently an expression)')
+                ppar = self._parameters[name]
+                if ppar.expr is not None:
+                    if (scale_factor is not None and 'center' in name
+                            and 'scale_factor' in ppar.expr):
+                        ppar.set(value=ast(ppar.expr), expr='')
+                        value = ppar.value
+                    else:
+                        raise ValueError(
+                            f'Unable to modify {name} parameter {par} '
+                            '(currently an expression)')
+                else:
+                    value = par.value
                 if par.expr is not None:
                     raise KeyError(
                         f'Invalid "expr" key in {name} parameter {par}')
-                self._parameters[name].set(vary=par.vary)
-                self._parameters[name].set(min=par.min)
-                self._parameters[name].set(max=par.max)
-                self._parameters[name].set(value=par.value)
+                ppar.set(
+                    value=value, min=par.min, max=par.max, vary=par.vary)
 
         # Check for uninitialized parameters
         for name, par in self._parameters.items():
@@ -1869,7 +1990,7 @@ class Fit:
 
     def _residual(self, pars, x, y):
         res = np.zeros((x.size))
-        n_par = self._num_free_parameters
+        n_par = len(self._free_parameters)
         for par, index in zip(pars, self._res_par_indices):
             self._res_par_values[index] = par
         if self._res_par_exprs:

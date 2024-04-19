@@ -387,6 +387,16 @@ class Expression(BaseModel):
         'parameters', always=True, allow_reuse=True)(validate_parameters)
 
 
+class Multipeak(BaseModel):
+    model: Literal['multipeak']
+    centers: conlist(item_type=confloat(allow_inf_nan=False), min_items=1)
+    fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
+    centers_range: Optional[confloat(allow_inf_nan=False)]
+    fwhm_min: Optional[confloat(allow_inf_nan=False)]
+    fwhm_max: Optional[confloat(allow_inf_nan=False)]
+    peak_models: Literal['gaussian', 'lorentzian'] = 'gaussian'
+
+
 models = {
     'constant': constant,
     'linear': linear,
@@ -419,7 +429,7 @@ class FitConfig(BaseModel):
     :type parameters: list[FitParameter], optional
     :ivar models: The component(s) of the (composite) fit model.
     :type models: Union[Constant, Linear, Quadratic, Exponential,
-        Gaussian, Lorentzian, Expression]
+        Gaussian, Lorentzian, Expression, Multipeak]
     :ivar num_proc: The number of processors used in fitting a map
         of data, defaults to `1`.
     :type num_proc: int, optional
@@ -434,7 +444,7 @@ class FitConfig(BaseModel):
     parameters: conlist(item_type=FitParameter) = []
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        Expression], min_items=1)
+        Expression, Multipeak], min_items=1)
     num_proc: conint(gt=0) = 1
     plot: StrictBool = False
     print_report:  StrictBool = False
