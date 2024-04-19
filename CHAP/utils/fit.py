@@ -339,12 +339,12 @@ class ModelResult():
             self.residual = result[2]['fvec']
             self.success = 1 <= result[4] <= 4
         else:
-            best_pars = result['x']
-            self.ier = result['status']
-            self.message = result['message']
-            self.nfev = result['nfev']
-            self.residual = result['fun']
-            self.success = result['success']
+            best_pars = result.x
+            self.ier = result.status
+            self.message = result.message
+            self.nfev = result.nfev
+            self.residual = result.fun
+            self.success = result.success
         self.best_fit = y + self.residual
         self.method = method
         self.ndata = len(self.residual)
@@ -360,8 +360,12 @@ class ModelResult():
         self.chisqr = (self.residual**2).sum()
         self.redchi = self.chisqr / (self.ndata-self.nvarys)
         self.covar = None
-        if method == 'leastsq' and result[1] is not None:
-            self.covar = result[1]*self.redchi
+        if method == 'leastsq':
+            if result[1] is not None:
+                self.covar = result[1]*self.redchi
+        else:
+            self.covar = self.redchi * np.linalg.inv(
+                np.dot(result.jac.T, result.jac))
 
         # Update the fit parameters with the fit result
         self.params = deepcopy(parameters)
