@@ -47,6 +47,7 @@ from CHAP.utils.general import (
 logger = getLogger(__name__)
 FLOAT_MIN = float_info.min
 FLOAT_MAX = float_info.max
+FLOAT_EPS = float_info.epsilon
 
 # sigma = fwhm_factor*fwhm
 fwhm_factor = {
@@ -328,17 +329,26 @@ class ModelResult():
     similarly named class in the lmfit library.
     """
     def __init__(
-            self, x, y, model, parameters, ast, res_par_exprs, res_par_indices,
-            res_par_names, result):
-        self.residual = result[2]['fvec']
+            self, x, y, model, parameters, method, ast, res_par_exprs,
+            res_par_indices, res_par_names, result):
+        if method == 'leastsq':
+            best_pars = result[0]
+            self.ier = result[4]
+            self.message = result[3]
+            self.nfev = result[2]['nfev']
+            self.residual = result[2]['fvec']
+            self.success = 1 <= result[4] <= 4
+        else:
+            best_pars = result['x']
+            self.ier = result['status']
+            self.message = result['message']
+            self.nfev = result['nfev']
+            self.residual = result['fun']
+            self.success = result['success']
         self.best_fit = y + self.residual
-        self.ier = result[4]
-        self.method = 'leastsq'
-        self.message = result[3]
+        self.method = method
         self.ndata = len(self.residual)
-        self.nfev = result[2]['nfev']
         self.nvarys = len(res_par_indices)
-        self.success = 1 <= result[4] <= 4
         self.x = x
         self._ast = ast
         self._expr_pars = {}
@@ -350,14 +360,14 @@ class ModelResult():
         self.chisqr = (self.residual**2).sum()
         self.redchi = self.chisqr / (self.ndata-self.nvarys)
         self.covar = None
-        if result[1] is not None:
+        if method == 'leastsq' and result[1] is not None:
             self.covar = result[1]*self.redchi
 
         # Update the fit parameters with the fit result
         self.params = deepcopy(parameters)
         par_names = list(self.params.keys())
         self.var_names = []
-        for i, (value, index) in enumerate(zip(result[0], res_par_indices)):
+        for i, (value, index) in enumerate(zip(best_pars, res_par_indices)):
             par = self.params[par_names[index]]
             par.set(value=value)
             stderr = None
@@ -370,7 +380,7 @@ class ModelResult():
         if res_par_exprs:
             # Third party modules
             from sympy import diff
-            for value, name in zip(result[0], res_par_names):
+            for value, name in zip(best_pars, res_par_names):
                 self._ast.symtable[name] = value
             for par_expr in res_par_exprs:
                 name = par_names[par_expr['index']]
@@ -506,6 +516,7 @@ class Fit:
             # Third party modules
             from lmfit import Parameters
         self._mask = None
+        self._method = config.method
         self._model = None
         self._norm = None
         self._normalized = False
@@ -518,7 +529,7 @@ class Fit:
             self._res_par_indices = []
             self._res_par_names = []
             self._res_par_values = []
-        self._parameter_bounds = None
+        self._parameter_bounds = {}
         self._linear_parameters = []
         self._nonlinear_parameters = []
         self._result = None
@@ -1749,7 +1760,9 @@ class Fit:
                 par = self._parameters[name]
                 if par.expr is None and norm:
                     self._parameters[name].set(value=par.value*self._norm[1])
-        self._result = ModelResult(self._model, deepcopy(self._parameters))
+        #RV FIX
+        self._result = ModelResult(
+            self._model, deepcopy(self._parameters), 'linear')
         self._result.best_fit = self._model.eval(params=self._parameters, x=x)
         if (self._normalized
                 and (have_expression_model or expr_parameters)):
@@ -1774,11 +1787,17 @@ class Fit:
         """
         Perform a nonlinear fit with spipy or lmfit
         """
-        # Prevent initial values from sitting at boundaries
-        self._parameter_bounds = {
-            name:{'min': par.min, 'max': par.max}
-            for name, par in self._parameters.items() if par.vary}
-        self._reset_par_at_boundary()
+        # Check bounds and prevent initial values at boundaries
+        have_bounds = False
+        for name, par in self._parameters.items():
+            if par.vary:
+                self._parameter_bounds[name] = {
+                    'min': par.min, 'max': par.max}
+                if not have_bounds and (
+                        not np.isinf(par.min) or not np.isinf(par.max)):
+                    have_bounds = True
+        if have_bounds:
+            self._reset_par_at_boundary()
 
         # Perform the fit
         if self._mask is not None:
@@ -1787,14 +1806,11 @@ class Fit:
         if self._code == 'scipy':
             # Third party modules
             from asteval import Interpreter
-            from scipy.optimize import leastsq
+            from scipy.optimize import (
+                leastsq,
+                least_squares,
+            )
 
-            lskws = {
-                'ftol': 1.49012e-08,
-                'xtol': 1.49012e-08,
-                'gtol': 0.0,
-                'maxfev': 64000,
-            }
             assert self._mask is None
             self._ast = Interpreter()
             self._ast.basesymtable = {
@@ -1812,15 +1828,38 @@ class Fit:
                         pars_init.append(par.value)
                         self._res_par_indices.append(i)
                         self._res_par_names.append(name)
+            if have_bounds:
+                bounds = (
+                    [v['min'] for v in self._parameter_bounds.values()],
+                    [v['max'] for v in self._parameter_bounds.values()])
+                if self._method in ('lm', 'leastsq'):
+                    self._method = 'trf'
+                    logger.warning(
+                        f'Fit method changed to {self._method} for fit with '
+                        'bounds')
+            else:
+                bounds = (-np.inf, np.inf)
             init_params = deepcopy(self._parameters)
 #            t0 = time()
-            result = leastsq(
-                self._residual, pars_init, args=(x, y), full_output=True,
-                **lskws)
+            lskws = {
+                'ftol': 1.49012e-08,
+                'xtol': 1.49012e-08,
+                'gtol': 10*FLOAT_EPS,
+            }
+            if self._method == 'leastsq':
+                lskws['maxfev'] = 64000
+                result = leastsq(
+                    self._residual, pars_init, args=(x, y), full_output=True,
+                    **lskws)
+            else:
+                lskws['max_nfev'] = 64000
+                result = least_squares(
+                    self._residual, pars_init, bounds=bounds,
+                    method=self._method, args=(x, y), **lskws)
 #            t1 = time()
 #            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
             model_result = ModelResult(
-                x, y, self._model, self._parameters, self._ast,
+                x, y, self._model, self._parameters, self._method, self._ast,
                 self._res_par_exprs, self._res_par_indices,
                 self._res_par_names, result)
             model_result.init_params = init_params
@@ -1834,7 +1873,8 @@ class Fit:
 #                fit_kws['Dfun'] = kwargs.pop('Dfun')
 #            t0 = time()
             model_result = self._model.fit(
-                y, self._parameters, x=x, fit_kws=fit_kws, **kwargs)
+                y, self._parameters, x=x, method=self._method, fit_kws=fit_kws,
+                **kwargs)
 #            t1 = time()
 #            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
 

@@ -445,6 +445,28 @@ class FitConfig(BaseModel):
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
         Expression, Multipeak], min_items=1)
+    method: Literal[
+        'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
     num_proc: conint(gt=0) = 1
     plot: StrictBool = False
     print_report:  StrictBool = False
+
+    @validator('method', always=True)
+    def validate_method(cls, value, values):
+        """Validate the specified method.
+
+        :param value: Field value to validate (`method`).
+        :type value: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :return: Fit method.
+        :rtype: str
+        """
+        code = values['code']
+        if code == 'lmfit':
+            if value not in ('leastsq', 'least_squares'):
+                value = 'leastsq'
+        elif value == 'least_squares':
+            value = 'leastsq'
+
+        return value
