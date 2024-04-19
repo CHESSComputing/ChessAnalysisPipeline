@@ -533,7 +533,7 @@ class Fit:
             self._res_par_indices = []
             self._res_par_names = []
             self._res_par_values = []
-        self._parameter_bounds = {}
+        self._parameter_bounds = None
         self._linear_parameters = []
         self._nonlinear_parameters = []
         self._result = None
@@ -1793,6 +1793,7 @@ class Fit:
         """
         # Check bounds and prevent initial values at boundaries
         have_bounds = False
+        self._parameter_bounds = {}
         for name, par in self._parameters.items():
             if par.vary:
                 self._parameter_bounds[name] = {
