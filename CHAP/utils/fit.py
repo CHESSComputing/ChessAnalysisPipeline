@@ -107,15 +107,15 @@ class FitProcessor(Processor):
                 except Exception as dict_exc:
                     raise RuntimeError from dict_exc
 
-            if isinstance(data, Fit):
+            if isinstance(data, FitMap):
+                fit.fit(config=fit_config)
+            else:
                 fit.fit(config=fit_config)
                 if fit_config is not None:
                     if fit_config.print_report:
                         fit.print_fit_report()
                     if fit_config.plot:
                         fit.plot(skip_init=True)
-            else:
-                fit.fit(config=fit_config)
 
         else:
 
@@ -233,16 +233,12 @@ class FitProcessor(Processor):
 
 
 class Component():
-    def __init__(self, model, prefix=None):
+    def __init__(self, model, prefix=''):
         # Local modules
         from CHAP.utils.models import models
 
         self.func = models[model.model]
-        if prefix is None:
-            self.param_names = [par.name for par in model.parameters]
-        else:
-            self.param_names = [f'{prefix}{par.name}'
-                                for par in model.parameters]
+        self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
         self.prefix = prefix
         self._name = model.model
 
@@ -259,17 +255,15 @@ class Components(dict):
         dict.__setitem__(self, key, value)
         value.name = key
 
-    def add(self, model, prefix=None):
+    def add(self, model, prefix=''):
         # Local modules
         from CHAP.utils.models import model_classes
 
         if not isinstance(model, model_classes):
             raise ValueError(f'Invalid parameter model ({model})')
-        if prefix is not None and not isinstance(prefix, str):
+        if not isinstance(prefix, str):
             raise ValueError(f'Invalid parameter prefix ({prefix})')
-        name = model.model
-        if prefix is not None:
-            name = f'{prefix}{name}'
+        name = f'{prefix}{model.model}'
         self.__setitem__(name, Component(model, prefix))
 
     @property
@@ -433,7 +427,7 @@ class ModelResult():
                 continue
             par_values = tuple(
                 parameters[par].value for par in component.param_names)
-            if component.prefix is None:
+            if component.prefix == '':
                 name = component._name
             else:
                 name = component.prefix
@@ -1072,13 +1066,11 @@ class Fit:
         if self._model is None:
             logger.error('Undefined fit model')
             return None
-        if 'guess' in kwargs:
-            guess = kwargs.pop('guess')
-            if not isinstance(guess, bool):
-                raise ValueError(
-                    f'Invalid value of keyword argument guess ({guess})')
-        else:
-            guess = False
+        self._mask = kwargs.pop('mask', None)
+        guess = kwargs.pop('guess', False)
+        if not isinstance(guess, bool):
+            raise ValueError(
+                f'Invalid value of keyword argument guess ({guess})')
         if self._result is not None:
             if guess:
                 logger.warning(
@@ -1098,173 +1090,8 @@ class Fit:
             else:
                 self._try_linear_fit = try_linear_fit
 
-        # Apply mask if supplied:
-        if 'mask' in kwargs:
-            self._mask = kwargs.pop('mask')
-        if self._mask is not None:
-            raise RuntimeError('mask needs testing')
-            self._mask = np.asarray(self._mask).astype(bool)
-            if self._x.size != self._mask.size:
-                raise ValueError(
-                    f'Inconsistent x and mask dimensions ({self._x.size} vs '
-                    f'{self._mask.size})')
-
-        # Estimate initial parameters
-        if guess:
-            raise RuntimeError('Estimate initial parameters needs testing')
-            if self._mask is None:
-                xx = self._x
-                yy = self._y
-            else:
-                xx = self._x[~self._mask]
-                yy = np.asarray(self._y)[~self._mask]
-            try:
-                # Try with the build-in lmfit guess method
-                # (only implemented for a single model)
-                self._parameters = self._model.guess(yy, x=xx)
-            except:
-                # Third party modules
-                from asteval import Interpreter
-                from lmfit.models import GaussianModel
-
-                ast = Interpreter()
-                # Should work for other peak-like models,
-                #   but will need tests first
-                for component in self._model.components:
-                    if isinstance(component, GaussianModel):
-                        center = self._parameters[
-                            f"{component.prefix}center"].value
-                        height_init, cen_init, fwhm_init = \
-                            self.guess_init_peak(
-                                xx, yy, center_guess=center,
-                                use_max_for_center=False)
-                        if (self._fwhm_min is not None
-                                and fwhm_init < self._fwhm_min):
-                            fwhm_init = self._fwhm_min
-                        elif (self._fwhm_max is not None
-                                and fwhm_init > self._fwhm_max):
-                            fwhm_init = self._fwhm_max
-                        ast(f'fwhm = {fwhm_init}')
-                        ast(f'height = {height_init}')
-                        sig_init = ast(fwhm_factor[component._name])
-                        amp_init = ast(height_factor[component._name])
-                        par = self._parameters[
-                            f"{component.prefix}amplitude"]
-                        if par.vary:
-                            par.set(value=amp_init)
-                        par = self._parameters[
-                            f"{component.prefix}center"]
-                        if par.vary:
-                            par.set(value=cen_init)
-                        par = self._parameters[
-                            f"{component.prefix}sigma"]
-                        if par.vary:
-                            par.set(value=sig_init)
-
-        # Add constant offset for a normalized model
-        if self._result is None and self._norm is not None and self._norm[0]:
-            from CHAP.utils.models import Constant
-            model = Constant(
-                model='constant',
-                parameters=[{
-                    'name': 'c',
-                    'value': -self._norm[0],
-                    'vary': False,
-                }])
-            self.add_model(model, 'tmp_normalization_offset_')
-
-        # Adjust existing parameters for refit:
-        if config is not None:
-            # Local modules
-            from CHAP.utils.models import (
-                FitConfig,
-                Multipeak,
-            )
-
-            # Reset model configuration for refit
-            if self._code == 'scipy':
-                self._res_par_exprs = []
-                self._res_par_indices = []
-                self._res_par_names = []
-                self._res_par_values = []
-
-            # Expand multipeak model if present
-            scale_factor = None
-            for i, model in enumerate(deepcopy(config.models)):
-                found_multipeak = False
-                if isinstance(model, Multipeak):
-                    if found_multipeak:
-                        raise ValueError(
-                            f'Invalid parameter models ({config.models}) '
-                            '(multiple instances of multipeak not allowed)')
-                    if (model.fit_type == 'uniform'
-                            and 'scale_factor' not in self._free_parameters):
-                        raise ValueError(
-                            f'Invalid parameter models ({config.models}) '
-                            '(uniform multipeak fit after unconstrained fit)')
-                    parameters, models = FitProcessor.create_multipeak_model(
-                        model)
-                    if (model.fit_type == 'unconstrained'
-                            and 'scale_factor' in self._free_parameters):
-                        # Third party modules
-                        from asteval import Interpreter
-
-                        scale_factor = self._parameters['scale_factor'].value
-                        self._parameters.pop('scale_factor')
-                        self._free_parameters.remove('scale_factor')
-                        ast = Interpreter()
-                        ast(f'scale_factor = {scale_factor}')
-                    if parameters:
-                        config.parameters += parameters
-                    config.models += models
-                    config.models.remove(model)
-                    found_multipeak = True
-
-            # Check for duplicate model names and create prefixes
-            prefixes = self._create_prefixes(config.models)
-            if not isinstance(config, FitConfig):
-                raise ValueError(f'Invalid parameter config ({config})')
-            parameters = config.parameters
-            for prefix, model in zip(prefixes, config.models):
-                for par in model.parameters:
-                    par.name = f'{prefix}{par.name}'
-                parameters += model.parameters
-
-            # Adjust parameters for refit as needed
-            for par in parameters:
-                name = par.name
-                if name not in self._parameters:
-                    raise ValueError(
-                        f'Unable to match {name} parameter {par} to an '
-                        'existing one')
-                ppar = self._parameters[name]
-                if ppar.expr is not None:
-                    if (scale_factor is not None and 'center' in name
-                            and 'scale_factor' in ppar.expr):
-                        ppar.set(value=ast(ppar.expr), expr='')
-                        value = ppar.value
-                    else:
-                        raise ValueError(
-                            f'Unable to modify {name} parameter {par} '
-                            '(currently an expression)')
-                else:
-                    value = par.value
-                if par.expr is not None:
-                    raise KeyError(
-                        f'Invalid "expr" key in {name} parameter {par}')
-                ppar.set(
-                    value=value, min=par.min, max=par.max, vary=par.vary)
-
-        # Check for uninitialized parameters
-        for name, par in self._parameters.items():
-            if par.expr is None:
-                value = par.value
-                if value is None or np.isinf(value) or np.isnan(value):
-                    if (self._norm is None
-                            or name in self._nonlinear_parameters):
-                        self._parameters[name].set(value=1.0)
-                    else:
-                        self._parameters[name].set(value=self._norm[1])
+        # Setup the fit
+        self._setup_fit(config, guess)
 
         # Check if model is linear
         try:
@@ -1507,6 +1334,7 @@ class Fit:
         return prefixes
 
     def _setup_fit_model(self, parameters, models):
+        """Setup the fit model."""
         # Third party modules
         from sympy import diff
 
@@ -1534,6 +1362,182 @@ class Fit:
                             self._nonlinear_parameters.insert(0, name)
                         else:
                             self._linear_parameters.insert(0, name)
+
+    def _setup_fit(self, config, guess=False):
+        """Setup the fit."""
+        # Apply mask if supplied:
+        if self._mask is not None:
+            raise RuntimeError('mask needs testing')
+            self._mask = np.asarray(self._mask).astype(bool)
+            if self._x.size != self._mask.size:
+                raise ValueError(
+                    f'Inconsistent x and mask dimensions ({self._x.size} vs '
+                    f'{self._mask.size})')
+
+        # Estimate initial parameters
+        if guess and not isinstance(self, FitMap):
+            raise RuntimeError('Estimate initial parameters needs testing')
+            if self._mask is None:
+                xx = self._x
+                yy = self._y
+            else:
+                xx = self._x[~self._mask]
+                yy = np.asarray(self._y)[~self._mask]
+            try:
+                # Try with the build-in lmfit guess method
+                # (only implemented for a single model)
+                self._parameters = self._model.guess(yy, x=xx)
+            except:
+                # Third party modules
+                from asteval import Interpreter
+                from lmfit.models import GaussianModel
+
+                ast = Interpreter()
+                # Should work for other peak-like models,
+                #   but will need tests first
+                for component in self._model.components:
+                    if isinstance(component, GaussianModel):
+                        center = self._parameters[
+                            f"{component.prefix}center"].value
+                        height_init, cen_init, fwhm_init = \
+                            self.guess_init_peak(
+                                xx, yy, center_guess=center,
+                                use_max_for_center=False)
+                        if (self._fwhm_min is not None
+                                and fwhm_init < self._fwhm_min):
+                            fwhm_init = self._fwhm_min
+                        elif (self._fwhm_max is not None
+                                and fwhm_init > self._fwhm_max):
+                            fwhm_init = self._fwhm_max
+                        ast(f'fwhm = {fwhm_init}')
+                        ast(f'height = {height_init}')
+                        sig_init = ast(fwhm_factor[component._name])
+                        amp_init = ast(height_factor[component._name])
+                        par = self._parameters[
+                            f"{component.prefix}amplitude"]
+                        if par.vary:
+                            par.set(value=amp_init)
+                        par = self._parameters[
+                            f"{component.prefix}center"]
+                        if par.vary:
+                            par.set(value=cen_init)
+                        par = self._parameters[
+                            f"{component.prefix}sigma"]
+                        if par.vary:
+                            par.set(value=sig_init)
+
+        # Add constant offset for a normalized model
+        if self._result is None and self._norm is not None and self._norm[0]:
+            from CHAP.utils.models import Constant
+            model = Constant(
+                model='constant',
+                parameters=[{
+                    'name': 'c',
+                    'value': -self._norm[0],
+                    'vary': False,
+                }])
+            self.add_model(model, 'tmp_normalization_offset_')
+
+        # Adjust existing parameters for refit:
+        if config is not None:
+            # Local modules
+            from CHAP.utils.models import (
+                FitConfig,
+                Multipeak,
+            )
+
+            # Reset model configuration for refit
+            if self._code == 'scipy':
+                self._res_par_exprs = []
+                self._res_par_indices = []
+                self._res_par_names = []
+                self._res_par_values = []
+
+            # Expand multipeak model if present
+            scale_factor = None
+            for i, model in enumerate(deepcopy(config.models)):
+                found_multipeak = False
+                if isinstance(model, Multipeak):
+                    if found_multipeak:
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(multiple instances of multipeak not allowed)')
+                    if (model.fit_type == 'uniform'
+                            and 'scale_factor' not in self._free_parameters):
+                        raise ValueError(
+                            f'Invalid parameter models ({config.models}) '
+                            '(uniform multipeak fit after unconstrained fit)')
+                    parameters, models = FitProcessor.create_multipeak_model(
+                        model)
+                    if (model.fit_type == 'unconstrained'
+                            and 'scale_factor' in self._free_parameters):
+                        # Third party modules
+                        from asteval import Interpreter
+
+                        scale_factor = self._parameters['scale_factor'].value
+                        self._parameters.pop('scale_factor')
+                        self._free_parameters.remove('scale_factor')
+                        ast = Interpreter()
+                        ast(f'scale_factor = {scale_factor}')
+                    if parameters:
+                        config.parameters += parameters
+                    config.models += models
+                    config.models.remove(model)
+                    found_multipeak = True
+
+            # Check for duplicate model names and create prefixes
+            prefixes = self._create_prefixes(config.models)
+            if not isinstance(config, FitConfig):
+                raise ValueError(f'Invalid parameter config ({config})')
+            parameters = config.parameters
+            for prefix, model in zip(prefixes, config.models):
+                for par in model.parameters:
+                    par.name = f'{prefix}{par.name}'
+                parameters += model.parameters
+
+            # Adjust parameters for refit as needed
+            if isinstance(self, FitMap):
+                scale_factor_index = \
+                    self._best_parameters.index('scale_factor')
+                self._best_parameters.pop(scale_factor_index)
+                self._best_values = np.delete(
+                    self._best_values, scale_factor_index, 0)
+                self._best_errors = np.delete(
+                    self._best_errors, scale_factor_index, 0)
+            for par in parameters:
+                name = par.name
+                if name not in self._parameters:
+                    raise ValueError(
+                        f'Unable to match {name} parameter {par} to an '
+                        'existing one')
+                ppar = self._parameters[name]
+                if ppar.expr is not None:
+                    if (scale_factor is not None and 'center' in name
+                            and 'scale_factor' in ppar.expr):
+                        ppar.set(value=ast(ppar.expr), expr='')
+                        value = ppar.value
+                    else:
+                        raise ValueError(
+                            f'Unable to modify {name} parameter {par} '
+                            '(currently an expression)')
+                else:
+                    value = par.value
+                if par.expr is not None:
+                    raise KeyError(
+                        f'Invalid "expr" key in {name} parameter {par}')
+                ppar.set(
+                    value=value, min=par.min, max=par.max, vary=par.vary)
+
+        # Check for uninitialized parameters
+        for name, par in self._parameters.items():
+            if par.expr is None:
+                value = par.value
+                if value is None or np.isinf(value) or np.isnan(value):
+                    if (self._norm is None
+                            or name in self._nonlinear_parameters):
+                        self._parameters[name].set(value=1.0)
+                    else:
+                        self._parameters[name].set(value=self._norm[1])
 
     def _check_linearity_model(self):
         """
@@ -2318,6 +2322,7 @@ class FitMap(Fit):
         if (not isinstance(dims, (list, tuple))
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')
+        dims = tuple(dims)
         if (self._result is None or self.best_fit is None
                 or self.best_values is None):
             logger.warning(
@@ -2375,19 +2380,26 @@ class FitMap(Fit):
         quick_plot(
             tuple(plots), legend=legend, title=str(dims), block=True, **kwargs)
 
-    def fit(self, **kwargs):
+    def fit(self, config=None, **kwargs):
         """Fit the model to the input data."""
 
         # Check input parameters
         if self._model is None:
             logger.error('Undefined fit model')
-        if 'num_proc' in kwargs:
-            num_proc = kwargs.pop('num_proc')
-            if not is_int(num_proc, ge=1):
-                raise ValueError(
-                    'Invalid value for keyword argument num_proc ({num_proc})')
+        if config is None:
+            num_proc = kwargs.pop('num_proc', cpu_count())
+            self._try_no_bounds = kwargs.pop('try_no_bounds', False)
+            self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
+            self._print_report = kwargs.pop('print_report', False)
+            self._plot = kwargs.pop('plot', False)
+            self._skip_init = kwargs.pop('skip_init', True)
         else:
-            num_proc = cpu_count()
+            num_proc = config.num_proc
+#            self._try_no_bounds = config.try_no_bounds
+#            self._redchi_cutoff = config.redchi_cutoff
+            self._print_report = config.print_report
+            self._plot = config.plot
+#            self._skip_init = config.skip_init
         if num_proc > 1 and not HAVE_JOBLIB:
             logger.warning(
                 'Missing joblib in the conda environment, running serially')
@@ -2398,104 +2410,10 @@ class FitMap(Fit):
                 'maximum number of processors, num_proc reduced to '
                 f'{cpu_count()}')
             num_proc = cpu_count()
-        if 'try_no_bounds' in kwargs:
-            self._try_no_bounds = kwargs.pop('try_no_bounds')
-            if not isinstance(self._try_no_bounds, bool):
-                raise ValueError(
-                    'Invalid value for keyword argument try_no_bounds '
-                    f'({self._try_no_bounds})')
-        if 'redchi_cutoff' in kwargs:
-            self._redchi_cutoff = kwargs.pop('redchi_cutoff')
-            if not is_num(self._redchi_cutoff, gt=0):
-                raise ValueError(
-                    'Invalid value for keyword argument redchi_cutoff'
-                    f'({self._redchi_cutoff})')
-        if 'print_report' in kwargs:
-            self._print_report = kwargs.pop('print_report')
-            if not isinstance(self._print_report, bool):
-                raise ValueError(
-                    'Invalid value for keyword argument print_report'
-                    f'({self._print_report})')
-        if 'plot' in kwargs:
-            self._plot = kwargs.pop('plot')
-            if not isinstance(self._plot, bool):
-                raise ValueError(
-                    'Invalid value for keyword argument plot'
-                    f'({self._plot})')
-        if 'skip_init' in kwargs:
-            self._skip_init = kwargs.pop('skip_init')
-            if not isinstance(self._skip_init, bool):
-                raise ValueError(
-                    'Invalid value for keyword argument skip_init'
-                    f'({self._skip_init})')
+        self._redchi_cutoff *= self._y_range**2
 
-        # Apply mask if supplied:
-        if 'mask' in kwargs:
-            self._mask = kwargs.pop('mask')
-        if self._mask is not None:
-            self._mask = np.asarray(self._mask).astype(bool)
-            if self._x.size != self._mask.size:
-                raise ValueError(
-                    f'Inconsistent x and mask dimensions ({self._x.size} vs '
-                    f'{self._mask.size})')
-
-        # Add constant offset for a normalized single component model
-        if self._result is None and self._norm is not None and self._norm[0]:
-            from CHAP.utils.models import Constant
-            model = Constant(
-                model='constant',
-                parameters=[{
-                    'name': 'c',
-                    'value': -self._norm[0],
-                    'vary': False,
-                }])
-            self.add_model(model, 'tmp_normalization_offset_')
-
-        # Adjust existing parameters for refit:
-        if 'parameters' in kwargs:
-            raise RuntimeError('Refit needs testing')
-            parameters = kwargs.pop('parameters')
-            if isinstance(parameters, dict):
-                parameters = (parameters, )
-            elif not is_dict_series(parameters):
-                raise ValueError(
-                    'Invalid value for keyword argument parameters'
-                    f'({parameters})')
-            for par in parameters:
-                name = par['name']
-                if name not in self._parameters:
-                    raise ValueError(
-                        f'Unable to match {name} parameter {par} to an '
-                        'existing one')
-                if self._parameters[name].expr is not None:
-                    raise ValueError(
-                        f'Unable to modify {name} parameter {par} '
-                        '(currently an expression)')
-                value = par.get('value')
-                vary = par.get('vary')
-                if par.get('expr') is not None:
-                    raise KeyError(
-                        f'Invalid "expr" key in {name} parameter {par}')
-                self._parameters[name].set(
-                    value=value, vary=vary, min=par.get('min'),
-                    max=par.get('max'))
-                # Overwrite existing best values for fixed parameters
-                #     when a value is specified
-                if isinstance(value, (int, float)) and vary is False:
-                    for i, nname in enumerate(self._best_parameters):
-                        if nname == name:
-                            self._best_values[i] = value
-
-        # Check for uninitialized parameters
-        for name, par in self._parameters.items():
-            if par.expr is None:
-                value = par.value
-                if value is None or np.isinf(value) or np.isnan(value):
-                    if (self._norm is None
-                            or name in self._nonlinear_parameters):
-                        self._parameters[name].set(value=value)
-                    else:
-                        self._parameters[name].set(value=value*self._norm[1])
+        # Setup the fit
+        self._setup_fit(config)
 
         # Create the best parameter list, consisting of all varying
         #     parameters plus the expression parameters in order to
