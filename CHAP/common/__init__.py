@@ -31,6 +31,9 @@ from CHAP.common.processor import (
     PrintProcessor,
     RawDetectorDataMapProcessor,
     StrainAnalysisProcessor,
+    SetupNXdataProcessor,
+    UpdateNXdataProcessor,
+    NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
 )

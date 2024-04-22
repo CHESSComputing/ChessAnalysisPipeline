@@ -58,6 +58,8 @@ class SpecScans(BaseModel):
 
         :param spec_file: Path to the SPEC file.
         :type spec_file: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
         :raises ValueError: If the SPEC file is invalid.
         :return: Absolute path to the SPEC file, if it is valid.
         :rtype: str
@@ -75,7 +77,7 @@ class SpecScans(BaseModel):
 
         :param scan_numbers: List of scan numbers.
         :type scan_numbers: list of int
-        :param values: Dictionary of values for all fields of the model.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
@@ -104,6 +106,8 @@ class SpecScans(BaseModel):
 
         :param par_file: Path to a non-default SMB par file.
         :type par_file: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
         :raises ValueError: If the SMB par file is invalid.
         :return: Absolute path to the SMB par file, if it is valid.
         :rtype: str
@@ -157,7 +161,8 @@ class SpecScans(BaseModel):
             coordinate_index = list(
                 map_config.coords[independent_dimension.label]).index(
                     independent_dimension.get_value(
-                        self, scan_number, scan_step_index))
+                        self, scan_number, scan_step_index,
+                        map_config.scalar_data))
             index = (coordinate_index, *index)
         return index
 
@@ -235,7 +240,8 @@ class PointByPointScanData(BaseModel):
     """
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
-    data_type: Literal['spec_motor', 'scan_column', 'smb_par']
+    data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
+                       'smb_par', 'expression']
     name: constr(strip_whitespace=True, min_length=1)
 
     @validator('label')
@@ -309,8 +315,48 @@ class PointByPointScanData(BaseModel):
                             f'for index {index} '
                             f'in spec file {scans.spec_file}')
 
-    def get_value(self, spec_scans:SpecScans,
-                  scan_number:int, scan_step_index:int=0):
+    def validate_for_scalar_data(self, scalar_data):
+        """Used for `PointByPointScanData` objects with a `data_type`
+        of `'expression'`. Validate that the `scalar_data` field of a
+        `MapConfig` object contains all the items necessary for
+        evaluating the expression.
+
+        :param scalar_data: the `scalar_data` field of a `MapConfig`
+            that this `PointByPointScanData` object will be validated
+            against
+        :type scalar_data: list[PointByPointScanData]
+        :raises ValueError: if `scalar_data` does not contain items
+           needed for evaluating the expression.
+        :return: None
+        """
+        from ast import parse
+        from asteval import get_ast_names
+
+        labels = get_ast_names(parse(self.name))
+        for label in ('round', 'np', 'numpy'):
+            try:
+                labels.remove(label)
+            except:
+                pass
+        for l in labels:
+            if l == 'round':
+                symtable[l] = round
+                continue
+            if l in ('np', 'numpy'):
+                symtable[l] = np
+                continue
+            label_found = False
+            for s_d in scalar_data:
+                if s_d.label == l:
+                    label_found = True
+                    break
+            if not label_found:
+                raise ValueError(
+                    f'{l} is not the label of an item in scalar_data')
+
+    def get_value(
+            self, spec_scans:SpecScans, scan_number:int, scan_step_index:int=0,
+            scalar_data=[], relative=True, ndigits=None):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -320,18 +366,32 @@ class PointByPointScanData(BaseModel):
         :param scan_number: The number of the scan in which the
             requested scan step occurs.
         :type scan_number: int
-        :param scan_step_index: The index of the requested scan step.
-        :type scan_step_index: int
+        :param scan_step_index: The index of the requested scan step,
+            defaults to `0`.
+        :type scan_step_index: int, optional
+        :param scalar_data: list of scalar data configurations used to
+            get values for `PointByPointScanData` objects with
+            `data_type == 'expression'`, defaults to `[]`.
+        :type scalar_data: list[PointByPointScanData], optional
+        :param relative: Whether to return a relative value or not,
+            defaults to `True` (only applies to SPEC motor values).
+        :type relative: bool, optional
+        :params ndigits: Round SPEC motor values to the specified
+            number of decimals if set, defaults to `None`.
+        :type ndigits: int, optional
         :return: The value recorded of the data represented by this
             instance of `PointByPointScanData` at the scan step
             requested.
         :rtype: float
         """
-        if self.data_type == 'spec_motor':
+        if 'spec_motor' in self.data_type:
+            if 'absolute' in self.data_type:
+                relative = False
             return get_spec_motor_value(spec_scans.spec_file,
                                         scan_number,
                                         scan_step_index,
-                                        self.name)
+                                        self.name,
+                                        relative, ndigits)
         if self.data_type == 'scan_column':
             return get_spec_counter_value(spec_scans.spec_file,
                                           scan_number,
@@ -341,12 +401,19 @@ class PointByPointScanData(BaseModel):
             return get_smb_par_value(spec_scans.spec_file,
                                      scan_number,
                                      self.name)
+        elif self.data_type == 'expression':
+            return get_expression_value(spec_scans,
+                                        scan_number,
+                                        scan_step_index,
+                                        self.name,
+                                        scalar_data)
         return None
 
 
 @cache
 def get_spec_motor_value(spec_file:str, scan_number:int,
-                         scan_step_index:int, spec_mnemonic:str):
+                         scan_step_index:int, spec_mnemonic:str,
+                         relative=True, ndigits=None):
     """Return the value recorded for a SPEC motor at a specific scan
     step.
 
@@ -360,6 +427,12 @@ def get_spec_motor_value(spec_file:str, scan_number:int,
     :type scan_step_index: int
     :param spec_mnemonic: The menmonic of a SPEC motor.
     :type spec_mnemonic: str
+    :param relative: Whether to return a relative value or not,
+        defaults to `True`.
+    :type relative: bool, optional
+    :params ndigits: Round SPEC motor values to the specified
+        number of decimals if set, defaults to `None`.
+    :type ndigits: int, optional
     :return: The value of the motor at the scan step requested.
     :rtype: float
     """
@@ -373,11 +446,15 @@ def get_spec_motor_value(spec_file:str, scan_number:int,
                 scanparser.spec_scan_shape,
                 order='F')
             motor_value = \
-                scanparser.spec_scan_motor_vals[motor_i][scan_step[motor_i]]
+                scanparser.get_spec_scan_motor_vals(
+                    relative)[motor_i][scan_step[motor_i]]
         else:
-            motor_value = scanparser.spec_scan_motor_vals[motor_i]
+            motor_value = scanparser.get_spec_scan_motor_vals(
+                relative)[motor_i]
     else:
         motor_value = scanparser.get_spec_positioner_value(spec_mnemonic)
+    if ndigits is not None:
+        motor_value = round(motor_value, 3)
     return motor_value
 
 
@@ -426,6 +503,43 @@ def get_smb_par_value(spec_file:str, scan_number:int, par_name:str):
     return scanparser.pars[par_name]
 
 
+def get_expression_value(spec_scans:SpecScans, scan_number:int,
+                         scan_step_index:int, expression:str,
+                         scalar_data:list[PointByPointScanData]):
+    """Return the value of an evaluated expression of other sources of
+    point-by-point scalar scan data for a single point.
+
+    :param spec_scans: An instance of `SpecScans` in which the
+        requested scan step occurs.
+    :type spec_scans: SpecScans
+    :param scan_number: The number of the scan in which the requested
+        scan step occurs.
+    :type scan_number: int
+    :param scan_step_index: The index of the requested scan step.
+    :type scan_step_index: int
+    :param expression: the string expression to evaluate
+    :type expression: str
+    :param scalar_data: the `scalar_data` field of a `MapConfig`
+        object (used to provide values for variables used in
+        `expression`)
+    :type scalar_data: list[PointByPointScanData]
+    :return: The value of the .par file value for  the scan requested.
+    :rtype: float
+    """
+    from ast import parse
+    from asteval import get_ast_names, Interpreter
+    labels = get_ast_names(parse(expression))
+    symtable = {}
+    for l in labels:
+        if l == 'round':
+            symtable[l] = round
+        for s_d in scalar_data:
+            if s_d.label == l:
+                symtable[l] = s_d.get_value(
+                    spec_scans, scan_number, scan_step_index, scalar_data)
+    aeval = Interpreter(symtable=symtable)
+    return aeval(expression)
+
 def validate_data_source_for_map_config(data_source, values):
     """Confirm that an instance of PointByPointScanData is valid for
     the station and scans provided by a map configuration dictionary.
@@ -439,11 +553,22 @@ def validate_data_source_for_map_config(data_source, values):
     :return: `data_source`, if it is valid.
     :rtype: PointByPointScanData
     """
-    if data_source is not None:
-        import_scanparser(values.get('station'), values.get('experiment_type'))
-        data_source.validate_for_station(values.get('station'))
-        data_source.validate_for_spec_scans(values.get('spec_scans'))
-    return data_source
+    def _validate_data_source_for_map_config(
+            data_source, values, parent_list=None):
+        if isinstance(data_source, list):
+            return [_validate_data_source_for_map_config(
+                d_s, values, parent_list=data_source) for d_s in data_source]
+        if data_source is not None:
+            if data_source.data_type == 'expression':
+                data_source.validate_for_scalar_data(
+                    values.get('scalar_data', parent_list))
+            else:
+                import_scanparser(
+                    values.get('station'), values.get('experiment_type'))
+                data_source.validate_for_station(values.get('station'))
+                data_source.validate_for_spec_scans(values.get('spec_scans'))
+        return(data_source)
+    return _validate_data_source_for_map_config(data_source, values)
 
 
 class IndependentDimension(PointByPointScanData):
@@ -516,7 +641,7 @@ class CorrectionsData(PointByPointScanData):
         :return: A list of reserved labels.
         :rtype: list[str]
         """
-        return list(cls.__fields__['label'].type_.__args__)
+        return list((*cls.__fields__['label'].type_.__args__, 'round'))
 
 
 class PresampleIntensity(CorrectionsData):
@@ -596,7 +721,7 @@ class SpecConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of class field values.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
@@ -617,6 +742,14 @@ class SpecConfig(BaseModel):
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
         compatible
+
+        :param value: Field value to validate (`experiment_type`).
+        :type value: str
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid experiment type.
+        :return: The validated field for `experiment_type`.
+        :rtype: str
         """
         station = values.get('station')
         if station == 'id1a3':
@@ -659,11 +792,11 @@ class MapConfig(BaseModel):
         times for SPEC scans. Required when applying a
         CorrectionConfig tool.
     :type dwell_time_actual: DwellTimeActual, optional
-    :ivar presample_intensity: A source of point-by-point postsample
+    :ivar postsample_intensity: A source of point-by-point postsample
         beam intensity data. Required when applying a CorrectionConfig
         tool with `correction_type='flux_absorption'` or
         `correction_type='flux_absorption_background'`.
-    :type presample_intensity: PresampleIntensity, optional
+    :type postsample_intensity: PresampleIntensity, optional
     :ivar scalar_data: A list of the sources of data representing
         other scalar raw data values collected at each point on the
         map. In the NeXus file representation of the map, datasets for
@@ -684,6 +817,7 @@ class MapConfig(BaseModel):
     dwell_time_actual: Optional[DwellTimeActual]
     postsample_intensity: Optional[PostsampleIntensity]
     scalar_data: Optional[list[PointByPointScanData]] = []
+    attrs: Optional[dict] = {}
     map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
     _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
@@ -705,7 +839,6 @@ class MapConfig(BaseModel):
         allow_reuse=True)(validate_data_source_for_map_config)
     _validate_scalar_data = validator(
         'scalar_data',
-        each_item=True,
         allow_reuse=True)(validate_data_source_for_map_config)
 
     @root_validator(pre=True)
@@ -713,7 +846,7 @@ class MapConfig(BaseModel):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of class field values.
+        :param values: Dictionary of validated class field values.
         :type values: dict
         :return: The validated list of `values`.
         :rtype: dict
@@ -730,59 +863,20 @@ class MapConfig(BaseModel):
             values['spec_scans'] = spec_scans
         return values
 
-    @validator('map_type', pre=True, always=True)
-    def validate_map_type(cls, map_type, values):
-        """Validate the map_type field.
-
-        :param map_type: Type of map, structured or unstructured,
-            defaults to `'structured'`.
-        :type map_type: Literal['structured', 'unstructured']]
-        :param values: Dictionary of values for all fields of the model.
-        :type values: dict
-        :return: The validated value for map_type.
-        :rtype: str
-        """
-        dims = {}
-        spec_scans = values.get('spec_scans')
-        independent_dimensions = values.get('independent_dimensions')
-        import_scanparser(values.get('station'), values.get('experiment_type'))
-        for i, dim in enumerate(deepcopy(independent_dimensions)):
-            dims[dim.label] = []
-            for scans in spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(
-                            scanparser.spec_scan_npts):
-                        dims[dim.label].append(dim.get_value(
-                                scans, scan_number, scan_step_index))
-            dims[dim.label] = np.unique(dims[dim.label])
-            if dim.end is None:
-                dim.end = len(dims[dim.label])
-            dims[dim.label] = dims[dim.label][slice(
-                dim.start, dim.end, dim.step)]
-            independent_dimensions[i] = dim
-
-        coords = np.zeros([v.size for v in dims.values()], dtype=np.int64)
-        for scans in spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    coords[tuple([
-                        list(dims[dim.label]).index(
-                            dim.get_value(scans, scan_number, scan_step_index))
-                        for dim in independent_dimensions])] += 1
-        if any(True for v in coords.flatten() if v == 0 or v > 1):
-            return 'unstructured'
-        else:
-            return 'structured'
-
-
     @validator('experiment_type')
     def validate_experiment_type(cls, value, values):
         """Ensure values for the station and experiment_type fields are
-        compatible
+        compatible.
+
+        :param value: Field value to validate (`experiment_type`).
+        :type value: dict
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid experiment type.
+        :return: The validated field for `experiment_type`.
+        :rtype: str
         """
-        station = values.get('station')
+        station = values['station']
         if station == 'id1a3':
             allowed_experiment_types = ['SAXSWAXS', 'EDD', 'TOMO']
         elif station == 'id3a':
@@ -797,6 +891,125 @@ class MapConfig(BaseModel):
                 f'{", ".join(allowed_experiment_types)}. '
                 f'Supplied experiment type {value} is not allowed.')
         return value
+
+    @validator('attrs', always=True)
+    def validate_attrs(cls, value, values):
+        """Read any additional attributes depending on the values for
+        the station and experiment_type fields.
+
+        :param value: Field value to validate (`attrs`).
+        :type value: dict
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :raises ValueError: Invalid attribute.
+        :return: The validated field for `attrs`.
+        :rtype: dict
+        """
+        # Get the map's scan_type for EDD experiments
+        station = values['station']
+        experiment_type = values['experiment_type']
+        if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
+            value['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
+            value['config_id'] = cls.get_smb_par_attr(values, 'config_id')
+            value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
+            if value['scan_type'] is None:
+                return value
+            if value['scan_type'] != 0:
+                value['fly_axis_labels'] = [
+                    axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
+            if value['scan_type'] in (2, 3, 5):
+                value['fly_axis_labels'].append(
+                    axes_labels[cls.get_smb_par_attr(values, 'fly_axis1')])
+        return value
+
+    @validator('map_type', pre=True, always=True)
+    def validate_map_type(cls, map_type, values):
+        """Validate the map_type field.
+
+        :param map_type: Type of map, structured or unstructured,
+            defaults to `'structured'`.
+        :type map_type: Literal['structured', 'unstructured']]
+        :param values: Dictionary of validated class field values.
+        :type values: dict
+        :return: The validated value for map_type.
+        :rtype: str
+        """
+        dims = {}
+        attrs = values.get('attrs', {})
+        scan_type = attrs.get('scan_type', -1)
+        fly_axis_labels = attrs.get('fly_axis_labels', [])
+        spec_scans = values['spec_scans']
+        independent_dimensions = values['independent_dimensions']
+        scalar_data = values['scalar_data']
+        import_scanparser(values['station'], values['experiment_type'])
+        for i, dim in enumerate(deepcopy(independent_dimensions)):
+            if dim.label in fly_axis_labels:
+                relative = True
+                ndigits = 3
+            else:
+                relative = False
+                ndigits = None
+            dims[dim.label] = []
+            for scans in spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    for scan_step_index in range(
+                            scanparser.spec_scan_npts):
+                        dims[dim.label].append(dim.get_value(
+                            scans, scan_number, scan_step_index,
+                            scalar_data, relative, ndigits))
+            dims[dim.label] = np.unique(dims[dim.label])
+            if dim.end is None:
+                dim.end = len(dims[dim.label])
+            dims[dim.label] = dims[dim.label][slice(
+                dim.start, dim.end, dim.step)]
+            independent_dimensions[i] = dim
+
+        coords = np.zeros([v.size for v in dims.values()], dtype=np.int64)
+        for scans in spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                for scan_step_index in range(scanparser.spec_scan_npts):
+                    coords[tuple([
+                        list(dims[dim.label]).index(
+                            dim.get_value(scans, scan_number, scan_step_index,
+                                          scalar_data, True, 3))
+                        if dim.label in fly_axis_labels else
+                        list(dims[dim.label]).index(
+                            dim.get_value(scans, scan_number, scan_step_index,
+                                          scalar_data))
+                        for dim in independent_dimensions])] += 1
+        if any(True for v in coords.flatten() if v == 0 or v > 1):
+            return 'unstructured'
+        else:
+            return 'structured'
+
+    @staticmethod
+    def get_smb_par_attr(class_fields, label, units='-', name=None):
+        """Read an SMB par file attribute."""
+        if name is None:
+            name = label
+        scalar_data = PointByPointScanData(
+            label=label, data_type='smb_par', units=units, name=name)
+        values = []
+        for scans in class_fields.get('spec_scans'):
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                try:
+                    values.append(scanparser.pars[name])
+                except:
+                    print(
+                        f'Warning: No value found for .par file value "{name}"'
+                        + f' on scan {scan_number} in spec file '
+                        + f'{scans.spec_file}.')
+                    values.append(None)
+        values = list(set(values))
+        if len(values) != 1:
+            raise ValueError(f'More than one {name} in map not allowed '
+                             f'({values})')
+        return values[0]
 
     @property
     def all_scalar_data(self):
@@ -818,8 +1031,16 @@ class MapConfig(BaseModel):
         dimension across the map.
         """
         if not hasattr(self, '_coords'):
+            scan_type = self.attrs.get('scan_type', -1)
+            fly_axis_labels = self.attrs.get('fly_axis_labels', [])
             coords = {}
             for dim in self.independent_dimensions:
+                if dim.label in fly_axis_labels:
+                    relative = True
+                    ndigits = 3
+                else:
+                    relative = False
+                    ndigits = None
                 coords[dim.label] = []
                 for scans in self.spec_scans:
                     for scan_number in scans.scan_numbers:
@@ -827,7 +1048,8 @@ class MapConfig(BaseModel):
                         for scan_step_index in range(
                                 scanparser.spec_scan_npts):
                             coords[dim.label].append(dim.get_value(
-                                    scans, scan_number, scan_step_index))
+                                    scans, scan_number, scan_step_index,
+                                    self.scalar_data, relative, ndigits))
                 if self.map_type == 'structured':
                     coords[dim.label] = np.unique(coords[dim.label])
             self._coords = coords
@@ -883,6 +1105,14 @@ class MapConfig(BaseModel):
         :rtype: dict
         """
         if self.map_type == 'structured':
+            scan_type = self.attrs.get('scan_type', -1)
+            fly_axis_labels = self.attrs.get('fly_axis_labels', [])
+            if (scan_type in (3, 5)
+                    and len(self.dims) == 
+                        len(map_index) + len(fly_axis_labels)):
+                dims = [dim for dim in self.dims if dim not in fly_axis_labels]
+                return {dim:self.coords[dim][i]
+                        for dim, i in zip(dims, map_index)}
             return {dim:self.coords[dim][i]
                     for dim, i in zip(self.dims, map_index)}
         else:
@@ -917,12 +1147,21 @@ class MapConfig(BaseModel):
             step index.
         :rtype: tuple[SpecScans, int, int]
         """
+        scan_type = self.attrs.get('scan_type', -1)
+        fly_axis_labels = self.attrs.get('fly_axis_labels', [])
         if self.map_type == 'structured':
             map_coords = self.get_coords(map_index)
             for scans, scan_number, scan_step_index in self.scan_step_indices:
-                coords = {dim.label:dim.get_value(
-                               scans, scan_number, scan_step_index)
-                           for dim in self.independent_dimensions}
+                coords = {dim.label:(
+                              dim.get_value(
+                                  scans, scan_number, scan_step_index,
+                                  self.scalar_data, True, 3)
+                              if dim.label in fly_axis_labels
+                              else
+                              dim.get_value(
+                                  scans, scan_number, scan_step_index,
+                                  self.scalar_data))
+                          for dim in self.independent_dimensions}
                 if coords == map_coords:
                     return scans, scan_number, scan_step_index
             raise RuntimeError(f'Unable to match coordinates {coords}')
@@ -942,7 +1181,8 @@ class MapConfig(BaseModel):
         """
         scans, scan_number, scan_step_index = \
             self.get_scan_step_index(map_index)
-        return data.get_value(scans, scan_number, scan_step_index)
+        return data.get_value(scans, scan_number, scan_step_index,
+                              self.scalar_data)
 
 
 def import_scanparser(station, experiment):

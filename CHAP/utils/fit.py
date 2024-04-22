@@ -132,7 +132,7 @@ class FitProcessor(Processor):
             try:
                 fit_config = self.get_config(data, 'utils.models.FitConfig')
             except Exception as data_exc:
-                self.logger.info('No valid fit config in input pipeline '
+                logger.info('No valid fit config in input pipeline '
                                  'data, using config parameter instead.')
                 try:
                     fit_config = FitConfig(**config)
@@ -507,6 +507,11 @@ class Fit:
     def __init__(self, nxdata, config):
         """Initialize Fit."""
         self._code = config.code
+        for model in config.models:
+            if model.model == 'expression' and self._code != 'lmfit':
+                self._code = 'lmfit'
+                logger.warning('Using lmfit instead of scipy with '
+                                    'an expression model')
         if self._code == 'scipy':
             # Local modules
             from CHAP.utils.fit import Parameters
@@ -757,7 +762,9 @@ class Fit:
         """Return the residual in the best fit."""
         if self._result is None:
             return None
-        return self._result.residual
+        # lmfit return the negative of the residual in its common
+        # definition as (data - fit)
+        return -self._result.residual
 
     @property
     def success(self):
@@ -1316,10 +1323,6 @@ class Fit:
         names = []
         prefixes = []
         for model in models:
-            if model.model == 'expression' and self._code != 'lmfit':
-                self._code = 'lmfit'
-                self.logger.warning('Using lmfit instead of scipy with '
-                                    'an expression model')
             names.append(f'{model.prefix}{model.model}')
             prefixes.append(model.prefix)
         counts = Counter(names)
@@ -1787,7 +1790,7 @@ class Fit:
                         value = par.value/self._norm[1]
                         self._parameters[name].set(value=value)
                         self._result.params[name].set(value=value)
-        self._result.residual = self._result.best_fit-y
+        self._result.residual = y-self._result.best_fit
         self._result.components = self._model.components
         self._result.init_params = None
 
@@ -1967,6 +1970,8 @@ class Fit:
                 else:
                     init_values[name] = value
             self._result.init_values = init_values
+        if (hasattr(self._result, 'init_params')
+                and self._result.init_params is not None):
             for name, par in self._result.init_params.items():
                 if par.expr is None and name in self._linear_parameters:
                     value = par.value
@@ -2606,28 +2611,31 @@ class FitMap(Fit):
 
         # Renormalize the initial parameters for external use
         if self._norm is not None and self._normalized:
-            init_values = {}
-            for name, value in self._result.init_values.items():
-                if (name in self._nonlinear_parameters
-                        or self._parameters[name].expr is not None):
-                    init_values[name] = value
-                else:
-                    init_values[name] = value*self._norm[1]
-            self._result.init_values = init_values
-            for name, par in self._result.init_params.items():
-                if par.expr is None and name in self._linear_parameters:
-                    _min = par.min
-                    _max = par.max
-                    value = par.value*self._norm[1]
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
-                if self._code == 'scipy':
-                    setattr(par, '_init_value', par.value)
-                else:
-                    par.init_value = par.value
+            if hasattr(self._result, 'init_values'):
+                init_values = {}
+                for name, value in self._result.init_values.items():
+                    if (name in self._nonlinear_parameters
+                            or self._parameters[name].expr is not None):
+                        init_values[name] = value
+                    else:
+                        init_values[name] = value*self._norm[1]
+                self._result.init_values = init_values
+            if (hasattr(self._result, 'init_params')
+                    and self._result.init_params is not None):
+                for name, par in self._result.init_params.items():
+                    if par.expr is None and name in self._linear_parameters:
+                        _min = par.min
+                        _max = par.max
+                        value = par.value*self._norm[1]
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
+                    if self._code == 'scipy':
+                        setattr(par, '_init_value', par.value)
+                    else:
+                        par.init_value = par.value
 
         # Remap the best results
         self._out_of_bounds = np.copy(np.reshape(
@@ -2696,49 +2704,61 @@ class FitMap(Fit):
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
         # Check input parameters
-        if 'rel_amplitude_cutoff' in kwargs:
-            rel_amplitude_cutoff = kwargs.pop('rel_amplitude_cutoff')
-            if (rel_amplitude_cutoff is not None
-                    and not is_num(rel_amplitude_cutoff, gt=0.0, lt=1.0)):
+        if 'rel_height_cutoff' in kwargs:
+            rel_height_cutoff = kwargs.pop('rel_height_cutoff')
+            if (rel_height_cutoff is not None
+                    and not is_num(rel_height_cutoff, gt=0.0, lt=1.0)):
                 logger.warning(
-                    'Ignoring invalid parameter rel_amplitude_cutoff '
-                    f'in FitMap._fit() ({rel_amplitude_cutoff})')
-                rel_amplitude_cutoff = None
+                    'Ignoring invalid parameter rel_height_cutoff '
+                    f'in FitMap._fit() ({rel_height_cutoff})')
+                rel_height_cutoff = None
         else:
-            rel_amplitude_cutoff = None
+            rel_height_cutoff = None
+
+        # Do not attempt a fit if the data is entirely below the cutoff
+        if (rel_height_cutoff is not None
+                and self._ymap_norm[n].max() < rel_height_cutoff):
+            logger.debug(f'Skipping fit for n = {n} (rel norm = '
+                           f'{self._ymap_norm[n].max():.5f})')
+            result = ModelResult(self._model, deepcopy(self._parameters))
+            result.success = False
+            # Renormalize the data and results
+            self._renormalize(n, result)
+            return result
 
         # Regular full fit
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
 
-        if rel_amplitude_cutoff is not None:
+        if rel_height_cutoff is not None:
             # Third party modules
             from lmfit.models import (
                 GaussianModel,
                 LorentzianModel,
             )
 
-            # Check for low amplitude peaks and refit without them
-            amplitudes = []
+            # Check for low heights peaks and refit without them
+            heights = []
             names = []
             for component in result.components:
                 if isinstance(component, (GaussianModel, LorentzianModel)):
                    for name in component.param_names:
-                       if 'amplitude' in name:
-                           amplitudes.append(result.params[name].value)
+                       if 'height' in name:
+                           heights.append(result.params[name].value)
                            names.append(name)
-            if amplitudes:
+            if heights:
                 refit = False
-                amplitudes = np.asarray(amplitudes)/sum(amplitudes)
+                max_height = max(heights)
                 parameters_save = deepcopy(self._parameters)
-                for i, (name, amp) in enumerate(zip(names, amplitudes)):
-                    if abs(amp) < rel_amplitude_cutoff:
-                        self._parameters[name].set(
-                            value=0.0, min=0.0, vary=False)
+                for i, (name, height) in enumerate(zip(names, heights)):
+                    if height < rel_height_cutoff*max_height:
                         self._parameters[
-                            name.replace('amplitude', 'center')].set(
+                            name.replace('height', 'amplitude')].set(
+                               value=0.0, min=0.0, vary=False)
+                        self._parameters[
+                            name.replace('height', 'center')].set(
                                vary=False)
                         self._parameters[
-                            name.replace('amplitude', 'sigma')].set(
+                            name.replace('height', 'sigma')].set(
                                value=0.0, min=0.0, vary=False)
                         refit = True
                 if refit:
@@ -2766,6 +2786,7 @@ class FitMap(Fit):
 
         # Renormalize the data and results
         self._renormalize(n, result)
+
         if self._print_report:
             print(result.fit_report(show_correl=False))
         if self._plot:
@@ -2777,6 +2798,7 @@ class FitMap(Fit):
                 result=result, y=np.asarray(self._ymap[dims]),
                 plot_comp_legends=True, skip_init=self._skip_init,
                 title=str(dims))
+
         if return_result:
             return result
         return None
@@ -2856,15 +2878,17 @@ class FitMap(Fit):
         return result
 
     def _renormalize(self, n, result):
-        self._redchi_flat[n] = np.float64(result.redchi)
         self._success_flat[n] = result.success
+        if result.success:
+            self._redchi_flat[n] = np.float64(result.redchi)
         if self._norm is None or not self._normalized:
-            self._best_fit_flat[n] = result.best_fit
             for i, name in enumerate(self._best_parameters):
                 self._best_values_flat[i][n] = np.float64(
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+            if result.success:
+                self._best_fit_flat[n] = result.best_fit
         else:
             for name, par in result.params.items():
                 if name in self._linear_parameters:
@@ -2895,8 +2919,11 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
-            if self._plot:
-                if not self._skip_init:
-                    result.init_fit = (
-                        result.init_fit*self._norm[1] + self._norm[0])
-                result.best_fit = np.copy(self._best_fit_flat[n])
+            if result.success:
+                self._best_fit_flat[n] = (
+                    result.best_fit*self._norm[1] + self._norm[0])
+                if self._plot:
+                    if not self._skip_init:
+                        result.init_fit = (
+                            result.init_fit*self._norm[1] + self._norm[0])
+                    result.best_fit = np.copy(self._best_fit_flat[n])

@@ -261,7 +261,7 @@ class MatplotlibFigureWriter(Writer):
 
 class NexusWriter(Writer):
     """Writer for NeXus files from `NXobject`-s"""
-    def write(self, data, filename, force_overwrite=False):
+    def write(self, data, filename, nxpath=None, force_overwrite=False):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
@@ -277,21 +277,52 @@ class NexusWriter(Writer):
         """
         from nexusformat.nexus import (
             NXentry,
+            NXFile,
             NXroot,
         )
+        import os
         data = self.unwrap_pipelinedata(data)[-1]
-        nxclass = data.nxclass
         nxname = data.nxname
-        if nxclass == 'NXentry':
-            data = NXroot(data)
-            data[nxname].set_default()
-        elif nxclass != 'NXroot':
-            data = NXroot(NXentry(data))
-            if nxclass == 'NXdata':
-                data.entry[nxname].set_default()
-            data.entry.set_default()
-        write_nexus(data, filename, force_overwrite)
-
+        if not os.path.isfile(filename) and nxpath is not None:
+            self.logger.warning(
+                f'{filename} does not yet exist. Argument for nxpath ({nxpath}) '
+                + 'will be ignored.')
+            nxpath = None
+        if nxpath is None:
+            nxclass = data.nxclass
+            if nxclass == 'NXentry':
+                data = NXroot(data)
+                data[nxname].set_default()
+            elif nxclass != 'NXroot':
+                data = NXroot(NXentry(data))
+                if nxclass == 'NXdata':
+                    data.entry[nxname].set_default()
+                data.entry.set_default()
+            write_nexus(data, filename, force_overwrite)
+        else:
+            nxfile = NXFile(filename, 'rw')
+            root = nxfile.readfile()
+            if nxfile.get(nxpath) is None:
+                nxpath = root.NXentry[0].nxpath
+                self.logger.warning(
+                    f'Path "{nxpath}" not present in {filename}. '
+                    + f'Using {nxpath} instead.')
+            full_nxpath = os.path.join(nxpath, nxname)
+            self.logger.debug(f'Full path for object to write: {full_nxpath}')
+            if nxfile.get(full_nxpath) is not None:
+                self.logger.debug(
+                    f'{os.path.join(nxpath, nxname)} already exists in {filename}')
+                if force_overwrite:
+                    self.logger.warning(
+                        'Deleting existing NXobject at '
+                        + f'{os.path.join(nxpath, nxname)} in {filename}')
+                    del root[full_nxpath]
+            try:
+                root[full_nxpath] = data
+            except Exception as e:
+                nxfile.close()
+                raise e
+            nxfile.close()
         return data
 
 
@@ -345,6 +376,12 @@ class YAMLWriter(Writer):
         :rtype: dict
         """
         data = self.unwrap_pipelinedata(data)[-1]
+        try:
+            from pydantic import BaseModel
+            if isinstance(data, BaseModel):
+                data = data.dict()
+        except:
+            pass
         write_yaml(data, filename, force_overwrite)
         return data
 
