@@ -151,7 +151,7 @@ class FitProcessor(Processor):
                     if parameters:
                         fit_config.parameters += parameters
                     fit_config.models += models
-                    fit_config.models.remove(model)
+                    fit_config.models.pop(i)
                     found_multipeak = True
 
             # Instantiate the Fit or FitMap object and fit the data
@@ -165,6 +165,7 @@ class FitProcessor(Processor):
             else:
                 fit = FitMap(nxdata, fit_config)
                 fit.fit(
+                    rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
                     print_report=fit_config.print_report)
         
@@ -181,8 +182,8 @@ class FitProcessor(Processor):
 
         parameters = []
         models = []
-        num_peaks = len(model_config.centers)
-        if num_peaks == 1 and model_config.fit_type == 'uniform':
+        num_peak = len(model_config.centers)
+        if num_peak == 1 and model_config.fit_type == 'uniform':
             logger.debug('Ignoring fit_type input for fitting one peak')
             model_config.fit_type = 'unconstrained'
 
@@ -204,16 +205,24 @@ class FitProcessor(Processor):
         if model_config.fit_type == 'uniform':
             parameters.append(FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN))
+            if num_peak == 1:
+                prefix = ''
             for i, cen in enumerate(model_config.centers):
+                if num_peak > 1:
+                    prefix = f'peak{i+1}_'
                 models.append(Gaussian(
                     model='gaussian',
-                    prefix=f'peak{i+1}_',
+                    prefix=prefix,
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
         else:
+            if num_peak == 1:
+                prefix = ''
             for i, cen in enumerate(model_config.centers):
+                if num_peak > 1:
+                    prefix = f'peak{i+1}_'
                 if model_config.centers_range is None:
                     cen_min = None
                     cen_max = None
@@ -222,7 +231,7 @@ class FitProcessor(Processor):
                     cen_max = cen + model_config.centers_range
                 models.append(Gaussian(
                     model='gaussian',
-                    prefix=f'peak{i+1}_',
+                    prefix=prefix,
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
                          {'name': 'center', 'value': cen, 'min': cen_min,
@@ -323,8 +332,14 @@ class ModelResult():
     similarly named class in the lmfit library.
     """
     def __init__(
-            self, x, y, model, parameters, method, ast, res_par_exprs,
-            res_par_indices, res_par_names, result):
+            self, model, parameters, x=None, y=None, method=None, ast=None,
+            res_par_exprs=None, res_par_indices=None, res_par_names=None,
+            result=None):
+        self.components = model.components
+        self.params = deepcopy(parameters)
+        if x is None:
+            self.success = False
+            return
         if method == 'leastsq':
             best_pars = result[0]
             self.ier = result[4]
@@ -347,9 +362,6 @@ class ModelResult():
         self._ast = ast
         self._expr_pars = {}
 
-        # Copy the model info
-        self.components = model.components
-
         # Get the covarience matrix
         self.chisqr = (self.residual**2).sum()
         self.redchi = self.chisqr / (self.ndata-self.nvarys)
@@ -358,11 +370,13 @@ class ModelResult():
             if result[1] is not None:
                 self.covar = result[1]*self.redchi
         else:
-            self.covar = self.redchi * np.linalg.inv(
-                np.dot(result.jac.T, result.jac))
+            try:
+                self.covar = self.redchi * np.linalg.inv(
+                    np.dot(result.jac.T, result.jac))
+            except:
+                self.covar = None
 
         # Update the fit parameters with the fit result
-        self.params = deepcopy(parameters)
         par_names = list(self.params.keys())
         self.var_names = []
         for i, (value, index) in enumerate(zip(best_pars, res_par_indices)):
@@ -373,7 +387,6 @@ class ModelResult():
                 stderr = self.covar[i,i]
                 if stderr is not None:
                     stderr = np.sqrt(stderr)
-            setattr(par, '_stderr', stderr)
             self.var_names.append(par.name)
         if res_par_exprs:
             # Third party modules
@@ -1338,9 +1351,6 @@ class Fit:
 
     def _setup_fit_model(self, parameters, models):
         """Setup the fit model."""
-        # Third party modules
-        from sympy import diff
-
         # Check for duplicate model names and create prefixes
         prefixes = self._create_prefixes(models)
 
@@ -1359,6 +1369,9 @@ class Fit:
             if name not in known_parameters:
                 for nname, par in self._parameters.items():
                     if par.expr is not None:
+                        # Third party modules
+                        from sympy import diff
+
                         if nname in self._nonlinear_parameters:
                             self._nonlinear_parameters.insert(0, name)
                         elif diff(par.expr, name, name):
@@ -1449,13 +1462,6 @@ class Fit:
                 Multipeak,
             )
 
-            # Reset model configuration for refit
-            if self._code == 'scipy':
-                self._res_par_exprs = []
-                self._res_par_indices = []
-                self._res_par_names = []
-                self._res_par_values = []
-
             # Expand multipeak model if present
             scale_factor = None
             for i, model in enumerate(deepcopy(config.models)):
@@ -1530,6 +1536,22 @@ class Fit:
                         f'Invalid "expr" key in {name} parameter {par}')
                 ppar.set(
                     value=value, min=par.min, max=par.max, vary=par.vary)
+
+        # Set parameters configuration
+        if self._code == 'scipy':
+            self._res_par_exprs = []
+            self._res_par_indices = []
+            self._res_par_names = []
+            self._res_par_values = []
+            for i, (name, par) in enumerate(self._parameters.items()):
+                self._res_par_values.append(par.value)
+                if par.expr:
+                    self._res_par_exprs.append(
+                        {'expr': par.expr, 'index': i})
+                else:
+                    if par.vary:
+                        self._res_par_indices.append(i)
+                        self._res_par_names.append(name)
 
         # Check for uninitialized parameters
         for name, par in self._parameters.items():
@@ -1830,16 +1852,11 @@ class Fit:
             pars_init = []
             for i, (name, par) in enumerate(self._parameters.items()):
                 setattr(par, '_init_value', par.value)
-                self._res_par_values.append(par.value)
-                if par.expr:
-                    self._res_par_exprs.append(
-                        {'expr': par.expr, 'index': i})
-                else:
+                self._res_par_values[i] = par.value
+                if par.expr is None:
                     self._ast.symtable[name] = par.value
                     if par.vary:
                         pars_init.append(par.value)
-                        self._res_par_indices.append(i)
-                        self._res_par_names.append(name)
             if have_bounds:
                 bounds = (
                     [v['min'] for v in self._parameter_bounds.values()],
@@ -1871,7 +1888,7 @@ class Fit:
 #            t1 = time()
 #            print(f'\n\nFitting took {1000*(t1-t0):.3f} ms\n\n')
             model_result = ModelResult(
-                x, y, self._model, self._parameters, self._method, self._ast,
+                self._model, self._parameters, x, y, self._method, self._ast,
                 self._res_par_exprs, self._res_par_indices,
                 self._res_par_names, result)
             model_result.init_params = init_params
@@ -2082,6 +2099,7 @@ class FitMap(Fit):
         self._print_report = False
         self._redchi = None
         self._redchi_cutoff = 0.1
+        self._rel_height_cutoff = None
         self._skip_init = True
         self._success = None
         self._try_no_bounds = True
@@ -2393,6 +2411,7 @@ class FitMap(Fit):
             logger.error('Undefined fit model')
         if config is None:
             num_proc = kwargs.pop('num_proc', cpu_count())
+            self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
             self._try_no_bounds = kwargs.pop('try_no_bounds', False)
             self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
             self._print_report = kwargs.pop('print_report', False)
@@ -2400,6 +2419,7 @@ class FitMap(Fit):
             self._skip_init = kwargs.pop('skip_init', True)
         else:
             num_proc = config.num_proc
+            self._rel_height_cutoff = config.rel_height_cutoff
 #            self._try_no_bounds = config.try_no_bounds
 #            self._redchi_cutoff = config.redchi_cutoff
             self._print_report = config.print_report
@@ -2703,24 +2723,19 @@ class FitMap(Fit):
             self._fit(n_start+n, current_best_values, **kwargs)
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
-        # Check input parameters
-        if 'rel_height_cutoff' in kwargs:
-            rel_height_cutoff = kwargs.pop('rel_height_cutoff')
-            if (rel_height_cutoff is not None
-                    and not is_num(rel_height_cutoff, gt=0.0, lt=1.0)):
-                logger.warning(
-                    'Ignoring invalid parameter rel_height_cutoff '
-                    f'in FitMap._fit() ({rel_height_cutoff})')
-                rel_height_cutoff = None
-        else:
-            rel_height_cutoff = None
-
         # Do not attempt a fit if the data is entirely below the cutoff
-        if (rel_height_cutoff is not None
-                and self._ymap_norm[n].max() < rel_height_cutoff):
+        if (self._rel_height_cutoff is not None
+                and self._ymap_norm[n].max() < self._rel_height_cutoff):
             logger.debug(f'Skipping fit for n = {n} (rel norm = '
                            f'{self._ymap_norm[n].max():.5f})')
-            result = ModelResult(self._model, deepcopy(self._parameters))
+            if self._code == 'scipy':
+                from CHAP.utils.fit import ModelResult
+
+                result = ModelResult(self._model, deepcopy(self._parameters))
+            else:
+                from lmfit.model import ModelResult
+
+                result = ModelResult(self._model, deepcopy(self._parameters))
             result.success = False
             # Renormalize the data and results
             self._renormalize(n, result)
@@ -2729,7 +2744,7 @@ class FitMap(Fit):
         # Regular full fit
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
 
-        if rel_height_cutoff is not None:
+        if self._rel_height_cutoff is not None:
             # Third party modules
             from lmfit.models import (
                 GaussianModel,
@@ -2750,7 +2765,7 @@ class FitMap(Fit):
                 max_height = max(heights)
                 parameters_save = deepcopy(self._parameters)
                 for i, (name, height) in enumerate(zip(names, heights)):
-                    if height < rel_height_cutoff*max_height:
+                    if height < self._rel_height_cutoff*max_height:
                         self._parameters[
                             name.replace('height', 'amplitude')].set(
                                value=0.0, min=0.0, vary=False)
@@ -2912,8 +2927,6 @@ class FitMap(Fit):
                             if (not np.isinf(par.max)
                                     and abs(par.max) != FLOAT_MIN):
                                 par.max *= self._norm[1]
-            self._best_fit_flat[n] = (
-                result.best_fit*self._norm[1] + self._norm[0])
             for i, name in enumerate(self._best_parameters):
                 self._best_values_flat[i][n] = np.float64(
                     result.params[name].value)

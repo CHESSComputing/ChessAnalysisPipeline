@@ -751,8 +751,11 @@ class MCAEnergyCalibrationProcessor(Processor):
             detector's MCA channels to bin energies.
         :rtype: tuple[float, float]
         """
+        # Third party modules
+        from nexusformat.nexus import NXdata, NXfield
+
         # Local modules
-        from CHAP.utils.fit import Fit
+        from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import (
             index_nearest,
             index_nearest_down,
@@ -831,33 +834,23 @@ class MCAEnergyCalibrationProcessor(Processor):
             detector.detector_name)
 
         # Construct the fit model
-        spectrum_fit = Fit(spectrum[mask], x=bins[mask])
+        models = []
         if detector.background is not None:
             if isinstance(detector.background, str):
-                spectrum_fit.add_model(detector.background, prefix=f'bkgd_')
+                models.append(
+                    {'model': detector.background, 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
-                    spectrum_fit.add_model(model, prefix=f'{model}_')
-        if isinstance(fwhm_min, (int, float)):
-            sig_min = fwhm_min/2.35482
-        else:
-            sig_min = None
-        if isinstance(fwhm_max, (int, float)):
-            sig_max = fwhm_max/2.35482
-        else:
-            sig_max = None
-        for i, index in enumerate(initial_peak_indices):
-            spectrum_fit.add_model(
-                'gaussian', prefix=f'peak{i+1}_', parameters=(
-                    {'name': 'amplitude', 'min': 0.0},
-                    {'name': 'center', 'value': index,
-                     'min': index - centers_range,
-                     'max': index + centers_range},
-                    {'name': 'sigma', 'value': 1.0, 'min': sig_min,
-                     'max': sig_max},
-                ))
+                    models.append({'model': model, 'prefix': f'{model}_'})
+        models.append(
+            {'model': 'multipeak', 'centers': initial_peak_indices,
+             'centers_range': centers_range, 'fwhm_min': fwhm_min,
+             'fwhm_max': fwhm_max})
         self.logger.debug('Fitting spectrum')
-        spectrum_fit.fit()
+        fit = FitProcessor()
+        spectrum_fit = fit.process(
+                NXdata(NXfield(spectrum[mask], 'y'), NXfield(bins[mask], 'x')),
+                {'models': models, 'method': 'trf'})
 
         fit_peak_indices = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
@@ -865,8 +858,12 @@ class MCAEnergyCalibrationProcessor(Processor):
         self.logger.debug(f'Fit peak centers: {fit_peak_indices}')
 
         #RV for now stick with a linear energy correction
-        energy_fit = Fit.fit_data(
-            peak_energies, 'linear', x=fit_peak_indices, nan_policy='omit')
+        fit = FitProcessor()
+        energy_fit = fit.process(
+                NXdata(
+                    NXfield(peak_energies, 'y'),
+                    NXfield(fit_peak_indices, 'x')),
+                {'models': [{'model': 'linear'}]})
         a = 0.0
         b = float(energy_fit.best_values['slope'])
         c = float(energy_fit.best_values['intercept'])
@@ -1327,6 +1324,7 @@ class MCATthCalibrationProcessor(Processor):
         from sys import float_info
 
         # Third party modules
+        from nexusformat.nexus import NXdata, NXfield
         from scipy.constants import physical_constants
 
         # Local modules
@@ -1336,7 +1334,7 @@ class MCATthCalibrationProcessor(Processor):
                 select_mask_and_hkls,
             )
         from CHAP.edd.utils import get_peak_locations
-        from CHAP.utils.fit import Fit
+        from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
         self.logger.info(f'Calibrating detector {detector.detector_name}')
@@ -1459,10 +1457,6 @@ class MCATthCalibrationProcessor(Processor):
         # Perform the fit
         if calibration_method == 'direct_fit_residual':
 
-            # Setup the fit
-            mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
-            fit = Fit(mca_data_fit, x=mca_bins_fit)
-
             # Get the initial free fit parameters
             tth_init = np.radians(tth_init)
             a_init, b_init, c_init = detector.energy_calibration_coeffs
@@ -1491,34 +1485,39 @@ class MCATthCalibrationProcessor(Processor):
                 else:
                     sig_max = None
 
-            # Add the free fit parameters
-            fit.add_parameter(
-                name='tth', value=tth_init, min=tth_min, max=tth_max)
+            # Construct the free fit parameters
+            parameters = [
+                {'name': 'tth', 'value': tth_init, 'min': tth_min,
+                 'max': tth_max}]
             if quadratic_energy_calibration:
-                fit.add_parameter(name='a', value=a_init)
-            fit.add_parameter(name='b', value=b_init, min=b_min, max=b_max)
-            fit.add_parameter(name='c', value=c_init)
+                parameters.append({'name': 'a', 'value': a_init})
+            parameters.append(
+                {'name': 'b', 'value': b_init, 'min': b_min, 'max': b_max})
+            parameters.append({'name': 'c', 'value': c_init})
+
+            # Construct the fit model
+            models = []
 
             # Add the background
             if detector.background is not None:
                 if isinstance(detector.background, str):
-                    fit.add_model(detector.background, prefix=f'bkgd_')
+                    models.append(
+                        {'model': detector.background, 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
-                        fit.add_model(model, prefix=f'{model}_')
+                        models.append({'model': model, 'prefix': f'{model}_'})
 
             # Add the fluorescent peaks
             for i, e_peak in enumerate(e_xrf):
                 expr = f'({e_peak}-c)/b'
                 if quadratic_energy_calibration:
                     expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
-                fit.add_model(
-                    'gaussian',
-                    prefix=f'xrf{i+1}_',
-                    parameters=(
+                models.append(
+                    {'model': 'gaussian', 'prefix': f'xrf{i+1}_',
+                     'parameters': [
                         {'name': 'amplitude', 'min': min_value},
                         {'name': 'center', 'expr': expr},
-                        {'name': 'sigma', 'min': sig_min, 'max': sig_max}))
+                        {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
 
             # Add the Bragg peaks
             hc = 1.e7 * physical_constants['Planck constant in eV/Hz'][0] \
@@ -1529,31 +1528,33 @@ class MCATthCalibrationProcessor(Processor):
                 if quadratic_energy_calibration:
                     expr = '(' + expr \
                            + f')*(1.0-a*((({norm}/sin(0.5*tth))-c)/(b*b)))'
-                fit.add_model(
-                    'gaussian',
-                    prefix=f'peak{i+1}_',
-                    parameters=(
+                models.append(
+                    {'model': 'gaussian', 'prefix': f'peak{i+1}_',
+                     'parameters': [
                         {'name': 'amplitude', 'min': min_value},
-                        {'name': 'center',
-                         'expr': expr},
-                        {'name': 'sigma', 'min': sig_min, 'max': sig_max}))
+                        {'name': 'center', 'expr': expr},
+                        {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
 
             # Perform the fit
-            fit.fit()
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(NXfield(mca_data_fit, 'y'),
+                       NXfield(np.arange(detector.num_bins)[mca_mask], 'x')),
+                {'parameters': parameters, 'models': models, 'method': 'trf'})
 
             # Extract values of interest from the best values
-            best_fit_uniform = fit.best_fit
-            residual_uniform = fit.residual
-            tth_fit = np.degrees(fit.best_values['tth'])
+            best_fit_uniform = result.best_fit
+            residual_uniform = result.residual
+            tth_fit = np.degrees(result.best_values['tth'])
             if quadratic_energy_calibration:
-                a_fit = fit.best_values['a']
+                a_fit = result.best_values['a']
             else:
                 a_fit = 0.0
-            b_fit = fit.best_values['b']
-            c_fit = fit.best_values['c']
+            b_fit = result.best_values['b']
+            c_fit = result.best_values['c']
             peak_indices_fit = np.asarray(
-                [fit.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
-                + [fit.best_values[f'peak{i+1}_center']
+                [result.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
+                + [result.best_values[f'peak{i+1}_center']
                    for i in range(num_bragg)])
             peak_energies_fit = ((a_fit*peak_indices_fit + b_fit)
                                 * peak_indices_fit + c_fit)
@@ -1593,16 +1594,27 @@ class MCATthCalibrationProcessor(Processor):
             mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
             centers = [index_nearest(mca_bin_energies, e_peak)
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
-            fit = Fit(mca_data_fit, x=mca_bins_fit)
-            fit.create_multipeak_model(
-                centers, background=detector.background,
-                centers_range=centers_range, fwhm_min=fwhm_min,
-                fwhm_max=fwhm_max)
-            fit.fit()
+            models = []
+            if detector.background is not None:
+                if isinstance(detector.background, str):
+                    models.append(
+                        {'model': detector.background, 'prefix': 'bkgd_'})
+                else:
+                    for model in detector.background:
+                        models.append({'model': model, 'prefix': f'{model}_'})
+            models.append(
+                {'model': 'multipeak', 'centers': centers,
+                 'centers_range': centers_range,
+                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(NXfield(mca_data_fit, 'y'),
+                       NXfield(mca_bins_fit, 'x')),
+                {'models': models, 'method': 'trf'})
 
             # Extract the peak properties from the fit
             indices_unconstrained = np.asarray(
-                [fit.best_values[f'peak{i+1}_center']
+                [result.best_values[f'peak{i+1}_center']
                  for i in range(num_xrf+num_bragg)])
 
             # Perform a peak center fit using the theoretical values
@@ -1700,23 +1712,34 @@ class MCATthCalibrationProcessor(Processor):
             mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
             centers = [index_nearest(mca_bin_energies, e_peak)
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
-            fit = Fit(mca_data_fit, x=mca_bins_fit)
-            fit.create_multipeak_model(
-                centers, background=detector.background,
-                centers_range=centers_range, fwhm_min=fwhm_min,
-                fwhm_max=fwhm_max)
-            fit.fit()
+            models = []
+            if detector.background is not None:
+                if isinstance(detector.background, str):
+                    models.append(
+                        {'model': detector.background, 'prefix': 'bkgd_'})
+                else:
+                    for model in detector.background:
+                        models.append({'model': model, 'prefix': f'{model}_'})
+            models.append(
+                {'model': 'multipeak', 'centers': centers,
+                 'centers_range': centers_range,
+                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(NXfield(mca_data_fit, 'y'),
+                       NXfield(mca_bins_fit, 'x')),
+                {'models': models, 'method': 'trf'})
 
             # Extract the peak properties from the fit
             num_peak = num_xrf+num_bragg
             indices_unconstrained = np.asarray(
-                [fit.best_values[f'peak{i+1}_center']
+                [result.best_values[f'peak{i+1}_center']
                  for i in range(num_peak)])
             amplitudes_init = np.asarray(
-                [fit.best_values[f'peak{i+1}_amplitude']
+                [result.best_values[f'peak{i+1}_amplitude']
                  for i in range(num_peak)])
             sigmas_init = np.asarray(
-                [fit.best_values[f'peak{i+1}_sigma']
+                [result.best_values[f'peak{i+1}_sigma']
                  for i in range(num_peak)])
 
             # Perform a peak center fit using the theoretical values
@@ -1796,40 +1819,55 @@ class MCATthCalibrationProcessor(Processor):
                 self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
                                   f'starting value = {tth_fit} ')
 
-                # Setup the fit
-                fit = Fit(mca_data_fit, x=mca_bin_energies_fit)
+                # Construct the fit model
+                models = []
+                if detector.background is not None:
+                    if isinstance(detector.background, str):
+                        models.append(
+                            {'model': detector.background, 'prefix': 'bkgd_'})
+                    else:
+                        for model in detector.background:
+                            models.append(
+                                {'model': model, 'prefix': f'{model}_'})
+                models.append(
+                    {'model': 'multipeak', 'centers': list(e_bragg_fit),
+                     'fit_type': 'uniform',
+                     'centers_range': centers_range*b_init,
+                     'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
 
-                # Perform the uniform fit first
-                fit.create_multipeak_model(
-                    e_bragg_fit, fit_type='uniform',
-                    background=detector.background,
-                    centers_range=centers_range*b_init,
-                    fwhm_min=fwhm_min, fwhm_max=fwhm_max)
-                fit.fit()
+                # Perform the uniform
+                fit = FitProcessor()
+                uniform_fit = fit.process(
+                    NXdata(
+                        NXfield(mca_data_fit, 'y'),
+                        NXfield(mca_bin_energies_fit, 'x')),
+                    {'models': models, 'method': 'trf'})
 
                 # Extract values of interest from the best values for
                 # the uniform fit parameters
-                best_fit_uniform = fit.best_fit
-                residual_uniform = fit.residual
+                best_fit_uniform = uniform_fit.best_fit
+                residual_uniform = uniform_fit.residual
                 e_bragg_uniform = [
-                    fit.best_values[f'peak{i+1}_center']
+                    uniform_fit.best_values[f'peak{i+1}_center']
                     for i in range(num_bragg)]
-                strain_uniform = -np.log(fit.best_values['scale_factor'])
+                strain_uniform = -np.log(
+                    uniform_fit.best_values['scale_factor'])
 
                 # Next, perform the unconstrained fit
 
                 # Use the peak parameters from the uniform fit as
                 # the initial guesses for peak locations in the
                 # unconstrained fit
-                fit.create_multipeak_model(fit_type='unconstrained')
-                fit.fit()
+                models[-1]['fit_type'] = 'unconstrained'
+                unconstrained_fit = fit.process(
+                    uniform_fit, {'models': models, 'method': 'trf'})
 
                 # Extract values of interest from the best values for
                 # the unconstrained fit parameters
-                best_fit_unconstrained = fit.best_fit
-                residual_unconstrained = fit.residual
+                best_fit_unconstrained = unconstrained_fit.best_fit
+                residual_unconstrained = unconstrained_fit.residual
                 e_bragg_unconstrained = np.array(
-                    [fit.best_values[f'peak{i+1}_center']
+                    [unconstrained_fit.best_values[f'peak{i+1}_center']
                      for i in range(num_bragg)])
                 a_unconstrained = np.sqrt(c_1_fit)*abs(get_peak_locations(
                     e_bragg_unconstrained, tth_fit))
@@ -1854,19 +1892,25 @@ class MCATthCalibrationProcessor(Processor):
             # Fit line to expected / computed peak locations from the
             # last unconstrained fit.
             if quadratic_energy_calibration:
-                fit = Fit.fit_data(
-                    e_bragg_fit, 'quadratic', x=e_bragg_unconstrained,
-                    nan_policy='omit')
-                a = fit.best_values['a']
-                b = fit.best_values['b']
-                c = fit.best_values['c']
+                fit = FitProcessor()
+                result = fit.process(
+                    NXdata(
+                        NXfield(e_bragg_fit, 'y'),
+                        NXfield(e_bragg_unconstrained, 'x')),
+                    {'models': [{'model': 'quadratic'}]})
+                a = result.best_values['a']
+                b = result.best_values['b']
+                c = result.best_values['c']
             else:
-                fit = Fit.fit_data(
-                    e_bragg_fit, 'linear', x=e_bragg_unconstrained,
-                    nan_policy='omit')
+                fit = FitProcessor()
+                result = fit.process(
+                    NXdata(
+                        NXfield(e_bragg_fit, 'y'),
+                        NXfield(e_bragg_unconstrained, 'x')),
+                    {'models': [{'model': 'linear'}]})
                 a = 0.0
-                b = fit.best_values['slope']
-                c = fit.best_values['intercept']
+                b = result.best_values['slope']
+                c = result.best_values['intercept']
             # The following assumes that a_init = 0
             if a_init:
                 raise NotImplemented(
@@ -1896,7 +1940,6 @@ class MCATthCalibrationProcessor(Processor):
 
             # Get an unconstrained fit
             if calibration_method != 'iterate_tth':
-                fit = Fit(mca_data_fit, x=mca_energies_fit)
                 if isinstance(fwhm_min, (int, float)):
                     fwhm_min = fwhm_min*b_fit
                 else:
@@ -1905,15 +1948,28 @@ class MCATthCalibrationProcessor(Processor):
                     fwhm_max = fwhm_max*b_fit
                 else:
                     fwhm_max = None
-                fit.create_multipeak_model(
-                    peak_energies_fit, background=detector.background,
-                    centers_range=centers_range*b_fit, fwhm_min=fwhm_min,
-                    fwhm_max=fwhm_max)
-                fit.fit()
-                best_fit_unconstrained = fit.best_fit
-                residual_unconstrained = fit.residual
+                models = []
+                if detector.background is not None:
+                    if isinstance(detector.background, str):
+                        models.append(
+                            {'model': detector.background, 'prefix': 'bkgd_'})
+                    else:
+                        for model in detector.background:
+                            models.append(
+                                {'model': model, 'prefix': f'{model}_'})
+                models.append(
+                    {'model': 'multipeak', 'centers': list(peak_energies_fit),
+                     'centers_range': centers_range*b_fit,
+                     'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                fit = FitProcessor()
+                result = fit.process(
+                    NXdata(NXfield(mca_data_fit, 'y'),
+                           NXfield(mca_energies_fit, 'x')),
+                    {'models': models, 'method': 'trf'})
+                best_fit_unconstrained = result.best_fit
+                residual_unconstrained = result.residual
                 e_bragg_unconstrained = np.sort(
-                    [fit.best_values[f'peak{i+1}_center']
+                    [result.best_values[f'peak{i+1}_center']
                      for i in range(num_xrf, num_xrf+num_bragg)])
                 a_unconstrained = np.sqrt(c_1_fit) * abs(
                     get_peak_locations(e_bragg_unconstrained, tth_fit))
@@ -2821,8 +2877,12 @@ class StrainAnalysisProcessor(Processor):
                     / det_nxdata.intensity.nxdata[map_index].max())
                 intensity, = ax.plot(
                     energies, data_normalized, 'b.', label='data')
-                fit_normalized = (unconstrained_best_fit[map_index]
-                                  / unconstrained_best_fit[map_index].max())
+                if unconstrained_best_fit[map_index].max():
+                    fit_normalized = (
+                        unconstrained_best_fit[map_index]
+                        / unconstrained_best_fit[map_index].max())
+                else:
+                    fit_normalized = unconstrained_best_fit[map_index]
                 best_fit, = ax.plot(
                     energies, fit_normalized, 'k-', label='fit')
                 # residual, = ax.plot(

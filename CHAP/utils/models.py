@@ -135,14 +135,40 @@ class FitParameter(BaseModel):
     """
     name: constr(strip_whitespace=True, min_length=1)
     value: Optional[confloat(allow_inf_nan=False)]
-    min: confloat() = -np.inf
-    max: confloat() = np.inf
+    min: Optional[confloat()] = -np.inf
+    max: Optional[confloat()] = np.inf
     vary: StrictBool = True
     expr: Optional[constr(strip_whitespace=True, min_length=1)]
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
     _prefix: str = PrivateAttr()
     _stderr: float = PrivateAttr()
+
+    @validator('min', always=True)
+    def validate_min(cls, value):
+        """Validate the specified min.
+
+        :param value: Field value to validate (`min`).
+        :type value: Union[float, None]
+        :return: Lower bound of fit parameter.
+        :rtype: float
+        """
+        if value is None:
+            return -np.inf
+        return value
+
+    @validator('max', always=True)
+    def validate_max(cls, value):
+        """Validate the specified max.
+
+        :param value: Field value to validate (`max`).
+        :type value: Union[float, None]
+        :return: Upper bound of fit parameter.
+        :rtype: float
+        """
+        if value is None:
+            return np.inf
+        return value
 
     @property
     def default(self):
@@ -430,6 +456,11 @@ class FitConfig(BaseModel):
     :ivar models: The component(s) of the (composite) fit model.
     :type models: Union[Constant, Linear, Quadratic, Exponential,
         Gaussian, Lorentzian, Expression, Multipeak]
+    :ivar rel_height_cutoff: Relative peak height cutoff for
+        peak fitting (any peak with a height smaller than
+        `rel_height_cutoff` times the maximum height of all peaks 
+        gets removed from the fit model), defaults to `None`.
+    :type rel_height_cutoff: float, optional
     :ivar num_proc: The number of processors used in fitting a map
         of data, defaults to `1`.
     :type num_proc: int, optional
@@ -447,6 +478,7 @@ class FitConfig(BaseModel):
         Expression, Multipeak], min_items=1)
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
+    rel_height_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
     num_proc: conint(gt=0) = 1
     plot: StrictBool = False
     print_report:  StrictBool = False
