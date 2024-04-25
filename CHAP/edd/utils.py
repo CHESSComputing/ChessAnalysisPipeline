@@ -1379,9 +1379,8 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     # Local modules
     from CHAP.utils.fit import FitProcessor
 
-    if spectra.ndim > 1:
-        num_proc = detector.num_proc
-        rel_height_cutoff = detector.rel_height_cutoff
+    num_proc = detector.num_proc
+    rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
     nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))
 
@@ -1403,7 +1402,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
 #        'code': 'lmfit',
         'models': models,
 #        'plot': True,
-        'num_proc': 1,#num_proc,
+        'num_proc': num_proc,
         'rel_height_cutoff': rel_height_cutoff,
 #        'method': 'trf',
         'method': 'leastsq',

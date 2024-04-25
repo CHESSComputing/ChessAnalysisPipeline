@@ -315,8 +315,8 @@ class LatticeParameterRefinementProcessor(Processor):
         self.logger.debug(
             'Lattice parameters refinement averaged over all detectors: '
             f'{lattice_parameters_mean}')
-        strain_analysis_config.materials[0].lattice_parameters = list(
-            lattice_parameters_mean)
+        strain_analysis_config.materials[0].lattice_parameters = [
+            float(v) for v in lattice_parameters_mean]
 
         return strain_analysis_config.dict()
 
