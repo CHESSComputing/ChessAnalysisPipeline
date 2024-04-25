@@ -8,40 +8,14 @@
     <command detect_errors="exit_code">
         <![CDATA[
         mkdir tomo_reduce_plots;
-        #if str($map.type_selector) == "yaml"
-            cp $input_file map.yaml &&
-            #if str($map.detector.type_selector) == "from_file"
-                cat $map.detector.detector_file $tool_config > reduce.yaml &&
-            #elif str($map.detector.type_selector) == "manual"
-                cat $tool_config > reduce.yaml &&
-            #else
-                cat $__tool_directory__/$map.detector.type_selector $tool_config > reduce.yaml &&
-            #end if
-        #else
-            cp $input_file setup.nex &&
-            cp $tool_config reduce.yaml &&
-        #end if
-        CHAP --config
-        #if str($map.type_selector) == "yaml"
-            $__tool_directory__/pipeline_reduce_yaml.yaml
-        #else
-            $__tool_directory__/pipeline_reduce_nexus.yaml
-        #end if
+        cp $input_file setup.nex &&
+        cp $tool_config reduce.yaml &&
+        CHAP $__tool_directory__/pipeline_reduce.yaml
         ]]>
     </command>
     <configfiles>
         <configfile name="tool_config">
             <![CDATA[#slurp
-#if str($map.detector.type_selector) == "manual"
-#echo 'detector:' #
-#echo '  prefix: ' + str($map.detector.prefix) #
-#echo '  rows: ' + str($map.detector.rows) #
-#echo '  columns: ' + str($map.detector.columns) #
-#echo '  pixel_size:' #
-#echo '  - ' + str($map.detector.x_pixelsize) #
-#echo '  - ' + str($map.detector.y_pixelsize) #
-#echo '  lens_magnification: ' + str($map.detector.lens_magnification) #
-#end if
 #echo 'img_x_bounds:' #
 #if str($img_x_bounds.type_selector) == "enter_range"
 #echo '- ' + str($img_x_bounds.low) #
@@ -51,41 +25,7 @@
         </configfile>
     </configfiles>
     <inputs>
-        <conditional name="map">
-            <param name="type_selector" type="select" display="radio" label="Choose map file type">
-                <option value="yaml">YAML</option>
-                <option value="nexus">NeXus</option>
-            </param>
-            <when value="yaml">
-                <param name="input_file" type="data" format="yaml" optional="false" label="Map config file"/>
-                <conditional name="detector">
-                    <param name="type_selector" type="select" display="radio" label="Choose detector">
-                        <option value="andor2.yaml">andor2</option>
-                        <option value="manta.yaml">manta</option>
-                        <option value="retiga.yaml">retiga</option>
-                        <option value="manual">enter manually</option>
-                        <option value="from_file">from file</option>
-                    </param>
-                    <when value="andor2.yaml"/>
-                    <when value="manta.yaml"/>
-                    <when value="retiga.yaml"/>
-                    <when value="manual">
-                        <param name="prefix" type="text" label="Detector prefix in SPEC file"/>
-                        <param name="rows" type="integer" value="" optional="false" min="1" label="Number of pixel rows on detector"/>
-                        <param name="columns" type="integer" value="" optional="false" min="1" label="Number of pixel columns on detector"/>
-                        <param name="x_pixelsize" type="float" value="" optional="false" min="0.0" label="Row pixel size of detector in mm"/>
-                        <param name="y_pixelsize" type="float" value="" optional="false" min="0.0" label="Column pixel size of detector in mm"/>
-                        <param name="lens_magnification" type="float" value="1.0" optional="true" label="Detector lens magnification"/>
-                    </when>
-                    <when value="from_file">
-                        <param name="detector_file" type="data" format="yaml" optional="false" label="Detector config file"/>
-                    </when>
-                </conditional>
-            </when>
-            <when value="nexus">
-                <param name="input_file" type="data" format="nex" optional="false" label="Tomography setup file"/>
-            </when>
-        </conditional>
+        <param name="input_file" type="data" format="nex" optional="false" label="Tomography Map"/>
         <conditional name="img_x_bounds">
             <param name="type_selector" type="select" label="Choose vertical detector image bounds">
                 <option value="full_range" selected="true">Use the full image range</option>
