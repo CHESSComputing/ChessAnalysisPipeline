@@ -269,6 +269,18 @@ class LatticeParameterRefinementProcessor(Processor):
         """Given a strain analysis configuration, return a copy
         contining refined values for the materials' lattice
         parameters."""
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXentry,
+            NXsubentry,
+            NXprocess,
+            NXroot,
+        )
+
+        # Local modules
+        from CHAP.common import MapProcessor
+
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         try:
@@ -305,24 +317,47 @@ class LatticeParameterRefinementProcessor(Processor):
         self.logger.debug(f'mca_data_summed.shape: {mca_data_summed.shape}')
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
 
+        # Create the NXroot object
+        nxroot = NXroot()
+        nxentry = NXentry()
+        nxroot.entry = nxentry
+        nxentry.set_default()
+        nxsubentry = NXsubentry()
+        nxentry.nexus_output = nxsubentry
+        nxsubentry.attrs['schema'] = 'h5'
+        nxsubentry.attrs['filename'] = 'lattice_parameter_map.nxs'
+        map_config = strain_analysis_config.map_config
+        nxsubentry[map_config.title] = MapProcessor.get_nxentry(map_config)
+        nxsubentry[f'{map_config.title}_lat_par_refinement'] = NXprocess()
+        nxprocess = nxsubentry[f'{map_config.title}_lat_par_refinement']
+        nxprocess.strain_analysis_config = dumps(strain_analysis_config.dict())
+        nxprocess.calibration_config = dumps(calibration_config.dict())
+
         lattice_parameters = []
         for i, detector in enumerate(strain_analysis_config.detectors):
             lattice_parameters.append(self.refine_lattice_parameters(
                 strain_analysis_config, calibration_config, detector,
-                mca_data[i], mca_data_summed[i], interactive, save_figures,
-                outputdir))
+                mca_data[i], mca_data_summed[i], nxsubentry, interactive,
+                save_figures, outputdir))
         lattice_parameters_mean = np.asarray(lattice_parameters).mean(axis=0)
         self.logger.debug(
             'Lattice parameters refinement averaged over all detectors: '
             f'{lattice_parameters_mean}')
         strain_analysis_config.materials[0].lattice_parameters = [
             float(v) for v in lattice_parameters_mean]
+        nxprocess.lattice_parameters = lattice_parameters_mean
 
-        return strain_analysis_config.dict()
+        nxentry.lat_par_output = NXsubentry()
+        nxentry.lat_par_output.attrs['schema'] = 'yaml'
+        nxentry.lat_par_output.attrs['filename'] = 'lattice_parameters.yaml'
+        nxentry.lat_par_output.data = dumps(strain_analysis_config.dict())
+
+        return nxroot
 
     def refine_lattice_parameters(
             self, strain_analysis_config, calibration_config, detector,
-            mca_data, mca_data_summed, interactive, save_figures, outputdir):
+            mca_data, mca_data_summed, nxsubentry, interactive, save_figures,
+            outputdir):
         """Return refined values for the lattice parameters of the
         materials indicated in `strain_analysis_config`. Method: given
         a scan of a material, fit the peaks of each MCA spectrum for a
@@ -343,6 +378,9 @@ class LatticeParameterRefinementProcessor(Processor):
         :param mca_data_summed: Raw specta for the current MCA detector
             summed over all data point.
         :type mca_data_summed: np.ndarray
+        :param nxsubentry: NeXus subentry to store the detailed refined
+            lattice parameters for each detector.
+        :type nxsubentry: nexusformat.nexus.NXprocess
         :param interactive: Boolean to indicate whether interactive
             matplotlib figures should be presented
         :type interactive: bool
@@ -357,6 +395,12 @@ class LatticeParameterRefinementProcessor(Processor):
         :rtype: list[numpy.ndarray]
         """
         # Third party modules
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXdetector,
+            NXfield,
+        )
         from scipy.constants import physical_constants
 
         # Local modules
@@ -365,6 +409,28 @@ class LatticeParameterRefinementProcessor(Processor):
             get_spectra_fits,
             get_unique_hkls_ds,
         )
+
+        def linkdims(nxgroup, field_dims=[]):
+            if isinstance(field_dims, dict):
+                field_dims = [field_dims]
+            if map_config.map_type == 'structured':
+                axes = deepcopy(map_config.dims)
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+            else:
+                axes = ['map_index']
+                for dims in field_dims:
+                    axes.append(dims['axes'])
+                nxgroup.attrs[f'map_index_indices'] = 0
+            for dim in map_config.dims:
+                nxgroup.makelink(nxsubentry[map_config.title].data[dim])
+                if f'{dim}_indices' in nxsubentry[map_config.title].data.attrs:
+                    nxgroup.attrs[f'{dim}_indices'] = \
+                        nxsubentry[map_config.title].data.attrs[
+                            f'{dim}_indices']
+            nxgroup.attrs['axes'] = axes
+            for dims in field_dims:
+                nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
 
         # Get and add the calibration info to the detector
         calibration = [
@@ -494,17 +560,87 @@ class LatticeParameterRefinementProcessor(Processor):
             else:
                 intensities[map_index] = \
                     mca_data[map_index].astype(np.float64)[mask]
-        fit_hkls = np.asarray([hkls[i] for i in detector.hkl_indices])
-        fit_ds = np.asarray([ds[i] for i in detector.hkl_indices])
-        Rs = np.sqrt(np.sum(fit_hkls**2, 1))
+        mean_intensity = np.mean(
+            intensities, axis=tuple(range(len(effective_map_shape))))
+        hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
+        ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
+        Rs = np.sqrt(np.sum(hkls_fit**2, 1))
         peak_locations = get_peak_locations(
-            fit_ds, detector.tth_calibrated)
+            ds_fit, detector.tth_calibrated)
+
+        map_config = strain_analysis_config.map_config
+        nxprocess = nxsubentry[f'{map_config.title}_lat_par_refinement']
+        nxprocess[detector.detector_name] = NXdetector()
+        nxdetector = nxprocess[detector.detector_name]
+        nxdetector.local_name = detector.detector_name
+        nxdetector.detector_config = dumps(detector.dict())
+        nxdetector.data = NXdata()
+        det_nxdata = nxdetector.data
+        linkdims(
+            det_nxdata,
+            {'axes': 'energy', 'index': len(effective_map_shape)})
+        det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
+        det_nxdata.intensity = NXfield(
+            value=intensities,
+            shape=(*effective_map_shape, len(energies)),
+            dtype=np.float64,
+            attrs={'units': 'counts'})
+        det_nxdata.mean_intensity = mean_intensity
+
+        # Get the interplanar spacings measured for each fit HKL peak
+        # at every point in the map to get the refined estimate
+        # for the material's lattice parameter
+        (uniform_fit_centers, uniform_fit_centers_errors,
+         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
+         uniform_fit_sigmas, uniform_fit_sigmas_errors,
+         uniform_best_fit, uniform_residuals,
+         uniform_redchi, uniform_success,
+         unconstrained_fit_centers, unconstrained_fit_centers_errors,
+         unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
+         unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
+         unconstrained_best_fit, unconstrained_residuals,
+         unconstrained_redchi, unconstrained_success) = \
+            get_spectra_fits(
+                intensities, energies, peak_locations, detector)
+        Rs_map = Rs.repeat(np.prod(effective_map_shape))
+        d_uniform = get_peak_locations(
+            np.asarray(uniform_fit_centers), detector.tth_calibrated)
+        a_uniform = (Rs_map * d_uniform.flatten()).reshape(d_uniform.shape)
+        a_uniform = a_uniform.mean(axis=0)
+        a_uniform_mean = float(a_uniform.mean())
+        d_unconstrained = get_peak_locations(
+            unconstrained_fit_centers, detector.tth_calibrated)
+        a_unconstrained = (Rs_map * d_unconstrained.flatten()).reshape(d_unconstrained.shape)
+        a_unconstrained = np.moveaxis(a_unconstrained, 0, -1)
+        a_unconstrained_mean = float(a_unconstrained.mean())
+        self.logger.warning(
+            'Lattice parameter refinement assumes cubic lattice')
+        self.logger.info(
+            f'Refined lattice parameter from uniform fit: {a_uniform_mean}')
+        self.logger.info(
+            'Refined lattice parameter from unconstrained fit: '
+            f'{a_unconstrained_mean}')
+        nxdetector.lat_pars = NXcollection()
+        nxdetector.lat_pars.uniform = NXdata()
+        nxdata = nxdetector.lat_pars.uniform
+        nxdata.nxsignal = NXfield(
+            value=a_uniform, name='a_uniform', attrs={'units': r'\AA'})
+        linkdims(nxdata)
+        nxdetector.lat_pars.a_uniform_mean = float(a_uniform.mean())
+        nxdetector.lat_pars.unconstrained = NXdata()
+        nxdata = nxdetector.lat_pars.unconstrained
+        nxdata.nxsignal = NXfield(
+            value=a_unconstrained, name='a_unconstrained',
+            attrs={'units': r'\AA'})
+        nxdata.hkl_index = detector.hkl_indices
+        linkdims(
+            nxdata,
+            {'axes': 'hkl_index', 'index': len(effective_map_shape)})
+        nxdetector.lat_pars.a_unconstrained_mean = a_unconstrained_mean
 
         # Get the interplanar spacings measured for each fit HKL peak
         # at the spectrum averaged over every point in the map to get
         # the refined estimate for the material's lattice parameter
-        mean_intensity = np.mean(
-            intensities, axis=tuple(range(len(effective_map_shape))))
         (uniform_fit_centers, uniform_fit_centers_errors,
          uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
          uniform_fit_sigmas, uniform_fit_sigmas_errors,
@@ -522,7 +658,7 @@ class LatticeParameterRefinementProcessor(Processor):
         d_unconstrained = get_peak_locations(
             np.asarray(unconstrained_fit_centers), detector.tth_calibrated)
         a_uniform = float((Rs * d_uniform).mean())
-        a_unconstrained = float((Rs * d_unconstrained).mean())
+        a_unconstrained = (Rs * d_unconstrained)
         self.logger.warning(
             'Lattice parameter refinement assumes cubic lattice')
         self.logger.info(
@@ -531,43 +667,43 @@ class LatticeParameterRefinementProcessor(Processor):
         self.logger.info(
             'Refined lattice parameter from unconstrained fit over averaged '
             f'spectrum: {a_unconstrained}')
+        nxdetector.lat_pars_mean_intensity = NXcollection()
+        nxdetector.lat_pars_mean_intensity.a_uniform = a_uniform
+        nxdetector.lat_pars_mean_intensity.a_unconstrained = a_unconstrained
+        nxdetector.lat_pars_mean_intensity.a_unconstrained_mean = \
+            float(a_unconstrained.mean())
 
-        # Get the interplanar spacings measured for each fit HKL peak
-        # at every point in the map to get the refined estimate
-        # for the material's lattice parameter
-#        (uniform_fit_centers, uniform_fit_centers_errors,
-#         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-#         uniform_fit_sigmas, uniform_fit_sigmas_errors,
-#         uniform_best_fit, uniform_residuals,
-#         uniform_redchi, uniform_success,
-#         unconstrained_fit_centers, unconstrained_fit_centers_errors,
-#         unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
-#         unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
-#         unconstrained_best_fit, unconstrained_residuals,
-#         unconstrained_redchi, unconstrained_success) = \
-#            get_spectra_fits(
-#                intensities, energies, peak_locations, detector)
-#        Rs = np.sqrt(np.sum(fit_hkls**2, 1))
-#        d_uniform = get_peak_locations(
-#            np.asarray(uniform_fit_centers), detector.tth_calibrated)
-#        a_uniform = Rs * d_uniform.mean(
-#            axis=tuple(range(1, d_uniform.ndim)))
-#        a_uniform = float(a_uniform.mean())
-#        d_unconstrained = get_peak_locations(
-#            unconstrained_fit_centers, detector.tth_calibrated)
-#        a_unconstrained = Rs * d_unconstrained.mean(
-#            axis=tuple(range(1, d_unconstrained.ndim)))
-#        a_unconstrained = float(a_unconstrained.mean())
-#        self.logger.warning(
-#            'Lattice parameter refinement assumes cubic lattice')
-#        self.logger.info(
-#            f'Refined lattice parameter from uniform fit: {a_uniform}')
-#        self.logger.info(
-#            'Refined lattice parameter from unconstrained fit: '
-#            f'{a_unconstrained}')
+        if interactive or save_figures:
+            # Third party modules
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.set_title(f'Detector {detector.detector_name}: '
+                         'Lattice Parameter Refinement')
+            ax.set_xlabel('Detector energy (keV)')
+            ax.set_ylabel('Mean intensity (a.u.)')
+            ax.plot(energies, mean_intensity, 'k.', label='MCA data')
+            ax.plot(energies, uniform_best_fit, 'r', label='Best uniform fit')
+            ax.plot(
+                energies, unconstrained_best_fit, 'b',
+                label='Best unconstrained fit')
+            ax.legend()
+            for i, loc in enumerate(peak_locations):
+                ax.axvline(loc, c='k', ls='--')
+                ax.text(loc, 1, str(hkls_fit[i])[1:-1],
+                              ha='right', va='top', rotation=90,
+                              transform=ax.get_xaxis_transform())
+            if save_figures:
+                fig.tight_layout()#rect=(0, 0, 1, 0.95))
+                figfile = os.path.join(
+                    outputdir, f'{detector.detector_name}_lat_param_fits.png')
+                plt.savefig(figfile)
+                self.logger.info(f'Saved figure to {figfile}')
+            if interactive:
+                plt.show()
 
         return [
-            a_unconstrained, a_unconstrained, a_unconstrained, 90., 90., 90.]
+            a_uniform, a_uniform, a_uniform, 90., 90., 90.]
 
 
 class MCAEnergyCalibrationProcessor(Processor):
@@ -2713,10 +2849,10 @@ class StrainAnalysisProcessor(Processor):
 
             # Get the HKLs and lattice spacings that will be used for
             # fitting
-            fit_hkls = np.asarray([hkls[i] for i in detector.hkl_indices])
-            fit_ds = np.asarray([ds[i] for i in detector.hkl_indices])
+            hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
+            ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = get_peak_locations(
-                fit_ds, detector.tth_calibrated)
+                ds_fit, detector.tth_calibrated)
 
             # Find peaks
             if not find_peaks or detector.rel_height_cutoff is None:
@@ -2789,7 +2925,7 @@ class StrainAnalysisProcessor(Processor):
                 {'axes': 'energy', 'index': len(map_config.shape)},
                 oversampling_axis=oversampling_axis)
             fit_nxdata.makelink(det_nxdata.energy)
-            fit_nxdata.best_fit= uniform_best_fit
+            fit_nxdata.best_fit = uniform_best_fit
             fit_nxdata.residuals = uniform_residuals
             fit_nxdata.redchi = uniform_redchi
             fit_nxdata.success = uniform_success
@@ -2801,7 +2937,7 @@ class StrainAnalysisProcessor(Processor):
             for (hkl, center_guess, centers_fit, centers_error,
                     amplitudes_fit, amplitudes_error, sigmas_fit,
                     sigmas_error) in zip(
-                        fit_hkls, peak_locations,
+                        hkls_fit, peak_locations,
                         uniform_fit_centers, uniform_fit_centers_errors,
                         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
                         uniform_fit_sigmas, uniform_fit_sigmas_errors):
@@ -2942,7 +3078,7 @@ class StrainAnalysisProcessor(Processor):
             det_nxdata.tth.nxdata = tth_map
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map)
-                 for d0, use_peak in zip(fit_ds, use_peaks) if use_peak])
+                 for d0, use_peak in zip(ds_fit, use_peaks) if use_peak])
             uniform_strains = np.log(
                 nominal_centers / uniform_fit_centers)
             uniform_strain = np.mean(uniform_strains, axis=0)
@@ -2978,7 +3114,7 @@ class StrainAnalysisProcessor(Processor):
             for (hkl, center_guesses, centers_fit, centers_error,
                 amplitudes_fit, amplitudes_error, sigmas_fit,
                 sigmas_error) in zip(
-                    fit_hkls, uniform_fit_centers,
+                    hkls_fit, uniform_fit_centers,
                     unconstrained_fit_centers,
                     unconstrained_fit_centers_errors,
                     unconstrained_fit_amplitudes,

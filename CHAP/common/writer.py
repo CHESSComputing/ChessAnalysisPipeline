@@ -94,8 +94,10 @@ def write_filetree(data, outputdir, force_overwrite=False):
     # Third party modules
     from nexusformat.nexus import (
         NXentry,
+        NXsubentry,
         NXgroup,
         NXobject,
+        NXroot,
         NXsubentry,
     )
 
@@ -114,15 +116,28 @@ def write_filetree(data, outputdir, force_overwrite=False):
                 write_txt(list(v.data), filename, force_overwrite)
             elif schema == 'json':
                 write_txt(str(v.data), filename, force_overwrite)
+            elif schema == 'yml' or schema == 'yaml':
+                from json import loads
+                write_yaml(loads(v.data.nxdata), filename, force_overwrite)
             elif schema == 'tif' or schema == 'tiff':
                 write_tif(v.data, filename, force_overwrite)
             elif schema == 'h5':
-                nxentry = NXentry()
+                if any(isinstance(vv, NXsubentry) for vv in v.values()):
+                    nxbase = NXroot()
+                else:
+                    nxbase = NXentry()
                 for kk, vv in v.attrs.items():
-                    nxentry.attrs[kk] = vv
+                    if kk not in ('schema', 'filename'):
+                        nxbase.attrs[kk] = vv
                 for kk, vv in v.items():
-                    nxentry[kk] = vv
-                write_nexus(nxentry, filename, force_overwrite)
+                    if isinstance(vv, NXsubentry):
+                        nxentry = NXentry()
+                        nxbase[vv.nxname] = nxentry
+                        for kkk, vvv in vv.items():
+                            nxentry[kkk] = vvv
+                    else:
+                        nxbase[kk] = vv
+                write_nexus(nxbase, filename, force_overwrite)
             else:
                 raise TypeError(f'Files of type {schema} not yet implemented')
         elif isinstance(v, NXgroup):
