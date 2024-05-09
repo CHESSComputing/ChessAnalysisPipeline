@@ -1178,8 +1178,8 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
     [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/index.html)
     package.
     """
-    def process(self, data, poni_file, npt, integrate1d_kwargs=None,
-                inputdir='.'):
+    def process(self, data, poni_file, npt, mask_file=None,
+                integrate1d_kwargs=None, inputdir='.'):
         """Azimuthally integrate the detector data provided and return
         the result as a dictionary of numpy arrays containing the
         values of the radial coordinate of the result, the intensities
@@ -1195,6 +1195,8 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         :type poni_file: str
         :param npt: Number of points in the output pattern.
         :type npt: int
+        :param mask_file: A file to use for masking the input data.
+        :type: str
         :param integrate1d_kwargs: Optional dictionary of keyword
             arguments to use with
             [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d). Defaults
@@ -1210,6 +1212,14 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
             poni_file = os.path.join(inputdir, poni_file)
         ai = load(poni_file)
 
+        if mask_file is None:
+            mask = None
+        else:
+            if not os.path.isabs(mask_file):
+                mask_file = os.path.join(inputdir, mask_file)
+            import fabio
+            mask = fabio.open(mask_file).data
+
         try:
             det_data = self.unwrap_pipelinedata(data)[0]
         except:
@@ -1217,6 +1227,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
         if integrate1d_kwargs is None:
             integrate1d_kwargs = {}
+        integrate1d_kwargs['mask'] = mask
 
         return [ai.integrate1d(d, npt, **integrate1d_kwargs) for d in det_data]
 
