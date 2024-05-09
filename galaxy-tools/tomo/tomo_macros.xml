@@ -4,7 +4,7 @@
 	    <expand macro="chap-requirement" />
             <requirement type="package" version="1.1.0">lmfit</requirement>
             <requirement type="package" version="3.7.1">matplotlib</requirement>
-            <requirement type="package" version="1.0.1">nexusformat</requirement>
+            <requirement type="package" version="1.0.2">nexusformat</requirement>
             <requirement type="package" version="1.10.7">pydantic</requirement>
             <requirement type="package" version="1.12.2">tomopy</requirement>
         </requirements>

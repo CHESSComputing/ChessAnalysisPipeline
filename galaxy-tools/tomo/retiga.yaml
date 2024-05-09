@@ -1,8 +1,0 @@
-detector:
-  prefix: retiga
-  rows: 2048
-  columns: 2048
-  pixel_size:
-  - 0.0074
-  - 0.0074
-  lens_magnification: 5.0

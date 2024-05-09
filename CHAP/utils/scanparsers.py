@@ -2,6 +2,38 @@
 
 # -*- coding: utf-8 -*-
 
+"""Parsing data from certain CHESS SPEC scans is supported by a family
+of classes derived from the base class, `ScanParser` (defined
+below). An instance of `ScanParser` represents a single SPEC scan --
+each instance is initialized with the name of a specific spec file and
+integer scan number. Access to certain data collected by that scan
+(counter data, positioner values, scan shape, detector data, etc.) are
+made available through the properties and methods of that object.
+
+`ScanParser` is just an incomplete abstraction -- one should not
+declare or work with an instance of `ScanParser` directly. Instead,
+one must find the appropriate concrete subclass to use for the
+particular type of scan one wishes to parse, then declare an instance
+of that specific class to begin accessing data from that scan.
+
+Basic usage examples:
+1. Print out the position of a the SPEC positioner motor with mnemonic
+`'mne0'` for a SAXS/WAXS scan collected at FMB:
+    ```python
+    from CHAP.utils.scanparsers import FMBSAXSWAXSScanParser
+    sp = FMBSAXSWAXSScanParser('/path/to/fmb/saxswaxs/spec/file', 1)
+    print(sp.get_spec_positioner_value('mne0'))
+    ```
+1. Store all the detector data collected by the detector with prefix
+`'det'` over a rotation series collected at SMB in the variable
+`data`:
+    ```python
+    from CHAP.utils.scanparsers import SMBRotationScanParser
+    sp = SMBRotationScanParser('/path/to/smb/rotation/spec/file', 1)
+    data = sp.get_detector_data('det')
+    ```
+"""
+
 # System modules
 from csv import reader
 from fnmatch import filter as fnmatch_filter

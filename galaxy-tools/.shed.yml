@@ -1,4 +1,4 @@
-name: chap_test_20230411
+name: chap_test_20240425
 owner: ximgchess
 description: A generic test pipeline for CHAP
 remote_repository_url: https://github.com/CHESSComputing/ChessAnalysisPipeline
