@@ -9,6 +9,7 @@ dependencies:
   - numpy==1.23.5
   - pydantic==1.10.7
   - scipy==1.10.1
+  - sympy==1.12
   - asteval==0.9.29
   - lmfit==1.2.0
   - pip==23.0.1

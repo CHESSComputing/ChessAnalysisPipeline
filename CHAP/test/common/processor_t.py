@@ -102,11 +102,11 @@ class MapProcessorTest(unittest.TestCase):
         column_labels = f'{dims[1]["name"]}  {"  ".join([s["name"] for s in scalars])}'
         spec_lines = [f'#F {map_config["spec_scans"][0]["spec_file"]}']
         spec_lines += [f'#E {int(datetime.now().timestamp())}']
-        spec_lines += [f'#O0 {dims[0]["name"]}']
-        spec_lines += [f'#o0 {dims[0]["name"]}']
+        spec_lines += [f'#O0  {"  ".join(d["name"] for d in dims)}']
+        spec_lines += [f'#o0 {" ".join(d["name"] for d in dims)}']
         for scan_no, dim_0_val in zip(scan_numbers, dim_values):
             spec_lines += [f'#S {scan_no} {scan_command}']
-            spec_lines += [f'#P0 {dim_0_val}']
+            spec_lines += [f'#P0 {dim_0_val} 0']
             spec_lines += [f'#L  {column_labels}']
             for dim_1_val in dim_values:
                 spec_lines += [f'{dim_1_val} {" ".join([str(random()) for s in scalars])}']
@@ -128,7 +128,6 @@ class MapProcessorTest(unittest.TestCase):
     def tearDown(self):
         """Remove the fake spec file created in the setUp method."""
         os.remove(self.spec_file)
-
 
 class IntegrateMapProcessorTest(MapProcessorTest):
     """Unit tets for CHAP.common.IntegrateMapProcessor class"""
