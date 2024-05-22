@@ -8,7 +8,9 @@ Description: Module for Writers used in multiple experiment-specific
 
 # System modules
 from os.path import (
+    isabs,
     isfile,
+    join,
     splitext,
 )
 from sys import modules
@@ -241,6 +243,146 @@ class NexusReader(Reader):
 
         nxobject = nxload(filename)[nxpath]
         return nxobject
+
+
+class NXdataReader(Reader):
+    """Reader for constructing an NXdata object from components"""
+    def read(self, name, nxfield_params, signal_name, axes_names, attrs={},
+             inputdir='.'):
+        """Return a basic NXdata object constructed from components.
+
+        :param name: The name of the NXdata group.
+        :type name: str
+        :param nxfield_params: List of sets of parameters for
+            `NXfieldReader` specifying the NXfields belonging to the
+            NXdata.
+        :type nxfield_params: list[dict]
+        :param signal_name: Name of the signal for the NXdata (must be
+            one of the names of the NXfields indicated in `nxfields`)
+        :type signal: str
+        :param axes_names: Name or names of the coordinate axes
+            NXfields associated with the signal (must be names of
+            NXfields indicated in `nxfields`)
+        :type axes_names: Union[str, list[str]]
+        :param attrs: Optional dictionary of additional attributes for
+            the NXdata
+        :type attrs: dict
+        :param inputdir: Input directory to use for `NXfieldReader`s,
+            defaults to `"."`
+        :type inputdir: str
+        :returns: A new NXdata object
+        :rtype: nexusformat.nexus.NXdata
+        """
+        from nexusformat.nexus import NXdata
+
+        # Read in NXfields
+        nxfields = [NXfieldReader().read(**params, inputdir=inputdir)
+                    for params in nxfield_params]
+        nxfields = {nxfield.nxname: nxfield for nxfield in nxfields}
+
+        # Get signal NXfield
+        try:
+            nxsignal = nxfields[signal_name]
+        except:
+            raise ValueError(
+                '`signal_name` must be the name of one of the NXfields '
+                + 'indicated in `nxfields`: '
+                + ', '.join(nxfields.keys())
+            )
+
+        # Get axes NXfield(s)
+        if isinstance(axes_names, str):
+            axes_names = [axes_names]
+        try:
+            nxaxes = [nxfields[axis_name] for axis_name in axes_names]
+        except:
+            raise ValueError(
+                '`axes_names` must contain only names of NXfields indicated '
+                + 'in `nxfields`: ' + ', '.join(nxfields.keys())
+            )
+        for i, nxaxis in enumerate(nxaxes):
+            if len(nxaxis) != nxsignal.shape[i]:
+                raise ValueError(
+                    f'Shape mismatch on signal dimension {i}: signal '
+                    + f'"{nxsignal.nxname}" has {nxsignal.shape[i]} values, '
+                    + f'but axis "{nxaxis.nxname}" has {len(nxaxis)} values.')
+
+        result = NXdata(signal=nxsignal, axes=nxaxes, name=name, attrs=attrs,
+                        **nxfields)
+        self.logger.info(result.tree)
+        return result
+
+
+class NXfieldReader(Reader):
+    """Reader for an NXfield with options to modify certain attributes."""
+    def read(self, filename, nxpath, nxname=None, update_attrs=None,
+             slice_params=None, inputdir='.'):
+        """Return a copy of the indicated NXfield from the file. Name
+        and attributes of the returned copy may be modified with the
+        `nxname` and `update_attrs` keyword arguments.
+
+        :param filename: Name of the NeXus file containing the NXfield to read.
+        :type filename: str
+        :param nxpath: Path in `nxfile` pointing to the NXfield to read.
+        :type nxpath: str
+        :param nxname: Optional new name for the returned NXfield,
+            defaults to None
+        :type nxname: str, optional
+        :param update_attrs: Optional dictonary used to add to /
+            update the original NXfield's attributes, defaults to None
+        :type update_attrs: dict, optional
+        :param slice_params: Parameters for returning just a slice of
+            the full field data. Slice parameters are provided in a
+            list dictionaries with integer values for any / all of the
+            following keys: `"start"`, `"end"`, `"step"`. Default
+            values used are: `"start"` - `0`, `"end"` -- `None`,
+            `"step"` -- `1`. The order of the list must correspond to
+            the order of the field's axes. Defaults to `None`.
+        :type slice_params: list[dict[str, int]], optional
+        :param inputdir: Directory containing `nxfile`, defaults to `"."`
+        :type inputdir: str
+        :returns: A copy of the indicated NXfield (with name and
+            attributes optionally modified).
+        :rtype: nexusformat.nexus.NXfield
+        """
+        # Third party modules
+        from nexusformat.nexus import nxload, NXfield
+
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
+        if not isabs(filename):
+            filename = join(inputdir, filename)
+        nxroot = nxload(filename)
+        nxfield = nxroot[nxpath]
+
+        if nxname is None:
+            nxname = nxfield.nxname
+
+        attrs = nxfield.attrs
+        if update_attrs is not None:
+            attrs.update(update_attrs)
+
+        if slice_params is None:
+            value = nxfield.nxdata
+        else:
+            if len(slice_params) < nxfield.ndim:
+                slice_params.extend([{}] * (nxfield.ndim - len(slice_params)))
+            if len(slice_params) > nxfield.ndim:
+                slice_params = slice_params[0:nxfield.ndim]
+            slices = ()
+            default_slice = {'start': 0, 'end': None, 'step': 1}
+            for s in slice_params:
+                for k, v in default_slice.items():
+                    if k not in s:
+                        s[k] = v
+                slices = (*slices, slice(s['start'], s['end'], s['step']))
+            value = nxfield.nxdata[slices]
+
+        nxfield = NXfield(value=value, name=nxname, attrs=attrs)
+        self.logger.debug(f'Result -- nxfield.tree =\n{nxfield.tree}')
+
+        return nxfield
 
 
 class SpecReader(Reader):

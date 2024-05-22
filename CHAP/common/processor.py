@@ -134,6 +134,7 @@ class AnimationProcessor(Processor):
             a_max = frames[0].max()
             for n in range(1, num_frames):
                 a_max = min(a_max, frames[n].max())
+            a_max = float(a_max)
             if vmin is None:
                 vmin = -a_max
             if vmax is None:
@@ -248,7 +249,7 @@ class BinarizeProcessor(Processor):
         :raises ValueError: Upon invalid input parameters.
         :return: The binarized dataset with a return type equal to
             that of the input dataset.
-        :rtype: numpy.ndarray, nexusformat.nexus.NXobject
+        :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # System modules
         from os.path import join as os_join
@@ -494,12 +495,11 @@ class BinarizeProcessor(Processor):
             # Select the ROI's orthogonal to the selected averaging direction
             bounds = []
             for i, bound in enumerate(['"0"', '"1"']):
-                _, roi = select_roi_2d(
+                roi = select_roi_2d(
                     mean_data,
                     title=f'Select the ROI to obtain the {bound} data value',
                     title_a=f'Data averaged in the {axes[axis]}-direction',
                     row_label=subaxes[0], column_label=subaxes[1])
-                plt.close()
 
                 # Select the index range in the selected averaging direction
                 if not axis:
@@ -512,12 +512,11 @@ class BinarizeProcessor(Processor):
                     mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
                         axis=(0,1))
 
-                _, _range = select_roi_1d(
+                _range = select_roi_1d(
                     mean_roi_data, preselected_roi=(0, data.shape[axis]),
                     title=f'Select the {axes[axis]}-direction range to obtain '
                           f'the {bound} data bound',
                     xlabel=axes[axis], ylabel='Average data')
-                plt.close()
 
                 # Obtain the lower/upper data bound
                 if not axis:
@@ -574,7 +573,257 @@ class BinarizeProcessor(Processor):
         nxentry.data = NXdata(
             NXlink(nxdata.nxsignal.nxpath),
             [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+        nxentry.data.set_default()
         return nxobject
+
+
+class ConstructBaseline(Processor):
+    """A Processor to construct a baseline for a dataset.
+    """
+    def process(
+            self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            save_figures=False, outputdir='.', interactive=False):
+        """Construct and return the baseline for a dataset.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param mask: A mask to apply to the spectrum before baseline
+           construction, default to `None`.
+        :type mask: array-like, optional
+        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :type tol: float, optional
+        :param lam: The &lambda (smoothness) parameter (the balance
+            between the residual of the data and the baseline and the
+            smoothness of the baseline). The suggested range is between
+            100 and 10^8, defaults to `10^6`.
+        :type lam: float, optional
+        :param max_iter: The maximum number of iterations,
+            defaults to `20`.
+        :type max_iter: int, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to False.
+        :type save_figures: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to '.'
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :return: The smoothed baseline and the configuration.
+        :rtype: numpy.array, dict
+        """
+        try:
+            data = np.asarray(self.unwrap_pipelinedata(data)[0])
+        except:
+            raise ValueError(
+                f'The structure of {data} contains no valid data')
+
+        return self.construct_baseline(
+            data, mask, tol, lam, max_iter, save_figures, outputdir,
+            interactive)
+
+    @staticmethod
+    def construct_baseline(
+        y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
+        xlabel=None, ylabel=None, interactive=False, filename=None):
+        """Construct and return the baseline for a dataset.
+
+        :param y: Input data.
+        :type y: numpy.array
+        :param x: Independent dimension (only used when interactive is
+            `True` of when filename is set), defaults to `None`.
+        :type x: array-like, optional
+        :param mask: A mask to apply to the spectrum before baseline
+           construction, default to `None`.
+        :type mask: array-like, optional
+        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :type tol: float, optional
+        :param lam: The &lambda (smoothness) parameter (the balance
+            between the residual of the data and the baseline and the
+            smoothness of the baseline). The suggested range is between
+            100 and 10^8, defaults to `10^6`.
+        :type lam: float, optional
+        :param max_iter: The maximum number of iterations,
+            defaults to `20`.
+        :type max_iter: int, optional
+        :param xlabel: Label for the x-axis of the displayed figure,
+            defaults to `None`.
+        :param title: Title for the displayed figure, defaults to `None`.
+        :type title: str, optional
+        :type xlabel: str, optional
+        :param ylabel: Label for the y-axis of the displayed figure,
+            defaults to `None`.
+        :type ylabel: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            False.
+        :type interactive: bool, optional
+        :param filename: Save a .png of the plot to filename, defaults to
+            `None`, in which case the plot is not saved.
+        :type filename: str, optional
+        :return: The smoothed baseline and the configuration.
+        :rtype: numpy.array, dict
+        """
+        # Third party modules
+        if interactive or filename is not None:
+            from matplotlib.widgets import TextBox, Button
+            import matplotlib.pyplot as plt
+
+        # Local modules
+        from CHAP.utils.general import baseline_arPLS
+
+        def change_fig_subtitle(maxed_out=False, subtitle=None):
+            if fig_subtitles:
+                fig_subtitles[0].remove()
+                fig_subtitles.pop()
+            if subtitle is None:
+                subtitle = r'$\lambda$ = 'f'{lambdas[-1]:.2e}, '
+                if maxed_out:
+                    subtitle += f'# iter = {num_iters[-1]} (maxed out) '
+                else:
+                    subtitle += f'# iter = {num_iters[-1]} '
+                subtitle += f'error = {errors[-1]:.2e}'
+            fig_subtitles.append(
+                plt.figtext(*subtitle_pos, subtitle, **subtitle_props))
+
+        def select_lambda(expression):
+            """Callback function for the "Select lambda" TextBox.
+            """
+            if not len(expression):
+                return
+            try:
+                lam = float(expression)
+                if lam < 0:
+                    raise ValueError
+            except ValueError:
+                change_fig_subtitle(
+                    subtitle=f'Invalid lambda, enter a positive number')
+            else:
+                lambdas.pop()
+                lambdas.append(10**lam)
+                baseline, _, w, num_iter, error = baseline_arPLS(
+                    y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter,
+                    full_output=True)
+                num_iters.pop()
+                num_iters.append(num_iter)
+                errors.pop()
+                errors.append(error)
+                if num_iter < max_iter:
+                    change_fig_subtitle()
+                else:
+                    change_fig_subtitle(maxed_out=True)
+                baseline_handle.set_ydata(baseline)
+            lambda_box.set_val('')
+            plt.draw()
+
+        def continue_iter(event):
+            """Callback function for the "Continue" button."""
+            baseline, _, w, n_iter, error = baseline_arPLS(
+                y, mask=mask, w=weights[-1], tol=tol, lam=lambdas[-1],
+                max_iter=max_iter, full_output=True)
+            num_iters[-1] += n_iter
+            errors.pop()
+            errors.append(error)
+            if n_iter < max_iter:
+                change_fig_subtitle()
+            else:
+                change_fig_subtitle(maxed_out=True)
+            baseline_handle.set_ydata(baseline)
+            plt.draw()
+            weights.pop()
+            weights.append(w)
+
+        def confirm(event):
+            """Callback function for the "Confirm" button."""
+            plt.close()
+
+        baseline, _, w, num_iter, error = baseline_arPLS(
+            y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+            full_output=True)
+
+        if not interactive and filename is None:
+            return baseline
+
+        lambdas = [lam]
+        weights = [w]
+        num_iters = [num_iter]
+        errors = [error]
+        fig_subtitles = []
+
+        # Check inputs
+        if x is None:
+            x = np.arange(y.size)
+
+        # Setup the Matplotlib figure
+        title_pos = (0.5, 0.95)
+        title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        subtitle_pos = (0.5, 0.90)
+        subtitle_props = {'fontsize': 'x-large',
+                          'horizontalalignment': 'center',
+                          'verticalalignment': 'bottom'}
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        if mask is None:
+            ax.plot(x, y, label='input data')
+        else:
+            ax.plot(
+                x[mask.astype(bool)], y[mask.astype(bool)], label='input data')
+        baseline_handle = ax.plot(x, baseline, label='baseline')[0]
+#        ax.plot(x, y-baseline, label='baseline corrected data')
+        ax.set_xlabel(xlabel, fontsize='x-large')
+        ax.set_ylabel(ylabel, fontsize='x-large')
+        ax.legend()
+        if title is None:
+            fig_title = plt.figtext(*title_pos, 'Baseline', **title_props)
+        else:
+            fig_title = plt.figtext(*title_pos, title, **title_props)
+        if num_iter < max_iter:
+            change_fig_subtitle()
+        else:
+            change_fig_subtitle(maxed_out=True)
+        fig.subplots_adjust(bottom=0.0, top=0.85)
+
+        if interactive:
+
+            fig.subplots_adjust(bottom=0.2)
+
+            # Setup TextBox
+            lambda_box = TextBox(
+                plt.axes([0.15, 0.05, 0.15, 0.075]), r'log($\lambda$)')
+            lambda_cid = lambda_box.on_submit(select_lambda)
+
+            # Setup "Continue" button
+            continue_btn = Button(
+                plt.axes([0.45, 0.05, 0.15, 0.075]), 'Continue smoothing')
+            continue_cid = continue_btn.on_clicked(continue_iter)
+
+            # Setup "Confirm" button
+            confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+            confirm_cid = confirm_btn.on_clicked(confirm)
+
+            # Show figure for user interaction
+            plt.show()
+
+            # Disconnect all widget callbacks when figure is closed
+            lambda_box.disconnect(lambda_cid)
+            continue_btn.disconnect(continue_cid)
+            confirm_btn.disconnect(confirm_cid)
+
+            # ... and remove the buttons before returning the figure
+            lambda_box.ax.remove()
+            continue_btn.ax.remove()
+            confirm_btn.ax.remove()
+
+        if filename is not None:
+            fig_title.set_in_layout(True)
+            fig_subtitles[-1].set_in_layout(True)
+            fig.tight_layout(rect=(0, 0, 1, 0.90))
+            fig.savefig(filename)
+        plt.close()
+
+        config = {
+            'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
+            'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
+        return baseline, config
 
 
 class ImageProcessor(Processor):
@@ -958,7 +1207,7 @@ class MapProcessor(Processor):
     NXentry object representing that map's metadata and any
     scalar-valued raw data requested by the supplied map configuration.
     """
-    def process(self, data):
+    def process(self, data, detector_names=[]):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -966,20 +1215,36 @@ class MapProcessor(Processor):
         :param data: Result of `Reader.read` where at least one item
             has the value `'MapConfig'` for the `'schema'` key.
         :type data: list[PipelineData]
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NeXus NXentry object, defaults to `[]`.
+        :type detector_names: list[str], optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
+        # Local modules
+        from CHAP.utils.general import string_to_list
+        if isinstance(detector_names, str):
+            try:
+                detector_names = [
+                    str(v) for v in string_to_list(
+                        detector_names, raise_error=True)]
+            except:
+                raise ValueError(
+                    f'Invalid parameter detector_names ({detector_names})')
         map_config = self.get_config(data, 'common.models.map.MapConfig')
-        nxentry = self.__class__.get_nxentry(map_config)
+        nxentry = self.__class__.get_nxentry(map_config, detector_names)
 
         return nxentry
 
     @staticmethod
-    def get_nxentry(map_config):
+    def get_nxentry(map_config, detector_names=[]):
         """Use a `MapConfig` to construct a NeXus NXentry object.
 
         :param map_config: A valid map configuration.
         :type map_config: MapConfig
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NeXus NXentry object.
+        :type detector_names: list[str]
         :return: The map's data and metadata contained in a NeXus
             structure.
         :rtype: nexusformat.nexus.NXentry
@@ -1000,6 +1265,8 @@ class MapProcessor(Processor):
         nxentry.map_config = dumps(map_config.dict())
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
         nxentry.attrs['station'] = map_config.station
+        for key, value in map_config.attrs.items():
+            nxentry.attrs[key] = value
 
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
@@ -1039,10 +1306,26 @@ class MapProcessor(Processor):
             nxentry.data.attrs['signal'] = signal
             nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
 
-        for data in map_config.all_scalar_data:
-            for map_index in np.ndindex(map_config.shape):
+        # Create empty NXfields of appropriate shape for raw
+        # detector data
+        for detector_name in detector_names:
+            if not isinstance(detector_name, str):
+                detector_name = str(detector_name)
+            detector_data = map_config.get_detector_data(
+                detector_name, (0,) * len(map_config.shape))
+            nxentry.data[detector_name] = NXfield(value=np.zeros(
+                (*map_config.shape, *detector_data.shape)),
+                dtype=detector_data.dtype)
+
+        for map_index in np.ndindex(map_config.shape):
+            for data in map_config.all_scalar_data:
                 nxentry.data[data.label][map_index] = map_config.get_value(
                     data, map_index)
+            for detector_name in detector_names:
+                if not isinstance(detector_name, str):
+                    detector_name = str(detector_name)
+                nxentry.data[detector_name][map_index] = \
+                    map_config.get_detector_data(detector_name, map_index)
 
         return nxentry
 
@@ -1402,6 +1685,499 @@ class StrainAnalysisProcessor(Processor):
                 'No strain analysis configuration found in input data')
 
         return strain_analysis_config
+
+
+class SetupNXdataProcessor(Processor):
+    """Processor to set up and return an "empty" NeXus representation
+    of a structured dataset. This representation will be an instance
+    of `NXdata` that has:
+    1. An `NXfield` entry for every coordinate and signal specified.
+    1. `nxaxes` that are the `NXfield` entries for the coordinates and
+       contain the values provided for each coordinate.
+    1. `NXfield` entries of appropriate shape, but containing all
+       zeros, for every signal.
+    1. Attributes that define the axes, plus any additional attributes
+       specified by the user.
+
+    This `Processor` is most useful as a "setup" step for
+    constucting a representation of / container for a complete dataset
+    that will be filled out in pieces later by
+    `UpdateNXdataProcessor`.
+
+    Examples of use in a `Pipeline` configuration:
+    - With inputs from a previous `PipelineItem` specifically written
+      to provide inputs to this `Processor`:
+      ```yaml
+      config:
+        inputdir: /rawdata/samplename
+        outputdir: /reduceddata/samplename
+      pipeline:
+        - edd.SetupNXdataReader:
+            filename: SpecInput.txt
+            dataset_id: 1
+        - common.SetupNXdataProcessor:
+            nxname: samplename_dataset_1
+        - common.NexusWriter:
+            filename: data.nxs
+      ```
+     - With inputs provided directly though the optional arguments:
+       ```yaml
+      config:
+        outputdir: /reduceddata/samplename
+      pipeline:
+        - common.SetupNXdataProcessor:
+            nxname: your_dataset_name
+            coords:
+              - name: x
+                values: [0.0, 0.5, 1.0]
+                attrs:
+                  units: mm
+                  yourkey: yourvalue
+              - name: temperature
+                values: [200, 250, 275]
+                attrs:
+                  units: Celsius
+                  yourotherkey: yourothervalue
+            signals:
+              - name: raw_detector_data
+                shape: [407, 487]
+                attrs:
+                  local_name: PIL11
+                  foo: bar
+              - name: presample_intensity
+                shape: []
+                attrs:
+                   local_name: a3ic0
+                   zebra: fish
+            attrs:
+              arbitrary: metadata
+              from: users
+              goes: here
+        - common.NexusWriter:
+            filename: data.nxs
+       ```
+    """
+    def process(self, data, nxname='data',
+                coords=[], signals=[], attrs={}, data_points=[],
+                extra_nxfields=[], duplicates='overwrite'):
+        """Return an `NXdata` that has the requisite axes and
+        `NXfield` entries to represent a structured dataset with the
+        properties provided. Properties may be provided either through
+        the `data` argument (from an appropriate `PipelineItem` that
+        immediately preceeds this one in a `Pipeline`), or through the
+        `coords`, `signals`, `attrs`, and/or `data_points`
+        arguments. If any of the latter are used, their values will
+        completely override any values for these parameters found from
+        `data.`
+
+        :param data: Data from the previous item in a `Pipeline`.
+        :type data: list[PipelineData]
+        :param nxname: Name for the returned `NXdata` object. Defaults
+            to `'data'`.
+        :type nxname: str, optional
+        :param coords: List of dictionaries defining the coordinates
+            of the dataset. Each dictionary must have the keys
+            `'name'` and `'values'`, whose values are the name of the
+            coordinate axis (a string) and all the unique values of
+            that coordinate for the structured dataset (a list of
+            numbers), respectively. A third item in the dictionary is
+            optional, but highly recommended: `'attrs'` may provide a
+            dictionary of attributes to attach to the coordinate axis
+            that assist in in interpreting the returned `NXdata`
+            representation of the dataset. It is strongly recommended
+            to provide the units of the values along an axis in the
+            `attrs` dictionary. Defaults to [].
+        :type coords: list[dict[str, object]], optional
+        :param signals: List of dictionaries defining the signals of
+            the dataset. Each dictionary must have the keys `'name'`
+            and `'shape'`, whose values are the name of the signal
+            field (a string) and the shape of the signal's value at
+            each point in the dataset (a list of zero or more
+            integers), respectively. A third item in the dictionary is
+            optional, but highly recommended: `'attrs'` may provide a
+            dictionary of attributes to attach to the signal fieldthat
+            assist in in interpreting the returned `NXdata`
+            representation of the dataset. It is strongly recommended
+            to provide the units of the signal's values `attrs`
+            dictionary. Defaults to [].
+        :type signals: list[dict[str, object]], optional
+        :param attrs: An arbitrary dictionary of attributes to assign
+            to the returned `NXdata`. Defaults to {}.
+        :type attrs: dict[str, object], optional
+        :param data_points: A list of data points to partially (or
+            even entirely) fil out the "empty" signal `NXfield`s
+            before returning the `NXdata`. Defaults to [].
+        :type data_points: list[dict[str, object]], optional
+        :param extra_nxfields: List "extra" NXfield`s to include that
+            can be described neither as a signal of the dataset, not a
+            dedicated coordinate. This paramteter is good for
+            including "alternate" values for one of the coordinate
+            dimensions -- the same coordinate axis expressed in
+            different units, for instance. Each item in the list
+            shoulde be a dictionary of parameters for the
+            `nexusformat.nexus.NXfield` constructor. Defaults to `[]`.
+        :type extra_nxfields: list[dict[str, object]], optional
+        :param duplicates: Behavior to use if any new data points occur
+            at the same point in the dataset's coordinate space as an
+            existing data point. Allowed values for `duplicates` are:
+            `'overwrite'` and `'block'`. Defaults to `'overwrite'`.
+        :type duplicates: Literal['overwrite', 'block']
+        :returns: An `NXdata` that represents the structured dataset
+            as specified.
+        :rtype: nexusformat.nexus.NXdata
+        """
+        self.nxname = nxname
+
+        self.coords = coords
+        self.signals = signals
+        self.attrs = attrs
+        try:
+            setup_params = self.unwrap_pipelinedata(data)[0]
+        except:
+            setup_params = None
+        if isinstance(setup_params, dict):
+            for a in ('coords', 'signals', 'attrs'):
+                setup_param = setup_params.get(a)
+                if not getattr(self, a) and setup_param:
+                    self.logger.info(f'Using input data from pipeline for {a}')
+                    setattr(self, a, setup_param)
+                else:
+                    self.logger.info(
+                        f'Ignoring input data from pipeline for {a}')
+        else:
+            self.logger.warning('Ignoring all input data from pipeline')
+
+        self.shape = tuple(len(c['values']) for c in self.coords)
+
+        self.extra_nxfields = extra_nxfields
+        self._data_points = []
+        self.duplicates = duplicates
+        self.init_nxdata()
+        for d in data_points:
+            self.add_data_point(d)
+
+        return self.nxdata
+
+    def add_data_point(self, data_point):
+        """Add a data point to this dataset.
+        1. Validate `data_point`.
+        2. Append `data_point` to `self._data_points`.
+        3. Update signal `NXfield`s in `self.nxdata`.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: None
+        """
+        self.logger.info(f'Adding data point no. {len(self._data_points)}')
+        self.logger.debug(f'New data point: {data_point}')
+        valid, msg = self.validate_data_point(data_point)
+        if not valid:
+            self.logger.error(f'Cannot add data point: {msg}')
+        else:
+            self._data_points.append(data_point)
+            self.update_nxdata(data_point)
+
+    def validate_data_point(self, data_point):
+        """Return `True` if `data_point` occurs at a valid point in
+        this structured dataset's coordinate space, `False`
+        otherwise. Also validate shapes of signal values and add NaN
+        values for any missing signals.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: Validity of `data_point`, message
+        :rtype: bool, str
+        """
+        import numpy as np
+
+        valid = True
+        msg = ''
+        # Convert all values to numpy types
+        data_point = {k: np.asarray(v) for k, v in data_point.items()}
+        # Ensure data_point defines a specific point in the dataset's
+        # coordinate space
+        if not all(c['name'] in data_point for c in self.coords):
+            valid = False
+            msg = 'Missing coordinate values'
+        # Find & handle any duplicates
+        for i, d in enumerate(self._data_points):
+            is_duplicate = all(data_point[c] == d[c] for c in self.coord_names)
+            if is_duplicate:
+                if self.duplicates == 'overwrite':
+                    self._data_points.pop(i)
+                elif self.duplicates == 'block':
+                    valid = False
+                    msg = 'Duplicate point will be blocked'
+        # Ensure a value is present for all signals
+        for s in self.signals:
+            if s['name'] not in data_point:
+                data_point[s['name']] = np.full(s['shape'], 0)
+            else:
+                if not data_point[s['name']].shape == tuple(s['shape']):
+                    valid = False
+                    msg = f'Shape mismatch for signal {s}'
+        return valid, msg
+
+    def init_nxdata(self):
+        """Initialize an empty `NXdata` representing this dataset to
+        `self.nxdata`; values for axes' `NXfield`s are filled out,
+        values for signals' `NXfield`s are empty an can be filled out
+        later. Save the empty `NXdata` to the NeXus file. Initialise
+        `self.nxfile` and `self.nxdata_path` with the `NXFile` object
+        and actual nxpath used to save and make updates to the
+        `NXdata`.
+
+        :returns: None
+        """
+        from nexusformat.nexus import NXdata, NXfield
+        import numpy as np
+
+        axes = tuple(NXfield(
+            value=c['values'],
+            name=c['name'],
+            attrs=c.get('attrs')) for c in self.coords)
+        entries = {s['name']: NXfield(
+            value=np.full((*self.shape, *s['shape']), 0),
+            name=s['name'],
+            attrs=s.get('attrs')) for s in self.signals}
+        extra_nxfields = [NXfield(**params) for params in self.extra_nxfields]
+        extra_nxfields = {f.nxname: f for f in extra_nxfields}
+        entries.update(extra_nxfields)
+        self.nxdata = NXdata(
+            name=self.nxname, axes=axes, entries=entries, attrs=self.attrs)
+
+    def update_nxdata(self, data_point):
+        """Update `self.nxdata`'s NXfield values.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space and the new signal values at
+            that point.
+        :type data_point: dict[str, object]
+        :returns: None
+        """
+        index = self.get_index(data_point)
+        for s in self.signals:
+            if s['name'] in data_point:
+                self.nxdata[s['name']][index] = data_point[s['name']]
+
+    def get_index(self, data_point):
+        """Return a tuple representing the array index of `data_point`
+        in the coordinate space of the dataset.
+
+        :param data_point: Data point defining a point in the
+            dataset's coordinate space.
+        :type data_point: dict[str, object]
+        :returns: Multi-dimensional index of `data_point` in the
+            dataset's coordinate space.
+        :rtype: tuple
+        """
+        return tuple(c['values'].index(data_point[c['name']]) \
+                     for c in self.coords)
+
+
+class UpdateNXdataProcessor(Processor):
+    """Processor to fill in part(s) of an `NXdata` representing a
+    structured dataset that's already been written to a NeXus file.
+
+    This Processor is most useful as an "update" step for an `NXdata`
+    created by `common.SetupNXdataProcessor`, and is easitest to use
+    in a `Pipeline` immediately after another `PipelineItem` designed
+    specifically to return a value that can be used as input to this
+    `Processor`.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+    pipeline:
+      - edd.UpdateNXdataReader:
+          spec_file: spec.log
+          scan_number: 1
+      - common.SetupNXdataProcessor:
+          nxfilename: /reduceddata/samplename/data.nxs
+          nxdata_path: /entry/samplename_dataset_1
+    ```
+    """
+
+    def process(self, data, nxfilename, nxdata_path, data_points=[],
+                allow_approximate_coordinates=True):
+        """Write new data points to the signal fields of an existing
+        `NXdata` object representing a structued dataset in a NeXus
+        file. Return the list of data points used to update the
+        dataset.
+
+        :param data: Data from the previous item in a `Pipeline`. May
+            contain a list of data points that will extend the list of
+            data points optionally provided with the `data_points`
+            argument.
+        :type data: list[PipelineData]
+        :param nxfilename: Name of the NeXus file containing the
+            `NXdata` to update.
+        :type nxfilename: str
+        :param nxdata_path: The path to the `NXdata` to update in the file.
+        :type nxdata_path: str
+        :param data_points: List of data points, each one a dictionary
+            whose keys are the names of the coordinates and axes, and
+            whose values are the values of each coordinate / signal at
+            a single point in the dataset. Deafults to [].
+        :type data_points: list[dict[str, object]]
+        :param allow_approximate_coordinates: Parameter to allow the
+            nearest existing match for the new data points'
+            coordinates to be used if an exact match connot be found
+            (sometimes this is due simply to differences in rounding
+            convetions). Defaults to True.
+        :type allow_approximate_coordinates: bool, optional
+        :returns: Complete list of data points used to update the dataset.
+        :rtype: list[dict[str, object]]
+        """
+        from nexusformat.nexus import NXFile
+        import numpy as np
+        import os
+
+        _data_points = self.unwrap_pipelinedata(data)[0]
+        if isinstance(_data_points, list):
+            data_points.extend(_data_points)
+        self.logger.info(f'Updating {len(data_points)} data points')
+
+        nxfile = NXFile(nxfilename, 'rw')
+        nxdata = nxfile.readfile()[nxdata_path]
+        axes_names = [a.nxname for a in nxdata.nxaxes]
+
+        data_points_used = []
+        for i, d in enumerate(data_points):
+            # Verify that the data point contains a value for all
+            # coordinates in the dataset.
+            if not all(a in d for a in axes_names):
+                self.logger.error(
+                    f'Data point {i} is missing a value for at least one '
+                    + f'axis. Skipping. Axes are: {", ".join(axes_names)}')
+                continue
+            self.logger.info(
+                f'Coordinates for data point {i}: '
+                + ', '.join([f'{a}={d[a]}' for a in axes_names]))
+            # Get the index of the data point in the dataset based on
+            # its values for each coordinate.
+            try:
+                index = tuple(np.where(a.nxdata == d[a.nxname])[0][0] \
+                              for a in nxdata.nxaxes)
+            except:
+                if allow_approximate_coordinates:
+                    try:
+                        index = tuple(
+                            np.argmin(np.abs(a.nxdata - d[a.nxname])) \
+                            for a in nxdata.nxaxes)
+                        self.logger.warning(
+                            f'Nearest match for coordinates of data point {i}:'
+                            + ', '.join(
+                                [f'{a.nxname}={a[_i]}' \
+                                 for _i, a in zip(index, nxdata.nxaxes)]))
+                    except:
+                        self.logger.error(
+                            f'Cannot get the index of data point {i}. '
+                            + f'Skipping.')
+                        continue
+                else:
+                    self.logger.error(
+                        f'Cannot get the index of data point {i}. Skipping.')
+                    continue
+            self.logger.info(f'Index of data point {i}: {index}')
+            # Update the signals contained in this data point at the
+            # proper index in the dataset's singal `NXfield`s
+            for k, v in d.items():
+                if k in axes_names:
+                    continue
+                try:
+                    nxfile.writevalue(
+                        os.path.join(nxdata_path, k), np.asarray(v), index)
+                except Exception as e:
+                    self.logger.error(
+                        f'Error updating signal {k} for new data point '
+                        + f'{i} (dataset index {index}): {e}')
+            data_points_used.append(d)
+
+        nxfile.close()
+
+        return data_points_used
+
+
+class NXdataToDataPointsProcessor(Processor):
+    """Transform an `NXdata` object into a list of dictionaries. Each
+    dictionary represents a single data point in the coordinate space
+    of the dataset. The keys are the names of the signals and axes in
+    the dataset, and the values are a single scalar value (in the case
+    of axes) or the value of the signal at that point in the
+    coordinate space of the dataset (in the case of signals -- this
+    means that values for signals may be any shape, depending on the
+    shape of the signal itself).
+
+    Example of use in a pipeline configuration:
+    ```yaml
+    config:
+      inputdir: /reduceddata/samplename
+    - common.NXdataReader:
+        name: data
+        axes_names:
+          - x
+          - y
+        signal_name: z
+        nxfield_params:
+          - filename: data.nxs
+            nxpath: entry/data/x
+            slice_params:
+              - step: 2
+          - filename: data.nxs
+            nxpath: entry/data/y
+            slice_params:
+              - step: 2
+          - filename: data.nxs
+            nxpath: entry/data/z
+            slice_params:
+              - step: 2
+              - step: 2
+    - common.NXdataToDataPointsProcessor
+    - common.UpdateNXdataProcessor:
+        nxfilename: /reduceddata/samplename/sparsedata.nxs
+        nxdata_path: /entry/data
+    ```
+    """
+    def process(self, data):
+        """Return a list of dictionaries representing the coordinate
+        and signal values at every point in the dataset provided.
+
+        :param data: Input pipeline data containing an `NXdata`.
+        :type data: list[PipelineData]
+        :returns: List of all data points in the dataset.
+        :rtype: list[dict[str,object]]
+        """
+        import numpy as np
+
+        nxdata = self.unwrap_pipelinedata(data)[0]
+
+        data_points = []
+        axes_names = [a.nxname for a in nxdata.nxaxes]
+        self.logger.info(f'Dataset axes: {axes_names}')
+        dataset_shape = tuple([a.size for a in nxdata.nxaxes])
+        self.logger.info(f'Dataset shape: {dataset_shape}')
+        signal_names = [k for k, v in nxdata.entries.items() \
+                        if not k in axes_names \
+                        and v.shape[:len(dataset_shape)] == dataset_shape]
+        self.logger.info(f'Dataset signals: {signal_names}')
+        other_fields = [k for k, v in nxdata.entries.items() \
+                        if not k in axes_names + signal_names]
+        if len(other_fields) > 0:
+            self.logger.warning(
+                'Ignoring the following fields that cannot be interpreted as '
+                + f'either dataset coordinates or signals: {other_fields}')
+        for i in np.ndindex(dataset_shape):
+            data_points.append({**{a: nxdata[a][_i] \
+                                   for a, _i in zip(axes_names, i)},
+                                **{s: nxdata[s].nxdata[i] \
+                                   for s in signal_names}})
+        return data_points
 
 
 class XarrayToNexusProcessor(Processor):

@@ -2,3 +2,4 @@
 CHESS scan data, collecting interactive user input, and finding
 lattice properties of materials (among others).
 """
+from CHAP.utils.fit import FitProcessor

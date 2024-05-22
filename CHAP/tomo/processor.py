@@ -30,7 +30,6 @@ from CHAP.utils.general import (
     quick_imshow,
     nxcopy,
 )
-from CHAP.utils.fit import Fit
 from CHAP.processor import Processor
 from CHAP.reader import main
 
@@ -1394,28 +1393,28 @@ class Tomo:
 
         # Resize the combined tomography data stacks
         # - combined axis data order: row/-z,y,x
-        if self._interactive:
+        if self._interactive or self._save_figs:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
         else:
             x_bounds = tool_config.x_bounds
             if x_bounds is None:
                 self._logger.warning(
-                    'x_bounds unspecified, reconstruct data for full x-range')
+                    'x_bounds unspecified, combine data for full x-range')
             elif not is_int_pair(
                     x_bounds, ge=0, le=tomo_shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             y_bounds = tool_config.y_bounds
             if y_bounds is None:
                 self._logger.warning(
-                    'y_bounds unspecified, reconstruct data for full y-range')
+                    'y_bounds unspecified, combine data for full y-range')
             elif not is_int_pair(
                     y_bounds, ge=0, le=tomo_shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
             z_bounds = tool_config.z_bounds
             if z_bounds is None:
                 self._logger.warning(
-                    'z_bounds unspecified, reconstruct data for full z-range')
+                    'z_bounds unspecified, combine data for full z-range')
             elif not is_int_pair(
                     z_bounds, ge=0, le=tomo_shape[0]):
                 raise ValueError(f'Invalid parameter z_bounds ({z_bounds})')
@@ -1705,18 +1704,46 @@ class Tomo:
             img_row_bounds = calibrate_center_rows
         else:
             if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
+                # System modules
+                from sys import float_info
+
+                # Third party modules
+                from nexusformat.nexus import (
+                    NXdata,
+                    NXfield,
+                )
+
+                # Local modules
+                from CHAP.utils.fit import FitProcessor
+
                 pixel_size = float(nxentry.instrument.detector.row_pixel_size)
                 # Try to get a fit from the bright field
                 row_sum = np.sum(tbf, 1)
-                fit = Fit.fit_data(
-                    row_sum, 'rectangle', x=np.array(range(len(row_sum))),
-                    form='atan', guess=True)
-                parameters = fit.best_values
+                num = len(row_sum)
+                fit = FitProcessor()
+                model = {'model': 'rectangle',
+                         'parameters': [
+                             {'name': 'amplitude',
+                              'value': row_sum.max()-row_sum.min(),
+                              'min': 0.0},
+                             {'name': 'center1', 'value': 0.25*num,
+                                 'min': 0.0, 'max': num},
+                             {'name': 'sigma1', 'value': num/7.0,
+                              'min': float_info.min},
+                             {'name': 'center2', 'value': 0.75*num,
+                              'min': 0.0, 'max': num},
+                             {'name': 'sigma2', 'value': num/7.0,
+                              'min': float_info.min}]}
+                bounds_fit = fit.process(
+                    NXdata(NXfield(row_sum, 'y'),
+                    NXfield(np.array(range(num)), 'x')),
+                    {'models': [model], 'method': 'trf'})
+                parameters = bounds_fit.best_values
                 row_low_fit = parameters.get('center1', None)
                 row_upp_fit = parameters.get('center2', None)
                 sig_low = parameters.get('sigma1', None)
                 sig_upp = parameters.get('sigma2', None)
-                have_fit = (fit.success and row_low_fit is not None
+                have_fit = (bounds_fit.success and row_low_fit is not None
                     and row_upp_fit is not None and sig_low is not None
                     and sig_upp is not None
                     and 0 <= row_low_fit < row_upp_fit <= row_sum.size
@@ -2451,8 +2478,9 @@ class Tomo:
                             f'{selected_center_offset:.2f}.png'))
             plt.close()
 
+            del recon_planes
+
         del sinogram
-        del recon_planes
 
         # Return the center location
         if self._interactive:
@@ -2833,16 +2861,16 @@ class Tomo:
         # Selecting x an y bounds (in z-plane)
         if x_bounds is None:
             if not self._interactive:
-                self._logger.warning('x_bounds unspecified, reconstruct '
-                                     'data for full x-range')
+                self._logger.warning('x_bounds unspecified, use data for '
+                                     'full x-range')
                 x_bounds = (0, tomo_recon_stacks[0].shape[2])
         elif not is_int_pair(
                 x_bounds, ge=0, le=tomo_recon_stacks[0].shape[2]):
             raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
         if y_bounds is None:
             if not self._interactive:
-                self._logger.warning('y_bounds unspecified, reconstruct '
-                                     'data for full y-range')
+                self._logger.warning('y_bounds unspecified, use data for '
+                                     'full y-range')
                 y_bounds = (0, tomo_recon_stacks[0].shape[1])
         elif not is_int_pair(
                 y_bounds, ge=0, le=tomo_recon_stacks[0].shape[1]):
@@ -2864,11 +2892,20 @@ class Tomo:
         tomosum = 0
         for i in range(num_tomo_stacks):
             tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=0)
-        fig, roi = select_roi_2d(
+        if self._save_figs:
+            if combine_data:
+                filename = os_path.join(
+                    self._outputdir, 'combined_data_xy_roi.png')
+            else:
+                filename = os_path.join(
+                    self._outputdir, 'reconstructed_data_xy_roi.png')
+        else:
+            filename = None
+        roi = select_roi_2d(
             tomosum, preselected_roi=preselected_roi,
             title_a='Reconstructed data summed over z',
             row_label='y', column_label='x',
-            interactive=self._interactive)
+            interactive=self._interactive, filename=filename)
         if roi is None:
             x_bounds = (0, tomo_recon_stacks[0].shape[2])
             y_bounds = (0, tomo_recon_stacks[0].shape[1])
@@ -2877,12 +2914,6 @@ class Tomo:
             y_bounds = (int(roi[2]), int(roi[3]))
         self._logger.debug(f'x_bounds = {x_bounds}')
         self._logger.debug(f'y_bounds = {y_bounds}')
-        # Plot results
-        if self._save_figs:
-            fig.savefig(
-                os_path.join(
-                    self._outputdir, 'reconstructed_data_xy_roi.png'))
-        plt.close()
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack or when combining a stack)
@@ -2904,17 +2935,20 @@ class Tomo:
             tomosum = 0
             for i in range(num_tomo_stacks):
                 tomosum = tomosum + np.sum(tomo_recon_stacks[i], axis=(1,2))
-            fig, z_bounds = select_roi_1d(
+            if self._save_figs:
+                if combine_data:
+                    filename = os_path.join(
+                        self._outputdir, 'combined_data_z_roi.png')
+                else:
+                    filename = os_path.join(
+                        self._outputdir, 'reconstructed_data_z_roi.png')
+            else:
+                filename = None
+            z_bounds = select_roi_1d(
                 tomosum, preselected_roi=z_bounds,
                 xlabel='z', ylabel='Reconstructed data summed over x and y',
-                interactive=self._interactive)
+                interactive=self._interactive, filename=filename)
             self._logger.debug(f'z_bounds = {z_bounds}')
-            # Plot results
-            if self._save_figs:
-                fig.savefig(
-                    os_path.join(
-                        self._outputdir, 'reconstructed_data_z_roi.png'))
-            plt.close()
 
         return x_bounds, y_bounds, z_bounds
 
