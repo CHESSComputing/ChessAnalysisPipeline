@@ -386,7 +386,10 @@ class ModelResult():
             if self.covar is not None:
                 stderr = self.covar[i,i]
                 if stderr is not None:
-                    stderr = np.sqrt(stderr)
+                    if stderr < 0.0:
+                        stderr = None
+                    else:
+                        stderr = np.sqrt(stderr)
             self.var_names.append(par.name)
         if res_par_exprs:
             # Third party modules
@@ -854,7 +857,7 @@ class Fit:
                 LorentzianModel,
                 ExpressionModel,
 #                StepModel,
-#                RectangleModel,
+                RectangleModel,
         )
 
         if model.model == 'expression':
@@ -947,23 +950,24 @@ class Fit:
 #            self._linear_parameters.append(f'{pprefix}amplitude')
 #            self._nonlinear_parameters.append(f'{pprefix}center')
 #            self._nonlinear_parameters.append(f'{pprefix}sigma')
-#        elif model_name == 'rectangle':
-#            # Par: amplitude, center1, center2, sigma1, sigma2
-#            form = kwargs.get('form')
-#            if form is not None:
-#                kwargs.pop('form')
-#            if (form is None or form not in
-#                    ('linear', 'atan', 'arctan', 'erf', 'logistic')):
-#                raise ValueError(
-#                    'Invalid parameter form for build-in rectangle model '
-#                    f'({form})')
-#            if self._code == 'lmfit':
-#                newmodel = RectangleModel(prefix=prefix, form=form)
-#            self._linear_parameters.append(f'{pprefix}amplitude')
-#            self._nonlinear_parameters.append(f'{pprefix}center1')
-#            self._nonlinear_parameters.append(f'{pprefix}center2')
-#            self._nonlinear_parameters.append(f'{pprefix}sigma1')
-#            self._nonlinear_parameters.append(f'{pprefix}sigma2')
+        elif model_name == 'rectangle':
+            # Par: amplitude, center1, center2, sigma1, sigma2
+            form = 'atan' #kwargs.get('form')
+            #if form is not None:
+            #    kwargs.pop('form')
+            # RV: Implement and test other forms when needed
+            if (form is None or form not in
+                    ('linear', 'atan', 'arctan', 'erf', 'logistic')):
+                raise ValueError(
+                    'Invalid parameter form for build-in rectangle model '
+                    f'({form})')
+            if self._code == 'lmfit':
+                newmodel = RectangleModel(prefix=prefix, form=form)
+            self._linear_parameters.append(f'{pprefix}amplitude')
+            self._nonlinear_parameters.append(f'{pprefix}center1')
+            self._nonlinear_parameters.append(f'{pprefix}center2')
+            self._nonlinear_parameters.append(f'{pprefix}sigma1')
+            self._nonlinear_parameters.append(f'{pprefix}sigma2')
         elif model_name == 'expression' and self._code == 'lmfit':
             # Third party modules
             from asteval import (

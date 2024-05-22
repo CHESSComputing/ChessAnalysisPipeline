@@ -888,7 +888,10 @@ class MCAEnergyCalibrationProcessor(Processor):
         :rtype: tuple[float, float]
         """
         # Third party modules
-        from nexusformat.nexus import NXdata, NXfield
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         # Local modules
         from CHAP.utils.fit import FitProcessor

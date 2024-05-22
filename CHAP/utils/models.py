@@ -88,6 +88,43 @@ def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
             / max(tiny, (pi*sigma)))
 
 
+def rectangle(
+        x, amplitude=1.0, center1=0.0, sigma1=1.0, center2=1.0,
+        sigma2=1.0, form='linear'):
+    """Return a rectangle function.
+
+    Starts at 0.0, rises to `amplitude` (at `center1` with width `sigma1`),
+    then drops to 0.0 (at `center2` with width `sigma2`) with `form`:
+    - `'linear'` (default) = ramp_up + ramp_down
+    - `'atan'`, `'arctan`' = amplitude*(atan(arg1) + atan(arg2))/pi
+    - `'erf'`              = amplitude*(erf(arg1) + erf(arg2))/2.
+    - `'logisitic'`        = amplitude*[1 - 1/(1 + exp(arg1)) - 1/(1+exp(arg2))]
+
+    where ``arg1 = (x - center1)/sigma1`` and
+    ``arg2 = -(x - center2)/sigma2``.
+
+    """
+    arg1 = (x - center1)/max(tiny, sigma1)
+    arg2 = (center2 - x)/max(tiny, sigma2)
+
+    if form == 'erf':
+        # Third party modules
+        from scipy.special import erf
+
+        rect = 0.5*(erf(arg1) + erf(arg2))
+    elif form == 'logistic':
+        rect = 1. - 1./(1. + np.exp(arg1)) - 1./(1. + np.exp(arg2))
+    elif form in ('atan', 'arctan'):
+        rect = (np.arctan(arg1) + np.arctan(arg2))/pi
+    elif form == 'linear':
+        rect = 0.5*(np.minimum(1, np.maximum(-1, arg1))
+                   + np.minimum(1, np.maximum(-1, arg2)))
+    else:
+        raise ValueError(f'Invalid parameter form ({form})')
+
+    return amplitude*rect
+
+
 def validate_parameters(parameters, values):
     """Validate the parameters
 
@@ -116,6 +153,8 @@ def validate_parameters(parameters, values):
     # Set model parameters
     output_parameters = []
     for sig_name, sig_par in sig.items():
+        if model == 'rectangle' and sig_name == 'form':
+            continue
         for par in parameters:
             if sig_name == par.name:
                 break
@@ -257,7 +296,7 @@ class FitParameter(BaseModel):
 
 class Constant(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing a Constant model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -279,7 +318,7 @@ class Constant(BaseModel):
 
 class Linear(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing a Linear model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -301,7 +340,7 @@ class Linear(BaseModel):
 
 class Quadratic(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing a Quadratic model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -323,7 +362,7 @@ class Quadratic(BaseModel):
 
 class Exponential(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing an Exponential model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -345,7 +384,7 @@ class Exponential(BaseModel):
 
 class Gaussian(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing a Gaussian model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -367,7 +406,7 @@ class Gaussian(BaseModel):
 
 class Lorentzian(BaseModel):
     """
-    Class representing an Expression model component.
+    Class representing a Lorentzian model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -380,6 +419,28 @@ class Lorentzian(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['lorentzian']
+    parameters: conlist(item_type=FitParameter) = []
+    prefix: Optional[str] = ''
+
+    _validate_parameters_parameters = validator(
+        'parameters', always=True, allow_reuse=True)(validate_parameters)
+
+
+class Rectangle(BaseModel):
+    """
+    Class representing a Rectangle model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['rectangle']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
+    """
+    model: Literal['rectangle']
     parameters: conlist(item_type=FitParameter) = []
     prefix: Optional[str] = ''
 
@@ -430,6 +491,7 @@ models = {
     'exponential': exponential,
     'gaussian': gaussian,
     'lorentzian': lorentzian,
+    'rectangle': rectangle,
 }
 
 model_classes = (
@@ -439,6 +501,7 @@ model_classes = (
     Exponential,
     Gaussian,
     Lorentzian,
+    Rectangle,
 )
 
 
@@ -455,7 +518,7 @@ class FitConfig(BaseModel):
     :type parameters: list[FitParameter], optional
     :ivar models: The component(s) of the (composite) fit model.
     :type models: Union[Constant, Linear, Quadratic, Exponential,
-        Gaussian, Lorentzian, Expression, Multipeak]
+        Gaussian, Lorentzian, Rectangle, Expression, Multipeak]
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
@@ -475,7 +538,7 @@ class FitConfig(BaseModel):
     parameters: conlist(item_type=FitParameter) = []
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        Expression, Multipeak], min_items=1)
+        Rectangle, Expression, Multipeak], min_items=1)
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
     rel_height_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]

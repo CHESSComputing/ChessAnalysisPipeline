@@ -1597,7 +1597,8 @@ def select_roi_2d(
     :rtype: tuple(int, int, int, int)
     """
     # Third party modules
-    from matplotlib.widgets import Button, RectangleSelector
+    if interactive or filename is not None:
+        from matplotlib.widgets import Button, RectangleSelector
 
     # Local modules
     from CHAP.utils.general import index_nearest
@@ -1654,10 +1655,6 @@ def select_roi_2d(
         change_fig_title(f'Selected ROI: {roi}')
         plt.close()
 
-    fig_title = []
-    subfig_title = []
-
-    raise RuntimeError('Needs testing with new filename parameter')
     # Check inputs
     a = np.asarray(a)
     if a.ndim != 2:
@@ -1669,6 +1666,12 @@ def select_roi_2d(
                              f'({preselected_roi})')
     if title is None:
         title = 'Click and drag to select or adjust a region of interest (ROI)'
+
+    if not interactive and filename is None:
+        return preselected_roi
+
+    fig_title = []
+    subfig_title = []
 
     title_pos = (0.5, 0.95)
     title_props = {'fontsize': 'xx-large', 'horizontalalignment': 'center',
@@ -1698,8 +1701,9 @@ def select_roi_2d(
 
     if not interactive:
 
-        change_fig_title(
-            f'Selected ROI: {tuple(int(v) for v in preselected_roi)}')
+        if preselected_roi is not None:
+            change_fig_title(
+                f'Selected ROI: {tuple(int(v) for v in preselected_roi)}')
 
     else:
 
@@ -1728,14 +1732,20 @@ def select_roi_2d(
         reset_btn.ax.remove()
         confirm_btn.ax.remove()
 
-    fig_title[0].set_in_layout(True)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    if filename is not None:
+        if fig_title:
+            fig_title[0].set_in_layout(True)
+            fig.tight_layout(rect=(0, 0, 1, 0.95))
+        else:
+            fig.tight_layout(rect=(0, 0, 1, 1))
 
-    # Remove the handles before returning the figure
-    if interactive:
-        rects[0]._center_handle.set_visible(False)
-        rects[0]._corner_handles.set_visible(False)
-        rects[0]._edge_handles.set_visible(False)
+        # Remove the handles
+        if interactive:
+            rects[0]._center_handle.set_visible(False)
+            rects[0]._corner_handles.set_visible(False)
+            rects[0]._edge_handles.set_visible(False)
+        fig.savefig(filename)
+    plt.close()
 
     roi = tuple(int(v) for v in rects[0].extents)
     if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
