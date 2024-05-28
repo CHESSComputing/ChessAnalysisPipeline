@@ -1,0 +1,13 @@
+name: CHAP_giwaxs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.9
+  - pyfai==2024.5.0
+  - pydantic==1.10.7
+  - nexusformat==1.0.2
+  - nexpy==1.0.4
+  - pip==22.3.1
+  - pip:
+    - certif-pyspec==1.5.3

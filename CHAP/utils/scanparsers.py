@@ -691,7 +691,6 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
         return os.path.join(self.scan_path, self.scan_title)
 
 
-
 @cache
 def list_fmb_saxswaxs_detector_files(detector_data_path, detector_prefix):
     """Return a sorted list of all data files for the given detector
@@ -711,6 +710,34 @@ def list_fmb_saxswaxs_detector_files(detector_data_path, detector_prefix):
         [f for f in os.listdir(detector_data_path)
         if detector_prefix in f
         and not f.endswith('.log')])
+
+
+class FMBGIWAXSScanParser(FMBLinearScanParser):
+    """Concrete implementation of a class representing a scan taken
+    with the typical GIWAXS setup at FMB.
+    """
+
+    def get_scan_title(self):
+        return f'{self.scan_name}_{self.scan_number:03d}'
+
+    def get_detector_data_file(self, detector_prefix, scan_step_index:int):
+        scan_step = self.get_scan_step(scan_step_index)
+        file_name = f'{self.scan_name}_{detector_prefix}_' \
+                    f'{self.scan_number:03d}_{scan_step[0]:03d}.tiff'
+        file_name_full = os.path.join(self.detector_data_path, file_name)
+        if os.path.isfile(file_name_full):
+            return file_name_full
+        raise RuntimeError(f'{self.scan_title}: could not find detector image '
+                           f'file for detector {detector_prefix} scan step '
+                           f'({scan_step_index})')
+
+    def get_detector_data(self, detector_prefix, scan_step_index:int):
+        detector_file = self.get_detector_data_file(
+            detector_prefix, scan_step_index)
+        with TiffFile(detector_file) as tiff_file:
+            detector_data = tiff_file.asarray()
+        return detector_data
+
 
 class FMBSAXSWAXSScanParser(FMBLinearScanParser):
     """Concrete implementation of a class representing a scan taken
