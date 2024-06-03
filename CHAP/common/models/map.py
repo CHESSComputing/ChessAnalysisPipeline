@@ -545,7 +545,7 @@ def validate_data_source_for_map_config(data_source, values):
     the station and scans provided by a map configuration dictionary.
 
     :param data_source: The input object to validate.
-    :type data_source: PintByPointScanData
+    :type data_source: PointByPointScanData
     :param values: The map configuration dictionary.
     :type values: dict
     :raises Exception: If `data_source` cannot be validated for
@@ -713,7 +713,7 @@ class SpecConfig(BaseModel):
     :type spec_scans: list[SpecScans]
     """
     station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
+    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     spec_scans: conlist(item_type=SpecScans, min_items=1)
 
     @root_validator(pre=True)
@@ -753,11 +753,11 @@ class SpecConfig(BaseModel):
         """
         station = values.get('station')
         if station == 'id1a3':
-            allowed_experiment_types = ['SAXSWAXS', 'EDD', 'TOMO']
+            allowed_experiment_types = ['EDD', 'SAXSWAXS', 'TOMO']
         elif station == 'id3a':
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
-            allowed_experiment_types = ['SAXSWAXS', 'XRF', 'TOMO']
+            allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         else:
             allowed_experiment_types = []
         if value not in allowed_experiment_types:
@@ -808,7 +808,7 @@ class MapConfig(BaseModel):
     """
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
+    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_items=1)
     independent_dimensions: conlist(
@@ -878,11 +878,11 @@ class MapConfig(BaseModel):
         """
         station = values['station']
         if station == 'id1a3':
-            allowed_experiment_types = ['SAXSWAXS', 'EDD', 'TOMO']
+            allowed_experiment_types = ['EDD', 'SAXSWAXS', 'TOMO']
         elif station == 'id3a':
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
-            allowed_experiment_types = ['SAXSWAXS', 'XRF', 'TOMO']
+            allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         else:
             allowed_experiment_types = []
         if value not in allowed_experiment_types:
@@ -1194,7 +1194,7 @@ def import_scanparser(station, experiment):
     :type station: str
     :param experiment: The experiment type.
     :type experiment: Literal[
-        'SAXSWAXS', 'EDD', 'XRF', 'Tomo', 'Powder']
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     """
 
     station = station.lower()
@@ -1215,7 +1215,10 @@ def import_scanparser(station, experiment):
             raise ValueError(
                 f'Invalid experiment type for station {station}: {experiment}')
     elif station == 'id3b':
-        if experiment == 'saxswaxs':
+        if experiment == 'giwaxs':
+            from CHAP.utils.scanparsers \
+                import FMBGIWAXSScanParser as ScanParser
+        elif experiment == 'saxswaxs':
             from CHAP.utils.scanparsers \
                 import FMBSAXSWAXSScanParser as ScanParser
         elif experiment == 'tomo':
