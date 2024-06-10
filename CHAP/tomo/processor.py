@@ -2078,7 +2078,7 @@ class Tomo:
                 evaluate('-log(tomo_stack)', out=tomo_stack)
 
             # Get rid of nans/infs that may be introduced by normalization
-            np.where(np.isfinite(tomo_stack), tomo_stack, 0.)
+            tomo_stack = np.where(np.isfinite(tomo_stack), tomo_stack, 0.)
 
             # Downsize tomography stack to smaller size
             tomo_stack = tomo_stack.astype('float32', copy=False)
