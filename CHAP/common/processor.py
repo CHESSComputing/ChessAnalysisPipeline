@@ -1263,7 +1263,8 @@ class MapProcessor(Processor):
 
         nxentry = NXentry(name=map_config.title)
         nxentry.map_config = dumps(map_config.dict())
-        nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.dict())
         nxentry.attrs['station'] = map_config.station
         for key, value in map_config.attrs.items():
             nxentry.attrs[key] = value

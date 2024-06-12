@@ -6,13 +6,15 @@ from typing import Literal, Optional
 
 # Third party modules
 import numpy as np
-from pydantic import (BaseModel,
-                      validator,
-                      constr,
-                      conlist,
-                      conint,
-                      confloat,
-                      FilePath)
+from pydantic import (
+    BaseModel,
+    FilePath,
+    confloat,
+    conint,
+    conlist,
+    constr,
+    field_validator,
+)
 from pyFAI import load as pyfai_load
 from pyFAI.multi_geometry import MultiGeometry
 from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
@@ -31,9 +33,10 @@ class Detector(BaseModel):
     """
     prefix: constr(strip_whitespace=True, min_length=1)
     poni_file: FilePath
-    mask_file: Optional[FilePath]
+    mask_file: Optional[FilePath] = None
 
-    @validator('poni_file', allow_reuse=True)
+    @field_validator('poni_file')
+    @classmethod
     def validate_poni_file(cls, poni_file):
         """Validate the poni file by checking if it's a valid PONI
         file.
@@ -51,7 +54,8 @@ class Detector(BaseModel):
             raise ValueError(f'{poni_file} is not a valid PONI file') from exc
         return poni_file
 
-    @validator('mask_file', allow_reuse=True)
+    @field_validator('mask_file')
+    @classmethod
     def validate_mask_file(cls, mask_file, values):
         """Validate the mask file. If a mask file is provided, it
         checks if it's a valid TIFF file.
@@ -176,7 +180,7 @@ class IntegrationConfig(BaseModel):
     tool_type: Literal['integration'] = 'integration'
     title: constr(strip_whitespace=True, min_length=1)
     integration_type: Literal['azimuthal', 'radial', 'cake']
-    detectors: conlist(item_type=Detector, min_items=1)
+    detectors: conlist(item_type=Detector, min_length=1)
     radial_units: str = 'q_A^-1'
     radial_min: confloat(ge=0)
     radial_max: confloat(gt=0)
@@ -185,10 +189,11 @@ class IntegrationConfig(BaseModel):
     azimuthal_min: confloat(ge=-180) = -180
     azimuthal_max: confloat(le=360) = 180
     azimuthal_npt: conint(gt=0) = 3600
-    error_model: Optional[Literal['poisson', 'azimuthal']]
-    sequence_index: Optional[conint(gt=0)]
+    error_model: Optional[Literal['poisson', 'azimuthal']] = None
+    sequence_index: Optional[conint(gt=0)] = None
 
-    @validator('radial_units', allow_reuse=True)
+    @field_validator('radial_units')
+    @classmethod
     def validate_radial_units(cls, radial_units):
         """Validate the radial units for the integration.
 
@@ -206,7 +211,8 @@ class IntegrationConfig(BaseModel):
             f'Invalid radial units: {radial_units}. '
             f'Must be one of {", ".join(RADIAL_UNITS.keys())}')
 
-    @validator('azimuthal_units', allow_reuse=True)
+    @field_validator('azimuthal_units')
+    @classmethod
     def validate_azimuthal_units(cls, azimuthal_units):
         """Validate that `azimuthal_units` is one of the keys in the
         `pyFAI.units.AZIMUTHAL_UNITS` dictionary.
@@ -235,23 +241,22 @@ class IntegrationConfig(BaseModel):
         :return: The callable that performs the validation.
         :rtype: callable
         """
-        def _validate_range_max(cls, range_max, values):
+        def _validate_range_max(cls, range_max, info):
             """Check if the maximum value of the integration range is
             greater than its minimum value.
 
             :param range_max: The maximum value of the integration
                 range.
             :type range_max: float
-            :param values: The values of the other fields being
-                validated.
-            :type values: dict
+            :param info: Pydantic validator info object.
+            :type info: pydantic_core._pydantic_core.ValidationInfo
             :raises ValueError: If the maximum value of the
                 integration range is not greater than its minimum
                 value.
             :return: The validated maximum range value
             :rtype: float
             """
-            range_min = values.get(f'{range_name}_min')
+            range_min = info.data.get(f'{range_name}_min')
             if range_min < range_max:
                 return range_max
             raise ValueError(
@@ -260,12 +265,10 @@ class IntegrationConfig(BaseModel):
                 f'({range_name}_min={range_min}).')
         return _validate_range_max
 
-    _validate_radial_max = validator(
-        'radial_max',
-        allow_reuse=True)(validate_range_max('radial'))
-    _validate_azimuthal_max = validator(
-        'azimuthal_max',
-        allow_reuse=True)(validate_range_max('azimuthal'))
+    _validate_radial_max = field_validator(
+        'radial_max')(validate_range_max('radial'))
+    _validate_azimuthal_max = field_validator(
+        'azimuthal_max')(validate_range_max('azimuthal'))
 
     def validate_for_map_config(self, map_config:BaseModel):
         """Validate the existence of the detector data file for all

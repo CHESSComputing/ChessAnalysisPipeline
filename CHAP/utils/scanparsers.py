@@ -1370,7 +1370,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         if os.path.isfile(file_name_full):
             return file_name_full
         raise OSError(
-            '{self.scan_title}: could not find detector image file'
+            f'{file_name_full}: could not find detector image file'
         )
 
     def get_detector_data_file_h5(self, scan_step_index=0):

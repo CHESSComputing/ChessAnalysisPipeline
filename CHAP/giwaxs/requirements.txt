@@ -1,5 +1,5 @@
 certif-pyspec
 nexusformat
 numpy
-pydantic<2.0
+pydantic
 pyfai

@@ -330,7 +330,8 @@ class LatticeParameterRefinementProcessor(Processor):
         nxsubentry[map_config.title] = MapProcessor.get_nxentry(map_config)
         nxsubentry[f'{map_config.title}_lat_par_refinement'] = NXprocess()
         nxprocess = nxsubentry[f'{map_config.title}_lat_par_refinement']
-        nxprocess.strain_analysis_config = dumps(strain_analysis_config.dict())
+        nxprocess.strain_analysis_config = dumps(
+            strain_analysis_config.dict())
         nxprocess.calibration_config = dumps(calibration_config.dict())
 
         lattice_parameters = []
@@ -350,7 +351,8 @@ class LatticeParameterRefinementProcessor(Processor):
         nxentry.lat_par_output = NXsubentry()
         nxentry.lat_par_output.attrs['schema'] = 'yaml'
         nxentry.lat_par_output.attrs['filename'] = 'lattice_parameters.yaml'
-        nxentry.lat_par_output.data = dumps(strain_analysis_config.dict())
+        nxentry.lat_par_output.data = dumps(
+            strain_analysis_config.dict())
 
         return nxroot
 
@@ -843,7 +845,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             if background is not None:
                 detector.background = background.copy()
             if baseline:
-                detector.baseline = baseline.copy()
+                detector.baseline = baseline.model_copy()
             detector.energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, centers_range, fwhm_min,
                 fwhm_max, max_energy_kev, save_figures, interactive, outputdir)
@@ -2621,7 +2623,8 @@ class StrainAnalysisProcessor(Processor):
         nxentry = nxroot[map_config.title]
         nxroot[f'{map_config.title}_strainanalysis'] = NXprocess()
         nxprocess = nxroot[f'{map_config.title}_strainanalysis']
-        nxprocess.strain_analysis_config = dumps(strain_analysis_config.dict())
+        nxprocess.strain_analysis_config = dumps(
+            strain_analysis_config.dict())
 
         # Setup plottable data group
         nxprocess.data = NXdata()
@@ -2900,7 +2903,7 @@ class StrainAnalysisProcessor(Processor):
                 continue
 
             # Perform the fit
-            self.logger.debug(f'Fitting {detector.detector_name} ...')
+            self.logger.debug(f'Fitting detector {detector.detector_name} ...')
             (uniform_fit_centers, uniform_fit_centers_errors,
              uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
              uniform_fit_sigmas, uniform_fit_sigmas_errors,

@@ -1,4 +1,5 @@
 # System modules
+from copy import deepcopy
 import os
 from pathlib import PosixPath
 from typing import (
@@ -13,6 +14,7 @@ from hexrd.material import Material
 from pydantic import (
     BaseModel,
     DirectoryPath,
+    Field,
     FilePath,
     PrivateAttr,
     StrictBool,
@@ -20,10 +22,11 @@ from pydantic import (
     conint,
     conlist,
     constr,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 from scipy.interpolate import interp1d
+from typing_extensions import Annotated
 
 # Local modules
 from CHAP.common.models.map import MapConfig
@@ -65,33 +68,27 @@ class MaterialConfig(BaseModel):
     :ivar sgnum: Space group of the material.
     :type sgnum: int, optional
     """
-    material_name: Optional[constr(strip_whitespace=True, min_length=1)]
+    material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     lattice_parameters: Optional[Union[
         confloat(gt=0),
-        conlist(item_type=confloat(gt=0), min_items=1, max_items=6)]]
-    sgnum: Optional[conint(ge=0)]
+        conlist(item_type=confloat(gt=0), min_length=1, max_length=6)]] = None
+    sgnum: Optional[conint(ge=0)] = None
 
     _material: Optional[Material]
 
-    class Config:
-        underscore_attrs_are_private = False
-
-    @root_validator
-    def validate_material(cls, values):
+    @model_validator(mode='after')
+    def validate_material(self):
         """Create and validate the private attribute _material.
 
-        :param values: Dictionary of previously validated field values.
-        :type values: dict
-        :return: The validated list of `values`.
+        :return: The validated list of class properties.
         :rtype: dict
         """
         # Local modules
         from CHAP.edd.utils import make_material
 
-        values['_material'] = make_material(values.get('material_name'),
-                                            values.get('sgnum'),
-                                            values.get('lattice_parameters'))
-        return values
+        self._material = make_material(
+            self.material_name, self.sgnum, self.lattice_parameters)
+        return self
 
     def unique_hkls_ds(self, tth_tol=0.15, tth_max=90.0):
         """Get a list of unique HKLs and their lattice spacings.
@@ -139,7 +136,7 @@ class MCAElementConfig(BaseModel):
     :type num_bins: int, optional
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
-    num_bins: Optional[conint(gt=0)]
+    num_bins: Optional[conint(gt=0)] = None
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -185,47 +182,55 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     energy_calibration_coeffs: conlist(
-        min_items=3, max_items=3,
+        min_length=3, max_length=3,
         item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
-    background: Optional[Union[str, list]]
+    background: Optional[Union[str, list]] = None
     baseline: Optional[Union[bool, BaselineConfig]] = False
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
-    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
-    include_energy_ranges: conlist(
-        min_items=1,
-        item_type=conlist(
-            item_type=confloat(ge=25),
-            min_items=2,
-            max_items=2)) = [[50, 150]]
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    include_energy_ranges: Annotated[
+        conlist(
+            min_length=1,
+            item_type=conlist(
+                item_type=confloat(ge=25),
+                min_length=2,
+                max_length=2)),
+        Field(validate_default=True)] = [[50, 150]]
 
     _hkl_indices: list = PrivateAttr()
 
-    @validator('include_energy_ranges', each_item=True)
-    def validate_include_energy_range(cls, value, values):
+    @field_validator('include_energy_ranges')
+    @classmethod
+    def validate_include_energy_range(cls, include_energy_ranges, info):
         """Ensure that no energy ranges are outside the boundary of the
         detector.
 
-        :param value: Field value to validate (`include_energy_ranges`).
-        :type values: dict
-        :param values: Dictionary of previously validated field values.
-        :type values: dict
-        :return: The validated value of `include_energy_ranges`.
+        :param include_energy_ranges:
+            The value of `include_energy_ranges` to validate.
+        :type include_energy_ranges: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :rtype: dict
         """
-        value.sort()
-        n_max = values.get('num_bins')
+        n_max = info.data.get('num_bins')
+        for i in range(len(include_energy_ranges)):
+            include_energy_ranges[i].sort()
         if n_max is not None:
             n_max -= 1
-            a, b, c = values.get('energy_calibration_coeffs')
+            a, b, c = info.data.get('energy_calibration_coeffs')
             e_max = (a*n_max + b)*n_max +c
-            if value[0] < c or value[1] > e_max:
-                newvalue = [float(max(value[0], c)),
-                        float(min(value[1], e_max))]
-                print(
-                    f'WARNING: include_energy_range out of range'
-                    f' ({value}): adjusted to {newvalue}')
-                value = newvalue
-        return value
+            for i, include_energy_range in enumerate(
+                    deepcopy(include_energy_ranges)):
+                if (include_energy_range[0] < c
+                        or include_energy_range[1] > e_max):
+                    include_energy_ranges[i] = [
+                        float(max(include_energy_range[0], c)),
+                        float(min(include_energy_range[1], e_max))]
+                    print(
+                        f'WARNING: include_energy_range out of range'
+                        f' ({include_energy_range}): adjusted to '
+                        f'{include_energy_ranges[i]}')
+        return include_energy_ranges
 
     @property
     def energies(self):
@@ -327,11 +332,11 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     """
     include_bin_ranges: Optional[
         conlist(
-            min_items=1,
+            min_length=1,
             item_type=conlist(
                 item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))]
+                min_length=2,
+                max_length=2))] = None
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
@@ -429,36 +434,36 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
     hkl_tth_tol: confloat(gt=0, allow_inf_nan=False) = 0.15
     hkl_indices: Optional[conlist(item_type=conint(ge=0))] = []
-    background: Optional[Union[str, list]]
+    background: Optional[Union[str, list]] = None
     baseline: Optional[Union[bool, BaselineConfig]] = False
     num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
-        conlist(item_type=Literal['gaussian', 'lorentzian'], min_items=1),
+        conlist(item_type=Literal['gaussian', 'lorentzian'], min_length=1),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
     fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
     fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
     centers_range: confloat(gt=0, allow_inf_nan=False) = 2.0
-    rel_height_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
-
-    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)]
+    rel_height_cutoff: Optional[
+        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+    tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     energy_calibration_coeffs: conlist(
-        min_items=3, max_items=3,
+        min_length=3, max_length=3,
         item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
     calibration_bin_ranges: Optional[
         conlist(
-            min_items=1,
+            min_length=1,
             item_type=conlist(
                 item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))]
-    tth_file: Optional[FilePath]
+                min_length=2,
+                max_length=2))] = None
+    tth_file: Optional[FilePath] = None
     tth_map: Optional[np.ndarray] = None
     include_energy_ranges: conlist( 
-        min_items=1,
+        min_length=1,
         item_type=conlist(
             item_type=confloat(ge=25),
-            min_items=2,
-            max_items=2)) = [[50, 150]]
+            min_length=2,
+            max_length=2)) = [[50, 150]]
 
     #RV lots of overlap with MCAElementCalibrationConfig (only missing
     #   tth_initial_guess)
@@ -468,7 +473,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     #   the unique fields tth_initial_guess added?
     #   Revisit when we redo the detectors
 
-    @validator('hkl_indices', pre=True)
+    @field_validator('hkl_indices', mode='before')
+    @classmethod
     def validate_hkl_indices(cls, hkl_indices):
         if isinstance(hkl_indices, str):
             # Local modules
@@ -602,86 +608,84 @@ class MCAScanDataConfig(BaseModel):
         configurations.
     :type detectors: list[MCAElementConfig]
     """
-    inputdir: Optional[DirectoryPath]
-    spec_file: Optional[FilePath]
-    scan_number: Optional[conint(gt=0)]
-    par_file: Optional[FilePath]
-    scan_column: Optional[str]
-    detectors: conlist(min_items=1, item_type=MCAElementConfig)
+    inputdir: Optional[DirectoryPath] = None
+    spec_file: Optional[FilePath] = None
+    scan_number: Optional[conint(gt=0)] = None
+    par_file: Optional[FilePath] = None
+    scan_column: Optional[str] = None
+    detectors: conlist(min_length=1, item_type=MCAElementConfig)
 
-    _parfile: Optional[ParFile]
-    _scanparser: Optional[ScanParser]
+    _parfile: Optional[ParFile] = None
+    _scanparser: Optional[ScanParser] = None
 
-    class Config:
-        underscore_attrs_are_private = False
-
-    @root_validator(pre=True)
-    def validate_scan(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_scan(cls, data):
         """Finalize file paths for spec_file and par_file.
 
-        :param values: Dictionary of class field values.
-        :type values: dict
+        :param data: Pydantic validator data object.
+        :type data: MCAScanDataConfig,
+            pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Invalid SPEC or par file.
-        :return: The validated list of `values`.
+        :return: The validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
-        spec_file = values.get('spec_file')
-        par_file = values.get('par_file')
+        inputdir = data.get('inputdir')
+        spec_file = data.get('spec_file')
+        par_file = data.get('par_file')
         if spec_file is not None and par_file is not None:
             raise ValueError('Use either spec_file or par_file, not both')
         elif spec_file is not None:
             if inputdir is not None and not os.path.isabs(spec_file):
-                values['spec_file'] = os.path.join(inputdir, spec_file)
+                data['spec_file'] = os.path.join(inputdir, spec_file)
         elif par_file is not None:
             if inputdir is not None and not os.path.isabs(par_file):
-                values['par_file'] = os.path.join(inputdir, par_file)
-            if 'scan_column' not in values:
+                data['par_file'] = os.path.join(inputdir, par_file)
+            if 'scan_column' not in data:
                 raise ValueError(
                     'scan_column is required when par_file is used')
-            if isinstance(values['scan_column'], str):
+            if isinstance(data['scan_column'], str):
                 parfile = ParFile(par_file)
-                if values['scan_column'] not in parfile.column_names:
+                if data['scan_column'] not in parfile.column_names:
                     raise ValueError(
-                        f'No column named {values["scan_column"]} in '
-                        + '{values["par_file"]}. Options: '
+                        f'No column named {data["scan_column"]} in '
+                        + '{data["par_file"]}. Options: '
                         + ', '.join(parfile.column_names))
         else:
             raise ValueError('Must use either spec_file or par_file')
 
-        return values
+        return data
 
-    @root_validator
-    def validate_detectors(cls, values):
+    @model_validator(mode='after')
+    def validate_detectors(self):
         """Fill in values for _scanparser / _parfile (if applicable).
         Fill in each detector's num_bins field, if needed.
         Check each detector's include_energy_ranges field against the
         flux file, if available.
 
-        :param values: Dictionary of previously validated field values.
-        :type values: dict
         :raises ValueError: Unable to obtain a value for num_bins.
-        :return: The validated list of `values`.
+        :return: The validated list of class properties.
         :rtype: dict
         """
-        spec_file = values.get('spec_file')
-        par_file = values.get('par_file')
-        detectors = values.get('detectors')
-        flux_file = values.get('flux_file')
+        spec_file = self.spec_file
+        par_file = self.par_file
+        detectors = self.detectors
+        flux_file = self.flux_file
         if spec_file is not None:
-            values['_scanparser'] = ScanParser(
-                spec_file, values.get('scan_number'))
-            values['_parfile'] = None
+            self._scanparser = ScanParser(
+                spec_file, self.scan_number)
+            self._parfile = None
         elif par_file is not None:
-            values['_parfile'] = ParFile(par_file)
-            values['_scanparser'] = ScanParser(
-                values['_parfile'].spec_file,
-                values['_parfile'].good_scan_numbers()[0])
+            self._parfile = ParFile(par_file)
+            self._scanparser = ScanParser(
+                self._parfile.spec_file,
+                self._parfile.good_scan_numbers()[0])
         for detector in detectors:
             if detector.num_bins is None:
                 try:
-                    detector.num_bins = values['_scanparser']\
-                        .get_detector_num_bins(detector.detector_name)
+                    detector.num_bins = \
+                        self._scanparser.get_detector_num_bins(
+                                detector.detector_name)
                 except Exception as e:
                     raise ValueError('No value found for num_bins') from e
         if flux_file is not None:
@@ -704,7 +708,7 @@ class MCAScanDataConfig(BaseModel):
                             f' to {energy_range}')
                         detector.include_energy_ranges[i] = energy_range
 
-        return values
+        return self
 
     @property
     def scanparser(self):
@@ -786,7 +790,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     """
     sample_thickness: float
-    detectors: conlist(min_items=1,
+    detectors: conlist(min_length=1,
                        item_type=MCAElementDiffractionVolumeLengthConfig)
 
     @property
@@ -838,51 +842,53 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
     :type fit_index_ranges: list[[int, int]], optional
 
     """
-    scan_step_indices: Optional[conlist(min_items=1, item_type=conint(ge=0))]
-    detectors: conlist(min_items=1, item_type=MCAElementCalibrationConfig)
-    flux_file: Optional[FilePath]
+    scan_step_indices: Optional[Annotated[conlist(
+        min_length=1, item_type=conint(ge=0)),
+        Field(validate_default=True)]] = None
+    detectors: conlist(min_length=1, item_type=MCAElementCalibrationConfig)
+    flux_file: Optional[FilePath] = None
     material: Optional[MaterialConfig] = MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)
-    peak_energies: conlist(item_type=confloat(gt=0), min_items=2)
+    peak_energies: conlist(item_type=confloat(gt=0), min_length=2)
     max_peak_index: conint(ge=0)
     fit_index_ranges: Optional[
         conlist(
-            min_items=1,
+            min_length=1,
             item_type=conlist(
                 item_type=conint(ge=0),
-                min_items=2,
-                max_items=2))]
+                min_length=2,
+                max_length=2))] = None
 
-    @root_validator(pre=True)
-    def validate_config(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
         flux_file filepath.
 
-        :param values: Dictionary of class field values.
-        :type values: dict
-        :return: The validated list of `values`.
+        :param data: Pydantic validator data object.
+        :type data: MCAEnergyCalibrationConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
+        inputdir = data.get('inputdir')
         if inputdir is not None:
-            flux_file = values.get('flux_file')
+            flux_file = data.get('flux_file')
             if flux_file is not None and not os.path.isabs(flux_file):
-                values['flux_file'] = os.path.join(inputdir, flux_file)
+                data['flux_file'] = os.path.join(inputdir, flux_file)
 
-        return values
+        return data
 
-    @validator('scan_step_indices', pre=True, always=True)
-    def validate_scan_step_indices(cls, scan_step_indices, values):
+    @field_validator('scan_step_indices', mode='before')
+    @classmethod
+    def validate_scan_step_indices(cls, scan_step_indices):
         """Validate the specified list of scan numbers.
 
         :ivar scan_step_indices: Optional scan step indices to use for the
             calibration. If not specified, the calibration will be
             performed on the average of all MCA spectra for the scan.
         :type scan_step_indices: list[int], optional
-        :param values: Dictionary of validated class field values.
-        :type values: dict
-        :raises ValueError: If a specified scan number is not found in
-            the SPEC file.
+        :raises ValueError: Invalid experiment type.
         :return: List of step indices.
         :rtype: list of int
         """
@@ -894,21 +900,22 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
                 scan_step_indices, raise_error=True)
         return scan_step_indices
 
-    @validator('max_peak_index')
-    def validate_max_peak_index(cls, max_peak_index, values):
+    @field_validator('max_peak_index')
+    @classmethod
+    def validate_max_peak_index(cls, max_peak_index, info):
         """Validate the specified index of the XRF peak with the
         highest amplitude.
 
         :ivar max_peak_index: The index of the XRF peak with the
             highest amplitude.
         :type max_peak_index: int
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Invalid max_peak_index.
         :return: The validated value of `max_peak_index`.
         :rtype: int
         """
-        peak_energies = values.get('peak_energies')
+        peak_energies = info.data.get('peak_energies')
         if not 0 <= max_peak_index < len(peak_energies):
             raise ValueError('max_peak_index out of bounds')
         return max_peak_index
@@ -1036,153 +1043,169 @@ class StrainAnalysisConfig(BaseModel):
         for EDD scan types not 0, defaults to `True`.
     :type sum_axes: bool, optional
     """
-    inputdir: Optional[DirectoryPath]
-    map_config: Optional[MapConfig]
-    par_file: Optional[FilePath]
-    dataset_id: Optional[int]
-    par_dims: Optional[list[dict[str,str]]]
-    other_dims: Optional[list[dict[str,str]]]
-    detectors: conlist(min_items=1, item_type=MCAElementStrainAnalysisConfig)
+    inputdir: Optional[DirectoryPath] = None
+    map_config: Optional[MapConfig] = None
+    par_file: Optional[FilePath] = None
+    dataset_id: Optional[int] = None
+    par_dims: Optional[list[dict[str,str]]] = None
+    other_dims: Optional[list[dict[str,str]]] = None
+    detectors: conlist(min_length=1, item_type=MCAElementStrainAnalysisConfig)
     materials: list[MaterialConfig]
-    flux_file: Optional[FilePath]
-    sum_axes: Optional[list[str]]
-    oversampling: Optional[dict] = {'num': 10}
+    flux_file: Optional[FilePath] = None
+    sum_axes: Optional[
+        Annotated[list[str], Field(validate_default=True)]] = None
+    oversampling: Optional[
+        Annotated[dict, Field(validate_default=True)]] = {'num': 10}
 
     _parfile: Optional[ParFile]
 
-    @root_validator(pre=True)
-    def validate_config(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
         input filepaths.
 
-        :param values: Dictionary of class field values.
-        :type values: dict
-        :raises ValueError: Missing par_dims value.
-        :return: The validated list of `values`.
+        :param data: Pydantic validator data object.
+        :type data: StrainAnalysisConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
-        flux_file = values.get('flux_file')
-        par_file = values.get('par_file')
+        inputdir = data.get('inputdir')
+        flux_file = data.get('flux_file')
+        par_file = data.get('par_file')
         if (inputdir is not None and flux_file is not None
                 and not os.path.isabs(flux_file)):
-            values['flux_file'] = os.path.join(inputdir, flux_file)
+            data['flux_file'] = os.path.join(inputdir, flux_file)
         if par_file is not None:
             if inputdir is not None and not os.path.isabs(par_file):
-                values['par_file'] = os.path.join(inputdir, par_file)
-            if 'dataset_id' in values:
+                data['par_file'] = os.path.join(inputdir, par_file)
+            if 'dataset_id' in data:
                 from CHAP.edd import EddMapReader
-                values['_parfile'] = ParFile(values['par_file'])
-                values['map_config'] = EddMapReader().read(
-                    values['par_file'], values['dataset_id'])
-            elif 'par_dims' in values:
-                values['_parfile'] = ParFile(values['par_file'])
-                values['map_config'] = values['_parfile'].get_map(
-                    'EDD', 'id1a3', values['par_dims'],
-                    other_dims=values.get('other_dims', []))
+                data['_parfile'] = ParFile(data['par_file'])
+                data['map_config'] = EddMapReader().read(
+                    data['par_file'], data['dataset_id'])
+            elif 'par_dims' in data:
+                data['_parfile'] = ParFile(data['par_file'])
+                data['map_config'] = data['_parfile'].get_map(
+                    'EDD', 'id1a3', data['par_dims'],
+                    other_dims=data.get('other_dims', []))
             else:
                 raise ValueError(
                     'dataset_id or par_dims is required when using par_file')
-        map_config = values.get('map_config')
+        map_config = data.get('map_config')
         if isinstance(map_config, dict):
             for i, scans in enumerate(map_config.get('spec_scans')):
                 spec_file = scans.get('spec_file')
                 if inputdir is not None and not os.path.isabs(spec_file):
-                    values['map_config']['spec_scans'][i]['spec_file'] = \
+                    data['map_config']['spec_scans'][i]['spec_file'] = \
                         os.path.join(inputdir, spec_file)
-        return values
+        return data
 
-    @validator('detectors', pre=True, each_item=True)
-    def validate_tth_file(cls, detector, values):
+    @field_validator('detectors', mode='before')
+    @classmethod
+    def validate_tth_file(cls, detectors, info):
         """Finalize value for tth_file for each detector"""
-        inputdir = values.get('inputdir')
-        tth_file = detector.get('tth_file')
-        if tth_file:
-            if not os.path.isabs(tth_file):
-                detector['tth_file'] = os.path.join(inputdir, tth_file)
-        return detector
+        inputdir = info.data.get('inputdir')
+        for detector in detectors:
+            tth_file = detector.get('tth_file')
+            if tth_file is not None:
+                if not os.path.isabs(tth_file):
+                    detector['tth_file'] = os.path.join(inputdir, tth_file)
+        return detectors
 
-    @validator('detectors', each_item=True)
-    def validate_tth(cls, detector, values):
+    @field_validator('detectors')
+    @classmethod
+    def validate_tth(cls, detectors, info):
         """Validate detector element tth_file field. It may only be
         used if StrainAnalysisConfig used par_file.
         """
-        if detector.tth_file is not None:
-            if not values.get('par_file'):
-                raise ValueError(
-                    'variable tth angles may only be used with a '
-                    + 'StrainAnalysisConfig that uses par_file.')
-            else:
-                try:
-                    detector.tth_map = ParFile(values['par_file']).map_values(
-                        values['map_config'], np.loadtxt(detector.tth_file))
-                except Exception as e:
+        for detector in detectors:
+            tth_file = detector.tth_file
+            if tth_file is not None:
+                if not info.data.get('par_file'):
                     raise ValueError(
-                        'Could not get map of tth angles from '
-                        + f'{detector.tth_file}') from e
-        return detector
+                        'variable tth angles may only be used with a '
+                        'StrainAnalysisConfig that uses par_file.')
+                else:
+                    try:
+                        detector.tth_map = ParFile(
+                            info.data['par_file']).map_values(
+                                info.data['map_config'],
+                                np.loadtxt(tth_file))
+                    except Exception as e:
+                        raise ValueError(
+                            'Could not get map of tth angles from '
+                            f'{tth_file}') from e
+        return detectors
 
-    @validator('sum_axes', always=True)
-    def validate_sum_axes(cls, value, values):
+    @field_validator('sum_axes')
+    @classmethod
+    def validate_sum_axes(cls, sum_axes, info):
         """Validate the sum_axes field.
 
-        :param value: Field value to validate (`sum_axes`).
-        :type value: bool
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param sum_axes: The value of `sum_axes` to validate.
+        :type sum_axes: bool
+        :param info: Pydantic validator info object.
+        :type info: StrainAnalysisConfig,
+            pydantic_core._pydantic_core.ValidationInfo
         :return: The validated value for sum_axes.
         :rtype: bool
         """
-        if value is None:
-            map_config = values.get('map_config')
+        if sum_axes is None:
+            map_config = info.data.get('map_config')
             if map_config is not None:
                 if map_config.attrs['scan_type'] < 3:
-                    value = value
+                    sum_axes = sum_axes
                 else:
-                    value = map_config.attrs.get('fly_axis_labels', [])
-        return value
+                    sum_axes = map_config.attrs.get('fly_axis_labels', [])
+        return sum_axes
 
-    @validator('oversampling', always=True)
-    def validate_oversampling(cls, value, values):
+    @field_validator('oversampling')
+    @classmethod
+    def validate_oversampling(cls, oversampling, info):
         """Validate the oversampling field.
 
-        :param value: Field value to validate (`oversampling`).
-        :type value: bool
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param oversampling: The value of `oversampling` to validate.
+        :type oversampling: dict
+        :param info: Pydantic validator info object.
+        :type info: StrainAnalysisConfig,
+            pydantic_core._pydantic_core.ValidationInfo
         :return: The validated value for oversampling.
         :rtype: bool
         """
         # Local modules
         from CHAP.utils.general import is_int
 
-        map_config = values.get('map_config')
+        map_config = info.data.get('map_config')
         if map_config is None or map_config.attrs['scan_type'] < 3:
             return None
-        if value is None:
+        if oversampling is None:
             return {'num': 10}
-        if 'start' in value and not is_int(value['start'], ge=0):
+        if 'start' in oversampling and not is_int(oversampling['start'], ge=0):
             raise ValueError('Invalid "start" parameter in "oversampling" '
-                             f'field ({value["start"]})')
-        if 'end' in value and not is_int(value['end'], gt=0):
+                             f'field ({oversampling["start"]})')
+        if 'end' in oversampling and not is_int(oversampling['end'], gt=0):
             raise ValueError('Invalid "end" parameter in "oversampling" '
-                             f'field ({value["end"]})')
-        if 'width' in value and not is_int(value['width'], gt=0):
+                             f'field ({oversampling["end"]})')
+        if 'width' in oversampling and not is_int(oversampling['width'], gt=0):
             raise ValueError('Invalid "width" parameter in "oversampling" '
-                             f'field ({value["width"]})')
-        if 'stride' in value and not is_int(value['stride'], gt=0):
+                             f'field ({oversampling["width"]})')
+        if ('stride' in oversampling
+                and not is_int(oversampling['stride'], gt=0)):
             raise ValueError('Invalid "stride" parameter in "oversampling" '
-                             f'field ({value["stride"]})')
-        if 'num' in value and not is_int(value['num'], gt=0):
+                             f'field ({oversampling["stride"]})')
+        if 'num' in oversampling and not is_int(oversampling['num'], gt=0):
             raise ValueError('Invalid "num" parameter in "oversampling" '
-                             f'field ({value["num"]})')
-        if 'mode' in value and 'mode' not in ('valid', 'full'):
+                             f'field ({oversampling["num"]})')
+        if 'mode' in oversampling and 'mode' not in ('valid', 'full'):
             raise ValueError('Invalid "mode" parameter in "oversampling" '
-                             f'field ({value["mode"]})')
-        if not ('width' in value or 'stride' in value or 'num' in value):
+                             f'field ({oversampling["mode"]})')
+        if not ('width' in oversampling or 'stride' in oversampling
+                or 'num' in oversampling):
             raise ValueError('Invalid input parameters, specify at least one '
                              'of "width", "stride" or "num"')
-        return value
+        return oversampling
 
     def mca_data(self, detector=None, map_index=None):
         """Get MCA data for a single or multiple detector elements.

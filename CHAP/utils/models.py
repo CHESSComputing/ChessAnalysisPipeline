@@ -4,19 +4,21 @@
 import numpy as np
 from pydantic import (
     BaseModel,
+    Field,
     PrivateAttr,
     StrictBool,
     conint,
     conlist,
     confloat,
     constr,
-    validator,
+    field_validator,
 )
 from typing import (
     Literal,
     Optional,
     Union,
 )
+from typing_extensions import Annotated
 
 # Local modules
 from CHAP.utils.general import not_zero, tiny
@@ -125,11 +127,13 @@ def rectangle(
     return amplitude*rect
 
 
-def validate_parameters(parameters, values):
+def validate_parameters(parameters, info):
     """Validate the parameters
 
     :param parameters: Fit model parameters.
     :type parameters: list[FitParameter]
+    :param info: Pydantic validator info object.
+    :type info: pydantic_core._pydantic_core.ValidationInfo
     :return: List of fit model parameters.
     :rtype: list[FitParameter]
     """
@@ -137,7 +141,10 @@ def validate_parameters(parameters, values):
     import inspect
     from copy import deepcopy
 
-    model = values.get('model', None)
+    if 'model' in info.data:
+        model = info.data['model']
+    else:
+        model = None
     if model is None or model == 'expression':
         return parameters
     sig = {
@@ -173,17 +180,18 @@ class FitParameter(BaseModel):
 
     """
     name: constr(strip_whitespace=True, min_length=1)
-    value: Optional[confloat(allow_inf_nan=False)]
+    value: Optional[confloat(allow_inf_nan=False)] = None
     min: Optional[confloat()] = -np.inf
     max: Optional[confloat()] = np.inf
     vary: StrictBool = True
-    expr: Optional[constr(strip_whitespace=True, min_length=1)]
+    expr: Optional[constr(strip_whitespace=True, min_length=1)] = None
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
     _prefix: str = PrivateAttr()
     _stderr: float = PrivateAttr()
 
-    @validator('min', always=True)
+    @field_validator('min')
+    @classmethod
     def validate_min(cls, value):
         """Validate the specified min.
 
@@ -196,7 +204,8 @@ class FitParameter(BaseModel):
             return -np.inf
         return value
 
-    @validator('max', always=True)
+    @field_validator('max')
+    @classmethod
     def validate_max(cls, value):
         """Validate the specified max.
 
@@ -309,11 +318,13 @@ class Constant(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['constant']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Linear(BaseModel):
@@ -331,11 +342,13 @@ class Linear(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['linear']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Quadratic(BaseModel):
@@ -353,11 +366,13 @@ class Quadratic(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['quadratic']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Exponential(BaseModel):
@@ -375,11 +390,13 @@ class Exponential(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['exponential']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Gaussian(BaseModel):
@@ -397,11 +414,13 @@ class Gaussian(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['gaussian']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Lorentzian(BaseModel):
@@ -419,11 +438,13 @@ class Lorentzian(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['lorentzian']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Rectangle(BaseModel):
@@ -441,11 +462,13 @@ class Rectangle(BaseModel):
     :type prefix: str, optional
     """
     model: Literal['rectangle']
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Expression(BaseModel):
@@ -467,20 +490,22 @@ class Expression(BaseModel):
     """
     model: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
-    parameters: conlist(item_type=FitParameter) = []
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
     prefix: Optional[str] = ''
 
-    _validate_parameters_parameters = validator(
-        'parameters', always=True, allow_reuse=True)(validate_parameters)
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
 
 
 class Multipeak(BaseModel):
     model: Literal['multipeak']
-    centers: conlist(item_type=confloat(allow_inf_nan=False), min_items=1)
+    centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
     fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
-    centers_range: Optional[confloat(allow_inf_nan=False)]
-    fwhm_min: Optional[confloat(allow_inf_nan=False)]
-    fwhm_max: Optional[confloat(allow_inf_nan=False)]
+    centers_range: Optional[confloat(allow_inf_nan=False)] = None
+    fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
+    fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
     peak_models: Literal['gaussian', 'lorentzian'] = 'gaussian'
 
 
@@ -538,30 +563,32 @@ class FitConfig(BaseModel):
     parameters: conlist(item_type=FitParameter) = []
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        Rectangle, Expression, Multipeak], min_items=1)
+        Rectangle, Expression, Multipeak], min_length=1)
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
-    rel_height_cutoff: Optional[confloat(gt=0, lt=1.0, allow_inf_nan=False)]
+    rel_height_cutoff: Optional[
+        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
     num_proc: conint(gt=0) = 1
     plot: StrictBool = False
     print_report:  StrictBool = False
 
-    @validator('method', always=True)
-    def validate_method(cls, value, values):
+    @field_validator('method')
+    @classmethod
+    def validate_method(cls, method, info):
         """Validate the specified method.
 
-        :param value: Field value to validate (`method`).
-        :type value: str
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param method: The value of `method` to validate.
+        :type method: str
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :return: Fit method.
         :rtype: str
         """
-        code = values['code']
+        code = info.data['code']
         if code == 'lmfit':
-            if value not in ('leastsq', 'least_squares'):
-                value = 'leastsq'
-        elif value == 'least_squares':
-            value = 'leastsq'
+            if method not in ('leastsq', 'least_squares'):
+                method = 'leastsq'
+        elif method == 'least_squares':
+            method = 'leastsq'
 
-        return value
+        return method
