@@ -241,23 +241,22 @@ class IntegrationConfig(BaseModel):
         :return: The callable that performs the validation.
         :rtype: callable
         """
-        def _validate_range_max(cls, range_max, values):
+        def _validate_range_max(cls, range_max, info):
             """Check if the maximum value of the integration range is
             greater than its minimum value.
 
             :param range_max: The maximum value of the integration
                 range.
             :type range_max: float
-            :param values: The values of the other fields being
-                validated.
-            :type values: dict
+            :param info: Pydantic validator info object.
+            :type info: pydantic_core._pydantic_core.ValidationInfo
             :raises ValueError: If the maximum value of the
                 integration range is not greater than its minimum
                 value.
             :return: The validated maximum range value
             :rtype: float
             """
-            range_min = values.get(f'{range_name}_min')
+            range_min = info.data.get(f'{range_name}_min')
             if range_min < range_max:
                 return range_max
             raise ValueError(
