@@ -161,7 +161,8 @@ class MapReader(Reader):
                         attrs={'spec_file': str(scans.spec_file)})
 
         # Add sample metadata
-        nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.dict())
 
         # Set up default data group
         nxentry.data = NXdata()

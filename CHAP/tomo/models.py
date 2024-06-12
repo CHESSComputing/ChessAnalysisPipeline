@@ -36,7 +36,7 @@ class Detector(BaseModel):
     columns: conint(gt=0)
     pixel_size: conlist(
         item_type=confloat(gt=0, allow_inf_nan=False),
-        min_items=1, max_items=2)
+        min_length=1, max_length=2)
     lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
 
 
@@ -53,8 +53,8 @@ class TomoReduceConfig(BaseModel):
     :type delta_theta: float, optional
     """
     img_row_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
-    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
+    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)] = None
 
 
 class TomoFindCenterConfig(BaseModel):
@@ -84,19 +84,19 @@ class TomoFindCenterConfig(BaseModel):
         reconstruction in pixels, defaults to no filtering performed.
     :type ring_width: float, optional
     """
-    center_stack_index: Optional[conint(ge=0)]
+    center_stack_index: Optional[conint(ge=0)] = None
     center_rows: Optional[conlist(
-        item_type=conint(ge=0), min_items=2, max_items=2)]
+        item_type=conint(ge=0), min_length=2, max_length=2)] = None
     center_offsets: Optional[conlist(
         item_type=confloat(allow_inf_nan=False),
-        min_items=2, max_items=2)]
-    center_offset_min: Optional[confloat(allow_inf_nan=False)]
-    center_offset_max: Optional[confloat(allow_inf_nan=False)]
+        min_length=2, max_length=2)] = None
+    center_offset_min: Optional[confloat(allow_inf_nan=False)] = None
+    center_offset_max: Optional[confloat(allow_inf_nan=False)] = None
     center_search_range: Optional[conlist(
         item_type=confloat(allow_inf_nan=False),
-        min_items=1, max_items=3)]
-    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
+        min_length=1, max_length=3)] = None
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)] = None
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
 
 class TomoReconstructConfig(BaseModel):
@@ -126,15 +126,15 @@ class TomoReconstructConfig(BaseModel):
     :type ring_width: float, optional
     """
     x_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     y_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     z_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     secondary_iters: conint(ge=0) = 0
-    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
-    remove_stripe_sigma: Optional[confloat(ge=0, allow_inf_nan=False)]
-    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)]
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)] = None
+    remove_stripe_sigma: Optional[confloat(ge=0, allow_inf_nan=False)] = None
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
 
 class TomoCombineConfig(BaseModel):
@@ -150,11 +150,11 @@ class TomoCombineConfig(BaseModel):
     :type z_bounds: list[int], optional
     """
     x_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     y_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     z_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_items=2, max_items=2)]
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
 
 
 class TomoSimConfig(BaseModel):
@@ -191,14 +191,14 @@ class TomoSimConfig(BaseModel):
     :type slit_size:: float, optional
     """
     station: Literal['id1a3', 'id3a', 'id3b']
-    detector: Detector.construct()
+    detector: Detector.model_construct()
     sample_type: Literal[
         'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick',
         'hollow_pyramid']
     sample_size: conlist(
         item_type=confloat(gt=0, allow_inf_nan=False),
-        min_items=1, max_items=3)
-    wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)]
+        min_length=1, max_length=3)
+    wall_thickness: Optional[confloat(ge=0, allow_inf_nan=False)] = None
     mu: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.05
     theta_step: confloat(gt=0, allow_inf_nan=False)
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9

@@ -3,9 +3,7 @@ from functools import cache
 import os
 from pathlib import PosixPath
 from typing import (
-#    Literal,
     Optional,
-#    Union,
 )
 
 # Third party modules
@@ -14,14 +12,11 @@ from pydantic import (
     BaseModel,
     DirectoryPath,
     FilePath,
-#    PrivateAttr,
-#    StrictBool,
-#    confloat,
     conint,
     conlist,
     constr,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 
 # Local modules
@@ -40,7 +35,8 @@ class Detector(BaseModel):
     prefix: constr(strip_whitespace=True, min_length=1)
     poni_file: FilePath
 
-    @validator('poni_file', allow_reuse=True)
+    @field_validator('poni_file')
+    @classmethod
     def validate_poni_file(cls, poni_file):
         """Validate the poni file by checking if it's a valid PONI
         file.
@@ -77,51 +73,55 @@ class GiwaxsConversionConfig(BaseModel):
         If not specified, all images will be converted.
     :type scan_step_indices: list[int], optional
     """
-    inputdir: Optional[DirectoryPath]
+    inputdir: Optional[DirectoryPath] = None
     map_config: MapConfig
-    detectors: conlist(min_items=1, item_type=Detector)
-    scan_step_indices: Optional[conlist(min_items=1, item_type=conint(ge=0))]
+    detectors: conlist(item_type=Detector, min_length=1)
+    scan_step_indices: Optional[
+        conlist(item_type=conint(ge=0), min_length=1)] = None
 
-    @root_validator(pre=True)
-    def validate_config(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
         input filepaths.
 
-        :param values: Dictionary of class field values.
-        :type values: dict
+        :param data: Pydantic validator data object.
+        :type data: GiwaxsConversionConfig,
+            pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Missing par_dims value.
-        :return: The validated list of `values`.
+        :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
-        map_config = values.get('map_config')
+        inputdir = data.get('inputdir')
+        map_config = data.get('map_config')
         for i, scans in enumerate(map_config.get('spec_scans')):
             spec_file = scans.get('spec_file')
             if inputdir is not None and not os.path.isabs(spec_file):
-                values['map_config']['spec_scans'][i]['spec_file'] = \
+                data['map_config']['spec_scans'][i]['spec_file'] = \
                     os.path.join(inputdir, spec_file)
-        return values
+        return data
 
-    @validator('scan_step_indices', pre=True, allow_reuse=True)
-    def validate_scan_step_indices(cls, scan_step_indices, values):
+    @field_validator('scan_step_indices', mode='before')
+    @classmethod
+    def validate_scan_step_indices(cls, scan_step_indices, info):
         """Validate the specified list of scan step indices.
 
         :param scan_step_indices: List of scan numbers.
         :type scan_step_indices: list of int
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
         :return: List of scan numbers.
         :rtype: list of int
         """
-        map_config = values.get('map_config')
+        map_config = info.data.get('map_config')
         if isinstance(scan_step_indices, str):
             # Local modules
             from CHAP.utils.general import string_to_list
 
             scan_step_indices = string_to_list(scan_step_indices)
-            if len(values.get('map_config').shape) != 1:
+            if len(info.data.get('map_config').shape) != 1:
                 raise RuntimeError(f'Illegal use of scan_step_indices')
 
         return scan_step_indices

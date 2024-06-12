@@ -15,16 +15,17 @@ from typing import (
 import numpy as np
 from pydantic import (
     BaseModel,
+    Field,
+    FilePath,
+    PrivateAttr,
     conint,
     conlist,
     constr,
-    FilePath,
-    PrivateAttr,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 from pyspec.file.spec import FileSpec
-
+from typing_extensions import Annotated
 
 class Sample(BaseModel):
     """Class representing a sample metadata configuration.
@@ -35,7 +36,7 @@ class Sample(BaseModel):
     :type description: str, optional
     """
     name: constr(min_length=1)
-    description: Optional[str]
+    description: Optional[str] = ''
 
 
 class SpecScans(BaseModel):
@@ -49,19 +50,18 @@ class SpecScans(BaseModel):
     :type par_file: str, optional
     """
     spec_file: FilePath
-    scan_numbers: conlist(item_type=conint(gt=0), min_items=1)
-    par_file: Optional[FilePath]
+    scan_numbers: conlist(item_type=conint(gt=0), min_length=1)
+    par_file: Optional[FilePath] = None
 
-    @validator('spec_file', allow_reuse=True)
-    def validate_spec_file(cls, spec_file, values):
+    @field_validator('spec_file')
+    @classmethod
+    def validate_spec_file(cls, spec_file):
         """Validate the specified SPEC file.
 
         :param spec_file: Path to the SPEC file.
         :type spec_file: str
-        :param values: Dictionary of validated class field values.
-        :type values: dict
         :raises ValueError: If the SPEC file is invalid.
-        :return: Absolute path to the SPEC file, if it is valid.
+        :return: Absolute path to the SPEC file.
         :rtype: str
         """
         try:
@@ -71,14 +71,15 @@ class SpecScans(BaseModel):
             raise ValueError(f'Invalid SPEC file {spec_file}')
         return spec_file
 
-    @validator('scan_numbers', pre=True, allow_reuse=True)
-    def validate_scan_numbers(cls, scan_numbers, values):
+    @field_validator('scan_numbers', mode='before')
+    @classmethod
+    def validate_scan_numbers(cls, scan_numbers, info):
         """Validate the specified list of scan numbers.
 
         :param scan_numbers: List of scan numbers.
         :type scan_numbers: list of int
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
         :return: List of scan numbers.
@@ -90,7 +91,7 @@ class SpecScans(BaseModel):
 
             scan_numbers = string_to_list(scan_numbers)
 
-        spec_file = values.get('spec_file')
+        spec_file = info.data.get('spec_file')
         if spec_file is not None:
             spec_scans = FileSpec(spec_file)
             for scan_number in scan_numbers:
@@ -100,16 +101,15 @@ class SpecScans(BaseModel):
                         f'No scan number {scan_number} in {spec_file}')
         return scan_numbers
 
-    @validator('par_file', allow_reuse=True)
-    def validate_par_file(cls, par_file, values):
+    @field_validator('par_file')
+    @classmethod
+    def validate_par_file(cls, par_file):
         """Validate the specified SMB par file.
 
         :param par_file: Path to a non-default SMB par file.
         :type par_file: str
-        :param values: Dictionary of validated class field values.
-        :type values: dict
         :raises ValueError: If the SMB par file is invalid.
-        :return: Absolute path to the SMB par file, if it is valid.
+        :return: Absolute path to the SMB par file.
         :rtype: str
         """
         if par_file is None or not par_file:
@@ -244,7 +244,8 @@ class PointByPointScanData(BaseModel):
                        'smb_par', 'expression']
     name: constr(strip_whitespace=True, min_length=1)
 
-    @validator('label')
+    @field_validator('label')
+    @classmethod
     def validate_label(cls, label):
         """Validate that the supplied `label` does not conflict with
         any of the values for `label` reserved for certain data needed
@@ -253,8 +254,7 @@ class PointByPointScanData(BaseModel):
         :param label: The value of `label` to validate.
         :type label: str
         :raises ValueError: If `label` is one of the reserved values.
-        :return: The original supplied value `label`, if it is
-            allowed.
+        :return: The originally supplied value `label`.
         :rtype: str
         """
         if ((not issubclass(cls,CorrectionsData))
@@ -540,35 +540,35 @@ def get_expression_value(spec_scans:SpecScans, scan_number:int,
     aeval = Interpreter(symtable=symtable)
     return aeval(expression)
 
-def validate_data_source_for_map_config(data_source, values):
+def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of PointByPointScanData is valid for
     the station and scans provided by a map configuration dictionary.
 
     :param data_source: The input object to validate.
     :type data_source: PointByPointScanData
-    :param values: The map configuration dictionary.
-    :type values: dict
-    :raises Exception: If `data_source` cannot be validated for
-        `values`.
-    :return: `data_source`, if it is valid.
+    :param info: Pydantic validator info object.
+    :type info: pydantic_core._pydantic_core.ValidationInfo
+    :raises Exception: If `data_source` cannot be validated.
+    :return: the validated `data_source` instance.
     :rtype: PointByPointScanData
     """
     def _validate_data_source_for_map_config(
-            data_source, values, parent_list=None):
+            data_source, info, parent_list=None):
         if isinstance(data_source, list):
             return [_validate_data_source_for_map_config(
-                d_s, values, parent_list=data_source) for d_s in data_source]
+                d_s, info, parent_list=data_source) for d_s in data_source]
         if data_source is not None:
+            values = info.data
             if data_source.data_type == 'expression':
-                data_source.validate_for_scalar_data(
-                    values.get('scalar_data', parent_list))
+                data_source.validate_for_scalar_data(values['scalar_data'])
             else:
                 import_scanparser(
-                    values.get('station'), values.get('experiment_type'))
-                data_source.validate_for_station(values.get('station'))
-                data_source.validate_for_spec_scans(values.get('spec_scans'))
+                    values['station'], values['experiment_type'])
+                data_source.validate_for_station(values['station'])
+                data_source.validate_for_spec_scans(values['spec_scans'])
         return(data_source)
-    return _validate_data_source_for_map_config(data_source, values)
+
+    return _validate_data_source_for_map_config(data_source, info)
 
 
 class IndependentDimension(PointByPointScanData):
@@ -601,11 +601,20 @@ class IndependentDimension(PointByPointScanData):
     end: Optional[int] = None
     step: Optional[conint(gt=0)] = 1
 
-#    @validator('step')
-#    def validate_step(cls, value):
-#        if value == 0 :
+#    @field_validator('step')
+#    @classmethod
+#    def validate_step(cls, step):
+#        """Validate that the supplied value of `step`.
+#
+#        :param step: The value of `step` to validate.
+#        :type step: str
+#        :raises ValueError: If `step` is zero.
+#        :return: The originally supplied value `step`.
+#        :rtype: int
+#        """
+#        if step == 0 :
 #            raise ValueError('slice step cannot be zero')
-#        return value
+#        return step
 
 
 class CorrectionsData(PointByPointScanData):
@@ -641,7 +650,7 @@ class CorrectionsData(PointByPointScanData):
         :return: A list of reserved labels.
         :rtype: list[str]
         """
-        return list((*cls.__fields__['label'].type_.__args__, 'round'))
+        return list((*cls.model_fields['label'].annotation.__args__, 'round'))
 
 
 class PresampleIntensity(CorrectionsData):
@@ -714,44 +723,47 @@ class SpecConfig(BaseModel):
     """
     station: Literal['id1a3', 'id3a', 'id3b']
     experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
-    spec_scans: conlist(item_type=SpecScans, min_items=1)
+    spec_scans: conlist(item_type=SpecScans, min_length=1)
 
-    @root_validator(pre=True)
-    def validate_config(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of validated class field values.
-        :type values: dict
-        :return: The validated list of `values`.
+        :param data: Pydantic validator data object.
+        :type data: SpecConfig, pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
+        inputdir = data.get('inputdir')
         if inputdir is not None:
-            spec_scans = values.get('spec_scans')
+            spec_scans = data.get('spec_scans')
             for i, scans in enumerate(deepcopy(spec_scans)):
                 spec_file = scans['spec_file']
                 if not os.path.isabs(spec_file):
                     spec_scans[i]['spec_file'] = os.path.join(
                         inputdir, spec_file)
-                spec_scans[i] = SpecScans(**spec_scans[i], **values)
-            values['spec_scans'] = spec_scans
-        return values
+                spec_scans[i] = SpecScans(**spec_scans[i])
+            data['spec_scans'] = spec_scans
+        return data
 
-    @validator('experiment_type')
-    def validate_experiment_type(cls, value, values):
+    @field_validator('experiment_type')
+    @classmethod
+    def validate_experiment_type(cls, experiment_type, info):
         """Ensure values for the station and experiment_type fields are
         compatible
 
-        :param value: Field value to validate (`experiment_type`).
-        :type value: str
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param experiment_type: The value of `experiment_type` to
+            validate.
+        :type experiment_type: str
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Invalid experiment type.
         :return: The validated field for `experiment_type`.
         :rtype: str
         """
-        station = values.get('station')
+        station = info.data.get('station')
         if station == 'id1a3':
             allowed_experiment_types = ['EDD', 'SAXSWAXS', 'TOMO']
         elif station == 'id3a':
@@ -760,13 +772,13 @@ class SpecConfig(BaseModel):
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         else:
             allowed_experiment_types = []
-        if value not in allowed_experiment_types:
+        if experiment_type not in allowed_experiment_types:
             raise ValueError(
                 f'For station {station}, allowed experiment types are '
                 f'{", ".join(allowed_experiment_types)}. '
-                f'Supplied experiment type {value} is not allowed.')
-        import_scanparser(station, value)
-        return value
+                f'Supplied experiment type {experiment_type} is not allowed.')
+        import_scanparser(station, experiment_type)
+        return experiment_type
 
 
 class MapConfig(BaseModel):
@@ -810,73 +822,73 @@ class MapConfig(BaseModel):
     station: Literal['id1a3', 'id3a', 'id3b']
     experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     sample: Sample
-    spec_scans: conlist(item_type=SpecScans, min_items=1)
+    spec_scans: conlist(item_type=SpecScans, min_length=1)
     independent_dimensions: conlist(
-        item_type=IndependentDimension, min_items=1)
-    presample_intensity: Optional[PresampleIntensity]
-    dwell_time_actual: Optional[DwellTimeActual]
-    postsample_intensity: Optional[PostsampleIntensity]
+        item_type=IndependentDimension, min_length=1)
+    presample_intensity: Optional[PresampleIntensity] = None
+    dwell_time_actual: Optional[DwellTimeActual] = None
+    postsample_intensity: Optional[PostsampleIntensity] = None
     scalar_data: Optional[list[PointByPointScanData]] = []
-    attrs: Optional[dict] = {}
-    map_type: Optional[Literal['structured', 'unstructured']] = 'structured'
+    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
+    map_type: Optional[Annotated[
+        Literal['structured', 'unstructured'],
+        Field(validate_default=True)]] = 'structured'
     _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
     _scan_step_indices: list = PrivateAttr()
     _shape: tuple = PrivateAttr()
 
-    _validate_independent_dimensions = validator(
-        'independent_dimensions',
-        each_item=True,
-        allow_reuse=True)(validate_data_source_for_map_config)
-    _validate_presample_intensity = validator(
-        'presample_intensity',
-        allow_reuse=True)(validate_data_source_for_map_config)
-    _validate_dwell_time_actual = validator(
-        'dwell_time_actual',
-        allow_reuse=True)(validate_data_source_for_map_config)
-    _validate_postsample_intensity = validator(
-        'postsample_intensity',
-        allow_reuse=True)(validate_data_source_for_map_config)
-    _validate_scalar_data = validator(
-        'scalar_data',
-        allow_reuse=True)(validate_data_source_for_map_config)
+    _validate_independent_dimensions = field_validator(
+        'independent_dimensions')(validate_data_source_for_map_config)
+    _validate_presample_intensity = field_validator(
+        'presample_intensity')(validate_data_source_for_map_config)
+    _validate_dwell_time_actual = field_validator(
+        'dwell_time_actual')(validate_data_source_for_map_config)
+    _validate_postsample_intensity = field_validator(
+        'postsample_intensity')(validate_data_source_for_map_config)
+    _validate_scalar_data = field_validator(
+        'scalar_data')(validate_data_source_for_map_config)
 
-    @root_validator(pre=True)
-    def validate_config(cls, values):
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
-        :param values: Dictionary of validated class field values.
-        :type values: dict
-        :return: The validated list of `values`.
+        :param data: Pydantic validator data object.
+        :type data:
+            MapConfig, pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = values.get('inputdir')
+        inputdir = data.get('inputdir')
         if inputdir is not None:
-            spec_scans = values.get('spec_scans')
+            spec_scans = data.get('spec_scans')
             for i, scans in enumerate(deepcopy(spec_scans)):
                 spec_file = scans['spec_file']
                 if not os.path.isabs(spec_file):
                     spec_scans[i]['spec_file'] = os.path.join(
                         inputdir, spec_file)
-                spec_scans[i] = SpecScans(**spec_scans[i], **values)
-            values['spec_scans'] = spec_scans
-        return values
+                spec_scans[i] = SpecScans(**spec_scans[i], **data)
+            data['spec_scans'] = spec_scans
+        return data
 
-    @validator('experiment_type')
-    def validate_experiment_type(cls, value, values):
+    @field_validator('experiment_type')
+    @classmethod
+    def validate_experiment_type(cls, experiment_type, info):
         """Ensure values for the station and experiment_type fields are
         compatible.
 
-        :param value: Field value to validate (`experiment_type`).
-        :type value: dict
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param experiment_type: The value of `experiment_type` to
+            validate.
+        :type experiment_type: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Invalid experiment type.
         :return: The validated field for `experiment_type`.
         :rtype: str
         """
-        station = values['station']
+        station = info.data['station']
         if station == 'id1a3':
             allowed_experiment_types = ['EDD', 'SAXSWAXS', 'TOMO']
         elif station == 'id3a':
@@ -885,58 +897,63 @@ class MapConfig(BaseModel):
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         else:
             allowed_experiment_types = []
-        if value not in allowed_experiment_types:
+        if experiment_type not in allowed_experiment_types:
             raise ValueError(
                 f'For station {station}, allowed experiment types are '
                 f'{", ".join(allowed_experiment_types)}. '
-                f'Supplied experiment type {value} is not allowed.')
-        return value
+                f'Supplied experiment type {experiment_type} is not allowed.')
+        return experiment_type
 
-    @validator('attrs', always=True)
-    def validate_attrs(cls, value, values):
+    #RV maybe better to use model_validator, see v2 docs?
+    @field_validator('attrs')
+    @classmethod
+    def validate_attrs(cls, attrs, info):
         """Read any additional attributes depending on the values for
         the station and experiment_type fields.
 
-        :param value: Field value to validate (`attrs`).
-        :type value: dict
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param attrs: Any additional attributes to the MapConfig class.
+        :type attrs: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: Invalid attribute.
         :return: The validated field for `attrs`.
         :rtype: dict
         """
         # Get the map's scan_type for EDD experiments
+        values = info.data
         station = values['station']
         experiment_type = values['experiment_type']
         if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
-            value['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
-            value['config_id'] = cls.get_smb_par_attr(values, 'config_id')
-            value['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
+            attrs['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
+            attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
+            attrs['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}
-            if value['scan_type'] is None:
-                return value
-            if value['scan_type'] != 0:
-                value['fly_axis_labels'] = [
+            if attrs['scan_type'] is None:
+                return attrs
+            if attrs['scan_type'] != 0:
+                attrs['fly_axis_labels'] = [
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
-            if value['scan_type'] in (2, 3, 5):
-                value['fly_axis_labels'].append(
+            if attrs['scan_type'] in (2, 3, 5):
+                attrs['fly_axis_labels'].append(
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis1')])
-        return value
+        return attrs
 
-    @validator('map_type', pre=True, always=True)
-    def validate_map_type(cls, map_type, values):
+    @field_validator('map_type', mode='before')
+    @classmethod
+    def validate_map_type(cls, map_type, info):
         """Validate the map_type field.
 
         :param map_type: Type of map, structured or unstructured,
             defaults to `'structured'`.
         :type map_type: Literal['structured', 'unstructured']]
-        :param values: Dictionary of validated class field values.
-        :type values: dict
+        :param info: Pydantic validator info object.
+        :type info: pydantic_core._pydantic_core.ValidationInfo
         :return: The validated value for map_type.
         :rtype: str
         """
         dims = {}
+        values = info.data
         attrs = values.get('attrs', {})
         scan_type = attrs.get('scan_type', -1)
         fly_axis_labels = attrs.get('fly_axis_labels', [])

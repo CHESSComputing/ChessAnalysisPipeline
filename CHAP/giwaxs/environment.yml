@@ -5,7 +5,7 @@ channels:
 dependencies:
   - python>=3.9
   - pyfai==2024.5.0
-  - pydantic==1.10.7
+  - pydantic==2.7.3
   - nexusformat==1.0.2
   - nexpy==1.0.4
   - pip==22.3.1
