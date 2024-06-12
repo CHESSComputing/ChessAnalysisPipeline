@@ -133,20 +133,31 @@ class GiwaxsConversionProcessor(Processor):
         # the corresponding rectangular grid with the same dimensions
         # as the detector grid and converted to this grid from the
         # (q_par, q_perp)-grid
+        # RV: For now use the same q-coords for all thetas, based on
+        # the range for the first theta
         giwaxs_data_rect = []
-        q_par_rect = []
-        q_perp_rect = []
+#RV        q_par_rect = []
+#RV        q_perp_rect = []
         for i, theta in enumerate(thetas):
             q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
-            q_par_rect.append(np.linspace(
+#RV            q_par_rect.append(np.linspace(
+#                q_par[i,q_perp_min_index,:].min(),
+#                q_par[i,q_perp_min_index,:].max(), image_dims[1]))
+#            q_perp_rect.append(np.linspace(
+#                q_perp[i].min(), q_perp[i].max(), image_dims[0]))
+#            giwaxs_data_rect.append(
+#                GiwaxsConversionProcessor.curved_to_rect(
+#                    giwaxs_data[i], q_par[i], q_perp[i], q_par_rect[i],
+#RV                    q_perp_rect[i]))
+            q_par_rect = np.linspace(
                 q_par[i,q_perp_min_index,:].min(),
-                q_par[i,q_perp_min_index,:].max(), image_dims[1]))
-            q_perp_rect.append(np.linspace(
-                q_perp[i].min(), q_perp[i].max(), image_dims[0]))
+                q_par[i,q_perp_min_index,:].max(), image_dims[1])
+            q_perp_rect = np.linspace(
+                q_perp[i].min(), q_perp[i].max(), image_dims[0])
             giwaxs_data_rect.append(
                 GiwaxsConversionProcessor.curved_to_rect(
-                    giwaxs_data[i], q_par[i], q_perp[i], q_par_rect[i],
-                    q_perp_rect[i]))
+                    giwaxs_data[i], q_par[i], q_perp[i], q_par_rect,
+                    q_perp_rect))
 
             if interactive or save_figures:
                 vmax = giwaxs_data[i].max()/10
@@ -182,7 +193,7 @@ class GiwaxsConversionProcessor(Processor):
                 plt.close()
 
         # Create the NXdata object with the converted images
-        if len(thetas) == 1:
+        if False and len(thetas) == 1: #RV
             nxprocess.data = NXdata(
                 NXfield(np.asarray(giwaxs_data_rect[0]), 'converted'),
                 (NXfield(
