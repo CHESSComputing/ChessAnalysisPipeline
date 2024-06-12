@@ -135,12 +135,18 @@ class GiwaxsConversionProcessor(Processor):
         # (q_par, q_perp)-grid
         # RV: For now use the same q-coords for all thetas, based on
         # the range for the first theta
+        q_perp_min_index = np.argmin(np.abs(q_perp[:,0]))
+        q_par_rect = np.linspace(
+            q_par[q_perp_min_index,:].min(),
+            q_par[q_perp_min_index,:].max(), image_dims[1])
+        q_perp_rect = np.linspace(
+            q_perp.min(), q_perp.max(), image_dims[0])
         giwaxs_data_rect = []
-#RV        q_par_rect = []
-#RV        q_perp_rect = []
+#        q_par_rect = []
+#        q_perp_rect = []
         for i, theta in enumerate(thetas):
-            q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
-#RV            q_par_rect.append(np.linspace(
+#            q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
+#            q_par_rect.append(np.linspace(
 #                q_par[i,q_perp_min_index,:].min(),
 #                q_par[i,q_perp_min_index,:].max(), image_dims[1]))
 #            q_perp_rect.append(np.linspace(
@@ -148,15 +154,10 @@ class GiwaxsConversionProcessor(Processor):
 #            giwaxs_data_rect.append(
 #                GiwaxsConversionProcessor.curved_to_rect(
 #                    giwaxs_data[i], q_par[i], q_perp[i], q_par_rect[i],
-#RV                    q_perp_rect[i]))
-            q_par_rect = np.linspace(
-                q_par[i,q_perp_min_index,:].min(),
-                q_par[i,q_perp_min_index,:].max(), image_dims[1])
-            q_perp_rect = np.linspace(
-                q_perp[i].min(), q_perp[i].max(), image_dims[0])
+#                    q_perp_rect[i]))
             giwaxs_data_rect.append(
                 GiwaxsConversionProcessor.curved_to_rect(
-                    giwaxs_data[i], q_par[i], q_perp[i], q_par_rect,
+                    giwaxs_data[i], q_par, q_perp, q_par_rect,
                     q_perp_rect))
 
             if interactive or save_figures:
@@ -166,8 +167,8 @@ class GiwaxsConversionProcessor(Processor):
                     giwaxs_data_rect[i],
                     vmin=0, vmax=vmax,
                     origin='lower',
-                    extent=(q_par[i].min(), q_par[i].max(),
-                            q_perp[i].min(), q_perp[i].max()))
+                    extent=(q_par_rect.min(), q_par_rect.max(),
+                            q_perp_rect.min(), q_perp_rect.max()))
                 ax[1].set_aspect('equal')
                 ax[1].set_title('Transformed Image')
                 ax[1].set_xlabel('q$_\parallel$ [\u212b$^{-1}$]')
@@ -471,18 +472,30 @@ class GiwaxsConversionProcessor(Processor):
         sign_nu = 2*(nu>=0)-1
 
         # Calculate q_par, q_perp
-        q_par = []
-        q_perp = []
-        for theta in thetas:
-            alpha = np.deg2rad(theta)
-            beta = delta - alpha;
-            cosnu = np.cos(nu);
-            cosb = np.cos(beta);
-            cosa = np.cos(alpha);
-            sina = np.sin(alpha);
-            q_par.append(sign_nu * xray_wavevector * np.sqrt(
-                cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu))
-            q_perp.append(xray_wavevector*(sina + np.sin(beta)))
+        # RV: For now use the same q-coords for all thetas, based on
+        # the range for the first theta
+#        q_par = []
+#        q_perp = []
+#        for theta in thetas:
+#            alpha = np.deg2rad(theta)
+#            beta = delta - alpha;
+#            cosnu = np.cos(nu);
+#            cosb = np.cos(beta);
+#            cosa = np.cos(alpha);
+#            sina = np.sin(alpha);
+#            q_par.append(sign_nu * xray_wavevector * np.sqrt(
+#                cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu))
+#            q_perp.append(xray_wavevector*(sina + np.sin(beta)))
+        alpha = np.deg2rad(thetas[0])
+        beta = delta - alpha;
+        cosnu = np.cos(nu);
+        cosb = np.cos(beta);
+        cosa = np.cos(alpha);
+        sina = np.sin(alpha);
+        q_par = sign_nu * xray_wavevector * np.sqrt(
+            cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu)
+        q_perp = xray_wavevector*(sina + np.sin(beta))
 
-        return np.asarray(q_par), np.asarray(q_perp)
+#        return np.asarray(q_par), np.asarray(q_perp)
+        return q_par, q_perp
 
