@@ -27,6 +27,7 @@ from CHAP.common.processor import (
     IntegrationProcessor,
     IntegrateMapProcessor,
     MapProcessor,
+    MPIProcessor,
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
     PrintProcessor,

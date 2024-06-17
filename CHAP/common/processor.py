@@ -1332,6 +1332,37 @@ class MapProcessor(Processor):
         return nxentry
 
 
+class MPIProcessor(Processor):
+    """A test MPI Processor.
+    """
+    def process(self, data):
+        # Third party modules
+        import mpi4py as mpi4py
+        from mpi4py import MPI
+
+        comm_world = MPI.COMM_WORLD
+        my_rank = comm_world.Get_rank()
+        size = comm_world.Get_size()
+        (version, subversion) = MPI.Get_version()
+
+        mpi4py_version = mpi4py.__version__
+
+        if (my_rank == 0):
+            if (size > 1):
+                print('Successful first MPI test executed in parallel on '
+                      f'{size} processes using mpi4py version '
+                      f'{mpi4py_version}.')
+                if int(mpi4py_version[0]) < 3:
+                    print('CAUTION: You are using an mpi4py version '
+                          'below 3.0.0.')
+            else:
+                print('CAUTION: This MPI test is executed only on one MPI '
+                      'process, i.e., sequentially!')
+            print('Your installation supports MPI standard version '
+                  f'{version}.{subversion}.')
+        print(f'Done on processor {my_rank} of {size}')
+
+
 class NexusToNumpyProcessor(Processor):
     """A Processor to convert the default plottable data in a NeXus
     object into a `numpy.ndarray`.
