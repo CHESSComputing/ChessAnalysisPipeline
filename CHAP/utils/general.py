@@ -611,6 +611,24 @@ def string_to_list(
     return l_of_i
 
 
+def list_to_string(a):
+    """Return a list of pairs of integers marking consecutive ranges
+    of integers in string notation."""
+    int_ranges = get_consecutive_int_range(a)
+    if not len(int_ranges):
+        return ''
+    if int_ranges[0][0] == int_ranges[0][1]:
+        s = f'{int_ranges[0][0]}'
+    else:
+        s = f'{int_ranges[0][0]}-{int_ranges[0][1]}'
+    for int_range in int_ranges[1:]:
+        if int_range[0] == int_range[1]:
+            s += f', {int_range[0]}'
+        else:
+            s += f', {int_range[0]}-{int_range[1]}'
+    return s
+
+
 def get_trailing_int(string):
     """Get the trailing integer in a string."""
     index_regex = re_compile(r'\d+$')
