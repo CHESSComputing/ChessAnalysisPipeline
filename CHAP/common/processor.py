@@ -1318,6 +1318,7 @@ class MapProcessor(Processor):
                 (*map_config.shape, *detector_data.shape)),
                 dtype=detector_data.dtype)
 
+        # Read and fill in the raw detector data
         for map_index in np.ndindex(map_config.shape):
             for data in map_config.all_scalar_data:
                 nxentry.data[data.label][map_index] = map_config.get_value(

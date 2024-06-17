@@ -496,6 +496,5 @@ class GiwaxsConversionProcessor(Processor):
             cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu)
         q_perp = xray_wavevector*(sina + np.sin(beta))
 
-#        return np.asarray(q_par), np.asarray(q_perp)
         return q_par, q_perp
 

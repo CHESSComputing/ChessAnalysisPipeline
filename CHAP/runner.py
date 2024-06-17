@@ -156,28 +156,29 @@ def run(
             # "outputdir" and "interactive" with the item's arguments
             # joining "inputdir" and "outputdir" and giving precedence
             # for "interactive" in the latter
-            if 'inputdir' in item_args:
-                newinputdir = os.path.normpath(os.path.join(
-                    kwargs['inputdir'], item_args.pop('inputdir')))
-                if not os.path.isdir(newinputdir):
-                    raise OSError(
-                        f'input directory does not exist ({newinputdir})')
-                if not os.access(newinputdir, os.R_OK):
-                    raise OSError('input directory is not accessible for '
-                                  f'reading ({newinputdir})')
-                kwargs['inputdir'] = newinputdir
-            if 'outputdir' in item_args:
-                newoutputdir = os.path.normpath(os.path.join(
-                    kwargs['outputdir'], item_args.pop('outputdir')))
-                if not os.path.isdir(newoutputdir):
-                    os.makedirs(newoutputdir)
-                try:
-                    tmpfile = NamedTemporaryFile(dir=newoutputdir)
-                except:
-                    raise OSError('output directory is not accessible for '
-                                  f'writing ({newoutputdir})')
-                kwargs['outputdir'] = newoutputdir
-            kwargs = {**kwargs, **item_args}
+            if item_args is not None:
+                if 'inputdir' in item_args:
+                    newinputdir = os.path.normpath(os.path.join(
+                        kwargs['inputdir'], item_args.pop('inputdir')))
+                    if not os.path.isdir(newinputdir):
+                        raise OSError(
+                            f'input directory does not exist ({newinputdir})')
+                    if not os.access(newinputdir, os.R_OK):
+                        raise OSError('input directory is not accessible for '
+                                      f'reading ({newinputdir})')
+                    kwargs['inputdir'] = newinputdir
+                if 'outputdir' in item_args:
+                    newoutputdir = os.path.normpath(os.path.join(
+                        kwargs['outputdir'], item_args.pop('outputdir')))
+                    if not os.path.isdir(newoutputdir):
+                        os.makedirs(newoutputdir)
+                    try:
+                        tmpfile = NamedTemporaryFile(dir=newoutputdir)
+                    except:
+                        raise OSError('output directory is not accessible for '
+                                      f'writing ({newoutputdir})')
+                    kwargs['outputdir'] = newoutputdir
+                kwargs = {**kwargs, **item_args}
         else:
             name = item
         if "users" in name:

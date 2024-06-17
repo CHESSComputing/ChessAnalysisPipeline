@@ -22,9 +22,13 @@ class EddMapReader(Reader):
             value for 'schema'.
         :rtype: PipelineData
         """
+        # Third party modules
         import numpy as np
+
+        # Local modules
         from CHAP.common.models.map import MapConfig
         from CHAP.pipeline import PipelineData
+        from CHAP.utils.general import list_to_string
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
@@ -158,6 +162,11 @@ class EddMapReader(Reader):
         for dim in lab_dims:
             if dim not in independent_dimensions:
                 scalar_data.append(dim)
+
+        # Convert list of scan_numbers to string notation
+        scan_numbers = map_config_dict['spec_scans'][0]['scan_numbers']
+        map_config_dict['spec_scans'][0]['scan_numbers'] = list_to_string(
+            scan_numbers)
 
         return map_config_dict
 
