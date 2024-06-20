@@ -2393,7 +2393,7 @@ class MCACalibratedDataPlotter(Processor):
         import matplotlib.pyplot as plt
 
         # Local modules
-        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         if material is not None:
             self.logger.warning('Plotting HKL lines is not supported yet.')

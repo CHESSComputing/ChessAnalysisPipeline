@@ -17,3 +17,4 @@ dependencies:
   - tomopy==1.12.2
   - pip:
     - certif-pyspec==1.5.3
+    - chess-scanparsers

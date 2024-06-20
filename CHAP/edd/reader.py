@@ -30,7 +30,7 @@ class EddMapReader(Reader):
         from CHAP.pipeline import PipelineData
         from CHAP.utils.general import list_to_string
         from CHAP.utils.parfile import ParFile
-        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         parfile = ParFile(parfile)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
@@ -184,7 +184,7 @@ class ScanToMapReader(Reader):
         :returns: Map configuration dictionary
         :rtype: dict
         """
-        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         scanparser = ScanParser(spec_file, scan_number)
 
@@ -479,7 +479,7 @@ class UpdateNXdataReader(Reader):
         :rtype: list[dict[str, object]]
         """
         import os
-        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from chess_scanparsers import SMBMCAScanParser as ScanParser
         from CHAP.utils.parfile import ParFile
 
         if not os.path.isabs(spec_file):
@@ -598,7 +598,7 @@ class NXdataSliceReader(Reader):
 
         from CHAP.common import NXdataReader
         from CHAP.utils.parfile import ParFile
-        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         # Parse existing NXdata
         root = nxload(filename)

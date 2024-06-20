@@ -80,7 +80,7 @@ class ParFile():
         """
         import numpy as np
         from CHAP.common.models.map import MapConfig
-        from CHAP.utils.scanparsers import SMBScanParser
+        from chess_scanparsers import SMBScanParser
 
         scanparser = SMBScanParser(self.spec_file, 1)
         good_scans = self.good_scan_numbers()
