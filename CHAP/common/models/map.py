@@ -823,12 +823,12 @@ class MapConfig(BaseModel):
     experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_length=1)
+    scalar_data: Optional[list[PointByPointScanData]] = []
     independent_dimensions: conlist(
         item_type=IndependentDimension, min_length=1)
     presample_intensity: Optional[PresampleIntensity] = None
     dwell_time_actual: Optional[DwellTimeActual] = None
     postsample_intensity: Optional[PostsampleIntensity] = None
-    scalar_data: Optional[list[PointByPointScanData]] = []
     attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
     map_type: Optional[Annotated[
         Literal['structured', 'unstructured'],
