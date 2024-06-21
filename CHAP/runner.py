@@ -21,7 +21,8 @@ class RunConfig():
             'outputdir': '.',
             'interactive': False,
             'log_level': 'INFO',
-            'profile': False}
+            'profile': False,
+            'spawn': False}
 
     def __init__(self, config={}):
         """RunConfig constructor
@@ -78,13 +79,31 @@ def parser():
 
 def main():
     """Main function"""
+    try:
+        import mpi4py as mpi4py
+        from mpi4py import MPI
+        have_mpi = True
+    except:
+        have_mpi = False
+
     args = parser().parse_args()
 
     # read input config file
     configfile = args.config
     with open(configfile) as file:
         config = safe_load(file)
+
+    # Check if run was a worker spawned by another Processor
     run_config = RunConfig(config.get('config', {}))
+    if have_mpi and run_config.spawn:
+        comm = MPI.Comm.Get_parent()
+        # read worker specific input config file
+        with open(f'{configfile}_{comm.Get_rank()}') as file:
+            config = safe_load(file)
+            run_config = RunConfig(config.get('config', {}))
+        common_comm = comm.Merge(False)
+
+    # Get pipeline configuration
     pipeline_config = config.get('pipeline', [])
 
     # profiling setup
@@ -99,6 +118,13 @@ def main():
     else:
         runner(run_config, pipeline_config)
 
+    # Disconnect the spawned worker
+    if have_mpi and run_config.spawn:
+        common_comm.barrier()
+        comm.Disconnect()
+
+
+
 def runner(run_config, pipeline_config):
     """Main runner funtion
 
@@ -107,14 +133,19 @@ def runner(run_config, pipeline_config):
     :param pipeline_config: CHAP Pipeline configuration
     :type pipeline_config: dict
     """
+    # System modules
+    from time import time
+
     # logging setup
     logger, log_handler = setLogger(run_config.log_level)
     logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
     # run pipeline
+    t0 = time()
     run(pipeline_config,
         run_config.inputdir, run_config.outputdir, run_config.interactive,
         logger, run_config.log_level, log_handler)
+    logger.warning(f'Executed "run" in {time()-t0:.3f} seconds')
 
 def setLogger(log_level="INFO"):
     """

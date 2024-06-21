@@ -470,6 +470,8 @@ class SpecReader(Reader):
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
                     for detector_name in detector_names:
+                        if isinstance(detector_name, int):
+                            detector_name = str(detector_name)
                         nxdata[detector_name] = NXfield(
                            value=scanparser.get_detector_data(detector_name))
 

@@ -740,11 +740,16 @@ class SpecConfig(BaseModel):
         if inputdir is not None:
             spec_scans = data.get('spec_scans')
             for i, scans in enumerate(deepcopy(spec_scans)):
-                spec_file = scans['spec_file']
-                if not os.path.isabs(spec_file):
-                    spec_scans[i]['spec_file'] = os.path.join(
-                        inputdir, spec_file)
-                spec_scans[i] = SpecScans(**spec_scans[i])
+                if isinstance(scans, dict):
+                    spec_file = scans['spec_file']
+                    if not os.path.isabs(spec_file):
+                        spec_scans[i]['spec_file'] = os.path.join(
+                            inputdir, spec_file)
+                else:
+                    spec_file = scans.spec_file
+                    if not os.path.isabs(spec_file):
+                        spec_scans[i].spec_file = os.path.join(
+                            inputdir, spec_file)
             data['spec_scans'] = spec_scans
         return data
 

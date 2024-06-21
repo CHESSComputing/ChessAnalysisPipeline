@@ -8,6 +8,9 @@ Description: Module for Processors used in multiple experiment-specific
              workflows.
 """
 
+# System modules
+import os
+
 # Third party modules
 import numpy as np
 
@@ -58,12 +61,6 @@ class AnimationProcessor(Processor):
         :return: The matplotlib animation.
         :rtype: matplotlib.animation.ArtistAnimation
         """
-        # System modules
-        from os.path import (
-            isabs,
-            join,
-        )
-
         # Third party modules
         import matplotlib.animation as animation
         import matplotlib.pyplot as plt
@@ -251,21 +248,19 @@ class BinarizeProcessor(Processor):
             that of the input dataset.
         :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
-        # System modules
-        from os.path import join as os_join
-        from os.path import relpath
-
-        # Local modules
-        from CHAP.utils.general import (
-            is_int,
-            nxcopy,
-        )
+        # Third party modules
         from nexusformat.nexus import (
             NXdata,
             NXfield,
             NXlink,
             NXprocess,
             nxsetconfig,
+        )
+
+        # Local modules
+        from CHAP.utils.general import (
+            is_int,
+            nxcopy,
         )
 
         if method not in [
@@ -345,19 +340,21 @@ class BinarizeProcessor(Processor):
             exclude_nxpaths = []
             if nxdefault is not None:
                 exclude_nxpaths.append(
-                    os_join(relpath(nxdefault.nxpath, dataset.nxpath)))
+                    os.path.join(os.path.relpath(
+                        nxdefault.nxpath, dataset.nxpath)))
             if remove_original_data:
                 if (nxdefault is None
                         or nxdefault.nxpath != nxdata.nxpath):
-                    relpath_nxdata = relpath(nxdata.nxpath, dataset.nxpath)
+                    relpath_nxdata = os.path.relpath(
+                        nxdata.nxpath, dataset.nxpath)
                     keys = list(nxdata.keys())
                     keys.remove(nxsignal.nxname)
                     for axis in nxdata.axes:
                         keys.remove(axis)
                     if len(keys):
                         raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os_join(
-                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                        exclude_nxpaths.append(os.path.join(
+                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
                     elif relpath_nxdata == '.':
                         exclude_nxpaths.append(nxsignal.nxname)
                         if dataset.nxclass != 'NXdata':
@@ -374,11 +371,11 @@ class BinarizeProcessor(Processor):
                         keys.remove(axis)
                     if len(keys):
                         raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os_join(
-                            relpath(nxsignal.nxpath, dataset.nxpath)))
+                        exclude_nxpaths.append(os.path.join(
+                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
                     else:
-                        exclude_nxpaths.append(os_join(
-                            relpath(nxgroup.nxpath, dataset.nxpath)))
+                        exclude_nxpaths.append(os.path.join(
+                            os.path.relpath(nxgroup.nxpath, dataset.nxpath)))
             nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
 
         # Get a histogram of the data
@@ -572,7 +569,8 @@ class BinarizeProcessor(Processor):
         nxdata = nxentry[name].data
         nxentry.data = NXdata(
             NXlink(nxdata.nxsignal.nxpath),
-            [NXlink(os_join(nxdata.nxpath, axis)) for axis in nxdata.axes])
+            [NXlink(os.path.join(nxdata.nxpath, axis))
+                for axis in nxdata.axes])
         nxentry.data.set_default()
         return nxobject
 
@@ -867,12 +865,6 @@ class ImageProcessor(Processor):
         :return: The input data object.
         :rtype: nexusformat.nexus.NXdata
         """
-        # System modules
-        from os.path import (
-            isabs,
-            join,
-        )
-
         # Third party modules
         import matplotlib.pyplot as plt
 
@@ -888,8 +880,8 @@ class ImageProcessor(Processor):
             raise ValueError(f'Invalid parameter outputdir ({outputdir})')
         if not isinstance(filename, str):
             raise ValueError(f'Invalid parameter filename ({filename})')
-        if not isabs(filename):
-            filename = join(outputdir, filename)
+        if not os.path.isabs(filename):
+            filename = os.path.join(outputdir, filename)
 
         # Get the default Nexus NXdata object
         data = self.unwrap_pipelinedata(data)[0]
@@ -1223,6 +1215,7 @@ class MapProcessor(Processor):
         """
         # Local modules
         from CHAP.utils.general import string_to_list
+
         if isinstance(detector_names, str):
             try:
                 detector_names = [
@@ -1332,10 +1325,10 @@ class MapProcessor(Processor):
         return nxentry
 
 
-class MPIProcessor(Processor):
+class MPITestProcessor(Processor):
     """A test MPI Processor.
     """
-    def process(self, data):
+    def process(self, data, sub_pipeline={}):
         # Third party modules
         import mpi4py as mpi4py
         from mpi4py import MPI
@@ -1360,7 +1353,153 @@ class MPIProcessor(Processor):
                       'process, i.e., sequentially!')
             print('Your installation supports MPI standard version '
                   f'{version}.{subversion}.')
-        print(f'Done on processor {my_rank} of {size}')
+        print(f'Finished on processor {my_rank} of {size}')
+
+
+class MPIMapProcessor(Processor):
+    """A Processor that applies a parallel generic sub-pipeline to 
+    a map configuration.
+    """
+    def process(self, data, sub_pipeline={}):
+        # System modules
+        from copy import deepcopy
+
+        # Third party modules
+        import mpi4py as mpi4py
+        from mpi4py import MPI
+
+        # Local modules
+        from CHAP.runner import (
+            RunConfig,
+            run,
+        )
+        from CHAP.common.models.map import (
+            SpecScans,
+            SpecConfig,
+        )
+
+        comm_world = MPI.COMM_WORLD
+        proc_id = comm_world.Get_rank()
+        num_proc = comm_world.Get_size()
+
+        # Get map configuration from data
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig')
+
+        # Create the spec reader configuration for each processor
+        spec_scans = map_config.spec_scans[0]
+        scan_numbers = spec_scans.scan_numbers
+        num_scan = len(scan_numbers)
+        scans_per_proc = num_scan//num_proc
+        n_scan = 0
+        for n_proc in range(num_proc):
+            num = scans_per_proc
+            if n_proc == proc_id:
+                if proc_id < num_scan - scans_per_proc*num_proc:
+                    num += 1
+                scan_numbers = scan_numbers[n_scan:n_scan+num]
+            n_scan += num
+        spec_config = {
+            'station': map_config.station,
+            'experiment_type': map_config.experiment_type,
+            'spec_scans': [SpecScans(
+                spec_file=spec_scans.spec_file, scan_numbers=scan_numbers)]}
+
+        # Get RunConfig to use for all subpipelines
+        run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        pipeline = []
+        for item in sub_pipeline['pipeline']:
+            if isinstance(item, dict):
+                for k, v in deepcopy(item).items():
+                    if k.endswith('Reader'):
+                        v['spec_config'] = spec_config
+                        item[k] = v
+            pipeline.append(item)
+
+        run(
+            pipeline, inputdir=run_config.inputdir,
+            outputdir=run_config.outputdir,
+            interactive=run_config.interactive)
+
+        self.logger.debug(f'Done on processor {proc_id} of {num_proc}\n')
+
+class MPISpawnMapProcessor(Processor):
+    """A Processor that applies a parallel generic sub-pipeline to 
+    a map configuration by spawning workers processes.
+    """
+    def process(self, data, num_proc=1, sub_pipeline={}):
+        # System modules
+        from copy import deepcopy
+        from tempfile import NamedTemporaryFile
+
+        # Third party modules
+        try:
+            import mpi4py as mpi4py
+            from mpi4py import MPI
+        except:
+            raise ImportError('Unable to import mpi4py')
+        import yaml
+
+        # Local modules
+        from CHAP.runner import RunConfig
+        from CHAP.common.models.map import (
+            SpecScans,
+            SpecConfig,
+        )
+
+        # Get map configuration from data
+        map_config = self.get_config(
+            data, 'common.models.map.MapConfig')
+
+        # Create the spec reader configuration for each processor
+        spec_scans = map_config.spec_scans[0]
+        scan_numbers = spec_scans.scan_numbers
+        num_scan = len(scan_numbers)
+        scans_per_proc = num_scan//num_proc
+        n_scan = 0
+        spec_config = []
+        for n_proc in range(num_proc):
+            num = scans_per_proc
+            if n_proc < num_scan - scans_per_proc*num_proc:
+                num += 1
+            spec_config.append({
+                'station': map_config.station,
+                'experiment_type': map_config.experiment_type,
+                'spec_scans': [SpecScans(
+                    spec_file=spec_scans.spec_file,
+                    scan_numbers=scan_numbers[n_scan:n_scan+num]).__dict__]})
+            n_scan += num
+
+        # Get RunConfig to use for all subpipelines
+        run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        run_config.spawn = True
+
+        # Spawn the workers to run the subpipelines
+        with NamedTemporaryFile(delete=False) as fp:
+            with open(fp.name, 'w') as f:
+                yaml.dump(
+                    {'config': {'spawn': True}}, f, sort_keys=False)
+            for n_proc in range(num_proc):
+                pipeline = []
+                for item in sub_pipeline['pipeline']:
+                    if isinstance(item, dict):
+                        for k, v in deepcopy(item).items():
+                            if k.endswith('Reader'):
+                                v['spec_config'] = spec_config[n_proc]
+                                item[k] = v
+                    pipeline.append(item)
+                with open(f'{fp.name}_{n_proc}', 'w') as f:
+                    yaml.dump(
+                        {'config': run_config.__dict__, 'pipeline': pipeline},
+                        f, sort_keys=False)
+            comm = MPI.COMM_SELF.Spawn(
+                'CHAP', args=[fp.name], maxprocs=num_proc)
+            common_comm = comm.Merge(False)
+            common_comm.barrier()
+            os.remove(fp.name)
+            for n_proc in range(num_proc):
+                os.remove(f'{fp.name}_{n_proc}')
+            comm.Disconnect()
 
 
 class NexusToNumpyProcessor(Processor):
@@ -1521,7 +1660,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         :returns: Azimuthal integration results as a dictionary of
             numpy arrays.
         """
-        import os
+        # Third party modules
         from pyFAI import load
 
         if not os.path.isabs(poni_file):
@@ -1531,9 +1670,10 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         if mask_file is None:
             mask = None
         else:
+            # Third party modules
+            import fabio
             if not os.path.isabs(mask_file):
                 mask_file = os.path.join(inputdir, mask_file)
-            import fabio
             mask = fabio.open(mask_file).data
 
         try:
@@ -1925,6 +2065,7 @@ class SetupNXdataProcessor(Processor):
         :returns: Validity of `data_point`, message
         :rtype: bool, str
         """
+        # Third party modules
         import numpy as np
 
         valid = True
@@ -1966,6 +2107,7 @@ class SetupNXdataProcessor(Processor):
 
         :returns: None
         """
+        # Third party modules
         from nexusformat.nexus import NXdata, NXfield
         import numpy as np
 
@@ -2067,9 +2209,9 @@ class UpdateNXdataProcessor(Processor):
         :returns: Complete list of data points used to update the dataset.
         :rtype: list[dict[str, object]]
         """
+        # Third party modules
         from nexusformat.nexus import NXFile
         import numpy as np
-        import os
 
         _data_points = self.unwrap_pipelinedata(data)[0]
         if isinstance(_data_points, list):
@@ -2186,6 +2328,7 @@ class NXdataToDataPointsProcessor(Processor):
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
         """
+        # Third party modules
         import numpy as np
 
         nxdata = self.unwrap_pipelinedata(data)[0]

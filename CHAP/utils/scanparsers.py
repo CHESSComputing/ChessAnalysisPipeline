@@ -1494,7 +1494,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             detector_data[i_0:i_f] = element_data
         return detector_data
 
-    def get_detector_data(self, detector, scan_step_index:int):
+    def get_detector_data(self, detector, scan_step_index=None):
         """Return a single MCA spectrum for the detector indicated.
 
         :param detector: If this scan collected MCA data in "spec"
@@ -1509,6 +1509,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         :rtype: numpy.ndarray
         """
         detector_data = self.get_all_detector_data(detector)
+        if scan_step_index is None:
+            return detector_data
         return detector_data[scan_step_index]
 
 @cache
