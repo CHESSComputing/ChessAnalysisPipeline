@@ -164,9 +164,8 @@ class EddMapReader(Reader):
                 scalar_data.append(dim)
 
         # Convert list of scan_numbers to string notation
-        scan_numbers = map_config_dict['spec_scans'][0]['scan_numbers']
-        map_config_dict['spec_scans'][0]['scan_numbers'] = list_to_string(
-            scan_numbers)
+        for scans in map_config_dict['spec_scans']:
+            scans['scan_numbers'] = list_to_string(scans['scan_numbers'])
 
         return map_config_dict
 
