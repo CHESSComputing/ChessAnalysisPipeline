@@ -3175,9 +3175,12 @@ class CreateStrainAnalysisConfigProcessor(Processor):
     def process(self, data, inputdir='.'):
         # Local modules
         from CHAP.common.models.map import MapConfig
+        from CHAP.utils.general import list_to_string
 
         map_config = self.get_config(
             data, 'common.models.map.MapConfig', inputdir=inputdir)
+        for scans in map_config.spec_scans:
+            scans.scan_numbers = list_to_string(scans.scan_numbers)
         config = self.get_config(
             data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         config.map_config = map_config
