@@ -145,12 +145,23 @@ class PipelineItem():
                     os.path.join(inputdir, kwargs['filename']))
         elif hasattr(self, 'process'):
             method_name = 'process'
+            outputdir = kwargs.get('outputdir')
         elif hasattr(self, 'write'):
             method_name = 'write'
             outputdir = kwargs.get('outputdir')
             if outputdir is not None and 'filename' in kwargs:
                 kwargs['filename'] = os.path.realpath(
                     os.path.join(outputdir, kwargs['filename']))
+                try:
+                    # Third party modules
+                    from mpi4py import MPI
+
+                    if MPI.COMM_WORLD.Get_size() > 1:
+                        proc_id = MPI.COMM_WORLD.Get_rank()
+                        r, e = os.path.splitext(kwargs['filename'])
+                        kwargs['filename'] = f'{r}_{proc_id}{e}'
+                except:
+                    pass
         else:
             self.logger.error('No implementation of read, write, or process')
 

@@ -328,13 +328,16 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
+        # System modules
+        import os
+
         # Third party modules
         from nexusformat.nexus import (
             NXentry,
             NXFile,
             NXroot,
         )
-        import os
+
         data = self.unwrap_pipelinedata(data)[-1]
         nxname = data.nxname
         if not os.path.isfile(filename) and nxpath is not None:
@@ -365,7 +368,8 @@ class NexusWriter(Writer):
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in {filename}')
+                    f'{os.path.join(nxpath, nxname)} already exists in '
+                    f'{filename}')
                 if force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '

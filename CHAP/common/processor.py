@@ -1360,12 +1360,11 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, sub_pipeline={}):
+    def process(self, data, outputdir='.', sub_pipeline={}):
         # System modules
         from copy import deepcopy
 
         # Third party modules
-        import mpi4py as mpi4py
         from mpi4py import MPI
 
         # Local modules
@@ -1407,12 +1406,17 @@ class MPIMapProcessor(Processor):
 
         # Get RunConfig to use for all subpipelines
         run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        run_config.outputdir = outputdir
         pipeline = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
                 for k, v in deepcopy(item).items():
                     if k.endswith('Reader'):
                         v['spec_config'] = spec_config
+                        item[k] = v
+                    if num_proc > 1 and k.endswith('Writer'):
+                        r, e = os.path.splitext(v['filename'])
+                        v['filename'] = f'{r}_{proc_id}{e}'
                         item[k] = v
             pipeline.append(item)
 
@@ -1427,14 +1431,13 @@ class MPISpawnMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration by spawning workers processes.
     """
-    def process(self, data, num_proc=1, sub_pipeline={}):
+    def process(self, data, outputdir='.', num_proc=1, sub_pipeline={}):
         # System modules
         from copy import deepcopy
         from tempfile import NamedTemporaryFile
 
         # Third party modules
         try:
-            import mpi4py as mpi4py
             from mpi4py import MPI
         except:
             raise ImportError('Unable to import mpi4py')
@@ -1472,6 +1475,7 @@ class MPISpawnMapProcessor(Processor):
 
         # Get RunConfig to use for all subpipelines
         run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        run_config.outputdir = outputdir
         run_config.spawn = True
 
         # Spawn the workers to run the subpipelines

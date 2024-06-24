@@ -80,7 +80,6 @@ def parser():
 def main():
     """Main function"""
     try:
-        import mpi4py as mpi4py
         from mpi4py import MPI
         have_mpi = True
     except:
@@ -145,7 +144,7 @@ def runner(run_config, pipeline_config):
     run(pipeline_config,
         run_config.inputdir, run_config.outputdir, run_config.interactive,
         logger, run_config.log_level, log_handler)
-    logger.warning(f'Executed "run" in {time()-t0:.3f} seconds')
+    logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
 
 def setLogger(log_level="INFO"):
     """
