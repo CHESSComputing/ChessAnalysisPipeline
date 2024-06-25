@@ -22,7 +22,7 @@ class RunConfig():
             'interactive': False,
             'log_level': 'INFO',
             'profile': False,
-            'spawn': False}
+            'spawn': 0}
 
     def __init__(self, config={}):
         """RunConfig constructor
@@ -96,11 +96,16 @@ def main():
     run_config = RunConfig(config.get('config', {}))
     if have_mpi and run_config.spawn:
         comm = MPI.Comm.Get_parent()
+        common_comm = comm.Merge(True)
         # read worker specific input config file
-        with open(f'{configfile}_{comm.Get_rank()}') as file:
-            config = safe_load(file)
-            run_config = RunConfig(config.get('config', {}))
-        common_comm = comm.Merge(False)
+        if run_config.spawn > 0:
+            with open(f'{configfile}_{common_comm.Get_rank()}') as file:
+                config = safe_load(file)
+                run_config = RunConfig(config.get('config', {}))
+        else:
+            with open(f'{configfile}_{comm.Get_rank()}') as file:
+                config = safe_load(file)
+                run_config = RunConfig(config.get('config', {}))
 
     # Get pipeline configuration
     pipeline_config = config.get('pipeline', [])

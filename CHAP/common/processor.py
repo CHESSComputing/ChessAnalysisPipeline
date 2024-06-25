@@ -1404,10 +1404,10 @@ class MPIMapProcessor(Processor):
             'spec_scans': [SpecScans(
                 spec_file=spec_scans.spec_file, scan_numbers=scan_numbers)]}
 
-        # Get RunConfig to use for all subpipelines
+        # Get RunConfig to use for the sub-pipeline
         run_config = RunConfig(config=sub_pipeline.get('config', {}))
         run_config.outputdir = outputdir
-        pipeline = []
+        pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
                 for k, v in deepcopy(item).items():
@@ -1418,10 +1418,10 @@ class MPIMapProcessor(Processor):
                         r, e = os.path.splitext(v['filename'])
                         v['filename'] = f'{r}_{proc_id}{e}'
                         item[k] = v
-            pipeline.append(item)
+            pipeline_config.append(item)
 
         run(
-            pipeline, inputdir=run_config.inputdir,
+            pipeline_config, inputdir=run_config.inputdir,
             outputdir=run_config.outputdir,
             interactive=run_config.interactive)
 
@@ -1431,7 +1431,9 @@ class MPISpawnMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration by spawning workers processes.
     """
-    def process(self, data, outputdir='.', num_proc=1, sub_pipeline={}):
+    def process(
+            self, data, outputdir=None, num_proc=1, root_as_slave=True,
+            sub_pipeline={}):
         # System modules
         from copy import deepcopy
         from tempfile import NamedTemporaryFile
@@ -1444,7 +1446,10 @@ class MPISpawnMapProcessor(Processor):
         import yaml
 
         # Local modules
-        from CHAP.runner import RunConfig
+        from CHAP.runner import (
+            RunConfig,
+            runner,
+        )
         from CHAP.common.models.map import (
             SpecScans,
             SpecConfig,
@@ -1454,57 +1459,72 @@ class MPISpawnMapProcessor(Processor):
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
 
-        # Create the spec reader configuration for each processor
+        # Get RunConfig to use for the sub-pipeline
+        run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        if outputdir is None:
+            run_config.outputdir = outputdir
+
+        # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
         scans_per_proc = num_scan//num_proc
         n_scan = 0
-        spec_config = []
+        pipeline_config = []
         for n_proc in range(num_proc):
             num = scans_per_proc
             if n_proc < num_scan - scans_per_proc*num_proc:
                 num += 1
-            spec_config.append({
+            spec_config = {
                 'station': map_config.station,
                 'experiment_type': map_config.experiment_type,
                 'spec_scans': [SpecScans(
                     spec_file=spec_scans.spec_file,
-                    scan_numbers=scan_numbers[n_scan:n_scan+num]).__dict__]})
+                    scan_numbers=scan_numbers[n_scan:n_scan+num]).__dict__]}
+            sub_pipeline_config = []
+            for item in deepcopy(sub_pipeline['pipeline']):
+                if isinstance(item, dict):
+                    for k, v in deepcopy(item).items():
+                        if k.endswith('Reader'):
+                            v['spec_config'] = spec_config
+                            item[k] = v
+                sub_pipeline_config.append(item)
+            pipeline_config.append(sub_pipeline_config)
             n_scan += num
 
-        # Get RunConfig to use for all subpipelines
-        run_config = RunConfig(config=sub_pipeline.get('config', {}))
-        run_config.outputdir = outputdir
-        run_config.spawn = True
+        # Optionally include the root node as a slave node
+        if root_as_slave:
+            first_proc = 1
+            run_config.spawn = 1
+        else:
+            first_proc = 0
+            run_config.spawn = -1
 
-        # Spawn the workers to run the subpipelines
-        with NamedTemporaryFile(delete=False) as fp:
-            with open(fp.name, 'w') as f:
-                yaml.dump(
-                    {'config': {'spawn': True}}, f, sort_keys=False)
-            for n_proc in range(num_proc):
-                pipeline = []
-                for item in sub_pipeline['pipeline']:
-                    if isinstance(item, dict):
-                        for k, v in deepcopy(item).items():
-                            if k.endswith('Reader'):
-                                v['spec_config'] = spec_config[n_proc]
-                                item[k] = v
-                    pipeline.append(item)
-                with open(f'{fp.name}_{n_proc}', 'w') as f:
+        # Spawn the workers to run the sub-pipeline
+        if num_proc > first_proc:
+            with NamedTemporaryFile(delete=False) as fp:
+                with open(fp.name, 'w') as f:
                     yaml.dump(
-                        {'config': run_config.__dict__, 'pipeline': pipeline},
-                        f, sort_keys=False)
-            comm = MPI.COMM_SELF.Spawn(
-                'CHAP', args=[fp.name], maxprocs=num_proc)
-            common_comm = comm.Merge(False)
-            common_comm.barrier()
-            os.remove(fp.name)
-            for n_proc in range(num_proc):
-                os.remove(f'{fp.name}_{n_proc}')
-            comm.Disconnect()
+                        {'config': {'spawn': run_config.spawn}}, f,
+                        sort_keys=False)
+                for n_proc in range(first_proc, num_proc):
+                    with open(f'{fp.name}_{n_proc}', 'w') as f:
+                        yaml.dump(
+                            {'config': run_config.__dict__,
+                             'pipeline': pipeline_config[n_proc]},
+                            f, sort_keys=False)
+                comm = MPI.COMM_SELF.Spawn(
+                    'CHAP', args=[fp.name], maxprocs=num_proc-first_proc)
+                common_comm = comm.Merge(False)
+                common_comm.barrier()
+                os.remove(fp.name)
+                for n_proc in range(first_proc, num_proc):
+                    os.remove(f'{fp.name}_{n_proc}')
+                comm.Disconnect()
 
+        # Run the sub-pipeline on the root node
+        if root_as_slave:
+            runner(run_config, pipeline_config[0])
 
 class NexusToNumpyProcessor(Processor):
     """A Processor to convert the default plottable data in a NeXus
