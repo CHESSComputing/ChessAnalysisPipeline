@@ -105,6 +105,8 @@ def write_filetree(data, outputdir, force_overwrite=False):
         raise TypeError('Cannot write object of type'
                         f'{type(data).__name__} as a file tree to disk.')
 
+    # FIX: Right now this can bomb if MultiplePipelineItem
+    # is called simultaneously from multiple nodes in MPI
     if not os_path.isdir(outputdir):
         makedirs(outputdir)
 

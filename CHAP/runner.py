@@ -24,7 +24,7 @@ class RunConfig():
             'profile': False,
             'spawn': 0}
 
-    def __init__(self, config={}):
+    def __init__(self, config={}, comm=None):
         """RunConfig constructor
 
         :param config: Pipeline configuration options
@@ -33,14 +33,20 @@ class RunConfig():
         # System modules
         from tempfile import NamedTemporaryFile
 
+        # Make sure os.makedirs is only called from the root node
+        if comm is None:
+            proc_id = 0
+        else:
+            proc_id = comm.Get_rank()
         for opt in self.opts:
             setattr(self, opt, config.get(opt, self.opts[opt]))
 
         # Check if root exists (create it if not) and is readable
-        if not os.path.isdir(self.root):
-            os.makedirs(self.root)
-        if not os.access(self.root, os.R_OK):
-            raise OSError('root directory is not accessible for reading '
+        if not proc_id:
+            if not os.path.isdir(self.root):
+                os.makedirs(self.root)
+            if not os.access(self.root, os.R_OK):
+                raise OSError('root directory is not accessible for reading '
                           f'({self.root})')
 
         # Check if inputdir exists and is readable
@@ -57,15 +63,20 @@ class RunConfig():
         if not os.path.isabs(self.outputdir):
             self.outputdir = os.path.realpath(
                 os.path.join(self.root, self.outputdir))
-        if not os.path.isdir(self.outputdir):
-            os.makedirs(self.outputdir)
-        try:
-            tmpfile = NamedTemporaryFile(dir=self.outputdir)
-        except:
-            raise OSError('output directory is not accessible for writing '
-                          f'({self.outputdir})')
+        if not proc_id:
+            if not os.path.isdir(self.outputdir):
+                os.makedirs(self.outputdir)
+            try:
+                tmpfile = NamedTemporaryFile(dir=self.outputdir)
+            except:
+                raise OSError('output directory is not accessible for writing '
+                              f'({self.outputdir})')
 
         self.log_level = self.log_level.upper()
+
+        # Make sure os.makedirs completes before continuing all nodes
+        if comm is not None:
+            comm.barrier()
 
 def parser():
     """Return an argument parser for the `CHAP` CLI. This parser has
@@ -79,57 +90,60 @@ def parser():
 
 def main():
     """Main function"""
+    # Third party modules
     try:
         from mpi4py import MPI
         have_mpi = True
+        comm = MPI.COMM_WORLD
     except:
         have_mpi = False
+        comm = None
 
     args = parser().parse_args()
 
-    # read input config file
+    # Read the input config file
     configfile = args.config
     with open(configfile) as file:
         config = safe_load(file)
 
     # Check if run was a worker spawned by another Processor
-    run_config = RunConfig(config.get('config', {}))
+    run_config = RunConfig(config.get('config', {}), comm)
     if have_mpi and run_config.spawn:
-        comm = MPI.Comm.Get_parent()
-        common_comm = comm.Merge(True)
-        # read worker specific input config file
+        sub_comm = MPI.Comm.Get_parent()
+        common_comm = sub_comm.Merge(True)
+        # Read worker specific input config file
         if run_config.spawn > 0:
             with open(f'{configfile}_{common_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config', {}))
+                run_config = RunConfig(config.get('config', {}), common_comm)
         else:
-            with open(f'{configfile}_{comm.Get_rank()}') as file:
+            with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config', {}))
+                run_config = RunConfig(config.get('config', {}), comm)
+    else:
+        common_comm = comm
 
-    # Get pipeline configuration
+    # Get the pipeline configurations
     pipeline_config = config.get('pipeline', [])
 
-    # profiling setup
+    # Profiling setup
     if run_config.profile:
         from cProfile import runctx  # python profiler
         from pstats import Stats     # profiler statistics
-        cmd = 'runner(run_config, pipeline_config)'
+        cmd = 'runner(run_config, pipeline_config, common_comm)'
         runctx(cmd, globals(), locals(), 'profile.dat')
         info = Stats('profile.dat')
         info.sort_stats('cumulative')
         info.print_stats()
     else:
-        runner(run_config, pipeline_config)
+        runner(run_config, pipeline_config, common_comm, 'from main')
 
     # Disconnect the spawned worker
     if have_mpi and run_config.spawn:
-        common_comm.barrier()
-        comm.Disconnect()
+        comm.barrier()
+        sub_comm.Disconnect()
 
-
-
-def runner(run_config, pipeline_config):
+def runner(run_config, pipeline_config, comm=None, source=''):
     """Main runner funtion
 
     :param run_config: CHAP run configuration
@@ -144,11 +158,11 @@ def runner(run_config, pipeline_config):
     logger, log_handler = setLogger(run_config.log_level)
     logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
-    # run pipeline
+    # Run the pipeline
     t0 = time()
     run(pipeline_config,
         run_config.inputdir, run_config.outputdir, run_config.interactive,
-        logger, run_config.log_level, log_handler)
+        logger, run_config.log_level, log_handler, comm=comm, source='from runner')
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
 
 def setLogger(log_level="INFO"):
@@ -168,7 +182,7 @@ def setLogger(log_level="INFO"):
 
 def run(
         pipeline_config, inputdir=None, outputdir=None, interactive=False,
-        logger=None, log_level=None, log_handler=None):
+        logger=None, log_level=None, log_handler=None, comm=None, source=''):
     """
     Run given pipeline_config
 
@@ -177,10 +191,16 @@ def run(
     # System modules
     from tempfile import NamedTemporaryFile
 
+    # Make sure os.makedirs is only called from the root node
+    if comm is None:
+        proc_id = 0
+    else:
+        proc_id = comm.Get_rank()
+
     objects = []
     kwds = []
     for item in pipeline_config:
-        # load individual object with given name from its module
+        # Load individual object with given name from its module
         kwargs = {'inputdir': inputdir,
                   'outputdir': outputdir,
                   'interactive': interactive}
@@ -205,19 +225,20 @@ def run(
                 if 'outputdir' in item_args:
                     newoutputdir = os.path.normpath(os.path.join(
                         kwargs['outputdir'], item_args.pop('outputdir')))
-                    if not os.path.isdir(newoutputdir):
-                        os.makedirs(newoutputdir)
-                    try:
-                        tmpfile = NamedTemporaryFile(dir=newoutputdir)
-                    except:
-                        raise OSError('output directory is not accessible for '
-                                      f'writing ({newoutputdir})')
+                    if not proc_id:
+                        if not os.path.isdir(newoutputdir):
+                            os.makedirs(newoutputdir)
+                        try:
+                            tmpfile = NamedTemporaryFile(dir=newoutputdir)
+                        except:
+                            raise OSError('output directory is not accessible '
+                                          f'for writing ({newoutputdir})')
                     kwargs['outputdir'] = newoutputdir
                 kwargs = {**kwargs, **item_args}
         else:
             name = item
         if "users" in name:
-            # load users module. This is required in CHAPaaS which can
+            # Load users module. This is required in CHAPaaS which can
             # have common area for users module. Otherwise, we will be
             # required to have invidual user's PYTHONPATHs to load user
             # processors.
@@ -251,6 +272,10 @@ def run(
     if logger:
         logger.info(f'Loaded {pipeline} with {len(objects)} items\n')
         logger.info(f'Calling "execute" on {pipeline}')
+
+    # Make sure os.makedirs completes before continuing all nodes
+    if comm is not None:
+        comm.barrier()
     pipeline.execute()
 
 

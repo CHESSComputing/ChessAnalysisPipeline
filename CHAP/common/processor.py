@@ -1333,9 +1333,8 @@ class MPITestProcessor(Processor):
         import mpi4py as mpi4py
         from mpi4py import MPI
 
-        comm_world = MPI.COMM_WORLD
-        my_rank = comm_world.Get_rank()
-        size = comm_world.Get_size()
+        my_rank = MPI.COMM_WORLD.Get_rank()
+        size = MPI.COMM_WORLD.Get_size()
         (version, subversion) = MPI.Get_version()
 
         mpi4py_version = mpi4py.__version__
@@ -1360,7 +1359,7 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, outputdir='.', sub_pipeline={}):
+    def process(self, data, sub_pipeline={}):
         # System modules
         from copy import deepcopy
 
@@ -1377,11 +1376,11 @@ class MPIMapProcessor(Processor):
             SpecConfig,
         )
 
-        comm_world = MPI.COMM_WORLD
-        proc_id = comm_world.Get_rank()
-        num_proc = comm_world.Get_size()
+        comm = MPI.COMM_WORLD
+        proc_id = comm.Get_rank()
+        num_proc = comm.Get_size()
 
-        # Get map configuration from data
+        # Get the map configuration from data
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
 
@@ -1404,9 +1403,8 @@ class MPIMapProcessor(Processor):
             'spec_scans': [SpecScans(
                 spec_file=spec_scans.spec_file, scan_numbers=scan_numbers)]}
 
-        # Get RunConfig to use for the sub-pipeline
-        run_config = RunConfig(config=sub_pipeline.get('config', {}))
-        run_config.outputdir = outputdir
+        # Get the run configuration to use for the sub-pipeline
+        run_config = RunConfig(sub_pipeline.get('config', {}), comm)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -1420,20 +1418,18 @@ class MPIMapProcessor(Processor):
                         item[k] = v
             pipeline_config.append(item)
 
+        # Run the sub-pipeline on each processor
         run(
             pipeline_config, inputdir=run_config.inputdir,
             outputdir=run_config.outputdir,
-            interactive=run_config.interactive)
+            interactive=run_config.interactive, comm=comm, source='from MPIMapProcessor')
 
-        self.logger.debug(f'Done on processor {proc_id} of {num_proc}\n')
 
 class MPISpawnMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration by spawning workers processes.
     """
-    def process(
-            self, data, outputdir=None, num_proc=1, root_as_slave=True,
-            sub_pipeline={}):
+    def process(self, data, num_proc=1, root_as_slave=True, sub_pipeline={}):
         # System modules
         from copy import deepcopy
         from tempfile import NamedTemporaryFile
@@ -1455,14 +1451,12 @@ class MPISpawnMapProcessor(Processor):
             SpecConfig,
         )
 
-        # Get map configuration from data
+        # Get the map configuration from data
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
 
-        # Get RunConfig to use for the sub-pipeline
+        # Get the run configuration to use for the sub-pipeline
         run_config = RunConfig(config=sub_pipeline.get('config', {}))
-        if outputdir is None:
-            run_config.outputdir = outputdir
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -1488,6 +1482,10 @@ class MPISpawnMapProcessor(Processor):
                         if k.endswith('Reader'):
                             v['spec_config'] = spec_config
                             item[k] = v
+                    if num_proc > 1 and k.endswith('Writer'):
+                        r, e = os.path.splitext(v['filename'])
+                        v['filename'] = f'{r}_{n_proc}{e}'
+                        item[k] = v
                 sub_pipeline_config.append(item)
             pipeline_config.append(sub_pipeline_config)
             n_scan += num
@@ -1502,29 +1500,39 @@ class MPISpawnMapProcessor(Processor):
 
         # Spawn the workers to run the sub-pipeline
         if num_proc > first_proc:
+            tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
-                with open(fp.name, 'w') as f:
-                    yaml.dump(
+                fp_name = fp.name
+                tmp_names.append(fp_name)
+                with open(fp_name, 'w') as f:
+                    yaml.dump(#root_as_slave:
                         {'config': {'spawn': run_config.spawn}}, f,
                         sort_keys=False)
                 for n_proc in range(first_proc, num_proc):
-                    with open(f'{fp.name}_{n_proc}', 'w') as f:
+                    f_name = f'{fp_name}_{n_proc}'
+                    tmp_names.append(f_name)
+                    with open(f_name, 'w') as f:
                         yaml.dump(
                             {'config': run_config.__dict__,
                              'pipeline': pipeline_config[n_proc]},
                             f, sort_keys=False)
-                comm = MPI.COMM_SELF.Spawn(
-                    'CHAP', args=[fp.name], maxprocs=num_proc-first_proc)
-                common_comm = comm.Merge(False)
-                common_comm.barrier()
-                os.remove(fp.name)
-                for n_proc in range(first_proc, num_proc):
-                    os.remove(f'{fp.name}_{n_proc}')
-                comm.Disconnect()
+                sub_comm = MPI.COMM_SELF.Spawn(
+                    'CHAP', args=[fp_name], maxprocs=num_proc-first_proc)
+                common_comm = sub_comm.Merge(False)
+        else:
+            common_comm = None
 
         # Run the sub-pipeline on the root node
         if root_as_slave:
-            runner(run_config, pipeline_config[0])
+            runner(run_config, pipeline_config[0], common_comm, 'from MPISpawnMapProcessor')
+
+        # Disconnect spawned workers and cleanup temporary files
+        if num_proc > first_proc:
+            common_comm.barrier()
+            sub_comm.Disconnect()
+            for tmp_name in tmp_names:
+                os.remove(tmp_name)
+
 
 class NexusToNumpyProcessor(Processor):
     """A Processor to convert the default plottable data in a NeXus
