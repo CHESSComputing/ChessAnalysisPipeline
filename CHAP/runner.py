@@ -35,14 +35,14 @@ class RunConfig():
 
         # Make sure os.makedirs is only called from the root node
         if comm is None:
-            proc_id = 0
+            rank = 0
         else:
-            proc_id = comm.Get_rank()
+            rank = comm.Get_rank()
         for opt in self.opts:
             setattr(self, opt, config.get(opt, self.opts[opt]))
 
         # Check if root exists (create it if not) and is readable
-        if not proc_id:
+        if not rank:
             if not os.path.isdir(self.root):
                 os.makedirs(self.root)
             if not os.access(self.root, os.R_OK):
@@ -63,7 +63,7 @@ class RunConfig():
         if not os.path.isabs(self.outputdir):
             self.outputdir = os.path.realpath(
                 os.path.join(self.root, self.outputdir))
-        if not proc_id:
+        if not rank:
             if not os.path.isdir(self.outputdir):
                 os.makedirs(self.outputdir)
             try:
@@ -136,14 +136,14 @@ def main():
         info.sort_stats('cumulative')
         info.print_stats()
     else:
-        runner(run_config, pipeline_config, common_comm, 'from main')
+        runner(run_config, pipeline_config, common_comm)
 
     # Disconnect the spawned worker
     if have_mpi and run_config.spawn:
-        comm.barrier()
+        common_comm.barrier()
         sub_comm.Disconnect()
 
-def runner(run_config, pipeline_config, comm=None, source=''):
+def runner(run_config, pipeline_config, comm=None):
     """Main runner funtion
 
     :param run_config: CHAP run configuration
@@ -160,10 +160,11 @@ def runner(run_config, pipeline_config, comm=None, source=''):
 
     # Run the pipeline
     t0 = time()
-    run(pipeline_config,
+    data = run(pipeline_config,
         run_config.inputdir, run_config.outputdir, run_config.interactive,
-        logger, run_config.log_level, log_handler, comm=comm, source='from runner')
+        logger, run_config.log_level, log_handler, comm)
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
+    return data
 
 def setLogger(log_level="INFO"):
     """
@@ -182,7 +183,7 @@ def setLogger(log_level="INFO"):
 
 def run(
         pipeline_config, inputdir=None, outputdir=None, interactive=False,
-        logger=None, log_level=None, log_handler=None, comm=None, source=''):
+        logger=None, log_level=None, log_handler=None, comm=None):
     """
     Run given pipeline_config
 
@@ -193,9 +194,9 @@ def run(
 
     # Make sure os.makedirs is only called from the root node
     if comm is None:
-        proc_id = 0
+        rank = 0
     else:
-        proc_id = comm.Get_rank()
+        rank = comm.Get_rank()
 
     objects = []
     kwds = []
@@ -203,7 +204,8 @@ def run(
         # Load individual object with given name from its module
         kwargs = {'inputdir': inputdir,
                   'outputdir': outputdir,
-                  'interactive': interactive}
+                  'interactive': interactive,
+                  'comm': comm}
         if isinstance(item, dict):
             name = list(item.keys())[0]
             item_args = item[name]
@@ -225,7 +227,7 @@ def run(
                 if 'outputdir' in item_args:
                     newoutputdir = os.path.normpath(os.path.join(
                         kwargs['outputdir'], item_args.pop('outputdir')))
-                    if not proc_id:
+                    if not rank:
                         if not os.path.isdir(newoutputdir):
                             os.makedirs(newoutputdir)
                         try:
@@ -276,7 +278,7 @@ def run(
     # Make sure os.makedirs completes before continuing all nodes
     if comm is not None:
         comm.barrier()
-    pipeline.execute()
+    return pipeline.execute()[0]['data']
 
 
 if __name__ == '__main__':

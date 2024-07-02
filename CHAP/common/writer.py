@@ -335,17 +335,21 @@ class NexusWriter(Writer):
 
         # Third party modules
         from nexusformat.nexus import (
-            NXentry,
             NXFile,
+            NXentry,
+            NXobject,
             NXroot,
         )
 
         data = self.unwrap_pipelinedata(data)[-1]
+        if not isinstance(data, NXobject):
+            return data
+
         nxname = data.nxname
         if not os.path.isfile(filename) and nxpath is not None:
             self.logger.warning(
-                f'{filename} does not yet exist. Argument for nxpath ({nxpath}) '
-                + 'will be ignored.')
+                f'{filename} does not yet exist. Argument for nxpath '
+                '({nxpath}) will be ignored.')
             nxpath = None
         if nxpath is None:
             nxclass = data.nxclass

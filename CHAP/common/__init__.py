@@ -27,6 +27,7 @@ from CHAP.common.processor import (
     IntegrationProcessor,
     IntegrateMapProcessor,
     MapProcessor,
+    MPICollectProcessor,
     MPIMapProcessor,
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
@@ -40,6 +41,7 @@ from CHAP.common.processor import (
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
+    SumProcessor,
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,

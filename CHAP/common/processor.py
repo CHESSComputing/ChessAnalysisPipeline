@@ -1355,6 +1355,33 @@ class MPITestProcessor(Processor):
         print(f'Finished on processor {my_rank} of {size}')
 
 
+class MPICollectProcessor(Processor):
+    """A Processor that collects the distributed worker data from
+    MPIMapProcessor on the root node
+    """
+    def process(self, data, comm, root_as_worker=True):
+        # Third party modules
+        from mpi4py import MPI
+
+        num_proc = comm.Get_size()
+        rank = comm.Get_rank()
+        if root_as_worker:
+            data = self.unwrap_pipelinedata(data)[-1]
+            if num_proc > 1:
+                data = comm.gather(data, root=0)
+        else:
+            for n_worker in range(1, num_proc):
+                if rank == n_worker:
+                    comm.send(self.unwrap_pipelinedata(data)[-1], dest=0)
+                    data = None
+                elif not rank:
+                    if n_worker == 1:
+                        data = [comm.recv(source=n_worker)]
+                    else:
+                        data.append(comm.recv(source=n_worker))
+        return data
+
+
 class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
@@ -1377,8 +1404,8 @@ class MPIMapProcessor(Processor):
         )
 
         comm = MPI.COMM_WORLD
-        proc_id = comm.Get_rank()
         num_proc = comm.Get_size()
+        rank = comm.Get_rank()
 
         # Get the map configuration from data
         map_config = self.get_config(
@@ -1392,8 +1419,8 @@ class MPIMapProcessor(Processor):
         n_scan = 0
         for n_proc in range(num_proc):
             num = scans_per_proc
-            if n_proc == proc_id:
-                if proc_id < num_scan - scans_per_proc*num_proc:
+            if n_proc == rank:
+                if rank < num_scan - scans_per_proc*num_proc:
                     num += 1
                 scan_numbers = scan_numbers[n_scan:n_scan+num]
             n_scan += num
@@ -1414,22 +1441,24 @@ class MPIMapProcessor(Processor):
                         item[k] = v
                     if num_proc > 1 and k.endswith('Writer'):
                         r, e = os.path.splitext(v['filename'])
-                        v['filename'] = f'{r}_{proc_id}{e}'
+                        v['filename'] = f'{r}_{rank}{e}'
                         item[k] = v
             pipeline_config.append(item)
 
         # Run the sub-pipeline on each processor
-        run(
+        return run(
             pipeline_config, inputdir=run_config.inputdir,
             outputdir=run_config.outputdir,
-            interactive=run_config.interactive, comm=comm, source='from MPIMapProcessor')
+            interactive=run_config.interactive, comm=comm)
 
 
 class MPISpawnMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration by spawning workers processes.
     """
-    def process(self, data, num_proc=1, root_as_slave=True, sub_pipeline={}):
+    def process(
+            self, data, num_proc=1, root_as_worker=True, collect_on_root=True,
+            sub_pipeline={}):
         # System modules
         from copy import deepcopy
         from tempfile import NamedTemporaryFile
@@ -1487,11 +1516,15 @@ class MPISpawnMapProcessor(Processor):
                         v['filename'] = f'{r}_{n_proc}{e}'
                         item[k] = v
                 sub_pipeline_config.append(item)
+            if collect_on_root and (not root_as_worker or num_proc > 1):
+                sub_pipeline_config += [
+                    {'common.MPICollectProcessor': {
+                        'root_as_worker': root_as_worker}}]
             pipeline_config.append(sub_pipeline_config)
             n_scan += num
 
-        # Optionally include the root node as a slave node
-        if root_as_slave:
+        # Optionally include the root node as a worker node
+        if root_as_worker:
             first_proc = 1
             run_config.spawn = 1
         else:
@@ -1505,7 +1538,7 @@ class MPISpawnMapProcessor(Processor):
                 fp_name = fp.name
                 tmp_names.append(fp_name)
                 with open(fp_name, 'w') as f:
-                    yaml.dump(#root_as_slave:
+                    yaml.dump(
                         {'config': {'spawn': run_config.spawn}}, f,
                         sort_keys=False)
                 for n_proc in range(first_proc, num_proc):
@@ -1519,12 +1552,26 @@ class MPISpawnMapProcessor(Processor):
                 sub_comm = MPI.COMM_SELF.Spawn(
                     'CHAP', args=[fp_name], maxprocs=num_proc-first_proc)
                 common_comm = sub_comm.Merge(False)
+                if run_config.spawn > 0:
+                    # Align with the barrier in RunConfig() on common_comm
+                    # called from the spawned main()
+                    common_comm.barrier()
         else:
             common_comm = None
 
         # Run the sub-pipeline on the root node
-        if root_as_slave:
-            runner(run_config, pipeline_config[0], common_comm, 'from MPISpawnMapProcessor')
+        if root_as_worker:
+            data = runner(run_config, pipeline_config[0], common_comm)
+        elif collect_on_root:
+            run_config.spawn = False
+            pipeline_config = [{'common.MPICollectProcessor': {
+                 'root_as_worker': root_as_worker}}]
+            data = runner(run_config, pipeline_config, common_comm)
+        else:
+            # Align with the barrier in run() on common_comm
+            # called from the spawned main()
+            common_comm.barrier()
+            data = None
 
         # Disconnect spawned workers and cleanup temporary files
         if num_proc > first_proc:
@@ -1532,6 +1579,8 @@ class MPISpawnMapProcessor(Processor):
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
+
+        return data
 
 
 class NexusToNumpyProcessor(Processor):
@@ -2438,3 +2487,30 @@ if __name__ == '__main__':
     from CHAP.processor import main
 
     main()
+
+
+class SumProcessor(Processor):
+    """A Processor to sum the data in an NXobject, given a set of
+    nxpaths
+    """
+    def process(self, data):
+        """Return the summed data array
+
+        :param data:
+        :type data:
+        :return: The summed data.
+        :rtype: numpy.ndarray
+        """
+        from copy import deepcopy
+
+        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
+        if len(nxpaths) == 1:
+            return nxentry[nxpaths[0]]
+        sum_data = deepcopy(nxentry[nxpaths[0]])
+        for nxpath in nxpaths[1:]:
+            nxdata = nxentry[nxpath]
+            for entry in nxdata.entries:
+                sum_data[entry] += nxdata[entry]
+
+        return sum_data
+

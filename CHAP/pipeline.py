@@ -42,8 +42,9 @@ class Pipeline():
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
                 data = item.execute(data=data, **kwargs)
-
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
+
+        return data
 
 
 class PipelineData(dict):
