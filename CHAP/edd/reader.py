@@ -1,14 +1,22 @@
 #!/usr/bin/env python
-from CHAP.reader import Reader
 
+# System modules
+import os
+
+# Third party modules
+import numpy as np
+
+# Local modules
+from CHAP.reader import Reader
 
 class EddMapReader(Reader):
     """Reader for taking an EDD-style .par file and returning a
     `MapConfig` representing one of the datasets in the
     file. Independent dimensions are determined automatically, and a
     specific set of items to use for extra scalar datasets to include
-    are hard-coded in."""
-    def read(self, parfile, dataset_id):
+    are hard-coded in. The raw data is read if detector_names are
+    specified."""
+    def read(self, parfile, dataset_id, detector_names=None):
         """Return a validated `MapConfig` object representing an EDD
         dataset.
 
@@ -18,12 +26,196 @@ class EddMapReader(Reader):
         :param dataset_id: Number of the dataset in the .par file
             to return as a map.
         :type dataset_id: int
+        :param detector_names: Detector prefixes for the raw data.
+        :type detector_names: list[str], optional
         :returns: Map configuration packaged with the appropriate
             value for 'schema'.
         :rtype: PipelineData
         """
+        # Local modules
+        from CHAP.common.models.map import MapConfig
+        from CHAP.pipeline import PipelineData
+        from CHAP.utils.general import list_to_string
+        from CHAP.utils.parfile import ParFile
+        from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+
+        if detector_names is not None:
+            assert is_str_series(detector_names, raise_error=True)
+
+        parfile = ParFile(parfile)
+        self.logger.debug(f'spec_file: {parfile.spec_file}')
+
+        # Get list of scan numbers for the dataset
+        dataset_ids = np.asarray(parfile.get_values('dataset_id'))
+        dataset_rows_i = np.argwhere(
+            np.where(
+                np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
+        scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i\
+                    if parfile.data[i][parfile.scann_i] in \
+                        parfile.good_scan_numbers()]
+        self.logger.debug(f'Scan numbers: {scan_nos}')
+        spec_scans = [dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)]
+
+        # Get scan type for this dataset
+        scan_types = parfile.get_values('scan_type', scan_numbers=scan_nos)
+        if any([st != scan_types[0] for st in scan_types]):
+            msg = 'Only one scan type per dataset is suported.'
+            self.logger.error(msg)
+            raise Exception(msg)
+        scan_type = scan_types[0]
+        self.logger.debug(f'Scan type: {scan_type}')
+
+        # Based on scan type, get independent_dimensions for the map
+        # Start by adding labx, laby, labz, and omega. Any "extra"
+        # dimensions will be sqeezed out of the map later.
+        independent_dimensions = [
+            dict(label='labx', units='mm', data_type='smb_par',
+                 name='labx'),
+            dict(label='laby', units='mm', data_type='smb_par',
+                 name='laby'),
+            dict(label='labz', units='mm', data_type='smb_par',
+                 name='labz'),
+            dict(label='ometotal', units='degrees', data_type='smb_par',
+                 name='ometotal')
+        ]
+        scalar_data = []
+        attrs = {}
+        if scan_type != 0:
+            self.logger.warning(
+                'Assuming all fly axes parameters are identical for all scans')
+            attrs['fly_axis_labels'] = []
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
+            axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
+            axes_added = []
+            scanparser = ScanParser(parfile.spec_file, scan_nos[0])
+            def add_fly_axis(fly_axis_index):
+                if fly_axis_index in axes_added:
+                    return
+                fly_axis_key = scanparser.pars[f'fly_axis{fly_axis_index}']
+                independent_dimensions.append(dict(
+                    label=axes_labels[fly_axis_key],
+                    data_type='spec_motor',
+                    units=axes_units[fly_axis_key],
+                    name=scanparser.spec_scan_motor_mnes[fly_axis_index]))
+                axes_added.append(fly_axis_index)
+                attrs['fly_axis_labels'].append(axes_labels[fly_axis_key])
+            add_fly_axis(0)
+            if scan_type in (2, 3, 5):
+                add_fly_axis(1)
+            if scan_type == 5:
+                scalar_data.append(dict(
+                    label='bin_axis', units='n/a', data_type='smb_par',
+                    name='bin_axis'))
+                attrs['bin_axis_label'] = axes_labels[
+                    scanparser.pars['bin_axis']].replace('fly_', '')
+
+        # Add in the usual extra scalar data maps for EDD
+        scalar_data.extend([
+            dict(label='SCAN_N', units='n/a', data_type='smb_par',
+                 name='SCAN_N'),
+            dict(label='rsgap_size', units='mm', data_type='smb_par',
+                 name='rsgap_size'),
+            dict(label='x_effective', units='mm', data_type='smb_par',
+                 name='x_effective'),
+            dict(label='z_effective', units='mm', data_type='smb_par',
+                 name='z_effective'),
+        ])
+
+        # Construct initial map config dictionary
+        scanparser = ScanParser(parfile.spec_file, scan_nos[0])
+        map_config_dict = dict(
+            title=f'{scanparser.scan_name}_dataset{dataset_id}',
+            station='id1a3',
+            experiment_type='EDD',
+            sample=dict(name=scanparser.scan_name),
+            spec_scans=[
+                dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)],
+            independent_dimensions=independent_dimensions,
+            scalar_data=scalar_data,
+            presample_intensity=dict(name='a3ic1', data_type='scan_column'),
+            postsample_intensity=dict(name='diode', data_type='scan_column'),
+            dwell_time_actual=dict(name='sec', data_type='scan_column'),
+            attrs=attrs,
+        )
+        map_config = MapConfig(**map_config_dict)
+
+        # Squeeze out extraneous independent dimensions (dimensions
+        # along which data were taken at only one unique coordinate
+        # value)
+        while 1 in map_config.shape:
+            remove_dim_index = map_config.shape.index(1)
+            self.logger.debug(
+                'Map dimensions: '
+                + str([dim["label"] for dim in independent_dimensions]))
+            self.logger.debug(f'Map shape: {map_config.shape}')
+            self.logger.debug(
+                'Sqeezing out independent dimension '
+                + independent_dimensions[remove_dim_index]['label'])
+            independent_dimensions.pop(remove_dim_index)
+            map_config = MapConfig(**map_config_dict)
+        self.logger.debug(f'Map coords: {map_config.coords}')
+        self.logger.debug(f'Map dimensions: {map_config.dims}')
+        self.logger.debug(f'Map shape: {map_config.shape}')
+
+        # Add lab coordinates to the map's scalar_data only if they
+        # are NOT already one of the sqeezed map's
+        # independent_dimensions.
+        lab_dims = [
+            dict(label='labx', units='mm', data_type='smb_par', name='labx'),
+            dict(label='laby', units='mm', data_type='smb_par', name='laby'),
+            dict(label='labz', units='mm', data_type='smb_par', name='labz'),
+            dict(label='ometotal', units='degrees', data_type='smb_par',
+                 name='ometotal')
+        ]
+        for dim in lab_dims:
+            if dim not in independent_dimensions:
+                scalar_data.append(dim)
+
+        # Convert list of scan_numbers to string notation
+        scan_numbers = map_config_dict['spec_scans'][0]['scan_numbers']
+        map_config_dict['spec_scans'][0]['scan_numbers'] = list_to_string(
+            scan_numbers)
+
+        # For now overrule the map type to be always unstructured
+        # Later take out the option of structured entirely from
+        # MapConfig
+        map_config_dict['map_type'] = 'unstructured'
+
+        return map_config_dict
+
+
+class EddMPIMapReader(Reader):
+    """Reader for taking an EDD-style .par file and returning a
+    representing one of the datasets in the file as a NeXus NXentry
+    object. Independent dimensions are determined automatically, and a
+    specific set of items to use for extra scalar datasets to include
+    are hard-coded in."""
+    def read(self, parfile, dataset_id, detector_names):
+        """Return a NeXus NXentry object after validating the
+        `MapConfig` object representing an EDD dataset.
+
+        :param parfile: Name of the EDD-style .par file containing the
+            dataset.
+        :type parfile: str
+        :param dataset_id: Number of the dataset in the .par file
+            to return as a map.
+        :type dataset_id: int
+        :param detector_names: Detector prefixes for the raw data.
+        :type detector_names: list[str]
+        :returns: The EDD map including the raw data packaged with the
+            appropriate value for 'schema'.
+        :rtype: PipelineData
+        """
         # Third party modules
-        import numpy as np
+        from json import dumps
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
 
         # Local modules
         from CHAP.common.models.map import MapConfig
@@ -31,6 +223,8 @@ class EddMapReader(Reader):
         from CHAP.utils.general import list_to_string
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+
+        assert is_str_series(detector_names, raise_error=True)
 
         parfile = ParFile(parfile)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
@@ -134,7 +328,7 @@ class EddMapReader(Reader):
         # along which data were taken at only one unique coordinate
         # value)
         while 1 in map_config.shape:
-            remove_dim_index = map_config.shape[::-1].index(1)
+            remove_dim_index = map_config.shape.index(1)
             self.logger.debug(
                 'Map dimensions: '
                 + str([dim["label"] for dim in independent_dimensions]))
@@ -163,10 +357,67 @@ class EddMapReader(Reader):
             if dim not in independent_dimensions:
                 scalar_data.append(dim)
 
-        # Convert list of scan_numbers to string notation
-        scan_numbers = map_config_dict['spec_scans'][0]['scan_numbers']
-        map_config_dict['spec_scans'][0]['scan_numbers'] = list_to_string(
-            scan_numbers)
+        print(f'\n\nmap_config {type(map_config)}:\n{map_config}')
+
+        # Set up NXentry and add misc. CHESS-specific metadata
+        nxentry = NXentry(name=map_config.title)
+        nxentry.attrs['station'] = map_config.station
+        nxentry.map_config = dumps(map_config.dict())
+        nxentry.spec_scans = NXcollection()
+        for scans in map_config.spec_scans:
+            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
+                NXfield(value=scans.scan_numbers,
+                        attrs={'spec_file': str(scans.spec_file)})
+
+        # Add sample metadata
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.dict())
+
+        # Set up default data group
+        nxentry.data = NXdata()
+        independent_dimensions = map_config.independent_dimensions
+        for dim in independent_dimensions:
+            nxentry.data[dim.label] = NXfield(
+                units=dim.units,
+                attrs={'long_name': f'{dim.label} ({dim.units})',
+                       'data_type': dim.data_type,
+                       'local_name': dim.name})
+        print(f'\n\nnxentry.data:\n{nxentry.data.tree}\n\n')
+
+        # Check for fly axes:
+        print('independent dimensions:')
+        for dim in independent_dimensions:
+            print(f'\t{dim.name} {dim.label}')
+        if 'fly_axis_labels' in map_config.attrs:
+            print(f'\n\nfly_axis_labels: {map_config.attrs["fly_axis_labels"]}\n\n')
+
+        # Read the raw data and independent dimensions
+        data = [[] for _ in detector_names]
+        dims = [[] for _ in independent_dimensions]
+        for scans in map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                scanparser = scans.get_scanparser(scan_number)
+                print(f'\n\nscanparser: {scanparser}')
+                print(f'scanparser.spec_scan_motor_mnes: {scanparser.spec_scan_motor_mnes}')
+                print(f'scanparser.spec_scan_shape: {scanparser.spec_scan_shape}')
+                for i, detector_name in enumerate(detector_names):
+                    if isinstance(detector_name, int):
+                        detector_name = str(detector_name)
+                    ddata = scanparser.get_detector_data(detector_name)
+                    data[i].append(ddata)
+                    print(f'ddata.shape: {np.asarray(ddata).shape}')
+                    print(f'data[{i}].shape: {np.asarray(data[i]).shape}')
+                for i, dim in enumerate(independent_dimensions):
+                    print(f'get_value scan {scan_number}: {dim.name} {dim.label} {dim.get_value(scans, scan_number, scan_step_index=-1, relative=False)}')
+                    dims[i].append(dim.get_value(scans, scan_number, scan_step_index=-1, relative=True))
+#                exit('done')
+        print(f'\n\ndata:\n{np.asarray(data).shape}')
+        #print(f'\n\ndims:\n{dims}')
+        print(f'\n\nlen(dims): {len(dims)}')
+        for i, dim in enumerate(independent_dimensions):
+            print(f'\tlen(dims[{i}]) {dim.name} {dim.label}: {len(dims[i])}')
+        exit('done')
+
 
         return map_config_dict
 
@@ -184,6 +435,7 @@ class ScanToMapReader(Reader):
         :returns: Map configuration dictionary
         :rtype: dict
         """
+        # Local modules
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
 
         scanparser = ScanParser(spec_file, scan_number)
@@ -285,8 +537,6 @@ class SetupNXdataReader(Reader):
 
         # For scan type 5 only:
         # 21: bin axis
-
-        import numpy as np
 
         # Parse dataset from the input .txt file.
         with open(filename) as inf:
@@ -478,7 +728,7 @@ class UpdateNXdataReader(Reader):
             `common.UpdateNXdataProcessor`.
         :rtype: list[dict[str, object]]
         """
-        import os
+        # Local modules
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
         from CHAP.utils.parfile import ParFile
 
@@ -591,11 +841,10 @@ class NXdataSliceReader(Reader):
             specified spec scan.
         :rtype: nexusformat.nexus.NXdata
         """
-        import os
-
+        # Third party modules
         from nexusformat.nexus import nxload
-        import numpy as np
 
+        # Local modules
         from CHAP.common import NXdataReader
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser

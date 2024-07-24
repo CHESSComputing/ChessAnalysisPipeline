@@ -401,7 +401,7 @@ class PointByPointScanData(BaseModel):
             return get_smb_par_value(spec_scans.spec_file,
                                      scan_number,
                                      self.name)
-        elif self.data_type == 'expression':
+        if self.data_type == 'expression':
             return get_expression_value(spec_scans,
                                         scan_number,
                                         scan_step_index,
@@ -957,6 +957,10 @@ class MapConfig(BaseModel):
         :return: The validated value for map_type.
         :rtype: str
         """
+        # For now overrule the map type to be always unstructured
+        # Later take out the option of structured entirely from
+        # MapConfig
+        return 'unstructured'
         dims = {}
         values = info.data
         attrs = values.get('attrs', {})
@@ -1003,6 +1007,7 @@ class MapConfig(BaseModel):
                             dim.get_value(scans, scan_number, scan_step_index,
                                           scalar_data))
                         for dim in independent_dimensions])] += 1
+
         if any(True for v in coords.flatten() if v == 0 or v > 1):
             return 'unstructured'
         else:
@@ -1083,8 +1088,7 @@ class MapConfig(BaseModel):
         map.
         """
         if not hasattr(self, '_dims'):
-            self._dims = [
-                dim.label for dim in self.independent_dimensions[::-1]]
+            self._dims = [dim.label for dim in self.independent_dimensions]
         return self._dims
 
     @property
@@ -1111,8 +1115,7 @@ class MapConfig(BaseModel):
         """
         if not hasattr(self, '_shape'):
             if self.map_type == 'structured':
-                self._shape = tuple(
-                    [len(v) for k, v in self.coords.items()][::-1])
+                self._shape = tuple([len(v) for k, v in self.coords.items()])
             else:
                 self._shape =  (len(self.scan_step_indices),) 
         return self._shape

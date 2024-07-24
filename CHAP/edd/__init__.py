@@ -2,6 +2,7 @@
 processing workflows.
 """
 from CHAP.edd.reader import (EddMapReader,
+                             EddMPIMapReader,
                              ScanToMapReader,
                              SetupNXdataReader,
                              UpdateNXdataReader,

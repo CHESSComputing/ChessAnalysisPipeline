@@ -168,7 +168,7 @@ class MapReader(Reader):
         nxentry.data = NXdata()
         if map_config.map_type == 'structured':
             nxentry.data.attrs['axes'] = map_config.dims
-        for i, dim in enumerate(map_config.independent_dimensions[::-1]):
+        for i, dim in enumerate(map_config.independent_dimensions):
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
                 units=dim.units,

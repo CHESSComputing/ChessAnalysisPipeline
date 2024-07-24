@@ -186,9 +186,9 @@ class TomoSimConfig(BaseModel):
     :type beam_intensity: float, optional
     :ivar background_intensity: Background intensity in counts,
         defaults to 20.
-    :type background_intensity:: float, optional
+    :type background_intensity: float, optional
     :ivar slit_size: Vertical beam height in mm, defaults to 1.0.
-    :type slit_size:: float, optional
+    :type slit_size: float, optional
     """
     station: Literal['id1a3', 'id3a', 'id3b']
     detector: Detector.model_construct()

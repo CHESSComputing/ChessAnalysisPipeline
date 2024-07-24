@@ -243,9 +243,12 @@ class ScanParser:
 
         :rtype: dict[str,str]
         """
-        positioner_values = dict(self.spec_scan.motor_positions)
-        names = list(positioner_values.keys())
-        mnemonics = self.spec_scan.motors
+        try:
+            positioner_values = dict(self.spec_scan.motor_positions)
+            names = list(positioner_values.keys())
+            mnemonics = self.spec_scan.motors
+        except Exception as e:
+            raise ValueError(f'Error {e}')
         if mnemonics is not None:
             for name,mnemonic in zip(names,mnemonics):
                 if name != mnemonic:
@@ -591,7 +594,9 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_motor_mnes(self):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             m1_mne = self.spec_args[0]
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -611,9 +616,12 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_motor_vals(self, relative=False):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
             m1_npt = int(self.spec_args[3]) + 1
+            fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -629,7 +637,6 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             m2_start = float(self.spec_args[m2_start_i])
             m2_end = float(self.spec_args[m2_end_i])
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
-            fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
             if relative:
                 fast_mot_vals -= self.get_spec_positioner_value(
@@ -652,7 +659,9 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
 
     def get_spec_scan_shape(self):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             fast_mot_npts = int(self.spec_args[3]) + 1
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -664,7 +673,7 @@ class FMBLinearScanParser(LinearScanParser, FMBScanParser):
             slow_mot_npts = int(self.spec_args[m2_nint_i]) + 1
             return (fast_mot_npts, slow_mot_npts)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
-            mot_npts = int(self.spec_args[3])+1
+            mot_npts = int(self.spec_args[3]) + 1
             return (mot_npts,)
         if self.spec_macro in ('tseries', 'loopscan'):
             return (len(np.array(self.spec_scan.data[:,0])),)
@@ -831,7 +840,9 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
 
     def get_spec_scan_motor_mnes(self):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             m1_mne = self.spec_args[0]
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -851,9 +862,12 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
 
     def get_spec_scan_motor_vals(self, relative=False):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             m1_start = float(self.spec_args[1])
             m1_end = float(self.spec_args[2])
             m1_npt = int(self.spec_args[3]) + 1
+            fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -869,13 +883,12 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
             m2_start = float(self.spec_args[m2_start_i])
             m2_end = float(self.spec_args[m2_end_i])
             m2_npt = int(self.spec_args[m2_nint_i]) + 1
-            fast_mot_vals = np.linspace(m1_start, m1_end, m1_npt)
             slow_mot_vals = np.linspace(m2_start, m2_end, m2_npt)
             if relative:
-                fast_mot_vals -= self.spec_positioner_values[
-                    self.spec_scan_motor_mnes[0]]
-                slow_mot_vals -= self.spec_positioner_values[
-                    self.spec_scan_motor_mnes[1]]
+                fast_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[0]])
+                slow_mot_vals -= float(self.spec_positioner_values[
+                    self.spec_scan_motor_mnes[1]])
             return (fast_mot_vals, slow_mot_vals)
         if self.spec_macro in ('flyscan', 'ascan', 'flydscan', 'dscan'):
             mot_vals = np.linspace(float(self.spec_args[1]),
@@ -892,7 +905,9 @@ class SMBLinearScanParser(LinearScanParser, SMBScanParser):
 
     def get_spec_scan_shape(self):
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             fast_mot_npts = int(self.spec_args[3]) + 1
+            # Slow motor
             try:
                 # Try post-summer-2022 format
                 dwell = float(self.spec_args[4])
@@ -993,17 +1008,17 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
         if hasattr(self, '_rams4_args'):
             spec_scan_data['theta'] = np.linspace(
                 float(self._rams4_args[0]), float(self._rams4_args[1]),
-                1+int(self._rams4_args[2]))
+                int(self._rams4_args[2]) + 1)
         return spec_scan_data
 
     def get_spec_scan_npts(self):
         if hasattr(self, '_rams4_args'):
-            return 1+int(self._rams4_args[2])
+            return int(self._rams4_args[2]) + 1
         if self.spec_macro == 'flyscan':
             if len(self.spec_args) == 2:
-                return 1+int(self.spec_args[0])
+                return int(self.spec_args[0]) + 1
             if len(self.spec_args) == 5:
-                return 1+int(self.spec_args[3])
+                return int(self.spec_args[3]) + 1
             raise RuntimeError(f'{self.scan_title}: cannot obtain number of '
                                f'points from {self.spec_macro} with arguments '
                                f'{self.spec_args}')
@@ -1285,9 +1300,11 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             return super().get_spec_scan_motor_vals(relative=True)
             # raise NotImplementedError('Only relative motor values are available.')
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
+            # Fast motor
             mot_vals_axis0 = np.linspace(self.pars['fly_axis0_start'],
                                          self.pars['fly_axis0_end'],
                                          self.pars['fly_axis0_npts'])
+            # Slow motor
             mot_vals_axis1 = np.linspace(self.pars['fly_axis1_start'],
                                          self.pars['fly_axis1_end'],
                                          self.pars['fly_axis1_npts'])
@@ -1348,7 +1365,9 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         raise RuntimeError(f'{self.scan_title}: could not find num_bins')
 
     def get_detector_num_bins_h5(self, element_index):
+        # Third party modules
         from h5py import File
+
         detector_file = self.get_detector_data_file_h5()
         with File(detector_file) as h5_file:
             dset_shape = h5_file['/entry/data/data'].shape
@@ -1369,9 +1388,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
-        raise OSError(
-            f'{file_name_full}: could not find detector image file'
-        )
+        raise OSError(f'{file_name_full}: could not find detector image file')
 
     def get_detector_data_file_h5(self, scan_step_index=0):
         """Return the filename (full absolute path) to the file
@@ -1393,10 +1410,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         file_name_full = os.path.join(self.detector_data_path, file_name)
         if os.path.isfile(file_name_full):
             return file_name_full
-        raise OSError(
-            '{self.scan_title}: could not find detector image file'
-        )
-
+        raise OSError('{self.scan_title}: could not find detector image file')
 
     def get_all_detector_data(self, detector):
         """Return a 2D array of all MCA spectra collected in this scan
@@ -1412,6 +1426,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         if self.detector_data_format == 'spec':
             return self.get_all_detector_data_spec(detector)
         elif self.detector_data_format == 'h5':
+            if detector is None:
+                return self.get_all_detector_data_h5()
             try:
                 element_index = int(detector)
             except:
@@ -1466,7 +1482,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
 
         return np.array(data)
 
-    def get_all_detector_data_h5(self, element_index):
+    def get_all_detector_data_h5(self, element_index=None):
         """Return a 2D array of all MCA spectra collected by a
         detector in the h5 file format during the scan.
 
@@ -1476,25 +1492,20 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         :returns: 2D array of MCA spectra
         :rtype: numpy.ndarray
         """
-        detector_data = np.empty(
-            (self.spec_scan_npts,
-             self.get_detector_num_bins_h5(element_index)))
-        detector_files = list_smb_mca_detector_files_h5(
-            self.detector_data_path)
-        for i, detector_file in enumerate(detector_files):
-            full_filename = os.path.join(
-                self.detector_data_path, detector_file)
-            element_data = get_all_mca_data_h5(
-                full_filename)[:,element_index,:]
-            i_0 = i * self.spec_scan_shape[0]
-            if len(self.spec_scan_shape) == 2:
-                i_f = i_0 + self.spec_scan_shape[0]
-            else:
-                i_f = self.spec_scan_npts
-            detector_data[i_0:i_f] = element_data
-        return detector_data
+        detector_data = []
+        for i, detector_file in enumerate(
+                list_smb_mca_detector_files_h5(self.detector_data_path)):
+            detector_data.append(
+                get_all_mca_data_h5(
+                    os.path.join(self.detector_data_path, detector_file)))
+            assert detector_data[-1].shape[0] == self.spec_scan_shape[0]
+        if len(self.spec_scan_shape) == 1:
+            assert len(detector_data) == 1
+            return np.asarray(detector_data[0])
+        assert len(detector_data) == self.spec_scan_shape[1]
+        return np.asarray(detector_data)
 
-    def get_detector_data(self, detector, scan_step_index=None):
+    def get_detector_data(self, detector=None, scan_step_index=None):
         """Return a single MCA spectrum for the detector indicated.
 
         :param detector: If this scan collected MCA data in "spec"
@@ -1511,6 +1522,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         detector_data = self.get_all_detector_data(detector)
         if scan_step_index is None:
             return detector_data
+        # FIX scan_step_index needs testing
+        assert False
         return detector_data[scan_step_index]
 
 @cache

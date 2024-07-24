@@ -456,7 +456,7 @@ class TomoDataProcessor(Processor):
             for tomographic image reduction.
         :type data: list[PipelineData]
         :param outputdir: Output folder name, defaults to '.'.
-        :type outputdir:: str, optional
+        :type outputdir: str, optional
         :param interactive: Allows for user interactions,
             defaults to False.
         :type interactive: bool, optional
@@ -664,7 +664,7 @@ class Tomo:
         :param num_core: Number of processors.
         :type num_core: int
         :param outputdir: Output folder name, defaults to '.'.
-        :type outputdir:: str, optional
+        :type outputdir: str, optional
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional
