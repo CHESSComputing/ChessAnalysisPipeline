@@ -81,21 +81,21 @@ class PipelineItem():
         return [d['data'] for d in data]
 
     def get_config(self, data, schema, remove=True, **kwargs):
-        """Look through `data` for an item whose value for the
+        """Look through `data` for an item whose value for the first
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration `BaseModel`
         identified by `schema` and return it.
 
-        :param data: input data from a previous `PipelineItem`
-        :type data: list[PipelineData]
-        :param schema: name of the `BaseModel` class to match in
-            `data` & return
+        :param data: Input data from a previous `PipelineItem`
+        :type data: list[PipelineData].
+        :param schema: Name of the `BaseModel` class to match in
+            `data` & return,
         :type schema: str
-        :param remove: if there is a matching entry in `data`, remove
+        :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
         :type remove: bool, optional
-        :raises ValueError: if there's no match for `schema` in `data`
-        :return: matching configuration model
+        :raises ValueError: If there's no match for `schema` in `data`.
+        :return: The first matching configuration model.
         :rtype: BaseModel
         """
 
@@ -108,6 +108,7 @@ class PipelineItem():
                 matching_config = d.get('data')
                 if remove:
                     data.pop(i)
+                break
 
         if not matching_config:
             raise ValueError(f'No configuration for {schema} found')
@@ -123,6 +124,40 @@ class PipelineItem():
             f'Got {schema} configuration in {time()-t0:.3f} seconds')
 
         return model_config
+
+    def get_data(self, data, name, remove=True):
+        """Look through `data` for an item whose value for the first
+        `'name'` key matches `name` and return it.
+
+        :param data: Input data from a previous `PipelineItem`
+        :type data: list[PipelineData].
+        :param name: Name of the data item to match in `data` & return.
+        :type name: str
+        :param remove: If there is a matching entry in `data`, remove
+           it from the list, defaults to `True`.
+        :type remove: bool, optional
+        :raises ValueError: If there's no match for `name` in `data`.
+        :return: The first matching data item.
+        """
+
+        self.logger.debug(f'Getting {name} data item')
+        t0 = time()
+
+        matching_data = False
+        for i, d in enumerate(data):
+            if d.get('name') == name:
+                matching_data = d.get('data')
+                if remove:
+                    data.pop(i)
+                break
+
+        if not matching_data:
+            raise ValueError(f'No match for {name} data item found')
+
+        self.logger.debug(
+            f'Got {name} data in {time()-t0:.3f} seconds')
+
+        return matching_data
 
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the

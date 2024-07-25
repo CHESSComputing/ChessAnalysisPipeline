@@ -45,7 +45,7 @@ class SpecScans(BaseModel):
     :ivar spec_file: Path to the SPEC file.
     :type spec_file: str
     :ivar scan_numbers: List of scan numbers to use.
-    :type scan_numbers: list[int]
+    :type scan_numbers: Union(int, list[int], str)
     :ivar par_file: Path to a non-default SMB par file.
     :type par_file: str, optional
     """
@@ -77,15 +77,17 @@ class SpecScans(BaseModel):
         """Validate the specified list of scan numbers.
 
         :param scan_numbers: List of scan numbers.
-        :type scan_numbers: list of int
+        :type scan_numbers: Union(int, list[int], str)
         :param info: Pydantic validator info object.
         :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
         :return: List of scan numbers.
-        :rtype: list of int
+        :rtype: list[int]
         """
-        if isinstance(scan_numbers, str):
+        if isinstance(scan_numbers, int):
+            scan_numbers = [scan_numbers]
+        elif isinstance(scan_numbers, str):
             # Local modules
             from CHAP.utils.general import string_to_list
 

@@ -1257,6 +1257,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
     with the typical EDD setup at SMB or FAST.
     """
     detector_data_formats = ('spec', 'h5')
+
     def __init__(self, spec_file_name, scan_number, detector_data_format=None):
         """Constructor for SMBMCAScnaParser.
 
@@ -1279,8 +1280,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             else:
                 raise ValueError(
                     'Unrecognized value for detector_data_format: '
-                    + f'{detector_data_format}. Allowed values are: '
-                    + ', '.join(self.detector_data_formats))
+                    f'{detector_data_format}. Allowed values are: '
+                    ', '.join(self.detector_data_formats))
 
     def get_spec_scan_motor_vals(self, relative=True):
         if not relative:
@@ -1298,7 +1299,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             # the .par file, and defer implementation for absolute
             # motor postions to later.
             return super().get_spec_scan_motor_vals(relative=True)
-            # raise NotImplementedError('Only relative motor values are available.')
         if self.spec_macro in ('flymesh', 'mesh', 'flydmesh', 'dmesh'):
             # Fast motor
             mot_vals_axis0 = np.linspace(self.pars['fly_axis0_start'],
@@ -1328,15 +1328,16 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         """
         try:
             self._detector_data_path = self.scan_path
-            detector_file = self.get_detector_data_file_spec()
+            self.get_detector_data_file_spec()
         except OSError:
             try:
                 self._detector_data_path = os.path.join(
                     self.scan_path, str(self.scan_number), 'edd')
-                detector_file = self.get_detector_data_file_h5()
+                print(f'\n\nself._detector_data_path: {self._detector_data_path}\n\n')
+                self.get_detector_data_files_h5()
             except OSError:
-                raise RuntimeError(
-                    f"{self.scan_title}: Can't determine detector data format")
+                raise RuntimeError(f'{self.scan_title}: Unable to determine '
+                                   'detector data format')
             else:
                 self.detector_data_format = 'h5'
         else:
@@ -1345,15 +1346,15 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
     def get_detector_data_path(self):
         raise NotImplementedError
 
-    def get_detector_num_bins(self, element_index=0):
+    def get_detector_num_bins(self):
         if self.detector_data_format == 'spec':
             return self.get_detector_num_bins_spec()
-        elif self.detector_data_format == 'h5':
-            return self.get_detector_num_bins_h5(element_index)
+        if self.detector_data_format == 'h5':
+            return self.get_detector_num_bins_h5()
 
     def get_detector_num_bins_spec(self):
-        with open(self.get_detector_data_file_spec()) as detector_file:
-            lines = detector_file.readlines()
+        with open(self.get_detector_data_file_spec()) as f:
+            lines = f.readlines()
         for line in lines:
             if line.startswith('#@CHANN'):
                 try:
@@ -1364,75 +1365,63 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
                     continue
         raise RuntimeError(f'{self.scan_title}: could not find num_bins')
 
-    def get_detector_num_bins_h5(self, element_index):
+    def get_detector_num_bins_h5(self):
         # Third party modules
         from h5py import File
 
-        detector_file = self.get_detector_data_file_h5()
-        with File(detector_file) as h5_file:
+        with File(self.get_detector_data_files_h5()[0]) as h5_file:
             dset_shape = h5_file['/entry/data/data'].shape
         return dset_shape[-1]
 
-    def get_detector_data_file(self, scan_step_index=0):
-        if self.detector_data_format == 'spec':
-            return self.get_detector_data_file_spec()
-        elif self.detector_data_format == 'h5':
-            return self.get_detector_data_file_h5(
-                scan_step_index=scan_step_index)
+    def get_detector_data_file(self):
+        raise NotImplementedError
 
     def get_detector_data_file_spec(self):
         """Return the filename (full absolute path) to the file
         containing spec-formatted MCA data for this scan.
         """
-        file_name = f'spec.log.scan{self.scan_number}.mca1.mca'
-        file_name_full = os.path.join(self.detector_data_path, file_name)
-        if os.path.isfile(file_name_full):
-            return file_name_full
-        raise OSError(f'{file_name_full}: could not find detector image file')
+        filename = f'spec.log.scan{self.scan_number}.mca1.mca'
+        filename_full = os.path.join(self.detector_data_path, filename)
+        if os.path.isfile(filename_full):
+            return filename_full
+        raise OSError(f'Unable to find detector file {filename_full}')
 
-    def get_detector_data_file_h5(self, scan_step_index=0):
-        """Return the filename (full absolute path) to the file
+    def get_detector_data_files_h5(self):
+        """Return the filenames (full absolute paths) to the files
         containing h5-formatted MCA data for this scan.
-
-        :param scan_step_index:
         """
-        scan_step = self.get_scan_step(scan_step_index)
-        if len(self.spec_scan_shape) == 1:
-            filename_index = 0
-        elif len(self.spec_scan_shape) == 2:
-            scan_step = self.get_scan_step(scan_step_index)
-            filename_index = scan_step[0]
-        else:
-            raise NotImplementedError(
-                'Cannot find detector file for scans with dimension > 2')
-        file_name = list_smb_mca_detector_files_h5(
-            self.detector_data_path)[filename_index]
-        file_name_full = os.path.join(self.detector_data_path, file_name)
-        if os.path.isfile(file_name_full):
-            return file_name_full
-        raise OSError('{self.scan_title}: could not find detector image file')
+        filenames = sorted(
+            [f for f in os.listdir(self.detector_data_path)
+             if f.endswith('.hdf5')])
+        filenames_full = []
+        for filename in filenames:
+            filenames_full.append(
+                os.path.join(self.detector_data_path, filename))
+            if not os.path.isfile(filenames_full[-1]):
+                raise OSError(
+                    f'Unable to find detector file {filenames_full[-1]}')
+        return filenames_full
 
-    def get_all_detector_data(self, detector):
-        """Return a 2D array of all MCA spectra collected in this scan
-        by the detector element indicated with `detector`.
+    def get_all_detector_data(self, detector=None):
+        """Return a 3D array of all MCA spectra collected by the
+        detector elements during the scan.
 
         :param detector: For detector data collected in SPEC format,
             this is the detector prefix as it appears in the spec MCA
             data file. For detector data collected in H5 format, this
-            is the index of a particular detector element.
-        :type detector: Union[str, int]
+            is a list of MCA detector element indices to return data.
+            for. Defaults to `None` (return data for all detector
+            elements, invalid for SPEC format detector data).
+        :type detector: Union[str, list[int]), optional
+        :returns: The MCA spectra
         :rtype: numpy.ndarray
         """
         if self.detector_data_format == 'spec':
-            return self.get_all_detector_data_spec(detector)
-        elif self.detector_data_format == 'h5':
             if detector is None:
-                return self.get_all_detector_data_h5()
-            try:
-                element_index = int(detector)
-            except:
-                raise TypeError(f'{detector} is not an integer element index')
-            return self.get_all_detector_data_h5(element_index)
+                raise TypeError('Missing required detector parameter')
+            return self.get_all_detector_data_spec(detector)
+        if self.detector_data_format == 'h5':
+            return self.get_all_detector_data_h5(detector)
 
     def get_all_detector_data_spec(self, detector_prefix):
         """Return a 2D array of all MCA spectra collected by a
@@ -1450,6 +1439,9 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         # manual and pyspec code, mca data should always begin w/ '@A'
         # In example scans, it begins with '@{detector_prefix}'
         # instead
+        raise RuntimeError(
+            'SMBMCAScanParser.get_all_detector_data_spec not tested')
+                           
         data = []
 
         with open(self.get_detector_data_file_spec()) as detector_file:
@@ -1482,28 +1474,76 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
 
         return np.array(data)
 
-    def get_all_detector_data_h5(self, element_index=None):
-        """Return a 2D array of all MCA spectra collected by a
-        detector in the h5 file format during the scan.
+    def get_all_detector_data_h5(self, detector_indices=None):
+        """Return a 3D array of all MCA spectra collected by the
+        detector elements during the scan in the h5 file format.
 
-        :param element_index: The index of a particualr MCA element to
-            return data for.
-        :type element_index: int
-        :returns: 2D array of MCA spectra
+        :param detector_indices: A list of MCA detector element
+            indices to return data for, default to `None` (return
+            data for all detector elements).
+        :type detector_indices: list[int], optional
+        :returns: The MCA spectra
         :rtype: numpy.ndarray
         """
+        print(f'\n\ndetector_indices: {detector_indices}\n\n')
         detector_data = []
-        for i, detector_file in enumerate(
-                list_smb_mca_detector_files_h5(self.detector_data_path)):
-            detector_data.append(
-                get_all_mca_data_h5(
-                    os.path.join(self.detector_data_path, detector_file)))
-            assert detector_data[-1].shape[0] == self.spec_scan_shape[0]
+        for detector_file in self.get_detector_data_files_h5():
+            data = self.get_all_mca_data_h5(detector_file)
+            assert data.shape[0] == self.spec_scan_shape[0]
+            if detector_indices is None:
+                detector_data.append(data)
+            else:
+                detector_data.append(data[:,detector_indices,:])
         if len(self.spec_scan_shape) == 1:
             assert len(detector_data) == 1
             return np.asarray(detector_data[0])
         assert len(detector_data) == self.spec_scan_shape[1]
-        return np.asarray(detector_data)
+        return np.vstack(tuple(detector_data))
+
+    def get_all_mca_data_h5(self, filename):
+        """Return a 3D array of all MCA spectra collected by the
+        detector elements for a single h5 data file.
+
+        :param filename: Name of the MCA h5 data file
+        :type filename: str
+        :returns: 3D array of MCA spectra where the first index is the
+            scan step, the second index is the detector element index,
+            and the third index is channel energy bin.
+        :rtype: numpy.ndarray
+        """
+        # Third partry modules
+        from h5py import File
+
+        with File(filename) as h5_file:
+            data = h5_file['/entry/data/data'][:]
+
+        # Prior to 2023-12-12, there was an issue where the XPS23 detector
+        # was capturing one or two frames of all 0s at the start of the
+        # dataset in every hdf5 file. In both cases, there is only ONE
+        # extra frame of data relative to the number of frames that should
+        # be there (based on the number of points in the spec scan). If
+        # one frame of all 0s is present: skip it and deliver only the
+        # real data. If two frames of all 0s are present: detector data
+        # will be missing for the LAST step in the scan. Skip the first
+        # two frames of all 0s in the hdf5 dataset, then add a frame of
+        # fake data (all 0-s) to the end of that real data so that the
+        # number of detector data frames matches the number of points in
+        # the spec scan.
+        check_zeros_before = 1702357200
+        file_mtime = os.path.getmtime(filename)
+        if file_mtime <= check_zeros_before:
+            if not np.any(data[0]):
+                # If present, remove first frame of blank data
+                print('Warning: removing blank first frame of detector data')
+                data = data[1:]
+                if not np.any(data[0]):
+                    # If present, shift second frame of blank data to the
+                    # end
+                    print('Warning: shifting second frame of blank detector data '
+                          + 'to the end of the scan')
+                    data = np.concatenate((data[1:], np.asarray([data[0]])))
+
+        return data
 
     def get_detector_data(self, detector=None, scan_step_index=None):
         """Return a single MCA spectrum for the detector indicated.
@@ -1512,7 +1552,8 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             format, this is the detector prefix as it appears in the
             spec MCA data file. If this scan collected data in .h5
             format, this is the index of the detector element of
-            interest.:type detector: typing.Union[str, int]
+            interest.
+        :type detector: Union[str, int]
         :param scan_step_index: Index of the scan step to return the
             spectrum from.
         :type scan_step_index: int
@@ -1526,61 +1567,3 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         assert False
         return detector_data[scan_step_index]
 
-@cache
-def list_smb_mca_detector_files_h5(detector_data_path):
-    """Return a sorted list of all *.hdf5 files in a directory
-
-    :param detector_data_path: Directory to return *.hdf5 files from
-    :type detector_data_path: str
-    :returns: Sorted list of detector data filenames
-    :rtype: list[str]
-    """
-    return sorted(
-        [f for f in os.listdir(detector_data_path) if f.endswith('.hdf5')])
-
-@cache
-def get_all_mca_data_h5(filename):
-    """Return all data from all elements from an MCA data file
-
-    :param filename: Name of the MCA h5 data file
-    :type filename: str
-    :returns: 3D array of MCA spectra where the first axis is scan
-        step, second index is detector element, third index is channel
-        energy.
-    :rtype: numpy.ndarray
-    """
-    import os
-
-    from h5py import File
-    import numpy as np
-
-    with File(filename) as h5_file:
-        data = h5_file['/entry/data/data'][:]
-
-    # Prior to 2023-12-12, there was an issue where the XPS23 detector
-    # was capturing one or two frames of all 0s at the start of the
-    # dataset in every hdf5 file. In both cases, there is only ONE
-    # extra frame of data relative to the number of frames that should
-    # be there (based on the number of points in the spec scan). If
-    # one frame of all 0s is present: skip it and deliver only the
-    # real data. If two frames of all 0s are present: detector data
-    # will be missing for the LAST step in the scan. Skip the first
-    # two frames of all 0s in the hdf5 dataset, then add a frame of
-    # fake data (all 0-s) to the end of that real data so that the
-    # number of detector data frames matches the number of points in
-    # the spec scan.
-    check_zeros_before = 1702357200
-    file_mtime = os.path.getmtime(filename)
-    if file_mtime <= check_zeros_before:
-        if not np.any(data[0]):
-            # If present, remove first frame of blank data
-            print('Warning: removing blank first frame of detector data')
-            data = data[1:]
-            if not np.any(data[0]):
-                # If present, shift second frame of blank data to the
-                # end
-                print('Warning: shifting second frame of blank detector data '
-                      + 'to the end of the scan')
-                data = np.concatenate((data[1:], np.asarray([data[0]])))
-
-    return data

@@ -376,10 +376,10 @@ class LatticeParameterRefinementProcessor(Processor):
         :param detector: A single MCA detector element configuration.
         :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
         :param mca_data: Raw specta for the current MCA detector.
-        :type mca_data: np.ndarray
+        :type mca_data: numpy.ndarray
         :param mca_data_summed: Raw specta for the current MCA detector
             summed over all data point.
-        :type mca_data_summed: np.ndarray
+        :type mca_data_summed: numpy.ndarray
         :param nxsubentry: NeXus subentry to store the detailed refined
             lattice parameters for each detector.
         :type nxsubentry: nexusformat.nexus.NXprocess
@@ -782,6 +782,9 @@ class MCAEnergyCalibrationProcessor(Processor):
             version of the calibrated configuration.
         :rtype: dict
         """
+        # Third party modules
+        from nexusformat.nexus import NXentry
+
         # Local modules
         from CHAP.edd.models import BaselineConfig
         from CHAP.utils.general import (
@@ -789,6 +792,11 @@ class MCAEnergyCalibrationProcessor(Processor):
             is_num,
             is_str_series,
         )
+
+        # Load the detector data
+        nxentry = self.get_data(data, 'SpecReader')
+        if not isinstance(nxentry, NXentry):
+            self.logger.info('No valid NXentry data in input pipeline data')
 
         # Load the validated energy calibration configuration
         try:
@@ -840,19 +848,56 @@ class MCAEnergyCalibrationProcessor(Processor):
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
-        # Calibrate detector channel energies based on fluorescence peaks.
+        # Collect and sum the detector data
+        mca_data = []
+        for scan_name in nxentry.spec_scans:
+            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+                mca_data.append(scan_data.data.data.nxdata)
+        summed_detector_data = np.asarray(mca_data).sum(axis=(0,1))
+
+        # Get the detectors' num_bins parameter
         for detector in calibration_config.detectors:
+            if detector.num_bins is None:
+                detector.num_bins = summed_detector_data.shape[-1]
+
+        # Check each detector's include_energy_ranges field against the
+        # flux file, if available.
+        if calibration_config.flux_file is not None:
+            # System modules
+            from copy import deepcopy
+
+            flux = np.loadtxt(flux_file)
+            flux_file_energies = flux[:,0]/1.e3
+            flux_e_min = flux_file_energies.min()
+            flux_e_max = flux_file_energies.max()
+            for detector in calibration_config.detectors:
+                for i, (det_e_min, det_e_max) in enumerate(
+                        deepcopy(detector.include_energy_ranges)):
+                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
+                        energy_range = [float(max(det_e_min, flux_e_min)),
+                                        float(min(det_e_max, flux_e_max))]
+                        print(
+                            f'WARNING: include_energy_ranges[{i}] out of range'
+                            f' ({detector.include_energy_ranges[i]}): adjusted'
+                            f' to {energy_range}')
+                        detector.include_energy_ranges[i] = energy_range
+
+        # Calibrate detector channel energies based on fluorescence peaks.
+        detector_names = list(nxentry.detector_names)
+        for detector in calibration_config.detectors:
+            index = detector_names.index(int(detector.detector_name))
             if background is not None:
                 detector.background = background.copy()
             if baseline:
                 detector.baseline = baseline.model_copy()
             detector.energy_calibration_coeffs = self.calibrate(
-                calibration_config, detector, centers_range, fwhm_min,
-                fwhm_max, max_energy_kev, save_figures, interactive, outputdir)
+                calibration_config, detector, summed_detector_data[index],
+                centers_range, fwhm_min, fwhm_max, max_energy_kev,
+                save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
-    def calibrate(self, calibration_config, detector, centers_range,
+    def calibrate(self, calibration_config, detector, spectrum, centers_range,
             fwhm_min, fwhm_max, max_energy_kev, save_figures, interactive,
             outputdir):
         """Return energy_calibration_coeffs (a, b, and c) for
@@ -863,6 +908,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type calibration_config: MCAEnergyCalibrationConfig
         :param detector: Configuration of the current detector.
         :type detector: MCAElementCalibrationConfig
+        :param spectrum: Summed MCA spectrum for the current detector.
+        :type spectrum: numpy.ndarray
         :param centers_range: Set boundaries on the peak centers in
             MCA channels when performing the fit. The min/max
             possible values for the peak centers will be the initial
@@ -906,7 +953,7 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         self.logger.info(f'Calibrating detector {detector.detector_name}')
 
-        spectrum = calibration_config.mca_data(detector)
+        # Get the MCA bin energies
         uncalibrated_energies = np.linspace(
             0, max_energy_kev, detector.num_bins)
         bins = np.arange(detector.num_bins, dtype=np.int16)

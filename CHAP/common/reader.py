@@ -388,7 +388,7 @@ class NXfieldReader(Reader):
 
 class SpecReader(Reader):
     """Reader for CHESS SPEC scans"""
-    def read(self, filename=None, spec_config=None, detector_names=[],
+    def read(self, filename=None, spec_config=None, detector_names=None,
             inputdir=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as a Nexus NXentry object.
@@ -401,9 +401,11 @@ class SpecReader(Reader):
             to the constructor of `CHAP.common.models.map.SpecConfig`,
             defaults to `None`.
         :type spec_config: dict, optional
-        :param detector_names: Detector prefixes to include raw data
-            for in the returned NeXus NXentry object, defaults to `[]`.
-        :type detector_names: list[str], optional
+        :param detector_names: Detector names/prefixes to include raw
+            data for in the returned NeXus NXentry object,
+            defaults to `None`.
+        :type detector_names: Union(int, str, list[int], list[str]),
+            optional
         :return: The data from the provided SPEC configuration.
         :rtype: nexusformat.nexus.NXentry
         """
@@ -441,13 +443,40 @@ class SpecReader(Reader):
         # SpecConfig
         spec_config = SpecConfig(**spec_config, inputdir=inputdir)
 
-        # Set up NXentry and add misc. CHESS-specific metadata
-        # as well as all spec_motors, scan_columns, and smb_pars
+        # Validate the detector names/prefixes
+        if spec_config.experiment_type == 'EDD':
+            if detector_names is not None:
+                # Local modules
+                from CHAP.utils.general import is_str_series
+
+                if isinstance(detector_names, (int, str)):
+                    detector_names = [int(detector_names)]
+                for i, detector_name in enumerate(detector_names):
+                    if isinstance(detector_name, str):
+                        detector_names[i] = int(detector_name)
+                    elif not isinstance(detector_name, int):
+                        raise ValueError('Invalid "detector_names" parameter '
+                                         f'({detector_names})')
+        else:
+            if detector_names is None:
+                raise ValueError(
+                    'Missing "detector_names" parameter')
+            if isinstance(detector_names, str):
+                detector_names = [detector_names]
+            if not is_str_series(detector_names, log=False):
+                raise ValueError(
+                    'Invalid "detector_names" parameter ({detector_names})')
+
+        # Set up NXentry and add misc. CHESS-specific metadata as well
+        # as all spec_motors, scan_columns, and smb_pars, and the
+        # detector info and raw detector data
         nxentry = NXentry(name=spec_config.experiment_type)
         nxentry.spec_config = dumps(spec_config.dict())
         nxentry.attrs['station'] = spec_config.station
+        if detector_names is not None:
+            nxentry.detector_names = detector_names
         nxentry.spec_scans = NXcollection()
-        nxpaths = []
+#        nxpaths = []
         for scans in spec_config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
@@ -456,29 +485,43 @@ class SpecReader(Reader):
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
                 nxscans[scan_number] = NXcollection()
-                if hasattr(scanparser, 'spec_positioner_values'):
+                try:
                     nxscans[scan_number].spec_motors = dumps(
                         {k:float(v) for k,v
                          in scanparser.spec_positioner_values.items()})
-                if hasattr(scanparser, 'spec_scan_data'):
+                except:
+                    pass
+                try:
                     nxscans[scan_number].scan_columns = dumps(
                         {k:list(v) for k,v
                          in scanparser.spec_scan_data.items() if len(v)})
-                if hasattr(scanparser, 'pars'):
+                except:
+                    pass
+                try:
                     nxscans[scan_number].smb_pars = dumps(
                         {k:v for k,v in scanparser.pars.items()})
-                if detector_names:
+                except:
+                    pass
+                if spec_config.experiment_type == 'EDD':
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
-                    nxpaths.append(
-                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
+#                    nxpaths.append(
+#                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
+                    nxdata.data = NXfield(
+                       value=scanparser.get_detector_data(detector_names))
+                else:
+                    nxdata = NXdata()
+                    nxscans[scan_number].data = nxdata
+#                    nxpaths.append(
+#                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector_name in detector_names:
-                        if isinstance(detector_name, int):
-                            detector_name = str(detector_name)
                         nxdata[detector_name] = NXfield(
                            value=scanparser.get_detector_data(detector_name))
 
-        return nxentry, nxpaths
+        print(f'\n\nnxentry.tree:\n{nxentry.tree}')
+#        print(f'\nnxpaths:\n{nxpaths}')
+        #return nxentry, nxpaths
+        return nxentry
 
 
 class URLReader(Reader):

@@ -100,7 +100,7 @@ class MaterialConfig(BaseModel):
             defaults to `90.0`.
         :type tth_max: float, optional
         :return: Unique HKLs and their lattice spacings in angstroms.
-        :rtype: np.ndarray, np.ndarray
+        :rtype: numpy.ndarray, numpy.ndarray
         """
         # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds
@@ -115,7 +115,7 @@ class MaterialConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
         if '_material' in d:
@@ -137,6 +137,21 @@ class MCAElementConfig(BaseModel):
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)] = None
+
+    @field_validator('detector_name', mode='before')
+    @classmethod
+    def validate_detector_name(cls, detector_name):
+        """Validate the specified detector name.
+
+        :ivar detector_name: Name of the MCA detector element in the scan.
+        :type detector_name: Union(str, int)
+        :raises ValueError: Invalid detector_name.
+        :return: detector_name.
+        :rtype: str
+        """
+        if isinstance(detector_name, int):
+            return str(detector_name)
+        return detector_name
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -298,10 +313,17 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         """Set the private attribute `hkl_indices`."""
         self._hkl_indices = hkl_indices
 
-#RV need def dict?
-#        d['include_energy_ranges'] = [
-#            [float(energy) for energy in d['include_energy_ranges'][i]]
-#            for i in range(len(d['include_energy_ranges']))]
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        if '_hkl_indices:' in d:
+            del d['_hkl_indices:']
+        return d
 
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
@@ -425,7 +447,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar tth_file: Path to the file with the 2&theta map.
     :type tth_file: FilePath, optional
     :ivar tth_map: Map of the 2&theta values.
-    :type tth_map: np.ndarray, optional
+    :type tth_map: numpy.ndarray, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
         (bounds are inclusive), defaults to `[[50, 150]]`
@@ -561,7 +583,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
         :param map_shape: The shape of the suplied 2&theta map.
         :return: Map of 2&theta values.
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         if getattr(self, 'tth_map', None) is not None:
             if self.tth_map.shape != map_shape:
@@ -579,7 +601,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
             if isinstance(v, np.ndarray):
@@ -594,7 +616,7 @@ class MCAScanDataConfig(BaseModel):
     a single scan and construct a mask for it.
 
     :ivar inputdir: Input directory, used only if any file in the
-            configuration is not an absolute path.
+        configuration is not an absolute path.
     :type inputdir: str, optional
     :ivar spec_file: Path to the SPEC file containing the scan.
     :type spec_file: str, optional
@@ -730,7 +752,7 @@ class MCAScanDataConfig(BaseModel):
             all the available MCA spectra.
         :type scan_step_index: int, optional
         :return: The current detectors's MCA data.
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         detector_name = detector_config.detector_name
         if self._parfile is not None:
@@ -761,7 +783,7 @@ class MCAScanDataConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
         if d.get('_parfile') is None:
@@ -799,7 +821,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         over the course of the raster scan.
 
         :return: List of scanned motor values
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         if self._parfile is not None:
             return self._parfile.get_values(
@@ -808,11 +830,14 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         return self.scanparser.spec_scan_motor_vals[0]
 
 
-class MCAEnergyCalibrationConfig(MCAScanDataConfig):
+class MCAEnergyCalibrationConfig(BaseModel):
     """
     Class representing metadata required to perform an energy
     calibration for an MCA detector.
 
+    :ivar inputdir: Input directory, used only if any file in the
+        configuration is not an absolute path.
+    :type inputdir: str, optional
     :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
@@ -842,6 +867,7 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
     :type fit_index_ranges: list[[int, int]], optional
 
     """
+    inputdir: Optional[DirectoryPath] = None
     scan_step_indices: Optional[Annotated[conlist(
         min_length=1, item_type=conint(ge=0)),
         Field(validate_default=True)]] = None
@@ -932,31 +958,6 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
         energies = flux[:,0]/1.e3
         return energies.min(), energies.max()
 
-    def mca_data(self, detector_config):
-        """Get the array of MCA data to use for calibration.
-
-        :param detector_config: Detector for which data is returned.
-        :type detector_config: MCAElementConfig
-        :return: The current detectors's MCA data.
-        :rtype: np.ndarray
-        """
-        if self.scan_step_indices is None:
-            data = super().mca_data(detector_config)
-            if self.scanparser.spec_scan_npts > 1:
-                data = np.average(data, axis=0)
-            else:
-                data = data[0]
-        elif len(self.scan_step_indices) == 1:
-            data = super().mca_data(
-                detector_config, scan_step_index=self.scan_step_indices[0])
-        else:
-            data = []
-            for scan_step_index in self.scan_step_indices:
-                data.append(super().mca_data(
-                    detector_config, scan_step_index=scan_step_index))
-            data = np.average(data, axis=0)
-        return data
-
     def flux_correction_interpolation_function(self):
         """
         Get an interpolation function to correct MCA data for the
@@ -972,6 +973,18 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
         relative_intensities = flux[:,1]/np.max(flux[:,1])
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        if 'inputdir' in d:
+            del d['inputdir']
+        return d
 
 
 class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
@@ -1018,7 +1031,7 @@ class StrainAnalysisConfig(BaseModel):
     strain analysis.
 
     :ivar inputdir: Input directory, used only if any file in the
-            configuration is not an absolute path.
+        configuration is not an absolute path.
     :type inputdir: str, optional
     :ivar map_config: The map configuration for the MCA data on which
         the strain analysis is performed.
@@ -1219,7 +1232,7 @@ class StrainAnalysisConfig(BaseModel):
             to `None`, which returns MCA data for each point in the map.
         :type map_index: tuple, optional
         :return: A single MCA spectrum.
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         if detector is None:
             mca_data = []
@@ -1308,9 +1321,10 @@ class StrainAnalysisConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
-        if '_scanparser' in d:
-            del d['_scanparser']
+        for k in ('_parfile', 'inputdir'):
+            if k in d:
+                del d[k]
         return d
