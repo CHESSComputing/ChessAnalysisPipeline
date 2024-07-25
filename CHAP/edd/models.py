@@ -138,6 +138,21 @@ class MCAElementConfig(BaseModel):
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)] = None
 
+    @field_validator('detector_name', mode='before')
+    @classmethod
+    def validate_detector_name(cls, detector_name):
+        """Validate the specified detector name.
+
+        :ivar detector_name: Name of the MCA detector element in the scan.
+        :type detector_name: Union(str, int)
+        :raises ValueError: Invalid detector_name.
+        :return: detector_name.
+        :rtype: str
+        """
+        if isinstance(detector_name, int):
+            return str(detector_name)
+        return detector_name
+
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
