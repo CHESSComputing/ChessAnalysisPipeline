@@ -821,9 +821,6 @@ class MapConfig(BaseModel):
         map. In the NeXus file representation of the map, datasets for
         these values will be included, defaults to `[]`.
     :type scalar_data: list[PointByPointScanData], optional
-    :ivar map_type: Type of map, structured or unstructured,
-        defaults to `'structured'`.
-    :type map_type: Literal['structured', 'unstructured'], optional
     """
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b']
@@ -837,13 +834,10 @@ class MapConfig(BaseModel):
     postsample_intensity: Optional[PostsampleIntensity] = None
     scalar_data: Optional[list[PointByPointScanData]] = []
     attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
-    map_type: Optional[Annotated[
-        Literal['structured', 'unstructured'],
-        Field(validate_default=True)]] = 'structured'
-    _coords: dict = PrivateAttr()
+#    _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
-    _scan_step_indices: list = PrivateAttr()
-    _shape: tuple = PrivateAttr()
+#    _scan_step_indices: list = PrivateAttr()
+#    _shape: tuple = PrivateAttr()
 
     _validate_independent_dimensions = field_validator(
         'independent_dimensions')(validate_data_source_for_map_config)
@@ -946,75 +940,6 @@ class MapConfig(BaseModel):
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis1')])
         return attrs
 
-    @field_validator('map_type', mode='before')
-    @classmethod
-    def validate_map_type(cls, map_type, info):
-        """Validate the map_type field.
-
-        :param map_type: Type of map, structured or unstructured,
-            defaults to `'structured'`.
-        :type map_type: Literal['structured', 'unstructured']]
-        :param info: Pydantic validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
-        :return: The validated value for map_type.
-        :rtype: str
-        """
-        # For now overrule the map type to be always unstructured
-        # Later take out the option of structured entirely from
-        # MapConfig
-        return 'unstructured'
-        dims = {}
-        values = info.data
-        attrs = values.get('attrs', {})
-        scan_type = attrs.get('scan_type', -1)
-        fly_axis_labels = attrs.get('fly_axis_labels', [])
-        spec_scans = values['spec_scans']
-        independent_dimensions = values['independent_dimensions']
-        scalar_data = values['scalar_data']
-        import_scanparser(values['station'], values['experiment_type'])
-        for i, dim in enumerate(deepcopy(independent_dimensions)):
-            if dim.label in fly_axis_labels:
-                relative = True
-                ndigits = 3
-            else:
-                relative = False
-                ndigits = None
-            dims[dim.label] = []
-            for scans in spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(
-                            scanparser.spec_scan_npts):
-                        dims[dim.label].append(dim.get_value(
-                            scans, scan_number, scan_step_index,
-                            scalar_data, relative, ndigits))
-            dims[dim.label] = np.unique(dims[dim.label])
-            if dim.end is None:
-                dim.end = len(dims[dim.label])
-            dims[dim.label] = dims[dim.label][slice(
-                dim.start, dim.end, dim.step)]
-            independent_dimensions[i] = dim
-
-        coords = np.zeros([v.size for v in dims.values()], dtype=np.int64)
-        for scans in spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                for scan_step_index in range(scanparser.spec_scan_npts):
-                    coords[tuple([
-                        list(dims[dim.label]).index(
-                            dim.get_value(scans, scan_number, scan_step_index,
-                                          scalar_data, True, 3))
-                        if dim.label in fly_axis_labels else
-                        list(dims[dim.label]).index(
-                            dim.get_value(scans, scan_number, scan_step_index,
-                                          scalar_data))
-                        for dim in independent_dimensions])] += 1
-
-        if any(True for v in coords.flatten() if v == 0 or v > 1):
-            return 'unstructured'
-        else:
-            return 'structured'
-
     @staticmethod
     def get_smb_par_attr(class_fields, label, units='-', name=None):
         """Read an SMB par file attribute."""
@@ -1031,8 +956,8 @@ class MapConfig(BaseModel):
                 except:
                     print(
                         f'Warning: No value found for .par file value "{name}"'
-                        + f' on scan {scan_number} in spec file '
-                        + f'{scans.spec_file}.')
+                        f' on scan {scan_number} in spec file '
+                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
         if len(values) != 1:
@@ -1059,6 +984,7 @@ class MapConfig(BaseModel):
         """Return a dictionary of the values of each independent
         dimension across the map.
         """
+        raise RuntimeError(f'property coords not implemented')
         if not hasattr(self, '_coords'):
             scan_type = self.attrs.get('scan_type', -1)
             fly_axis_labels = self.attrs.get('fly_axis_labels', [])
@@ -1099,6 +1025,7 @@ class MapConfig(BaseModel):
         object, the scan number, and scan step index for every point
         on the map.
         """
+        raise RuntimeError(f'property scan_step_indices not implemented')
         if not hasattr(self, '_scan_step_indices'):
             scan_step_indices = []
             for scans in self.spec_scans:
@@ -1115,6 +1042,7 @@ class MapConfig(BaseModel):
         """Return the shape of the map -- a tuple representing the
         number of unique values of each dimension across the map.
         """
+        raise RuntimeError(f'property shape not implemented')
         if not hasattr(self, '_shape'):
             if self.map_type == 'structured':
                 self._shape = tuple([len(v) for k, v in self.coords.items()])
@@ -1131,6 +1059,7 @@ class MapConfig(BaseModel):
         :return: A list of coordinate values.
         :rtype: dict
         """
+        raise RuntimeError(f'get_coords not implemented')
         if self.map_type == 'structured':
             scan_type = self.attrs.get('scan_type', -1)
             fly_axis_labels = self.attrs.get('fly_axis_labels', [])
@@ -1158,6 +1087,7 @@ class MapConfig(BaseModel):
         :return: One frame of raw detector data.
         :rtype: np.ndarray
         """
+        raise RuntimeError(f'get_detector_data not implemented')
         scans, scan_number, scan_step_index = \
             self.get_scan_step_index(map_index)
         scanparser = scans.get_scanparser(scan_number)
@@ -1174,6 +1104,7 @@ class MapConfig(BaseModel):
             step index.
         :rtype: tuple[SpecScans, int, int]
         """
+        raise RuntimeError(f'get_scan_step_index not implemented')
         scan_type = self.attrs.get('scan_type', -1)
         fly_axis_labels = self.attrs.get('fly_axis_labels', [])
         if self.map_type == 'structured':
@@ -1206,6 +1137,7 @@ class MapConfig(BaseModel):
         :type map_index: tuple
         :return: Raw data value.
         """
+        raise RuntimeError(f'get_value not implemented')
         scans, scan_number, scan_step_index = \
             self.get_scan_step_index(map_index)
         return data.get_value(scans, scan_number, scan_step_index,

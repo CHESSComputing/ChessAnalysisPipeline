@@ -407,7 +407,7 @@ class SpecReader(Reader):
         :type detector_names: Union(int, str, list[int], list[str]),
             optional
         :return: The data from the provided SPEC configuration.
-        :rtype: nexusformat.nexus.NXentry
+        :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from json import dumps
@@ -416,6 +416,7 @@ class SpecReader(Reader):
             NXdata,
             NXentry,
             NXfield,
+            NXroot,
         )
 
         # Local modules
@@ -467,10 +468,15 @@ class SpecReader(Reader):
                 raise ValueError(
                     'Invalid "detector_names" parameter ({detector_names})')
 
+        # Create the NXroot object
+        nxroot = NXroot()
+        nxentry = NXentry(name=spec_config.experiment_type)
+        nxroot[nxentry.nxname] = nxentry
+        nxentry.set_default()
+
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the
         # detector info and raw detector data
-        nxentry = NXentry(name=spec_config.experiment_type)
         nxentry.spec_config = dumps(spec_config.dict())
         nxentry.attrs['station'] = spec_config.station
         if detector_names is not None:
@@ -518,10 +524,8 @@ class SpecReader(Reader):
                         nxdata[detector_name] = NXfield(
                            value=scanparser.get_detector_data(detector_name))
 
-        print(f'\n\nnxentry.tree:\n{nxentry.tree}')
-#        print(f'\nnxpaths:\n{nxpaths}')
-        #return nxentry, nxpaths
-        return nxentry
+        #return nxroot, nxpaths
+        return nxroot
 
 
 class URLReader(Reader):

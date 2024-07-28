@@ -1333,7 +1333,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
             try:
                 self._detector_data_path = os.path.join(
                     self.scan_path, str(self.scan_number), 'edd')
-                print(f'\n\nself._detector_data_path: {self._detector_data_path}\n\n')
                 self.get_detector_data_files_h5()
             except OSError:
                 raise RuntimeError(f'{self.scan_title}: Unable to determine '
@@ -1485,7 +1484,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         :returns: The MCA spectra
         :rtype: numpy.ndarray
         """
-        print(f'\n\ndetector_indices: {detector_indices}\n\n')
         detector_data = []
         for detector_file in self.get_detector_data_files_h5():
             data = self.get_all_mca_data_h5(detector_file)

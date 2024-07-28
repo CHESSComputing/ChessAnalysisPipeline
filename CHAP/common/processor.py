@@ -1248,6 +1248,7 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
+        from copy import deepcopy
         from json import dumps
 
         # Third party modules
@@ -1259,9 +1260,11 @@ class MapProcessor(Processor):
             NXsample,
         )
 
+        # Local modules:
+        from CHAP.common.models.map import PointByPointScanData
+
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
-        nxentry.map_config = dumps(map_config.dict())
         nxentry.attrs['station'] = map_config.station
         for key, value in map_config.attrs.items():
             nxentry.attrs[key] = value
@@ -1275,41 +1278,18 @@ class MapProcessor(Processor):
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
 
-        # Set up auxiliary NXdata group
-        if map_config.all_scalar_data:
-            nxentry.auxdata = NXdata()
-            signal = False
-            auxiliary_signals = []
-            for data in map_config.all_scalar_data:
-                nxentry.auxdata[data.label] = NXfield(
-                    value=np.empty(map_config.shape),
-                    units=data.units,
-                    attrs={'long_name': f'{data.label} ({data.units})',
-                           'data_type': data.data_type,
-                           'local_name': data.name})
-                if not signal:
-                    signal = data.label
-                else:
-                    auxiliary_signals.append(data.label)
-            if signal:
-                nxentry.auxdata.attrs['signal'] = signal
-                nxentry.auxdata.attrs['auxiliary_signals'] = auxiliary_signals
-
-        # Read the raw data and independent dimensions
-        independent_dimensions = map_config.independent_dimensions
+        # Read the raw data
         data = []
         # RV not sure if lists or numpy is faster with larger dimensions
-        #dims = [[] for _ in independent_dimensions]
-        dims = [np.empty((0)) for _ in independent_dimensions]
-        #print(f'\n\nindependent_dimensions {len(independent_dimensions)}: {independent_dimensions}')
-        #print(f'\n\ndims {len(dims)}: {dims}')
+        # Also change all_scalar_data if so
+        #independent_dimensions = [
+        #    [] for _ in map_config.independent_dimensions]
+        independent_dimensions = [
+            np.empty((0)) for _ in map_config.independent_dimensions]
+        all_scalar_data = [np.empty((0)) for _ in map_config.all_scalar_data]
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                #print(f'\n\nscan_number: {scan_number}')
-                #print(f'scanparser: {scanparser}')
-                #print(f'scanparser.spec_scan_motor_mnes: {scanparser.spec_scan_motor_mnes}')
-                #print(f'scanparser.spec_scan_shape: {scanparser.spec_scan_shape}')
                 spec_scan_shape = scanparser.spec_scan_shape
                 num = np.prod(spec_scan_shape)
                 if len(spec_scan_shape) == 1:
@@ -1317,70 +1297,131 @@ class MapProcessor(Processor):
                 else:
                     ddata = scanparser.get_detector_data()
                     data.append(ddata.reshape((num, *ddata.shape[-2:])))
-                #print(f'data[-1].shape: {np.asarray(data[-1]).shape}\n')
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 if len(spec_scan_shape) == 1:
-                    for i, dim in enumerate(independent_dimensions):
+                    for i, dim in enumerate(map_config.independent_dimensions):
                         v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)
-                        #print(f'\t1 {dim.name} {type(v)}: {v}')
                         if dim.name in spec_scan_motor_mnes:
-                            #dims[i] += list(v)
-                            dims[i] = np.concatenate(
-                                (dims[i].astype(v.dtype), v))
+                            #independent_dimensions[i] += list(v)
+                            independent_dimensions[i] = np.concatenate(
+                                (independent_dimensions[i].astype(v.dtype), v))
                         else:
-                            #dims[i] += [v]*spec_scan_shape[0]
-                            dims[i] = np.concatenate(
-                                (dims[i].astype(type(v)),
+                            #independent_dimensions[i] += [v]*spec_scan_shape[0]
+                            independent_dimensions[i] = np.concatenate(
+                                (independent_dimensions[i].astype(type(v)),
                                  np.repeat(v, spec_scan_shape[0])))
-                        #print(f'\t\t{dims[i].shape} {dims[i].dtype} {dims[i]}')
-                else:
-                    print(f'scan_number: {scan_number}')
-                    for i, dim in enumerate(independent_dimensions):
+                    for i, dim in enumerate(map_config.all_scalar_data):
                         v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)
-                        # Look into np.ravel. flat, flatten
+                        if dim.name in spec_scan_motor_mnes:
+                            all_scalar_data[i] = np.concatenate(
+                                (all_scalar_data[i].astype(v.dtype), v))
+                        else:
+                            all_scalar_data[i] = np.concatenate(
+                                (all_scalar_data[i].astype(type(v)),
+                                 np.repeat(v, spec_scan_shape[0])))
+                else:
+                    for i, dim in enumerate(map_config.independent_dimensions):
+                        v = dim.get_value(
+                            scans, scan_number, scan_step_index=-1,
+                            relative=False)
                         if dim.name == spec_scan_motor_mnes[0]: # Fast motor
-                            #print(f'\t2 fast {dim.name} {v.shape} {type(v)}: {v}')
-                            #dims[i] += list(v)*spec_scan_shape[1]
-                            dims[i] = np.concatenate(
-                                (dims[i].astype(v.dtype),
+                            #independent_dimensions[i] += \
+                            #    list(v)*spec_scan_shape[1]
+                            independent_dimensions[i] = np.concatenate(
+                                (independent_dimensions[i].astype(v.dtype),
                                  np.concatenate((v,)*spec_scan_shape[1])))
                         elif dim.name == spec_scan_motor_mnes[1]: # Slow motor
-                            #print(f'\t2 slow {dim.name} {v.shape} {type(v)}: {v}')
-                            #dims[i] += [v[j] for j in range(spec_scan_shape[1])
-                            #            for _ in range(spec_scan_shape[0])]
-                            dims[i] = np.concatenate(
-                                (dims[i].astype(v.dtype),
+                            #independent_dimensions[i] += [
+                            #    v[j] for j in range(spec_scan_shape[1])
+                            #    for _ in range(spec_scan_shape[0])]
+                            independent_dimensions[i] = np.concatenate(
+                                (independent_dimensions[i].astype(v.dtype),
                                  np.repeat(v, spec_scan_shape[0])))
                         else:
-                            #print(f'\t2 {dim.name} {type(v)}: {v}')
-                            #dims[i] += [v]*num
-                            dims[i] = np.concatenate(
-                                (dims[i].astype(type(v)), np.repeat(v, num)))
-                        #print(f'\t\t{dims[i].shape} {dims[i].dtype} {dims[i]}')
-                #print(f'\n\ndata {scan_number}:\n{np.asarray(data).shape}')
+                            #independent_dimensions[i] += [v]*num
+                            independent_dimensions[i] = np.concatenate(
+                                (independent_dimensions[i].astype(type(v)),
+                                 np.repeat(v, num)))
+                    for i, dim in enumerate(map_config.all_scalar_data):
+                        v = dim.get_value(
+                            scans, scan_number, scan_step_index=-1,
+                            relative=False)
+                        if dim.data_type == 'scan_column':
+                            all_scalar_data[i] = np.concatenate(
+                                (all_scalar_data[i].astype(type(v[0])), v))
+                        elif dim.data_type == 'smb_par':
+                            if dim.name == spec_scan_motor_mnes[0]:
+                                # Fast motor
+                                all_scalar_data[i] = np.concatenate(
+                                    (all_scalar_data[i].astype(v.dtype),
+                                     np.concatenate((v,)*spec_scan_shape[1])))
+                            elif dim.name == spec_scan_motor_mnes[1]:
+                                # Slow motor
+                                all_scalar_data[i] = np.concatenate(
+                                    (all_scalar_data[i].astype(v.dtype),
+                                     np.repeat(v, spec_scan_shape[0])))
+                            else:
+                                all_scalar_data[i] = np.concatenate(
+                                    (all_scalar_data[i].astype(type(v)),
+                                     np.repeat(v, num)))
+                        else:
+                            raise RuntimeError(
+                                f'{dim.data_type} in data_type not tested')
         data = np.asarray(data).reshape(
             (len(data)*data[0].shape[0], *data[0].shape[-2:]))
-        #print(f'\n\ndata final:\n{np.asarray(data).shape}')
-        #print(f'\n\nlen(dims): {len(dims)}')
-        #for i, dim in enumerate(independent_dimensions):
-            #print(f'\tlen(dims[{i}]) {dim.name} {dim.label}: {len(dims[i])} {type(dims[i])}\n{dims[i]}')
 
-        # Set up default NXdata group
+        # Set up default NXdata group (squeeze out constant dimensions)
         nxentry.data = NXdata(
             NXfield(data, 'detector_data'),
             tuple([
                 NXfield(
-                    dims[i], dim.label,
+                    independent_dimensions[i], dim.label,
                     attrs={'units': dim.units,
                            'long_name': f'{dim.label} ({dim.units})',
                            'data_type': dim.data_type,
                            'local_name': dim.name})
-                for i, dim in enumerate(independent_dimensions)]))
-        #print(f'\n\nnxentry.data:\n{nxentry.data.tree}\n\n')
+                for i, dim in enumerate(map_config.independent_dimensions)
+                    if np.unique(independent_dimensions[i]).size > 1]))
+        nxentry.data.set_default()
+
+        # Set up auxiliary NXdata group (add the constant dimensions)
+        auxiliary_signals = []
+        auxiliary_data = []
+        for i, dim in enumerate(map_config.all_scalar_data):
+            auxiliary_signals.append(dim.label)
+            auxiliary_data.append(NXfield(
+                value=all_scalar_data[i],
+                units=dim.units,
+                attrs={'long_name': f'{dim.label} ({dim.units})',
+                       'data_type': dim.data_type,
+                       'local_name': dim.name}))
+        for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
+            if np.unique(independent_dimensions[i]).size == 1:
+                auxiliary_signals.append(dim.label)
+                auxiliary_data.append(NXfield(
+                    independent_dimensions[i], dim.label,
+                    attrs={'units': dim.units,
+                           'long_name': f'{dim.label} ({dim.units})',
+                           'data_type': dim.data_type,
+                           'local_name': dim.name}))
+                map_config.all_scalar_data.append(
+                    PointByPointScanData(**dict(dim)))
+                map_config.independent_dimensions.remove(dim)
+        nxentry.auxdata = NXdata()
+        for label, data in zip(auxiliary_signals, auxiliary_data):
+            nxentry.auxdata[label] = data
+        if 'SCAN_N' in auxiliary_signals:
+            nxentry.auxdata.attrs['signal'] = 'SCAN_N'
+        else:
+            nxentry.auxdata.attrs['signal'] = auxiliary_signals[0]
+        auxiliary_signals.remove(nxentry.auxdata.attrs['signal'])
+        nxentry.auxdata.attrs['auxiliary_signals'] = auxiliary_signals
+
+        nxentry.map_config = dumps(map_config.dict())
 
         return nxentry
 
