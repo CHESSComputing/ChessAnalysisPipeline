@@ -84,8 +84,10 @@ class ScanParser:
 
         self._detector_data_path = None
 
-        if isinstance(self, FMBRotationScanParser) and scan_number > 1:
-            scanparser = FMBRotationScanParser(spec_file_name, scan_number-1)
+        if (isinstance(self, FMBRotationScanParser) and scan_number > 1
+                and not self._previous_scan):
+            scanparser = FMBRotationScanParser(
+                spec_file_name, scan_number-1, previous_scan=True)
             if (scanparser.spec_macro in ('rams4_step_ome', 'rams4_fly_ome')
                     and len(scanparser.spec_args) == 5):
                 self._rams4_args = scanparser.spec_args
@@ -1002,6 +1004,10 @@ class FMBRotationScanParser(RotationScanParser, FMBScanParser):
     """Concrete implementation of a class representing a scan taken
     with the typical tomography setup at FMB.
     """
+    def __init__(
+            self, spec_file_name, scan_number, previous_scan=False):
+        self._previous_scan = previous_scan
+        super().__init__(spec_file_name, scan_number)
 
     def get_spec_scan_data(self):
         spec_scan_data = super().get_spec_scan_data()
