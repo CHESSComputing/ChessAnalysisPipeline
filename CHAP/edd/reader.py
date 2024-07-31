@@ -140,24 +140,6 @@ class EddMapReader(Reader):
         )
         map_config = MapConfig(**map_config_dict)
 
-        # Squeeze out extraneous independent dimensions (dimensions
-        # along which data were taken at only one unique coordinate
-        # value)
-        while 1 in map_config.shape:
-            remove_dim_index = map_config.shape.index(1)
-            self.logger.debug(
-                'Map dimensions: '
-                + str([dim["label"] for dim in independent_dimensions]))
-            self.logger.debug(f'Map shape: {map_config.shape}')
-            self.logger.debug(
-                'Sqeezing out independent dimension '
-                + independent_dimensions[remove_dim_index]['label'])
-            independent_dimensions.pop(remove_dim_index)
-            map_config = MapConfig(**map_config_dict)
-        self.logger.debug(f'Map coords: {map_config.coords}')
-        self.logger.debug(f'Map dimensions: {map_config.dims}')
-        self.logger.debug(f'Map shape: {map_config.shape}')
-
         # Add lab coordinates to the map's scalar_data only if they
         # are NOT already one of the sqeezed map's
         # independent_dimensions.
@@ -357,8 +339,6 @@ class EddMPIMapReader(Reader):
             if dim not in independent_dimensions:
                 scalar_data.append(dim)
 
-        print(f'\n\nmap_config {type(map_config)}:\n{map_config}')
-
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
@@ -382,14 +362,6 @@ class EddMPIMapReader(Reader):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-        print(f'\n\nnxentry.data:\n{nxentry.data.tree}\n\n')
-
-        # Check for fly axes:
-        print('independent dimensions:')
-        for dim in independent_dimensions:
-            print(f'\t{dim.name} {dim.label}')
-        if 'fly_axis_labels' in map_config.attrs:
-            print(f'\n\nfly_axis_labels: {map_config.attrs["fly_axis_labels"]}\n\n')
 
         # Read the raw data and independent dimensions
         data = [[] for _ in detector_names]
@@ -397,27 +369,14 @@ class EddMPIMapReader(Reader):
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                print(f'\n\nscanparser: {scanparser}')
-                print(f'scanparser.spec_scan_motor_mnes: {scanparser.spec_scan_motor_mnes}')
-                print(f'scanparser.spec_scan_shape: {scanparser.spec_scan_shape}')
                 for i, detector_name in enumerate(detector_names):
                     if isinstance(detector_name, int):
                         detector_name = str(detector_name)
                     ddata = scanparser.get_detector_data(detector_name)
                     data[i].append(ddata)
-                    print(f'ddata.shape: {np.asarray(ddata).shape}')
-                    print(f'data[{i}].shape: {np.asarray(data[i]).shape}')
                 for i, dim in enumerate(independent_dimensions):
-                    print(f'get_value scan {scan_number}: {dim.name} {dim.label} {dim.get_value(scans, scan_number, scan_step_index=-1, relative=False)}')
-                    dims[i].append(dim.get_value(scans, scan_number, scan_step_index=-1, relative=True))
-#                exit('done')
-        print(f'\n\ndata:\n{np.asarray(data).shape}')
-        #print(f'\n\ndims:\n{dims}')
-        print(f'\n\nlen(dims): {len(dims)}')
-        for i, dim in enumerate(independent_dimensions):
-            print(f'\tlen(dims[{i}]) {dim.name} {dim.label}: {len(dims[i])}')
-        exit('done')
-
+                    dims[i].append(dim.get_value(
+                        scans, scan_number, scan_step_index=-1, relative=True))
 
         return map_config_dict
 

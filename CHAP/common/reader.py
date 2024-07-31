@@ -388,7 +388,7 @@ class NXfieldReader(Reader):
 
 class SpecReader(Reader):
     """Reader for CHESS SPEC scans"""
-    def read(self, filename=None, spec_config=None, detector_names=None,
+    def read(self, filename=None, config=None, detector_names=None,
             inputdir=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as a Nexus NXentry object.
@@ -397,10 +397,10 @@ class SpecReader(Reader):
             to read from to pass onto the constructor of
             `CHAP.common.models.map.SpecConfig`, defaults to `None`.
         :type filename: str, optional
-        :param spec_config: A SPEC configuration to be passed directly
+        :param config: A SPEC configuration to be passed directly
             to the constructor of `CHAP.common.models.map.SpecConfig`,
             defaults to `None`.
-        :type spec_config: dict, optional
+        :type config: dict, optional
         :param detector_names: Detector names/prefixes to include raw
             data for in the returned NeXus NXentry object,
             defaults to `None`.
@@ -423,8 +423,8 @@ class SpecReader(Reader):
         from CHAP.common.models.map import SpecConfig
 
         if filename is not None:
-            if spec_config is not None:
-                raise RuntimeError('Specify either filename or spec_config '
+            if config is not None:
+                raise RuntimeError('Specify either filename or config '
                                    'in common.SpecReader, not both')
             # Read the map configuration from file
             if not isfile(filename):
@@ -435,27 +435,27 @@ class SpecReader(Reader):
             else:
                 raise RuntimeError('input file has a non-implemented '
                                    f'extension ({filename})')
-            spec_config = reader.read(filename)
-        elif not isinstance(spec_config, dict):
-            raise RuntimeError('Invalid parameter spec_config in '
-                               f'common.SpecReader ({spec_config})')
+            config = reader.read(filename)
+        elif not isinstance(config, dict):
+            raise RuntimeError('Invalid parameter config in '
+                               f'common.SpecReader ({config})')
 
         # Validate the SPEC configuration provided by constructing a
         # SpecConfig
-        spec_config = SpecConfig(**spec_config, inputdir=inputdir)
+        config = SpecConfig(**config, inputdir=inputdir)
 
         # Validate the detector names/prefixes
-        if spec_config.experiment_type == 'EDD':
+        if config.experiment_type == 'EDD':
             if detector_names is not None:
                 # Local modules
                 from CHAP.utils.general import is_str_series
 
                 if isinstance(detector_names, (int, str)):
-                    detector_names = [int(detector_names)]
+                    detector_names = [str(detector_names)]
                 for i, detector_name in enumerate(detector_names):
-                    if isinstance(detector_name, str):
-                        detector_names[i] = int(detector_name)
-                    elif not isinstance(detector_name, int):
+                    if isinstance(detector_name, int):
+                        detector_names[i] = str(detector_name)
+                    elif not isinstance(detector_name, str):
                         raise ValueError('Invalid "detector_names" parameter '
                                          f'({detector_names})')
         else:
@@ -470,20 +470,27 @@ class SpecReader(Reader):
 
         # Create the NXroot object
         nxroot = NXroot()
-        nxentry = NXentry(name=spec_config.experiment_type)
+        nxentry = NXentry(name=config.experiment_type)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
 
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the
         # detector info and raw detector data
-        nxentry.spec_config = dumps(spec_config.dict())
-        nxentry.attrs['station'] = spec_config.station
-        if detector_names is not None:
-            nxentry.detector_names = detector_names
+        nxentry.config = dumps(config.dict())
+        nxentry.attrs['station'] = config.station
+        if config.experiment_type == 'EDD':
+            if detector_names is None:
+                detector_indices = None
+            else:
+                nxentry.detector_names = detector_names
+                detector_indices = [int(d) for d in detector_names]
+        else:
+            if detector_names is not None:
+                nxentry.detector_names = detector_names
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
-        for scans in spec_config.spec_scans:
+        for scans in config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
             nxscans.attrs['spec_file'] = str(scans.spec_file)
@@ -508,13 +515,13 @@ class SpecReader(Reader):
                         {k:v for k,v in scanparser.pars.items()})
                 except:
                     pass
-                if spec_config.experiment_type == 'EDD':
+                if config.experiment_type == 'EDD':
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     nxdata.data = NXfield(
-                       value=scanparser.get_detector_data(detector_names))
+                       value=scanparser.get_detector_data(detector_indices))
                 else:
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
@@ -523,6 +530,10 @@ class SpecReader(Reader):
                     for detector_name in detector_names:
                         nxdata[detector_name] = NXfield(
                            value=scanparser.get_detector_data(detector_name))
+
+        if config.experiment_type == 'EDD' and detector_names is None:
+            nxentry.detector_names = [
+                str(i) for i in range(nxdata.data.shape[1])]
 
         #return nxroot, nxpaths
         return nxroot

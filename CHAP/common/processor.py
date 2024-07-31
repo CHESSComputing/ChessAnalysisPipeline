@@ -831,9 +831,9 @@ class ImageProcessor(Processor):
             self, data, vmin=None, vmax=None, axis=0, index=None,
             coord=None, interactive=False, save_figure=True, outputdir='.',
             filename='image.png'):
-        """Plot and/or save an image (slice) from a NeXus NXobject object with
-        a default data path contained in `data` and return the NeXus NXdata
-        data object.
+        """Plot and/or save an image (slice) from a NeXus NXobject
+        object with a default data path contained in `data` and return
+        the NeXus NXdata data object.
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -1037,8 +1037,9 @@ class IntegrateMapProcessor(Processor):
         containing a map of the integrated detector data requested.
 
         :param data: Input data, containing at least one item
-            with the value `'MapConfig'` for the `'schema'` key, and at
-            least one item with the value `'IntegrationConfig'` for the
+            with the value `'common.models.map.MapConfig'` for the
+            `'schema'` key, and at least one item with the value
+            `'common.models.integration.IntegrationConfig'` for the
             `'schema'` key.
         :type data: list[PipelineData]
         :return: Integrated data and process metadata.
@@ -1056,10 +1057,11 @@ class IntegrateMapProcessor(Processor):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
         NeXus NXprocess object.
 
-        :param map_config: A valid map configuration.
-        :type map_config: MapConfig
-        :param integration_config: A valid integration configuration
-        :type integration_config: IntegrationConfig.
+        :param map_config: A valid map configuration..
+        :type map_config: common.models.map.MapConfig
+        :param integration_config: A valid integration configuration.
+        :type integration_config:
+            common.models.integration.IntegrationConfig
         :return: The integrated detector data and metadata.
         :rtype: nexusformat.nexus.NXprocess
         """
@@ -1199,17 +1201,20 @@ class MapProcessor(Processor):
     NXentry object representing that map's metadata and any
     scalar-valued raw data requested by the supplied map configuration.
     """
-    def process(self, data, detector_names=[]):
+    def process(self, data, detector_names=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
 
         :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key.
+            has the value `'common.models.map.MapConfig'` for the
+            `'schema'` key.
         :type data: list[PipelineData]
-        :param detector_names: Detector prefixes to include raw data
-            for in the returned NeXus NXentry object, defaults to `[]`.
-        :type detector_names: list[str], optional
+        :param detector_names: Detector names/prefixes to include raw
+            data for in the returned NeXus NXentry object,
+            defaults to `None`.
+        :type detector_names: Union(int, str, list[int], list[str]),
+            optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
@@ -1219,28 +1224,56 @@ class MapProcessor(Processor):
             string_to_list
         )
 
-        if isinstance(detector_names, str):
-            try:
-                detector_names = [
-                    str(v) for v in string_to_list(
-                        detector_names, raise_error=True)]
-            except:
-                raise ValueError(
-                    f'Invalid parameter detector_names ({detector_names})')
-        else:
-            detector_names = [str(v) for v in detector_names]
+        # Get the validated map configuration
         map_config = self.get_config(data, 'common.models.map.MapConfig')
+
+        # Validate the detector names/prefixes
+        if map_config.experiment_type == 'EDD':
+            if detector_names is not None:
+                # Local modules
+                from CHAP.utils.general import is_str_series
+
+                if isinstance(detector_names, (int, str)):
+                    detector_names = [str(detector_names)]
+                for i, detector_name in enumerate(detector_names):
+                    if isinstance(detector_name, int):
+                        detector_names[i] = str(detector_name)
+                    elif not isinstance(detector_name, str):
+                        raise ValueError('Invalid detector_names parameter '
+                                         f'({detector_names})')
+        else:
+            if detector_names is None:
+                raise ValueError(
+                    'Missing "detector_names" parameter')
+            if isinstance(detector_names, str):
+                detector_names = [detector_names]
+            if not is_str_series(detector_names, log=False):
+                raise ValueError(
+                    'Invalid "detector_names" parameter ({detector_names})')
+
+        if detector_names is not None:
+            if isinstance(detector_names, str):
+                try:
+                    detector_names = [
+                        str(v) for v in string_to_list(
+                            detector_names, raise_error=True)]
+                except:
+                    raise ValueError(
+                        f'Invalid parameter detector_names ({detector_names})')
+            else:
+                detector_names = [str(v) for v in detector_names]
+
         nxentry = self.__class__.get_nxentry(map_config, detector_names)
 
         return nxentry
 
     @staticmethod
-    def get_nxentry(map_config, detector_names=[]):
+    def get_nxentry(map_config, detector_names=None):
         """Use a `MapConfig` to construct a NeXus NXentry object.
 
         :param map_config: A valid map configuration.
-        :type map_config: MapConfig
-        :param detector_names: Detector prefixes to include raw data
+        :type map_config: common.models.map.MapConfig
+        :param detector_names: Detector names to include raw data
             for in the returned NeXus NXentry object.
         :type detector_names: list[str]
         :return: The map's data and metadata contained in a NeXus
@@ -1263,11 +1296,16 @@ class MapProcessor(Processor):
         # Local modules:
         from CHAP.common.models.map import PointByPointScanData
 
-        # Set up NXentry and add misc. CHESS-specific metadata
+        # Set up NeXus NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
         for key, value in map_config.attrs.items():
             nxentry.attrs[key] = value
+        if detector_names is None:
+            detector_indices = None
+        else:
+            nxentry.detector_names = detector_names
+            detector_indices = [int(name) for name in detector_names]
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
@@ -1292,10 +1330,10 @@ class MapProcessor(Processor):
                 scanparser = scans.get_scanparser(scan_number)
                 spec_scan_shape = scanparser.spec_scan_shape
                 num = np.prod(spec_scan_shape)
+                ddata = scanparser.get_detector_data(detector_indices)
                 if len(spec_scan_shape) == 1:
-                    data.append(scanparser.get_detector_data())
+                    data.append(ddata)
                 else:
-                    ddata = scanparser.get_detector_data()
                     data.append(ddata.reshape((num, *ddata.shape[-2:])))
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 if len(spec_scan_shape) == 1:
@@ -1373,8 +1411,10 @@ class MapProcessor(Processor):
                                 f'{dim.data_type} in data_type not tested')
         data = np.asarray(data).reshape(
             (len(data)*data[0].shape[0], *data[0].shape[-2:]))
+        if detector_names is None:
+            nxentry.detector_names = [str(d) for d in range(data.shape[1])]
 
-        # Set up default NXdata group (squeeze out constant dimensions)
+        # Set up default NeXus NXdata group (squeeze out constant dimensions)
         nxentry.data = NXdata(
             NXfield(data, 'detector_data'),
             tuple([
@@ -1388,7 +1428,7 @@ class MapProcessor(Processor):
                     if np.unique(independent_dimensions[i]).size > 1]))
         nxentry.data.set_default()
 
-        # Set up auxiliary NXdata group (add the constant dimensions)
+        # Set up auxiliary NeXus NXdata group (add the constant dimensions)
         auxiliary_signals = []
         auxiliary_data = []
         for i, dim in enumerate(map_config.all_scalar_data):
@@ -1799,7 +1839,7 @@ class PrintProcessor(Processor):
         """
         print(f'{self.__name__} data :')
         if callable(getattr(data, '_str_tree', None)):
-            # If data is likely an NXobject, print its tree
+            # If data is likely a NeXus NXobject, print its tree
             # representation (since NXobjects' str representations are
             # just their nxname)
             print(data._str_tree(attrs=True, recursive=True))
@@ -1898,13 +1938,14 @@ class RawDetectorDataMapProcessor(Processor):
         `Processor`.
 
         :param data: Result of `Reader.read` where at least one item
-            has the value `'MapConfig'` for the `'schema'` key.
+            has the value `'common.models.map.MapConfig'` for the
+            `'schema'` key.
         :type data: list[PipelineData]
         :raises Exception: If a valid map config object cannot be
             constructed from `data`.
         :return: A valid instance of the map configuration object with
             field values taken from `data`.
-        :rtype: MapConfig
+        :rtype: common.models.map.MapConfig
         """
         # Local modules
         from CHAP.common.models.map import MapConfig
@@ -1914,7 +1955,7 @@ class RawDetectorDataMapProcessor(Processor):
             for item in data:
                 if isinstance(item, dict):
                     schema = item.get('schema')
-                    if schema == 'MapConfig':
+                    if schema == 'common.models.map.MapConfig':
                         map_config = item.get('data')
 
         if not map_config:
@@ -1928,7 +1969,7 @@ class RawDetectorDataMapProcessor(Processor):
         relevant metadata in the form of a NeXus structure.
 
         :param map_config: The map configuration.
-        :type map_config: MapConfig
+        :type map_config: common.models.map.MapConfig
         :param detector_name: The detector prefix.
         :type detector_name: str
         :param detector_shape: The shape of detector data for a single
@@ -2045,11 +2086,11 @@ class StrainAnalysisProcessor(Processor):
 class SetupNXdataProcessor(Processor):
     """Processor to set up and return an "empty" NeXus representation
     of a structured dataset. This representation will be an instance
-    of `NXdata` that has:
-    1. An `NXfield` entry for every coordinate and signal specified.
-    1. `nxaxes` that are the `NXfield` entries for the coordinates and
-       contain the values provided for each coordinate.
-    1. `NXfield` entries of appropriate shape, but containing all
+    of a NeXus NXdata object that has:
+    1. A NeXus NXfield entry for every coordinate/signal specified.
+    1. `nxaxes` that are the NeXus NXfield entries for the coordinates
+       and contain the values provided for each coordinate.
+    1. NeXus NXfield entries of appropriate shape, but containing all
        zeros, for every signal.
     1. Attributes that define the axes, plus any additional attributes
        specified by the user.
@@ -2115,20 +2156,20 @@ class SetupNXdataProcessor(Processor):
     def process(self, data, nxname='data',
                 coords=[], signals=[], attrs={}, data_points=[],
                 extra_nxfields=[], duplicates='overwrite'):
-        """Return an `NXdata` that has the requisite axes and
-        `NXfield` entries to represent a structured dataset with the
-        properties provided. Properties may be provided either through
-        the `data` argument (from an appropriate `PipelineItem` that
-        immediately preceeds this one in a `Pipeline`), or through the
-        `coords`, `signals`, `attrs`, and/or `data_points`
+        """Return a NeXus NXdata object that has the requisite axes
+        and NeXus NXfield entries to represent a structured dataset
+        with the properties provided. Properties may be provided either
+        through the `data` argument (from an appropriate `PipelineItem`
+        that immediately preceeds this one in a `Pipeline`), or through
+        the `coords`, `signals`, `attrs`, and/or `data_points`
         arguments. If any of the latter are used, their values will
         completely override any values for these parameters found from
         `data.`
 
         :param data: Data from the previous item in a `Pipeline`.
         :type data: list[PipelineData]
-        :param nxname: Name for the returned `NXdata` object. Defaults
-            to `'data'`.
+        :param nxname: Name for the returned NeXus NXdata object.
+            Defaults to `'data'`.
         :type nxname: str, optional
         :param coords: List of dictionaries defining the coordinates
             of the dataset. Each dictionary must have the keys
@@ -2138,7 +2179,7 @@ class SetupNXdataProcessor(Processor):
             numbers), respectively. A third item in the dictionary is
             optional, but highly recommended: `'attrs'` may provide a
             dictionary of attributes to attach to the coordinate axis
-            that assist in in interpreting the returned `NXdata`
+            that assist in in interpreting the returned NeXus NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the values along an axis in the
             `attrs` dictionary. Defaults to [].
@@ -2151,19 +2192,19 @@ class SetupNXdataProcessor(Processor):
             integers), respectively. A third item in the dictionary is
             optional, but highly recommended: `'attrs'` may provide a
             dictionary of attributes to attach to the signal fieldthat
-            assist in in interpreting the returned `NXdata`
+            assist in in interpreting the returned NeXus NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the signal's values `attrs`
             dictionary. Defaults to [].
         :type signals: list[dict[str, object]], optional
         :param attrs: An arbitrary dictionary of attributes to assign
-            to the returned `NXdata`. Defaults to {}.
+            to the returned NeXus NXdata object. Defaults to {}.
         :type attrs: dict[str, object], optional
         :param data_points: A list of data points to partially (or
-            even entirely) fil out the "empty" signal `NXfield`s
-            before returning the `NXdata`. Defaults to [].
+            even entirely) fil out the "empty" signal NeXus NXfield's
+            before returning the NeXus NXdata object. Defaults to [].
         :type data_points: list[dict[str, object]], optional
-        :param extra_nxfields: List "extra" NXfield`s to include that
+        :param extra_nxfields: List "extra" NeXus NXfield's to include that
             can be described neither as a signal of the dataset, not a
             dedicated coordinate. This paramteter is good for
             including "alternate" values for one of the coordinate
@@ -2177,8 +2218,8 @@ class SetupNXdataProcessor(Processor):
             existing data point. Allowed values for `duplicates` are:
             `'overwrite'` and `'block'`. Defaults to `'overwrite'`.
         :type duplicates: Literal['overwrite', 'block']
-        :returns: An `NXdata` that represents the structured dataset
-            as specified.
+        :returns: A NeXus NXdata object that represents the structured
+            dataset as specified.
         :rtype: nexusformat.nexus.NXdata
         """
         self.nxname = nxname
@@ -2279,13 +2320,13 @@ class SetupNXdataProcessor(Processor):
         return valid, msg
 
     def init_nxdata(self):
-        """Initialize an empty `NXdata` representing this dataset to
-        `self.nxdata`; values for axes' `NXfield`s are filled out,
+        """Initialize an empty NeXus NXdata representing this dataset
+        to `self.nxdata`; values for axes' `NXfield`s are filled out,
         values for signals' `NXfield`s are empty an can be filled out
-        later. Save the empty `NXdata` to the NeXus file. Initialise
-        `self.nxfile` and `self.nxdata_path` with the `NXFile` object
-        and actual nxpath used to save and make updates to the
-        `NXdata`.
+        later. Save the empty NeXus NXdata object to the NeXus file.
+        Initialise `self.nxfile` and `self.nxdata_path` with the
+        `NXFile` object and actual nxpath used to save and make updates
+        to the Nexus NXdata object.
 
         :returns: None
         """
@@ -2337,14 +2378,14 @@ class SetupNXdataProcessor(Processor):
 
 
 class UpdateNXdataProcessor(Processor):
-    """Processor to fill in part(s) of an `NXdata` representing a
+    """Processor to fill in part(s) of a NeXus NXdata representing a
     structured dataset that's already been written to a NeXus file.
 
-    This Processor is most useful as an "update" step for an `NXdata`
-    created by `common.SetupNXdataProcessor`, and is easitest to use
-    in a `Pipeline` immediately after another `PipelineItem` designed
-    specifically to return a value that can be used as input to this
-    `Processor`.
+    This Processor is most useful as an "update" step for a NeXus
+    NXdata object created by `common.SetupNXdataProcessor`, and is
+    most easy to use in a `Pipeline` immediately after another
+    `PipelineItem` designed specifically to return a value that can
+    be used as input to this `Processor`.
 
     Example of use in a `Pipeline` configuration:
     ```yaml
@@ -2363,7 +2404,7 @@ class UpdateNXdataProcessor(Processor):
     def process(self, data, nxfilename, nxdata_path, data_points=[],
                 allow_approximate_coordinates=True):
         """Write new data points to the signal fields of an existing
-        `NXdata` object representing a structued dataset in a NeXus
+        NeXus NXdata object representing a structued dataset in a NeXus
         file. Return the list of data points used to update the
         dataset.
 
@@ -2373,9 +2414,10 @@ class UpdateNXdataProcessor(Processor):
             argument.
         :type data: list[PipelineData]
         :param nxfilename: Name of the NeXus file containing the
-            `NXdata` to update.
+            NeXus NXdata object to update.
         :type nxfilename: str
-        :param nxdata_path: The path to the `NXdata` to update in the file.
+        :param nxdata_path: The path to the NeXus NXdata object to
+            update in the file.
         :type nxdata_path: str
         :param data_points: List of data points, each one a dictionary
             whose keys are the names of the coordinates and axes, and
@@ -2462,11 +2504,11 @@ class UpdateNXdataProcessor(Processor):
 
 
 class NXdataToDataPointsProcessor(Processor):
-    """Transform an `NXdata` object into a list of dictionaries. Each
-    dictionary represents a single data point in the coordinate space
-    of the dataset. The keys are the names of the signals and axes in
-    the dataset, and the values are a single scalar value (in the case
-    of axes) or the value of the signal at that point in the
+    """Transform a NeXus NXdata object into a list of dictionaries.
+    Each dictionary represents a single data point in the coordinate
+    space of the dataset. The keys are the names of the signals and
+    axes in the dataset, and the values are a single scalar value (in
+    the case of axes) or the value of the signal at that point in the
     coordinate space of the dataset (in the case of signals -- this
     means that values for signals may be any shape, depending on the
     shape of the signal itself).
@@ -2505,7 +2547,8 @@ class NXdataToDataPointsProcessor(Processor):
         """Return a list of dictionaries representing the coordinate
         and signal values at every point in the dataset provided.
 
-        :param data: Input pipeline data containing an `NXdata`.
+        :param data: Input pipeline data containing a NeXus NXdata
+            object.
         :type data: list[PipelineData]
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
@@ -2591,7 +2634,7 @@ if __name__ == '__main__':
 
 
 class SumProcessor(Processor):
-    """A Processor to sum the data in an NXobject, given a set of
+    """A Processor to sum the data in a NeXus NXobject, given a set of
     nxpaths
     """
     def process(self, data):

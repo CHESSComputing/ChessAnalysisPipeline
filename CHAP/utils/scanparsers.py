@@ -1421,11 +1421,21 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         :returns: The MCA spectra
         :rtype: numpy.ndarray
         """
+        # Local modules
+        from CHAP.utils.general import is_int_series
+
         if self.detector_data_format == 'spec':
+            raise RuntimeError(
+                'SMBMCAScanParser.get_all_detector_data not updated/tested')
             if detector is None:
                 raise TypeError('Missing required detector parameter')
+            if not isinstance(detector, str):
+                raise TypeError('Invalid detector parameter ({detector})')
             return self.get_all_detector_data_spec(detector)
         if self.detector_data_format == 'h5':
+            if (detector is not None
+                    and not is_int_series(detector, ge=0, log=False)):
+                raise TypeError('Invalid detector parameter ({detector})')
             return self.get_all_detector_data_h5(detector)
 
     def get_all_detector_data_spec(self, detector_prefix):
@@ -1444,9 +1454,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         # manual and pyspec code, mca data should always begin w/ '@A'
         # In example scans, it begins with '@{detector_prefix}'
         # instead
-        raise RuntimeError(
-            'SMBMCAScanParser.get_all_detector_data_spec not tested')
-                           
         data = []
 
         with open(self.get_detector_data_file_spec()) as detector_file:
@@ -1552,12 +1559,13 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
     def get_detector_data(self, detector=None, scan_step_index=None):
         """Return a single MCA spectrum for the detector indicated.
 
-        :param detector: If this scan collected MCA data in "spec"
-            format, this is the detector prefix as it appears in the
-            spec MCA data file. If this scan collected data in .h5
-            format, this is the index of the detector element of
-            interest.
-        :type detector: Union[str, int]
+        :param detector: For detector data collected in SPEC format,
+            this is the detector prefix as it appears in the spec MCA
+            data file. For detector data collected in H5 format, this
+            is a list of MCA detector element indices to return data.
+            for. Defaults to `None` (return data for all detector
+            elements, invalid for SPEC format detector data).
+        :type detector: Union[str, list[int]), optional
         :param scan_step_index: Index of the scan step to return the
             spectrum from.
         :type scan_step_index: int
@@ -1568,6 +1576,6 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         if scan_step_index is None:
             return detector_data
         # FIX scan_step_index needs testing
-        assert False
+        raise RuntimeError('scan_step_index needs testing/updating')
         return detector_data[scan_step_index]
 
