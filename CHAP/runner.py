@@ -25,10 +25,13 @@ class RunConfig():
             'spawn': 0}
 
     def __init__(self, config={}, comm=None):
-        """RunConfig constructor
+        """RunConfig constructor.
 
-        :param config: Pipeline configuration options
-        :type config: dict
+        :param config: Pipeline configuration options,
+            defaults to `{}`.
+        :type config: dict, optional
+        :param comm: MPI communicator, defaults to `None`.
+        :type comm: mpi4py.MPI.Comm, optional
         """
         # System modules
         from tempfile import NamedTemporaryFile
@@ -89,7 +92,7 @@ def parser():
     return parser
 
 def main():
-    """Main function"""
+    """Main function."""
     # Third party modules
     try:
         from mpi4py import MPI
@@ -144,12 +147,15 @@ def main():
         sub_comm.Disconnect()
 
 def runner(run_config, pipeline_config, comm=None):
-    """Main runner funtion
+    """Main runner funtion.
 
-    :param run_config: CHAP run configuration
-    :type run_config: RunConfig
-    :param pipeline_config: CHAP Pipeline configuration
+    :param run_config: CHAP run configuration.
+    :type run_config: CHAP.runner.RunConfig
+    :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
+    :param comm: MPI communicator, defaults to `None`.
+    :type comm: mpi4py.MPI.Comm, optional
+    :return: The pipeline's returned data field.
     """
     # System modules
     from time import time
@@ -166,11 +172,13 @@ def runner(run_config, pipeline_config, comm=None):
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
     return data
 
-def setLogger(log_level="INFO"):
-    """
-    Helper function to set CHAP logger
+def setLogger(log_level='INFO'):
+    """Helper function to set CHAP logger.
 
-    :param log_level: logger level, default INFO
+    :param log_level: Logger level, defaults to `"INFO"`.
+    :type log_level: str
+    :return: The CHAP logger and logging handler.
+    :rtype: logging.Logger, logging.StreamHandler
     """
     logger = logging.getLogger(__name__)
     log_level = getattr(logging, log_level.upper())
@@ -184,10 +192,27 @@ def setLogger(log_level="INFO"):
 def run(
         pipeline_config, inputdir=None, outputdir=None, interactive=False,
         logger=None, log_level=None, log_handler=None, comm=None):
-    """
-    Run given pipeline_config
+    """Run a given pipeline_config.
 
-    :param pipeline_config: CHAP pipeline config
+    :param pipeline_config: CHAP Pipeline configuration.
+    :type pipeline_config: dict
+    :param inputdir: Input directory, defaults to `None'`.
+    :type inputdir: str, optional
+    :param outputdir: Output directory, defaults to `None'`.
+    :type outputdir: str, optional
+    :param interactive: Allows for user interactions,
+        defaults to `False`.
+    :type interactive: bool, optional
+    :param logger: CHAP logger, defaults to `None`.
+    :type logger: logging.Logger, optional
+    :param log_level: Logger level, defaults to `None`.
+    :type log_level: str, optional
+    :param log_handler: logging handler, defaults to `None`.
+    :type log_handler: logging.StreamHandler, optional
+    :param comm: MPI communicator, defaults to `None`.
+    :type comm: mpi4py.MPI.Comm, optional
+    :return: The `data` field of the first item in the returned
+        list of pipeline items.
     """
     # System modules
     from tempfile import NamedTemporaryFile
@@ -247,7 +272,7 @@ def run(
             try:
                 import users
             except ImportError:
-                if logger:
+                if logger is not None:
                     logger.error(f'Unable to load {name}')
                 continue
             clsName = name.split('.')[-1]
@@ -258,26 +283,27 @@ def run(
             modName, clsName = name.split('.')
             module = __import__(f'CHAP.{modName}', fromlist=[clsName])
             obj = getattr(module, clsName)()
-        if log_level:
+        if log_level is not None:
             obj.logger.setLevel(log_level)
-        if log_handler:
+        if log_handler is not None:
             obj.logger.addHandler(log_handler)
-        if logger:
+        if logger is not None:
             logger.info(f'Loaded {obj}')
         objects.append(obj)
         kwds.append(kwargs)
     pipeline = Pipeline(objects, kwds)
-    if log_level:
+    if log_level is not None:
         pipeline.logger.setLevel(log_level)
-    if log_handler:
+    if log_handler is not None:
         pipeline.logger.addHandler(log_handler)
-    if logger:
+    if logger is not None:
         logger.info(f'Loaded {pipeline} with {len(objects)} items\n')
         logger.info(f'Calling "execute" on {pipeline}')
 
     # Make sure os.makedirs completes before continuing all nodes
     if comm is not None:
         comm.barrier()
+
     return pipeline.execute()[0]['data']
 
 

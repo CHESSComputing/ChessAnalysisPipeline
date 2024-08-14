@@ -1242,11 +1242,16 @@ class MCAScanParser(ScanParser):
     """
 
     def __init__(self, spec_file_name, scan_number):
+        self._num_detector_bins = None
         super().__init__(spec_file_name, scan_number)
 
-        self._detector_num_bins = None
+    @property
+    def num_detector_bins(self):
+        if self._num_detector_bins is None:
+            self._num_detector_bins = self.get_num_detector_bins()
+        return self._num_detector_bins
 
-    def get_detector_num_bins(self, detector_prefix):
+    def get_num_detector_bins(self, detector_prefix):
         """Return the number of bins for the detector with the given
         prefix.
 
@@ -1351,13 +1356,13 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
     def get_detector_data_path(self):
         raise NotImplementedError
 
-    def get_detector_num_bins(self):
+    def get_num_detector_bins(self):
         if self.detector_data_format == 'spec':
-            return self.get_detector_num_bins_spec()
+            return self.get_num_detector_bins_spec()
         if self.detector_data_format == 'h5':
-            return self.get_detector_num_bins_h5()
+            return self.get_num_detector_bins_h5()
 
-    def get_detector_num_bins_spec(self):
+    def get_num_detector_bins_spec(self):
         with open(self.get_detector_data_file_spec()) as f:
             lines = f.readlines()
         for line in lines:
@@ -1370,7 +1375,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
                     continue
         raise RuntimeError(f'{self.scan_title}: could not find num_bins')
 
-    def get_detector_num_bins_h5(self):
+    def get_num_detector_bins_h5(self):
         # Third party modules
         from h5py import File
 
@@ -1459,7 +1464,7 @@ class SMBMCAScanParser(MCAScanParser, SMBLinearScanParser):
         with open(self.get_detector_data_file_spec()) as detector_file:
             lines = [line.strip("\\\n") for line in detector_file.readlines()]
 
-        num_bins = self.get_detector_num_bins()
+        num_bins = self.num_detector_bins
 
         counter = 0
         for line in lines:

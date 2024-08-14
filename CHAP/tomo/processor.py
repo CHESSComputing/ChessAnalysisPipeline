@@ -272,7 +272,7 @@ class TomoCHESSMapConverter(Processor):
         x_translations = []
         z_translations = []
         if darkfield is not None:
-            nxentry.dark_field_config = darkfield.spec_config
+            nxentry.dark_field_config = darkfield.config
             for scan_name, scan in darkfield.spec_scans.items():
                 for scan_number, nxcollection in scan.items():
                     scan_columns = loads(str(nxcollection.scan_columns))
@@ -312,7 +312,7 @@ class TomoCHESSMapConverter(Processor):
                                 num_image*[smb_pars[z_translation_name]]
 
         # Collect bright field data
-        nxentry.bright_field_config = brightfield.spec_config
+        nxentry.bright_field_config = brightfield.config
         for scan_name, scan in brightfield.spec_scans.items():
             for scan_number, nxcollection in scan.items():
                 scan_columns = loads(str(nxcollection.scan_columns))

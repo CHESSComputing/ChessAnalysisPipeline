@@ -12,7 +12,7 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
         - common.SpecReader:
-            spec_config:
+            config:
               station: id3b
               experiment_type: TOMO
               spec_scans:
@@ -24,7 +24,7 @@ pipeline:
             schema: darkfield
         - common.SpecReader:
             inputdir: ../data/hollow_cube
-            spec_config:
+            config:
               station: id3b
               experiment_type: TOMO
               spec_scans:
