@@ -2556,8 +2556,9 @@ class StrainAnalysisProcessor(Processor):
         self._nxdata = None
 
     def process(
-            self, data, config=None, find_peaks=False, save_figures=False,
-            inputdir='.', outputdir='.', interactive=False):
+            self, data, config=None, find_peaks=False, skip_animation=False,
+            save_figures=False, inputdir='.', outputdir='.',
+            interactive=False):
         """Return strain analysis maps & associated metadata in an NXprocess.
 
         :param data: Input data containing configurations for a map,
@@ -2573,6 +2574,9 @@ class StrainAnalysisProcessor(Processor):
             configuration) cutoff relative to the maximum value of the
             average spectrum, defaults to `False`.
         :type find_peaks: bool, optional
+        :param skip_animation: Skip the animation and plotting of
+            the strain analysis fits, defaults to `False`.
+        :type skip_animation: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -2645,43 +2649,49 @@ class StrainAnalysisProcessor(Processor):
 
         # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
-        available_detector_indices = [
-            int(d) for d in nxentry.detector_names]
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         calibration_detector_indices = [
             int(d.detector_name) for d in calibration_config.detectors]
+        if 'detector_names' in nxentry:
+            available_detector_indices = [
+                int(d) for d in nxentry.detector_names]
+        else:
+            available_detector_indices = calibration_detector_indices
         if strain_analysis_config.detectors is None:
+            # Local modules:
+            from CHAP.edd.models import MCAElementStrainAnalysisConfig
+
             strain_analysis_config.detectors = [
                 MCAElementStrainAnalysisConfig(**dict(d))
                 for d in calibration_config.detectors
                 if int(d.detector_name) in available_detector_indices]
-        else:
-            for detector in deepcopy(strain_analysis_config.detectors):
-                index = int(detector.detector_name)
-                if index not in available_detector_indices:
-                    self.logger.warning(
-                        f'Skipping detector {index} (no raw data)')
-                    strain_analysis_config.detectors.remove(detector)
-                elif index in calibration_detector_indices:
-                    self._detectors.append(detector)
-                    self._detector_indices.append(
-                        available_detector_indices.index(index))
-                    calibration = [
-                        d for d in calibration_config.detectors
-                        if d.detector_name == detector.detector_name][0]
-                    detector.add_calibration(calibration)
-                else:
-                    self.logger.warning(f'Skipping detector {index} '
-                                     '(no energy/tth calibration data)')
+        for detector in deepcopy(strain_analysis_config.detectors):
+            index = int(detector.detector_name)
+            if index not in available_detector_indices:
+                self.logger.warning(
+                    f'Skipping detector {index} (no raw data)')
+                strain_analysis_config.detectors.remove(detector)
+            elif index in calibration_detector_indices:
+                self._detectors.append(detector)
+                self._detector_indices.append(
+                    available_detector_indices.index(index))
+                calibration = [
+                    d for d in calibration_config.detectors
+                    if d.detector_name == detector.detector_name][0]
+                detector.add_calibration(calibration)
+            else:
+                self.logger.warning(f'Skipping detector {index} '
+                                    '(no energy/tth calibration data)')
         if not self._detectors:
             raise ValueError('Unable to match an available calibrated '
                              'detector for the strain analysis')
 
         return self.strain_analysis(
-            nxentry, strain_analysis_config, find_peaks)
+            nxentry, strain_analysis_config, find_peaks, skip_animation)
 
-    def strain_analysis(self, nxentry, strain_analysis_config, find_peaks):
+    def strain_analysis(
+            self, nxentry, strain_analysis_config, find_peaks, skip_animation):
         """Return NXroot containing the strain maps.
 
         :param mca_data: The strain analysis map, including the raw
@@ -2696,6 +2706,9 @@ class StrainAnalysisProcessor(Processor):
             configuration) cutoff relative to the maximum value of the
             average spectrum, defaults to `False`.
         :type find_peaks: bool, optional
+        :param skip_animation: Skip the animation and plotting of
+            the strain analysis fits, defaults to `False`.
+        :type skip_animation: bool, optional
         :return: The strain maps.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -3013,7 +3026,8 @@ class StrainAnalysisProcessor(Processor):
                     value=sigmas_error)
                 fit_nxgroup[hkl_name].sigmas.attrs['signal'] = 'values'
 
-            if self._interactive or self._save_figures:
+            if ((self._interactive or self._save_figures)
+                    and not skip_animation):
                 # Third party modules
                 import matplotlib.animation as animation
                 import matplotlib.pyplot as plt

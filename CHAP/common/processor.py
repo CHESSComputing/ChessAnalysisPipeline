@@ -1544,6 +1544,9 @@ class MapProcessor(Processor):
         except:
             pass
 
+        # Local modules
+        from CHAP.utils.general import list_to_string
+
         if comm is None:
             num_proc = 1
             rank = 0
@@ -1574,8 +1577,8 @@ class MapProcessor(Processor):
                 (num_sd, num_scan*num_dim), dtype=np.float64)
         else:
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
-            self.logger.debug(
-                f'Scan numbers on processor {rank}: {scan_numbers}')
+            self.logger.debug(f'Scan numbers on processor {rank}: '
+                              f'{list_to_string(scan_numbers)}')
             datatype = dtlib.from_numpy_dtype(ddata.dtype)
             itemsize = datatype.Get_size()
             if not rank:

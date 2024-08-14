@@ -53,7 +53,7 @@ class EddMapReader(Reader):
         scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i\
                     if parfile.data[i][parfile.scann_i] in \
                         parfile.good_scan_numbers()]
-        self.logger.debug(f'Scan numbers: {scan_nos}')
+        self.logger.debug(f'Scan numbers: {list_to_string(scan_nos)}')
         spec_scans = [dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)]
 
         # Get scan type for this dataset
