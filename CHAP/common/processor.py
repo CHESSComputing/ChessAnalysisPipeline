@@ -1325,6 +1325,9 @@ class MapProcessor(Processor):
         spec_scans = map_config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
+        if num_scan == 1:
+            num_proc = 1
+        self.logger.debug(f'Number of processors: {num_proc}')
         if num_proc == 1:
             common_comm = comm
             offsets = [0]
@@ -1345,7 +1348,8 @@ class MapProcessor(Processor):
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
-                    [{'common.MapProcessor': {'config': config}}])
+                    [{'common.MapProcessor': {
+                        'config': config, 'detector_names': detector_names}}])
                 offsets.append(n_scan)
                 n_scan += num
 
@@ -1542,6 +1546,8 @@ class MapProcessor(Processor):
         else:
             num_proc = comm.Get_size()
             rank = comm.Get_rank()
+        if not rank:
+            self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
         # FIX: just one spec scan at this point
@@ -1555,13 +1561,16 @@ class MapProcessor(Processor):
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
         if num_proc == 1:
-            num_scan = len(scan_numbers)
+            assert num_scan == len(scan_numbers)
             data = np.empty((num_scan, *ddata.shape))
             independent_dimensions = np.empty(
                 (num_id, num_scan*num_dim), dtype=np.float64)
             all_scalar_data = np.empty(
                 (num_sd, num_scan*num_dim), dtype=np.float64)
         else:
+            self.logger.debug(f'Scan offset on processor {rank}: {offset}')
+            self.logger.debug(
+                f'Scan numbers on processor {rank}: {scan_numbers}')
             datatype = dtlib.from_numpy_dtype(ddata.dtype)
             itemsize = datatype.Get_size()
             if not rank:
@@ -1588,6 +1597,12 @@ class MapProcessor(Processor):
             all_scalar_data = np.ndarray(
                 buffer=buf_sd, dtype=np.float64,
                 shape=(num_sd, num_scan*num_dim))
+        if not rank:
+            self.logger.debug(f'Data shape: {data.shape}')
+            self.logger.debug('Independent dimensions shape: '
+                              f'{independent_dimensions.shape}')
+            self.logger.debug('Scalar data shape: '
+                              f'{all_scalar_data.shape}')
 
         # Read the raw data
         for scans in map_config.spec_scans:
@@ -1613,7 +1628,8 @@ class MapProcessor(Processor):
                         v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)
-                        if dim.name in spec_scan_motor_mnes:
+                        #if dim.name in spec_scan_motor_mnes:
+                        if dim.data_type == 'scan_column':
                             all_scalar_data[i][start_dim:end_dim] = v
                         else:
                             all_scalar_data[i][start_dim:end_dim] = \
