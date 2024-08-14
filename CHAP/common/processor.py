@@ -1274,8 +1274,8 @@ class MapProcessor(Processor):
                 if num_proc > cpu_count():
                     self.logger.warning(
                         f'The requested number of processors ({num_proc}) '
-                        'exceeds the maximum number of processors, num_proc '
-                        f'reduced to {cpu_count()}')
+                        'exceeds the maximum number of processors '
+                        f'({cpu_count()}): reset it to {cpu_count()}')
                     num_proc = cpu_count()
             except:
                 self.logger.warning('Unable to load mpi4py, running serially')
@@ -1325,9 +1325,11 @@ class MapProcessor(Processor):
         spec_scans = map_config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
-        if num_scan == 1:
-            num_proc = 1
-        self.logger.debug(f'Number of processors: {num_proc}')
+        if num_scan < num_proc:
+            self.logger.warning(
+                f'The requested number of processors ({num_proc}) exceeds '
+                f'the number of scans ({num_scan}): reset it to {num_scan}')
+            num_proc = num_scan
         if num_proc == 1:
             common_comm = comm
             offsets = [0]
@@ -1400,17 +1402,19 @@ class MapProcessor(Processor):
         if common_comm.Get_rank():
             return None
 
-        # Construct the NeXus NXentry object
-        nxentry = self._get_nxentry(
-            map_config, detector_names, data, independent_dimensions,
-            all_scalar_data)
-
-        # Disconnect spawned workers and cleanup temporary files
         if num_proc > 1:
+            # Reset the scan_numbers to the original full set
+            spec_scans.scan_numbers = scan_numbers
+            # Disconnect spawned workers and cleanup temporary files
             common_comm.barrier()
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
+
+        # Construct the NeXus NXentry object
+        nxentry = self._get_nxentry(
+            map_config, detector_names, data, independent_dimensions,
+            all_scalar_data)
 
         return nxentry
 
@@ -1547,6 +1551,7 @@ class MapProcessor(Processor):
             num_proc = comm.Get_size()
             rank = comm.Get_rank()
         if not rank:
+            self.logger.debug(f'Number of processors: {num_proc}')
             self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
@@ -1562,7 +1567,7 @@ class MapProcessor(Processor):
         num_sd = len(map_config.all_scalar_data)
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
-            data = np.empty((num_scan, *ddata.shape))
+            data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
             independent_dimensions = np.empty(
                 (num_id, num_scan*num_dim), dtype=np.float64)
             all_scalar_data = np.empty(
