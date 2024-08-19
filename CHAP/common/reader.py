@@ -128,6 +128,8 @@ class MapReader(Reader):
         # Local modules
         from CHAP.common.models.map import MapConfig
 
+        raise RuntimeError('MapReader is obsolete, use MapProcessor')
+
         if filename is not None:
             if map_config is not None:
                 raise RuntimeError('Specify either filename or map_config '
@@ -447,9 +449,6 @@ class SpecReader(Reader):
         # Validate the detector names/prefixes
         if config.experiment_type == 'EDD':
             if detector_names is not None:
-                # Local modules
-                from CHAP.utils.general import is_str_series
-
                 if isinstance(detector_names, (int, str)):
                     detector_names = [str(detector_names)]
                 for i, detector_name in enumerate(detector_names):
@@ -459,6 +458,9 @@ class SpecReader(Reader):
                         raise ValueError('Invalid "detector_names" parameter '
                                          f'({detector_names})')
         else:
+            # Local modules
+            from CHAP.utils.general import is_str_series
+
             if detector_names is None:
                 raise ValueError(
                     'Missing "detector_names" parameter')

@@ -1203,7 +1203,7 @@ class MapProcessor(Processor):
     """
     def process(
             self, data, config=None, detector_names=None, num_proc=1,
-            comm=None):
+            comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -1246,7 +1246,8 @@ class MapProcessor(Processor):
 
         # Get the validated map configuration
         try:
-            map_config = self.get_config(data, 'common.models.map.MapConfig')
+            map_config = self.get_config(
+                data, 'common.models.map.MapConfig', inputdir=inputdir)
         except Exception as data_exc:
             self.logger.info('No valid Map configuration in input pipeline '
                              'data, using config parameter instead.')
@@ -1254,7 +1255,7 @@ class MapProcessor(Processor):
                 # Local modules
                 from CHAP.common.models.map import MapConfig
 
-                map_config = MapConfig(**config)
+                map_config = MapConfig(**config, inputdir=inputdir)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
@@ -1283,18 +1284,25 @@ class MapProcessor(Processor):
 
         # Validate the detector names/prefixes
         if map_config.experiment_type == 'EDD':
-            if detector_names is not None:
+            if detector_names is None:
+                detector_indices = None
+            else:
                 # Local modules
                 from CHAP.utils.general import is_str_series
 
-                if isinstance(detector_names, (int, str)):
+                if isinstance(detector_names, int):
                     detector_names = [str(detector_names)]
-                for i, detector_name in enumerate(detector_names):
-                    if isinstance(detector_name, int):
-                        detector_names[i] = str(detector_name)
-                    elif not isinstance(detector_name, str):
-                        raise ValueError('Invalid detector_names parameter '
+                elif isinstance(detector_names, str):
+                    try:
+                        detector_names = [
+                            str(v) for v in string_to_list(
+                                detector_names, raise_error=True)]
+                    except:
+                        raise ValueError('Invalid parameter detector_names '
                                          f'({detector_names})')
+                else:
+                    detector_names = [str(v) for v in detector_names]
+                detector_indices = [int(name) for name in detector_names]
         else:
             if detector_names is None:
                 raise ValueError(
@@ -1304,20 +1312,6 @@ class MapProcessor(Processor):
             if not is_str_series(detector_names, log=False):
                 raise ValueError(
                     f'Invalid "detector_names" parameter ({detector_names})')
-        if detector_names is None:
-            detector_indices = None
-        else:
-            if isinstance(detector_names, str):
-                try:
-                    detector_names = [
-                        str(v) for v in string_to_list(
-                            detector_names, raise_error=True)]
-                except:
-                    raise ValueError(
-                        f'Invalid parameter detector_names ({detector_names})')
-            else:
-                detector_names = [str(v) for v in detector_names]
-            detector_indices = [int(name) for name in detector_names]
 
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1396,8 +1390,9 @@ class MapProcessor(Processor):
                     map_config, detector_indices, common_comm, num_scan,
                     offset)
         else:
-            raise RuntimeError('Read the raw data not implemented/tested yet '
-                               f'for {map_config.experiment_type}')
+            data, independent_dimensions, all_scalar_data = \
+                self._read_raw_data(
+                    map_config, detector_names, common_comm, num_scan, offset)
 
         if common_comm.Get_rank():
             return None
@@ -1474,6 +1469,11 @@ class MapProcessor(Processor):
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
 
         # Set up default NeXus NXdata group (squeeze out constant dimensions)
+        constant_dim = []
+        for i, dim in enumerate(map_config.independent_dimensions):
+            unique = np.unique(independent_dimensions[i])
+            if unique.size == 1:
+                constant_dim.append(i)
         nxentry.data = NXdata(
             NXfield(data, 'detector_data'),
             tuple([
@@ -1484,7 +1484,7 @@ class MapProcessor(Processor):
                            'data_type': dim.data_type,
                            'local_name': dim.name})
                 for i, dim in enumerate(map_config.independent_dimensions)
-                    if np.unique(independent_dimensions[i]).size > 1]))
+                    if i not in constant_dim]))
         nxentry.data.set_default()
 
         # Set up auxiliary NeXus NXdata group (add the constant dimensions)
@@ -1499,7 +1499,7 @@ class MapProcessor(Processor):
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
-            if np.unique(independent_dimensions[i]).size == 1:
+            if i in constant_dim:
                 auxiliary_signals.append(dim.label)
                 auxiliary_data.append(NXfield(
                     independent_dimensions[i], dim.label,
@@ -1510,15 +1510,16 @@ class MapProcessor(Processor):
                 map_config.all_scalar_data.append(
                     PointByPointScanData(**dict(dim)))
                 map_config.independent_dimensions.remove(dim)
-        nxentry.auxdata = NXdata()
-        for label, data in zip(auxiliary_signals, auxiliary_data):
-            nxentry.auxdata[label] = data
-        if 'SCAN_N' in auxiliary_signals:
-            nxentry.auxdata.attrs['signal'] = 'SCAN_N'
-        else:
-            nxentry.auxdata.attrs['signal'] = auxiliary_signals[0]
-        auxiliary_signals.remove(nxentry.auxdata.attrs['signal'])
-        nxentry.auxdata.attrs['auxiliary_signals'] = auxiliary_signals
+        if auxiliary_signals:
+            nxentry.auxdata = NXdata()
+            for label, data in zip(auxiliary_signals, auxiliary_data):
+                nxentry.auxdata[label] = data
+            if 'SCAN_N' in auxiliary_signals:
+                nxentry.auxdata.attrs['signal'] = 'SCAN_N'
+            else:
+                nxentry.auxdata.attrs['signal'] = auxiliary_signals[0]
+            auxiliary_signals.remove(nxentry.auxdata.attrs['signal'])
+            nxentry.auxdata.attrs['auxiliary_signals'] = auxiliary_signals
 
         nxentry.map_config = dumps(map_config.dict())
 
@@ -1560,9 +1561,9 @@ class MapProcessor(Processor):
         # Create the shared data buffers
         # FIX: just one spec scan at this point
         assert len(map_config.spec_scans) == 1
-        scans = map_config.spec_scans[0]
-        scan_numbers = scans.scan_numbers
-        scanparser = scans.get_scanparser(scan_numbers[0])
+        scan = map_config.spec_scans[0]
+        scan_numbers = scan.scan_numbers
+        scanparser = scan.get_scanparser(scan_numbers[0])
         ddata = scanparser.get_detector_data(detector_indices)
         spec_scan_shape = scanparser.spec_scan_shape
         num_dim = np.prod(spec_scan_shape)
@@ -1586,7 +1587,8 @@ class MapProcessor(Processor):
             else:
                 nbytes = 0
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
-            buf, _ = win.Shared_query(0)
+            buf, itemsize = win.Shared_query(0)
+            assert itemsize == datatype.Get_size()
             data = np.ndarray(
                 buffer=buf, dtype=ddata.dtype, shape=(num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
@@ -1613,11 +1615,15 @@ class MapProcessor(Processor):
                               f'{all_scalar_data.shape}')
 
         # Read the raw data
-        for scans in map_config.spec_scans:
-            for scan_number in scans.scan_numbers:
-                scanparser = scans.get_scanparser(scan_number)
-                assert spec_scan_shape == scanparser.spec_scan_shape
-                ddata = scanparser.get_detector_data(detector_indices)
+        init = True
+        for scan in map_config.spec_scans:
+            for scan_number in scan.scan_numbers:
+                if init:
+                    init = False
+                else:
+                    scanparser = scan.get_scanparser(scan_number)
+                    assert spec_scan_shape == scanparser.spec_scan_shape
+                    ddata = scanparser.get_detector_data(detector_indices)
                 data[offset] = ddata
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 start_dim = offset * num_dim
@@ -1625,7 +1631,7 @@ class MapProcessor(Processor):
                 if len(spec_scan_shape) == 1:
                     for i, dim in enumerate(map_config.independent_dimensions):
                         v = dim.get_value(
-                            scans, scan_number, scan_step_index=-1,
+                            scan, scan_number, scan_step_index=-1,
                             relative=False)
                         if dim.name in spec_scan_motor_mnes:
                             independent_dimensions[i][start_dim:end_dim] = v
@@ -1634,7 +1640,7 @@ class MapProcessor(Processor):
                                 np.repeat(v, spec_scan_shape[0])
                     for i, dim in enumerate(map_config.all_scalar_data):
                         v = dim.get_value(
-                            scans, scan_number, scan_step_index=-1,
+                            scan, scan_number, scan_step_index=-1,
                             relative=False)
                         #if dim.name in spec_scan_motor_mnes:
                         if dim.data_type == 'scan_column':
@@ -1645,7 +1651,7 @@ class MapProcessor(Processor):
                 else:
                     for i, dim in enumerate(map_config.independent_dimensions):
                         v = dim.get_value(
-                            scans, scan_number, scan_step_index=-1,
+                            scan, scan_number, scan_step_index=-1,
                             relative=False)
                         if dim.name == spec_scan_motor_mnes[0]:
                             # Fast motor
@@ -1659,7 +1665,7 @@ class MapProcessor(Processor):
                             independent_dimensions[i][start_dim:end_dim] = v
                     for i, dim in enumerate(map_config.all_scalar_data):
                         v = dim.get_value(
-                            scans, scan_number, scan_step_index=-1,
+                            scan, scan_number, scan_step_index=-1,
                             relative=False)
                         if dim.data_type == 'scan_column':
                             all_scalar_data[i][start_dim:end_dim] = v
@@ -1678,10 +1684,143 @@ class MapProcessor(Processor):
                             raise RuntimeError(
                                 f'{dim.data_type} in data_type not tested')
                 offset += 1
-        data = np.asarray(data).reshape(
-            (np.prod(data.shape[:2]), *data.shape[2:]))
 
-        return data, independent_dimensions, all_scalar_data
+        return (
+            data.reshape((np.prod(data.shape[:2]), *data.shape[2:])),
+            independent_dimensions, all_scalar_data)
+
+    def _read_raw_data(
+            self, map_config, detector_names, comm, num_scan, offset):
+        """Read the raw data for a given map configuration.
+
+        :param map_config: A valid map configuration.
+        :type map_config: common.models.map.MapConfig
+        :param detector_names: Detector names to include raw data
+            for in the returned NeXus NXentry object,
+            defaults to `None`.
+        :type detector_names: list[str]
+        :return: The map's raw data, independent dimensions and scalar
+            data
+        :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
+        """
+        # Third party modules
+        try:
+            from mpi4py import MPI
+            from mpi4py.util import dtlib
+        except:
+            pass
+
+        # Local modules
+        from CHAP.utils.general import list_to_string
+
+        if comm is None:
+            num_proc = 1
+            rank = 0
+        else:
+            num_proc = comm.Get_size()
+            rank = comm.Get_rank()
+        if not rank:
+            self.logger.debug(f'Number of processors: {num_proc}')
+            self.logger.debug(f'Number of scans: {num_scan}')
+
+        # Create the shared data buffers
+        # FIX: just one spec scan and one detector at this point
+        assert len(map_config.spec_scans) == 1
+        assert len(detector_names) == 1
+        scans = map_config.spec_scans[0]
+        scan_numbers = scans.scan_numbers
+        scanparser = scans.get_scanparser(scan_numbers[0])
+        ddata = scanparser.get_detector_data(detector_names[0])
+        num_dim = ddata.shape[0]
+        num_id = len(map_config.independent_dimensions)
+        num_sd = len(map_config.all_scalar_data)
+        if not num_sd:
+            all_scalar_data = None
+        if num_proc == 1:
+            assert num_scan == len(scan_numbers)
+            data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
+            independent_dimensions = np.empty(
+                (num_scan, num_id, num_dim), dtype=np.float64)
+            if num_sd:
+                all_scalar_data = np.empty(
+                    (num_scan, num_sd, num_dim), dtype=np.float64)
+        else:
+            self.logger.debug(f'Scan offset on processor {rank}: {offset}')
+            self.logger.debug(f'Scan numbers on processor {rank}: '
+                              f'{list_to_string(scan_numbers)}')
+            datatype = dtlib.from_numpy_dtype(ddata.dtype)
+            itemsize = datatype.Get_size()
+            if not rank:
+                nbytes = num_scan * np.prod(ddata.shape) * itemsize
+            else:
+                nbytes = 0
+            win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
+            buf, _ = win.Shared_query(0)
+            data = np.ndarray(
+                buffer=buf, dtype=ddata.dtype, shape=(num_scan, *ddata.shape))
+            datatype = dtlib.from_numpy_dtype(np.float64)
+            itemsize = datatype.Get_size()
+            if not rank:
+                nbytes = num_scan * num_id * num_dim * itemsize
+            else:
+                nbytes = 0
+            win_id = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
+            buf_id, _ = win_id.Shared_query(0)
+            independent_dimensions = np.ndarray(
+                buffer=buf_id, dtype=np.float64,
+                shape=(num_scan, num_id, num_dim))
+            if num_sd:
+                if not rank:
+                    nbytes = num_scan * num_sd * num_dim * itemsize
+                win_sd = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
+                buf_sd, _ = win_sd.Shared_query(0)
+                all_scalar_data = np.ndarray(
+                    buffer=buf_sd, dtype=np.float64,
+                    shape=(num_scan, num_sd, num_dim))
+        if not rank:
+            self.logger.debug(f'Data shape: {data.shape}')
+            self.logger.debug('Independent dimensions shape: '
+                              f'{independent_dimensions.shape}')
+            if num_sd:
+                self.logger.debug('Scalar data shape: '
+                                  f'{all_scalar_data.shape}')
+
+        # Read the raw data
+        init = True
+        for scans in map_config.spec_scans:
+            for scan_number in scans.scan_numbers:
+                if init:
+                    init = False
+                else:
+                    scanparser = scans.get_scanparser(scan_number)
+                    ddata = scanparser.get_detector_data(detector_names[0])
+                data[offset] = ddata
+                for i, dim in enumerate(map_config.independent_dimensions):
+                    independent_dimensions[offset,i] = dim.get_value(
+                    #v = dim.get_value(
+                        scans, scan_number, scan_step_index=-1,
+                        relative=False)
+                    #print(f'\ndim: {dim}\nv: {v}')
+                    #independent_dimensions[offset,i] = v
+                for i, dim in enumerate(map_config.all_scalar_data):
+                    all_scalar_data[offset,i] = dim.get_value(
+                        scans, scan_number, scan_step_index=-1,
+                        relative=False)
+                offset += 1
+
+        if num_sd:
+            return (
+                data.reshape((1, np.prod(data.shape[:2]), *data.shape[2:])),
+                np.stack(tuple([independent_dimensions[:,i].flatten()
+                                for i in range(num_id)])),
+                np.stack(tuple([all_scalar_data[:,i].flatten()
+                                for i in range(num_sd)])))
+        return (
+            data.reshape((1, np.prod(data.shape[:2]), *data.shape[2:])),
+            np.stack(tuple([independent_dimensions[:,i].flatten()
+                            for i in range(num_id)])),
+            all_scalar_data)
+
 
 class MPITestProcessor(Processor):
     """A test MPI Processor.

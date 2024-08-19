@@ -568,7 +568,7 @@ def validate_data_source_for_map_config(data_source, info):
                     values['station'], values['experiment_type'])
                 data_source.validate_for_station(values['station'])
                 data_source.validate_for_spec_scans(values['spec_scans'])
-        return(data_source)
+        return data_source
 
     return _validate_data_source_for_map_config(data_source, info)
 

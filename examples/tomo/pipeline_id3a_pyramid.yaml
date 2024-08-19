@@ -9,8 +9,44 @@ config:
 pipeline:
 
   # Convert the CHESS style map
+  - common.YAMLReader:
+      filename: map_id3a_pyramid.yaml
+      schema: common.models.map.MapConfig
+  - common.MapProcessor:
+#      config:
+#        title: hollow_pyramid
+#        station: id3a
+#        experiment_type: TOMO
+#        sample:
+#          name: hollow_pyramid
+#        spec_scans:
+#        - spec_file: ../data/hollow_pyramid/spec.log
+#          scan_numbers: [3, 4, 5]
+#        independent_dimensions:
+#        - label: rotation_angles
+#          units: degrees
+#          data_type: scan_column
+#          name: theta
+#        - label: x_translation
+#          units: mm
+#          data_type: smb_par
+#          name: ramsx
+#        - label: z_translation
+#          units: mm
+#          data_type: smb_par
+#          name: ramsz
+      num_proc: 1
+      detector_names:
+        - sim
+      schema: tomofields
+#  - common.NexusWriter:
+#      filename: map_hollow_pyramid.nxs
+#      force_overwrite: true
   - pipeline.MultiplePipelineItem:
       items:
+#        - common.NexusReader:
+#            filename: ../hollow_pyramid/map_hollow_pyramid.nxs
+#            schema: tomofields
         - common.SpecReader:
             config:
               station: id3a
@@ -34,15 +70,13 @@ pipeline:
             detector_names:
               - sim
             schema: brightfield
-        - common.MapReader:
-            filename: map_id3a_pyramid.yaml
-            detector_names:
-              - sim
-            schema: tomofields
         - common.YAMLReader:
             filename: detector_pyramid.yaml
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
+#  - common.NexusWriter:
+#      filename: chess_map_hollow_pyramid.nxs
+#      force_overwrite: true
 
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:

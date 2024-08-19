@@ -9,6 +9,14 @@ config:
 pipeline:
 
   # Convert the CHESS style map
+  - common.YAMLReader:
+      filename: map_id3a_brick.yaml
+      schema: common.models.map.MapConfig
+  - common.MapProcessor:
+      num_proc: 1
+      detector_names:
+        - sim
+      schema: tomofields
   - pipeline.MultiplePipelineItem:
       items:
         - common.SpecReader:
@@ -34,11 +42,6 @@ pipeline:
             detector_names:
               - sim
             schema: brightfield
-        - common.MapReader:
-            filename: map_id3a_brick.yaml
-            detector_names:
-              - sim
-            schema: tomofields
         - common.YAMLReader:
             filename: detector.yaml
             schema: tomo.models.Detector
