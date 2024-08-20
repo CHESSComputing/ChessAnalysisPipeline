@@ -1796,12 +1796,23 @@ class MapProcessor(Processor):
                     ddata = scanparser.get_detector_data(detector_names[0])
                 data[offset] = ddata
                 for i, dim in enumerate(map_config.independent_dimensions):
-                    independent_dimensions[offset,i] = dim.get_value(
-                    #v = dim.get_value(
-                        scans, scan_number, scan_step_index=-1,
-                        relative=False)
-                    #print(f'\ndim: {dim}\nv: {v}')
-                    #independent_dimensions[offset,i] = v
+                    if dim.data_type == 'scan_column':
+                        independent_dimensions[offset,i] = dim.get_value(
+                        #v = dim.get_value(
+                            scans, scan_number, scan_step_index=-1,
+                            relative=False)[:num_dim]
+                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
+                        #independent_dimensions[offset,i] = v[:num_dim]
+                    elif dim.data_type in ['smb_par', 'spec_motor']:
+                        independent_dimensions[offset,i] = dim.get_value(
+                        #v = dim.get_value(
+                            scans, scan_number, scan_step_index=-1,
+                            relative=False)
+                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
+                        #independent_dimensions[offset,i] = v
+                    else:
+                        raise RuntimeError(
+                            f'{dim.data_type} in data_type not tested')
                 for i, dim in enumerate(map_config.all_scalar_data):
                     all_scalar_data[offset,i] = dim.get_value(
                         scans, scan_number, scan_step_index=-1,
