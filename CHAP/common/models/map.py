@@ -827,12 +827,12 @@ class MapConfig(BaseModel):
     experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_length=1)
+    scalar_data: Optional[list[PointByPointScanData]] = []
     independent_dimensions: conlist(
         item_type=IndependentDimension, min_length=1)
     presample_intensity: Optional[PresampleIntensity] = None
     dwell_time_actual: Optional[DwellTimeActual] = None
     postsample_intensity: Optional[PostsampleIntensity] = None
-    scalar_data: Optional[list[PointByPointScanData]] = []
     attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 #    _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
@@ -1155,41 +1155,7 @@ def import_scanparser(station, experiment):
     :type experiment: Literal[
         'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     """
+    from CHAP.utils.scanparsers import choose_scanparser
+#FIX    from chess_scanparsers import choose_scanparser
 
-    station = station.lower()
-    experiment = experiment.lower()
-
-    # Local modules
-    if station in ('id1a3', 'id3a'):
-        if experiment in ('saxswaxs', 'powder'):
-            from CHAP.utils.scanparsers \
-                import SMBLinearScanParser as ScanParser
-        elif experiment == 'edd':
-            from CHAP.utils.scanparsers \
-                import SMBMCAScanParser as ScanParser
-        elif experiment == 'tomo':
-            from CHAP.utils.scanparsers \
-                import SMBRotationScanParser as ScanParser
-        else:
-            raise ValueError(
-                f'Invalid experiment type for station {station}: {experiment}')
-    elif station == 'id3b':
-        if experiment == 'giwaxs':
-            from CHAP.utils.scanparsers \
-                import FMBGIWAXSScanParser as ScanParser
-        elif experiment == 'saxswaxs':
-            from CHAP.utils.scanparsers \
-                import FMBSAXSWAXSScanParser as ScanParser
-        elif experiment == 'tomo':
-            from CHAP.utils.scanparsers \
-                import FMBRotationScanParser as ScanParser
-        elif experiment == 'xrf':
-            from CHAP.utils.scanparsers \
-                import FMBXRFScanParser as ScanParser
-        else:
-            raise ValueError(
-                f'Invalid experiment type for station {station}: {experiment}')
-    else:
-        raise ValueError(f'Invalid station: {station}')
-
-    globals()['ScanParser'] = ScanParser
+    globals()['ScanParser'] = choose_scanparser(station, experiment)

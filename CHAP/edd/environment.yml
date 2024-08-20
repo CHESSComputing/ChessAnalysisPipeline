@@ -15,6 +15,7 @@ dependencies:
   - pip==23.0.1
   - pip:
     - certif-pyspec==1.5.3
+    - chess-scanparsers
   - hexrd==0.9.2
   - nexusformat==1.0.2
   - matplotlib==3.7.1 # required only for some interactive portions

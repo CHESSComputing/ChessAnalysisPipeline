@@ -31,7 +31,8 @@ from typing_extensions import Annotated
 # Local modules
 from CHAP.common.models.map import MapConfig
 from CHAP.utils.parfile import ParFile
-from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+from chess_scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
 
 # Baseline configuration class

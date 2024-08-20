@@ -38,6 +38,7 @@ class EddMapReader(Reader):
         from CHAP.utils.general import list_to_string
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         if detector_names is not None:
             assert is_str_series(detector_names, raise_error=True)
@@ -205,6 +206,7 @@ class EddMPIMapReader(Reader):
         from CHAP.utils.general import list_to_string
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         assert is_str_series(detector_names, raise_error=True)
 
@@ -396,6 +398,7 @@ class ScanToMapReader(Reader):
         """
         # Local modules
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         scanparser = ScanParser(spec_file, scan_number)
 
@@ -689,6 +692,7 @@ class UpdateNXdataReader(Reader):
         """
         # Local modules
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
         from CHAP.utils.parfile import ParFile
 
         if not os.path.isabs(spec_file):
@@ -807,6 +811,7 @@ class NXdataSliceReader(Reader):
         from CHAP.common import NXdataReader
         from CHAP.utils.parfile import ParFile
         from CHAP.utils.scanparsers import SMBMCAScanParser as ScanParser
+#FIX        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         # Parse existing NXdata
         root = nxload(filename)

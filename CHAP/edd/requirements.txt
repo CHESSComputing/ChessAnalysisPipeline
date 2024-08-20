@@ -3,4 +3,4 @@ hexrd
 numpy
 pydantic
 scipy
-
+chess-scanparsers
