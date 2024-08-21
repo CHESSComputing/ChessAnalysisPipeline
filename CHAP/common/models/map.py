@@ -331,6 +331,7 @@ class PointByPointScanData(BaseModel):
            needed for evaluating the expression.
         :return: None
         """
+        # Third party modules
         from ast import parse
         from asteval import get_ast_names
 
@@ -528,8 +529,10 @@ def get_expression_value(spec_scans:SpecScans, scan_number:int,
     :return: The value of the .par file value for  the scan requested.
     :rtype: float
     """
+    # Third party modules
     from ast import parse
     from asteval import get_ast_names, Interpreter
+
     labels = get_ast_names(parse(expression))
     symtable = {}
     for l in labels:
@@ -1155,7 +1158,7 @@ def import_scanparser(station, experiment):
     :type experiment: Literal[
         'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
     """
-    from CHAP.utils.scanparsers import choose_scanparser
-#FIX    from chess_scanparsers import choose_scanparser
+    # Local modules
+    from chess_scanparsers import choose_scanparser
 
     globals()['ScanParser'] = choose_scanparser(station, experiment)
