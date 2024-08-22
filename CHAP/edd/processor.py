@@ -2736,8 +2736,11 @@ class StrainAnalysisProcessor(Processor):
 
         def linkdims(
                 nxgroup, nxdata_source, field_dims=[], oversampling_axis={}):
+            source_axes = nxdata_source.axes
+            if isinstance(source_axes, str):
+                source_axes = [source_axes]
             axes = []
-            for dim in nxdata_source.axes:
+            for dim in source_axes:
                 axes.append(dim)
                 if dim in oversampling_axis:
                     bin_name = dim.replace('fly_', 'bin_')
@@ -2789,12 +2792,13 @@ class StrainAnalysisProcessor(Processor):
             # FIX? Could make this a processor
             mca_data = self._get_sum_axes_data(
                 nxentry[nxentry.default],
-                map_config.attrs.get('fly_axis_labels', []))
+                map_config.attrs.get('fly_axis_labels', [])).astype(np.float64)
             nxprocess.data = self._nxdata
             nxdata = nxprocess.data
         else:
             mca_data = np.asarray(
-                nxentry[nxentry.default].nxsignal[:,self._detector_indices,:])
+                nxentry[nxentry.default].nxsignal[:,self._detector_indices,:],
+                dtype=np.float64)
             nxprocess.data = NXdata()
             self._nxdata = nxprocess.data
             linkdims(self._nxdata, nxentry.data)
@@ -3044,12 +3048,15 @@ class StrainAnalysisProcessor(Processor):
                     norm = det_nxdata.intensity.nxdata[i].max()
                     intensity.set_ydata(det_nxdata.intensity.nxdata[i] / norm)
                     best_fit.set_ydata(unconstrained_best_fit[i] / norm)
+                    axes = self._nxdata.attrs['axes']
+                    if isinstance(axes, str):
+                        axes = [axes]
                     index.set_text('\n'.join(
                         [f'norm = {int(norm)}'] +
                         ['relative norm = '
                          f'{(norm / det_nxdata.intensity.max()):.5f}'] +
                         [f'{dim}[{i}] = {self._nxdata[dim][i]}'
-                         for dim in self._nxdata.attrs['axes']]))
+                         for dim in axes]))
                     if self._save_figures:
                         plt.savefig(os.path.join(
                             path, f'frame_{str(i).zfill(num_digit)}.png'))
