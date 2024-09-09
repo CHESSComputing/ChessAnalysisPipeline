@@ -2694,7 +2694,7 @@ class StrainAnalysisProcessor(Processor):
             self, nxentry, strain_analysis_config, find_peaks, skip_animation):
         """Return NXroot containing the strain maps.
 
-        :param mca_data: The strain analysis map, including the raw
+        :param nxentry: The strain analysis map, including the raw
             detector data.
         :type nxentry: nexusformat.nexus.NXentry
         :param strain_analysis_config: Strain analysis processing
