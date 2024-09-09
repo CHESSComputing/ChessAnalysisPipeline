@@ -1377,7 +1377,13 @@ class MapProcessor(Processor):
                 # called from the spawned main()
                 common_comm.barrier()
 
-        if common_comm.Get_size() == 1:
+        if common_comm is None:
+            num_proc = 1
+            rank = 0
+        else:
+            num_proc = common_comm.Get_size()
+            rank = common_comm.Get_rank()
+        if num_proc == 1:
             offset = 0
         else:
             num_scan = common_comm.bcast(num_scan, root=0)
@@ -1393,8 +1399,16 @@ class MapProcessor(Processor):
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data(
                     map_config, detector_names, common_comm, num_scan, offset)
+        if not rank:
+            self.logger.debug(f'Data shape: {data.shape}')
+            if independent_dimensions is not None:
+                self.logger.debug('Independent dimensions shape: '
+                                  f'{independent_dimensions.shape}')
+            if all_scalar_data is not None:
+                self.logger.debug('Scalar data shape: '
+                                  f'{all_scalar_data.shape}')
 
-        if common_comm.Get_rank():
+        if rank:
             return None
 
         if num_proc > 1:
@@ -1607,12 +1621,6 @@ class MapProcessor(Processor):
             all_scalar_data = np.ndarray(
                 buffer=buf_sd, dtype=np.float64,
                 shape=(num_sd, num_scan*num_dim))
-        if not rank:
-            self.logger.debug(f'Data shape: {data.shape}')
-            self.logger.debug('Independent dimensions shape: '
-                              f'{independent_dimensions.shape}')
-            self.logger.debug('Scalar data shape: '
-                              f'{all_scalar_data.shape}')
 
         # Read the raw data
         init = True
@@ -1777,13 +1785,6 @@ class MapProcessor(Processor):
                 all_scalar_data = np.ndarray(
                     buffer=buf_sd, dtype=np.float64,
                     shape=(num_scan, num_sd, num_dim))
-        if not rank:
-            self.logger.debug(f'Data shape: {data.shape}')
-            self.logger.debug('Independent dimensions shape: '
-                              f'{independent_dimensions.shape}')
-            if num_sd:
-                self.logger.debug('Scalar data shape: '
-                                  f'{all_scalar_data.shape}')
 
         # Read the raw data
         init = True
