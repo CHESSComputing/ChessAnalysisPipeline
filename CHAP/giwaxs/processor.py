@@ -21,22 +21,46 @@ from CHAP.common.models.map import MapConfig
 
 class GiwaxsConversionProcessor(Processor):
 
-    def process(self,
-                data,
-                map_config=None,
-                detectors=None,
-                scan_step_indices=None,
-                save_raw_data=False,
-                save_figures=False,
-                interactive=False,
-                inputdir='.',
-                outputdir='.'):
+    def process(
+            self, data, config, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
+
+        # Third party modules
+        from json import loads
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
+        # Local modules
+        from CHAP.common.models.map import MapConfig
+
+        # Load the detector data
+        try:
+            nxentry = self.get_data(data, 'MapProcessor')
+            if not isinstance(nxentry, NXentry):
+                raise RuntimeError(
+                    'No valid NXentry data in MapProcessor pipeline data')
+        except:
+            try:
+                try:
+                    nxroot = self.get_data(data, 'NexusReader')
+                except:
+                    nxroot = self.get_data(data, 'NexusWriter')
+                if not isinstance(nxroot, NXroot):
+                    raise RuntimeError(
+                        'No valid NXroot data in NexusWriter pipeline data')
+                nxentry = nxroot[nxroot.default]
+                if not isinstance(nxentry, NXentry):
+                    raise RuntimeError(
+                        'No valid NXentry data in NexusWriter pipeline data')
+            except:
+                raise RuntimeError(
+                    'No valid detector data in input pipeline data')
 
         # Load the validated GIWAXS conversion configuration
         try:
             config = self.get_config(
-                data, 'giwaxs.models.GiwaxsConversionConfig',
-                inputdir=inputdir)
+                data, 'giwaxs.models.GiwaxsConversionConfig')
         except Exception as data_exc:
             self.logger.info('No valid conversion config in input pipeline '
                              'data, using config parameter instead.')
@@ -44,28 +68,22 @@ class GiwaxsConversionProcessor(Processor):
                 # Local modules
                 from CHAP.giwaxs.models import GiwaxsConversionConfig
 
-                config = GiwaxsConversionConfig(
-                    inputdir=inputdir, map_config=map_config,
-                    detectors=detectors, scan_step_indices=scan_step_indices)
+                giwaxs_config = GiwaxsConversionConfig(**config)
             except Exception as dict_exc:
                 raise RuntimeError from dict_exc
 
-        nxroot = self.get_nxroot(
-            config, save_raw_data=save_raw_data, save_figures=save_figures,
+        return self.convert_q_rect(
+            nxentry, giwaxs_config, save_figures=save_figures,
             interactive=interactive, outputdir=outputdir)
 
-        return nxroot
-
-    def get_nxroot(
-            self, config, save_raw_data=False, save_figures=False,
-            interactive=False, outputdir='.'):
+    def convert_q_rect(
+            self, nxentry, config, save_figures=False, interactive=False,
+            outputdir='.'):
         """Return NXroot containing the converted GIWAXS images.
 
-        :param config: The conversion configuration.
+        :param nxentry: The GIWAXS map with the raw detector data.
+        :param config: The GIWAXS conversion configuration.
         :type config: CHAP.giwaxs.models.GiwaxsConversionConfig
-        :param save_raw_data: Save the raw data in the NeXus output,
-            default to `False`.
-        :type save_figures: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -79,6 +97,7 @@ class GiwaxsConversionProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        from json import loads
         if interactive or save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
@@ -91,32 +110,33 @@ class GiwaxsConversionProcessor(Processor):
         # Local modules
         from CHAP.common import MapProcessor
 
-        map_config = config.map_config
-        if len(config.detectors) > 1:
+        if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
             raise RuntimeError('More than one detector not yet implemented')
         detector = config.detectors[0]
-        if len(map_config.dims) > 1:
+        if str(nxentry.detector_names[0]) != detector.prefix:
+            raise RuntimeError(
+                f'Inconsistent detector names ({nxentry.detector_names[0]} vs '
+                f'{detector.prefix})')
+        if not isinstance(nxentry.data.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
-        if config.scan_step_indices is None:
-            thetas = map_config.coords[map_config.dims[0]]
-        else:
-            thetas = [map_config.coords[map_config.dims[0]][i]
-                      for i in config.scan_step_indices]
 
         # Create the NXroot object
         nxroot = NXroot()
-        nxroot[map_config.title] = MapProcessor.get_nxentry(
-            map_config)
-        nxentry = nxroot[map_config.title]
-        nxroot[f'{map_config.title}_conversion'] = NXprocess()
-        nxprocess = nxroot[f'{map_config.title}_conversion']
+        nxroot[nxentry.nxname] = nxentry
+        nxprocess = NXprocess()
+        nxroot[f'{nxentry.nxname}_conversion'] = nxprocess
         nxprocess.conversion_config = dumps(config.dict())
 
         # Collect the raw giwaxs images
-        self.logger.debug(f'Reading data ...')
-        giwaxs_data = config.giwaxs_data()[0]
-        self.logger.debug(f'... done')
+        if config.scan_step_indices is None:
+            thetas = nxentry.data[nxentry.data.attrs['axes']]
+            giwaxs_data = nxentry.data.detector_data[0]
+        else:
+            thetas = nxentry.data[nxentry.data.attrs['axes']][
+                config.scan_step_indices]
+            giwaxs_data = nxentry.data.detector_data[0][
+                config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
@@ -218,7 +238,7 @@ class GiwaxsConversionProcessor(Processor):
                  NXfield(
                      q_par_rect, 'q_par_rect',
                      attrs={'units': '\u212b$^{-1}$'})))
-            if save_raw_data:
+            if config.save_raw_data:
                 nxprocess.data.raw = NXfield(giwaxs_data)
         nxprocess.default = 'data'
 

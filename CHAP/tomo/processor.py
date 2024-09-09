@@ -146,6 +146,8 @@ class TomoCHESSMapConverter(Processor):
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
+        assert len(map_config.spec_scans) == 1
+        num_tomo_stack = len(map_config.spec_scans[0].scan_numbers)
 
         # Check available independent dimensions
         independent_dimensions = tomofields.data.attrs['axes']
@@ -165,8 +167,6 @@ class TomoCHESSMapConverter(Processor):
                              f'({rotation_angle_data_type})')
         matched_dimensions.pop(matched_dimensions.index('rotation_angles'))
         if 'x_translation' in independent_dimensions:
-            x_translation_index = \
-                tomofields.data.axes.index('x_translation')
             x_translation_data_type = \
                 tomofields.data.x_translation.attrs['data_type']
             x_translation_name = \
@@ -178,8 +178,6 @@ class TomoCHESSMapConverter(Processor):
         else:
             x_translation_data_type = None
         if 'z_translation' in independent_dimensions:
-            z_translation_index = \
-                tomofields.data.axes.index('z_translation')
             z_translation_data_type = \
                 tomofields.data.z_translation.attrs['data_type']
             z_translation_name = \
@@ -224,17 +222,12 @@ class TomoCHESSMapConverter(Processor):
 
         # Add an NXdetector to the NXinstrument
         # (do not fill in data fields yet)
+        detector_names = list(np.asarray(tomofields.detector_names, dtype=str))
         detector_prefix = detector_config.prefix
-        detectors = list(
-            set(tomofields.data.entries) - set(independent_dimensions))
-        if detector_prefix not in detectors:
-            raise ValueError(f'Data for detector {detector_prefix} is '
-                             f'unavailable (available detectors: {detectors})')
-        tomo_stacks = tomofields.data[detector_prefix]
-        tomo_stack_shape = tomo_stacks.shape
-        assert len(tomo_stack_shape) == 2+len(independent_dimensions)
-        assert tomo_stack_shape[-2] == detector_config.rows
-        assert tomo_stack_shape[-1] == detector_config.columns
+        if detector_prefix not in detector_names:
+            raise ValueError(
+                f'Data for detector {detector_prefix} is unavailable '
+                f'(available detectors: {detector_names})')
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = detector_prefix
@@ -272,10 +265,9 @@ class TomoCHESSMapConverter(Processor):
         x_translations = []
         z_translations = []
         if darkfield is not None:
-            nxentry.dark_field_config = darkfield.spec_config
+            nxentry.dark_field_config = darkfield.config
             for scan_name, scan in darkfield.spec_scans.items():
                 for scan_number, nxcollection in scan.items():
-                    scan_columns = loads(str(nxcollection.scan_columns))
                     data_shape = nxcollection.data[detector_prefix].shape
                     assert len(data_shape) == 3
                     assert data_shape[1] == detector_config.rows
@@ -284,7 +276,7 @@ class TomoCHESSMapConverter(Processor):
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
                     image_stacks.append(
-                        nxcollection.data[detector_prefix])
+                        nxcollection.data[detector_prefix].nxdata)
                     rotation_angles += num_image*[0.0]
                     if (x_translation_data_type == 'spec_motor' or
                             z_translation_data_type == 'spec_motor'):
@@ -312,10 +304,9 @@ class TomoCHESSMapConverter(Processor):
                                 num_image*[smb_pars[z_translation_name]]
 
         # Collect bright field data
-        nxentry.bright_field_config = brightfield.spec_config
+        nxentry.bright_field_config = brightfield.config
         for scan_name, scan in brightfield.spec_scans.items():
             for scan_number, nxcollection in scan.items():
-                scan_columns = loads(str(nxcollection.scan_columns))
                 data_shape = nxcollection.data[detector_prefix].shape
                 assert len(data_shape) == 3
                 assert data_shape[1] == detector_config.rows
@@ -324,7 +315,7 @@ class TomoCHESSMapConverter(Processor):
                 image_keys += num_image*[1]
                 sequence_numbers += list(range(num_image))
                 image_stacks.append(
-                    nxcollection.data[detector_prefix])
+                    nxcollection.data[detector_prefix].nxdata)
                 rotation_angles += num_image*[0.0]
                 if (x_translation_data_type == 'spec_motor' or
                         z_translation_data_type == 'spec_motor'):
@@ -352,65 +343,46 @@ class TomoCHESSMapConverter(Processor):
                             num_image*[smb_pars[z_translation_name]]
 
         # Collect tomography fields data
-        if x_translation_data_type is None:
-            x_trans = [0.0]
-            if z_translation_data_type is None:
-                z_trans = [0.0]
-                tomo_stacks = np.reshape(tomo_stacks, (1,1,*tomo_stacks.shape))
-            else:
-                z_trans = tomofields.data.z_translation.nxdata
-#                if len(list(tomofields.data.z_translation)):
-#                    z_trans = list(tomofields.data.z_translation)
-#                else:
-#                    z_trans = [float(tomofields.data.z_translation)]
-                if rotation_angles_index < z_translation_index:
-                    tomo_stacks = np.swapaxes(
-                        tomo_stacks, rotation_angles_index,
-                        z_translation_index)
-                tomo_stacks = np.expand_dims(tomo_stacks, z_translation_index)
-        elif z_translation_data_type is None:
-            z_trans = [0.0]
-            if rotation_angles_index < x_translation_index:
-                tomo_stacks = np.swapaxes(
-                    tomo_stacks, rotation_angles_index, x_translation_index)
-            tomo_stacks = np.expand_dims(tomo_stacks, 0)
-        else:
-            x_trans = tomofields.data.x_translation.nxdata
-            z_trans = tomofields.data.z_translation.nxdata
-            #if tomofields.data.x_translation.size > 1:
-            #    x_trans = list(tomofields.data.x_translation)
-            #else:
-            #    x_trans = [float(tomofields.data.x_translation)]
-            #if len(list(tomofields.data.z_translation)):
-            #    z_trans = list(tomofields.data.z_translation)
-            #else:
-            #    z_trans = [float(tomofields.data.z_translation)]
-            if (rotation_angles_index
-                    < max(x_translation_index, z_translation_index)):
-                tomo_stacks = np.swapaxes(
-                    tomo_stacks, rotation_angles_index,
-                    max(x_translation_index, z_translation_index))
-            if x_translation_index < z_translation_index:
-                tomo_stacks = np.swapaxes(
-                    tomo_stacks, x_translation_index, z_translation_index)
+        tomo_stacks = tomofields.data.detector_data.nxdata[
+            detector_names.index(detector_prefix)]
+        tomo_stack_shape = tomo_stacks.shape
+        assert len(tomo_stack_shape) == 3
+        assert tomo_stack_shape[-2] == detector_config.rows
+        assert tomo_stack_shape[-1] == detector_config.columns
+        assert not tomo_stack_shape[0] % num_tomo_stack
         # Restrict to 180 degrees set of data for now to match old code
-        thetas = tomofields.data.rotation_angles.nxdata
-        assert len(thetas) > 2
-        delta_theta = thetas[1]-thetas[0]
-        if thetas[-1]-thetas[0] > 180-delta_theta:
-            image_end = index_nearest(thetas, thetas[0]+180)
+        thetas_stacks = tomofields.data.rotation_angles.nxdata
+        num_theta = tomo_stack_shape[0] // num_tomo_stack
+        assert num_theta > 2
+        thetas = thetas_stacks[0:num_theta]
+        delta_theta = thetas[1] - thetas[0]
+        if thetas[num_theta-1] - thetas[0] > 180 - delta_theta:
+            image_end = index_nearest(thetas, thetas[0] + 180)
         else:
-            image_end = len(thetas)
+            image_end = thetas.size
         thetas = thetas[:image_end]
-        num_image = len(thetas)
-        for i, z in enumerate(z_trans):
-            for j, x in enumerate(x_trans):
-                image_keys += num_image*[0]
-                sequence_numbers += list(range(num_image))
-                image_stacks.append(tomo_stacks[i,j,:image_end,:,:])
-                rotation_angles += list(thetas)
-                x_translations += num_image*[x]
-                z_translations += num_image*[z]
+        num_image = thetas.size
+        n_start = 0
+        image_keys += num_tomo_stack * num_image * [0]
+        sequence_numbers += num_tomo_stack * list(range(num_image))
+        if x_translation_data_type is None:
+            x_translations += num_tomo_stack * num_image * [0.0]
+        if z_translation_data_type is None:
+            z_translations += num_tomo_stack * num_image * [0.0]
+        for i in range(num_tomo_stack):
+            image_stacks.append(tomo_stacks[n_start:n_start+num_image])
+            if not np.array_equal(
+                    thetas, thetas_stacks[n_start:n_start+num_image]):
+                raise RuntimeError(
+                    'Inconsistent thetas among tomography image stacks')
+            rotation_angles += list(thetas)
+            if x_translation_data_type is not None:
+                x_translations += list(
+                    tomofields.data.x_translation[n_start:n_start+num_image])
+            if z_translation_data_type is not None:
+                z_translations += list(
+                    tomofields.data.z_translation[n_start:n_start+num_image])
+            n_start += num_theta
 
         # Add image data to NXdetector
         nxinstrument.detector.image_key = image_keys
@@ -456,7 +428,7 @@ class TomoDataProcessor(Processor):
             for tomographic image reduction.
         :type data: list[PipelineData]
         :param outputdir: Output folder name, defaults to '.'.
-        :type outputdir:: str, optional
+        :type outputdir: str, optional
         :param interactive: Allows for user interactions,
             defaults to False.
         :type interactive: bool, optional
@@ -664,7 +636,7 @@ class Tomo:
         :param num_core: Number of processors.
         :type num_core: int
         :param outputdir: Output folder name, defaults to '.'.
-        :type outputdir:: str, optional
+        :type outputdir: str, optional
         :param save_figs: Safe figures to file ('yes' or 'only') and/or
             display figures ('yes' or 'no'), defaults to 'no'.
         :type save_figs: Literal['yes', 'no', 'only'], optional

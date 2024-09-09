@@ -2,9 +2,12 @@
 as input
 """
 
+# System modules
 import csv
-import json
 import os
+
+# Third party modules
+import json
 
 class ParFile():
     """Representation of a .par file
@@ -78,7 +81,10 @@ class ParFile():
         :return: a map configuration
         :rtype: CHAP.common.models.map.MapConfig
         """
+        # Third party modules
         import numpy as np
+
+        # Local modules
         from CHAP.common.models.map import MapConfig
         from chess_scanparsers import SMBScanParser
 
@@ -156,7 +162,9 @@ class ParFile():
         :return: reshaped array of values
         :rtype: np.ndarray
         """
+        # Third party modules
         import numpy as np
+
         good_scans = self.good_scan_numbers()
         if len(values) != len(good_scans):
             raise ValueError('number of values provided ({len(values)}) does '

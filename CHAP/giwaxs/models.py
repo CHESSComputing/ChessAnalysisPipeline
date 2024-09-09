@@ -62,127 +62,39 @@ class GiwaxsConversionConfig(BaseModel):
     """Class representing metadata required to locate GIWAXS image
     files for a single scan to convert to q_par/q_perp coordinates.
 
-    :ivar inputdir: Input directory, used only if any file in the
-            configuration is not an absolute path.
-    :type inputdir: str, optional
-    :ivar map_config: The map configuration for the GIWAXS data.
-    :type map_config: CHAP.common.models.map.MapConfig
     :ivar detectors: List of detector configurations.
     :type detectors: list[Detector]
     :ivar scan_step_indices: Optional scan step indices to convert.
         If not specified, all images will be converted.
-    :type scan_step_indices: list[int], optional
+    :type scan_step_indices: Union(int, list[int], str), optional
+    :ivar save_raw_data: Save the raw data in the NeXus output,
+        default to `False`.
+    :type save_raw_data: bool, optional
     """
-    inputdir: Optional[DirectoryPath] = None
-    map_config: MapConfig
     detectors: conlist(item_type=Detector, min_length=1)
     scan_step_indices: Optional[
         conlist(item_type=conint(ge=0), min_length=1)] = None
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_config(cls, data):
-        """Ensure that a valid configuration was provided and finalize
-        input filepaths.
-
-        :param data: Pydantic validator data object.
-        :type data: GiwaxsConversionConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :raises ValueError: Missing par_dims value.
-        :return: The currently validated list of class properties.
-        :rtype: dict
-        """
-        inputdir = data.get('inputdir')
-        map_config = data.get('map_config')
-        for i, scans in enumerate(map_config.get('spec_scans')):
-            spec_file = scans.get('spec_file')
-            if inputdir is not None and not os.path.isabs(spec_file):
-                data['map_config']['spec_scans'][i]['spec_file'] = \
-                    os.path.join(inputdir, spec_file)
-        return data
+    save_raw_data: Optional[bool] = False
 
     @field_validator('scan_step_indices', mode='before')
     @classmethod
-    def validate_scan_step_indices(cls, scan_step_indices, info):
+    def validate_scan_step_indices(cls, scan_step_indices):
         """Validate the specified list of scan step indices.
 
         :param scan_step_indices: List of scan numbers.
         :type scan_step_indices: list of int
-        :param info: Pydantic validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
         :return: List of scan numbers.
         :rtype: list of int
         """
-        map_config = info.data.get('map_config')
+        if isinstance(scan_step_indices, int):
+            scan_step_indices = [scan_step_indices]
         if isinstance(scan_step_indices, str):
             # Local modules
             from CHAP.utils.general import string_to_list
 
             scan_step_indices = string_to_list(scan_step_indices)
-            if len(info.data.get('map_config').shape) != 1:
-                raise RuntimeError(f'Illegal use of scan_step_indices')
 
         return scan_step_indices
-
-    def giwaxs_data(self, detector=None, map_index=None):
-        """Get MCA data for a single or multiple detector elements.
-
-        :param detector: Detector(s) for which data is returned,
-            defaults to `None`, which return MCA data for all 
-            detector elements.
-        :type detector: Union[int, MCAElementStrainAnalysisConfig],
-            optional
-        :param map_index: Index of a single point in the map, defaults
-            to `None`, which returns MCA data for each point in the map.
-        :type map_index: tuple, optional
-        :return: A single MCA spectrum.
-        :rtype: np.ndarray
-        """
-        if detector is None:
-            giwaxs_data = []
-            for detector in self.detectors:
-                giwaxs_data.append(
-                    self.giwaxs_data(detector, map_index))
-            return np.asarray(giwaxs_data)
-        else:
-            if isinstance(detector, int):
-                detector = self.detectors[detector]
-            else:
-                if not isinstance(detector, Detector):
-                    raise ValueError('Invalid parameter detector ({detector})')
-                detector = detector
-            if map_index is None:
-                giwaxs_data = []
-                for map_index in np.ndindex(self.map_config.shape):
-                    if self.scan_step_indices is not None:
-                        _, _, scan_step_index = \
-                            self.map_config.get_scan_step_index(map_index)
-                        if scan_step_index not in self.scan_step_indices:
-                            continue
-                    giwaxs_data.append(self.giwaxs_data(detector, map_index))
-                if self.scan_step_indices is None:
-                    map_shape = self.map_config.shape
-                else:
-                    map_shape = (len(self.scan_step_indices), )
-                giwaxs_data = np.reshape(
-                    giwaxs_data, (*map_shape, *giwaxs_data[0].shape))
-                return np.asarray(giwaxs_data)
-            else:
-                return self.map_config.get_detector_data(
-                    detector.prefix, map_index)
-
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        for k, v in d.items():
-            if isinstance(v, PosixPath):
-                d[k] = str(v)
-        return d
 

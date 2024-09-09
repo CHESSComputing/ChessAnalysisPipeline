@@ -33,7 +33,6 @@ from CHAP.common.models.map import MapConfig
 from CHAP.utils.parfile import ParFile
 from chess_scanparsers import SMBMCAScanParser as ScanParser
 
-
 # Baseline configuration class
 
 class BaselineConfig(BaseModel):
@@ -71,7 +70,7 @@ class MaterialConfig(BaseModel):
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     lattice_parameters: Optional[Union[
         confloat(gt=0),
-        conlist(item_type=confloat(gt=0), min_length=1, max_length=6)]] = None
+        conlist(min_length=1, max_length=6, item_type=confloat(gt=0))]] = None
     sgnum: Optional[conint(ge=0)] = None
 
     _material: Optional[Material]
@@ -100,7 +99,7 @@ class MaterialConfig(BaseModel):
             defaults to `90.0`.
         :type tth_max: float, optional
         :return: Unique HKLs and their lattice spacings in angstroms.
-        :rtype: np.ndarray, np.ndarray
+        :rtype: numpy.ndarray, numpy.ndarray
         """
         # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds
@@ -115,7 +114,7 @@ class MaterialConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
         if '_material' in d:
@@ -137,6 +136,21 @@ class MCAElementConfig(BaseModel):
     """
     detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
     num_bins: Optional[conint(gt=0)] = None
+
+    @field_validator('detector_name', mode='before')
+    @classmethod
+    def validate_detector_name(cls, detector_name):
+        """Validate the specified detector name.
+
+        :ivar detector_name: Name of the MCA detector element in the scan.
+        :type detector_name: Union(str, int)
+        :raises ValueError: Invalid detector_name.
+        :return: detector_name.
+        :rtype: str
+        """
+        if isinstance(detector_name, int):
+            return str(detector_name)
+        return detector_name
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -192,9 +206,9 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         conlist(
             min_length=1,
             item_type=conlist(
-                item_type=confloat(ge=25),
                 min_length=2,
-                max_length=2)),
+                max_length=2,
+                item_type=confloat(ge=25))),
         Field(validate_default=True)] = [[50, 150]]
 
     _hkl_indices: list = PrivateAttr()
@@ -298,10 +312,17 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         """Set the private attribute `hkl_indices`."""
         self._hkl_indices = hkl_indices
 
-#RV need def dict?
-#        d['include_energy_ranges'] = [
-#            [float(energy) for energy in d['include_energy_ranges'][i]]
-#            for i in range(len(d['include_energy_ranges']))]
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        if '_hkl_indices:' in d:
+            del d['_hkl_indices:']
+        return d
 
 
 class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
@@ -334,9 +355,9 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
         conlist(
             min_length=1,
             item_type=conlist(
-                item_type=conint(ge=0),
                 min_length=2,
-                max_length=2))] = None
+                max_length=2,
+                item_type=conint(ge=0)))] = None
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
     dvl_measured: Optional[confloat(gt=0)] = None
@@ -425,7 +446,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar tth_file: Path to the file with the 2&theta map.
     :type tth_file: FilePath, optional
     :ivar tth_map: Map of the 2&theta values.
-    :type tth_map: np.ndarray, optional
+    :type tth_map: numpy.ndarray, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
         (bounds are inclusive), defaults to `[[50, 150]]`
@@ -438,7 +459,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     baseline: Optional[Union[bool, BaselineConfig]] = False
     num_proc: Optional[conint(gt=0)] = os.cpu_count()
     peak_models: Union[
-        conlist(item_type=Literal['gaussian', 'lorentzian'], min_length=1),
+        conlist(min_length=1, item_type=Literal['gaussian', 'lorentzian']),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
     fwhm_min: confloat(gt=0, allow_inf_nan=False) = 0.25
     fwhm_max: confloat(gt=0, allow_inf_nan=False) = 2.0
@@ -453,17 +474,17 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         conlist(
             min_length=1,
             item_type=conlist(
-                item_type=conint(ge=0),
                 min_length=2,
-                max_length=2))] = None
+                max_length=2,
+                item_type=conint(ge=0)))] = None
     tth_file: Optional[FilePath] = None
     tth_map: Optional[np.ndarray] = None
     include_energy_ranges: conlist( 
         min_length=1,
         item_type=conlist(
-            item_type=confloat(ge=25),
             min_length=2,
-            max_length=2)) = [[50, 150]]
+            max_length=2,
+            item_type=confloat(ge=25))) = [[50, 150]]
 
     #RV lots of overlap with MCAElementCalibrationConfig (only missing
     #   tth_initial_guess)
@@ -561,7 +582,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
         :param map_shape: The shape of the suplied 2&theta map.
         :return: Map of 2&theta values.
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         if getattr(self, 'tth_map', None) is not None:
             if self.tth_map.shape != map_shape:
@@ -579,7 +600,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
             if isinstance(v, np.ndarray):
@@ -594,7 +615,7 @@ class MCAScanDataConfig(BaseModel):
     a single scan and construct a mask for it.
 
     :ivar inputdir: Input directory, used only if any file in the
-            configuration is not an absolute path.
+        configuration is not an absolute path.
     :type inputdir: str, optional
     :ivar spec_file: Path to the SPEC file containing the scan.
     :type spec_file: str, optional
@@ -720,39 +741,6 @@ class MCAScanDataConfig(BaseModel):
             self._scanparser = scanparser
         return scanparser
 
-    def mca_data(self, detector_config, scan_step_index=None):
-        """Get the array of MCA data collected by the scan.
-
-        :param detector_config: Detector for which data is returned.
-        :type detector_config: MCAElementConfig
-        :param scan_step_index: Only return the MCA spectrum for the
-            given scan step index, defaults to `None`, which returns
-            all the available MCA spectra.
-        :type scan_step_index: int, optional
-        :return: The current detectors's MCA data.
-        :rtype: np.ndarray
-        """
-        detector_name = detector_config.detector_name
-        if self._parfile is not None:
-            if scan_step_index is None:
-                data = np.asarray(
-                    [ScanParser(self._parfile.spec_file, scan_number)\
-                     .get_all_detector_data(detector_name)[0] \
-                     for scan_number in self._parfile.good_scan_numbers()])
-            else:
-                data = ScanParser(
-                    self._parfile.spec_file,
-                    self._parfile.good_scan_numbers()[scan_step_index])\
-                    .get_all_detector_data(detector_name)
-        else:
-            if scan_step_index is None:
-                data = self.scanparser.get_all_detector_data(
-                    detector_name)
-            else:
-                data = self.scanparser.get_detector_data(
-                    detector_config.detector_name, scan_step_index)
-        return data
-
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
@@ -761,7 +749,7 @@ class MCAScanDataConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
         if d.get('_parfile') is None:
@@ -790,8 +778,8 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
     :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     """
     sample_thickness: float
-    detectors: conlist(min_length=1,
-                       item_type=MCAElementDiffractionVolumeLengthConfig)
+    detectors: conlist(
+        min_length=1, item_type=MCAElementDiffractionVolumeLengthConfig)
 
     @property
     def scanned_vals(self):
@@ -799,7 +787,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         over the course of the raster scan.
 
         :return: List of scanned motor values
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         if self._parfile is not None:
             return self._parfile.get_values(
@@ -808,18 +796,21 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         return self.scanparser.spec_scan_motor_vals[0]
 
 
-class MCAEnergyCalibrationConfig(MCAScanDataConfig):
+class MCAEnergyCalibrationConfig(BaseModel):
     """
     Class representing metadata required to perform an energy
     calibration for an MCA detector.
 
+    :ivar inputdir: Input directory, used only if any file in the
+        configuration is not an absolute path.
+    :type inputdir: str, optional
     :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
     :type scan_step_indices: list[int], optional
     :ivar detectors: List of individual MCA detector element
         calibration configurations.
-    :type detectors: list[MCAElementCalibrationConfig]
+    :type detectors: list[MCAElementCalibrationConfig], optional
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
     :type flux_file: str, optional
@@ -842,22 +833,23 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
     :type fit_index_ranges: list[[int, int]], optional
 
     """
+    inputdir: Optional[DirectoryPath] = None
     scan_step_indices: Optional[Annotated[conlist(
         min_length=1, item_type=conint(ge=0)),
         Field(validate_default=True)]] = None
-    detectors: conlist(min_length=1, item_type=MCAElementCalibrationConfig)
+    detectors: Optional[conlist(item_type=MCAElementCalibrationConfig)] = None
     flux_file: Optional[FilePath] = None
     material: Optional[MaterialConfig] = MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)
-    peak_energies: conlist(item_type=confloat(gt=0), min_length=2)
+    peak_energies: conlist(min_length=2, item_type=confloat(gt=0))
     max_peak_index: conint(ge=0)
     fit_index_ranges: Optional[
         conlist(
             min_length=1,
             item_type=conlist(
-                item_type=conint(ge=0),
                 min_length=2,
-                max_length=2))] = None
+                max_length=2,
+                item_type=conint(ge=0)))] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -932,31 +924,6 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
         energies = flux[:,0]/1.e3
         return energies.min(), energies.max()
 
-    def mca_data(self, detector_config):
-        """Get the array of MCA data to use for calibration.
-
-        :param detector_config: Detector for which data is returned.
-        :type detector_config: MCAElementConfig
-        :return: The current detectors's MCA data.
-        :rtype: np.ndarray
-        """
-        if self.scan_step_indices is None:
-            data = super().mca_data(detector_config)
-            if self.scanparser.spec_scan_npts > 1:
-                data = np.average(data, axis=0)
-            else:
-                data = data[0]
-        elif len(self.scan_step_indices) == 1:
-            data = super().mca_data(
-                detector_config, scan_step_index=self.scan_step_indices[0])
-        else:
-            data = []
-            for scan_step_index in self.scan_step_indices:
-                data.append(super().mca_data(
-                    detector_config, scan_step_index=scan_step_index))
-            data = np.average(data, axis=0)
-        return data
-
     def flux_correction_interpolation_function(self):
         """
         Get an interpolation function to correct MCA data for the
@@ -972,6 +939,18 @@ class MCAEnergyCalibrationConfig(MCAScanDataConfig):
         relative_intensities = flux[:,1]/np.max(flux[:,1])
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
+
+    def dict(self, *args, **kwargs):
+        """Return a representation of this configuration in a
+        dictionary that is suitable for dumping to a YAML file.
+
+        :return: Dictionary representation of the configuration.
+        :rtype: dict
+        """
+        d = super().dict(*args, **kwargs)
+        if 'inputdir' in d:
+            del d['inputdir']
+        return d
 
 
 class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
@@ -1018,22 +997,11 @@ class StrainAnalysisConfig(BaseModel):
     strain analysis.
 
     :ivar inputdir: Input directory, used only if any file in the
-            configuration is not an absolute path.
+        configuration is not an absolute path.
     :type inputdir: str, optional
-    :ivar map_config: The map configuration for the MCA data on which
-        the strain analysis is performed.
-    :type map_config: CHAP.common.models.map.MapConfig, optional
-    :ivar par_file: Path to the par file associated with the scan.
-    :type par_file: str, optional
-    :ivar dataset_id: Integer ID of the SMB-style EDD dataset.
-    :type dataset_id: int, optional
-    :ivar par_dims: List of independent dimensions.
-    :type par_dims: list[dict[str,str]], optional
-    :ivar other_dims: List of other column names from `par_file`.
-    :type other_dims: list[dict[str,str]], optional
     :ivar detectors: List of individual detector element strain
-        analysis configurations
-    :type detectors: list[MCAElementStrainAnalysisConfig]
+        analysis configurations, defaults to `None` (use all detectors).
+    :type detectors: list[MCAElementStrainAnalysisConfig], optional
     :ivar materials: Sample material configurations.
     :type materials: list[MaterialConfig]
     :ivar flux_file: File name of the csv flux file containing station
@@ -1042,64 +1010,36 @@ class StrainAnalysisConfig(BaseModel):
     :ivar sum_axes: Whether to sum over the fly axis or not
         for EDD scan types not 0, defaults to `True`.
     :type sum_axes: bool, optional
+    :ivar oversampling: FIX
+    :type oversampling: FIX
     """
     inputdir: Optional[DirectoryPath] = None
-    map_config: Optional[MapConfig] = None
-    par_file: Optional[FilePath] = None
-    dataset_id: Optional[int] = None
-    par_dims: Optional[list[dict[str,str]]] = None
-    other_dims: Optional[list[dict[str,str]]] = None
-    detectors: conlist(min_length=1, item_type=MCAElementStrainAnalysisConfig)
+    detectors: Optional[conlist(
+        min_length=1, item_type=MCAElementStrainAnalysisConfig)] = None
     materials: list[MaterialConfig]
     flux_file: Optional[FilePath] = None
-    sum_axes: Optional[
-        Annotated[list[str], Field(validate_default=True)]] = None
+    sum_axes: Optional[bool] = True
     oversampling: Optional[
         Annotated[dict, Field(validate_default=True)]] = {'num': 10}
-
-    _parfile: Optional[ParFile]
 
     @model_validator(mode='before')
     @classmethod
     def validate_config(cls, data):
         """Ensure that a valid configuration was provided and finalize
-        input filepaths.
+        flux_file filepath.
 
         :param data: Pydantic validator data object.
-        :type data: StrainAnalysisConfig,
+        :type data: MCAEnergyCalibrationConfig,
             pydantic_core._pydantic_core.ValidationInfo
         :return: The currently validated list of class properties.
         :rtype: dict
         """
         inputdir = data.get('inputdir')
-        flux_file = data.get('flux_file')
-        par_file = data.get('par_file')
-        if (inputdir is not None and flux_file is not None
-                and not os.path.isabs(flux_file)):
-            data['flux_file'] = os.path.join(inputdir, flux_file)
-        if par_file is not None:
-            if inputdir is not None and not os.path.isabs(par_file):
-                data['par_file'] = os.path.join(inputdir, par_file)
-            if 'dataset_id' in data:
-                from CHAP.edd import EddMapReader
-                data['_parfile'] = ParFile(data['par_file'])
-                data['map_config'] = EddMapReader().read(
-                    data['par_file'], data['dataset_id'])
-            elif 'par_dims' in data:
-                data['_parfile'] = ParFile(data['par_file'])
-                data['map_config'] = data['_parfile'].get_map(
-                    'EDD', 'id1a3', data['par_dims'],
-                    other_dims=data.get('other_dims', []))
-            else:
-                raise ValueError(
-                    'dataset_id or par_dims is required when using par_file')
-        map_config = data.get('map_config')
-        if isinstance(map_config, dict):
-            for i, scans in enumerate(map_config.get('spec_scans')):
-                spec_file = scans.get('spec_file')
-                if inputdir is not None and not os.path.isabs(spec_file):
-                    data['map_config']['spec_scans'][i]['spec_file'] = \
-                        os.path.join(inputdir, spec_file)
+        if inputdir is not None:
+            flux_file = data.get('flux_file')
+            if flux_file is not None and not os.path.isabs(flux_file):
+                data['flux_file'] = os.path.join(inputdir, flux_file)
+
         return data
 
     @field_validator('detectors', mode='before')
@@ -1114,52 +1054,31 @@ class StrainAnalysisConfig(BaseModel):
                     detector['tth_file'] = os.path.join(inputdir, tth_file)
         return detectors
 
-    @field_validator('detectors')
-    @classmethod
-    def validate_tth(cls, detectors, info):
-        """Validate detector element tth_file field. It may only be
-        used if StrainAnalysisConfig used par_file.
-        """
-        for detector in detectors:
-            tth_file = detector.tth_file
-            if tth_file is not None:
-                if not info.data.get('par_file'):
-                    raise ValueError(
-                        'variable tth angles may only be used with a '
-                        'StrainAnalysisConfig that uses par_file.')
-                else:
-                    try:
-                        detector.tth_map = ParFile(
-                            info.data['par_file']).map_values(
-                                info.data['map_config'],
-                                np.loadtxt(tth_file))
-                    except Exception as e:
-                        raise ValueError(
-                            'Could not get map of tth angles from '
-                            f'{tth_file}') from e
-        return detectors
-
-    @field_validator('sum_axes')
-    @classmethod
-    def validate_sum_axes(cls, sum_axes, info):
-        """Validate the sum_axes field.
-
-        :param sum_axes: The value of `sum_axes` to validate.
-        :type sum_axes: bool
-        :param info: Pydantic validator info object.
-        :type info: StrainAnalysisConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The validated value for sum_axes.
-        :rtype: bool
-        """
-        if sum_axes is None:
-            map_config = info.data.get('map_config')
-            if map_config is not None:
-                if map_config.attrs['scan_type'] < 3:
-                    sum_axes = sum_axes
-                else:
-                    sum_axes = map_config.attrs.get('fly_axis_labels', [])
-        return sum_axes
+# FIX tth_file/tth_map not updated
+#    @field_validator('detectors')
+#    @classmethod
+#    def validate_tth(cls, detectors, info):
+#        """Validate detector element tth_file field. It may only be
+#        used if StrainAnalysisConfig used par_file.
+#        """
+#        for detector in detectors:
+#            tth_file = detector.tth_file
+#            if tth_file is not None:
+#                if not info.data.get('par_file'):
+#                    raise ValueError(
+#                        'variable tth angles may only be used with a '
+#                        'StrainAnalysisConfig that uses par_file.')
+#                else:
+#                    try:
+#                        detector.tth_map = ParFile(
+#                            info.data['par_file']).map_values(
+#                                info.data['map_config'],
+#                                np.loadtxt(tth_file))
+#                    except Exception as e:
+#                        raise ValueError(
+#                            'Could not get map of tth angles from '
+#                            f'{tth_file}') from e
+#        return detectors
 
     @field_validator('oversampling')
     @classmethod
@@ -1177,6 +1096,7 @@ class StrainAnalysisConfig(BaseModel):
         # Local modules
         from CHAP.utils.general import is_int
 
+        raise ValueError('oversampling not updated yet')
         map_config = info.data.get('map_config')
         if map_config is None or map_config.attrs['scan_type'] < 3:
             return None
@@ -1207,99 +1127,6 @@ class StrainAnalysisConfig(BaseModel):
                              'of "width", "stride" or "num"')
         return oversampling
 
-    def mca_data(self, detector=None, map_index=None):
-        """Get MCA data for a single or multiple detector elements.
-
-        :param detector: Detector(s) for which data is returned,
-            defaults to `None`, which return MCA data for all 
-            detector elements.
-        :type detector: Union[int, MCAElementStrainAnalysisConfig],
-            optional
-        :param map_index: Index of a single point in the map, defaults
-            to `None`, which returns MCA data for each point in the map.
-        :type map_index: tuple, optional
-        :return: A single MCA spectrum.
-        :rtype: np.ndarray
-        """
-        if detector is None:
-            mca_data = []
-            for detector_config in self.detectors:
-                mca_data.append(
-                    self.mca_data(detector_config, map_index))
-            return np.asarray(mca_data)
-        else:
-            if isinstance(detector, int):
-                detector_config = self.detectors[detector]
-            else:
-                if not isinstance(detector, MCAElementStrainAnalysisConfig):
-                    raise ValueError('Invalid parameter detector ({detector})')
-                detector_config = detector
-            if map_index is None:
-                mca_data = []
-                for map_index in np.ndindex(self.map_config.shape):
-                    mca_data.append(self.mca_data(
-                        detector_config, map_index))
-                mca_data = np.reshape(
-                    mca_data, (*self.map_config.shape, len(mca_data[0])))
-                if self.sum_axes:
-                    scan_type = self.map_config.attrs['scan_type']
-                    if self.map_config.map_type == 'structured':
-                        sum_axis_indices = []
-                        for axis in self.sum_axes:
-                            sum_axis_indices.append(
-                                self.map_config.dims.index(axis))
-                        mca_data = np.sum(
-                            mca_data, tuple(sorted(sum_axis_indices)))
-                        if scan_type == 4:
-                            raise NotImplementedError(
-                                'Oversampling scan types not tested yet.')
-                            from CHAP.edd.utils import get_rolling_sum_spectra
-                            mca_data = get_rolling_sum_spectra(
-                                mca_data,
-                                self.map_config.dims.index(fly_axis_labels[0]),
-                                self.oversampling.get('start', 0),
-                                self.oversampling.get('end'),
-                                self.oversampling.get('width'),
-                                self.oversampling.get('stride'),
-                                self.oversampling.get('num'),
-                                self.oversampling.get('mode', 'valid'))
-                        elif scan_type not in (0, 1, 2, 3, 5):
-                            raise ValueError(
-                                f'scan_type {scan_type} not implemented yet '
-                                'in StrainAnalysisConfig.mca_data()')
-                    else:
-                        # Perform summing along axes of an unstructured map
-                        map_dims = self.map_config.dims
-                        map_coords = self.map_config.coords
-                        map_length = len(map_coords[map_dims[0]])
-                        for sum_axis in self.sum_axes:
-                            axis_index = map_dims.index(sum_axis)
-                            sum_map_indices = {}
-                            for i in range(map_length):
-                                coord = tuple(
-                                    v[i] for k, v in map_coords.items() \
-                                    if k != sum_axis)
-                                if coord not in sum_map_indices:
-                                    sum_map_indices[coord] = []
-                                sum_map_indices[coord].append(i)
-                            map_dims = (*map_dims[:axis_index],
-                                        *map_dims[axis_index + 1:])
-                            sum_indices_list = sum_map_indices.values()
-                            map_coords = {
-                                dim: [map_coords[dim][sum_indices[0]] \
-                                      for sum_indices in sum_indices_list] \
-                                for dim in map_dims}
-                            map_length = len(map_coords[map_dims[0]])
-                            mca_data = np.asarray(
-                                [np.sum(mca_data[sum_indices], axis=0) \
-                                 for sum_indices in sum_indices_list])
-                    return mca_data
-                else:
-                    return np.asarray(mca_data)
-            else:
-                return self.map_config.get_detector_data(
-                    detector_config.detector_name, map_index)
-
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
@@ -1308,9 +1135,9 @@ class StrainAnalysisConfig(BaseModel):
         :rtype: dict
         """
         d = super().dict(*args, **kwargs)
-        for k,v in d.items():
+        for k, v in d.items():
             if isinstance(v, PosixPath):
                 d[k] = str(v)
-        if '_scanparser' in d:
-            del d['_scanparser']
+        if 'inputdir' in d:
+            del d[k]
         return d

@@ -105,6 +105,8 @@ def write_filetree(data, outputdir, force_overwrite=False):
         raise TypeError('Cannot write object of type'
                         f'{type(data).__name__} as a file tree to disk.')
 
+    # FIX: Right now this can bomb if MultiplePipelineItem
+    # is called simultaneously from multiple nodes in MPI
     if not os_path.isdir(outputdir):
         makedirs(outputdir)
 
@@ -328,19 +330,26 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
+        # System modules
+        import os
+
         # Third party modules
         from nexusformat.nexus import (
-            NXentry,
             NXFile,
+            NXentry,
+            NXobject,
             NXroot,
         )
-        import os
+
         data = self.unwrap_pipelinedata(data)[-1]
+        if not isinstance(data, NXobject):
+            return data
+
         nxname = data.nxname
         if not os.path.isfile(filename) and nxpath is not None:
             self.logger.warning(
-                f'{filename} does not yet exist. Argument for nxpath ({nxpath}) '
-                + 'will be ignored.')
+                f'{filename} does not yet exist. Argument for nxpath '
+                '({nxpath}) will be ignored.')
             nxpath = None
         if nxpath is None:
             nxclass = data.nxclass
@@ -365,7 +374,8 @@ class NexusWriter(Writer):
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in {filename}')
+                    f'{os.path.join(nxpath, nxname)} already exists in '
+                    f'{filename}')
                 if force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '
