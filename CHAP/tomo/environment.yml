@@ -1,16 +1,17 @@
 name: CHAP_tomo
 channels:
-  - astra-toolbox
   - conda-forge
-  - defaults
+  - astra-toolbox
+  - nodefaults
 dependencies:
   - python>=3.9
   - astra-toolbox==2.1.0
-  - chessanalysispipeline==0.0.12
+  - chessanalysispipeline
   - lmfit==1.1.0
-  - matplotlib==3.7.1
-  - nexusformat==1.0.2
-  - nexpy==1.0.4
+  - matplotlib==3.9.2
+  - mpi4py==4.0.0
+  - nexpy==1.0.9
+  - nexusformat==1.0.6
   - pip==22.3.1
   - pydantic==2.7.3
   - sympy==1.12
