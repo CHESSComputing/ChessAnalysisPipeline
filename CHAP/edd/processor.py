@@ -21,11 +21,11 @@ from CHAP.processor import Processor
 # Current good detector channels for the 23 channel EDD detector:
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
+
 class DiffractionVolumeLengthProcessor(Processor):
     """A Processor using a steel foil raster scan to calculate the
     length of the diffraction volume for an EDD setup.
     """
-
     def process(
             self, data, config=None, save_figures=False, inputdir='.',
             outputdir='.', interactive=False):
@@ -35,19 +35,18 @@ class DiffractionVolumeLengthProcessor(Processor):
             calculation procedure.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.edd.models.DiffractionVolumeLengthConfig, defaults to
-            `None`.
+            CHAP.edd.models.DiffractionVolumeLengthConfig.
         :type config: dict, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
@@ -55,30 +54,28 @@ class DiffractionVolumeLengthProcessor(Processor):
         :return: Complete DVL configuraiton dictionary.
         :rtype: dict
         """
-
         try:
             dvl_config = self.get_config(
                 data, 'edd.models.DiffractionVolumeLengthConfig',
                 inputdir=inputdir)
-        except Exception as data_exc:
-            self.logger.error(data_exc)
+        except:
+            self.logger.error(exc)
             self.logger.info('No valid DVL config in input pipeline data, '
-                             + 'using config parameter instead.')
+                             'using config parameter instead.')
             try:
                 # Local modules
                 from CHAP.edd.models import DiffractionVolumeLengthConfig
 
                 dvl_config = DiffractionVolumeLengthConfig(
                     **config, inputdir=inputdir)
-            except Exception as dict_exc:
+            except Exception as exc:
                 self.logger.error('Could not get a valid DVL config')
-                raise RuntimeError from dict_exc
+                raise RuntimeError from exc
 
         for detector in dvl_config.detectors:
-            dvl = self.measure_dvl(dvl_config, detector,
-                                   save_figures=save_figures,
-                                   interactive=interactive,
-                                   outputdir=outputdir)
+            dvl = self.measure_dvl(
+                dvl_config, detector, save_figures=save_figures,
+                interactive=interactive, outputdir=outputdir)
             detector.dvl_measured = dvl
 
         return dvl_config.dict()
@@ -211,8 +208,8 @@ class DiffractionVolumeLengthProcessor(Processor):
             else:
                 self.logger.warning(
                     'Cannot manually indicate DVL when running CHAP '
-                    + 'non-interactively. '
-                    + 'Using default DVL calcluation instead.')
+                    'non-interactively. Using default DVL calcluation '
+                    'instead.')
 
         if interactive or save_figures:
             # Third party modules
@@ -254,14 +251,38 @@ class LatticeParameterRefinementProcessor(Processor):
     """Processor to get a refined estimate for a sample's lattice
     parameters."""
     def process(
-            self, data, config=None, save_figures=False, outputdir='.',
-            inputdir='.', interactive=False):
+            self, data, config=None, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
         """Given a strain analysis configuration, return a copy
         contining refined values for the materials' lattice
-        parameters."""
+        parameters.
+
+        :param data: Input data for the lattice parameter refinement
+            procedure.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.edd.models.StrainAnalysisConfig.
+        :type config: dict, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :raises RuntimeError: Unable to get a valid DVL configuration.
+        :return: The strain analysis configuration with the refined
+            lattice parameter configuration.
+        :rtype: nexusformat.nexus.NXroot
+        """
         # Third party modules
         from nexusformat.nexus import (
-            NXdata,
             NXentry,
             NXsubentry,
             NXprocess,
@@ -276,17 +297,17 @@ class LatticeParameterRefinementProcessor(Processor):
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
-        except Exception as data_exc:
+        except:
             # Local modules
             from CHAP.edd.models import StrainAnalysisConfig
 
             self.logger.info('No valid strain analysis config in input '
-                             + 'pipeline data, using config parameter instead')
+                             'pipeline data, using config parameter instead')
             try:
                 strain_analysis_config = StrainAnalysisConfig(
                     **config, inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         if len(strain_analysis_config.materials) > 1:
             msg = 'Not implemented for multiple materials'
@@ -296,9 +317,9 @@ class LatticeParameterRefinementProcessor(Processor):
         # Collect the raw MCA data
         raise RuntimeError(
             'LatticeParameterRefinementProcessor not updated yet')
-        self.logger.debug(f'Reading data ...')
+        self.logger.debug('Reading data ...')
         mca_data = strain_analysis_config.mca_data()
-        self.logger.debug(f'... done')
+        self.logger.debug('... done')
         self.logger.debug(f'mca_data.shape: {mca_data.shape}')
         if mca_data.ndim == 2:
             mca_data_summed = mca_data
@@ -384,7 +405,7 @@ class LatticeParameterRefinementProcessor(Processor):
         :type outputdir: str
         :returns: List of refined lattice parameters for materials in
             `strain_analysis_config`
-        :rtype: list[numpy.ndarray]
+        :rtype: list[float]
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -393,7 +414,6 @@ class LatticeParameterRefinementProcessor(Processor):
             NXdetector,
             NXfield,
         )
-        from scipy.constants import physical_constants
 
         # Local modules
         from CHAP.edd.utils import (
@@ -402,7 +422,10 @@ class LatticeParameterRefinementProcessor(Processor):
             get_unique_hkls_ds,
         )
 
-        def linkdims(nxgroup, field_dims=[]):
+        def linkdims(nxgroup, field_dims=None):
+            "Link the dimensions for an NXgroup."""
+            if field_dims is None:
+                field_dims = []
             if isinstance(field_dims, dict):
                 field_dims = [field_dims]
             if map_config.map_type == 'structured':
@@ -413,7 +436,7 @@ class LatticeParameterRefinementProcessor(Processor):
                 axes = ['map_index']
                 for dims in field_dims:
                     axes.append(dims['axes'])
-                nxgroup.attrs[f'map_index_indices'] = 0
+                nxgroup.attrs['map_index_indices'] = 0
             for dim in map_config.dims:
                 nxgroup.makelink(nxsubentry[map_config.title].data[dim])
                 if f'{dim}_indices' in nxsubentry[map_config.title].data.attrs:
@@ -498,7 +521,7 @@ class LatticeParameterRefinementProcessor(Processor):
                 interactive=interactive, filename=filename)
             self.logger.debug(
                 f'materials: {strain_analysis_config.materials}')
-    
+
             # Interactively adjust the mask and HKLs used in the
             # lattice parameter refinement
             if save_figures:
@@ -556,7 +579,7 @@ class LatticeParameterRefinementProcessor(Processor):
             intensities, axis=tuple(range(len(effective_map_shape))))
         hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
         ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
-        Rs = np.sqrt(np.sum(hkls_fit**2, 1))
+        rs = np.sqrt(np.sum(hkls_fit**2, 1))
         peak_locations = get_peak_locations(
             ds_fit, detector.tth_calibrated)
 
@@ -582,28 +605,20 @@ class LatticeParameterRefinementProcessor(Processor):
         # Get the interplanar spacings measured for each fit HKL peak
         # at every point in the map to get the refined estimate
         # for the material's lattice parameter
-        (uniform_fit_centers, uniform_fit_centers_errors,
-         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-         uniform_fit_sigmas, uniform_fit_sigmas_errors,
-         uniform_best_fit, uniform_residuals,
-         uniform_redchi, uniform_success,
-         unconstrained_fit_centers, unconstrained_fit_centers_errors,
-         unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
-         unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
-         unconstrained_best_fit, unconstrained_residuals,
-         unconstrained_redchi, unconstrained_success) = \
-            get_spectra_fits(
-                intensities, energies, peak_locations, detector)
-        Rs_map = Rs.repeat(np.prod(effective_map_shape))
+        (uniform_fit_centers, _, _, _, _, _, uniform_best_fit, _, _, _,
+         unconstrained_fit_centers, _, _, _, _, _,
+         unconstrained_best_fit, _, _, _) = get_spectra_fits(
+            intensities, energies, peak_locations, detector)
+        rs_map = rs.repeat(np.prod(effective_map_shape))
         d_uniform = get_peak_locations(
             np.asarray(uniform_fit_centers), detector.tth_calibrated)
-        a_uniform = (Rs_map * d_uniform.flatten()).reshape(d_uniform.shape)
+        a_uniform = (rs_map * d_uniform.flatten()).reshape(d_uniform.shape)
         a_uniform = a_uniform.mean(axis=0)
         a_uniform_mean = float(a_uniform.mean())
         d_unconstrained = get_peak_locations(
             unconstrained_fit_centers, detector.tth_calibrated)
         a_unconstrained = (
-            Rs_map * d_unconstrained.flatten()).reshape(d_unconstrained.shape)
+            rs_map * d_unconstrained.flatten()).reshape(d_unconstrained.shape)
         a_unconstrained = np.moveaxis(a_unconstrained, 0, -1)
         a_unconstrained_mean = float(a_unconstrained.mean())
         self.logger.warning(
@@ -634,24 +649,16 @@ class LatticeParameterRefinementProcessor(Processor):
         # Get the interplanar spacings measured for each fit HKL peak
         # at the spectrum averaged over every point in the map to get
         # the refined estimate for the material's lattice parameter
-        (uniform_fit_centers, uniform_fit_centers_errors,
-         uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-         uniform_fit_sigmas, uniform_fit_sigmas_errors,
-         uniform_best_fit, uniform_residuals,
-         uniform_redchi, uniform_success,
-         unconstrained_fit_centers, unconstrained_fit_centers_errors,
-         unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
-         unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
-         unconstrained_best_fit, unconstrained_residuals,
-         unconstrained_redchi, unconstrained_success) = \
-            get_spectra_fits(
+        (uniform_fit_centers, uniform_fit_centers_errors, _, _, _, _,
+         uniform_best_fit, _, _, _, unconstrained_fit_centers, _, _, _,
+         _, _, unconstrained_best_fit, _, _, _) = get_spectra_fits(
                 mean_intensity, energies, peak_locations, detector)
         d_uniform = get_peak_locations(
             np.asarray(uniform_fit_centers), detector.tth_calibrated)
         d_unconstrained = get_peak_locations(
             np.asarray(unconstrained_fit_centers), detector.tth_calibrated)
-        a_uniform = float((Rs * d_uniform).mean())
-        a_unconstrained = (Rs * d_unconstrained)
+        a_uniform = float((rs * d_uniform).mean())
+        a_unconstrained = rs * d_unconstrained
         self.logger.warning(
             'Lattice parameter refinement assumes cubic lattice')
         self.logger.info(
@@ -726,8 +733,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         :param data: An energy Calibration configuration.
         :type data: PipelineData
         :param config: Initialization parameters for an instance of
-            CHAP.edd.models.MCAEnergyCalibrationConfig, defaults to
-            `None`.
+            CHAP.edd.models.MCAEnergyCalibrationConfig.
         :type config: dict, optional
         :param centers_range: Set boundaries on the peak centers in
             MCA channels when performing the fit. The min/max
@@ -735,10 +741,10 @@ class MCAEnergyCalibrationProcessor(Processor):
             values &pm; `centers_range`. Defaults to `20`.
         :type centers_range: int, optional
         :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_min: float, optional
         :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
@@ -766,10 +772,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         :rtype: dict
         """
         # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
+        from nexusformat.nexus import NXroot
 
         # Local modules
         from CHAP.edd.models import (
@@ -795,7 +798,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             calibration_config = self.get_config(
                 data, 'edd.models.MCAEnergyCalibrationConfig',
                 inputdir=inputdir)
-        except Exception as data_exc:
+        except:
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -804,8 +807,8 @@ class MCAEnergyCalibrationProcessor(Processor):
 
                 calibration_config = MCAEnergyCalibrationConfig(
                     **config, inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         # Validate the detector configuration
         available_detector_indices = [
@@ -826,8 +829,8 @@ class MCAEnergyCalibrationProcessor(Processor):
         if calibration_config.fit_index_ranges is None and not interactive:
             raise RuntimeError(
                 'If `fit_index_ranges` is not explicitly provided, '
-                + self.__class__.__name__
-                + ' must be run with `interactive=True`.')
+                f'{self.__class__.__name__} must be run with '
+                '`interactive=True`.')
 
         # Validate the optional inputs
         if not is_int(centers_range, gt=0, log=False):
@@ -858,7 +861,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Collect and sum the detector data
         mca_data = []
         for scan_name in nxentry.spec_scans:
-            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+            for _, scan_data in nxentry.spec_scans[scan_name].items():
                 mca_data.append(scan_data.data.data.nxdata)
         summed_detector_data = np.asarray(mca_data).sum(axis=(0,1))
 
@@ -921,10 +924,10 @@ class MCAEnergyCalibrationProcessor(Processor):
             values &pm; `centers_range`. Defaults to `20`.
         :type centers_range: int, optional
         :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_min: float, optional
         :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
@@ -951,8 +954,6 @@ class MCAEnergyCalibrationProcessor(Processor):
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import (
             index_nearest,
-            index_nearest_down,
-            index_nearest_up,
             select_mask_1d,
         )
 
@@ -1070,7 +1071,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.suptitle(
                 f'Detector {detector.detector_name} Energy Calibration')
             # Left plot: raw MCA data & best fit of peaks
-            axs[0].set_title(f'MCA Spectrum Peak Fit')
+            axs[0].set_title('MCA Spectrum Peak Fit')
             axs[0].set_xlabel('Detector channel')
             axs[0].set_ylabel('Intensity (a.u)')
             axs[0].plot(bins[mask], spectrum[mask], 'b.', label='MCA data')
@@ -1101,9 +1102,9 @@ class MCAEnergyCalibrationProcessor(Processor):
                     f'Constant offset:\n    {c:.5f} $keV$',
                 ha='right', va='bottom', ma='left',
                 transform=axs[1].transAxes,
-                bbox=dict(boxstyle='round',
-                          ec=(1., 0.5, 0.5),
-                          fc=(1., 0.8, 0.8, 0.8)))
+                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
+                      'fc': (1., 0.8, 0.8, 0.8)},
+            )
 
             fig.tight_layout()
 
@@ -1123,15 +1124,17 @@ class MCAEnergyCalibrationProcessor(Processor):
             interactive, filename, detector_name, reset_flag=0):
         # Third party modules
         import matplotlib.pyplot as plt
-        from matplotlib.widgets import TextBox, Button
+        from matplotlib.widgets import Button
 
         def change_fig_title(title):
+            """Change the figure title."""
             if fig_title:
                 fig_title[0].remove()
                 fig_title.pop()
             fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
         def change_error_text(error=''):
+            """Change the error text."""
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
@@ -1150,6 +1153,20 @@ class MCAEnergyCalibrationProcessor(Processor):
             plt.close()
 
         def find_peaks(min_height=0.05, min_width=5, tolerance=0.05):
+            """Find the peaks.
+
+            :param min_height: Minimum peak height in search, defaults
+                to `0.05`.
+            :type min_height: float, optional
+            :param min_width: Minimum peak width in search, defaults
+                to `5`.
+            :type min_width: float, optional
+            :param tolerance: Tolerance in peak index for finding
+                matching peaks, defaults to `0.05`.
+            :type tolerance: float, optional
+            :return: The peak indices.
+            :rtype: list[int]
+            """
             # Third party modules
             from scipy.signal import find_peaks as find_peaks_scipy
 
@@ -1267,7 +1284,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 for index in peak_indices:
                     if not any(True if low <= index <= upp else False
                            for low, upp in index_ranges):
-                        peak_indices.clear
+                        peak_indices.clear()
                         break
             if not peak_indices:
                 peak_indices += select_peaks()
@@ -1319,7 +1336,6 @@ class MCATthCalibrationProcessor(Processor):
     """Processor to calibrate the 2&theta angle and fine tune the
     energy calibration coefficients for an EDD experimental setup.
     """
-
     def process(
             self, data, config=None, tth_initial_guess=None,
             include_energy_ranges=None, calibration_method='iterate_tth',
@@ -1335,8 +1351,7 @@ class MCATthCalibrationProcessor(Processor):
             procedure.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.edd.models.MCATthCalibrationConfig,
-            defaults to `None`.
+            CHAP.edd.models.MCATthCalibrationConfig.
         :type config: dict, optional
         :param tth_initial_guess: Initial guess for 2&theta to supercede
             the values from the energy calibration detector cofiguration
@@ -1363,10 +1378,10 @@ class MCATthCalibrationProcessor(Processor):
             values &pm; `centers_range`. Defaults to `20`.
         :type centers_range: int, optional
         :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_min: float, optional
         :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_max: float, optional
         :param background: Background model for peak fitting.
         :type background: str, list[str], optional
@@ -1392,10 +1407,7 @@ class MCATthCalibrationProcessor(Processor):
         :rtype: dict[str,float]
         """
         # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
+        from nexusformat.nexus import NXroot
 
         # Local modules
         from CHAP.edd.models import BaselineConfig
@@ -1418,7 +1430,7 @@ class MCATthCalibrationProcessor(Processor):
                 data, 'edd.models.MCATthCalibrationConfig',
                 calibration_method=calibration_method,
                 inputdir=inputdir)
-        except Exception as data_exc:
+        except:
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -1428,8 +1440,8 @@ class MCATthCalibrationProcessor(Processor):
                 calibration_config = MCATthCalibrationConfig(
                     **config, calibration_method=calibration_method,
                     inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         # Validate the detector configuration
         if calibration_config.detectors is None:
@@ -1442,14 +1454,15 @@ class MCATthCalibrationProcessor(Processor):
                 detectors.append(detector)
             else:
                 self.logger.warning(
-                    f'Skipping detector {name} (no energy calibration data)')
+                    f'Skipping detector {detector.detector_name} '
+                    '(no energy calibration data)')
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
             raise RuntimeError(
                 'If `fit_index_ranges` is not explicitly provided, '
-                + self.__class__.__name__
-                + ' must be run with `interactive=True`.')
+                f'{self.__class__.__name__} must be run with '
+                '`interactive=True`.')
 
         # Validate the optional inputs
         if not is_int(centers_range, gt=0, log=False):
@@ -1475,7 +1488,7 @@ class MCATthCalibrationProcessor(Processor):
         # Collect and sum the detector data
         mca_data = []
         for scan_name in nxentry.spec_scans:
-            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+            for _, scan_data in nxentry.spec_scans[scan_name].items():
                 mca_data.append(scan_data.data.data.nxdata)
         summed_detector_data = np.asarray(mca_data).sum(axis=(0,1))
 
@@ -1487,7 +1500,7 @@ class MCATthCalibrationProcessor(Processor):
         # Check each detector's include_energy_ranges field against the
         # flux file, if available.
         if calibration_config.flux_file is not None:
-            flux = np.loadtxt(flux_file)
+            flux = np.loadtxt(calibration_config.flux_file)
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
             flux_e_max = flux_file_energies.max()
@@ -1550,10 +1563,10 @@ class MCATthCalibrationProcessor(Processor):
             values &pm; `centers_range`. Defaults to `20`.
         :type centers_range: int, optional
         :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_min: float, optional
         :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit, defaults to `None`.
+            when performing the fit.
         :type fwhm_max: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
@@ -1571,7 +1584,10 @@ class MCATthCalibrationProcessor(Processor):
         from sys import float_info
 
         # Third party modules
-        from nexusformat.nexus import NXdata, NXfield
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
         from scipy.constants import physical_constants
 
         # Local modules
@@ -1708,7 +1724,7 @@ class MCATthCalibrationProcessor(Processor):
             a_init, b_init, c_init = detector.energy_calibration_coeffs
 
             # For testing: hardwired limits:
-            if False:
+            if False: #RV
                 min_value = None
                 tth_min = None
                 tth_max = None
@@ -1799,9 +1815,10 @@ class MCATthCalibrationProcessor(Processor):
             b_fit = result.best_values['b']
             c_fit = result.best_values['c']
             peak_indices_fit = np.asarray(
-                [result.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
-                + [result.best_values[f'peak{i+1}_center']
-                   for i in range(num_bragg)])
+                [result.best_values[f'xrf{i+1}_center']
+                 for i in range(num_xrf)] +
+                [result.best_values[f'peak{i+1}_center']
+                 for i in range(num_bragg)])
             peak_energies_fit = ((a_fit*peak_indices_fit + b_fit)
                                 * peak_indices_fit + c_fit)
             e_bragg_uniform = peak_energies_fit[num_xrf:]
@@ -1905,9 +1922,6 @@ class MCATthCalibrationProcessor(Processor):
                 (a_fit*i + b_fit) * i + c_fit
                 for i in indices_unconstrained[:num_xrf]] \
                 + list(e_bragg_fit)
-
-            fit_uniform = None
-            residual_uniform = None
             e_bragg_uniform = e_bragg_fit
             strain_uniform = None
 
@@ -2159,8 +2173,8 @@ class MCATthCalibrationProcessor(Processor):
                 c = result.best_values['intercept']
             # The following assumes that a_init = 0
             if a_init:
-                raise NotImplemented(
-                    f'A linear energy calibration is required at this time')
+                raise NotImplementedError(
+                    'A linear energy calibration is required at this time')
             a_fit = float(a*b_init**2)
             b_fit = float(2*a*b_init*c_init + b*b_init)
             c_fit = float(a*c_init**2 + b*c_init + c)
@@ -2330,7 +2344,7 @@ class MCATthCalibrationProcessor(Processor):
                 e_fit, peak_energies_fit, c='C1', label=label)
             axs[1,1].legend()
             txt = 'Calibrated values:' \
-                  f'\nTakeoff angle:\n    {tth_fit:.5f}$^\circ$'
+                  f'\nTakeoff angle:\n    {tth_fit:.5f}'r'$^\circ$'
             if quadratic_energy_calibration:
                 txt += '\nQuadratic coefficient (a):' \
                        f'\n    {a_fit:.5e} $keV$/channel$^2$'
@@ -2341,9 +2355,9 @@ class MCATthCalibrationProcessor(Processor):
                 0.98, 0.02, txt,
                 ha='right', va='bottom', ma='left',
                 transform=axs[1,1].transAxes,
-                bbox=dict(boxstyle='round',
-                          ec=(1., 0.5, 0.5),
-                          fc=(1., 0.8, 0.8, 0.8)))
+                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
+                      'fc': (1., 0.8, 0.8, 0.8)},
+            )
 
             fig.tight_layout()
 
@@ -2363,20 +2377,20 @@ class MCADataProcessor(Processor):
     configuration to which the MCA data belongs, and linearly
     transformed according to the results of a energy/tth calibration.
     """
-
-    def process(
-            self, data, config=None, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+    def process(self, data, inputdir='.'):
         """Process configurations for a map and MCA detector(s), and
         return the calibrated MCA data collected over the map.
 
         :param data: Input map configuration and results of
             energy/tth calibration.
         :type data: list[dict[str,object]]
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :return: Calibrated and flux-corrected MCA data.
         :rtype: nexusformat.nexus.NXentry
         """
-
         print(f'data:\n{data}')
         exit('Done Here')
         map_config = self.get_config(
@@ -2476,8 +2490,7 @@ class MCACalibratedDataPlotter(Processor):
         :type spec_file: str
         :param scan_number: Scan number of interest.
         :type scan_number: int
-        :param scan_step_index: Scan step index of interest,
-            defaults to `None`.
+        :param scan_step_index: Scan step index of interest.
         :type scan_step_index: int, optional
         :param material: Material parameters to plot HKLs for.
         :type material: dict
@@ -2493,10 +2506,8 @@ class MCACalibratedDataPlotter(Processor):
         :rtype: None
         """
         # Third party modules
-        import matplotlib.pyplot as plt
-
-        # Local modules
         from chess_scanparsers import SMBMCAScanParser as ScanParser
+        import matplotlib.pyplot as plt
 
         if material is not None:
             self.logger.warning('Plotting HKL lines is not supported yet.')
@@ -2505,10 +2516,10 @@ class MCACalibratedDataPlotter(Processor):
             if not isinstance(scan_step_index, int):
                 try:
                     scan_step_index = int(scan_step_index)
-                except:
+                except Exception as exc:
                     msg = 'scan_step_index must be an int'
                     self.logger.error(msg)
-                    raise TypeError(msg)
+                    raise TypeError(msg) from exc
 
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig')
@@ -2538,12 +2549,11 @@ class MCACalibratedDataPlotter(Processor):
             fig.savefig(os.path.join(
                 outputdir, f'spectrum_{scanparser.scan_title}'))
         plt.close()
-        return None
 
 
 class StrainAnalysisProcessor(Processor):
     """Processor that takes a map of MCA data and returns a map of
-    sample strains
+    sample strains.
     """
     def __init__(self):
         super().__init__()
@@ -2559,15 +2569,15 @@ class StrainAnalysisProcessor(Processor):
             self, data, config=None, find_peaks=False, skip_animation=False,
             save_figures=False, inputdir='.', outputdir='.',
             interactive=False):
-        """Return strain analysis maps & associated metadata in an NXprocess.
+        """Return strain analysis maps & associated metadata in an
+        NXprocess.
 
         :param data: Input data containing configurations for a map,
             completed energy/tth calibration, and parameters for strain
             analysis.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.edd.models.StrainAnalysisConfig, defaults to
-            `None`.
+            CHAP.edd.models.StrainAnalysisConfig.
         :type config: dict, optional
         :param find_peaks: Exclude peaks where the average spectrum
             is below the `rel_height_cutoff` (in the detector
@@ -2596,7 +2606,6 @@ class StrainAnalysisProcessor(Processor):
             processing parameters and empty datasets for strain maps
             to be filled in later.
         :rtype: nexusformat.nexus.NXprocess
-
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -2627,15 +2636,15 @@ class StrainAnalysisProcessor(Processor):
                 if not isinstance(nxentry, NXentry):
                     raise RuntimeError(
                         'No valid NXentry data in NexusWriter pipeline data')
-            except:
+            except Exception as exc:
                 raise RuntimeError(
-                    'No valid detector data in input pipeline data')
+                    'No valid detector data in input pipeline data') from exc
 
         # Load the validated calibration and strain analysis configuration
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
-        except Exception as data_exc:
+        except:
             self.logger.info('No valid strain analysis config in input '
                              'pipeline data, using config parameter instead')
             try:
@@ -2644,8 +2653,8 @@ class StrainAnalysisProcessor(Processor):
 
                 strain_analysis_config = StrainAnalysisConfig(
                     **config, inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
@@ -2692,7 +2701,8 @@ class StrainAnalysisProcessor(Processor):
 
     def strain_analysis(
             self, nxentry, strain_analysis_config, find_peaks, skip_animation):
-        """Return NXroot containing the strain maps.
+        """Return a nexusformat.nexus.NXroot object containing the
+        strain maps.
 
         :param nxentry: The strain analysis map, including the raw
             detector data.
@@ -2726,7 +2736,6 @@ class StrainAnalysisProcessor(Processor):
         from nexusformat.nexus.tree import NXlinkfield
 
         # Local modules
-        from CHAP.common import MapProcessor
         from CHAP.common.models.map import MapConfig
         from CHAP.edd.utils import (
             get_peak_locations,
@@ -2735,7 +2744,11 @@ class StrainAnalysisProcessor(Processor):
         )
 
         def linkdims(
-                nxgroup, nxdata_source, field_dims=[], oversampling_axis={}):
+                nxgroup, nxdata_source, field_dims=None,
+                oversampling_axis=None):
+            "Link the dimensions for an NXgroup."""
+            if oversampling_axis is None:
+                oversampling_axis = {}
             source_axes = nxdata_source.axes
             if isinstance(source_axes, str):
                 source_axes = [source_axes]
@@ -2752,8 +2765,8 @@ class StrainAnalysisProcessor(Processor):
                             'long_name':
                                 f'oversampled {nxdata_source[dim].long_name}',
                             'data_type': nxdata_source[dim].data_type,
-                            'local_name':
-                                f'oversampled {nxdata_source[dim].local_name}'})
+                            'local_name': 'oversampled '
+                                          f'{nxdata_source[dim].local_name}'})
                 else:
                     if isinstance(nxdata_source[dim], NXlinkfield):
                         nxgroup[dim] = nxdata_source[dim]
@@ -2762,9 +2775,10 @@ class StrainAnalysisProcessor(Processor):
                     if f'{dim}_indices' in nxdata_source.attrs:
                         nxgroup.attrs[f'{dim}_indices'] = \
                             nxdata_source.attrs[f'{dim}_indices']
-            for dims in field_dims:
-                axes.append(dims['axis'])
-                nxgroup.attrs[f'{dims["axis"]}_indices'] = dims['index']
+            if field_dims is not None:
+                for dims in field_dims:
+                    axes.append(dims['axis'])
+                    nxgroup.attrs[f'{dims["axis"]}_indices'] = dims['index']
             nxgroup.attrs['axes'] = axes
 
         if not self._interactive and not strain_analysis_config.materials:
@@ -2917,15 +2931,12 @@ class StrainAnalysisProcessor(Processor):
                 # Third party modules
                 from scipy.signal import find_peaks as find_peaks_scipy
 
-                # Local modules
-                from CHAP.utils.general import index_nearest
-
                 peaks = find_peaks_scipy(
                     mca_data_mean[index],
                     height=(detector.rel_height_cutoff
                         * mca_data_mean[index][mask].max()),
                     width=5)
-                heights = peaks[1]['peak_heights']
+                #heights = peaks[1]['peak_heights']
                 widths = peaks[1]['widths']
                 centers = [mca_bin_energies[v] for v in peaks[0]]
                 use_peaks = np.zeros((peak_locations.size)).astype(bool)
@@ -2934,7 +2945,8 @@ class StrainAnalysisProcessor(Processor):
                 # peak_heights = np.zeros((peak_locations.size))
                 # peak_widths = np.zeros((peak_locations.size))
                 delta = mca_bin_energies[1]-mca_bin_energies[0]
-                for height, width, center in zip(heights, widths, centers):
+                #for height, width, center in zip(heights, widths, centers):
+                for width, center in zip(widths, centers):
                     for n, loc in enumerate(peak_locations):
                         # RV Hardwired range now, use detector.centers_range?
                         if center-width*delta < loc < center+width*delta:
@@ -2967,7 +2979,7 @@ class StrainAnalysisProcessor(Processor):
                 get_spectra_fits(
                     det_nxdata.intensity.nxdata, energies,
                     peak_locations[use_peaks], detector)
-            self.logger.debug(f'... done')
+            self.logger.debug('... done')
 
             # Add uniform fit results to the NeXus structure
             nxdetector.uniform_fit = NXcollection()
@@ -3033,7 +3045,7 @@ class StrainAnalysisProcessor(Processor):
             if ((self._interactive or self._save_figures)
                     and not skip_animation):
                 # Third party modules
-                import matplotlib.animation as animation
+                from matplotlib.animation import animation
                 import matplotlib.pyplot as plt
 
                 if self._save_figures:
@@ -3166,11 +3178,10 @@ class StrainAnalysisProcessor(Processor):
             fit_nxgroup.fit_hkl_centers = NXdata()
             fit_nxdata = fit_nxgroup.fit_hkl_centers
             linkdims(fit_nxdata, self._nxdata)
-            for (hkl, center_guesses, centers_fit, centers_error,
+            for (hkl, centers_fit, centers_error,
                 amplitudes_fit, amplitudes_error, sigmas_fit,
                 sigmas_error) in zip(
-                    hkls_fit, uniform_fit_centers,
-                    unconstrained_fit_centers,
+                    hkls_fit, unconstrained_fit_centers,
                     unconstrained_fit_centers_errors,
                     unconstrained_fit_amplitudes,
                     unconstrained_fit_amplitudes_errors,
@@ -3179,7 +3190,8 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name] = NXparameters()
                 # Report initial guesses HKL peak centers
                 fit_nxgroup[hkl_name].center_initial_guess = NXdata()
-                linkdims(fit_nxgroup[hkl_name].center_initial_guess, self._nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].center_initial_guess, self._nxdata)
                 fit_nxgroup[hkl_name].center_initial_guess.makelink(
                     nxdetector.uniform_fit[f'{hkl_name}/centers/values'],
                     name='values')

@@ -7,7 +7,6 @@ Author     : Rolf Verberg
 Description: Module for Processors used only by GIWAXS experiments
 """
 # System modules
-from copy import deepcopy
 from json import dumps
 import os
 
@@ -16,23 +15,41 @@ import numpy as np
 
 # Local modules
 from CHAP.processor import Processor
-from CHAP.common.models.map import MapConfig
 
 
 class GiwaxsConversionProcessor(Processor):
-
+    """A processor for converting GIWAXS images from curved to
+    rectangular coordinates.
+    """
     def process(
-            self, data, config, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config, save_figures=False, outputdir='.',
+            interactive=False):
+        """Process the GIWAXS input images & configuration and return
+        a map of the images in rectangular coordinates.
 
+        :param data: Results of `common.MapProcessor` containing the
+            map of GIWAXS input images.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            giwaxs.models.GiwaxsConversionConfig.
+        :type config: dict
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :return: NXroot containing the converted GIWAXS images.
+        :rtype: nexusformat.nexus.NXroot
+        """
         # Third party modules
-        from json import loads
         from nexusformat.nexus import (
             NXentry,
             NXroot,
         )
-        # Local modules
-        from CHAP.common.models.map import MapConfig
 
         # Load the detector data
         try:
@@ -53,15 +70,15 @@ class GiwaxsConversionProcessor(Processor):
                 if not isinstance(nxentry, NXentry):
                     raise RuntimeError(
                         'No valid NXentry data in NexusWriter pipeline data')
-            except:
+            except Exception as exc:
                 raise RuntimeError(
-                    'No valid detector data in input pipeline data')
+                    'No valid detector data in input pipeline data') from exc
 
         # Load the validated GIWAXS conversion configuration
         try:
-            config = self.get_config(
+            giwaxs_config = self.get_config(
                 data, 'giwaxs.models.GiwaxsConversionConfig')
-        except Exception as data_exc:
+        except:
             self.logger.info('No valid conversion config in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -69,8 +86,8 @@ class GiwaxsConversionProcessor(Processor):
                 from CHAP.giwaxs.models import GiwaxsConversionConfig
 
                 giwaxs_config = GiwaxsConversionConfig(**config)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         return self.convert_q_rect(
             nxentry, giwaxs_config, save_figures=save_figures,
@@ -97,7 +114,6 @@ class GiwaxsConversionProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        from json import loads
         if interactive or save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
@@ -147,7 +163,7 @@ class GiwaxsConversionProcessor(Processor):
         # detector
         q_par, q_perp = self._calc_q_coords(
             giwaxs_data, thetas, detector.poni_file)
- 
+
         # Get the range of the perpendicular component of q and that
         # of the parallel one at near grazing incidence as well as
         # the corresponding rectangular grid with the same dimensions
@@ -164,7 +180,7 @@ class GiwaxsConversionProcessor(Processor):
         giwaxs_data_rect = []
 #        q_par_rect = []
 #        q_perp_rect = []
-        for i, theta in enumerate(thetas):
+        for i in range(len(thetas)):
 #            q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
 #            q_par_rect.append(np.linspace(
 #                q_par[i,q_perp_min_index,:].min(),
@@ -191,15 +207,15 @@ class GiwaxsConversionProcessor(Processor):
                             q_perp_rect.min(), q_perp_rect.max()))
                 ax[1].set_aspect('equal')
                 ax[1].set_title('Transformed Image')
-                ax[1].set_xlabel('q$_\parallel$ [\u212b$^{-1}$]')
-                ax[1].set_ylabel('q$_\perp$ [\u212b$^{-1}$]')
+                ax[1].set_xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
+                ax[1].set_ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
                 im = ax[0].imshow(giwaxs_data[i], vmin=0, vmax=vmax)
                 ax[0].set_aspect('equal')
                 lhs = ax[0].get_position().extents
                 rhs = ax[1].get_position().extents
                 ax[0].set_position(
                     (lhs[0], rhs[1], rhs[2] - rhs[0], rhs[3] - rhs[1]))
-                ax[0].set_title('Raw Image');
+                ax[0].set_title('Raw Image')
                 ax[0].set_xlabel('column index')
                 ax[0].set_ylabel('row index')
                 fig.subplots_adjust(right=0.85)
@@ -214,7 +230,7 @@ class GiwaxsConversionProcessor(Processor):
                 plt.close()
 
         # Create the NXdata object with the converted images
-        if False and len(thetas) == 1: #RV
+        if False: #RV len(thetas) == 1:
             nxprocess.data = NXdata(
                 NXfield(np.asarray(giwaxs_data_rect[0]), 'converted'),
                 (NXfield(
@@ -225,7 +241,7 @@ class GiwaxsConversionProcessor(Processor):
                      attrs={'units': '\u212b$^{-1}$'})))
             nxprocess.data.theta = NXfield(
                 thetas[0], 'thetas', attrs={'units': 'rad'})
-            if save_raw_data:
+            if config.save_raw_data:
                 nxprocess.data.raw = NXfield(giwaxs_data[0])
         else:
             nxprocess.data = NXdata(
@@ -268,12 +284,12 @@ class GiwaxsConversionProcessor(Processor):
             pixels whose intensities are stored in data_curved.
             Reiterating the convention above, q_par and q_perp vary
             primarilly along the 2nd and 1st index, respectively.
-        rect_qpar and rect_qperp are evenly-spaced, monotonically
+        q_par_rect and q_perp_rect are evenly-spaced, monotonically
             increasing, arrays determining the new grid.
            
         data_rect : the new matrix with intensity from data_curved
                     disctributed into a regular grid defined by
-                    rect_qpar, rect_qpar.
+                    q_par_rect, q_perp_rect.
         norm : a matrix with the same shape of data_rect representing
                the area of the pixel in the original angular units. 
                It should be used to normalize the resulting array as
@@ -282,10 +298,10 @@ class GiwaxsConversionProcessor(Processor):
         Algorithm:
            Step 1 : Compute xmap, ymap, which containt the values of
                     q_par and q_perp, but represented in pixel units of
-                    the target coordinates rect_qpar, rect_qperp.
+                    the target coordinates q_par_rect, q_perp_rect.
                     In other words, xmap(i,j) = 3.4 means that
                     q_par(i,j) lands 2/5 of the q_distance between
-                    rect_qpar(3) and rect_qpar(4). Intensity in
+                    q_par_rect(3) and q_par_rect(4). Intensity in
                     qpar(i,j) should thus be distributed in a 2:3 ratio
                     among neighboring mini-columns of pixels 3 and 4.
            Step 2 : Use the procedure described by Barna et al
@@ -317,8 +333,8 @@ class GiwaxsConversionProcessor(Processor):
            4. plt.imshow(data_rect, extent = [
                   q_par_rect[0], q_par_rect[-1],
                   q_perp_rect[-1], q_perp_rect[0]])
-              xlabel(['Q_{||} [' char(197) '^{-1}]'])
-              ylabel(['Q_{\perp} [' char(197) '^{-1}]'])
+              xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
+              ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
         """
         out_width, out_height = q_par_rect.size, q_perp_rect.size
 
@@ -331,22 +347,22 @@ class GiwaxsConversionProcessor(Processor):
 
         rect_width  = q_par_rect[1] - q_par_rect[0]
         rect_height = q_perp_rect[1]- q_perp_rect[0]
-        rect_qpar_shift = q_par_rect - rect_width/2.0
-        rect_qperp_shift = q_perp_rect - rect_height/2.0
+        q_par_rect_shift = q_par_rect - rect_width/2.0
+        q_perp_rect_shift = q_perp_rect - rect_height/2.0
 
         # Precompute source pixels that are outside the target area
         out_of_bounds = (
-            (q_par < rect_qpar_shift[0])
-            | (q_par > rect_qpar_shift[-1] + rect_width)
-            | (q_perp < rect_qperp_shift[0])
-            | (q_perp > rect_qperp_shift[-1] + rect_height))
+            (q_par < q_par_rect_shift[0])
+            | (q_par > q_par_rect_shift[-1] + rect_width)
+            | (q_perp < q_perp_rect_shift[0])
+            | (q_perp > q_perp_rect_shift[-1] + rect_height))
 
         # Vectorize the search for where q_par[i, j] and q_perp[i,j]
         # fall on the grid formed by q_par_rect and q_perp_rect
         #
-        # 1. Expand rect_qpar_shift (a vector) such that
-        #    rect_qpar_shift_cube[i. j, :] is identical to
-        #    rect_qpar_shift, and is a rising sequence of values of
+        # 1. Expand q_par_rect_shift (a vector) such that
+        #    q_par_rect_shift_cube[i. j, :] is identical to
+        #    q_par_rect_shift, and is a rising sequence of values of
         #    qpar
         # 2. Expand q_par such that qpar_cube[i, j, :] all correspond
         #    to the value q_par[i, j].
@@ -356,31 +372,32 @@ class GiwaxsConversionProcessor(Processor):
         #   only possible if the extra dimensions were leading dims,
         #   not trailing. That is the reason for the use of transpose
         #   in qpar_cube.
-        rect_qpar_shift_cube = np.tile(rect_qpar_shift, q_par.shape + (1,))
+        q_par_rect_shift_cube = np.tile(q_par_rect_shift, q_par.shape + (1,))
         qpar_cube = np.transpose(np.broadcast_to(
-            q_par, ((len(rect_qpar_shift),) + q_par.shape)), (1,2,0))
-        rect_qperp_shift_cube = np.tile(rect_qperp_shift, q_perp.shape + (1,))
+            q_par, ((len(q_par_rect_shift),) + q_par.shape)), (1,2,0))
+        q_perp_rect_shift_cube = np.tile(
+            q_perp_rect_shift, q_perp.shape + (1,))
         qperp_cube = np.transpose(np.broadcast_to(
-            q_perp, ((len(rect_qperp_shift),) + q_perp.shape)), (1,2,0))
+            q_perp, ((len(q_perp_rect_shift),) + q_perp.shape)), (1,2,0))
 
-        # We want the index of the highest rect_qpar_shift that is
+        # We want the index of the highest q_par_rect_shift that is
         # still below qpar, whereas the argmax # operation yields the
-        # first rect_qpar_shift that is above qpar, We subtract 1 to
+        # first q_par_rect_shift that is above qpar, We subtract 1 to
         # take care of this and then correct for any negative indices
         # to 0.
-        highpx_x = np.argmax(qpar_cube < rect_qpar_shift_cube, axis=2) - 1
-        highpx_y = np.argmax(qperp_cube < rect_qperp_shift_cube, axis=2) - 1
+        highpx_x = np.argmax(qpar_cube < q_par_rect_shift_cube, axis=2) - 1
+        highpx_y = np.argmax(qperp_cube < q_perp_rect_shift_cube, axis=2) - 1
         highpx_x[highpx_x < 0] = 0
         highpx_y[highpx_y < 0] = 0
 
-        # Compute xmap and ymap    
+        # Compute xmap and ymap
         xmap = np.where(
             out_of_bounds, np.nan,
-            highpx_x - 0.5 + (q_par - rect_qpar_shift[highpx_x]) / rect_width)
+            highpx_x - 0.5 + (q_par - q_par_rect_shift[highpx_x]) / rect_width)
         ymap = np.where(
             out_of_bounds, np.nan,
             highpx_y - 0.5
-                + (q_perp - rect_qperp_shift[highpx_y]) / rect_height)
+                + (q_perp - q_perp_rect_shift[highpx_y]) / rect_height)
 
         # Optionally, print out-of-bounds pixels
         if np.any(out_of_bounds):
@@ -424,12 +441,15 @@ class GiwaxsConversionProcessor(Processor):
 
         for k in (-1, 0, 1):
             for m in (-1, 0, 1):
-                source_indices = (x1+k > -1) & (x1+k < out_width) & (y1+m > -1) & (y1+m < out_height)
+                source_indices = ((x1+k > -1) & (x1+k < out_width) &
+                                  (y1+m > -1) & (y1+m < out_height))
                 x1_sub = x1[source_indices]+k
                 y1_sub = y1[source_indices]+m
 
                 np.add.at(data_rect, (y1_sub, x1_sub),
-                          data_curved[source_indices] * col[k+1, source_indices] * row[m+1, source_indices])
+                          data_curved[source_indices] *
+                          col[k+1, source_indices] *
+                          row[m+1, source_indices])
                 np.add.at(norm, (y1_sub, x1_sub),
                           col[k+1, source_indices] * row[m+1, source_indices])
                 # The following fails because although
@@ -448,13 +468,22 @@ class GiwaxsConversionProcessor(Processor):
 
         if return_maps:
             return data_rect, norm, xmap, ymap, xwid, ywid
-        else:
-            return data_rect
+        return data_rect
 
     def _calc_q_coords(self, images, thetas, poni_file):
         """Return a 3D arrays representing the perpendicular and
         parallel components of q relative to the detector surface
         for each pixel in an image for each theta.
+
+        :param images: The GIWAXS images.
+        :type images: numpy.ndarray
+        :param thetas: The theta values for the images.
+        :type thetas: numpy.ndarray
+        :param poni_file: The path to the detector PONI file.
+        :type poni_file: str
+        :return: The perpendicular and parallel components of q
+            relative to the detector surface.
+        :rtype: numpy.ndarray, numpy.ndarray
         """
         # Third party modules
         from pyFAI import load
@@ -507,14 +536,20 @@ class GiwaxsConversionProcessor(Processor):
 #                cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu))
 #            q_perp.append(xray_wavevector*(sina + np.sin(beta)))
         alpha = np.deg2rad(thetas[0])
-        beta = delta - alpha;
-        cosnu = np.cos(nu);
-        cosb = np.cos(beta);
-        cosa = np.cos(alpha);
-        sina = np.sin(alpha);
+        beta = delta - alpha
+        cosnu = np.cos(nu)
+        cosb = np.cos(beta)
+        cosa = np.cos(alpha)
+        sina = np.sin(alpha)
         q_par = sign_nu * xray_wavevector * np.sqrt(
             cosa*cosa + cosb*cosb - 2*cosa*cosb*cosnu)
         q_perp = xray_wavevector*(sina + np.sin(beta))
 
         return q_par, q_perp
 
+
+if __name__ == '__main__':
+    # Local modules
+    from CHAP.processor import main
+
+    main()

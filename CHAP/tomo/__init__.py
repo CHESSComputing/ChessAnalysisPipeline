@@ -2,7 +2,6 @@
 processing workflows.
 """
 
-from CHAP.common import MapProcessor
 from CHAP.tomo.processor import (
     TomoCHESSMapConverter,
     TomoDataProcessor,
@@ -11,3 +10,6 @@ from CHAP.tomo.processor import (
     TomoBrightFieldProcessor,
     TomoSpecProcessor,
 )
+# from CHAP.tomo.reader import
+# from CHAP.tomo.writer import
+

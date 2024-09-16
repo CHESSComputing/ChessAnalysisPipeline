@@ -1,4 +1,4 @@
-"""Utility functions for EDD workflows"""
+"""Utility functions for EDD workflows."""
 
 # System modules
 from copy import deepcopy
@@ -45,7 +45,7 @@ def make_material(name, sgnum, lattice_parameters, dmin=0.6):
     :rtype: heard.material.Material
     """
     # Third party modules
-    from hexrd.material import Material    
+    from hexrd.material import Material
     from hexrd.valunits import valWUnit
 
     material = Material()
@@ -123,11 +123,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :type y: np.ndarray
     :param hkls: List of unique HKL indices to fit peaks for in the
         calibration routine.
-    :type fit_hkls: Union(numpy.ndarray, list[list[int, int,int]])
+    :type hkls: Union(numpy.ndarray, list[list[int, int,int]])
     :param ds: Lattice spacings in angstroms associated with the
         unique HKL indices.
     :type ds: Union(numpy.ndarray, list[float])
-    :ivar tth_initial_guess: Initial guess for 2&theta,
+    :param tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
     :param interactive: Show the plot and allow user interactions with
@@ -136,9 +136,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :param filename: Save a .png of the plot to filename, defaults to
         `None`, in which case the plot is not saved.
     :type filename: str, optional
-    :type interactive: bool, optional
     :return: The selected initial guess for 2&theta.
-    :type: float
+    :rtype: float
     """
     if not interactive and filename is None:
         return tth_initial_guess
@@ -148,12 +147,14 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     from matplotlib.widgets import Button, TextBox
 
     def change_fig_title(title):
+        """Change the figure title."""
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
     def change_error_text(error):
+        """Change the error text."""
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
@@ -273,8 +274,9 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     return tth_new_guess
 
 
-def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
-                           interactive=False, filename=None):
+def select_material_params_old(
+        x, y, tth, materials=None, label='Reference Data', interactive=False,
+        filename=None):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -291,9 +293,9 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
     :param tth: The (calibrated) 2&theta angle.
     :type tth: float
     :param materials: Materials to get HKLs and lattice spacings for.
-    :type materials: list[hexrd.material.Material]
+    :type materials: list[hexrd.material.Material], optional
     :param label: Legend label for the 1D plot of reference MCA data
-        from the parameters `x`, `y`, defaults to `"Reference Data"`
+        from the parameters `x`, `y`, defaults to `"Reference Data"`.
     :type label: str, optional
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `False`.
@@ -313,6 +315,7 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
     from CHAP.edd.models import MaterialConfig
 
     def change_error_text(error):
+        """Change the error text."""
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
@@ -329,7 +332,7 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
         ax.set_xlim(x[0], x[-1])
         ax.plot(x, y, label=label)
         for i, material in enumerate(_materials):
-            hkls, ds = get_unique_hkls_ds([material])            
+            hkls, ds = get_unique_hkls_ds([material])
             E0s = get_peak_locations(ds, tth)
             for hkl, E0 in zip(hkls, E0s):
                 if x[0] <= E0 <= x[-1]:
@@ -340,10 +343,10 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
         ax.legend()
         ax.get_figure().canvas.draw()
 
-    def add_material(*args, material=None, new=True):
-        """Callback function for the "Add material" button to add
-        a new row of material-property-editing widgets to the figure
-        and update the plot with new HKLs.
+    def add_material(*args, material=None):
+        """Callback function for the "Add material" button to add a new
+        row of material-property-editing widgets to the figure and
+        update the plot with new HKLs.
         """
         if error_texts:
             error_texts[0].remove()
@@ -389,8 +392,8 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
 
     def update_materials(*args, **kwargs):
         """Callback function for the material-property-editing widgets
-         button to validate input material properties from widgets,
-         update the `_materials` list, and redraw the plot.
+        button to validate input material properties from widgets,
+        update the `_materials` list, and redraw the plot.
         """
         def set_vals(material_i):
             """Set all widget values from the `_materials` list for a
@@ -414,7 +417,7 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
             beta_input.set_val(material.latticeParameters[4].value)
             gamma_input.set_val(material.latticeParameters[5].value)
             # Reconnect widget callbacks
-            for i, (w, cb) in enumerate(widget_callbacks[material_i+2]):
+            for i, (w, _) in enumerate(widget_callbacks[material_i+2]):
                 widget_callbacks[material_i+2][i] = (
                     w, w.on_submit(update_materials))
 
@@ -460,7 +463,10 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
     widget_callbacks = []
     error_texts = []
 
-    _materials = deepcopy(materials)
+    if materials is None:
+        _materials = []
+    else:
+        _materials = deepcopy(materials)
     for i, m in enumerate(_materials):
         if isinstance(m, MaterialConfig):
             _materials[i] = m._material
@@ -523,7 +529,7 @@ def select_material_params_old(x, y, tth, materials=[], label='Reference Data',
 
 
 def select_material_params(
-        x, y, tth, preselected_materials=[], label='Reference Data',
+        x, y, tth, preselected_materials=None, label='Reference Data',
         interactive=False, filename=None):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
@@ -540,11 +546,12 @@ def select_material_params(
     :type y: np.ndarray
     :param tth: The (calibrated) 2&theta angle.
     :type tth: float
-    :param materials: Materials to get HKLs and lattice spacings for,
-        default to `[]`.
-    :type materials: list[hexrd.material.Material], optional
+    :param preselected_materials: Materials to get HKLs and
+        lattice spacings for.
+    :type preselected_materials: list[hexrd.material.Material],
+        optional
     :param label: Legend label for the 1D plot of reference MCA data
-        from the parameters `x`, `y`, defaults to `"Reference Data"`
+        from the parameters `x`, `y`, defaults to `"Reference Data"`.
     :type label: str, optional
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `False`.
@@ -565,7 +572,8 @@ def select_material_params(
     from CHAP.edd.models import MaterialConfig
     from CHAP.utils.general import round_to_n
 
-    def add_material(new_material, add_buttons):
+    def add_material(new_material):
+        """Add a new material to the selected materials."""
         if isinstance(new_material, Material):
             m = new_material
         else:
@@ -583,6 +591,7 @@ def select_material_params(
                 0.15, bottom,
                 f'-  {m.name}:  sgnum = {m.sgnum},  lat params = {lat_params}',
                 fontsize='large', ha='left', va='center'))
+
     def add(event):
         """Callback function for the "Add" button."""
         added_material.append(True)
@@ -641,8 +650,10 @@ def select_material_params(
     ax.plot(x, y)
 
     # Add materials
+    if preselected_materials is None:
+        preselected_materials = []
     for m in reversed(preselected_materials):
-        add_material(m, interactive)
+        add_material(m)
 
     # Add materials to figure
     for i, material in enumerate(materials):
@@ -688,7 +699,7 @@ def select_material_params(
         # Setup "Remove" button
         if materials:
             remove_btn = Button(
-                plt.axes([0.425, 0.025, 0.15, 0.05]), f'Remove material')
+                plt.axes([0.425, 0.025, 0.15, 0.05]), 'Remove material')
             remove_cid = remove_btn.on_clicked(remove)
             buttons.append((remove_btn, remove_cid))
 
@@ -752,7 +763,7 @@ def select_material_params(
                 raise
         materials.append(new_material)
         return select_material_params(
-            x, y, tth, preselected_materials= materials, label=label,
+            x, y, tth, preselected_materials=materials, label=label,
             interactive=interactive, filename=filename)
     if removed_material:
         return select_material_params(
@@ -771,8 +782,8 @@ def select_material_params(
         for m in materials]
 
 
-def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
-        preselected_hkl_indices=[], num_hkl_min=1, detector_name=None,
+def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
+        preselected_hkl_indices=None, num_hkl_min=1, detector_name=None,
         ref_map=None, flux_energy_range=None, calibration_bin_ranges=None,
         label='Reference Data', interactive=False, filename=None):
     """Return a matplotlib figure to indicate data ranges and HKLs to
@@ -792,11 +803,10 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     :param tth: The (calibrated) 2&theta angle.
     :type tth: float
     :param preselected_bin_ranges: Preselected MCA channel index ranges
-        whose data should be included after applying a mask,
-        defaults to `[]`
+        whose data should be included after applying a mask.
     :type preselected_bin_ranges: list[list[int]], optional
     :param preselected_hkl_indices: Preselected unique HKL indices to
-        fit peaks for in the calibration routine, defaults to `[]`.
+        fit peaks for in the calibration routine.
     :type preselected_hkl_indices: list[int], optional
     :param num_hkl_min: Minimum number of HKLs to select,
         defaults to `1`.
@@ -841,12 +851,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     )
 
     def change_fig_title(title):
+        """Change the figure title."""
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
     def change_error_text(error):
+        """Change the error text."""
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
@@ -854,7 +866,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     def get_mask():
         """Return a boolean array that acts as the mask corresponding
-        to the currently-selected index ranges"""
+        to the currently-selected index ranges.
+        """
         mask = np.full(x.shape[0], False)
         for span in spans:
             _min, _max = span.extents
@@ -864,7 +877,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     def hkl_locations_in_any_span(hkl_index):
         """Return the index of the span where the location of a specific
-        HKL resides. Return(-1 if outside any span."""
+        HKL resides. Return(-1 if outside any span.
+        """
         if hkl_index < 0 or hkl_index >= len(hkl_locations):
             return -1
         for i, span in enumerate(spans):
@@ -875,8 +889,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     def position_cax():
         """Reposition the colorbar axes according to the axes of the
-        reference map"""
-        ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+        reference map.
+        """
+        ((_, bottom), (right, top)) = ax_map.get_position().get_points()
         cax.set_position([right + 0.01, bottom, 0.01, top - bottom])
 
     def on_span_select(xmin, xmax):
@@ -980,8 +995,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                 span_prev_hkl_index = hkl_locations_in_any_span(hkl_index-1)
                 span_curr_hkl_index = hkl_locations_in_any_span(hkl_index)
                 span_next_hkl_index = hkl_locations_in_any_span(hkl_index+1)
-                if (span_curr_hkl_index != span_prev_hkl_index
-                        and span_curr_hkl_index != span_next_hkl_index):
+                if span_curr_hkl_index not in (span_prev_hkl_index,
+                        span_next_hkl_index):
                     span.set_visible(False)
                     spans.remove(span)
                 elif span_curr_hkl_index != span_next_hkl_index:
@@ -1005,7 +1020,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                              + hkl_locations[hkl_index]))
                     add_span(None, xrange_init=xrange_init)
                 change_error_text(
-                    f'Adjusted the selected energy mask to reflect the '
+                    'Adjusted the selected energy mask to reflect the '
                     'removed HKL')
             else:
                 hkl_vline.set(**included_hkl_props)
@@ -1050,7 +1065,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                         max_ = 0.5*(hkl_locations[hkl_index] + max_x)
                     add_span(None, xrange_init=(min_, max_))
                 change_error_text(
-                    f'Adjusted the selected energy mask to reflect the '
+                    'Adjusted the selected energy mask to reflect the '
                     'added HKL')
             plt.draw()
 
@@ -1066,7 +1081,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
-        if not len(spans) or len(selected_hkl_indices) < num_hkl_min:
+        if not spans or len(selected_hkl_indices) < num_hkl_min:
             change_error_text(
                 f'Select at least one span and {num_hkl_min} HKLs')
             plt.draw()
@@ -1081,6 +1096,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
                     f'Selected data and HKLs used in fitting {detector_name}')
             plt.close()
 
+    if preselected_hkl_indices is None:
+        preselected_hkl_indices = []
     selected_hkl_indices = preselected_hkl_indices
     spans = []
     hkl_vlines = []
@@ -1090,7 +1107,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
     if ref_map is not None and ref_map.ndim == 1:
         ref_map = None
 
-    # Make preselected_bin_ranges consistent with selected_hkl_indices 
+    # Make preselected_bin_ranges consistent with selected_hkl_indices
+    if preselected_bin_ranges is None:
+        preselected_bin_ranges = []
     hkl_locations = [loc for loc in get_peak_locations(ds, tth)
                      if x[0] <= loc <= x[-1]]
     if selected_hkl_indices and not preselected_bin_ranges:
@@ -1227,7 +1246,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
         add_span_cid = add_span_btn.on_clicked(add_span)
 
         for vline in hkl_vlines:
-             vline.set_picker(5)
+            vline.set_picker(5)
         pick_hkl_cid = fig.canvas.mpl_connect('pick_event', pick_hkl)
 
         # Setup "Reset" button
@@ -1276,9 +1295,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=[],
 def get_rolling_sum_spectra(
         y, bin_axis, start=0, end=None, width=None, stride=None, num=None,
         mode='valid'):
-    """
-    Return the rolling sum of the spectra over a specified axis.
-    """
+    """Return the rolling sum of the spectra over a specified axis."""
     y = np.asarray(y)
     if not 0 <= bin_axis < y.ndim-1:
         raise ValueError(f'Invalid "bin_axis" parameter ({bin_axis})')
@@ -1360,8 +1377,8 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     :param peak_locations: Initial guesses for peak ceneters to use
         for the uniform fit.
     :type peak_locations: list[float]
-        :param detector: A single MCA detector element configuration.
-        :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
+    :param detector: A single MCA detector element configuration.
+    :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
     :returns: Uniform and unconstrained centers, amplitdues, sigmas
         (and errors for all three), best fits, residuals between the
         best fits and the input spectra, reduced chi, and fit success
@@ -1516,8 +1533,8 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
             uniform_fit_centers, uniform_fit_centers_errors,
             uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
             uniform_fit_sigmas, uniform_fit_sigmas_errors,
-            uniform_best_fit, uniform_residuals, uniform_redchi, uniform_success,
-            uniform_fit_centers, uniform_fit_centers_errors,
+            uniform_best_fit, uniform_residuals, uniform_redchi,
+            uniform_success, uniform_fit_centers, uniform_fit_centers_errors,
             uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
             uniform_fit_sigmas, uniform_fit_sigmas_errors,
             uniform_best_fit, uniform_residuals,

@@ -1,7 +1,6 @@
 """Utils Pydantic model classes."""
 
 # Third party imports
-import numpy as np
 from pydantic import (
     BaseModel,
     Field,
@@ -19,6 +18,7 @@ from typing import (
     Union,
 )
 from typing_extensions import Annotated
+import numpy as np
 
 # Local modules
 from CHAP.utils.general import not_zero, tiny
@@ -31,7 +31,6 @@ def constant(x, c=0.0):
     """Return a linear function.
 
     constant(x, c) = c
-
     """
     return c*np.ones((x.size))
 
@@ -41,7 +40,6 @@ def linear(x, slope=1.0, intercept=0.0):
     """Return a linear function.
 
     linear(x, slope, intercept) = slope * x + intercept
-
     """
     return slope * x + intercept
 
@@ -51,7 +49,6 @@ def quadratic(x, a=0.0, b=0.0, c=0.0):
     """Return a parabolic function.
 
     parabolic(x, a, b, c) = a * x**2 + b * x + c
-
     """
     return (a*x + b) * x + c
 
@@ -61,7 +58,6 @@ def exponential(x, amplitude=1.0, decay=1.0):
     """Return an exponential function.
 
     exponential(x, amplitude, decay) = amplitude * exp(-x/decay)
-
     """
     return amplitude * np.exp(-x/not_zero(decay))
 
@@ -72,7 +68,6 @@ def gaussian(x, amplitude=1.0, center=0.0, sigma=1.0):
 
     gaussian(x, amplitude, center, sigma) =
         (amplitude/(s2pi*sigma)) * exp(-(x-center)**2 / (2*sigma**2))
-
     """
     return ((amplitude/(max(tiny, s2pi*sigma)))
             * np.exp(-(x-center)**2 / max(tiny, (2*sigma**2))))
@@ -84,10 +79,9 @@ def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
 
     lorentzian(x, amplitude, center, sigma) =
         (amplitude/(1 + ((1.0*x-center)/sigma)**2)) / (pi*sigma)
-
     """
     return ((amplitude/(1 + ((x-center)/max(tiny, sigma))**2))
-            / max(tiny, (pi*sigma)))
+            / max(tiny, (np.pi*sigma)))
 
 
 def rectangle(
@@ -95,16 +89,17 @@ def rectangle(
         sigma2=1.0, form='linear'):
     """Return a rectangle function.
 
-    Starts at 0.0, rises to `amplitude` (at `center1` with width `sigma1`),
-    then drops to 0.0 (at `center2` with width `sigma2`) with `form`:
+    Starts at 0.0, rises to `amplitude` (at `center1` with width
+    `sigma1`), then drops to 0.0 (at `center2` with width `sigma2`)
+    with `form`:
     - `'linear'` (default) = ramp_up + ramp_down
     - `'atan'`, `'arctan`' = amplitude*(atan(arg1) + atan(arg2))/pi
     - `'erf'`              = amplitude*(erf(arg1) + erf(arg2))/2.
-    - `'logisitic'`        = amplitude*[1 - 1/(1 + exp(arg1)) - 1/(1+exp(arg2))]
+    - `'logisitic'`        = amplitude*[1 - 1/(1 + exp(arg1)) -
+                             1/(1+exp(arg2))]
 
     where ``arg1 = (x - center1)/sigma1`` and
     ``arg2 = -(x - center2)/sigma2``.
-
     """
     arg1 = (x - center1)/max(tiny, sigma1)
     arg2 = (center2 - x)/max(tiny, sigma2)
@@ -117,7 +112,7 @@ def rectangle(
     elif form == 'logistic':
         rect = 1. - 1./(1. + np.exp(arg1)) - 1./(1. + np.exp(arg2))
     elif form in ('atan', 'arctan'):
-        rect = (np.arctan(arg1) + np.arctan(arg2))/pi
+        rect = (np.arctan(arg1) + np.arctan(arg2))/np.pi
     elif form == 'linear':
         rect = 0.5*(np.minimum(1, np.maximum(-1, arg1))
                    + np.minimum(1, np.maximum(-1, arg2)))
@@ -128,7 +123,7 @@ def rectangle(
 
 
 def validate_parameters(parameters, info):
-    """Validate the parameters
+    """Validate the parameters.
 
     :param parameters: Fit model parameters.
     :type parameters: list[FitParameter]
@@ -139,7 +134,6 @@ def validate_parameters(parameters, info):
     """
     # System imports
     import inspect
-    from copy import deepcopy
 
     if 'model' in info.data:
         model = info.data['model']
@@ -147,9 +141,7 @@ def validate_parameters(parameters, info):
         model = None
     if model is None or model == 'expression':
         return parameters
-    sig = {
-        name:par
-        for name, par in inspect.signature(models[model]).parameters.items()}
+    sig = dict(inspect.signature(models[model]).parameters.items())
     sig.pop('x')
 
     # Check input model parameter validity
@@ -175,9 +167,8 @@ def validate_parameters(parameters, info):
 
 
 class FitParameter(BaseModel):
-    """
-    Class representing a specific fit parameter for the fit processor.
-
+    """Class representing a specific fit parameter for the fit
+    processor.
     """
     name: constr(strip_whitespace=True, min_length=1)
     value: Optional[confloat(allow_inf_nan=False)] = None
@@ -223,36 +214,31 @@ class FitParameter(BaseModel):
         """Return the _default attribute."""
         if hasattr(self, '_default'):
             return self._default
-        else:
-            return None
+        return None
 
     @property
     def init_value(self):
         """Return the _init_value attribute."""
         if hasattr(self, '_init_value'):
             return self._init_value
-        else:
-            return None
+        return None
 
     @property
     def prefix(self):
         """Return the _prefix attribute."""
         if hasattr(self, '_prefix'):
             return self._prefix
-        else:
-            return None
+        return None
 
     @property
     def stderr(self):
         """Return the _stderr attribute."""
         if hasattr(self, '_stderr'):
             return self._stderr
-        else:
-            return None
+        return None
 
     def set(self, value=None, min=None, max=None, vary=None, expr=None):
-        """
-        Set or update FitParameter attributes.
+        """Set or update FitParameter attributes.
 
         :param value: Parameter value.
         :type value: float, optional
@@ -304,8 +290,7 @@ class FitParameter(BaseModel):
             self.expr = None
 
 class Constant(BaseModel):
-    """
-    Class representing a Constant model component.
+    """Class representing a Constant model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -328,8 +313,7 @@ class Constant(BaseModel):
 
 
 class Linear(BaseModel):
-    """
-    Class representing a Linear model component.
+    """Class representing a Linear model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -352,8 +336,7 @@ class Linear(BaseModel):
 
 
 class Quadratic(BaseModel):
-    """
-    Class representing a Quadratic model component.
+    """Class representing a Quadratic model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -376,8 +359,7 @@ class Quadratic(BaseModel):
 
 
 class Exponential(BaseModel):
-    """
-    Class representing an Exponential model component.
+    """Class representing an Exponential model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -400,8 +382,7 @@ class Exponential(BaseModel):
 
 
 class Gaussian(BaseModel):
-    """
-    Class representing a Gaussian model component.
+    """Class representing a Gaussian model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -424,8 +405,7 @@ class Gaussian(BaseModel):
 
 
 class Lorentzian(BaseModel):
-    """
-    Class representing a Lorentzian model component.
+    """Class representing a Lorentzian model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -448,8 +428,7 @@ class Lorentzian(BaseModel):
 
 
 class Rectangle(BaseModel):
-    """
-    Class representing a Rectangle model component.
+    """Class representing a Rectangle model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -472,8 +451,7 @@ class Rectangle(BaseModel):
 
 
 class Expression(BaseModel):
-    """
-    Class representing an Expression model component.
+    """Class representing an Expression model component.
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
@@ -500,10 +478,28 @@ class Expression(BaseModel):
 
 
 class Multipeak(BaseModel):
+    """Class representing a multipeak model.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['expression']
+    :ivar centers: Peak centers.
+    :type center: list[float]
+    :ivar centers_range: Range of peak centers around their centers.
+    :type centers_range: float, optional
+    :ivar fit_type: Type of fit, defaults to `'unconstrained'`.
+    :type fit_type: Literal['uniform', 'unconstrained'], optional.
+    :ivar fwhm_min: Lower limit of the fwhm of the peaks.
+    :type fwhm_min: float, optional
+    :ivar fwhm_max: Upper limit of the fwhm of the peaks.
+    :type fwhm_max: float, optional
+    :ivar peak_models: Type of peaks, defaults to `'gaussian'`.
+    :type peak_models: Literal['gaussian', 'lorentzian'], optional.
+    """
     model: Literal['multipeak']
     centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
-    fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     centers_range: Optional[confloat(allow_inf_nan=False)] = None
+    fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
     peak_models: Literal['gaussian', 'lorentzian'] = 'gaussian'
@@ -531,11 +527,10 @@ model_classes = (
 
 
 class FitConfig(BaseModel):
-    """
-    Class representing the configuration for the fit processor.
+    """Class representing the configuration for the fit processor.
 
     :ivar code: Specifies is lmfit is used to perform the fit or if
-        the scipy fit method is called directly, default is `'lmfit'`.
+        the scipy fit method is called directly, default to `'lmfit'`.
     :type code: Literal['lmfit', 'scipy'], optional
     :ivar parameters: Fit model parameters in addition to those
         implicitly defined through the build-in model functions,
@@ -547,7 +542,7 @@ class FitConfig(BaseModel):
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
-        gets removed from the fit model), defaults to `None`.
+        gets removed from the fit model).
     :type rel_height_cutoff: float, optional
     :ivar num_proc: The number of processors used in fitting a map
         of data, defaults to `1`.

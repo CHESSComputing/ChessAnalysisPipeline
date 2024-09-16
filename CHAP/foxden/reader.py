@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Tomography command line writer."""
+"""FOXDEN command line reader."""
 
 if __name__ == '__main__':
     # Local modules
-    from CHAP.writer import main
+    from CHAP.reader import main
 
     main()

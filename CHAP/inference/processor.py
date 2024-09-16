@@ -7,41 +7,36 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Processor module
 """
 
-# system modules
+# System modules
 from time import time
 
-# local modules
+# Local modules
 from CHAP import Processor
 
 
 class TFaaSImageProcessor(Processor):
     """A Processor to get predictions from TFaaS inference server."""
-
     def process(self, data, url, model, verbose=False):
         """process data API"""
-
         t0 = time()
         self.logger.info(f'Executing "process" with url {url} model {model}')
-
         data = self._process(data, url, model, verbose)
-
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
-
         return data
 
     def _process(self, data, url, model, verbose):
         """Print and return the input data.
 
         :param data: Input image data, either file name or actual
-            image data
+            image data.
         :type data: object
-        :return: `data`
+        :return: The input data.
         :rtype: object
         """
-        # system modules
+        # System modules
         from pathlib import Path
 
-        # local modules
+        # Local modules
         from MLaaS.tfaas_client import predictImage
 
         self.logger.info(f'input data {type(data)}')
@@ -49,7 +44,7 @@ class TFaaSImageProcessor(Processor):
             img_file = data
             data = predictImage(url, img_file, model, verbose)
         else:
-            # third party modules
+            # Third party modules
             from requests import Session
 
             rdict = data[0]
@@ -69,7 +64,7 @@ class TFaaSImageProcessor(Processor):
 
 
 if __name__ == '__main__':
-    # local modules
+    # Local modules
     from CHAP.processor import main
 
     main()

@@ -7,7 +7,7 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description:
 """
 
-# system modules
+# System modules
 import inspect
 import logging
 import os
@@ -15,12 +15,12 @@ from time import time
 
 
 class Pipeline():
-    """Pipeline represent generic Pipeline class"""
+    """Pipeline represent generic Pipeline class."""
     def __init__(self, items=None, kwds=None):
-        """Pipeline class constructor
+        """Pipeline class constructor.
 
-        :param items: list of objects
-        :param kwds: list of method args for individual objects
+        :param items: List of objects.
+        :param kwds: List of method args for individual objects.
         """
         self.__name__ = self.__class__.__name__
 
@@ -31,8 +31,7 @@ class Pipeline():
         self.logger.propagate = False
 
     def execute(self):
-        """execute API"""
-
+        """execute API."""
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
@@ -43,12 +42,11 @@ class Pipeline():
                 self.logger.info(f'Calling "execute" on {item}')
                 data = item.execute(data=data, **kwargs)
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
-
         return data
 
 
 class PipelineData(dict):
-    """Wrapper for all results of PipelineItem.execute"""
+    """Wrapper for all results of PipelineItem.execute."""
     def __init__(self, name=None, data=None, schema=None):
         super().__init__()
         self.__setitem__('name', name)
@@ -58,10 +56,10 @@ class PipelineData(dict):
 
 class PipelineItem():
     """An object that can be supplied as one of the items
-    `Pipeline.items`
+    `Pipeline.items`.
     """
     def __init__(self):
-        """Constructor of PipelineItem class"""
+        """Constructor of PipelineItem class."""
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
@@ -69,15 +67,14 @@ class PipelineItem():
     @staticmethod
     def unwrap_pipelinedata(data):
         """Given a list of PipelineData objects, return a list of
-        their "data" values.
+        their `data` values.
 
-        :param data: input data to read, write, or process that needs
-            to be unrapped from PipelineData before use
+        :param data: Input data to read, write, or process that needs
+            to be unwrapped from PipelineData before use.
         :type data: list[PipelineData]
-        :return: just the "data" values of the items in ``data``
+        :return: The `'data'` values of the items in the input data.
         :rtype: list[object]
         """
-
         return [d['data'] for d in data]
 
     def get_config(self, data, schema, remove=True, **kwargs):
@@ -86,10 +83,10 @@ class PipelineItem():
         item's `'data'` key into the configuration `BaseModel`
         identified by `schema` and return it.
 
-        :param data: Input data from a previous `PipelineItem`
+        :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
         :param schema: Name of the `BaseModel` class to match in
-            `data` & return,
+            `data` & return.
         :type schema: str
         :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
@@ -98,7 +95,6 @@ class PipelineItem():
         :return: The first matching configuration model.
         :rtype: BaseModel
         """
-
         self.logger.debug(f'Getting {schema} configuration')
         t0 = time()
 
@@ -127,19 +123,26 @@ class PipelineItem():
 
     def get_data(self, data, name, remove=True):
         """Look through `data` for an item whose value for the first
-        `'name'` key matches `name` and return it.
+        `'name'` key matches `name` and whose type is either
+        nexusformat.nexus.NXroot or nexusformat.nexus.NXentry or
+        if not found whose value for the first `'name'` key matches
+        either `'NexusReader'` or `'NexusWriter'`.
+        Return the default nexusformat.nexus.NXentry object.
+        RV FIX: TODO
 
-        :param data: Input data from a previous `PipelineItem`
+        :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
         :param name: Name of the data item to match in `data` & return.
         :type name: str
         :param remove: If there is a matching entry in `data`, remove
-           it from the list, defaults to `True`.
+            it from the list, defaults to `True`.
         :type remove: bool, optional
-        :raises ValueError: If there's no match for `name` in `data`.
+        :raises ValueError: If there's no match for `name` in `data`,
+            or if the associated object is not of type 
+            nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
         :return: The first matching data item.
+        :rtype: nexusformat.nexus.NXentry
         """
-
         self.logger.debug(f'Getting {name} data item')
         t0 = time()
 
@@ -163,16 +166,15 @@ class PipelineItem():
         """Run the appropriate method of the object and return the
         result.
 
-        :param schema: the name of a schema associated with the data
-            that will be returned
+        :param schema: The name of a schema associated with the data
+            that will be returned.
         :type schema: str
-        :param kwargs: a dictionary of any positional and keyword
+        :param kwargs: A dictionary of any positional and keyword
             arguments to supply to the read, process, or write method.
         :type kwargs: dict
-        :return: the wrapped result of running read, process, or write.
+        :return: The wrapped result of running read, process, or write.
         :rtype: list[PipelineData]
         """
-
         if hasattr(self, 'read'):
             method_name = 'read'
             inputdir = kwargs.get('inputdir')
@@ -189,6 +191,7 @@ class PipelineItem():
                     os.path.join(outputdir, kwargs['filename']))
         else:
             self.logger.error('No implementation of read, write, or process')
+            return
 
         method = getattr(self, method_name)
         allowed_args = inspect.getfullargspec(method).args \
@@ -214,13 +217,14 @@ class MultiplePipelineItem(PipelineItem):
     """An object to deliver results from multiple `PipelineItem`s to a
     single `PipelineItem` in the `Pipeline.execute()` method.
     """
-
-    def execute(self, items=[], **kwargs):
+    def execute(self, items=None, **kwargs):
         """Independently execute all items in `self.items`, then
         return all of their results.
 
-        :param items: PipelineItem configurations
-        :type items: list
+        :param items: PipelineItem configurations.
+        :type items: list, optional
+        :return: The wrapped result of running multiple read, process,
+            or write.
         :rtype: list[PipelineData]
         """
         # System modules
@@ -230,6 +234,8 @@ class MultiplePipelineItem(PipelineItem):
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
         data = kwargs['data']
+        if items is None:
+            items = []
         for item_config in items:
             if isinstance(item_config, dict):
                 item_name = list(item_config.keys())[0]
@@ -267,10 +273,11 @@ class MultiplePipelineItem(PipelineItem):
                 if not os.path.isdir(outputdir):
                     os.makedirs(outputdir)
                 try:
-                    tmpfile = NamedTemporaryFile(dir=outputdir)
-                except:
-                    raise OSError('output directory is not accessible for '
-                                  f'writing ({outputdir})')
+                    NamedTemporaryFile(dir=outputdir)
+                except Exception as exc:
+                    raise OSError(
+                        'output directory is not accessible for writing '
+                        f'({outputdir})') from exc
                 args['outputdir'] = outputdir
             args = {**args, **item_args}
             if hasattr(item, 'write'):

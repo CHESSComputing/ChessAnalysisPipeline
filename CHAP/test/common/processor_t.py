@@ -5,7 +5,6 @@ Description: Unit tests for common/processor.py code
 """
 
 # system modules
-import time
 import os
 from shutil import rmtree
 import unittest

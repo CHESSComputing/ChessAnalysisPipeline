@@ -7,18 +7,6 @@ In addition, `CHAP.common` contains a subpackage of its own:
 validating input data in some `Processor`s.
 """
 
-from CHAP.common.reader import (
-    BinaryFileReader,
-    FabioImageReader,
-    H5Reader,
-    MapReader,
-    NexusReader,
-    NXdataReader,
-    NXfieldReader,
-    SpecReader,
-    URLReader,
-    YAMLReader,
-)
 from CHAP.common.processor import (
     AnimationProcessor,
     AsyncProcessor,
@@ -35,13 +23,24 @@ from CHAP.common.processor import (
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
-    StrainAnalysisProcessor,
     SetupNXdataProcessor,
     UpdateNXdataProcessor,
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
     SumProcessor,
+)
+from CHAP.common.reader import (
+    BinaryFileReader,
+    FabioImageReader,
+    H5Reader,
+    MapReader,
+    NexusReader,
+    NXdataReader,
+    NXfieldReader,
+    SpecReader,
+    URLReader,
+    YAMLReader,
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,

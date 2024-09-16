@@ -56,8 +56,7 @@ def gformat(val, length=11):
     prec = length - 7
     if abs(expon) > 99:
         prec -= 1
-    elif ((expon > 0 and expon < (prec+4)) or
-          (expon <= 0 and -expon < (prec-1))):
+    elif 0 < expon < prec+4 or -expon < prec-1 <= 0:
         form = 'f'
         prec += 4
         if expon > 0:
@@ -141,12 +140,12 @@ def not_zero(value):
 
 def test_ge_gt_le_lt(
         ge, gt, le, lt, func, location=None, raise_error=False, log=True):
-    """
-    Check individual and mutual validity of ge, gt, le, lt qualifiers.
+    """Check individual and mutual validity of ge, gt, le, lt
+    qualifiers.
 
-    :param func: Test for integers or numbers
+    :param func: Test for integers or numbers.
     :type func: callable: is_int, is_num
-    :return: True upon success or False when mutually exlusive
+    :return: True upon success or False when mutually exlusive.
     :rtype: bool
     """
     if ge is None and gt is None and le is None and lt is None:
@@ -189,8 +188,7 @@ def test_ge_gt_le_lt(
 
 
 def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
-    """
-    Return a range string representation matching the ge, gt, le, lt
+    """Return a range string representation matching the ge, gt, le, lt
     qualifiers. Does not validate the inputs, do that as needed before
     calling.
     """
@@ -219,22 +217,20 @@ def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
 
 
 def is_int(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """
-    Value is an integer in range ge <= v <= le or gt < v < lt or some
-    combination.
+    """Value is an integer in range ge <= v <= le or gt < v < lt or
+    some combination.
 
-    :return: True if yes or False is no
+    :return: True if yes or False is no.
     :rtype: bool
     """
     return _is_int_or_num(v, 'int', ge, gt, le, lt, raise_error, log)
 
 
 def is_num(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """
-    Value is a number in range ge <= v <= le or gt < v < lt or some
+    """Value is a number in range ge <= v <= le or gt < v < lt or some
     combination.
 
-    :return: True if yes or False is no
+    :return: True if yes or False is no.
     :rtype: bool
     """
     return _is_int_or_num(v, 'num', ge, gt, le, lt, raise_error, log)
@@ -286,12 +282,11 @@ def _is_int_or_num(
 
 def is_int_pair(
         v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """
-    Value is an integer pair, each in range ge <= v[i] <= le or
+    """Value is an integer pair, each in range ge <= v[i] <= le or
     gt < v[i] < lt or ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i]
     or some combination.
 
-    :return: True if yes or False is no
+    :return: True if yes or False is no.
     :rtype: bool
     """
     return _is_int_or_num_pair(v, 'int', ge, gt, le, lt, raise_error, log)
@@ -299,12 +294,11 @@ def is_int_pair(
 
 def is_num_pair(
         v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """
-    Value is a number pair, each in range ge <= v[i] <= le or
+    """Value is a number pair, each in range ge <= v[i] <= le or
     gt < v[i] < lt or ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i]
     or some combination.
 
-    :return: True if yes or False is no
+    :return: True if yes or False is no.
     :rtype: bool
     """
     return _is_int_or_num_pair(v, 'num', ge, gt, le, lt, raise_error, log)
@@ -361,8 +355,7 @@ def _is_int_or_num_pair(
 def is_int_series(
         t_or_l, ge=None, gt=None, le=None, lt=None, raise_error=False,
         log=True):
-    """
-    Value is a tuple or list of integers, each in range
+    """Value is a tuple or list of integers, each in range
     ge <= l[i] <= le or gt < l[i] < lt or some combination.
     """
     if not test_ge_gt_le_lt(
@@ -379,9 +372,8 @@ def is_int_series(
 def is_num_series(
         t_or_l, ge=None, gt=None, le=None, lt=None, raise_error=False,
         log=True):
-    """
-    Value is a tuple or list of numbers, each in range ge <= l[i] <= le
-    or gt < l[i] < lt or some combination.
+    """Value is a tuple or list of numbers, each in range
+    ge <= l[i] <= le or gt < l[i] < lt or some combination.
     """
     if not test_ge_gt_le_lt(
             ge, gt, le, lt, is_int, 'is_int_series', raise_error, log):
@@ -395,9 +387,7 @@ def is_num_series(
 
 
 def is_str_series(t_or_l, raise_error=False, log=True):
-    """
-    Value is a tuple or list of strings.
-    """
+    """Value is a tuple or list of strings."""
     if (not isinstance(t_or_l, (tuple, list))
             or any(not isinstance(s, str) for s in t_or_l)):
         illegal_value(t_or_l, 't_or_l', 'is_str_series', raise_error, log)
@@ -406,9 +396,7 @@ def is_str_series(t_or_l, raise_error=False, log=True):
 
 
 def is_dict_series(t_or_l, raise_error=False, log=True):
-    """
-    Value is a tuple or list of dictionaries.
-    """
+    """Value is a tuple or list of dictionaries."""
     if (not isinstance(t_or_l, (tuple, list))
             or any(not isinstance(d, dict) for d in t_or_l)):
         illegal_value(t_or_l, 't_or_l', 'is_dict_series', raise_error, log)
@@ -417,9 +405,7 @@ def is_dict_series(t_or_l, raise_error=False, log=True):
 
 
 def is_dict_nums(d, raise_error=False, log=True):
-    """
-    Value is a dictionary with single number values
-    """
+    """Value is a dictionary with single number values."""
     if (not isinstance(d, dict)
             or any(not is_num(v, log=False) for v in d.values())):
         illegal_value(d, 'd', 'is_dict_nums', raise_error, log)
@@ -428,9 +414,7 @@ def is_dict_nums(d, raise_error=False, log=True):
 
 
 def is_dict_strings(d, raise_error=False, log=True):
-    """
-    Value is a dictionary with single string values
-    """
+    """Value is a dictionary with single string values."""
     if (not isinstance(d, dict)
             or any(not isinstance(v, str) for v in d.values())):
         illegal_value(d, 'd', 'is_dict_strings', raise_error, log)
@@ -439,8 +423,7 @@ def is_dict_strings(d, raise_error=False, log=True):
 
 
 def is_index(v, ge=0, lt=None, raise_error=False, log=True):
-    """
-    Value is an array index in range ge <= v < lt. NOTE lt IS NOT
+    """Value is an array index in range ge <= v < lt. NOTE lt IS NOT
     included!
     """
     if isinstance(lt, int):
@@ -452,9 +435,8 @@ def is_index(v, ge=0, lt=None, raise_error=False, log=True):
 
 
 def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
-    """
-    Value is an array index range in range ge <= v[0] <= v[1] <= le or
-    ge <= v[0] <= v[1] < lt. NOTE le IS included!
+    """Value is an array index range in range ge <= v[0] <= v[1] <= le
+    or ge <= v[0] <= v[1] < lt. NOTE le IS included!
     """
     if not is_int_pair(v, raise_error=raise_error, log=log):
         return False
@@ -489,7 +471,7 @@ def index_nearest(a, value):
 
 
 def index_nearest_down(a, value):
-    """Return index of nearest array value, rounded down"""
+    """Return index of nearest array value, rounded down."""
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -514,7 +496,8 @@ def index_nearest_up(a, value):
 
 def get_consecutive_int_range(a):
     """Return a list of pairs of integers marking consecutive ranges
-    of integers."""
+    of integers.
+    """
     a.sort()
     i = 0
     int_ranges = []
@@ -522,7 +505,7 @@ def get_consecutive_int_range(a):
         j = i
         while j < len(a)-1:
             if a[j+1] > 1 + a[j]:
-                break   
+                break
             j += 1
         int_ranges.append([a[i], a[j]])
         i = j+1
@@ -530,7 +513,7 @@ def get_consecutive_int_range(a):
 
 
 def round_to_n(x, n=1):
-    """Round to a specific number of sig figs ."""
+    """Round to a specific number of sig figs."""
     if x == 0.0:
         return 0
     return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
@@ -553,8 +536,7 @@ def trunc_to_n(x, n=1):
 
 
 def almost_equal(a, b, sig_figs):
-    """
-    Check if equal to within a certain number of significant digits.
+    """Check if equal to within a certain number of significant digits.
     """
     if is_num(a) and is_num(b):
         return abs(round_to_n(a-b, sig_figs)) < pow(10, 1-sig_figs)
@@ -566,11 +548,26 @@ def almost_equal(a, b, sig_figs):
 def string_to_list(
         s, split_on_dash=True, remove_duplicates=True, sort=True,
         raise_error=False):
-    """
-    Return a list of numbers by splitting/expanding a string on any
+    """Return a list of numbers by splitting/expanding a string on any
     combination of commas, whitespaces, or dashes (when
     split_on_dash=True).
     e.g: '1, 3, 5-8, 12 ' -> [1, 3, 5, 6, 7, 8, 12]
+
+    :param s: Input string.
+    :type s: str
+    :param split_on_dash: Allow dashes in input string,
+        defaults to `True`.
+    :type split_on_dash: bool, optional
+    :param remove_duplicates: Removes duplicates (may also change the
+        order), defaults to `True`.
+    :type remove_duplicates: bool, optional
+    :param sort: Sort in ascending order, defaults to `True`.
+    :type sort: bool, optional
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
+    :return: Input list or none upon an illegal input.
+    :rtype: list
     """
     if not isinstance(s, str):
         illegal_value(s, 's', location='string_to_list')
@@ -615,7 +612,7 @@ def list_to_string(a):
     """Return a list of pairs of integers marking consecutive ranges
     of integers in string notation."""
     int_ranges = get_consecutive_int_range(a)
-    if not len(int_ranges):
+    if not int_ranges:
         return ''
     if int_ranges[0][0] == int_ranges[0][1]:
         s = f'{int_ranges[0][0]}'
@@ -733,16 +730,35 @@ def _input_int_or_num(
 def input_int_list(
         s=None, num_max=None, ge=None, le=None, split_on_dash=True,
         remove_duplicates=True, sort=True, raise_error=False, log=True):
-    """
-    Prompt the user to input a list of interger and split the entered
-    string on any combination of commas, whitespaces, or dashes (when
-    split_on_dash is True).
+    """Prompt the user to input a list of integers and split the
+    entered string on any combination of commas, whitespaces, or
+    dashes (when split_on_dash is True).
     e.g: '1 3,5-8 , 12 ' -> [1, 3, 5, 6, 7, 8, 12]
 
-    remove_duplicates: removes duplicates if True (may also change the
-        order)
-    sort: sort in ascending order if True
-    return None upon an illegal input
+    :param s: Interactive user prompt, defaults to `None`.
+    :type s: str, optional
+    :param num_max: Maximum number of inputs in list.
+    :type num_max: int, optional
+    :param ge: Minimum value of inputs in list.
+    :type ge: int, optional
+    :param le: Minimum value of inputs in list.
+    :type le: int, optional
+    :param split_on_dash: Allow dashes in input string,
+        defaults to `True`.
+    :type split_on_dash: bool, optional
+    :param remove_duplicates: Removes duplicates (may also change the
+        order), defaults to `True`.
+    :type remove_duplicates: bool, optional
+    :param sort: Sort in ascending order, defaults to `True`.
+    :type sort: bool, optional
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Print an error message upon any error,
+        defaults to `True`.
+    :type log: bool, optional
+    :return: Input list or none upon an illegal input.
+    :rtype: list
     """
     return _input_int_or_num_list(
         'int', s, num_max, ge, le, split_on_dash, remove_duplicates, sort,
@@ -752,15 +768,31 @@ def input_int_list(
 def input_num_list(
         s=None, num_max=None, ge=None, le=None, remove_duplicates=True,
         sort=True, raise_error=False, log=True):
-    """
-    Prompt the user to input a list of numbers and split the entered
+    """Prompt the user to input a list of numbers and split the entered
     string on any combination of commas or whitespaces.
     e.g: '1.0, 3, 5.8, 12 ' -> [1.0, 3.0, 5.8, 12.0]
 
-    remove_duplicates: removes duplicates if True (may also change the
-        order)
-    sort: sort in ascending order if True
-    return None upon an illegal input
+    :param s: Interactive user prompt.
+    :type s: str, optional
+    :param num_max: Maximum number of inputs in list.
+    :type num_max: int, optional
+    :param ge: Minimum value of inputs in list.
+    :type ge: float, optional
+    :param le: Minimum value of inputs in list.
+    :type le: float, optional
+    :param remove_duplicates: Removes duplicates (may also change the
+        order), defaults to `True`.
+    :type remove_duplicates: bool, optional
+    :param sort: Sort in ascending order, defaults to `True`.
+    :type sort: bool, optional
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Print an error message upon any error,
+        defaults to `True`.
+    :type log: bool, optional
+    :return: Input list or none upon an illegal input.
+    :rtype: list
     """
     return _input_int_or_num_list(
         'num', s, num_max, ge, le, False, remove_duplicates, sort, raise_error,
@@ -896,8 +928,7 @@ def input_menu(items, default=None, header=None):
 
 
 def assert_no_duplicates_in_list_of_dicts(_list, raise_error=False):
-    """
-    Assert that there are no duplicates in a list of dictionaries.
+    """Assert that there are no duplicates in a list of dictionaries.
     """
     if not isinstance(_list, list):
         illegal_value(
@@ -919,8 +950,8 @@ def assert_no_duplicates_in_list_of_dicts(_list, raise_error=False):
 
 
 def assert_no_duplicate_key_in_list_of_dicts(_list, key, raise_error=False):
-    """
-    Assert that there are no duplicate keys in a list of dictionaries.
+    """Assert that there are no duplicate keys in a list of
+    dictionaries.
     """
     if not isinstance(key, str):
         illegal_value(
@@ -948,8 +979,8 @@ def assert_no_duplicate_key_in_list_of_dicts(_list, key, raise_error=False):
 
 
 def assert_no_duplicate_attr_in_list_of_objs(_list, attr, raise_error=False):
-    """
-    Assert that there are no duplicate attributes in a list of objects.
+    """Assert that there are no duplicate attributes in a list of
+    objects.
     """
     if not isinstance(attr, str):
         illegal_value(
@@ -984,8 +1015,7 @@ def rolling_average(
         y, x=None, dtype=None, start=0, end=None, width=None,
         stride=None, num=None, average=True, mode='valid',
         use_convolve=None):
-    """
-    Returns the rolling sum or average of an array over the last
+    """Returns the rolling sum or average of an array over the last
     dimension.
     """
     y = np.asarray(y)
@@ -1029,7 +1059,7 @@ def rolling_average(
     elif not is_int(end, gt=start, le=size):
         raise ValueError(f'Invalid "end" parameter ({end})')
     if use_convolve is None:
-        if len(y_shape) ==1:
+        if len(y_shape) == 1:
             use_convolve = True
         else:
             use_convolve = False
@@ -1135,10 +1165,9 @@ def baseline_arPLS(
     :param y: The spectrum.
     :type y: array-like
     :param mask: A mask to apply to the spectrum before baseline
-       construction, default to `None`.
+       construction.
     :type mask: array-like, optional
-    :param w: The weights (allows restart for additional ieterations),
-        defaults to None.
+    :param w: The weights (allows restart for additional ieterations).
     :type w: numpy.array, optional
     :param tol: The convergence tolerence, defaults to `1.e-8`.
     :type tol: float, optional
@@ -1161,9 +1190,6 @@ def baseline_arPLS(
     """
     # With credit to: Daniel Casas-Orozco
     # https://stackoverflow.com/questions/29156532/python-baseline-correction-library
-    # System modules
-    from sys import float_info
-
     # Third party modules
     from scipy.sparse import (
         spdiags,
@@ -1225,46 +1251,33 @@ def baseline_arPLS(
 
 
 def select_mask_1d(
-        y, x=None, label=None, ref_data=[], preselected_index_ranges=None,
-        preselected_mask=None, title=None, xlabel=None, ylabel=None,
-        min_num_index_ranges=None, max_num_index_ranges=None,
-        interactive=True, filename=None):
+        y, x=None, preselected_index_ranges=None, preselected_mask=None,
+        title=None, xlabel=None, ylabel=None, min_num_index_ranges=None,
+        max_num_index_ranges=None, interactive=True, filename=None):
     """Display a lineplot and have the user select a mask.
 
     :param y: One-dimensional data array for which a mask will be
         constructed.
     :type y: numpy.ndarray
-    :param x: x-coordinates of the reference data,
-        defaults to `None`.
+    :param x: x-coordinates of the reference data.
     :type x: numpy.ndarray, optional
-    :param label: Legend label for the reference data,
-        defaults to `None`.
-    :type label: str, optional
-    :param ref_data: A list of additional reference data to
-        plot. Items in the list should be tuples of positional
-        arguments and keyword arguments to unpack and pass directly to
-        `matplotlib.axes.Axes.plot`, defaults to `[]`.
-    :type ref_data: list[tuple(tuple, dict)], optional
     :param preselected_index_ranges: List of preselected index ranges
-        to mask, defaults to `None`.
+        to mask.
     :type preselected_index_ranges: Union(list[tuple(int, int)],
         list[list[int]]), optional
-    :param preselected_mask: Preselected boolean mask array,
-        defaults to `None`.
+    :param preselected_mask: Preselected boolean mask array.
     :type preselected_mask: numpy.ndarray, optional
-    :param title: Title for the displayed figure, defaults to `None`.
+    :param title: Title for the displayed figure.
     :type title: str, optional
-    :param xlabel: Label for the x-axis of the displayed figure,
-        defaults to `None`.
+    :param xlabel: Label for the x-axis of the displayed figure.
     :type xlabel: str, optional
-    :param ylabel: Label for the y-axis of the displayed figure,
-        defaults to `None`.
+    :param ylabel: Label for the y-axis of the displayed figure.
     :type ylabel: str, optional
     :param min_num_index_ranges: The minimum number of selected index
-        ranges, defaults to `None`.
+        ranges.
     :type min_num_index_ranges: int, optional
     :param max_num_index_ranges: The maximum number of selected index
-        ranges, defaults to `None`.
+        ranges.
     :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
@@ -1280,9 +1293,6 @@ def select_mask_1d(
     if interactive or filename is not None:
         from matplotlib.patches import Patch
         from matplotlib.widgets import Button, SpanSelector
-
-    # Local modules
-    from CHAP.utils.general import index_nearest
 
     def change_fig_title(title):
         if fig_title:
@@ -1309,7 +1319,7 @@ def select_mask_1d(
                 change_fnc(
                     f'Selected ROI: {tuple(selected_index_ranges[0])}')
             else:
-                change_fnc(f'Selected ROI: None')
+                change_fnc('Selected ROI: None')
         return selected_index_ranges
 
     def add_span(event, xrange_init=None):
@@ -1317,7 +1327,7 @@ def select_mask_1d(
         if (max_num_index_ranges is not None
                 and len(spans) >= max_num_index_ranges):
             change_error_text(
-                f'Exceeding max number of ranges, adjust an existing '
+                'Exceeding max number of ranges, adjust an existing '
                 'range or click "Reset"/"Confirm"')
         else:
             spans.append(
@@ -1393,9 +1403,7 @@ def select_mask_1d(
         return mask
 
     def update_index_ranges(mask):
-        """
-        Update the selected index ranges (where mask = True).
-        """
+        """Update the selected index ranges (where mask = True)."""
         selected_index_ranges = []
         for i, m in enumerate(mask):
             if m:
@@ -1539,21 +1547,18 @@ def select_roi_1d(
     """Display a 2D plot and have the user select a single region
     of interest.
 
-    :param y: One-dimensional data array for which a for which a region of
-        interest will be selected.
+    :param y: One-dimensional data array for which a for which a region
+        of interest will be selected.
     :type y: numpy.ndarray
-    :param x: x-coordinates of the data, defaults to `None`.
+    :param x: x-coordinates of the data
     :type x: numpy.ndarray, optional
-    :param preselected_roi: Preselected region of interest,
-        defaults to `None`.
+    :param preselected_roi: Preselected region of interest.
     :type preselected_roi: tuple(int, int), optional
-    :param title: Title for the displayed figure, defaults to `None`.
+    :param title: Title for the displayed figure.
     :type title: str, optional
-    :param xlabel: Label for the x-axis of the displayed figure,
-        defaults to `None`.
+    :param xlabel: Label for the x-axis of the displayed figure.
     :type xlabel: str, optional
-    :param ylabel: Label for the y-axis of the displayed figure,
-        defaults to `None`.
+    :param ylabel: Label for the y-axis of the displayed figure.
     :type ylabel: str, optional
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
@@ -1575,7 +1580,7 @@ def select_roi_1d(
                              f'({preselected_roi})')
         preselected_roi = [preselected_roi]
 
-    mask, roi = select_mask_1d(
+    _, roi = select_mask_1d(
         y, x=x, preselected_index_ranges=preselected_roi, title=title,
         xlabel=xlabel, ylabel=ylabel, min_num_index_ranges=1,
         max_num_index_ranges=1, interactive=interactive, filename=filename)
@@ -1592,12 +1597,11 @@ def select_roi_2d(
     :param a: Two-dimensional image data array for which a region of
         interest will be selected.
     :type a: numpy.ndarray
-    :param preselected_roi: Preselected region of interest,
-        defaults to `None`.
+    :param preselected_roi: Preselected region of interest.
     :type preselected_roi: tuple(int, int, int, int), optional
-    :param title: Title for the displayed figure, defaults to `None`.
+    :param title: Title for the displayed figure.
     :type title: str, optional
-    :param title_a: Title for the image of a, defaults to `None`.
+    :param title_a: Title for the image of a.
     :type title_a: str, optional
     :param row_label: Label for the y-axis of the displayed figure,
         defaults to `row index`.
@@ -1617,9 +1621,6 @@ def select_roi_2d(
     # Third party modules
     if interactive or filename is not None:
         from matplotlib.widgets import Button, RectangleSelector
-
-    # Local modules
-    from CHAP.utils.general import index_nearest
 
     def change_fig_title(title):
         if fig_title:
@@ -1644,11 +1645,11 @@ def select_roi_2d(
 
     def on_rect_select(eclick, erelease):
         """Callback function for the RectangleSelector widget."""
-        if (not int(rects[0].extents[1]) - int(rects[0].extents[0]) 
+        if (not int(rects[0].extents[1]) - int(rects[0].extents[0])
                 or not int(rects[0].extents[3]) - int(rects[0].extents[2])):
             clear_selection()
             change_subfig_title(
-                f'Selected ROI too small, try again')
+                'Selected ROI too small, try again')
         else:
             change_subfig_title(
                 f'Selected ROI: {tuple(int(v) for v in rects[0].extents)}')
@@ -1786,29 +1787,25 @@ def select_image_indices(
     :param axis: The selection direction (0: row, 1: column)
     :type axis: int
     :param b: A secondary two-dimensional image data array for which
-        a shared region of interest will be selected,
-        defaults to `None`.
+        a shared region of interest will be selected.
     :type b: numpy.ndarray, optional
-    :param preselected_indices: Preselected image indices,
-        defaults to `None`.
+    :param preselected_indices: Preselected image indices.
     :type preselected_indices: tuple(int), list(int), optional
     :param axis_index_offset: Offset in axis index range and
         preselected indices, defaults to `0`.
     :type axis_index_offset: int, optional
     :param min_range: The minimal range spanned by the selected 
-        indices, defaults to `None`
+        indices.
     :type min_range: int, optional
-    :param min_num_indices: The minimum number of selected indices,
-        defaults to `None`.
+    :param min_num_indices: The minimum number of selected indices.
     :type min_num_indices: int, optional
-    :param max_num_indices: The maximum number of selected indices,
-        defaults to `None`.
+    :param max_num_indices: The maximum number of selected indices.
     :type max_num_indices: int, optional
-    :param title: Title for the displayed figure, defaults to `None`.
+    :param title: Title for the displayed figure.
     :type title: str, optional
-    :param title_a: Title for the image of a, defaults to `None`.
+    :param title_a: Title for the image of a.
     :type title_a: str, optional
-    :param title_b: Title for the image of b, defaults to `None`.
+    :param title_b: Title for the image of b.
     :type title_b: str, optional
     :param row_label: Label for the y-axis of the displayed figure,
         defaults to `row index`.
@@ -1861,12 +1858,12 @@ def select_image_indices(
     def add_index(index):
         if index in indices:
             raise ValueError(f'Ignoring duplicate of selected {row_column}s')
-        elif max_num_indices is not None and len(indices) >= max_num_indices:
+        if max_num_indices is not None and len(indices) >= max_num_indices:
             raise ValueError(
                 f'Exceeding maximum number of selected {row_column}s, click '
                 'either "Reset" or "Confirm"')
-        elif (len(indices) and min_range is not None
-                and abs(max(index, max(indices)) - min(index, min(indices)))
+        elif (indices and min_range is not None
+                and abs(max(index, *indices) - min(index, *indices))
                     < min_range):
             raise ValueError(
                 f'Selected {row_column} range is smaller than required '
@@ -1883,7 +1880,7 @@ def select_image_indices(
     def select_index(expression):
         """Callback function for the "Select row/column index" TextBox.
         """
-        if not len(expression):
+        if not expression:
             return
         if error_texts:
             error_texts[0].remove()
@@ -1972,7 +1969,7 @@ def select_image_indices(
         if a.shape[0] != b.shape[0]:
             raise ValueError(f'Inconsistent image shapes({a.shape} vs '
                              f'{b.shape})')
- 
+
     indices = []
     lines = []
     fig_title = []
@@ -1985,13 +1982,13 @@ def select_image_indices(
     error_props = {'fontsize': 'x-large', 'horizontalalignment': 'center',
                    'verticalalignment': 'bottom'}
     if b is None:
-       fig, axs = plt.subplots(figsize=(11, 8.5))
-       axs = [axs]
+        fig, axs = plt.subplots(figsize=(11, 8.5))
+        axs = [axs]
     else:
-       if a.shape[0]+b.shape[0] > max(a.shape[1], b.shape[1]):
-           fig, axs = plt.subplots(1, 2, figsize=(11, 8.5))
-       else:
-           fig, axs = plt.subplots(2, 1, figsize=(11, 8.5))
+        if a.shape[0]+b.shape[0] > max(a.shape[1], b.shape[1]):
+            fig, axs = plt.subplots(1, 2, figsize=(11, 8.5))
+        else:
+            fig, axs = plt.subplots(2, 1, figsize=(11, 8.5))
     extent = (0, a.shape[1], axis_index_offset+a.shape[0], axis_index_offset)
     axs[0].imshow(a, extent=extent)
     axs[0].set_title(title_a, fontsize='xx-large')
@@ -2015,7 +2012,7 @@ def select_image_indices(
     if preselected_indices is not None:
         preselected_indices = sorted(list(preselected_indices))
         for index in preselected_indices:
-            add_index(index)   
+            add_index(index)
 
     if not interactive:
 
@@ -2233,24 +2230,22 @@ def quick_plot(
 def nxcopy(
         nxobject, exclude_nxpaths=None, nxpath_prefix=None,
         nxpathabs_prefix=None, nxpath_copy_abspath=None):
-    """
-    Function that returns a copy of a nexus object, optionally exluding
-    certain child items.
+    """Function that returns a copy of a nexus object, optionally
+    exluding certain child items.
 
     :param nxobject: The input nexus object to "copy".
     :type nxobject: nexusformat.nexus.NXobject
     :param exlude_nxpaths: A list of relative paths to child nexus
-        objects that should be excluded from the returned "copy",
-        defaults to `[]`.
+        objects that should be excluded from the returned "copy".
     :type exclude_nxpaths: str, list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
         function only.
     :type nxpath_prefix: str
-    :param nxpathabs_prefix: For use in recursive calls from inside this
-        function only.
+    :param nxpathabs_prefix: For use in recursive calls from inside
+        this function only.
     :type nxpathabs_prefix: str
-    :param nxpath_copy_abspath: For use in recursive calls from inside this
-        function only.
+    :param nxpath_copy_abspath: For use in recursive calls from inside
+        this function only.
     :type nxpath_copy_abspath: str
     :return: Copy of the input `nxobject` with some children optionally
         exluded.

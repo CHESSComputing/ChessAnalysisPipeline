@@ -1,14 +1,18 @@
+"""EDD Pydantic model classes."""
+
 # System modules
 from copy import deepcopy
 import os
 from pathlib import PosixPath
 from typing import (
+    Dict,
     Literal,
     Optional,
     Union,
 )
 
 # Third party modules
+from chess_scanparsers import SMBMCAScanParser as ScanParser
 import numpy as np
 from hexrd.material import Material
 from pydantic import (
@@ -17,7 +21,6 @@ from pydantic import (
     Field,
     FilePath,
     PrivateAttr,
-    StrictBool,
     confloat,
     conint,
     conlist,
@@ -29,14 +32,12 @@ from scipy.interpolate import interp1d
 from typing_extensions import Annotated
 
 # Local modules
-from CHAP.common.models.map import MapConfig
 from CHAP.utils.parfile import ParFile
-from chess_scanparsers import SMBMCAScanParser as ScanParser
 
 # Baseline configuration class
 
 class BaselineConfig(BaseModel):
-    """Baseline model configuration
+    """Baseline model configuration.
 
     :ivar tol: The convergence tolerence, defaults to `1.e-6`.
     :type tol: float, optional
@@ -142,7 +143,8 @@ class MCAElementConfig(BaseModel):
     def validate_detector_name(cls, detector_name):
         """Validate the specified detector name.
 
-        :ivar detector_name: Name of the MCA detector element in the scan.
+        :ivar detector_name: Name of the MCA detector element in the
+            scan.
         :type detector_name: Union(str, int)
         :raises ValueError: Invalid detector_name.
         :return: detector_name.
@@ -190,7 +192,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
     :type tth_calibrated: float, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
-        (bounds are inclusive), defaults to `[[50, 150]]`
+        (bounds are inclusive), defaults to `[[50, 150]]`.
     :type include_energy_ranges: list[[float, float]], optional
     """
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
@@ -219,8 +221,8 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         """Ensure that no energy ranges are outside the boundary of the
         detector.
 
-        :param include_energy_ranges:
-            The value of `include_energy_ranges` to validate.
+        :param include_energy_ranges: The value of
+            `include_energy_ranges` to validate.
         :type include_energy_ranges: dict
         :param info: Pydantic validator info object.
         :type info: pydantic_core._pydantic_core.ValidationInfo
@@ -284,19 +286,20 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         """Given a list of channel index ranges, return the
         corresponding list of channel energy ranges.
 
-        :param include_bin_ranges: A list of channel bin ranges to convert to
-            energy ranges.
-        :type include_bin_ranges: list[list[int]]
-        :returns: Energy ranges
-        :rtype: list[list[float]]
+        :param include_bin_ranges: A list of channel bin ranges to
+            convert to energy ranges.
+        :type include_bin_ranges: list[[int,int]]
+        :returns: Energy ranges.
+        :rtype: list[[float,float]]
         """
         energies = self.energies
         return [[float(energies[i]) for i in range_]
-                 for range_ in include_bin_ranges]
+                for range_ in include_bin_ranges]
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
-        Note that the bounds of self.include_energy_ranges are inclusive.
+        Note that the bounds of self.include_energy_ranges are
+        inclusive.
 
         :return: Boolean mask array.
         :rtype: numpy.ndarray
@@ -367,7 +370,8 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
-        Note that the bounds of self.include_energy_ranges are inclusive.
+        Note that the bounds of self.include_energy_ranges are
+        inclusive.
 
         :return: Boolean mask array.
         :rtype: numpy.ndarray
@@ -406,8 +410,8 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar hkl_tth_tol: Minimum resolvable difference in 2&theta between
         two unique HKL peaks, defaults to `0.15`.
     :type hkl_tth_tol: float, optional
-    :ivar hkl_indices: List of unique HKL indices to fit peaks for in
-        the calibration routine, defaults to `[]`.
+    :ivar hkl_indices: List of unique HKL indices to use in the strain
+        analysis, defaults to `[]`.
     :type hkl_indices: list[int], optional
     :ivar background: Background model for peak fitting.
     :type background: str, list[str], optional
@@ -449,7 +453,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type tth_map: numpy.ndarray, optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
-        (bounds are inclusive), defaults to `[[50, 150]]`
+        (bounds are inclusive), defaults to `[[50, 150]]`.
     :type include_energy_ranges: list[[float, float]], optional
     """
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
@@ -479,7 +483,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
                 item_type=conint(ge=0)))] = None
     tth_file: Optional[FilePath] = None
     tth_map: Optional[np.ndarray] = None
-    include_energy_ranges: conlist( 
+    include_energy_ranges: conlist(
         min_length=1,
         item_type=conlist(
             min_length=2,
@@ -490,13 +494,20 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     #   tth_initial_guess)
     #   Should we derive from MCAElementCalibrationConfig in some way
     #   or make a MCAElementEnergyCalibrationConfig with what's shared
-    #   and derive MCAElementCalibrationConfig from this as well with 
+    #   and derive MCAElementCalibrationConfig from this as well with
     #   the unique fields tth_initial_guess added?
     #   Revisit when we redo the detectors
 
     @field_validator('hkl_indices', mode='before')
     @classmethod
     def validate_hkl_indices(cls, hkl_indices):
+        """Validate the HKL indices.
+
+        :ivar hkl_indices: List of unique HKL indices.
+        :type hkl_indices: list[int]
+        :return: List of HKL indices.
+        :rtype: list[int]
+        """
         if isinstance(hkl_indices, str):
             # Local modules
             from CHAP.utils.general import string_to_list
@@ -536,19 +547,20 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         """Given a list of channel index ranges, return the
         corresponding list of channel energy ranges.
 
-        :param include_bin_ranges: A list of channel bin ranges to convert to
-            energy ranges.
-        :type include_bin_ranges: list[list[int]]
-        :returns: Energy ranges
-        :rtype: list[list[float]]
+        :param include_bin_ranges: A list of channel bin ranges to
+            convert to energy ranges.
+        :type include_bin_ranges: list[[int,int]]
+        :returns: Energy ranges.
+        :rtype: list[[float,float]]
         """
         energies = self.energies
         return [[float(energies[i]) for i in range_]
-                 for range_ in include_bin_ranges]
+                for range_ in include_bin_ranges]
 
     def mca_mask(self):
         """Get a boolean mask array to use on this MCA element's data.
-        Note that the bounds of self.include_energy_ranges are inclusive.
+        Note that the bounds of self.include_energy_ranges are
+        inclusive.
 
         :return: Boolean mask array.
         :rtype: numpy.ndarray
@@ -568,7 +580,6 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         :param calibration: Existing calibration configuration to use
             by MCAElementStrainAnalysisConfig.
         :type calibration: MCAElementCalibrationConfig
-        :return: None
         """
         add_fields = [
             'tth_calibrated', 'energy_calibration_coeffs', 'num_bins']
@@ -656,7 +667,7 @@ class MCAScanDataConfig(BaseModel):
         par_file = data.get('par_file')
         if spec_file is not None and par_file is not None:
             raise ValueError('Use either spec_file or par_file, not both')
-        elif spec_file is not None:
+        if spec_file is not None:
             if inputdir is not None and not os.path.isabs(spec_file):
                 data['spec_file'] = os.path.join(inputdir, spec_file)
         elif par_file is not None:
@@ -710,9 +721,6 @@ class MCAScanDataConfig(BaseModel):
                 except Exception as e:
                     raise ValueError('No value found for num_bins') from e
         if flux_file is not None:
-            # System modules
-            from copy import deepcopy
-
             flux = np.loadtxt(flux_file)
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
@@ -757,7 +765,7 @@ class MCAScanDataConfig(BaseModel):
             del d['scan_column']
         else:
             del d['spec_file']
-            del d['scan_number']                
+            del d['scan_number']
         for k in ('_scanparser', '_parfile', 'inputdir'):
             if k in d:
                 del d[k]
@@ -773,8 +781,8 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         must be provided in the same units as the values of the
         scanning motor.
     :type sample_thickness: float
-    :ivar detectors: Individual detector element DVL
-        measurement configurations
+    :ivar detectors: Individual detector element DVL measurement
+        configurations.
     :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     """
     sample_thickness: float
@@ -786,7 +794,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
         """Return the list of values visited by the scanning motor
         over the course of the raster scan.
 
-        :return: List of scanned motor values
+        :return: List of scanned motor values.
         :rtype: numpy.ndarray
         """
         if self._parfile is not None:
@@ -797,8 +805,7 @@ class DiffractionVolumeLengthConfig(MCAScanDataConfig):
 
 
 class MCAEnergyCalibrationConfig(BaseModel):
-    """
-    Class representing metadata required to perform an energy
+    """Class representing metadata required to perform an energy
     calibration for an MCA detector.
 
     :ivar inputdir: Input directory, used only if any file in the
@@ -832,6 +839,8 @@ class MCAEnergyCalibrationConfig(BaseModel):
         pipeline with `config.interactive: True`.
     :type fit_index_ranges: list[[int, int]], optional
 
+    Note: Fluorescence data:
+        https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
     """
     inputdir: Optional[DirectoryPath] = None
     scan_step_indices: Optional[Annotated[conlist(
@@ -876,13 +885,13 @@ class MCAEnergyCalibrationConfig(BaseModel):
     def validate_scan_step_indices(cls, scan_step_indices):
         """Validate the specified list of scan numbers.
 
-        :ivar scan_step_indices: Optional scan step indices to use for the
-            calibration. If not specified, the calibration will be
+        :ivar scan_step_indices: Optional scan step indices to use for
+            the calibration. If not specified, the calibration will be
             performed on the average of all MCA spectra for the scan.
         :type scan_step_indices: list[int], optional
         :raises ValueError: Invalid experiment type.
         :return: List of step indices.
-        :rtype: list of int
+        :rtype: list[int]
         """
         if isinstance(scan_step_indices, str):
             # Local modules
@@ -925,8 +934,7 @@ class MCAEnergyCalibrationConfig(BaseModel):
         return energies.min(), energies.max()
 
     def flux_correction_interpolation_function(self):
-        """
-        Get an interpolation function to correct MCA data for the
+        """Get an interpolation function to correct MCA data for the
         relative energy flux of the incident beam.
 
         :return: Energy flux correction interpolation function.
@@ -954,9 +962,8 @@ class MCAEnergyCalibrationConfig(BaseModel):
 
 
 class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
-    """
-    Class representing metadata required to perform a tth calibration
-    for an MCA detector.
+    """Class representing metadata required to perform a tth
+    calibration for an MCA detector.
 
     :ivar calibration_method: Type of calibration method,
         defaults to `'direct_fit_residual'`.
@@ -1000,7 +1007,7 @@ class StrainAnalysisConfig(BaseModel):
         configuration is not an absolute path.
     :type inputdir: str, optional
     :ivar detectors: List of individual detector element strain
-        analysis configurations, defaults to `None` (use all detectors).
+        analysis configurations, defaults to `None` (use all).
     :type detectors: list[MCAElementStrainAnalysisConfig], optional
     :ivar materials: Sample material configurations.
     :type materials: list[MaterialConfig]
@@ -1016,11 +1023,11 @@ class StrainAnalysisConfig(BaseModel):
     inputdir: Optional[DirectoryPath] = None
     detectors: Optional[conlist(
         min_length=1, item_type=MCAElementStrainAnalysisConfig)] = None
-    materials: list[MaterialConfig]
+    materials: conlist(item_type=MaterialConfig)
     flux_file: Optional[FilePath] = None
     sum_axes: Optional[bool] = True
     oversampling: Optional[
-        Annotated[dict, Field(validate_default=True)]] = {'num': 10}
+        Annotated[Dict, Field(validate_default=True)]] = {'num': 10}
 
     @model_validator(mode='before')
     @classmethod
@@ -1045,7 +1052,7 @@ class StrainAnalysisConfig(BaseModel):
     @field_validator('detectors', mode='before')
     @classmethod
     def validate_tth_file(cls, detectors, info):
-        """Finalize value for tth_file for each detector"""
+        """Finalize value for tth_file for each detector."""
         inputdir = info.data.get('inputdir')
         for detector in detectors:
             tth_file = detector.get('tth_file')
@@ -1139,5 +1146,5 @@ class StrainAnalysisConfig(BaseModel):
             if isinstance(v, PosixPath):
                 d[k] = str(v)
         if 'inputdir' in d:
-            del d[k]
+            del d['inputdir']
         return d

@@ -7,37 +7,33 @@ Description: generic Writer module
 Define a generic `Writer` object.
 """
 
-# system modules
+# System modules
 import argparse
-from inspect import getfullargspec
 import logging
 from sys import modules
-from time import time
 
-# local modules
+# Local modules
 from CHAP.pipeline import PipelineItem
 
 
 class Writer(PipelineItem):
-    """Generic file writer
+    """Generic file writer.
 
     The job of any `Writer` in a `Pipeline` is to receive input
     returned by a previous `PipelineItem`, write its data to a
     particular file format, then return the same data unaltered so it
     can be used by a successive `PipelineItem`.
     """
-
     def write(self, data, filename):
         """Write the input data as text to a file.
 
-        :param data: input data
+        :param data: Input data.
         :type data: list[PipelineData]
-        :param filename: Name of file to write to
+        :param filename: Name of file to write to.
         :type filename: str
-        :return: contents of the input data
+        :return: Contents of the input data.
         :rtype: object
         """
-
         data = self.unwrap_pipelinedata(data)[-1]
         with open(filename, 'a') as file:
             file.write(data)
@@ -45,7 +41,7 @@ class Writer(PipelineItem):
 
 
 class OptionParser():
-    """User based option parser"""
+    """User based option parser."""
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -63,8 +59,7 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    """Main function"""
-
+    """Main function."""
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.writer

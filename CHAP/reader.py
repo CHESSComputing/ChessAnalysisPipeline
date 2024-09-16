@@ -7,14 +7,12 @@ Description: generic Reader module
 Define a generic `Reader` object.
 """
 
-# system modules
+# System modules
 import argparse
-from inspect import getfullargspec
 import logging
 from sys import modules
-from time import time
 
-# local modules
+# Local modules
 from CHAP.pipeline import PipelineItem
 
 
@@ -27,13 +25,12 @@ class Reader(PipelineItem):
     receive or pass along any data returned by the previous
     `PipelineItem`.
     """
-
     def read(self, filename):
-        """Read and return the contents of `filename` as text
+        """Read and return the contents of `filename` as text.
 
-        :param filename: Name of file to read from
+        :param filename: Name of file to read from.
         :type filename: str
-        :return: entire contents of the file
+        :return: Entire contents of the file.
         :rtype: str
         """
 
@@ -48,7 +45,7 @@ class Reader(PipelineItem):
 
 
 class OptionParser():
-    """User based option parser"""
+    """User based option parser."""
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -63,8 +60,7 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    """Main function"""
-
+    """Main function."""
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.reader
