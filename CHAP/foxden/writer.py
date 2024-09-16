@@ -42,14 +42,14 @@ class FoxdenWriter():
         token = ''
         fname = os.getenv('CHESS_WRITE_TOKEN')
         if not fname:
-            raise Exception(f'CHESS_WRITE_TOKEN env variable is not set')
+            raise Exception('CHESS_WRITE_TOKEN env variable is not set')
         with open(fname, 'r') as istream:
             token = istream.read()
         if token:
             headers['Authorization'] = f'Bearer {token}'
         else:
             raise Exception(
-                f'Valid write token missing in CHESS_WRITE_TOKEN env variable')
+                'Valid write token missing in CHESS_WRITE_TOKEN env variable')
 
         # Make actual HTTP request to FOXDEN service
         if method.lower() == 'post':

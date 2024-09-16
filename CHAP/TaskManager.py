@@ -157,7 +157,8 @@ class TaskManager():
         self.pids = set()
         self.uids = UidSet()
         self.tasks = Queue()
-        self.workers = [Worker(name, self.tasks, self.pids, self.uids, logger)
+        self.workers = [Worker(name, self.tasks, self.pids, self.uids,
+                               self.logger)
                         for _ in range(0, nworkers)]
 
     def status(self):

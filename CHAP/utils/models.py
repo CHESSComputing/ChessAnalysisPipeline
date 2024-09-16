@@ -1,5 +1,12 @@
 """Utils Pydantic model classes."""
 
+# System modules
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
+
 # Third party imports
 from pydantic import (
     BaseModel,
@@ -11,11 +18,6 @@ from pydantic import (
     confloat,
     constr,
     field_validator,
-)
-from typing import (
-    Literal,
-    Optional,
-    Union,
 )
 from typing_extensions import Annotated
 import numpy as np
