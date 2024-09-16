@@ -17,7 +17,6 @@ from CHAP.common import (AsyncProcessor,
                          NexusToNumpyProcessor,
                          NexusToXarrayProcessor,
                          PrintProcessor,
-                         StrainAnalysisProcessor,
                          XarrayToNexusProcessor,
                          XarrayToNumpyProcessor)
 from CHAP.pipeline import PipelineData
