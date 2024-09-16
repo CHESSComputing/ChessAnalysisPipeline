@@ -306,7 +306,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for min_, max_ in self.include_bin_ranges:
+        for (min_, max_) in self.include_bin_ranges:
             mask = np.logical_or(
                 mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
@@ -378,7 +378,7 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for min_, max_ in self.include_bin_ranges:
+        for (min_, max_) in self.include_bin_ranges:
             mask = np.logical_or(
                 mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask
@@ -567,7 +567,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         """
         mask = np.asarray([False] * self.num_bins)
         bin_indices = np.arange(self.num_bins)
-        for min_, max_ in self.include_bin_ranges:
+        for (min_, max_) in self.include_bin_ranges:
             mask = np.logical_or(
                 mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
         return mask

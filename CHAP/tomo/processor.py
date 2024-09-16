@@ -157,8 +157,6 @@ class TomoCHESSMapConverter(Processor):
             raise ValueError('Data for rotation angles is unavailable '
                              '(available independent dimensions: '
                              f'{independent_dimensions})')
-        rotation_angles_index = \
-            tomofields.data.axes.index('rotation_angles')
         rotation_angle_data_type = \
             tomofields.data.rotation_angles.attrs['data_type']
         if rotation_angle_data_type != 'scan_column':
@@ -266,7 +264,7 @@ class TomoCHESSMapConverter(Processor):
         if darkfield is not None:
             nxentry.dark_field_config = darkfield.config
             for scan in darkfield.spec_scans.values():
-                for scan_number, nxcollection in scan.items():
+                for nxcollection in scan.values():
                     data_shape = nxcollection.data[detector_prefix].shape
                     assert len(data_shape) == 3
                     assert data_shape[1] == detector_config.rows
@@ -305,7 +303,7 @@ class TomoCHESSMapConverter(Processor):
         # Collect bright field data
         nxentry.bright_field_config = brightfield.config
         for scan in brightfield.spec_scans.values():
-            for scan_number, nxcollection in scan.items():
+            for nxcollection in scan.values():
                 data_shape = nxcollection.data[detector_prefix].shape
                 assert len(data_shape) == 3
                 assert data_shape[1] == detector_config.rows
@@ -3364,16 +3362,15 @@ class TomoSpecProcessor(Processor):
     simulated tomography data set created by TomoSimProcessor.
     """
 
-    def process(self, data, scan_numbers=[1]):
+    def process(self, data, scan_numbers=None):
         """
         Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param scan_numbers: List of SPEC scan numbers,
-            defaults to `[1]`.
-        :type scan_numbers: list[int]
+        :param scan_numbers: List of SPEC scan numbers.
+        :type scan_numbers: list[int], optional
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
         :rtype: list[str]
@@ -3400,7 +3397,10 @@ class TomoSpecProcessor(Processor):
         nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
         if nxroot is not None:
             configs['tomo.models.TomoSimField'] = nxroot
-        scan_numbers = list(set(scan_numbers))
+        if scan_numbers is None:
+            scan_numbers = [1]
+        else:
+            scan_numbers = list(set(scan_numbers))
         station = None
         sample_type = None
         num_scan = 0

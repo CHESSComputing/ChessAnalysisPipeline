@@ -123,9 +123,6 @@ class GiwaxsConversionProcessor(Processor):
             NXroot,
         )
 
-        # Local modules
-        from CHAP.common import MapProcessor
-
         if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
             raise RuntimeError('More than one detector not yet implemented')
         detector = config.detectors[0]

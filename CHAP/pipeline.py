@@ -191,7 +191,7 @@ class PipelineItem():
                     os.path.join(outputdir, kwargs['filename']))
         else:
             self.logger.error('No implementation of read, write, or process')
-            return
+            return None
 
         method = getattr(self, method_name)
         allowed_args = inspect.getfullargspec(method).args \

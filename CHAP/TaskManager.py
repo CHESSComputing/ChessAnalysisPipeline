@@ -132,7 +132,7 @@ class Worker(threading.Thread):
                     self.pids.discard(pid)
                 except Exception as exc:
                     self.pids.discard(pid)
-                    msg = f'func={func} args={args} kwargs={kwargs}')
+                    msg = f'func={func} args={args} kwargs={kwargs}'
                     self.logger.error(f'error {str(exc)}, call {msg}')
                 evt.set()
             else:

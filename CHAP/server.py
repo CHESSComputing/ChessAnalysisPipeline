@@ -26,17 +26,22 @@ WARNING: This is a development server. Do not use it in a production deployment.
 Press CTRL+C to quit
 ...
 
-CHAP.server         : call pipeline args=() kwds={'pipeline': [{'common.PrintProcessor': {}}]}
-CHAP.server         : pipeline
-[{'common.PrintProcessor': {}}]
-CHAP.server         : Loaded <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
-CHAP.server         : Loaded <CHAP.pipeline.Pipeline object at 0x10e0f1f10> with 1 items
+CHAP.server         : Call pipeline args=()
+    kwds={'pipeline': [{'common.PrintProcessor': {}}]}
+CHAP.server         : pipeline [{'common.PrintProcessor': {}}]
+CHAP.server         : Loaded
+    <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
+CHAP.server         : Loaded
+    <CHAP.pipeline.Pipeline object at 0x10e0f1f10> with 1 items
 
-CHAP.server         : Calling "execute" on <CHAP.pipeline.Pipeline object at 0x10e0f1f10>
+CHAP.server         : Calling "execute" on <CHAP.pipeline.Pipeline
+    object at 0x10e0f1f10>
 Pipeline            : Executing "execute"
 
-Pipeline            : Calling "process" on <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
-PrintProcessor      : Executing "process" with type(data)=<class 'NoneType'>
+Pipeline            : Calling "process" on
+    <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
+PrintProcessor      : Executing "process" with
+    type(data)=<class 'NoneType'>
 PrintProcessor data :
 None
 PrintProcessor      : Finished "process" in 0.000 seconds
@@ -112,10 +117,10 @@ def daemon(name, queue, interval):
             print('Default action')
             time.sleep(interval)
         else:
-            task = queue.get()
-            if task == 'exit':
+            ttask = queue.get()
+            if ttask == 'exit':
                 return
-            print(f'daemon run {task}')
+            print(f'daemon run {ttask}')
 
 # start daemon thread in addition to Flask server
 start_new_thread('daemon', daemon, ('daemon', task_queue, 3))

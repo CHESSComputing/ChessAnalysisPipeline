@@ -487,6 +487,7 @@ class IntegrationConfig(BaseModel):
             return self.get_cake_integrated_data(spec_scans,
                                                  scan_number,
                                                  scan_step_index)
+        return None
 
     @property
     def integrated_data_coordinates(self):

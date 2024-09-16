@@ -49,9 +49,9 @@ class FoxdenWriter():
             headers['Authorization'] = f'Bearer {token}'
         else:
             raise Exception(
-                f'No valid write token found in CHESS_WRITE_TOKEN env variable'
+                f'Valid write token missing in CHESS_WRITE_TOKEN env variable')
 
-        # make actual HTTP request to FOXDEN service
+        # Make actual HTTP request to FOXDEN service
         if method.lower() == 'post':
             resp = requests.post(
                 url, headers=headers, timeout=timeout, data=data)

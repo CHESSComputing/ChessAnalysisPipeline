@@ -58,7 +58,7 @@ class DiffractionVolumeLengthProcessor(Processor):
             dvl_config = self.get_config(
                 data, 'edd.models.DiffractionVolumeLengthConfig',
                 inputdir=inputdir)
-        except:
+        except Exception as exc:
             self.logger.error(exc)
             self.logger.info('No valid DVL config in input pipeline data, '
                              'using config parameter instead.')
@@ -193,7 +193,6 @@ class DiffractionVolumeLengthProcessor(Processor):
             if interactive:
                 _, dvl_bounds = select_mask_1d(
                     masked_sum, x=x,
-                    label='Total (masked & normalized)',
                     preselected_index_ranges=[
                         (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
                     title=('Click and drag to indicate the boundary '
@@ -649,7 +648,7 @@ class LatticeParameterRefinementProcessor(Processor):
         # Get the interplanar spacings measured for each fit HKL peak
         # at the spectrum averaged over every point in the map to get
         # the refined estimate for the material's lattice parameter
-        (uniform_fit_centers, uniform_fit_centers_errors, _, _, _, _,
+        (uniform_fit_centers, _, _, _, _, _,
          uniform_best_fit, _, _, _, unconstrained_fit_centers, _, _, _,
          _, _, unconstrained_best_fit, _, _, _) = get_spectra_fits(
                 mean_intensity, energies, peak_locations, detector)
@@ -1466,16 +1465,18 @@ class MCATthCalibrationProcessor(Processor):
 
         # Validate the optional inputs
         if not is_int(centers_range, gt=0, log=False):
-            RuntimeError(f'Invalid centers_range parameter ({centers_range})')
+            raise RuntimeError(
+                f'Invalid centers_range parameter ({centers_range})')
         if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
+            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
         if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
+            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
         if background is not None:
             if isinstance(background, str):
                 background = [background]
             elif not is_str_series(background, log=False):
-                RuntimeError(f'Invalid background parameter ({background})')
+                raise RuntimeError(
+                    f'Invalid background parameter ({background})')
         if isinstance(baseline, bool):
             if baseline:
                 baseline = BaselineConfig()

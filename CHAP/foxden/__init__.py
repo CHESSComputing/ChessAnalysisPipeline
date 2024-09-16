@@ -3,5 +3,4 @@
 
 from CHAP.foxden.processor import FoxdenProvenanceProcessor
 # from CHAP.foxden.reader import
-# from CHAP.foxden.writer import
-
+from CHAP.foxden.writer import FoxdenWriter
