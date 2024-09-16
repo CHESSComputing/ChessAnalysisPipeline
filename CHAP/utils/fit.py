@@ -19,7 +19,7 @@ from os import (
 from re import sub
 from shutil import rmtree
 from sys import float_info
-from time import time
+#from time import time
 
 # Third party modules
 try:
@@ -36,9 +36,7 @@ import numpy as np
 # Local modules
 from CHAP.processor import Processor
 from CHAP.utils.general import (
-    is_int,
-    is_num,
-    is_dict_series,
+#    is_int,
     is_index,
     index_nearest,
     quick_plot,
@@ -69,12 +67,9 @@ height_factor = {
 
 
 class FitProcessor(Processor):
-    """
-    A processor to perform a fit on a data set or data map.
-    """
+    """A processor to perform a fit on a data set or data map. """
     def process(self, data, config=None):
-        """
-        Fit the data and return a CHAP.utils.fit.Fit or
+        """Fit the data and return a CHAP.utils.fit.Fit or
         CHAP.utils.fit.FitMap object depending on the dimensionality
         of the input data. The input data should contain a NeXus NXdata 
         object, with properly defined signal and axis.
@@ -82,6 +77,8 @@ class FitProcessor(Processor):
         :param data: Input data containing the
             nexusformat.nexus.NXdata object to fit.
         :type data: list[PipelineData]
+        :param config: Fit configuration.
+        :type config: dict, optional
         :raises ValueError: Invalid input or configuration parameter.
         :return: The fitted data object.
         :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
@@ -104,8 +101,8 @@ class FitProcessor(Processor):
             if config is not None:
                 try:
                     fit_config = FitConfig(**config)
-                except Exception as dict_exc:
-                    raise RuntimeError from dict_exc
+                except Exception as exc:
+                    raise RuntimeError from exc
 
             if isinstance(data, FitMap):
                 fit.fit(config=fit_config)
@@ -123,21 +120,22 @@ class FitProcessor(Processor):
             try:
                 nxdata = data.get_default()
                 assert nxdata is not None
-            except:
+            except Exception as exc:
                 if nxdata is None or nxdata.nxclass != 'NXdata':
-                    raise ValueError('Invalid default pathway to an NXdata '
-                                     f'object in ({data})')
+                    raise ValueError(
+                        'Invalid default pathway to an NXdata '
+                        f'object in ({data})') from exc
 
             # Get the fit configuration
             try:
                 fit_config = self.get_config(data, 'utils.models.FitConfig')
-            except Exception as data_exc:
+            except Exception:
                 logger.info('No valid fit config in input pipeline '
-                                 'data, using config parameter instead.')
+                            'data, using config parameter instead.')
                 try:
                     fit_config = FitConfig(**config)
-                except Exception as dict_exc:
-                    raise RuntimeError from dict_exc
+                except Exception as exc:
+                    raise RuntimeError from exc
 
             # Expand multipeak model if present
             found_multipeak = False
@@ -168,7 +166,7 @@ class FitProcessor(Processor):
                     rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
                     print_report=fit_config.print_report)
-        
+
         return fit
 
     @staticmethod
@@ -242,6 +240,7 @@ class FitProcessor(Processor):
 
 
 class Component():
+    """A model fit component."""
     def __init__(self, model, prefix=''):
         # Local modules
         from CHAP.utils.models import models
@@ -253,6 +252,7 @@ class Component():
 
 
 class Components(dict):
+    """The dictionary of model fit components."""
     def __init__(self):
         super().__init__(self)
 
@@ -264,7 +264,13 @@ class Components(dict):
         dict.__setitem__(self, key, value)
         value.name = key
 
+    @property
+    def components(self):
+        """Return the model fit component dictionary."""
+        return self.values()
+
     def add(self, model, prefix=''):
+        """Add a model to the model fit component dictionary."""
         # Local modules
         from CHAP.utils.models import model_classes
 
@@ -275,15 +281,10 @@ class Components(dict):
         name = f'{prefix}{model.model}'
         self.__setitem__(name, Component(model, prefix))
 
-    @property
-    def components(self):
-        return self.values()
-
 
 class Parameters(dict):
-    """
-    A dictionary of FitParameter objects, mimicking the functionality
-    of a similarly named class in the lmfit library.
+    """A dictionary of FitParameter objects, mimicking the
+    functionality of a similarly named class in the lmfit library.
     """
     def __init__(self):
         super().__init__(self)
@@ -302,8 +303,7 @@ class Parameters(dict):
         value.name = key
 
     def add(self, parameter, prefix=''):
-        """
-        Add a fit parameter.
+        """Add a fit parameter.
 
         :param parameter: The fit parameter to add to the dictionary.
         :type parameter: Union[str, FitParameter]
@@ -327,8 +327,7 @@ class Parameters(dict):
 
 
 class ModelResult():
-    """
-    The result of a model fit, mimicking the functionality of a
+    """The result of a model fit, mimicking the functionality of a
     similarly named class in the lmfit library.
     """
     def __init__(
@@ -420,8 +419,7 @@ class ModelResult():
                 setattr(par, '_stderr', stderr)
 
     def eval_components(self, x=None, parameters=None):
-        """
-        Evaluate each component of a composite model function.
+        """Evaluate each component of a composite model function.
 
         :param x: Independent variable, defaults to `None`, in which 
             case the class variable x is used.
@@ -451,8 +449,7 @@ class ModelResult():
         return result
 
     def fit_report(self, show_correl=False):
-        """
-        Generates a report of the fitting results with their best
+        """Generates a report of the fitting results with their best
         parameter values and uncertainties.
 
         :param show_correl: Whether to show list of correlations,
@@ -514,7 +511,7 @@ class ModelResult():
                 add(f'    {nout} {par.value:.7g} (fixed)')
 
         return '\n'.join(buff)
- 
+
 
 class Fit:
     """
@@ -656,10 +653,10 @@ class Fit:
 
     @property
     def components(self):
+        """Return the fit model components info."""
         # Third party modules
         from lmfit.models import ExpressionModel
 
-        """Return the fit model components info."""
         components = {}
         if self._result is None:
             logger.warning('Unable to collect components in Fit.components')
@@ -752,8 +749,7 @@ class Fit:
 
     @property
     def num_func_eval(self):
-        """
-        Return the number of function evaluations for the best fit.
+        """Return the number of function evaluations for the best fit.
         """
         if self._result is None:
             return None
@@ -797,8 +793,8 @@ class Fit:
 
     @property
     def var_names(self):
-        """
-        Return the variable names for the covarience matrix property.
+        """Return the variable names for the covarience matrix
+        property.
         """
         if self._result is None:
             return None
@@ -822,10 +818,10 @@ class Fit:
             print(result.fit_report(show_correl=show_correl))
 
     def add_parameter(self, parameter):
+        """Add a fit parameter to the fit model."""
         # Local modules
         from CHAP.utils.models import FitParameter
 
-        """Add a fit parameter to the fit model."""
         if parameter.get('expr') is not None:
             raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
@@ -1100,19 +1096,19 @@ class Fit:
                 logger.warning(
                     'Ignoring input parameter guess during refitting')
                 guess = False
-        if 'try_linear_fit' in kwargs:
-            raise RuntimeError('try_linear_fit needs testing')
-            try_linear_fit = kwargs.pop('try_linear_fit')
-            if not isinstance(try_linear_fit, bool):
-                raise ValueError(
-                    'Invalid value of keyword argument try_linear_fit '
-                    f'({try_linear_fit})')
-            if not self._try_linear_fit:
-                logger.warning(
-                    'Ignore superfluous keyword argument "try_linear_fit" '
-                    '(not yet supported for callable models)')
-            else:
-                self._try_linear_fit = try_linear_fit
+#        if 'try_linear_fit' in kwargs:
+#            raise RuntimeError('try_linear_fit needs testing')
+#            try_linear_fit = kwargs.pop('try_linear_fit')
+#            if not isinstance(try_linear_fit, bool):
+#                raise ValueError(
+#                    'Invalid value of keyword argument try_linear_fit '
+#                    f'({try_linear_fit})')
+#            if not self._try_linear_fit:
+#                logger.warning(
+#                    'Ignore superfluous keyword argument "try_linear_fit" '
+#                    '(not yet supported for callable models)')
+#            else:
+#                self._try_linear_fit = try_linear_fit
 
         # Setup the fit
         self._setup_fit(config, guess)
@@ -1225,8 +1221,7 @@ class Fit:
     @staticmethod
     def guess_init_peak(
             x, y, *args, center_guess=None, use_max_for_center=True):
-        """
-        Return a guess for the initial height, center and fwhm for a
+        """Return a guess for the initial height, center and fwhm for a
         single peak.
         """
         center_guesses = None
@@ -1336,6 +1331,7 @@ class Fit:
         return height, center, fwhm
 
     def _create_prefixes(self, models):
+        """Create model prefixes."""
         # Check for duplicate model names and create prefixes
         names = []
         prefixes = []
@@ -1423,12 +1419,12 @@ class Fit:
                             self.guess_init_peak(
                                 xx, yy, center_guess=center,
                                 use_max_for_center=False)
-                        if (self._fwhm_min is not None
-                                and fwhm_init < self._fwhm_min):
-                            fwhm_init = self._fwhm_min
-                        elif (self._fwhm_max is not None
-                                and fwhm_init > self._fwhm_max):
-                            fwhm_init = self._fwhm_max
+#                        if (self._fwhm_min is not None
+#                                and fwhm_init < self._fwhm_min):
+#                            fwhm_init = self._fwhm_min
+#                        elif (self._fwhm_max is not None
+#                                and fwhm_init > self._fwhm_max):
+#                            fwhm_init = self._fwhm_max
                         ast(f'fwhm = {fwhm_init}')
                         ast(f'height = {height_init}')
                         sig_init = ast(fwhm_factor[component._name])
@@ -1569,18 +1565,17 @@ class Fit:
                         self._parameters[name].set(value=self._norm[1])
 
     def _check_linearity_model(self):
-        """
-        Identify the linearity of all model parameters and check if
+        """Identify the linearity of all model parameters and check if
         the model is linear or not.
         """
         # Third party modules
         from lmfit.models import ExpressionModel
         from sympy import diff
 
-        if not self._try_linear_fit:
-            logger.info(
-                'Skip linearity check (not yet supported for callable models)')
-            return False
+#        if not self._try_linear_fit:
+#            logger.info(
+#                'Skip linearity check (not yet supported for callable models)')
+#            return False
         free_parameters = \
             [name for name, par in self._parameters.items() if par.vary]
         for component in self._model.components:
@@ -1619,8 +1614,7 @@ class Fit:
         return True
 
     def _fit_linear_model(self, x, y):
-        """
-        Perform a linear fit by direct matrix solution with numpy.
+        """Perform a linear fit by direct matrix solution with numpy.
         """
         # Third party modules
         from asteval import Interpreter
@@ -1821,9 +1815,7 @@ class Fit:
         self._result.init_params = None
 
     def _fit_nonlinear_model(self, x, y, **kwargs):
-        """
-        Perform a nonlinear fit with spipy or lmfit
-        """
+        """Perform a nonlinear fit with spipy or lmfit."""
         # Check bounds and prevent initial values at boundaries
         have_bounds = False
         self._parameter_bounds = {}
@@ -1851,8 +1843,7 @@ class Fit:
 
             assert self._mask is None
             self._ast = Interpreter()
-            self._ast.basesymtable = {
-                k:v for k, v in self._ast.symtable.items()}
+            self._ast.basesymtable = dict(self._ast.symtable.items())
             pars_init = []
             for i, (name, par) in enumerate(self._parameters.items()):
                 setattr(par, '_init_value', par.value)
@@ -2083,9 +2074,7 @@ class Fit:
 
 
 class FitMap(Fit):
-    """
-    Wrapper to the Fit class to fit data on a N-dimensional map
-    """
+    """Wrapper to the Fit class to fit data on a N-dimensional map."""
     def __init__(self, nxdata, config):
         """Initialize FitMap."""
         super().__init__(None, config)
@@ -2226,23 +2215,20 @@ class FitMap(Fit):
 
     @property
     def covar(self):
-        """
-        Return the covarience matrices of the best fit parameters.
+        """Return the covarience matrices of the best fit parameters.
         """
         logger.warning('Undefined property covar')
 
     @property
     def max_nfev(self):
-        """
-        Return if the maximum number of function evaluations is reached
-        for each fit.
+        """Return if the maximum number of function evaluations is
+        reached for each fit.
         """
         return self._max_nfev
 
     @property
     def num_func_eval(self):
-        """
-        Return the number of function evaluations for each best fit.
+        """Return the number of function evaluations for each best fit.
         """
         return self._num_func_eval
 
@@ -2280,8 +2266,8 @@ class FitMap(Fit):
 
     @property
     def var_names(self):
-        """
-        Return the variable names for the covarience matrix property.
+        """Return the variable names for the covarience matrix
+        property.
         """
         logger.warning('Undefined property var_names')
 
@@ -2409,7 +2395,6 @@ class FitMap(Fit):
 
     def fit(self, config=None, **kwargs):
         """Fit the model to the input data."""
-
         # Check input parameters
         if self._model is None:
             logger.error('Undefined fit model')
@@ -2760,10 +2745,10 @@ class FitMap(Fit):
             names = []
             for component in result.components:
                 if isinstance(component, (GaussianModel, LorentzianModel)):
-                   for name in component.param_names:
-                       if 'height' in name:
-                           heights.append(result.params[name].value)
-                           names.append(name)
+                    for name in component.param_names:
+                        if 'height' in name:
+                            heights.append(result.params[name].value)
+                            names.append(name)
             if heights:
                 refit = False
                 max_height = max(heights)

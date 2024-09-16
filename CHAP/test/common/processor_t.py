@@ -4,25 +4,24 @@ File       : common/processor_t.py
 Description: Unit tests for common/processor.py code
 """
 
-# system modules
-import time
+# System modules
 import os
-from shutil import rmtree
+#from shutil import rmtree
 import unittest
 
-# local modules
-from CHAP.common import (AsyncProcessor,
-                         IntegrationProcessor,
-                         IntegrateMapProcessor,
-                         MapProcessor,
-                         NexusToNumpyProcessor,
-                         NexusToXarrayProcessor,
-                         PrintProcessor,
-                         StrainAnalysisProcessor,
-                         XarrayToNexusProcessor,
-                         XarrayToNumpyProcessor)
+# Local modules
+from CHAP.common import (
+    AsyncProcessor,
+    IntegrationProcessor,
+#    IntegrateMapProcessor,
+#    MapProcessor,
+    NexusToNumpyProcessor,
+    NexusToXarrayProcessor,
+    PrintProcessor,
+    XarrayToNexusProcessor,
+    XarrayToNumpyProcessor,
+)
 from CHAP.pipeline import PipelineData
-
 
 test_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                              'data')
@@ -94,12 +93,13 @@ class IntegrationProcessorTest(unittest.TestCase):
 #        scan_numbers = map_config['spec_scans'][0]['scan_numbers']
 #        dim_values = [-1, 0, 1]
 #        scan_command = ('ascan'
-#                        + f' {dims[1]["name"]}'
-#                        + f' {dim_values[0]}'
-#                        + f' {dim_values[-1]}'
-#                        + f' {len(dim_values) - 1}'
-#                        + ' 1')
-#        column_labels = f'{dims[1]["name"]}  {"  ".join([s["name"] for s in scalars])}'
+#                        f' {dims[1]["name"]}'
+#                        f' {dim_values[0]}'
+#                        f' {dim_values[-1]}'
+#                        f' {len(dim_values) - 1}'
+#                        ' 1')
+#        column_labels = f'{dims[1]["name"]}  '
+#                        f'{"  ".join([s["name"] for s in scalars])}'
 #        spec_lines = [f'#F {map_config["spec_scans"][0]["spec_file"]}']
 #        spec_lines += [f'#E {int(datetime.now().timestamp())}']
 #        spec_lines += [f'#O0  {"  ".join(d["name"] for d in dims)}']
@@ -109,7 +109,8 @@ class IntegrationProcessorTest(unittest.TestCase):
 #            spec_lines += [f'#P0 {dim_0_val} 0']
 #            spec_lines += [f'#L  {column_labels}']
 #            for dim_1_val in dim_values:
-#                spec_lines += [f'{dim_1_val} {" ".join([str(random()) for s in scalars])}']
+#                spec_lines += [f'{dim_1_val} {" ".join([str(random())
+#                               for s in scalars])}']
 #        self.spec_file = os.path.join(test_data_dir,
 #                                      map_config['spec_scans'][0]['spec_file'])
 #        with open(self.spec_file, 'w') as specf:

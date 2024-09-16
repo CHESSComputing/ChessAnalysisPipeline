@@ -2,7 +2,8 @@
 """
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Writers used in multiple experiment-specific workflows.
+Description: Module for Writers used in multiple experiment-specific
+             workflows.
 """
 
 # System modules
@@ -11,7 +12,20 @@ from os import path as os_path
 # Local modules
 from CHAP import Writer
 
-def write_matplotlibfigure(data, filename, force_overwrite=False):
+def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
+    """Write a Matplotlib figure to file.
+
+    :param data: The figure to write to file
+    :type data: matplotlib.figure.Figure
+    :param filename: File name.
+    :type filename: str
+    :param savefig_kw: Keyword args to pass to
+        matplotlib.figure.Figure.savefig.
+    :type savefig_kw: dict, optional
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
     # Third party modules
     from matplotlib.figure import Figure
 
@@ -22,9 +36,22 @@ def write_matplotlibfigure(data, filename, force_overwrite=False):
     if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
-    data.savefig(filename, **savefig_kw)
+    if savefig_kw is None:
+        data.savefig(filename)
+    else:
+        data.savefig(filename, **savefig_kw)
 
 def write_nexus(data, filename, force_overwrite=False):
+    """Write a Nexus object to file.
+
+    :param data: The data to write to file
+    :type data: nexusformat.nexus.NXobject
+    :param filename: File name.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
     # Third party modules
     from nexusformat.nexus import NXobject
 
@@ -36,6 +63,16 @@ def write_nexus(data, filename, force_overwrite=False):
     data.save(filename, mode=mode)
 
 def write_tif(data, filename, force_overwrite=False):
+    """Write a tif image to file.
+
+    :param data: The data to write to file
+    :type data: numpy.ndarray
+    :param filename: File name.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
     # Third party modules
     from imageio import imwrite
     import numpy as np
@@ -51,6 +88,19 @@ def write_tif(data, filename, force_overwrite=False):
     imwrite(filename, data)
 
 def write_txt(data, filename, force_overwrite=False, append=False):
+    """Write plain text to file.
+
+    :param data: The data to write to file
+    :type data: Union[str, list[str]]
+    :param filename: File name.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    :param append: Flag to allow data to be appended to the file if it
+        already exists, defaults to `False`.
+    :type append: bool, optional
+    """
     # Local modules
     from CHAP.utils.general import is_str_series
 
@@ -75,11 +125,21 @@ def write_txt(data, filename, force_overwrite=False, append=False):
                 f.write('\n'.join(data))
 
 def write_yaml(data, filename, force_overwrite=False):
+    """Write data to a YAML file.
+
+    :param data: The data to write to file
+    :type data: Union[dict, list]
+    :param filename: File name.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
     # Third party modules
     import yaml
 
     if not isinstance(data, (dict, list)):
-        raise TypeError(f'input data must be a dict or list.')
+        raise TypeError('input data must be a dict or list.')
 
     if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
@@ -88,13 +148,22 @@ def write_yaml(data, filename, force_overwrite=False):
         yaml.dump(data, f, sort_keys=False)
 
 def write_filetree(data, outputdir, force_overwrite=False):
+    """Write data to a file tree.
+
+    :param data: The data to write to files
+    :type data: nexusformat.nexus.NXobject
+    :param outputdir: Output directory.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
     # System modules
     from os import makedirs
 
     # Third party modules
     from nexusformat.nexus import (
         NXentry,
-        NXsubentry,
         NXgroup,
         NXobject,
         NXroot,
@@ -118,10 +187,10 @@ def write_filetree(data, outputdir, force_overwrite=False):
                 write_txt(list(v.data), filename, force_overwrite)
             elif schema == 'json':
                 write_txt(str(v.data), filename, force_overwrite)
-            elif schema == 'yml' or schema == 'yaml':
+            elif schema in ('yml', 'yaml'):
                 from json import loads
                 write_yaml(loads(v.data.nxdata), filename, force_overwrite)
-            elif schema == 'tif' or schema == 'tiff':
+            elif schema in ('tif',  'tiff'):
                 write_tif(v.data, filename, force_overwrite)
             elif schema == 'h5':
                 if any(isinstance(vv, NXsubentry) for vv in v.values()):
@@ -147,7 +216,7 @@ def write_filetree(data, outputdir, force_overwrite=False):
 
 
 class ExtractArchiveWriter(Writer):
-    """Writer for tar files from binary data"""
+    """Writer for tar files from binary data."""
     def write(self, data, filename):
         """Take a .tar archive represented as bytes contained in `data`
         and write the extracted archive to files.
@@ -157,7 +226,7 @@ class ExtractArchiveWriter(Writer):
         :param filename: The name of the directory to write the archive
             files to.
         :type filename: str
-        :return: The achived data
+        :return: The achived data.
         :rtype: bytes
         """
         # System modules
@@ -173,7 +242,7 @@ class ExtractArchiveWriter(Writer):
 
 
 class FileTreeWriter(Writer):
-    """Writer for a file tree in NeXus format"""
+    """Writer for a file tree in NeXus format."""
     def write(self, data, outputdir, force_overwrite=False):
         """Write a NeXus format object contained in `data` to a 
         directory tree stuctured like the NeXus tree.
@@ -222,7 +291,7 @@ class FileTreeWriter(Writer):
 
 
 class H5Writer(Writer):
-    """Writer for H5 files from an `nexusformat.nexus.NXdata` object"""
+    """Writer for H5 files from an nexusformat.nexus.NXdata object."""
     def write(self, data, filename, force_overwrite=False):
         """Write the NeXus object contained in `data` to hdf5 file.
 
@@ -270,7 +339,7 @@ class MatplotlibAnimationWriter(Writer):
         :param filename: The name of the file to write to.
         :type filename: str
         :param fps: Movie frame rate (frames per second),
-            defaults to `1`
+            defaults to `1`.
         :type fps: int, optional
         :return: The original animation.
         :rtype: matplotlib.animation.ArtistAnimation
@@ -289,33 +358,33 @@ class MatplotlibAnimationWriter(Writer):
 
 class MatplotlibFigureWriter(Writer):
     """Writer for saving matplotlib figures to image files."""
-    def write(self, data, filename, savefig_kw={}, force_overwrite=False):
+    def write(self, data, filename, savefig_kw=None, force_overwrite=False):
         """Write the matplotlib.figure.Figure contained in `data` to
         file.
 
-        :param data: The matplotlib figure
+        :param data: The matplotlib figure.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param savefig_kw: Keyword args to pass to
-            matplotlib.figure.Figure.savefig, defaults to {}.
+            matplotlib.figure.Figure.savefig.
         :type savefig_kw: dict, optional
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
-        :return: The original figure object
+        :return: The original figure object.
         :rtype: matplotlib.figure.Figure
         """
         data = self.unwrap_pipelinedata(data)[-1]
-        write_matplotlibfigure(data, filename, force_overwrite)
+        write_matplotlibfigure(data, filename, savefig_kw, force_overwrite)
 
         return data
 
 
 class NexusWriter(Writer):
-    """Writer for NeXus files from `NXobject`-s"""
+    """Writer for NeXus files from `NXobject`-s."""
     def write(self, data, filename, nxpath=None, force_overwrite=False):
         """Write the NeXus object contained in `data` to file.
 
@@ -369,7 +438,7 @@ class NexusWriter(Writer):
                 nxpath = root.NXentry[0].nxpath
                 self.logger.warning(
                     f'Path "{nxpath}" not present in {filename}. '
-                    + f'Using {nxpath} instead.')
+                    f'Using {nxpath} instead.')
             full_nxpath = os.path.join(nxpath, nxname)
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
@@ -379,13 +448,13 @@ class NexusWriter(Writer):
                 if force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '
-                        + f'{os.path.join(nxpath, nxname)} in {filename}')
+                        f'{os.path.join(nxpath, nxname)} in {filename}')
                     del root[full_nxpath]
             try:
                 root[full_nxpath] = data
-            except Exception as e:
+            except Exception as exc:
                 nxfile.close()
-                raise e
+                raise exc
             nxfile.close()
         return data
 
@@ -405,7 +474,7 @@ class PyfaiResultsWriter(Writer):
         :param filename: Name of the file to which results will be
             saved. Format of output is determined ffrom the
             extension. Currently supported formats are: `.npz`,
-            `.nxs`
+            `.nxs`.
         :type filename: str
         """
         import os
@@ -422,8 +491,8 @@ class PyfaiResultsWriter(Writer):
            and not all([isinstance(r, Integrate2dResult) for r in results]):
             raise Exception(
                 'Bad input data: all items must have the same type -- either '
-                + 'all pyFAI.containers.Integrate1dResult, or all '
-                + 'pyFAI.containers.Integrate2dResult.')
+                'all pyFAI.containers.Integrate1dResult, or all '
+                'pyFAI.containers.Integrate2dResult.')
 
         if os.path.isfile(filename):
             if force_overwrite:
@@ -442,7 +511,7 @@ class PyfaiResultsWriter(Writer):
         return results
 
     def write_npz(self, results, filename):
-        """Save `results` to the .npz file, `filename`"""
+        """Save `results` to the .npz file, `filename`."""
         import numpy as np
 
         data = {'radial': results[0].radial,
@@ -456,10 +525,9 @@ class PyfaiResultsWriter(Writer):
 
         np.savez(filename, **data)
 
-    def write_nxs(results, filename):
-        """Save `results` to the .nxs file, `filename`"""
+    def write_nxs(self, results, filename):
+        """Save `results` to the .nxs file, `filename`."""
         raise NotImplementedError
-
 
 
 class TXTWriter(Writer):
@@ -493,7 +561,7 @@ class TXTWriter(Writer):
 
 
 class YAMLWriter(Writer):
-    """Writer for YAML files from `dict`-s"""
+    """Writer for YAML files from `dict`-s."""
     def write(self, data, filename, force_overwrite=False):
         """Write the dictionary contained in `data` to file.
 

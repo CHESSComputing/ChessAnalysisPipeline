@@ -24,13 +24,12 @@ class RunConfig():
             'profile': False,
             'spawn': 0}
 
-    def __init__(self, config={}, comm=None):
+    def __init__(self, config=None, comm=None):
         """RunConfig constructor.
 
-        :param config: Pipeline configuration options,
-            defaults to `{}`.
+        :param config: Pipeline configuration options.
         :type config: dict, optional
-        :param comm: MPI communicator, defaults to `None`.
+        :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         """
         # System modules
@@ -41,6 +40,8 @@ class RunConfig():
             rank = 0
         else:
             rank = comm.Get_rank()
+        if config is None:
+            config = {}
         for opt in self.opts:
             setattr(self, opt, config.get(opt, self.opts[opt]))
 
@@ -50,7 +51,7 @@ class RunConfig():
                 os.makedirs(self.root)
             if not os.access(self.root, os.R_OK):
                 raise OSError('root directory is not accessible for reading '
-                          f'({self.root})')
+                              f'({self.root})')
 
         # Check if inputdir exists and is readable
         if not os.path.isabs(self.inputdir):
@@ -70,7 +71,7 @@ class RunConfig():
             if not os.path.isdir(self.outputdir):
                 os.makedirs(self.outputdir)
             try:
-                tmpfile = NamedTemporaryFile(dir=self.outputdir)
+                NamedTemporaryFile(dir=self.outputdir)
             except:
                 raise OSError('output directory is not accessible for writing '
                               f'({self.outputdir})')
@@ -85,11 +86,11 @@ def parser():
     """Return an argument parser for the `CHAP` CLI. This parser has
     one argument: the input CHAP configuration file.
     """
-    parser = argparse.ArgumentParser(prog='PROG')
-    parser.add_argument(
+    pparser = argparse.ArgumentParser(prog='PROG')
+    pparser.add_argument(
         'config', action='store', default='',
         help='Input configuration file')
-    return parser
+    return pparser
 
 def main():
     """Main function."""
@@ -98,7 +99,7 @@ def main():
         from mpi4py import MPI
         have_mpi = True
         comm = MPI.COMM_WORLD
-    except:
+    except ImportError:
         have_mpi = False
         comm = None
 
@@ -110,7 +111,7 @@ def main():
         config = safe_load(file)
 
     # Check if run was a worker spawned by another Processor
-    run_config = RunConfig(config.get('config', {}), comm)
+    run_config = RunConfig(config.get('config'), comm)
     if have_mpi and run_config.spawn:
         sub_comm = MPI.Comm.Get_parent()
         common_comm = sub_comm.Merge(True)
@@ -118,11 +119,11 @@ def main():
         if run_config.spawn > 0:
             with open(f'{configfile}_{common_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config', {}), common_comm)
+                run_config = RunConfig(config.get('config'), common_comm)
         else:
             with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config', {}), comm)
+                run_config = RunConfig(config.get('config'), comm)
     else:
         common_comm = comm
 
@@ -153,7 +154,7 @@ def runner(run_config, pipeline_config, comm=None):
     :type run_config: CHAP.runner.RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
-    :param comm: MPI communicator, defaults to `None`.
+    :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
     :return: The pipeline's returned data field.
     """
@@ -161,7 +162,7 @@ def runner(run_config, pipeline_config, comm=None):
     from time import time
 
     # logging setup
-    logger, log_handler = setLogger(run_config.log_level)
+    logger, log_handler = set_logger(run_config.log_level)
     logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
     # Run the pipeline
@@ -172,7 +173,7 @@ def runner(run_config, pipeline_config, comm=None):
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
     return data
 
-def setLogger(log_level='INFO'):
+def set_logger(log_level='INFO'):
     """Helper function to set CHAP logger.
 
     :param log_level: Logger level, defaults to `"INFO"`.
@@ -196,20 +197,20 @@ def run(
 
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
-    :param inputdir: Input directory, defaults to `None'`.
+    :param inputdir: Input directory.
     :type inputdir: str, optional
-    :param outputdir: Output directory, defaults to `None'`.
+    :param outputdir: Output directory.
     :type outputdir: str, optional
     :param interactive: Allows for user interactions,
         defaults to `False`.
     :type interactive: bool, optional
-    :param logger: CHAP logger, defaults to `None`.
+    :param logger: CHAP logger.
     :type logger: logging.Logger, optional
-    :param log_level: Logger level, defaults to `None`.
+    :param log_level: Logger level.
     :type log_level: str, optional
-    :param log_handler: logging handler, defaults to `None`.
+    :param log_handler: Logging handler.
     :type log_handler: logging.StreamHandler, optional
-    :param comm: MPI communicator, defaults to `None`.
+    :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
     :return: The `data` field of the first item in the returned
         list of pipeline items.
@@ -256,15 +257,16 @@ def run(
                         if not os.path.isdir(newoutputdir):
                             os.makedirs(newoutputdir)
                         try:
-                            tmpfile = NamedTemporaryFile(dir=newoutputdir)
-                        except:
-                            raise OSError('output directory is not accessible '
-                                          f'for writing ({newoutputdir})')
+                            NamedTemporaryFile(dir=newoutputdir)
+                        except Exceptions as exc:
+                            raise OSError(
+                                'output directory is not accessible for '
+                                f'writing ({newoutputdir})') from exc
                     kwargs['outputdir'] = newoutputdir
                 kwargs = {**kwargs, **item_args}
         else:
             name = item
-        if "users" in name:
+        if 'users' in name:
             # Load users module. This is required in CHAPaaS which can
             # have common area for users module. Otherwise, we will be
             # required to have invidual user's PYTHONPATHs to load user
@@ -275,14 +277,14 @@ def run(
                 if logger is not None:
                     logger.error(f'Unable to load {name}')
                 continue
-            clsName = name.split('.')[-1]
-            modName = '.'.join(name.split('.')[:-1])
-            module = __import__(modName, fromlist=[clsName])
-            obj = getattr(module, clsName)()
+            cls_name = name.split('.')[-1]
+            mod_name = '.'.join(name.split('.')[:-1])
+            module = __import__(mod_name, fromlist=[cls_name])
+            obj = getattr(module, cls_name)()
         else:
-            modName, clsName = name.split('.')
-            module = __import__(f'CHAP.{modName}', fromlist=[clsName])
-            obj = getattr(module, clsName)()
+            mod_name, cls_name = name.split('.')
+            module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
+            obj = getattr(module, cls_name)()
         if log_level is not None:
             obj.logger.setLevel(log_level)
         if log_handler is not None:

@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+"""EDD specific readers."""
 
 # System modules
 import os
 
 # Third party modules
+from chess_scanparsers import SMBMCAScanParser as ScanParser
 import numpy as np
 
 # Local modules
@@ -34,10 +36,11 @@ class EddMapReader(Reader):
         """
         # Local modules
         from CHAP.common.models.map import MapConfig
-        from CHAP.pipeline import PipelineData
-        from CHAP.utils.general import list_to_string
+        from CHAP.utils.general import (
+            is_str_series,
+            list_to_string,
+        )
         from CHAP.utils.parfile import ParFile
-        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         if detector_names is not None:
             assert is_str_series(detector_names, raise_error=True)
@@ -50,18 +53,19 @@ class EddMapReader(Reader):
         dataset_rows_i = np.argwhere(
             np.where(
                 np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
-        scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i\
-                    if parfile.data[i][parfile.scann_i] in \
+        scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i
+                    if parfile.data[i][parfile.scann_i] in
                         parfile.good_scan_numbers()]
         self.logger.debug(f'Scan numbers: {list_to_string(scan_nos)}')
-        spec_scans = [dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)]
+        spec_scans = [
+            {'spec_file': parfile.spec_file, 'scan_numbers': scan_nos}]
 
         # Get scan type for this dataset
         scan_types = parfile.get_values('scan_type', scan_numbers=scan_nos)
         if any([st != scan_types[0] for st in scan_types]):
             msg = 'Only one scan type per dataset is suported.'
             self.logger.error(msg)
-            raise Exception(msg)
+            raise RuntimeError(msg)
         scan_type = scan_types[0]
         self.logger.debug(f'Scan type: {scan_type}')
 
@@ -69,14 +73,14 @@ class EddMapReader(Reader):
         # Start by adding labx, laby, labz, and omega. Any "extra"
         # dimensions will be sqeezed out of the map later.
         independent_dimensions = [
-            dict(label='labx', units='mm', data_type='smb_par',
-                 name='labx'),
-            dict(label='laby', units='mm', data_type='smb_par',
-                 name='laby'),
-            dict(label='labz', units='mm', data_type='smb_par',
-                 name='labz'),
-            dict(label='ometotal', units='degrees', data_type='smb_par',
-                 name='ometotal')
+            {'label': 'labx', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labx'},
+            {'label': 'laby', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'laby'},
+            {'label': 'labz', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labz'},
+            {'label': 'ometotal', 'units': 'degrees',
+             'data_type': 'smb_par', 'name': 'ometotal'},
         ]
         scalar_data = []
         attrs = {}
@@ -84,71 +88,82 @@ class EddMapReader(Reader):
             self.logger.warning(
                 'Assuming all fly axes parameters are identical for all scans')
             attrs['fly_axis_labels'] = []
-            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
-                           4: 'fly_ometotal'}
+            axes_labels = {
+                1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz', 4: 'fly_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
             axes_added = []
             scanparser = ScanParser(parfile.spec_file, scan_nos[0])
             def add_fly_axis(fly_axis_index):
+                """Add the fly axis info."""
                 if fly_axis_index in axes_added:
                     return
                 fly_axis_key = scanparser.pars[f'fly_axis{fly_axis_index}']
-                independent_dimensions.append(dict(
-                    label=axes_labels[fly_axis_key],
-                    data_type='spec_motor',
-                    units=axes_units[fly_axis_key],
-                    name=scanparser.spec_scan_motor_mnes[fly_axis_index]))
+                independent_dimensions.append({
+                    'label': axes_labels[fly_axis_key],
+                    'data_type': 'spec_motor',
+                    'units': axes_units[fly_axis_key],
+                    'name': scanparser.spec_scan_motor_mnes[fly_axis_index],
+                })
                 axes_added.append(fly_axis_index)
                 attrs['fly_axis_labels'].append(axes_labels[fly_axis_key])
             add_fly_axis(0)
             if scan_type in (2, 3, 5):
                 add_fly_axis(1)
             if scan_type == 5:
-                scalar_data.append(dict(
-                    label='bin_axis', units='n/a', data_type='smb_par',
-                    name='bin_axis'))
+                scalar_data.append({
+                    'label': 'bin_axis', 'units': 'n/a',
+                    'data_type': 'smb_par', 'name': 'bin_axis',
+                })
                 attrs['bin_axis_label'] = axes_labels[
                     scanparser.pars['bin_axis']].replace('fly_', '')
 
         # Add in the usual extra scalar data maps for EDD
         scalar_data.extend([
-            dict(label='SCAN_N', units='n/a', data_type='smb_par',
-                 name='SCAN_N'),
-            dict(label='rsgap_size', units='mm', data_type='smb_par',
-                 name='rsgap_size'),
-            dict(label='x_effective', units='mm', data_type='smb_par',
-                 name='x_effective'),
-            dict(label='z_effective', units='mm', data_type='smb_par',
-                 name='z_effective'),
+            {'label': 'SCAN_N', 'units': 'n/a', 'data_type': 'smb_par',
+             'name': 'SCAN_N'},
+            {'label': 'rsgap_size', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'rsgap_size'},
+            {'label': 'x_effective', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'x_effective'},
+            {'label': 'z_effective', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'z_effective'},
         ])
 
-        # Construct initial map config dictionary
+        # Construct and validate the initial map config dictionary
         scanparser = ScanParser(parfile.spec_file, scan_nos[0])
-        map_config_dict = dict(
-            title=f'{scanparser.scan_name}_dataset{dataset_id}',
-            station='id1a3',
-            experiment_type='EDD',
-            sample=dict(name=scanparser.scan_name),
-            spec_scans=[
-                dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)],
-            independent_dimensions=independent_dimensions,
-            scalar_data=scalar_data,
-            presample_intensity=dict(name='a3ic1', data_type='scan_column'),
-            postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='sec', data_type='scan_column'),
-            attrs=attrs,
-        )
-        map_config = MapConfig(**map_config_dict)
+        map_config_dict = {
+            'title': f'{scanparser.scan_name}_dataset{dataset_id}',
+            'station': 'id1a3',
+            'experiment_type': 'EDD',
+            'sample': {'name': scanparser.scan_name},
+            'spec_scans': spec_scans,
+            'independent_dimensions': independent_dimensions,
+            'scalar_data': scalar_data,
+            'presample_intensity': {
+                'name': 'a3ic1',
+                'data_type': 'scan_column'},
+            'postsample_intensity': {
+                'name': 'diode',
+                'data_type': 'scan_column'},
+            'dwell_time_actual': {
+                'name': 'sec',
+                'data_type': 'scan_column'},
+            'attrs': attrs,
+        }
+        MapConfig(**map_config_dict)
 
         # Add lab coordinates to the map's scalar_data only if they
         # are NOT already one of the sqeezed map's
         # independent_dimensions.
         lab_dims = [
-            dict(label='labx', units='mm', data_type='smb_par', name='labx'),
-            dict(label='laby', units='mm', data_type='smb_par', name='laby'),
-            dict(label='labz', units='mm', data_type='smb_par', name='labz'),
-            dict(label='ometotal', units='degrees', data_type='smb_par',
-                 name='ometotal')
+            {'label': 'labx', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labx'},
+            {'label': 'laby', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'laby'},
+            {'label': 'labz', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labz'},
+            {'label': 'ometotal', 'units': 'degrees',
+             'data_type': 'smb_par', 'name': 'ometotal'},
         ]
         for dim in lab_dims:
             if dim not in independent_dimensions:
@@ -201,10 +216,8 @@ class EddMPIMapReader(Reader):
 
         # Local modules
         from CHAP.common.models.map import MapConfig
-        from CHAP.pipeline import PipelineData
-        from CHAP.utils.general import list_to_string
+        from CHAP.utils.general import is_str_series
         from CHAP.utils.parfile import ParFile
-        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         assert is_str_series(detector_names, raise_error=True)
 
@@ -216,11 +229,12 @@ class EddMPIMapReader(Reader):
         dataset_rows_i = np.argwhere(
             np.where(
                 np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
-        scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i\
-                    if parfile.data[i][parfile.scann_i] in \
+        scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i
+                    if parfile.data[i][parfile.scann_i] in
                         parfile.good_scan_numbers()]
         self.logger.debug(f'Scan numbers: {scan_nos}')
-        spec_scans = [dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)]
+        spec_scans = [
+            {'spec_file': parfile.spec_file, 'scan_numbers': scan_nos}]
 
         # Get scan type for this dataset
         scan_types = parfile.get_values('scan_type', scan_numbers=scan_nos)
@@ -235,14 +249,14 @@ class EddMPIMapReader(Reader):
         # Start by adding labx, laby, labz, and omega. Any "extra"
         # dimensions will be sqeezed out of the map later.
         independent_dimensions = [
-            dict(label='labx', units='mm', data_type='smb_par',
-                 name='labx'),
-            dict(label='laby', units='mm', data_type='smb_par',
-                 name='laby'),
-            dict(label='labz', units='mm', data_type='smb_par',
-                 name='labz'),
-            dict(label='ometotal', units='degrees', data_type='smb_par',
-                 name='ometotal')
+            {'label': 'labx', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labx'},
+            {'label': 'laby', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'laby'},
+            {'label': 'labz', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labz'},
+            {'label': 'ometotal', 'units': 'degrees',
+             'data_type': 'smb_par', 'name': 'ometotal'},
         ]
         scalar_data = []
         attrs = {}
@@ -250,60 +264,68 @@ class EddMPIMapReader(Reader):
             self.logger.warning(
                 'Assuming all fly axes parameters are identical for all scans')
             attrs['fly_axis_labels'] = []
-            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
-                           4: 'fly_ometotal'}
+            axes_labels = {
+                1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz', 4: 'fly_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
             axes_added = []
             scanparser = ScanParser(parfile.spec_file, scan_nos[0])
             def add_fly_axis(fly_axis_index):
+                """Add the fly axis info."""
                 if fly_axis_index in axes_added:
                     return
                 fly_axis_key = scanparser.pars[f'fly_axis{fly_axis_index}']
-                independent_dimensions.append(dict(
-                    label=axes_labels[fly_axis_key],
-                    data_type='spec_motor',
-                    units=axes_units[fly_axis_key],
-                    name=scanparser.spec_scan_motor_mnes[fly_axis_index]))
+                independent_dimensions.append({
+                    'label': axes_labels[fly_axis_key],
+                    'data_type': 'spec_motor',
+                    'units': axes_units[fly_axis_key],
+                    'name': scanparser.spec_scan_motor_mnes[fly_axis_index],
+                })
                 axes_added.append(fly_axis_index)
                 attrs['fly_axis_labels'].append(axes_labels[fly_axis_key])
             add_fly_axis(0)
             if scan_type in (2, 3, 5):
                 add_fly_axis(1)
             if scan_type == 5:
-                scalar_data.append(dict(
-                    label='bin_axis', units='n/a', data_type='smb_par',
-                    name='bin_axis'))
+                scalar_data.append({
+                    'label': 'bin_axis', 'units': 'n/a',
+                    'data_type': 'smb_par', 'name': 'bin_axis',
+                })
                 attrs['bin_axis_label'] = axes_labels[
                     scanparser.pars['bin_axis']].replace('fly_', '')
 
         # Add in the usual extra scalar data maps for EDD
         scalar_data.extend([
-            dict(label='SCAN_N', units='n/a', data_type='smb_par',
-                 name='SCAN_N'),
-            dict(label='rsgap_size', units='mm', data_type='smb_par',
-                 name='rsgap_size'),
-            dict(label='x_effective', units='mm', data_type='smb_par',
-                 name='x_effective'),
-            dict(label='z_effective', units='mm', data_type='smb_par',
-                 name='z_effective'),
+            {'label': 'SCAN_N', 'units': 'n/a', 'data_type': 'smb_par',
+             'name': 'SCAN_N'},
+            {'label': 'rsgap_size', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'rsgap_size'},
+            {'label': 'x_effective', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'x_effective'},
+            {'label': 'z_effective', 'units': 'mm',
+             'data_type': 'smb_par', 'name': 'z_effective'},
         ])
 
-        # Construct initial map config dictionary
+        # Construct and validate the initial map config dictionary
         scanparser = ScanParser(parfile.spec_file, scan_nos[0])
-        map_config_dict = dict(
-            title=f'{scanparser.scan_name}_dataset{dataset_id}',
-            station='id1a3',
-            experiment_type='EDD',
-            sample=dict(name=scanparser.scan_name),
-            spec_scans=[
-                dict(spec_file=parfile.spec_file, scan_numbers=scan_nos)],
-            independent_dimensions=independent_dimensions,
-            scalar_data=scalar_data,
-            presample_intensity=dict(name='a3ic1', data_type='scan_column'),
-            postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='sec', data_type='scan_column'),
-            attrs=attrs
-        )
+        map_config_dict = {
+            'title': f'{scanparser.scan_name}_dataset{dataset_id}',
+            'station': 'id1a3',
+            'experiment_type': 'EDD',
+            'sample': {'name': scanparser.scan_name},
+            'spec_scans': spec_scans,
+            'independent_dimensions': independent_dimensions,
+            'scalar_data': scalar_data,
+            'presample_intensity': {
+                'name': 'a3ic1',
+                'data_type': 'scan_column'},
+            'postsample_intensity': {
+                'name': 'diode',
+                'data_type': 'scan_column'},
+            'dwell_time_actual': {
+                'name': 'sec',
+                'data_type': 'scan_column'},
+            'attrs': attrs,
+        }
         map_config = MapConfig(**map_config_dict)
 
         # Squeeze out extraneous independent dimensions (dimensions
@@ -317,7 +339,7 @@ class EddMPIMapReader(Reader):
             self.logger.debug(f'Map shape: {map_config.shape}')
             self.logger.debug(
                 'Sqeezing out independent dimension '
-                + independent_dimensions[remove_dim_index]['label'])
+                f'{independent_dimensions[remove_dim_index]["label"]}')
             independent_dimensions.pop(remove_dim_index)
             map_config = MapConfig(**map_config_dict)
         self.logger.debug(
@@ -329,11 +351,14 @@ class EddMPIMapReader(Reader):
         # are NOT already one of the sqeezed map's
         # independent_dimensions.
         lab_dims = [
-            dict(label='labx', units='mm', data_type='smb_par', name='labx'),
-            dict(label='laby', units='mm', data_type='smb_par', name='laby'),
-            dict(label='labz', units='mm', data_type='smb_par', name='labz'),
-            dict(label='ometotal', units='degrees', data_type='smb_par',
-                 name='ometotal')
+            {'label': 'labx', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labx'},
+            {'label': 'laby', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'laby'},
+            {'label': 'labz', 'units': 'mm', 'data_type': 'smb_par',
+             'name': 'labz'},
+            {'label': 'ometotal', 'units': 'degrees',
+             'data_type': 'smb_par', 'name': 'ometotal'},
         ]
         for dim in lab_dims:
             if dim not in independent_dimensions:
@@ -345,9 +370,9 @@ class EddMPIMapReader(Reader):
         nxentry.map_config = dumps(map_config.dict())
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
-            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
-                NXfield(value=scans.scan_numbers,
-                        attrs={'spec_file': str(scans.spec_file)})
+            nxentry.spec_scans[scans.scanparsers[0].scan_name] = NXfield(
+                value=scans.scan_numbers,
+                attrs={'spec_file': str(scans.spec_file)})
 
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(
@@ -391,42 +416,43 @@ class ScanToMapReader(Reader):
         :type spec_file: str
         :param scan_number: Number of the SPEC scan.
         :type scan_number: int
-        :returns: Map configuration dictionary
+        :returns: Map configuration dictionary.
         :rtype: dict
         """
-        # Local modules
-        from chess_scanparsers import SMBMCAScanParser as ScanParser
-
         scanparser = ScanParser(spec_file, scan_number)
 
-        if scanparser.spec_macro in ('tseries', 'loopscan') or \
-           (scanparser.spec_macro == 'flyscan' and \
-            not len(scanparser.spec_args) ==5):
-            independent_dimensions = [
-                {'label': 'Time',
-                 'units': 'seconds',
-                 'data_type': 'scan_column',
-                 'name': 'Time'}]
+        if (scanparser.spec_macro in ('tseries', 'loopscan') or
+               (scanparser.spec_macro == 'flyscan' and
+                not len(scanparser.spec_args) == 5)):
+            independent_dimensions = [{
+                'label': 'Time', 'units': 'seconds',
+                'data_type': 'scan_column', 'name': 'Time',
+            }]
         else:
             independent_dimensions = [
-                {'label': mne,
-                 'units': 'unknown units',
-                 'data_type': 'spec_motor',
-                 'name': mne}
+                {'label': mne, 'units': 'unknown units',
+                 'data_type': 'spec_motor', 'name': mne}
                 for mne in scanparser.spec_scan_motor_mnes]
 
-        map_config_dict = dict(
-            title=f'{scanparser.scan_name}_{scan_number:03d}',
-            station='id1a3',
-            experiment_type='EDD',
-            sample=dict(name=scanparser.scan_name),
-            spec_scans=[
-                dict(spec_file=spec_file, scan_numbers=[scan_number])],
-            independent_dimensions=independent_dimensions,
-            presample_intensity=dict(name='a3ic1', data_type='scan_column'),
-            postsample_intensity=dict(name='diode', data_type='scan_column'),
-            dwell_time_actual=dict(name='sec', data_type='scan_column')
-        )
+        map_config_dict = {
+            'title': f'{scanparser.scan_name}_{scan_number:03d}',
+            'station': 'id1a3',
+            'experiment_type': 'EDD',
+            'sample': {'name': scanparser.scan_name},
+            'spec_scans': [{
+                'spec_file': spec_file,
+                'scan_numbers': [scan_number]}],
+            'independent_dimensions': independent_dimensions,
+            'presample_intensity': {
+                'name': 'a3ic1',
+                'data_type': 'scan_column'},
+            'postsample_intensity': {
+                'name': 'diode',
+                'data_type': 'scan_column'},
+            'dwell_time_actual': {
+                'name': 'sec',
+                'data_type': 'scan_column'},
+        }
 
         return map_config_dict
 
@@ -462,8 +488,7 @@ class SetupNXdataReader(Reader):
             for EDD dataset collection.
         :type filename: str
         :param dataset_id: Number of the dataset in the .txt file to
-            return
-            `CHAP.common.SetupNXdataProcessor.process`
+            return `CHAP.common.SetupNXdataProcessor.process`
             arguments for.
         :type dataset_id: int
         :returns: The dataset's coordinate names, values, attributes,
@@ -517,61 +542,61 @@ class SetupNXdataReader(Reader):
         # Start inferring coords and signals lists for EDD experiments
         self.logger.warning(
             'Assuming the following parameters are identical across the '
-            + 'entire dataset: scan type, configuration descriptor')
+            'entire dataset: scan type, configuration descriptor')
         scan_type = dataset_lines[0][12]
         self.logger.debug(f'scan_type = {scan_type}')
         coords = [
-            dict(name='labx',
-                 values=np.unique([l[3] for l in dataset_lines]),
-                 attrs=dict(
-                     units='mm', local_name='labx', data_type='smb_par')),
-            dict(name='laby',
-                 values=np.unique([l[4] for l in dataset_lines]),
-                 attrs=dict(
-                     units='mm', local_name='laby', data_type='smb_par')),
-            dict(name='labz',
-                 values=np.unique([l[5] for l in dataset_lines]),
-                 attrs=dict(
-                     units='mm', local_name='labz', data_type='smb_par')),
-            dict(name='ometotal',
-                 values=np.unique([l[6] + l[7] for l in dataset_lines]),
-                 attrs=dict(
-                     units='degrees', local_name='ometotal',
-                     data_type='smb_par'))
+            {'name': 'labx',
+             'values': np.unique([l[3] for l in dataset_lines]),
+             'attrs': {'units': 'mm', 'local_name': 'labx',
+                       'data_type': 'smb_par'}},
+            {'name': 'laby',
+             'values': np.unique([l[4] for l in dataset_lines]),
+             'attrs': {'units': 'mm', 'local_name': 'laby',
+                       'data_type': 'smb_par'}},
+            {'name': 'labz',
+             'values': np.unique([l[5] for l in dataset_lines]),
+             'attrs': {'units': 'mm', 'local_name': 'labz',
+                       'data_type': 'smb_par'}},
+            {'name': 'ometotal',
+             'values': np.unique([l[6] + l[7] for l in dataset_lines]),
+             'attrs': {'units': 'degrees', 'local_name': 'ometotal',
+                       'data_type': 'smb_par'}},
         ]
         signals = [
-            dict(name='presample_intensity', shape=[],
-                 attrs=dict(units='counts', local_name='a3ic1',
-                            data_type='scan_column')),
-            dict(name='postsample_intensity', shape=[],
-                 attrs=dict(units='counts', local_name='diode',
-                            data_type='scan_column')),
-            dict(name='dwell_time_actual', shape=[],
-                 attrs=dict(units='seconds', local_name='sec',
-                            data_type='scan_column')),
-            dict(name='SCAN_N', shape=[],
-                 attrs=dict(units='n/a', local_name='SCAN_N',
-                            data_type='smb_par')),
-            dict(name='rsgap_size', shape=[],
-                 attrs=dict(units='mm', local_name='rsgap_size',
-                            data_type='smb_par')),
-            dict(name='x_effective', shape=[],
-                 attrs=dict(units='mm', local_name='x_effective',
-                            data_type='smb_par')),
-            dict(name='z_effective', shape=[],
-                 attrs=dict(units='mm', local_name='z_effective',
-                            data_type='smb_par')),
+            {'name': 'presample_intensity', 'shape': '[]',
+             'attrs': {'units': 'counts', 'local_name': 'a3ic1',
+                       'data_type': 'scan_column'}},
+            {'name': 'postsample_intensity', 'shape': '[]',
+             'attrs': {'units': 'counts', 'local_name': 'diode',
+                       'data_type': 'scan_column'}},
+            {'name': 'dwell_time_actual', 'shape': '[]',
+             'attrs': {'units': 'seconds', 'local_name': 'sec',
+                       'data_type': 'scan_column'}},
+            {'name': 'SCAN_N', 'shape': '[]',
+             'attrs': {'units': 'n/a', 'local_name': 'SCAN_N',
+                       'data_type': 'smb_par'}},
+            {'name': 'rsgap_size', 'shape': '[]',
+             'attrs': {'units': 'mm', 'local_name': 'rsgap_size',
+                       'data_type': 'smb_par'}},
+            {'name': 'x_effective', 'shape': '[]',
+             'attrs': {'units': 'mm', 'local_name': 'x_effective',
+                       'data_type': 'smb_par'}},
+            {'name': 'z_effective', 'shape': '[]',
+             'attrs': {'units': 'mm', 'local_name': 'z_effective',
+                       'data_type': 'smb_par'}},
         ]
         for i in range(23):
-            signals.append(dict(
-                name=str(i), shape=[4096,],
-                attrs=dict(
-                    units='counts', local_name=f'XPS23 element {i}',
-                    eta='unknown')))
+            signals.append({
+                'name': str(i),
+                'shape': [4096,],
+                'attrs': {'units': 'counts',
+                          'local_name': f'XPS23 element {i}',
+                          'eta': 'unknown'},
+            })
 
-        attrs = dict(dataset_id=dataset_id,
-                     config_id=dataset_lines[0][2],
-                     scan_type=scan_type)
+        attrs = {'dataset_id': dataset_id, 'config_id': dataset_lines[0][2],
+                 'scan_type': scan_type}
 
         # For potential coordinate axes w/ only one unique value, do
         # not consider them a coordinate. Make them a signal instead.
@@ -597,22 +622,24 @@ class SetupNXdataReader(Reader):
             axes_labels = {1: 'scan_labx', 2: 'scan_laby', 3: 'scan_labz',
                            4: 'scan_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
-            coords.append(
-                dict(name=axes_labels[dataset_lines[0][13]],
-                     values=np.round(np.linspace(
-                         dataset_lines[0][14], dataset_lines[0][15],
-                         dataset_lines[0][16]), 3),
-                     attrs=dict(units=axes_units[dataset_lines[0][13]],
-                                relative=True)))
+            coords.append({
+                'name': axes_labels[dataset_lines[0][13]],
+                'values': np.round(np.linspace(
+                     dataset_lines[0][14], dataset_lines[0][15],
+                     dataset_lines[0][16]), 3),
+                'attrs': {'units': axes_units[dataset_lines[0][13]],
+                          'relative': True},
+            })
             scan_npts = len(coords[-1]['values'])
             if scan_type in (2, 3, 5):
-                coords.append(
-                    dict(name=axes_labels[dataset_lines[0][17]],
-                         values=np.round(np.linspace(
-                             dataset_lines[0][18], dataset_lines[0][19],
-                             dataset_lines[0][20]), 3),
-                         attrs=dict(units=axes_units[dataset_lines[0][17]],
-                                    relative=True)))
+                coords.append({
+                    'name': axes_labels[dataset_lines[0][17]],
+                    'values': np.round(np.linspace(
+                        dataset_lines[0][18], dataset_lines[0][19],
+                        dataset_lines[0][20]), 3),
+                    'attrs': {'units': axes_units[dataset_lines[0][17]],
+                              'relative': True},
+                })
                 scan_npts *= len(coords[-1]['values'])
                 if scan_type == 5:
                     attrs['bin_axis'] = axes_labels[dataset_lines[0][21]]
@@ -630,21 +657,21 @@ class SetupNXdataReader(Reader):
             attrs['unstructured_axes'] = []
             self.logger.warning(
                 'Dataset is unstructured. All coordinates will be treated as '
-                + 'singals, and the dataset will have a single coordinate '
-                + 'instead: data point index.')
+                'singals, and the dataset will have a single coordinate '
+                'instead: data point index.')
             for c in coords:
                 del c['values']
                 c['shape'] = []
                 signals.append(c)
                 attrs['unstructured_axes'].append(c['name'])
-            coords = [dict(name='dataset_point_index',
-                           values=np.arange(total_npts),
-                           attrs=dict(units='n/a'))]
+            coords = [{'name': 'dataset_point_index',
+                       'values': np.arange(total_npts),
+                       'attrs': {'units': 'n/a'}}]
         else:
-            signals.append(dict(name='dataset_point_index', shape=[],
-                                attrs=dict(units='n/a')))
+            signals.append({'name': 'dataset_point_index', 'shape': [],
+                            'attrs': {'units': 'n/a'}})
 
-        return dict(coords=coords, signals=signals, attrs=attrs)
+        return {'coords': coords, 'signals': signals, 'attrs': attrs}
 
 
 class UpdateNXdataReader(Reader):
@@ -689,7 +716,6 @@ class UpdateNXdataReader(Reader):
         """
         # Local modules
         from CHAP.utils.parfile import ParFile
-        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         if not os.path.isabs(spec_file):
             spec_file = os.path.join(inputdir, spec_file)
@@ -697,9 +723,11 @@ class UpdateNXdataReader(Reader):
         self.logger.debug('Parsed scan')
 
         # A label / counter mne dict for convenience
-        counters = dict(presample_intensity='a3ic0',
-                        postsample_intensity='diode',
-                        dwell_time_actual='sec')
+        counters = {
+            'presample_intensity': 'a3ic0',
+            'postsample_intensity': 'diode',
+            'dwell_time_actual': 'sec',
+        }
         # Determine the scan's own coordinate axes based on scan type
         scan_type = scanparser.pars['scan_type']
         self.logger.debug(f'scan_type = {scan_type}')
@@ -725,13 +753,13 @@ class UpdateNXdataReader(Reader):
         parfile = ParFile(scanparser._par_file)
         good_scans = parfile.good_scan_numbers()
         n_prior_dataset_scans = sum(
-            [1 if did == dataset_id and scan_n < scan_number else 0 \
+            [1 if did == dataset_id and scan_n < scan_number else 0
              for did, scan_n in zip(
                      parfile.get_values(
                          'dataset_id', scan_numbers=good_scans),
                      good_scans)])
-        dataset_point_index_offset = n_prior_dataset_scans \
-                                     * scanparser.spec_scan_npts
+        dataset_point_index_offset = \
+            n_prior_dataset_scans * scanparser.spec_scan_npts
         self.logger.debug(
             f'dataset_point_index_offset = {dataset_point_index_offset}')
 
@@ -741,16 +769,17 @@ class UpdateNXdataReader(Reader):
         for i in range(scanparser.spec_scan_npts):
             self.logger.debug(f'Getting data point for scan step index {i}')
             step = scanparser.get_scan_step(i)
-            data_points.append(dict(
-                dataset_point_index=dataset_point_index_offset + i,
+            data_points.append({
+                'dataset_point_index': dataset_point_index_offset + i,
                 **smb_par_values,
-                **{str(_i): scanparser.get_detector_data(_i, i) \
+                **{str(_i): scanparser.get_detector_data(_i, i)
                    for _i in range(23)},
-                **{c: scanparser.spec_scan_data[counters[c]][i] \
+                **{c: scanparser.spec_scan_data[counters[c]][i]
                    for c in counters},
                 **{a: round(
-                    scanparser.spec_scan_motor_vals_relative[_i][step[_i]], 3)\
-                   for _i, a in enumerate(scan_axes)}))
+                    scanparser.spec_scan_motor_vals_relative[_i][step[_i]], 3)
+                   for _i, a in enumerate(scan_axes)},
+            })
 
         return data_points
 
@@ -806,7 +835,6 @@ class NXdataSliceReader(Reader):
         # Local modules
         from CHAP.common import NXdataReader
         from CHAP.utils.parfile import ParFile
-        from chess_scanparsers import SMBMCAScanParser as ScanParser
 
         # Parse existing NXdata
         root = nxload(filename)
@@ -823,7 +851,6 @@ class NXdataSliceReader(Reader):
         self.logger.debug('Parsed scan')
 
         # Assemble arguments for NXdataReader
-        name = f'{nxdata.nxname}_scan_{scan_number}'
         axes_names = [a.nxname for a in nxdata.nxaxes]
         if nxdata.nxsignal is not None:
             signal_name = nxdata.nxsignal.nxname
@@ -838,21 +865,22 @@ class NXdataSliceReader(Reader):
             parfile = ParFile(scanparser._par_file)
             good_scans = parfile.good_scan_numbers()
             n_prior_dataset_scans = sum(
-                [1 if did == dataset_id and scan_n < scan_number else 0 \
+                [1 if did == dataset_id and scan_n < scan_number else 0
                  for did, scan_n in zip(
                          parfile.get_values(
                              'dataset_id', scan_numbers=good_scans),
                          good_scans)])
-            dataset_point_index_offset = n_prior_dataset_scans \
-                                         * scanparser.spec_scan_npts
+            dataset_point_index_offset = \
+                n_prior_dataset_scans * scanparser.spec_scan_npts
             self.logger.debug(
                 f'dataset_point_index_offset = {dataset_point_index_offset}')
-            slice_params = dict(
-                start=dataset_point_index_offset,
-                end=dataset_point_index_offset + scanparser.spec_scan_npts + 1)
-            nxfield_params = [dict(filename=filename,
-                                   nxpath=entry.nxpath,
-                                   slice_params=[slice_params]) \
+            slice_params = {
+                'start': dataset_point_index_offset,
+                'end':
+                    dataset_point_index_offset + scanparser.spec_scan_npts + 1,
+            }
+            nxfield_params = [{'filename': filename, 'nxpath': entry.nxpath,
+                               'slice_params': [slice_params]}
                               for entry in nxdata]
         else:
             signal_slice_params = []
@@ -868,18 +896,21 @@ class NXdataSliceReader(Reader):
                         self.logger.warning(
                             f'Nearest match for coordinate value {a.nxname}: '
                             f'{a.nxdata[index]} (actual value: {value})')
-                    slice_params = dict(start=index, end=index+1)
+                    slice_params = {'start': index, 'end': index+1}
                 signal_slice_params.append(slice_params)
-                nxfield_params.append(dict(
-                    filename=filename,
-                    nxpath=os.path.join(nxdata.nxpath, a.nxname),
-                    slice_params=[slice_params]))
-            for name, entry in nxdata.entries.items():
+                nxfield_params.append({
+                    'filename': filename,
+                    'nxpath': os.path.join(nxdata.nxpath, a.nxname),
+                    'slice_params': [slice_params],
+                })
+            for _, entry in nxdata.entries.items():
                 if entry in nxdata.nxaxes:
                     continue
-                nxfield_params.append(dict(
-                    filename=filename, nxpath=entry.nxpath,
-                    slice_params=signal_slice_params))
+                nxfield_params.append({
+                    'filename': filename,
+                    'nxpath': entry.nxpath,
+                    'slice_params': signal_slice_params,
+                })
 
         # Return the "sliced" NXdata
         reader = NXdataReader()
@@ -890,5 +921,7 @@ class NXdataSliceReader(Reader):
 
 
 if __name__ == '__main__':
+    # Local modules
     from CHAP.reader import main
+
     main()

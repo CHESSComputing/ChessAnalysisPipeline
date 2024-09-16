@@ -32,10 +32,10 @@ class AnimationProcessor(Processor):
         :type data: list[PipelineData]
         :param num_frames: Number of frames for the animation.
         :type num_frames: int
-        :param vmin: Minimum array value in image slice, default to
+        :param vmin: Minimum array value in image slice, defaults to
             `None`, which uses the actual minimum value in the slice.
         :type vmin: float
-        :param vmax: Maximum array value in image slice, default to
+        :param vmax: Maximum array value in image slice, defaults to
             `None`, which uses the actual maximum value in the slice.
         :type vmax: float
         :param axis: Axis direction or name of the image slices,
@@ -62,17 +62,19 @@ class AnimationProcessor(Processor):
         :rtype: matplotlib.animation.ArtistAnimation
         """
         # Third party modules
-        import matplotlib.animation as animation
+        from matplotlib import animation
         import matplotlib.pyplot as plt
 
         # Get the default Nexus NXdata object
         data = self.unwrap_pipelinedata(data)[0]
         try:
             nxdata = data.get_default()
-        except:
-            if nxdata.nxclass != 'NXdata':
-                raise ValueError('Invalid default pathway to an NXdata object '
-                                 f'in ({data})')
+        except Exception as exc:
+            raise ValueError(
+                f'Unable to find an NXdata object in ({data})') from exc
+        if nxdata.nxclass != 'NXdata':
+            raise ValueError(
+                f'Invalid default pathway to an NXdata object in ({data})')
 
         # Get the frames
         axes = nxdata.attrs.get('axes', None)
@@ -84,13 +86,11 @@ class AnimationProcessor(Processor):
                 if not 0 <= axis < nxdata.nxsignal.ndim:
                     raise ValueError(f'axis index out of range ({axis} not in '
                                      f'[0, {nxdata.nxsignal.ndim-1}])')
-                axis_name = 'axis {axis}'
             elif isinstance(axis, str):
                 if axes is None or axis not in list(axes.nxdata):
                     raise ValueError(
                         f'Unable to match axis = {axis} in {nxdata.tree}')
                 axes = list(axes.nxdata)
-                axis_name = axis
                 axis = axes.index(axis)
             else:
                 raise ValueError(f'Invalid parameter axis ({axis})')
@@ -103,14 +103,14 @@ class AnimationProcessor(Processor):
             elif axis == 1:
                 frames = [nxdata[nxdata.signal][:,int(index),:]
                           for index in indices]
-            elif axis == 2:
+            else:
                 frames = [nxdata[nxdata.signal][:,:,int(index)]
                           for index in indices]
             if axes is None:
                 axes = [i for i in range(3) if i != axis]
-                row_coords = range(a.shape[1])
+                row_coords = range(frames[0].shape[1])
                 row_label = f'axis {axes[1]} index'
-                column_coords = range(a.shape[0])
+                column_coords = range(frames[0].shape[0])
                 column_label = f'axis {axes[0]} index'
             else:
                 axes.pop(axis)
@@ -124,7 +124,6 @@ class AnimationProcessor(Processor):
                     column_label += f' ({nxdata[axes[0]].units})'
         else:
             raise ValueError('Invalid data dimension (must be 2D or 3D)')
-
 
         # Create the movie
         if vmin is None or vmax is None:
@@ -176,7 +175,7 @@ class AsyncProcessor(Processor):
         `self.mgr` `Processor`.
 
         :param data: Input data documents to process.
-        :type docs: iterable
+        :type data: iterable
         """
         # System modules
         import asyncio
@@ -209,8 +208,7 @@ class AsyncProcessor(Processor):
 
 
 class BinarizeProcessor(Processor):
-    """A Processor to binarize a dataset.
-    """
+    """A Processor to binarize a dataset."""
     def process(
             self, data, nxpath='', interactive=False, method='CHAP',
             num_bin=256, axis=None, remove_original_data=False):
@@ -231,14 +229,14 @@ class BinarizeProcessor(Processor):
         :type interactive: bool, optional
         :param method: Binarization method, defaults to `'CHAP'`
             (CHAP's internal implementation of Otzu's method).
-        :type method: Literal['CHAP', 'manual', 'otsu', 'yen', 'isodata',
-            'minimum']
+        :type method: Literal['CHAP', 'manual', 'otsu', 'yen',
+            'isodata', 'minimum']
         :param num_bin: The number of bins used to calculate the
             histogram in the binarization algorithms (ignored for
             method = `'manual'`), defaults to `256`.
         :type num_bin: int, optional
         :param axis: Axis direction of the image slices (ignored
-            for any method other than `'manual'`), defaults to `None`
+            for any method other than `'manual'`).
         :type axis: int, optional
         :param remove_original_data: Removes the original data field
             (ignored for Numpy input datasets), defaults to `False`.
@@ -294,8 +292,9 @@ class BinarizeProcessor(Processor):
             else:
                 try:
                     data = dataset[nxpath].nxdata
-                except:
-                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+                except Exception as exc:
+                    raise ValueError(
+                        f'Invalid parameter nxpath ({nxpath})') from exc
         else:
             # Get the default Nexus NXdata object
             try:
@@ -311,13 +310,14 @@ class BinarizeProcessor(Processor):
             else:
                 try:
                     nxclass = dataset[nxpath].nxclass
-                except:
-                    raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+                except Exception as exc:
+                    raise ValueError(
+                        f'Invalid parameter nxpath ({nxpath})') from exc
             if nxclass == 'NXdata':
                 nxdata = dataset[nxpath]
             else:
                 if nxdefault is None:
-                    raise ValueError(f'No default pathway to a NXdata object')
+                    raise ValueError('No default pathway to a NXdata object')
                 nxdata = nxdefault
             nxsignal = nxdata.nxsignal
             if method == 'manual':
@@ -325,7 +325,8 @@ class BinarizeProcessor(Processor):
                     axes = nxdata.attrs['axes']
                     if isinstance(axis, str):
                         if axis not in axes:
-                            raise ValueError(f'Invalid parameter axis ({axis})')
+                            raise ValueError(
+                                f'Invalid parameter axis ({axis})')
                         axis = axes.index(axis)
                     elif axis is not None and not is_int(axis, gt=0, lt=3):
                         raise ValueError(f'Invalid parameter axis ({axis})')
@@ -349,9 +350,9 @@ class BinarizeProcessor(Processor):
                         nxdata.nxpath, dataset.nxpath)
                     keys = list(nxdata.keys())
                     keys.remove(nxsignal.nxname)
-                    for axis in nxdata.axes:
-                        keys.remove(axis)
-                    if len(keys):
+                    for a in nxdata.axes:
+                        keys.remove(a)
+                    if keys:
                         raise RuntimeError('Not tested yet')
                         exclude_nxpaths.append(os.path.join(
                             os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
@@ -367,9 +368,9 @@ class BinarizeProcessor(Processor):
                     nxgroup = nxsignal.nxgroup
                     keys = list(nxgroup.keys())
                     keys.remove(nxsignal.nxname)
-                    for axis in nxgroup.axes:
-                        keys.remove(axis)
-                    if len(keys):
+                    for a in nxgroup.axes:
+                        keys.remove(a)
+                    if keys:
                         raise RuntimeError('Not tested yet')
                         exclude_nxpaths.append(os.path.join(
                             os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
@@ -429,7 +430,8 @@ class BinarizeProcessor(Processor):
             )
 
             def select_direction(direction):
-                """Callback function for the "Select direction" input."""
+                """Callback function for the "Select direction" input.
+                """
                 selected_direction.append(radio_btn.value_selected)
                 plt.close()
 
@@ -505,7 +507,7 @@ class BinarizeProcessor(Processor):
                 elif axis == 1:
                     mean_roi_data = data[roi[2]:roi[3],:,roi[0]:roi[1]].mean(
                         axis=(0,2))
-                elif axis == 2:
+                else:
                     mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
                         axis=(0,1))
 
@@ -526,7 +528,7 @@ class BinarizeProcessor(Processor):
                         data[
                             roi[2]:roi[3],_range[0]:_range[1],roi[0]:roi[1]
                         ].mean())
-                elif axis == 2:
+                else:
                     bounds.append(
                         data[
                             roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
@@ -548,7 +550,7 @@ class BinarizeProcessor(Processor):
             attrs.pop('target', None)
             return NXfield(
                 value=data, name=dataset.nxname, attrs=dataset.attrs)
-        name = nxsignal.nxname + '_binarized'
+        name = f'{nxsignal.nxname}_binarized'
         if nxobject.nxclass == 'NXdata':
             nxobject[name] = data
             nxobject.attrs['signal'] = name
@@ -558,26 +560,24 @@ class BinarizeProcessor(Processor):
         else:
             nxentry = nxobject
         axes = []
-        for axis in nxdata.axes:
-            attrs = nxdata[axis].attrs
+        for a in nxdata.axes:
+            attrs = nxdata[a].attrs
             attrs.pop('target', None)
             axes.append(
-                NXfield(nxdata[axis], name=axis, attrs=attrs))
+                NXfield(nxdata[a], name=a, attrs=attrs))
         nxentry[name] = NXprocess(
             NXdata(NXfield(data, name=name), axes),
             attrs={'source': nxsignal.nxpath})
         nxdata = nxentry[name].data
         nxentry.data = NXdata(
             NXlink(nxdata.nxsignal.nxpath),
-            [NXlink(os.path.join(nxdata.nxpath, axis))
-                for axis in nxdata.axes])
+            [NXlink(os.path.join(nxdata.nxpath, a)) for a in nxdata.axes])
         nxentry.data.set_default()
         return nxobject
 
 
 class ConstructBaseline(Processor):
-    """A Processor to construct a baseline for a dataset.
-    """
+    """A Processor to construct a baseline for a dataset."""
     def process(
             self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
             save_figures=False, outputdir='.', interactive=False):
@@ -586,7 +586,7 @@ class ConstructBaseline(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param mask: A mask to apply to the spectrum before baseline
-           construction, default to `None`.
+           construction.
         :type mask: array-like, optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
@@ -599,22 +599,22 @@ class ConstructBaseline(Processor):
             defaults to `20`.
         :type max_iter: int, optional
         :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to False.
+            outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
         :param outputdir: Directory to which any output figures will
-            be saved, defaults to '.'
+            be saved, defaults to `'.'`.
         :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
-            False.
+            `False`.
         :type interactive: bool, optional
         :return: The smoothed baseline and the configuration.
         :rtype: numpy.array, dict
         """
         try:
             data = np.asarray(self.unwrap_pipelinedata(data)[0])
-        except:
+        except Exception as exc:
             raise ValueError(
-                f'The structure of {data} contains no valid data')
+                f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
             data, mask, tol, lam, max_iter, save_figures, outputdir,
@@ -629,10 +629,10 @@ class ConstructBaseline(Processor):
         :param y: Input data.
         :type y: numpy.array
         :param x: Independent dimension (only used when interactive is
-            `True` of when filename is set), defaults to `None`.
+            `True` of when filename is set).
         :type x: array-like, optional
         :param mask: A mask to apply to the spectrum before baseline
-           construction, default to `None`.
+           construction.
         :type mask: array-like, optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
@@ -644,19 +644,17 @@ class ConstructBaseline(Processor):
         :param max_iter: The maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
-        :param xlabel: Label for the x-axis of the displayed figure,
-            defaults to `None`.
-        :param title: Title for the displayed figure, defaults to `None`.
+        :param title: Title for the displayed figure.
         :type title: str, optional
+        :param xlabel: Label for the x-axis of the displayed figure.
         :type xlabel: str, optional
-        :param ylabel: Label for the y-axis of the displayed figure,
-            defaults to `None`.
+        :param ylabel: Label for the y-axis of the displayed figure.
         :type ylabel: str, optional
         :param interactive: Allows for user interactions, defaults to
-            False.
+            `False`.
         :type interactive: bool, optional
-        :param filename: Save a .png of the plot to filename, defaults to
-            `None`, in which case the plot is not saved.
+        :param filename: Save a .png of the plot to filename, defaults
+            to `None`, in which case the plot is not saved.
         :type filename: str, optional
         :return: The smoothed baseline and the configuration.
         :rtype: numpy.array, dict
@@ -670,6 +668,7 @@ class ConstructBaseline(Processor):
         from CHAP.utils.general import baseline_arPLS
 
         def change_fig_subtitle(maxed_out=False, subtitle=None):
+            """Change the figure's subtitle."""
             if fig_subtitles:
                 fig_subtitles[0].remove()
                 fig_subtitles.pop()
@@ -684,9 +683,8 @@ class ConstructBaseline(Processor):
                 plt.figtext(*subtitle_pos, subtitle, **subtitle_props))
 
         def select_lambda(expression):
-            """Callback function for the "Select lambda" TextBox.
-            """
-            if not len(expression):
+            """Callback function for the "Select lambda" TextBox."""
+            if not expression:
                 return
             try:
                 lam = float(expression)
@@ -694,11 +692,11 @@ class ConstructBaseline(Processor):
                     raise ValueError
             except ValueError:
                 change_fig_subtitle(
-                    subtitle=f'Invalid lambda, enter a positive number')
+                    subtitle='Invalid lambda, enter a positive number')
             else:
                 lambdas.pop()
                 lambdas.append(10**lam)
-                baseline, _, w, num_iter, error = baseline_arPLS(
+                baseline, _, _, num_iter, error = baseline_arPLS(
                     y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter,
                     full_output=True)
                 num_iters.pop()
@@ -795,7 +793,8 @@ class ConstructBaseline(Processor):
             continue_cid = continue_btn.on_clicked(continue_iter)
 
             # Setup "Confirm" button
-            confirm_btn = Button(plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
+            confirm_btn = Button(
+                plt.axes([0.75, 0.05, 0.15, 0.075]), 'Confirm')
             confirm_cid = confirm_btn.on_clicked(confirm)
 
             # Show figure for user interaction
@@ -825,8 +824,7 @@ class ConstructBaseline(Processor):
 
 
 class ImageProcessor(Processor):
-    """A Processor to plot an image (slice) from a NeXus object.
-    """
+    """A Processor to plot an image (slice) from a NeXus object."""
     def process(
             self, data, vmin=None, vmax=None, axis=0, index=None,
             coord=None, interactive=False, save_figure=True, outputdir='.',
@@ -846,16 +844,15 @@ class ImageProcessor(Processor):
         :param axis: Axis direction or name of the image slice,
             defaults to `0`
         :type axis: Union[int, str], optional
-        :param index: Array index of the slice of data to plot,
-            defaults to `None`
+        :param index: Array index of the slice of data to plot.
         :type index: int, optional
-        :param coord: Coordinate value of the slice of data to plot,
-            defaults to `None`
+        :param coord: Coordinate value of the slice of data to plot.
         :type coord: Union[int, float], optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :param save_figure: Save a .png of the image, defaults to `True`.
+        :param save_figure: Save a .png of the image, defaults to
+            `True`.
         :type save_figure: bool, optional
         :param outputdir: Directory to which any output figure will
             be saved, defaults to `'.'`
@@ -887,10 +884,12 @@ class ImageProcessor(Processor):
         data = self.unwrap_pipelinedata(data)[0]
         try:
             nxdata = data.get_default()
-        except:
-            if nxdata.nxclass != 'NXdata':
-                raise ValueError('Invalid default pathway to an NXdata object '
-                                 f'in ({data})')
+        except Exception as exc:
+            raise ValueError(
+                f'Unable to find an NXdata object in ({data})') from exc
+        if nxdata.nxclass != 'NXdata':
+            raise ValueError(
+                f'Invalid default pathway to an NXdata object in ({data})')
 
         # Get the data slice
         axes = nxdata.attrs.get('axes', None)
@@ -936,7 +935,7 @@ class ImageProcessor(Processor):
                         self.logger.warning('Ignoring parameter coord')
                     if not isinstance(index, int):
                         raise ValueError(f'Invalid parameter index ({index})')
-                    elif not 0 <= index < nxdata.nxsignal.shape[axis]:
+                    if not 0 <= index < nxdata.nxsignal.shape[axis]:
                         raise ValueError(
                             f'index value out of range ({index} not in '
                             f'[0, {nxdata.nxsignal.shape[axis]-1}])')
@@ -960,7 +959,7 @@ class ImageProcessor(Processor):
                 a = nxdata[nxdata.signal][index,:,:]
             elif axis == 1:
                 a = nxdata[nxdata.signal][:,index,:]
-            elif axis == 2:
+            else:
                 a = nxdata[nxdata.signal][:,:,index]
             if coords is None:
                 axes = [i for i in range(3) if i != axis]
@@ -1009,8 +1008,7 @@ class ImageProcessor(Processor):
 
 
 class IntegrationProcessor(Processor):
-    """A processor for integrating 2D data with pyFAI.
-    """
+    """A processor for integrating 2D data with pyFAI."""
     def process(self, data):
         """Integrate the input data with the integration method and
         keyword arguments supplied in `data` and return the results.
@@ -1057,7 +1055,7 @@ class IntegrateMapProcessor(Processor):
         """Use a `MapConfig` and `IntegrationConfig` to construct a
         NeXus NXprocess object.
 
-        :param map_config: A valid map configuration..
+        :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
         :param integration_config: A valid integration configuration.
         :type integration_config:
@@ -1127,7 +1125,7 @@ class IntegrateMapProcessor(Processor):
                 integration_config.integrated_data_coordinates.items()):
             if coord_name == 'radial':
                 type_ = pyFAI.units.RADIAL_UNITS
-            elif coord_name == 'azimuthal':
+            else:
                 type_ = pyFAI.units.AZIMUTHAL_UNITS
             coord_units = pyFAI.units.to_unit(
                 getattr(integration_config, f'{coord_name}_units'),
@@ -1187,7 +1185,7 @@ class IntegrateMapProcessor(Processor):
 
             scanparser = scans.get_scanparser(scan_number)
             for detector in integration_config.detectors:
-                nxprocess[detector.prefix].raw_data_files[map_index] =\
+                nxprocess[detector.prefix].raw_data_files[map_index] = \
                     scanparser.get_detector_data_file(
                         detector.prefix, scan_step_index)
 
@@ -1213,16 +1211,21 @@ class MapProcessor(Processor):
             `'schema'` key.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            common.models.map.MapConfig, defaults to `None`.
+            common.models.map.MapConfig.
         :type config: dict, optional
         :param detector_names: Detector names/prefixes to include raw
-            data for in the returned NeXus NXentry object,
-            defaults to `None`.
+            data for in the returned NeXus NXentry object.
         :type detector_names: Union(int, str, list[int], list[str]),
             optional
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
+        :param comm: MPI communicator.
+        :type comm: mpi4py.MPI.Comm, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
@@ -1235,10 +1238,7 @@ class MapProcessor(Processor):
         import yaml
 
         # Local modules
-        from CHAP.runner import (
-            RunConfig,
-            runner,
-        )
+        from CHAP.runner import RunConfig
         from CHAP.utils.general import (
             is_str_series,
             string_to_list,
@@ -1248,7 +1248,7 @@ class MapProcessor(Processor):
         try:
             map_config = self.get_config(
                 data, 'common.models.map.MapConfig', inputdir=inputdir)
-        except Exception as data_exc:
+        except:
             self.logger.info('No valid Map configuration in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -1256,8 +1256,8 @@ class MapProcessor(Processor):
                 from CHAP.common.models.map import MapConfig
 
                 map_config = MapConfig(**config, inputdir=inputdir)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
+            except Exception as exc:
+                raise RuntimeError from exc
 
         # Validate the number of processors
         if not isinstance(num_proc, int):
@@ -1287,9 +1287,6 @@ class MapProcessor(Processor):
             if detector_names is None:
                 detector_indices = None
             else:
-                # Local modules
-                from CHAP.utils.general import is_str_series
-
                 if isinstance(detector_names, int):
                     detector_names = [str(detector_names)]
                 elif isinstance(detector_names, str):
@@ -1297,9 +1294,9 @@ class MapProcessor(Processor):
                         detector_names = [
                             str(v) for v in string_to_list(
                                 detector_names, raise_error=True)]
-                    except:
+                    except Exception as exc:
                         raise ValueError('Invalid parameter detector_names '
-                                         f'({detector_names})')
+                                         f'({detector_names})') from exc
                 else:
                     detector_names = [str(v) for v in detector_names]
                 detector_indices = [int(name) for name in detector_names]
@@ -1311,7 +1308,7 @@ class MapProcessor(Processor):
                 detector_names = [detector_names]
             if not is_str_series(detector_names, log=False):
                 raise ValueError(
-                    f'Invalid "detector_names" parameter ({detector_names})')
+                    f'Invalid parameter detector_names ({detector_names})')
 
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1435,8 +1432,7 @@ class MapProcessor(Processor):
         :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
         :param detector_names: Detector names to include raw data
-            for in the returned NeXus NXentry object,
-            defaults to `None`.
+            for in the returned NeXus NXentry object.
         :type detector_names: list[str]
         :param data: The map's raw data.
         :type data: numpy.ndarray
@@ -1464,7 +1460,6 @@ class MapProcessor(Processor):
 
         # Local modules:
         from CHAP.common.models.map import PointByPointScanData
-        from CHAP.utils.general import is_int_series
 
         # Set up NeXus NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
@@ -1526,8 +1521,8 @@ class MapProcessor(Processor):
                 map_config.independent_dimensions.remove(dim)
         if auxiliary_signals:
             nxentry.auxdata = NXdata()
-            for label, data in zip(auxiliary_signals, auxiliary_data):
-                nxentry.auxdata[label] = data
+            for label, ddata in zip(auxiliary_signals, auxiliary_data):
+                nxentry.auxdata[label] = ddata
             if 'SCAN_N' in auxiliary_signals:
                 nxentry.auxdata.attrs['signal'] = 'SCAN_N'
             else:
@@ -1548,8 +1543,14 @@ class MapProcessor(Processor):
         :param detector_indices: Indices to the corresponding
             detector names.
         :type detector_indices: list[int]
+        :param comm: MPI communicator.
+        :type comm: mpi4py.MPI.Comm, optional
+        :param num_scan: Number of scans in the map.
+        :type num_scan: int
+        :param offset: Offset scan number of current processor.
+        :type offset: int
         :return: The map's raw data, independent dimensions and scalar
-            data
+            data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
         # Third party modules
@@ -1704,11 +1705,16 @@ class MapProcessor(Processor):
         :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
         :param detector_names: Detector names to include raw data
-            for in the returned NeXus NXentry object,
-            defaults to `None`.
+            for in the returned NeXus NXentry object.
         :type detector_names: list[str]
+        :param comm: MPI communicator.
+        :type comm: mpi4py.MPI.Comm, optional
+        :param num_scan: Number of scans in the map.
+        :type num_scan: int
+        :param offset: Offset scan number of current processor.
+        :type offset: int
         :return: The map's raw data, independent dimensions and scalar
-            data
+            data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
         # Third party modules
@@ -1742,8 +1748,6 @@ class MapProcessor(Processor):
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
-        if not num_sd:
-            all_scalar_data = None
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
             data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
@@ -1831,47 +1835,26 @@ class MapProcessor(Processor):
             data.reshape((1, np.prod(data.shape[:2]), *data.shape[2:])),
             np.stack(tuple([independent_dimensions[:,i].flatten()
                             for i in range(num_id)])),
-            all_scalar_data)
-
-
-class MPITestProcessor(Processor):
-    """A test MPI Processor.
-    """
-    def process(self, data, sub_pipeline={}):
-        # Third party modules
-        import mpi4py as mpi4py
-        from mpi4py import MPI
-
-        my_rank = MPI.COMM_WORLD.Get_rank()
-        size = MPI.COMM_WORLD.Get_size()
-        (version, subversion) = MPI.Get_version()
-
-        mpi4py_version = mpi4py.__version__
-
-        if (my_rank == 0):
-            if (size > 1):
-                print('Successful first MPI test executed in parallel on '
-                      f'{size} processes using mpi4py version '
-                      f'{mpi4py_version}.')
-                if int(mpi4py_version[0]) < 3:
-                    print('CAUTION: You are using an mpi4py version '
-                          'below 3.0.0.')
-            else:
-                print('CAUTION: This MPI test is executed only on one MPI '
-                      'process, i.e., sequentially!')
-            print('Your installation supports MPI standard version '
-                  f'{version}.{subversion}.')
-        print(f'Finished on processor {my_rank} of {size}')
+            None)
 
 
 class MPICollectProcessor(Processor):
     """A Processor that collects the distributed worker data from
-    MPIMapProcessor on the root node
+    MPIMapProcessor on the root node.
     """
     def process(self, data, comm, root_as_worker=True):
-        # Third party modules
-        from mpi4py import MPI
+        """Collect data on root node.
 
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param comm: MPI communicator.
+        :type comm: mpi4py.MPI.Comm, optional
+        :param root_as_worker: Use the root node as a worker,
+            defaults to `True`.
+        :type root_as_worker: bool, optional
+        :return: Returns a list of the distributed worker data on the
+            root node.
+        """
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
         if root_as_worker:
@@ -1895,7 +1878,16 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, sub_pipeline={}):
+    def process(self, data, sub_pipeline=None):
+        """Run a parallel generic sub-pipeline.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param sub_pipeline: The sub-pipeline.
+        :type sub_pipeline: Pipeline, optional
+        :return: The `data` field of the first item in the returned
+           list of sub-pipeline items.
+        """
         # System modules
         from copy import deepcopy
 
@@ -1907,10 +1899,7 @@ class MPIMapProcessor(Processor):
             RunConfig,
             run,
         )
-        from CHAP.common.models.map import (
-            SpecScans,
-            SpecConfig,
-        )
+        from CHAP.common.models.map import SpecScans
 
         comm = MPI.COMM_WORLD
         num_proc = comm.Get_size()
@@ -1940,7 +1929,9 @@ class MPIMapProcessor(Processor):
                 spec_file=spec_scans.spec_file, scan_numbers=scan_numbers)]}
 
         # Get the run configuration to use for the sub-pipeline
-        run_config = RunConfig(sub_pipeline.get('config', {}), comm)
+        if sub_pipeline is None:
+            sub_pipeline = {}
+        run_config = RunConfig(sub_pipeline.get('config'), comm)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -1967,7 +1958,24 @@ class MPISpawnMapProcessor(Processor):
     """
     def process(
             self, data, num_proc=1, root_as_worker=True, collect_on_root=True,
-            sub_pipeline={}):
+            sub_pipeline=None):
+        """Spawn workers running a parallel generic sub-pipeline.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param num_proc: Number of spawned processors, defaults to `1`.
+        :type num_proc: int, optional
+        :param root_as_worker: Use the root node as a worker,
+            defaults to `True`.
+        :type root_as_worker: bool, optional
+        :param collect_on_root: Collect the result of the spawned
+            workers on the root node, defaults to `True`.
+        :type collect_on_root: bool, optional
+        :param sub_pipeline: The sub-pipeline.
+        :type sub_pipeline: Pipeline, optional
+        :return: The `data` field of the first item in the returned
+           list of sub-pipeline items.
+        """
         # System modules
         from copy import deepcopy
         from tempfile import NamedTemporaryFile
@@ -1975,8 +1983,8 @@ class MPISpawnMapProcessor(Processor):
         # Third party modules
         try:
             from mpi4py import MPI
-        except:
-            raise ImportError('Unable to import mpi4py')
+        except Exception as exc:
+            raise ImportError('Unable to import mpi4py') from exc
         import yaml
 
         # Local modules
@@ -1984,17 +1992,16 @@ class MPISpawnMapProcessor(Processor):
             RunConfig,
             runner,
         )
-        from CHAP.common.models.map import (
-            SpecScans,
-            SpecConfig,
-        )
+        from CHAP.common.models.map import SpecScans
 
         # Get the map configuration from data
         map_config = self.get_config(
             data, 'common.models.map.MapConfig')
 
         # Get the run configuration to use for the sub-pipeline
-        run_config = RunConfig(config=sub_pipeline.get('config', {}))
+        if sub_pipeline is None:
+            sub_pipeline = {}
+        run_config = RunConfig(config=sub_pipeline.get('config'))
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -2020,10 +2027,10 @@ class MPISpawnMapProcessor(Processor):
                         if k.endswith('Reader'):
                             v['config'] = spec_config
                             item[k] = v
-                    if num_proc > 1 and k.endswith('Writer'):
-                        r, e = os.path.splitext(v['filename'])
-                        v['filename'] = f'{r}_{n_proc}{e}'
-                        item[k] = v
+                        if num_proc > 1 and k.endswith('Writer'):
+                            r, e = os.path.splitext(v['filename'])
+                            v['filename'] = f'{r}_{n_proc}{e}'
+                            item[k] = v
                 sub_pipeline_config.append(item)
             if collect_on_root and (not root_as_worker or num_proc > 1):
                 sub_pipeline_config += [
@@ -2178,9 +2185,7 @@ class NexusToXarrayProcessor(Processor):
         coords = {}
         for axis_name in axes:
             axis = default_data[axis_name]
-            coords[axis_name] = (axis_name,
-                                 axis.nxdata,
-                                 axis.attrs)
+            coords[axis_name] = (axis_name, axis.nxdata, axis.attrs)
 
         dims = tuple(axes)
         name = default_signal
@@ -2233,20 +2238,23 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
         :param data: Detector data to integrate.
         :type data: Union[PipelineData, list[np.ndarray]]
-        :param poni_file: Name of the [pyFAI PONI
-            file](https://pyfai.readthedocs.io/en/v2023.1/glossary.html?highlight=poni%20file#poni-file)
+        :param poni_file: Name of the [pyFAI PONI file]
+            (https://pyfai.readthedocs.io/en/v2023.1/glossary.html?highlight=poni%20file#poni-file)
         containing the detector properties pyFAI needs to perform
         azimuthal integration.
         :type poni_file: str
         :param npt: Number of points in the output pattern.
         :type npt: int
         :param mask_file: A file to use for masking the input data.
-        :type: str
+        :type mask_file: str, optional
         :param integrate1d_kwargs: Optional dictionary of keyword
             arguments to use with
-            [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d). Defaults
-            to `None`.
+            [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d).
         :type integrate1d_kwargs: Optional[dict]
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :returns: Azimuthal integration results as a dictionary of
             numpy arrays.
         """
@@ -2269,7 +2277,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         try:
             det_data = self.unwrap_pipelinedata(data)[0]
         except:
-            det_data = det_data
+            det_data = data
 
         if integrate1d_kwargs is None:
             integrate1d_kwargs = {}
@@ -2279,7 +2287,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
 
 class RawDetectorDataMapProcessor(Processor):
-    """A Processor to return a map of raw derector data in a
+    """A Processor to return a map of raw detector data in a
     NeXus NXroot object.
     """
     def process(self, data, detector_name, detector_shape):
@@ -2354,9 +2362,7 @@ class RawDetectorDataMapProcessor(Processor):
             NXroot,
         )
 
-        # Local modules
-        from CHAP.common import MapProcessor
-
+        raise RuntimeError('Not updated for the new MapProcessor')
         nxroot = NXroot()
 
         nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
@@ -2401,54 +2407,6 @@ class RawDetectorDataMapProcessor(Processor):
         nxentry.data.attrs['signal'] = detector_name
 
         return nxroot
-
-
-class StrainAnalysisProcessor(Processor):
-    """A Processor to compute a map of sample strains by fitting Bragg
-    peaks in 1D detector data and analyzing the difference between
-    measured peak locations and expected peak locations for the sample
-    measured.
-    """
-    def process(self, data):
-        """Process the input map detector data & configuration for the
-        strain analysis procedure, and return a map of sample strains.
-
-        :param data: Results of `MutlipleReader.read` containing input
-            map detector data and strain analysis configuration
-        :type data: list[PipelineData]
-        :return: A map of sample strains.
-        :rtype: xarray.Dataset
-        """
-        strain_analysis_config = self.get_config(data)
-
-        return data
-
-    def get_config(self, data):
-        """Get instances of the configuration objects needed by this
-        `Processor`.
-
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'StrainAnalysisConfig'` for the `'schema'`
-            key.
-        :type data: list[PipelineData]
-        :raises Exception: If valid config objects cannot be
-            constructed from `data`.
-        :return: A valid instance of the configuration object with
-            field values taken from `data`.
-        :rtype: StrainAnalysisConfig
-        """
-        strain_analysis_config = False
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict):
-                    if item.get('schema') == 'StrainAnalysisConfig':
-                        strain_analysis_config = item.get('data')
-
-        if not strain_analysis_config:
-            raise ValueError(
-                'No strain analysis configuration found in input data')
-
-        return strain_analysis_config
 
 
 class SetupNXdataProcessor(Processor):
@@ -2522,8 +2480,8 @@ class SetupNXdataProcessor(Processor):
        ```
     """
     def process(self, data, nxname='data',
-                coords=[], signals=[], attrs={}, data_points=[],
-                extra_nxfields=[], duplicates='overwrite'):
+                coords=None, signals=None, attrs=None, data_points=None,
+                extra_nxfields=None, duplicates='overwrite'):
         """Return a NeXus NXdata object that has the requisite axes
         and NeXus NXfield entries to represent a structured dataset
         with the properties provided. Properties may be provided either
@@ -2550,7 +2508,7 @@ class SetupNXdataProcessor(Processor):
             that assist in in interpreting the returned NeXus NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the values along an axis in the
-            `attrs` dictionary. Defaults to [].
+            `attrs` dictionary.
         :type coords: list[dict[str, object]], optional
         :param signals: List of dictionaries defining the signals of
             the dataset. Each dictionary must have the keys `'name'`
@@ -2563,14 +2521,14 @@ class SetupNXdataProcessor(Processor):
             assist in in interpreting the returned NeXus NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the signal's values `attrs`
-            dictionary. Defaults to [].
+            dictionary.
         :type signals: list[dict[str, object]], optional
         :param attrs: An arbitrary dictionary of attributes to assign
-            to the returned NeXus NXdata object. Defaults to {}.
+            to the returned NeXus NXdata object.
         :type attrs: dict[str, object], optional
         :param data_points: A list of data points to partially (or
             even entirely) fil out the "empty" signal NeXus NXfield's
-            before returning the NeXus NXdata object. Defaults to [].
+            before returning the NeXus NXdata object.
         :type data_points: list[dict[str, object]], optional
         :param extra_nxfields: List "extra" NeXus NXfield's to include that
             can be described neither as a signal of the dataset, not a
@@ -2579,7 +2537,7 @@ class SetupNXdataProcessor(Processor):
             dimensions -- the same coordinate axis expressed in
             different units, for instance. Each item in the list
             shoulde be a dictionary of parameters for the
-            `nexusformat.nexus.NXfield` constructor. Defaults to `[]`.
+            `nexusformat.nexus.NXfield` constructor.
         :type extra_nxfields: list[dict[str, object]], optional
         :param duplicates: Behavior to use if any new data points occur
             at the same point in the dataset's coordinate space as an
@@ -2592,6 +2550,14 @@ class SetupNXdataProcessor(Processor):
         """
         self.nxname = nxname
 
+        if coords is None:
+            coords = []
+        if signals is None:
+            signals = []
+        if attrs is None:
+            attrs = {}
+        if extra_nxfields is None:
+            extra_nxfields = []
         self.coords = coords
         self.signals = signals
         self.attrs = attrs
@@ -2610,15 +2576,14 @@ class SetupNXdataProcessor(Processor):
                         f'Ignoring input data from pipeline for {a}')
         else:
             self.logger.warning('Ignoring all input data from pipeline')
-
         self.shape = tuple(len(c['values']) for c in self.coords)
-
         self.extra_nxfields = extra_nxfields
         self._data_points = []
         self.duplicates = duplicates
         self.init_nxdata()
-        for d in data_points:
-            self.add_data_point(d)
+        if data_points is not None:
+            for d in data_points:
+                self.add_data_point(d)
 
         return self.nxdata
 
@@ -2656,9 +2621,6 @@ class SetupNXdataProcessor(Processor):
         :returns: Validity of `data_point`, message
         :rtype: bool, str
         """
-        # Third party modules
-        import numpy as np
-
         valid = True
         msg = ''
         # Convert all values to numpy types
@@ -2668,15 +2630,6 @@ class SetupNXdataProcessor(Processor):
         if not all(c['name'] in data_point for c in self.coords):
             valid = False
             msg = 'Missing coordinate values'
-        # Find & handle any duplicates
-        for i, d in enumerate(self._data_points):
-            is_duplicate = all(data_point[c] == d[c] for c in self.coord_names)
-            if is_duplicate:
-                if self.duplicates == 'overwrite':
-                    self._data_points.pop(i)
-                elif self.duplicates == 'block':
-                    valid = False
-                    msg = 'Duplicate point will be blocked'
         # Ensure a value is present for all signals
         for s in self.signals:
             if s['name'] not in data_point:
@@ -2695,12 +2648,12 @@ class SetupNXdataProcessor(Processor):
         Initialise `self.nxfile` and `self.nxdata_path` with the
         `NXFile` object and actual nxpath used to save and make updates
         to the Nexus NXdata object.
-
-        :returns: None
         """
         # Third party modules
-        from nexusformat.nexus import NXdata, NXfield
-        import numpy as np
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         axes = tuple(NXfield(
             value=c['values'],
@@ -2741,7 +2694,7 @@ class SetupNXdataProcessor(Processor):
             dataset's coordinate space.
         :rtype: tuple
         """
-        return tuple(c['values'].index(data_point[c['name']]) \
+        return tuple(c['values'].index(data_point[c['name']])
                      for c in self.coords)
 
 
@@ -2768,7 +2721,6 @@ class UpdateNXdataProcessor(Processor):
           nxdata_path: /entry/samplename_dataset_1
     ```
     """
-
     def process(self, data, nxfilename, nxdata_path, data_points=[],
                 allow_approximate_coordinates=True):
         """Write new data points to the signal fields of an existing
@@ -2803,7 +2755,6 @@ class UpdateNXdataProcessor(Processor):
         """
         # Third party modules
         from nexusformat.nexus import NXFile
-        import numpy as np
 
         _data_points = self.unwrap_pipelinedata(data)[0]
         if isinstance(_data_points, list):
@@ -2821,31 +2772,31 @@ class UpdateNXdataProcessor(Processor):
             if not all(a in d for a in axes_names):
                 self.logger.error(
                     f'Data point {i} is missing a value for at least one '
-                    + f'axis. Skipping. Axes are: {", ".join(axes_names)}')
+                    f'axis. Skipping. Axes are: {", ".join(axes_names)}')
                 continue
             self.logger.info(
                 f'Coordinates for data point {i}: '
-                + ', '.join([f'{a}={d[a]}' for a in axes_names]))
+                ', '.join([f'{a}={d[a]}' for a in axes_names]))
             # Get the index of the data point in the dataset based on
             # its values for each coordinate.
             try:
-                index = tuple(np.where(a.nxdata == d[a.nxname])[0][0] \
+                index = tuple(np.where(a.nxdata == d[a.nxname])[0][0]
                               for a in nxdata.nxaxes)
             except:
                 if allow_approximate_coordinates:
                     try:
                         index = tuple(
-                            np.argmin(np.abs(a.nxdata - d[a.nxname])) \
+                            np.argmin(np.abs(a.nxdata - d[a.nxname]))
                             for a in nxdata.nxaxes)
                         self.logger.warning(
                             f'Nearest match for coordinates of data point {i}:'
-                            + ', '.join(
-                                [f'{a.nxname}={a[_i]}' \
+                            ', '.join(
+                                [f'{a.nxname}={a[_i]}'
                                  for _i, a in zip(index, nxdata.nxaxes)]))
                     except:
                         self.logger.error(
                             f'Cannot get the index of data point {i}. '
-                            + f'Skipping.')
+                            'Skipping.')
                         continue
                 else:
                     self.logger.error(
@@ -2860,10 +2811,10 @@ class UpdateNXdataProcessor(Processor):
                 try:
                     nxfile.writevalue(
                         os.path.join(nxdata_path, k), np.asarray(v), index)
-                except Exception as e:
+                except Exception as exc:
                     self.logger.error(
                         f'Error updating signal {k} for new data point '
-                        + f'{i} (dataset index {index}): {e}')
+                        f'{i} (dataset index {index}): {exc}')
             data_points_used.append(d)
 
         nxfile.close()
@@ -2921,9 +2872,6 @@ class NXdataToDataPointsProcessor(Processor):
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
         """
-        # Third party modules
-        import numpy as np
-
         nxdata = self.unwrap_pipelinedata(data)[0]
 
         data_points = []
@@ -2931,21 +2879,21 @@ class NXdataToDataPointsProcessor(Processor):
         self.logger.info(f'Dataset axes: {axes_names}')
         dataset_shape = tuple([a.size for a in nxdata.nxaxes])
         self.logger.info(f'Dataset shape: {dataset_shape}')
-        signal_names = [k for k, v in nxdata.entries.items() \
+        signal_names = [k for k, v in nxdata.entries.items()
                         if not k in axes_names \
                         and v.shape[:len(dataset_shape)] == dataset_shape]
         self.logger.info(f'Dataset signals: {signal_names}')
-        other_fields = [k for k, v in nxdata.entries.items() \
+        other_fields = [k for k, v in nxdata.entries.items()
                         if not k in axes_names + signal_names]
         if len(other_fields) > 0:
             self.logger.warning(
                 'Ignoring the following fields that cannot be interpreted as '
-                + f'either dataset coordinates or signals: {other_fields}')
+                f'either dataset coordinates or signals: {other_fields}')
         for i in np.ndindex(dataset_shape):
-            data_points.append({**{a: nxdata[a][_i] \
-                                   for a, _i in zip(axes_names, i)},
-                                **{s: nxdata[s].nxdata[i] \
-                                   for s in signal_names}})
+            data_points.append({
+                **{a: nxdata[a][_i] for a, _i in zip(axes_names, i)},
+                **{s: nxdata[s].nxdata[i] for s in signal_names},
+            })
         return data_points
 
 
@@ -2990,20 +2938,12 @@ class XarrayToNumpyProcessor(Processor):
         :return: The data in `data`.
         :rtype: numpy.ndarray
         """
-
         return self.unwrap_pipelinedata(data)[-1].data
-
-
-if __name__ == '__main__':
-    # Local modules
-    from CHAP.processor import main
-
-    main()
 
 
 class SumProcessor(Processor):
     """A Processor to sum the data in a NeXus NXobject, given a set of
-    nxpaths
+    nxpaths.
     """
     def process(self, data):
         """Return the summed data array
@@ -3026,3 +2966,9 @@ class SumProcessor(Processor):
 
         return sum_data
 
+
+if __name__ == '__main__':
+    # Local modules
+    from CHAP.processor import main
+
+    main()

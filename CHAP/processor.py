@@ -9,14 +9,12 @@ Description: Processor module
 Define a generic `Processor` object.
 """
 
-# system modules
+# System modules
 import argparse
-from inspect import getfullargspec
 import logging
 from sys import modules
-from time import time
 
-# local modules
+# Local modules
 from CHAP.pipeline import PipelineItem
 
 class Processor(PipelineItem):
@@ -26,13 +24,12 @@ class Processor(PipelineItem):
     returned by the previous `PipelineItem`, process it in some way,
     and return the result for the next `PipelineItem` to use as input.
     """
-
     def process(self, data):
         """Extract the contents of the input data, add a string to it,
         and return the amended value.
 
-        :param data: input data
-        :return: processed data
+        :param data: Input data.
+        :return: Processed data.
         """
         # If needed, extract data from a returned value of Reader.read
         if isinstance(data, list):
@@ -40,14 +37,14 @@ class Processor(PipelineItem):
                 data = data[0]['data']
         if data is None:
             return []
-        # process operation is a simple string concatenation
-        data += "process part\n"
-        # and we return data back to pipeline
+        # The process operation is a simple string concatenation
+        data += 'process part\n'
+        # Return data back to pipeline
         return data
 
 
 class OptionParser():
-    """User based option parser"""
+    """User based option parser."""
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -62,8 +59,7 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    """Main function"""
-
+    """Main function."""
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.processor

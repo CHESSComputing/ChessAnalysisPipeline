@@ -23,8 +23,7 @@ from CHAP import Reader
 
 
 class BinaryFileReader(Reader):
-    """Reader for binary files.
-    """
+    """Reader for binary files."""
     def read(self, filename):
         """Return a content of a given binary file.
 
@@ -42,7 +41,7 @@ class FabioImageReader(Reader):
     """Reader for images using the python package
     [`fabio`](https://fabio.readthedocs.io/en/main/).
     """
-    def read(self, filename, frame=None, inputdir='.'):
+    def read(self, filename, frame=None):
         """Return the data from the image file(s) provided.
 
         :param filename: The image filename, or glob pattern for image
@@ -68,15 +67,14 @@ class FabioImageReader(Reader):
 
 
 class H5Reader(Reader):
-    """Reader for h5 files.
-    """
+    """Reader for h5 files."""
     def read(self, filename, h5path='/', idx=None):
         """Return the data object stored at `h5path` in an h5-file.
 
         :param filename: The name of the h5-file to read from.
         :type filename: str
         :param h5path: The path to a specific location in the h5 file
-            to read data from, defaults to `'/'`
+            to read data from, defaults to `'/'`.
         :type h5path: str, optional
         :return: The object indicated by `filename` and `h5path`.
         :rtype: object
@@ -91,10 +89,9 @@ class H5Reader(Reader):
 
 
 class MapReader(Reader):
-    """Reader for CHESS sample maps.
-    """
+    """Reader for CHESS sample maps."""
     def read(
-            self, filename=None, map_config=None, detector_names=[],
+            self, filename=None, map_config=None, detector_names=None,
             inputdir=None):
         """Take a map configuration dictionary and return a
         representation of the map as a NeXus NXentry object. The
@@ -103,15 +100,18 @@ class MapReader(Reader):
 
         :param filename: The name of a file with the map configuration
             to read and pass onto the constructor of
-            `CHAP.common.models.map.MapConfig`, defaults to `None`.
+            `CHAP.common.models.map.MapConfig`.
         :type filename: str, optional
         :param map_config: A map configuration to be passed directly to
-            the constructor of `CHAP.common.models.map.MapConfig`,
-            defaults to `None`.
+            the constructor of `CHAP.common.models.map.MapConfig`.
         :type map_config: dict, optional
         :param detector_names: Detector prefixes to include raw data
-            for in the returned NeXus NXentry object, defaults to `[]`.
+            for in the returned NeXus NXentry object.
         :type detector_names: list[str], optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :return: Data from the provided map configuration.
         :rtype: nexusformat.nexus.NXentry
         """
@@ -170,15 +170,13 @@ class MapReader(Reader):
         nxentry.data = NXdata()
         if map_config.map_type == 'structured':
             nxentry.data.attrs['axes'] = map_config.dims
-        for i, dim in enumerate(map_config.independent_dimensions):
+        for dim in map_config.independent_dimensions:
             nxentry.data[dim.label] = NXfield(
                 value=map_config.coords[dim.label],
                 units=dim.units,
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name})
-#            if map_config.map_type == 'structured':
-#                nxentry.data.attrs[f'{dim.label}_indices'] = i
 
         # Create empty NXfields for all scalar data present in the
         # provided map configuration
@@ -201,6 +199,8 @@ class MapReader(Reader):
 
         # Create empty NXfields of appropriate shape for raw
         # detector data
+        if detector_names is None:
+            detector_names = []
         for detector_name in detector_names:
             if not isinstance(detector_name, str):
                 detector_name = str(detector_name)
@@ -211,7 +211,7 @@ class MapReader(Reader):
                 dtype=detector_data.dtype)
 
         # Read and fill in maps of raw data
-        if len(map_config.all_scalar_data) > 0 or len(detector_names) > 0:
+        if len(map_config.all_scalar_data) > 0 or detector_names:
             for map_index in np.ndindex(map_config.shape):
                 for data in map_config.all_scalar_data:
                     nxentry.data[data.label][map_index] = map_config.get_value(
@@ -226,15 +226,14 @@ class MapReader(Reader):
 
 
 class NexusReader(Reader):
-    """Reader for NeXus files.
-    """
+    """Reader for NeXus files."""
     def read(self, filename, nxpath='/'):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
         :param filename: The name of the NeXus file to read from.
         :type filename: str
         :param nxpath: The path to a specific location in the NeXus
-            file tree to read from, defaults to `'/'`
+            file tree to read from, defaults to `'/'`.
         :type nxpath: str, optional
         :raises nexusformat.nexus.NeXusError: If `filename` is not a
             NeXus file or `nxpath` is not in its tree.
@@ -249,9 +248,10 @@ class NexusReader(Reader):
 
 
 class NXdataReader(Reader):
-    """Reader for constructing an NXdata object from components"""
-    def read(self, name, nxfield_params, signal_name, axes_names, attrs={},
-             inputdir='.'):
+    """Reader for constructing an NXdata object from components."""
+    def read(
+            self, name, nxfield_params, signal_name, axes_names, attrs=None,
+            inputdir='.'):
         """Return a basic NXdata object constructed from components.
 
         :param name: The name of the NXdata group.
@@ -261,19 +261,20 @@ class NXdataReader(Reader):
             NXdata.
         :type nxfield_params: list[dict]
         :param signal_name: Name of the signal for the NXdata (must be
-            one of the names of the NXfields indicated in `nxfields`)
+            one of the names of the NXfields indicated in `nxfields`).
         :type signal: str
         :param axes_names: Name or names of the coordinate axes
             NXfields associated with the signal (must be names of
-            NXfields indicated in `nxfields`)
+            NXfields indicated in `nxfields`).
         :type axes_names: Union[str, list[str]]
-        :param attrs: Optional dictionary of additional attributes for
-            the NXdata
-        :type attrs: dict
-        :param inputdir: Input directory to use for `NXfieldReader`s,
-            defaults to `"."`
+        :param attrs: Dictionary of additional attributes for the
+            NXdata.
+        :type attrs: dict, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
         :type inputdir: str
-        :returns: A new NXdata object
+        :returns: A new NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
         from nexusformat.nexus import NXdata
@@ -286,23 +287,20 @@ class NXdataReader(Reader):
         # Get signal NXfield
         try:
             nxsignal = nxfields[signal_name]
-        except:
+        except Exception as exc:
             raise ValueError(
                 '`signal_name` must be the name of one of the NXfields '
-                + 'indicated in `nxfields`: '
-                + ', '.join(nxfields.keys())
-            )
+                'indicated in `nxfields`: , '.join(nxfields.keys())) from exc
 
         # Get axes NXfield(s)
         if isinstance(axes_names, str):
             axes_names = [axes_names]
         try:
             nxaxes = [nxfields[axis_name] for axis_name in axes_names]
-        except:
+        except Exception as exc:
             raise ValueError(
                 '`axes_names` must contain only names of NXfields indicated '
-                + 'in `nxfields`: ' + ', '.join(nxfields.keys())
-            )
+                'in `nxfields`: ' + ', '.join(nxfields.keys())) from exc
         for i, nxaxis in enumerate(nxaxes):
             if len(nxaxis) != nxsignal.shape[i]:
                 raise ValueError(
@@ -310,6 +308,8 @@ class NXdataReader(Reader):
                     + f'"{nxsignal.nxname}" has {nxsignal.shape[i]} values, '
                     + f'but axis "{nxaxis.nxname}" has {len(nxaxis)} values.')
 
+        if attrs is None:
+            attrs = {}
         result = NXdata(signal=nxsignal, axes=nxaxes, name=name, attrs=attrs,
                         **nxfields)
         self.logger.info(result.tree)
@@ -317,22 +317,25 @@ class NXdataReader(Reader):
 
 
 class NXfieldReader(Reader):
-    """Reader for an NXfield with options to modify certain attributes."""
-    def read(self, filename, nxpath, nxname=None, update_attrs=None,
-             slice_params=None, inputdir='.'):
+    """Reader for an NXfield with options to modify certain attributes.
+    """
+    def read(
+            self, filename, nxpath, nxname=None, update_attrs=None,
+            slice_params=None, inputdir='.'):
         """Return a copy of the indicated NXfield from the file. Name
         and attributes of the returned copy may be modified with the
         `nxname` and `update_attrs` keyword arguments.
 
-        :param filename: Name of the NeXus file containing the NXfield to read.
+        :param filename: Name of the NeXus file containing the NXfield
+            to read.
         :type filename: str
-        :param nxpath: Path in `nxfile` pointing to the NXfield to read.
+        :param nxpath: Path in `nxfile` pointing to the NXfield to
+           read.
         :type nxpath: str
-        :param nxname: Optional new name for the returned NXfield,
-            defaults to None
+        :param nxname: New name for the returned NXfield.
         :type nxname: str, optional
         :param update_attrs: Optional dictonary used to add to /
-            update the original NXfield's attributes, defaults to None
+            update the original NXfield's attributes.
         :type update_attrs: dict, optional
         :param slice_params: Parameters for returning just a slice of
             the full field data. Slice parameters are provided in a
@@ -340,19 +343,21 @@ class NXfieldReader(Reader):
             following keys: `"start"`, `"end"`, `"step"`. Default
             values used are: `"start"` - `0`, `"end"` -- `None`,
             `"step"` -- `1`. The order of the list must correspond to
-            the order of the field's axes. Defaults to `None`.
+            the order of the field's axes.
         :type slice_params: list[dict[str, int]], optional
-        :param inputdir: Directory containing `nxfile`, defaults to `"."`
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
         :type inputdir: str
         :returns: A copy of the indicated NXfield (with name and
             attributes optionally modified).
         :rtype: nexusformat.nexus.NXfield
         """
         # Third party modules
-        from nexusformat.nexus import nxload, NXfield
-
-        # Local modules
-        from CHAP.utils.general import nxcopy
+        from nexusformat.nexus import (
+            NXfield,
+            nxload,
+        )
 
         if not isabs(filename):
             filename = join(inputdir, filename)
@@ -389,25 +394,28 @@ class NXfieldReader(Reader):
 
 
 class SpecReader(Reader):
-    """Reader for CHESS SPEC scans"""
-    def read(self, filename=None, config=None, detector_names=None,
+    """Reader for CHESS SPEC scans."""
+    def read(
+            self, filename=None, config=None, detector_names=None,
             inputdir=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as a Nexus NXentry object.
 
         :param filename: The name of file with the SPEC configuration
             to read from to pass onto the constructor of
-            `CHAP.common.models.map.SpecConfig`, defaults to `None`.
+            `CHAP.common.models.map.SpecConfig`.
         :type filename: str, optional
         :param config: A SPEC configuration to be passed directly
-            to the constructor of `CHAP.common.models.map.SpecConfig`,
-            defaults to `None`.
+            to the constructor of `CHAP.common.models.map.SpecConfig`.
         :type config: dict, optional
         :param detector_names: Detector names/prefixes to include raw
-            data for in the returned NeXus NXentry object,
-            defaults to `None`.
+            data for in the returned NeXus NXentry object.
         :type detector_names: Union(int, str, list[int], list[str]),
             optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str
         :return: The data from the provided SPEC configuration.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -542,23 +550,26 @@ class SpecReader(Reader):
 
 
 class URLReader(Reader):
-    """Reader for data available over HTTPS.
-    """
-    def read(self, url, headers={}, timeout=10):
+    """Reader for data available over HTTPS."""
+    def read(self, url, headers=None, timeout=10):
         """Make an HTTPS request to the provided URL and return the
         results. Headers for the request are optional.
 
         :param url: The URL to read.
         :type url: str
-        :param headers: Headers to attach to the request,
-            defaults to `{}`
+        :param headers: Headers to attach to the request.
         :type headers: dict, optional
+        :param timeout: Timeout for the HTTPS request,
+            defaults to `10`.
+        :type timeout: int
         :return: The content of the response.
         :rtype: object
         """
         # System modules
         import requests
 
+        if headers is None:
+            headers = {}
         resp = requests.get(url, headers=headers, timeout=timeout)
         data = resp.content
 
@@ -568,8 +579,7 @@ class URLReader(Reader):
 
 
 class YAMLReader(Reader):
-    """Reader for YAML files.
-    """
+    """Reader for YAML files."""
     def read(self, filename):
         """Return a dictionary from the contents of a yaml file.
 

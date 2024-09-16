@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 """Tomography command line writer."""
 
-# Local modules
-from CHAP.reader import main
-
 if __name__ == '__main__':
+    # Local modules
+    from CHAP.writer import main
+
     main()

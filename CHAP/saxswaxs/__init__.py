@@ -1,9 +1,7 @@
-"""This subpackage contains `PipelineItems` unique to SAXS/WAXS data
+"""This subpackage contains `PipelineItems` unique to SAXSWAXS data
 processing workflows.
 """
-# from CHAP.saxswaxs.reader import
-# from CHAP.saxswaxs.processor import
-# from CHAP.saxswaxs.writer import
 
-from CHAP.common import (IntegrateMapProcessor,
-                         MapProcessor)
+# from CHAP.saxswaxs.processor import
+# from CHAP.saxswaxs.reader import
+# from CHAP.saxswaxs.writer import

@@ -36,10 +36,9 @@ logger = getLogger(__name__)
 
 
 class Material:
-    """
-    Base class for materials in an sin2psi or EDD analysis. Right now
-    it assumes a single material, extend its ability to do differently
-    when test data is available
+    """Base class for materials in an sin2psi or EDD analysis. Right
+    now it assumes a single material, extend its ability to do
+    differently when test data is available.
     """
     def __init__(
             self, material_name=None, material_file=None, sgnum=None,
@@ -96,19 +95,18 @@ class Material:
                 lattice_parameters_angstroms, atoms, pos, dmin_angstroms))
 
     def get_ds_unique(self, tth_tol=None, tth_max=None, round_sig=8):
-        """
-        Get the list of unique lattice spacings from material HKLs.
+        """Get the list of unique lattice spacings from material HKLs.
 
-        Parameters
-        ----------
-        tth_tol     : two theta tolerance (in degrees)
-        tth_max     : maximum two theta value (in degrees)
-        round_sig   : significant digits, passed to round() function
-
-        Returns
-        -------
-        hkls: list of hkl's corresponding to the unique lattice spacings
-        ds: list of the unique lattice spacings
+        :param tth_tol: Two-theta tolerance (in degrees).
+        :type tth_tol: float, optional
+        :param tth_max: Maximum two-theta value (in degrees).
+        :type tth_max: float, optional
+        :param round_sig: Significant digits, passed to round()
+            function, defaults to `8`.
+        :type round_sig: int, optional
+        :returns: The list of hkl's corresponding to the unique lattice
+            spacings and the list of the unique lattice spacings.
+        :rtype: list, list
         """
         hkls = np.empty((0,3))
         ds = np.empty((0))
@@ -169,9 +167,8 @@ class Material:
             material_name, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
             dmin_angstroms=0.6):
-        """
-        Use HeXRD to get material properties when a materials file is
-        provided. Use xrayutilities otherwise.
+        """Use HeXRD to get material properties when a materials file
+        is provided. Use xrayutilities otherwise.
         """
         if not isinstance(material_name, str):
             raise ValueError(

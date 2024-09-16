@@ -5,16 +5,17 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Unit tests for common/reader.py code
 """
 
-# system modules
-import time
+# System modules
 import os
 import unittest
 
-# local modules
-from CHAP.common import (BinaryFileReader,
-                         NexusReader,
-                         URLReader,
-                         YAMLReader)
+# Local modules
+from CHAP.common import (
+    BinaryFileReader,
+    NexusReader,
+    URLReader,
+    YAMLReader,
+)
 
 
 class BinaryFileReaderTest(unittest.TestCase):

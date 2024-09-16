@@ -28,7 +28,7 @@ class Detector(BaseModel):
     :ivar pixel_size: Pixel size of the detector in mm.
     :type pixel_size: int or list[int]
     :ivar lens_magnification: Lens magnification for the detector,
-        defaults to 1.0.
+        defaults to `1.0`.
     :type lens_magnification: float, optional
     """
     prefix: constr(strip_whitespace=True, min_length=1)
@@ -111,7 +111,7 @@ class TomoReconstructConfig(BaseModel):
     :ivar z_bounds: Reconstructed image bounds in the z-direction.
     :type z_bounds: list[int], optional
     :ivar secondary_iters: Number of secondary iterations in the tomopy
-        image reconstruction algorithm, defaults to 0.
+        image reconstruction algorithm, defaults to `0`.
     :type secondary_iters: int, optional
     :ivar gaussian_sigma: Standard deviation for the Gaussian filter
         applied to image reconstruction visualizations, defaults to no
@@ -176,18 +176,19 @@ class TomoSimConfig(BaseModel):
     :ivar wall_thickness: Wall thickness for pipe, cube, and brick in
         mm (internally converted to an integer number of pixels).
     :type wall_thickness: float
-    :ivar mu: Linear attenuation coefficient in mm^-1, defaults to 0.05.
+    :ivar mu: Linear attenuation coefficient in mm^-1, defaults to
+        `0.05`.
     :type mu: float, optional
     :ivar theta_step: Rotation angle increment in the tomography
         simulation in degrees.
     :type theta_step: float
     :ivar beam_intensity: Initial beam intensity in counts,
-        defaults to 1.e9.
+        defaults to `1.e9`.
     :type beam_intensity: float, optional
     :ivar background_intensity: Background intensity in counts,
-        defaults to 20.
+        defaults to `20`.
     :type background_intensity: float, optional
-    :ivar slit_size: Vertical beam height in mm, defaults to 1.0.
+    :ivar slit_size: Vertical beam height in mm, defaults to `1.0`.
     :type slit_size: float, optional
     """
     station: Literal['id1a3', 'id3a', 'id3b']
