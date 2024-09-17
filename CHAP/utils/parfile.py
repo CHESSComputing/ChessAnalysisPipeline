@@ -136,17 +136,30 @@ class ParFile():
             values in the given column for (instead of the default
             behavior: return the entire column of values).
         :type scan_numbers: list[int], optional
+        :raise:
+            ValueError: Unavailable column name.
+            TypeError: Illegal column name type.
         :return: A list of values from a single column in the par file.
         :rtype: list[object]
         """
         if isinstance(column, str):
-            column_idx = self.column_names.index(column)
+            if column in self.column_names:
+                column_idx = self.column_names.index(column)
+#            elif column in ('dataset_id', 'scan_type'):
+#                column_idx = None
+            else:
+                raise ValueError(f'Unavailable column name: {column} not in '
+                                 f'{self.column_names}')
         elif isinstance(column, int):
             column_idx = column
         else:
             raise TypeError(f'column must be a str or int, not {type(column)}')
 
-        column_data = [self.data[i][column_idx] for i in range(len(self.data))]
+        if column_idx is None:
+            column_data = [None]*len(self.data)
+        else:
+            column_data = [
+                self.data[i][column_idx] for i in range(len(self.data))]
         if scan_numbers is not None:
             column_data = [column_data[self.scan_numbers.index(scan_n)] \
                            for scan_n in scan_numbers]

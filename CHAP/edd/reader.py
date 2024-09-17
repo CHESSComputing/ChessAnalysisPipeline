@@ -18,7 +18,7 @@ class EddMapReader(Reader):
     specific set of items to use for extra scalar datasets to include
     are hard-coded in. The raw data is read if detector_names are
     specified."""
-    def read(self, parfile, dataset_id, detector_names=None):
+    def read(self, parfile, dataset_id=1, detector_names=None):
         """Return a validated `MapConfig` object representing an EDD
         dataset.
 
@@ -26,8 +26,8 @@ class EddMapReader(Reader):
             dataset.
         :type parfile: str
         :param dataset_id: Number of the dataset in the .par file
-            to return as a map.
-        :type dataset_id: int
+            to return as a map, defaults to `1`.
+        :type dataset_id: int, optional
         :param detector_names: Detector prefixes for the raw data.
         :type detector_names: list[str], optional
         :returns: Map configuration packaged with the appropriate
@@ -48,25 +48,45 @@ class EddMapReader(Reader):
         parfile = ParFile(parfile)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
 
+        attrs = {}
+
         # Get list of scan numbers for the dataset
-        dataset_ids = np.asarray(parfile.get_values('dataset_id'))
-        dataset_rows_i = np.argwhere(
-            np.where(
-                np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
+        try:
+            dataset_ids = parfile.get_values('dataset_id')
+            dataset_rows_i = np.argwhere(
+                np.where(
+                    np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
+        except:
+            dataset_rows_i = np.arange(len(parfile.scan_numbers))
+            attrs['dataset_id'] = 1
         scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i
                     if parfile.data[i][parfile.scann_i] in
                         parfile.good_scan_numbers()]
+        if not scan_nos:
+            raise RuntimeError(
+                f'Unable to find scans with dataset_id matching {dataset_id}')
         self.logger.debug(f'Scan numbers: {list_to_string(scan_nos)}')
         spec_scans = [
             {'spec_file': parfile.spec_file, 'scan_numbers': scan_nos}]
 
         # Get scan type for this dataset
-        scan_types = parfile.get_values('scan_type', scan_numbers=scan_nos)
-        if any([st != scan_types[0] for st in scan_types]):
-            msg = 'Only one scan type per dataset is suported.'
-            self.logger.error(msg)
-            raise RuntimeError(msg)
-        scan_type = scan_types[0]
+        try:
+            scan_types = parfile.get_values('scan_type', scan_numbers=scan_nos)
+            if any([st != scan_types[0] for st in scan_types]):
+                raise RuntimeError(
+                    'Only one scan type per dataset is suported.')
+            scan_type = scan_types[0]
+        except:
+            # Third party modeuls
+            from chess_scanparsers import SMBScanParser
+
+            scanparser = SMBScanParser(parfile.spec_file, scan_nos[0])
+            if scanparser.spec_macro == 'tseries':
+                scan_type = 0
+            else:
+                raise RuntimeError('Old style par files not supported for '
+                                   'spec_macro != tseries')
+            attrs['scan_type'] = scan_type
         self.logger.debug(f'Scan type: {scan_type}')
 
         # Based on scan type, get independent_dimensions for the map
@@ -83,7 +103,6 @@ class EddMapReader(Reader):
              'data_type': 'smb_par', 'name': 'ometotal'},
         ]
         scalar_data = []
-        attrs = {}
         if scan_type != 0:
             self.logger.warning(
                 'Assuming all fly axes parameters are identical for all scans')
@@ -118,16 +137,25 @@ class EddMapReader(Reader):
                     scanparser.pars['bin_axis']].replace('fly_', '')
 
         # Add in the usual extra scalar data maps for EDD
-        scalar_data.extend([
-            {'label': 'SCAN_N', 'units': 'n/a', 'data_type': 'smb_par',
-             'name': 'SCAN_N'},
-            {'label': 'rsgap_size', 'units': 'mm',
-             'data_type': 'smb_par', 'name': 'rsgap_size'},
-            {'label': 'x_effective', 'units': 'mm',
-             'data_type': 'smb_par', 'name': 'x_effective'},
-            {'label': 'z_effective', 'units': 'mm',
-             'data_type': 'smb_par', 'name': 'z_effective'},
-        ])
+        scalar_data.append({
+            'label': 'SCAN_N', 'units': 'n/a', 'data_type': 'smb_par',
+            'name': 'SCAN_N',
+        })
+        if 'rsgap_size' in parfile.column_names:
+            scalar_data.append({
+                'label': 'rsgap_size', 'units': 'mm',
+                'data_type': 'smb_par', 'name': 'rsgap_size',
+            })
+        if 'x_effective' in parfile.column_names:
+            scalar_data.append({
+                'label': 'x_effective', 'units': 'mm',
+                'data_type': 'smb_par', 'name': 'x_effective',
+            })
+        if 'z_effective' in parfile.column_names:
+            scalar_data.append({
+                'label': 'z_effective', 'units': 'mm',
+                'data_type': 'smb_par', 'name': 'z_effective',
+            })
 
         # Construct and validate the initial map config dictionary
         scanparser = ScanParser(parfile.spec_file, scan_nos[0])
