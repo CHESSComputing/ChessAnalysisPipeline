@@ -1858,7 +1858,7 @@ class Fit:
                     [v['max'] for v in self._parameter_bounds.values()])
                 if self._method in ('lm', 'leastsq'):
                     self._method = 'trf'
-                    logger.warning(
+                    logger.debug(
                         f'Fit method changed to {self._method} for fit with '
                         'bounds')
             else:

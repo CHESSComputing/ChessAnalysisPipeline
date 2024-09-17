@@ -909,13 +909,17 @@ class MapConfig(BaseModel):
         station = values['station']
         experiment_type = values['experiment_type']
         if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
-            attrs['scan_type'] = cls.get_smb_par_attr(values, 'scan_type')
+            scan_type = cls.get_smb_par_attr(values, 'scan_type')
+            if scan_type is not None:
+                attrs['scan_type'] = scan_type
             attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
-            attrs['dataset_id'] = cls.get_smb_par_attr(values, 'dataset_id')
-            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
-                           4: 'fly_ometotal'}
+            dataset_id = cls.get_smb_par_attr(values, 'dataset_id')
+            if dataset_id is not None:
+                attrs['dataset_id'] = dataset_id
             if attrs['scan_type'] is None:
                 return attrs
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
             if attrs['scan_type'] != 0:
                 attrs['fly_axis_labels'] = [
                     axes_labels[cls.get_smb_par_attr(values, 'fly_axis0')]]
@@ -952,10 +956,10 @@ class MapConfig(BaseModel):
                 try:
                     values.append(scanparser.pars[name])
                 except:
-                    print(
-                        f'Warning: No value found for .par file value "{name}"'
-                        f' on scan {scan_number} in spec file '
-                        f'{scans.spec_file}.')
+#                    print(
+#                        f'Warning: No value found for .par file value "{name}"'
+#                        f' on scan {scan_number} in spec file '
+#                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
         if len(values) != 1:
