@@ -916,7 +916,7 @@ class MapConfig(BaseModel):
             dataset_id = cls.get_smb_par_attr(values, 'dataset_id')
             if dataset_id is not None:
                 attrs['dataset_id'] = dataset_id
-            if attrs['scan_type'] is None:
+            if attrs.get('scan_type') is None:
                 return attrs
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}

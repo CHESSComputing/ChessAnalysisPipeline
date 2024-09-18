@@ -1045,10 +1045,18 @@ class MCAEnergyCalibrationProcessor(Processor):
                 NXdata(NXfield(spectrum[mask], 'y'), NXfield(bins[mask], 'x')),
                 {'models': models, 'method': 'trf'})
 
+        fit_peak_amplitudes = sorted([
+            spectrum_fit.best_values[f'peak{i+1}_amplitude']
+            for i in range(len(initial_peak_indices))])
+        self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
         fit_peak_indices = sorted([
             spectrum_fit.best_values[f'peak{i+1}_center']
             for i in range(len(initial_peak_indices))])
-        self.logger.debug(f'Fit peak centers: {fit_peak_indices}')
+        self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
+        fit_peak_fwhms = sorted([
+            2.35482*spectrum_fit.best_values[f'peak{i+1}_sigma']
+            for i in range(len(initial_peak_indices))])
+        self.logger.debug(f'Fit peak fwhms: {fit_peak_fwhms}')
 
         #RV for now stick with a linear energy correction
         fit = FitProcessor()
@@ -2803,7 +2811,7 @@ class StrainAnalysisProcessor(Processor):
 
         # Collect the raw MCA data
         if (strain_analysis_config.sum_axes
-                and map_config.attrs['scan_type'] > 2):
+                and map_config.attrs.get('scan_type', 0) > 2):
             # FIX? Could make this a processor
             mca_data = self._get_sum_axes_data(
                 nxentry[nxentry.default],
