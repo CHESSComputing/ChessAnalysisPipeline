@@ -4,7 +4,7 @@ channels:
   - astra-toolbox
   - nodefaults
 dependencies:
-  - python>=3.9
+  - python>=3.9,<3.11
   - astra-toolbox==2.1.0
   - chessanalysispipeline
   - lmfit==1.1.0
@@ -12,7 +12,7 @@ dependencies:
   - mpi4py==4.0.0
   - nexpy==1.0.9
   - nexusformat==1.0.6
-  - pip==22.3.1
+  - pip==24.2
   - pydantic==2.7.3
   - sympy==1.12
   - tomopy==1.12.2

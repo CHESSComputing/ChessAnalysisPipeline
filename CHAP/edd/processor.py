@@ -811,11 +811,11 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Validate the detector configuration
         available_detector_indices = [
-            int(d) for d in nxentry.detector_names]
+            int(d) for d in nxentry.detector_names.nxdata]
         if calibration_config.detectors is None:
             calibration_config.detectors = [
                 MCAElementCalibrationConfig(detector_name=d)
-                for d in nxentry.detector_names]
+                for d in nxentry.detector_names.nxdata]
         else:
             for detector in deepcopy(calibration_config.detectors):
                 index = int(detector.detector_name)
@@ -1453,7 +1453,8 @@ class MCATthCalibrationProcessor(Processor):
         # Validate the detector configuration
         if calibration_config.detectors is None:
             raise RuntimeError('No available calibrated detectors')
-        available_detector_indices = [int(d) for d in nxentry.detector_names]
+        available_detector_indices = [
+            int(d) for d in nxentry.detector_names.nxdata]
         detectors = []
         for detector in calibration_config.detectors:
             index = int(detector.detector_name)
@@ -2673,7 +2674,7 @@ class StrainAnalysisProcessor(Processor):
             int(d.detector_name) for d in calibration_config.detectors]
         if 'detector_names' in nxentry:
             available_detector_indices = [
-                int(d) for d in nxentry.detector_names]
+                int(d) for d in nxentry.detector_names.nxdata]
         else:
             available_detector_indices = calibration_detector_indices
         if strain_analysis_config.detectors is None:

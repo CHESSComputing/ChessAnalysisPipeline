@@ -6,18 +6,18 @@ channels:
 dependencies:
   - python>=3.9,<3.11
   - asteval==0.9.31
-#  - chessanalysispipeline
+  - chessanalysispipeline
   - hexrd==0.9.4
   - lmfit==1.1.0
   - matplotlib==3.9.2
   - mpi4py==4.0.0
   - nexpy==1.0.9
   - nexusformat==1.0.6
-  - pip==22.3.1
+  - pip==24.2
   - pydantic==2.7.3
   - requests==2.31.0
   - scipy==1.11.3
   - sympy==1.12
   - pip:
     - certif-pyspec==1.5.3
-#    - chess-scanparsers
+    - chess-scanparsers
