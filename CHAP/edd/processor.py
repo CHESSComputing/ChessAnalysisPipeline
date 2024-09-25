@@ -484,7 +484,7 @@ class LatticeParameterRefinementProcessor(Processor):
                     xlabel='Energy (keV)', ylabel='Intensity (counts)',
                     interactive=interactive, filename=filename)
 
-            mca_data_summed -= baseline
+            mca_data_summed = np.maximum(mca_data_summed-baseline, 0)
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = \
                 baseline_config['num_iter']
@@ -569,7 +569,7 @@ class LatticeParameterRefinementProcessor(Processor):
         for map_index in np.ndindex(effective_map_shape):
             if detector.baseline:
                 intensities[map_index] = \
-                    (mca_data[map_index]-baseline).astype(
+                    np.maximum(mca_data[map_index]-baseline, 0).astype(
                         np.float64)[mask]
             else:
                 intensities[map_index] = \
@@ -986,7 +986,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 xlabel='Energy (keV)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum -= baseline
+            spectrum = np.maximum(spectrum-baseline, 0)
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -1645,7 +1645,7 @@ class MCATthCalibrationProcessor(Processor):
                 xlabel='Energy (keV)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum -= baseline
+            spectrum = np.maximum(spectrum-baseline, 0)
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -2859,8 +2859,8 @@ class StrainAnalysisProcessor(Processor):
         baselines = self._get_baselines(mca_data_mean, energy_masks)
         if baselines:
             baselines = np.asarray(baselines)
-            mca_data_mean -= baselines
-            mca_data -= baselines
+            mca_data_mean = np.maximum(mca_data_mean-baselines, 0)
+            mca_data = np.maximum(mca_data-baselines, 0)
 
         # Adjust the material properties
         self._adjust_material_props(
@@ -3055,7 +3055,7 @@ class StrainAnalysisProcessor(Processor):
             if ((self._interactive or self._save_figures)
                     and not skip_animation):
                 # Third party modules
-                from matplotlib.animation import animation
+                from matplotlib import animation
                 import matplotlib.pyplot as plt
 
                 if self._save_figures:
@@ -3066,17 +3066,20 @@ class StrainAnalysisProcessor(Processor):
                     if not os.path.isdir(path):
                         os.mkdir(path)
 
+                norm_all_data = max(1.0, det_nxdata.intensity.max())
                 def animate(i):
-                    norm = det_nxdata.intensity.nxdata[i].max()
-                    intensity.set_ydata(det_nxdata.intensity.nxdata[i] / norm)
+                    data = det_nxdata.intensity.nxdata[i]
+                    max_ = data.max()
+                    norm = max(1.0, max_)
+                    intensity.set_ydata(data / norm)
                     best_fit.set_ydata(unconstrained_best_fit[i] / norm)
                     axes = self._nxdata.attrs['axes']
                     if isinstance(axes, str):
                         axes = [axes]
                     index.set_text('\n'.join(
-                        [f'norm = {int(norm)}'] +
+                        [f'norm = {int(max_)}'] +
                         ['relative norm = '
-                         f'{(norm / det_nxdata.intensity.max()):.5f}'] +
+                         f'{(max_ / norm_all_data):.5f}'] +
                         [f'{dim}[{i}] = {self._nxdata[dim][i]}'
                          for dim in axes]))
                     if self._save_figures:
@@ -3085,27 +3088,18 @@ class StrainAnalysisProcessor(Processor):
                     return intensity, best_fit, index
 
                 fig, ax = plt.subplots()
-                data_normalized = (
-                    det_nxdata.intensity.nxdata[0]
-                    / det_nxdata.intensity.nxdata[0].max())
-                intensity, = ax.plot(
-                    energies, data_normalized, 'b.', label='data')
-                if unconstrained_best_fit[0].max():
-                    fit_normalized = (
-                        unconstrained_best_fit[0]
-                        / unconstrained_best_fit[0].max())
-                else:
-                    fit_normalized = unconstrained_best_fit[0]
+                data = det_nxdata.intensity.nxdata[0]
+                norm = max(1.0, data.max())
+                intensity, = ax.plot(energies, data / norm, 'b.', label='data')
                 best_fit, = ax.plot(
-                    energies, fit_normalized, 'k-', label='fit')
-                # residual, = ax.plot(
-                #     energies, unconstrained_residuals[0], 'r-',
-                #     label='residual')
+                    energies, unconstrained_best_fit[0] / norm,
+                    'k-', label='fit')
                 ax.set(
                     title='Unconstrained fits',
                     xlabel='Energy (keV)',
                     ylabel='Normalized intensity (-)')
                 ax.legend(loc='upper right')
+                ax.set_ylim(-0.05, 1.05)
                 index = ax.text(
                     0.05, 0.95, '', transform=ax.transAxes, va='top')
 
@@ -3117,7 +3111,7 @@ class StrainAnalysisProcessor(Processor):
                         fig, animate,
                         frames=int(det_nxdata.intensity.nxdata.size
                                    / det_nxdata.intensity.nxdata.shape[-1]),
-                        interval=1000, blit=True, repeat=False)
+                        interval=1000, blit=False, repeat=False)
                 else:
                     for i in range(num_frame):
                         animate(i)
@@ -3137,7 +3131,7 @@ class StrainAnalysisProcessor(Processor):
                         frames.append([im])
 
                     ani = animation.ArtistAnimation(
-                         plt.gcf(), frames, interval=1000, blit=True,
+                         plt.gcf(), frames, interval=1000, blit=False,
                          repeat=False)
 
                 if self._interactive:
