@@ -221,9 +221,12 @@ class GiwaxsConversionProcessor(Processor):
                 if interactive:
                     plt.show()
                 if save_figures:
-                    fig.savefig(os.path.join(
-                        outputdir,
-                        f'converted_{config.scan_step_indices[i]}'))
+                    if config.scan_step_indices is None:
+                        fig.savefig(os.path.join(outputdir, f'converted'))
+                    else:
+                        fig.savefig(os.path.join(
+                            outputdir,
+                            f'converted_{config.scan_step_indices[i]}'))
                 plt.close()
 
         # Create the NXdata object with the converted images
