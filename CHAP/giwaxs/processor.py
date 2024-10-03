@@ -119,14 +119,14 @@ class GiwaxsConversionProcessor(Processor):
         # Add the NXprocess object to the NXroot
         nxprocess = NXprocess()
         try:
-            nxroot[f'{nxroot.default}_conversion'] = nxprocess
+            nxroot[f'{nxroot.default}_converted'] = nxprocess
         except:
             # Local imports
             from CHAP.utils.general import nxcopy
 
             # Copy nxroot if nxroot is read as read-only
             nxroot = nxcopy(nxroot)
-            nxroot[f'{nxroot.default}_conversion'] = nxprocess
+            nxroot[f'{nxroot.default}_converted'] = nxprocess
         nxprocess.conversion_config = dumps(config.dict())
 
         # Validate the detector and independent dimensions
@@ -633,6 +633,7 @@ class IntegrationProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        from json import loads
         if interactive or save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
@@ -655,27 +656,50 @@ class IntegrationProcessor(Processor):
         nxprocess.integration_config = dumps(config.dict())
 
         # Validate the detector and independent dimensions
-        nxentry = nxroot[nxroot.default]
-        if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
-            raise RuntimeError('More than one detector not yet implemented')
-        detector = config.detectors[0]
-        if str(nxentry.detector_names[0]) != detector.prefix:
-            raise RuntimeError(
-                f'Inconsistent detector names ({nxentry.detector_names[0]} vs '
-                f'{detector.prefix})')
-        if not isinstance(nxentry.data.attrs['axes'], str):
-            raise RuntimeError(
-                'More than one independent dimension not yet implemented')
+        try:
+            # Local imports
+            from CHAP.giwaxs.models import Detector
 
-        # Collect the raw giwaxs images
+            nxprocess_converted = nxroot[f'{nxroot.default}_converted']
+            conversion_config = loads(
+                str(nxprocess_converted.conversion_config))
+            detectors = conversion_config['detectors']
+            if len(detectors) > 1:
+                raise RuntimeError('More than one detector not yet implemented')
+            nxdata = nxprocess_converted.data
+            if len(nxdata.attrs['axes']) != 3:
+                raise RuntimeError(
+                    'More than one independent dimension not yet implemented')
+            thetas = nxdata[nxdata.attrs['axes'][0]]
+            data = np.flip(nxdata.converted, axis=1)
+            config = deepcopy(config)
+            config.detectors = [
+                Detector(**dict(detector)) for detector in config.detectors]
+            nxprocess.attrs['data_source'] = nxdata.converted.nxpath
+        except Exception as exc:
+            self.logger.warning(f'{exc}, use raw data for integration')
+            nxentry = nxroot[nxroot.default]
+            if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
+                raise RuntimeError('More than one detector not yet implemented')
+            detector = config.detectors[0]
+            if str(nxentry.detector_names[0]) != detector.prefix:
+                raise RuntimeError(
+                    f'Inconsistent detector names ({nxentry.detector_names[0]}'
+                    f' vs {detector.prefix})')
+            nxdata = nxentry.data
+            if not isinstance(nxdata.attrs['axes'], str):
+                raise RuntimeError(
+                    'More than one independent dimension not yet implemented')
+            thetas = nxdata[nxdata.attrs['axes']]
+            data = nxdata.detector_data[0]
+            nxprocess.attrs['data_source'] = nxdata.detector_data.nxpath
+
+        # Select the giwaxs images to integrate
         if config.scan_step_indices is None:
-            thetas = nxentry.data[nxentry.data.attrs['axes']]
-            giwaxs_data = nxentry.data.detector_data[0].nxdata
+            giwaxs_data = data.nxdata
         else:
-            thetas = nxentry.data[nxentry.data.attrs['axes']][
-                config.scan_step_indices]
-            giwaxs_data = nxentry.data.detector_data[0][
-                config.scan_step_indices]
+            thetas = thetas[config.scan_step_indices]
+            giwaxs_data = data[config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
