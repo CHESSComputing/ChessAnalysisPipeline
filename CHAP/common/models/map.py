@@ -29,6 +29,61 @@ from pydantic import (
 from pyspec.file.spec import FileSpec
 from typing_extensions import Annotated
 
+class Detector(BaseModel):
+    """Class representing a single detector.
+
+    :ivar id: The detector id (e.g. name or channel index).
+    :type id: str
+    :ivar attrs: Additional detector configuration attributes.
+    :type attrs: dict, optional
+    """
+    id: constr(min_length=1)
+    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def validate_scan_numbers(cls, id):
+        """Validate the detector id.
+
+        :param id: The detector id (e.g. name or channel index).
+        :type id: int, str
+        :return: The detector id.
+        :rtype: str
+        """
+        if isinstance(id, int):
+            return str(id)
+        return id
+
+    #RV maybe better to use model_validator, see v2 docs?
+    @field_validator('attrs')
+    @classmethod
+    def validate_attrs(cls, attrs):
+        """Validate any additional detector configuration attributes.
+
+        :param attrs: Any additional attributes to `DetectorConfig`.
+        :type attrs: dict
+        :raises ValueError: Invalid attribute.
+        :return: The validated field for `attrs`.
+        :rtype: dict
+        """
+        name = attrs.get('name')
+        if name is not None:
+            if isinstance(name, int):
+                attrs['name'] = str(name)
+            elif not isinstance(name, str):
+                raise ValueError
+        return attrs
+
+
+class DetectorConfig(BaseModel):
+    """Class representing a detector configuration.
+
+    :ivar detectors: The detector list.
+    :type detectors: list[Detector]
+    """
+    detectors: conlist(item_type=Detector, min_length=1)
+
+
 class Sample(BaseModel):
     """Class representing a sample metadata configuration.
 
@@ -893,8 +948,8 @@ class MapConfig(BaseModel):
     @field_validator('attrs')
     @classmethod
     def validate_attrs(cls, attrs, info):
-        """Read any additional attributes depending on the values for
-        the station and experiment_type fields.
+        """Validate any additional attributes depending on the values
+        for the station and experiment_type fields.
 
         :param attrs: Any additional attributes to the MapConfig class.
         :type attrs: dict
