@@ -131,25 +131,29 @@ class GiwaxsConversionProcessor(Processor):
 
         # Validate the detector and independent dimensions
         nxentry = nxroot[nxroot.default]
-        if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
+        if len(config.detectors) > 1:
             raise RuntimeError('More than one detector not yet implemented')
         detector = config.detectors[0]
-        if str(nxentry.detector_names[0]) != detector.prefix:
+        nxdetector = nxentry.get(detector.prefix)
+        if nxdetector is None:
             raise RuntimeError(
-                f'Inconsistent detector names ({nxentry.detector_names[0]} vs '
+                f'Unable to find detector data in {nxentry.tree}')
+        if str(nxdetector.nxname) != detector.prefix:
+            raise RuntimeError(
+                f'Inconsistent detectors ({nxdetector.nxname} vs '
                 f'{detector.prefix})')
-        if not isinstance(nxentry.data.attrs['axes'], str):
+        if not isinstance(nxentry[detector.prefix].data.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
 
         # Collect the raw giwaxs images
         if config.scan_step_indices is None:
-            thetas = nxentry.data[nxentry.data.attrs['axes']]
-            giwaxs_data = nxentry.data.detector_data[0]
+            thetas = nxdetector.data[nxdetector.data.attrs['axes']]
+            giwaxs_data = nxdetector.data.detector_data
         else:
-            thetas = nxentry.data[nxentry.data.attrs['axes']][
+            thetas = nxdetector.data[nxdetector.data.attrs['axes']][
                 config.scan_step_indices]
-            giwaxs_data = nxentry.data.detector_data[0][
+            giwaxs_data = nxdetector.data.detector_data[
                 config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
