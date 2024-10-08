@@ -422,7 +422,7 @@ class LatticeParameterRefinementProcessor(Processor):
         )
 
         def linkdims(nxgroup, field_dims=None):
-            "Link the dimensions for an NXgroup."""
+            """Link the dimensions for an NXgroup."""
             if field_dims is None:
                 field_dims = []
             if isinstance(field_dims, dict):
