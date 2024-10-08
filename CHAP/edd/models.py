@@ -129,30 +129,29 @@ class MCAElementConfig(BaseModel):
     """Class representing metadata required to configure a single MCA
     detector element.
 
-    :ivar detector_name: Name of the MCA detector element in the scan,
-        defaults to `'mca1'`.
-    :type detector_name: str
+    :ivar id: The MCA detector id (name or channel index) in the scan,
+        defaults to `'0'`.
+    :type id: str
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
     """
-    detector_name: constr(strip_whitespace=True, min_length=1) = 'mca1'
+    id: constr(min_length=1) = '0'
     num_bins: Optional[conint(gt=0)] = None
+    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 
-    @field_validator('detector_name', mode='before')
+    @field_validator('id', mode='before')
     @classmethod
-    def validate_detector_name(cls, detector_name):
-        """Validate the specified detector name.
+    def validate_id(cls, id):
+        """Validate the detector id.
 
-        :ivar detector_name: Name of the MCA detector element in the
-            scan.
-        :type detector_name: Union(str, int)
-        :raises ValueError: Invalid detector_name.
-        :return: detector_name.
+        :param id: The detector id (name or channel index).
+        :type id: int, str
+        :return: The detector id.
         :rtype: str
         """
-        if isinstance(detector_name, int):
-            return str(detector_name)
-        return detector_name
+        if isinstance(id, int):
+            return str(id)
+        return id
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -161,7 +160,13 @@ class MCAElementConfig(BaseModel):
         :return: Dictionary representation of the configuration.
         :rtype: dict
         """
+        # Third party modules
+        from nexusformat.nexus import NXattr
+
         d = super().dict(*args, **kwargs)
+        for k, v in d['attrs'].items():
+            if isinstance(v, NXattr):
+                d['attrs'][k] = v.nxdata
         return d
 
 
@@ -717,7 +722,7 @@ class MCAScanDataConfig(BaseModel):
                 try:
                     detector.num_bins = \
                         self._scanparser.get_detector_num_bins(
-                                detector.detector_name)
+                                detector.id)
                 except Exception as e:
                     raise ValueError('No value found for num_bins') from e
         if flux_file is not None:
