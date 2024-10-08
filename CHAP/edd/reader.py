@@ -518,6 +518,8 @@ class SetupNXdataReader(Reader):
         :rtype: dict
         """
         from CHAP.common.models.map import DetectorConfig
+        if detectors is None:
+            detectors = [{'id': i} for i in range(23)]
         detector_config = DetectorConfig(detectors=detectors)
         # Columns in input .txt file:
         # 0: scan number
@@ -783,6 +785,8 @@ class UpdateNXdataReader(Reader):
             f'dataset_point_index_offset = {dataset_point_index_offset}')
 
         # Get full data point for every point in the scan
+        if detector_ids is None:
+            detector_ids = [i for i in range(23)]
         detector_data = scanparser.get_detector_data(detector_ids)
         detector_data = {_id: detector_data[:,i,:]
                          for i, _id in enumerate(detector_ids)}
