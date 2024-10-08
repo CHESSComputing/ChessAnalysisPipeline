@@ -2800,7 +2800,7 @@ class UpdateNXdataProcessor(Processor):
                     f'Data point {i} is missing a value for at least one '
                     f'axis. Skipping. Axes are: {", ".join(axes_names)}')
                 continue
-            self.logger.info(
+            self.logger.debug(
                 f'Coordinates for data point {i}: '
                 ', '.join([f'{a}={d[a]}' for a in axes_names]))
             # Get the index of the data point in the dataset based on
@@ -2828,7 +2828,7 @@ class UpdateNXdataProcessor(Processor):
                     self.logger.error(
                         f'Cannot get the index of data point {i}. Skipping.')
                     continue
-            self.logger.info(f'Index of data point {i}: {index}')
+            self.logger.debug(f'Index of data point {i}: {index}')
             # Update the signals contained in this data point at the
             # proper index in the dataset's singal `NXfield`s
             for k, v in d.items():
