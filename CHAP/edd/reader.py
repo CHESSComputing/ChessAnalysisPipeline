@@ -641,8 +641,8 @@ class SetupNXdataReader(Reader):
         else:
             self.logger.warning(
                 'Assuming scan parameters are identical for all scans.')
-            axes_labels = {1: 'scan_labx', 2: 'scan_laby', 3: 'scan_labz',
-                           4: 'scan_ometotal'}
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
             coords.append({
                 'name': axes_labels[dataset_lines[0][13]],
@@ -653,6 +653,7 @@ class SetupNXdataReader(Reader):
                           'relative': True},
             })
             scan_npts = len(coords[-1]['values'])
+            fly_axis_labels = [axes_labels[dataset_lines[0][13]]]
             if scan_type in (2, 3, 5):
                 coords.append({
                     'name': axes_labels[dataset_lines[0][17]],
@@ -665,6 +666,8 @@ class SetupNXdataReader(Reader):
                 scan_npts *= len(coords[-1]['values'])
                 if scan_type == 5:
                     attrs['bin_axis'] = axes_labels[dataset_lines[0][21]]
+                fly_axis_labels.append(axes_labels[dataset_lines[0][17]])
+            attrs['fly_axis_labels'] = fly_axis_labels
 
         # Determine if the datset is structured or unstructured.
         total_npts = len(dataset_lines) * scan_npts
@@ -755,8 +758,8 @@ class UpdateNXdataReader(Reader):
         if scan_type == 0:
             scan_axes = []
         else:
-            axes_labels = {1: 'scan_labx', 2: 'scan_laby', 3: 'scan_labz',
-                           4: 'scan_ometotal'}
+            axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
+                           4: 'fly_ometotal'}
             scan_axes = [axes_labels[scanparser.pars['fly_axis0']]]
             if scan_type in (2, 3, 5):
                 scan_axes.append(axes_labels[scanparser.pars['fly_axis1']])
@@ -911,7 +914,7 @@ class NXdataSliceReader(Reader):
         else:
             signal_slice_params = []
             for a in nxdata.nxaxes:
-                if a.nxname.startswith('scan_'):
+                if a.nxname.startswith('fly_'):
                     slice_params = {}
                 else:
                     value = scanparser.pars[a.nxname]
