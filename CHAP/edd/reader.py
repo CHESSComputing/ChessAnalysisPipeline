@@ -18,7 +18,7 @@ class EddMapReader(Reader):
     specific set of items to use for extra scalar datasets to include
     are hard-coded in. The raw data is read if detector_names are
     specified."""
-    def read(self, parfile, dataset_id=1, detector_names=None):
+    def read(self, parfile, dataset_id=1):
         """Return a validated `MapConfig` object representing an EDD
         dataset.
 
@@ -28,8 +28,6 @@ class EddMapReader(Reader):
         :param dataset_id: Number of the dataset in the .par file
             to return as a map, defaults to `1`.
         :type dataset_id: int, optional
-        :param detector_names: Detector prefixes for the raw data.
-        :type detector_names: list[str], optional
         :returns: Map configuration packaged with the appropriate
             value for 'schema'.
         :rtype: PipelineData
@@ -37,13 +35,9 @@ class EddMapReader(Reader):
         # Local modules
         from CHAP.common.models.map import MapConfig
         from CHAP.utils.general import (
-            is_str_series,
             list_to_string,
         )
         from CHAP.utils.parfile import ParFile
-
-        if detector_names is not None:
-            assert is_str_series(detector_names, raise_error=True)
 
         parfile = ParFile(parfile)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
@@ -505,7 +499,7 @@ class SetupNXdataReader(Reader):
           filename: data.nxs
     ```
     """
-    def read(self, filename, dataset_id):
+    def read(self, filename, dataset_id, detectors=None):
         """Return a dictionary containing the `coords`, `signals`, and
         `attrs` arguments appropriate for use with
         `CHAP.common.SetupNXdataProcessor.process` to set up an
@@ -523,6 +517,8 @@ class SetupNXdataReader(Reader):
             and signal names, shapes, and attributes.
         :rtype: dict
         """
+        from CHAP.common.models.map import DetectorConfig
+        detector_config = DetectorConfig(detectors=detectors)
         # Columns in input .txt file:
         # 0: scan number
         # 1: dataset index
@@ -592,39 +588,35 @@ class SetupNXdataReader(Reader):
                        'data_type': 'smb_par'}},
         ]
         signals = [
-            {'name': 'presample_intensity', 'shape': '[]',
+            {'name': 'presample_intensity', 'shape': [],
              'attrs': {'units': 'counts', 'local_name': 'a3ic1',
                        'data_type': 'scan_column'}},
-            {'name': 'postsample_intensity', 'shape': '[]',
+            {'name': 'postsample_intensity', 'shape': [],
              'attrs': {'units': 'counts', 'local_name': 'diode',
                        'data_type': 'scan_column'}},
-            {'name': 'dwell_time_actual', 'shape': '[]',
+            {'name': 'dwell_time_actual', 'shape': [],
              'attrs': {'units': 'seconds', 'local_name': 'sec',
                        'data_type': 'scan_column'}},
-            {'name': 'SCAN_N', 'shape': '[]',
+            {'name': 'SCAN_N', 'shape': [],
              'attrs': {'units': 'n/a', 'local_name': 'SCAN_N',
                        'data_type': 'smb_par'}},
-            {'name': 'rsgap_size', 'shape': '[]',
+            {'name': 'rsgap_size', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'rsgap_size',
                        'data_type': 'smb_par'}},
-            {'name': 'x_effective', 'shape': '[]',
+            {'name': 'x_effective', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'x_effective',
                        'data_type': 'smb_par'}},
-            {'name': 'z_effective', 'shape': '[]',
+            {'name': 'z_effective', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'z_effective',
                        'data_type': 'smb_par'}},
         ]
-        for i in range(23):
-            signals.append({
-                'name': str(i),
-                'shape': [4096,],
-                'attrs': {'units': 'counts',
-                          'local_name': f'XPS23 element {i}',
-                          'eta': 'unknown'},
-            })
-
-        attrs = {'dataset_id': dataset_id, 'config_id': dataset_lines[0][2],
-                 'scan_type': scan_type}
+        for d in detector_config.detectors:
+            signals.append(
+                {'name': d.id, 'attrs': d.attrs,
+                 'shape': d.attrs.get('shape', (4096,))})
+        attrs = dict(dataset_id=dataset_id,
+                     config_id=dataset_lines[0][2],
+                     scan_type=scan_type)
 
         # For potential coordinate axes w/ only one unique value, do
         # not consider them a coordinate. Make them a signal instead.
@@ -698,7 +690,6 @@ class SetupNXdataReader(Reader):
         else:
             signals.append({'name': 'dataset_point_index', 'shape': [],
                             'attrs': {'units': 'n/a'}})
-
         return {'coords': coords, 'signals': signals, 'attrs': attrs}
 
 
@@ -723,7 +714,7 @@ class UpdateNXdataReader(Reader):
           nxdata_path: /entry/samplename_dataset_1
     ```
     """
-    def read(self, spec_file, scan_number, inputdir='.'):
+    def read(self, spec_file, scan_number, detector_ids=None, inputdir='.'):
         """Return a list of data points containing raw data values for
         a single EDD spec scan. The returned values can be passed
         along to `common.UpdateNXdataProcessor` to fill in an existing
@@ -792,6 +783,9 @@ class UpdateNXdataReader(Reader):
             f'dataset_point_index_offset = {dataset_point_index_offset}')
 
         # Get full data point for every point in the scan
+        detector_data = scanparser.get_detector_data(detector_ids)
+        detector_data = {_id: detector_data[:,i,:]
+                         for i, _id in enumerate(detector_ids)}
         data_points = []
         self.logger.info(f'Getting {scanparser.spec_scan_npts} data points')
         for i in range(scanparser.spec_scan_npts):
@@ -800,8 +794,8 @@ class UpdateNXdataReader(Reader):
             data_points.append({
                 'dataset_point_index': dataset_point_index_offset + i,
                 **smb_par_values,
-                **{str(_i): scanparser.get_detector_data(_i, i)
-                   for _i in range(23)},
+                **{str(_id): data[i]
+                   for _id, data in detector_data.items()},
                 **{c: scanparser.spec_scan_data[counters[c]][i]
                    for c in counters},
                 **{a: round(
