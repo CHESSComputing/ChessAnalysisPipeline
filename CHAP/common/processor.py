@@ -1440,7 +1440,6 @@ class MapProcessor(Processor):
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
-            NXdetector,
             NXentry,
             NXfield,
             NXlinkfield,
@@ -1540,14 +1539,13 @@ class MapProcessor(Processor):
             nxentry.scalar_data.attrs['auxiliary_signals'] = scalar_signals
 
         # Add detector data
+        nxdata = NXdata()
+        nxentry.data = nxdata
+        nxentry.data.set_default()
+        for k, v in map_config.attrs.items():
+            nxdata.attrs[k] = v
         for i, detector in enumerate(detector_config.detectors):
-            nxentry[detector.id] = NXdetector()
-            nxdetector = nxentry[detector.id]
-            for k, v in detector.attrs.items():
-                nxdetector.attrs[k] = v
-            nxdetector.data = NXdata(
-                signal=NXfield(data[i], name='detector_data'))
-            linkdims(nxdetector.data, nxentry.independent_dimensions)
+            nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
 
         return nxroot
 

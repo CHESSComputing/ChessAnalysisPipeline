@@ -2847,10 +2847,8 @@ class StrainAnalysisProcessor(Processor):
             energy_masks)
 
         # Loop over the detectors to perform the strain analysis
-        print(f'\n\nnxentry:\n{nxentry.tree}')
         for index, detector in enumerate(self._detectors):
 
-            print(f'\ndetector[{index}] {type(detector)}:\n{detector}')
             self.logger.info(f'Analysing detector {detector.id}')
 
             # Get the current NXdata object
