@@ -66,6 +66,7 @@ class Detector(BaseModel):
         :return: The validated field for `attrs`.
         :rtype: dict
         """
+        # RV FIX add eta
         name = attrs.get('name')
         if name is not None:
             if isinstance(name, int):

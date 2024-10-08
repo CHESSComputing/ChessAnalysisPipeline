@@ -783,7 +783,7 @@ def select_material_params(
 
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
-        preselected_hkl_indices=None, num_hkl_min=1, detector_name=None,
+        preselected_hkl_indices=None, num_hkl_min=1, detector_id=None,
         ref_map=None, flux_energy_range=None, calibration_bin_ranges=None,
         label='Reference Data', interactive=False, filename=None):
     """Return a matplotlib figure to indicate data ranges and HKLs to
@@ -811,8 +811,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     :param num_hkl_min: Minimum number of HKLs to select,
         defaults to `1`.
     :type num_hkl_min: int, optional
-    :param detector_name: Name of the MCA detector element.
-    :type detector_name: str, optional
+    :param detector_id: MCA detector channel index.
+    :type detector_id: str, optional
     :param ref_map: Reference map of MCA intensities to show underneath
         the interactive plot.
     :type ref_map: np.ndarray, optional
@@ -1089,11 +1089,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
-            if detector_name is None:
+            if detector_id is None:
                 change_fig_title('Selected data and HKLs used in fitting')
             else:
                 change_fig_title(
-                    f'Selected data and HKLs used in fitting {detector_name}')
+                    f'Selected data and HKLs used in fitting {detector_id}')
             plt.close()
 
     if preselected_hkl_indices is None:
@@ -1224,19 +1224,19 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     if not interactive:
 
         if filename is not None:
-            if detector_name is None:
+            if detector_id is None:
                 change_fig_title('Selected data and HKLs used in fitting')
             else:
                 change_fig_title(
-                    f'Selected data and HKLs used in fitting {detector_name}')
+                    f'Selected data and HKLs used in fitting {detector_id}')
 
     else:
 
-        if detector_name is None:
+        if detector_id is None:
             change_fig_title('Select data and HKLs to use in fitting')
         else:
             change_fig_title(
-                f'Select data and HKLs to use in fitting {detector_name}')
+                f'Select data and HKLs to use in fitting {detector_id}')
         fig.subplots_adjust(bottom=0.2)
         if ref_map is not None:
             position_cax()

@@ -1452,7 +1452,7 @@ class MapProcessor(Processor):
         from CHAP.common.models.map import PointByPointScanData
 
         def linkdims(nxgroup, nxdata_source):
-            "Link the dimensions for an NXgroup."""
+            """Link the dimensions for an NXgroup."""
             source_axes = [k for k in nxdata_source.keys()]
             if isinstance(source_axes, str):
                 source_axes = [source_axes]
