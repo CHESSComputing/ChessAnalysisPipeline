@@ -1546,6 +1546,9 @@ class MapProcessor(Processor):
             nxdata.attrs[k] = v
         for i, detector in enumerate(detector_config.detectors):
             nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
+        linkdims(nxdata, nxentry.independent_dimensions)
+        nxdata.attrs['unstructured_axes'] = [
+            axis for axis in nxentry.independent_dimensions]
 
         return nxroot
 
