@@ -121,14 +121,11 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name, remove=True):
+    def get_data(self, data, name=None, remove=True):
         """Look through `data` for an item whose value for the first
-        `'name'` key matches `name` and whose type is either
-        nexusformat.nexus.NXroot or nexusformat.nexus.NXentry or
-        if not found whose value for the first `'name'` key matches
-        either `'NexusReader'` or `'NexusWriter'`.
+        `'name'` key matches `name` or whose type is either
+        nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
         Return the default nexusformat.nexus.NXentry object.
-        RV FIX: TODO
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
@@ -143,22 +140,38 @@ class PipelineItem():
         :return: The first matching data item.
         :rtype: nexusformat.nexus.NXentry
         """
-        self.logger.debug(f'Getting {name} data item')
         t0 = time()
-
         matching_data = False
-        for i, d in enumerate(data):
-            if d.get('name') == name:
-                matching_data = d.get('data')
-                if remove:
-                    data.pop(i)
-                break
+        if name is None:
+            # Third party modules
+            from nexusformat.nexus import (
+                NXentry,
+                NXroot,
+            )
 
-        if not matching_data:
-            raise ValueError(f'No match for {name} data item found')
-
-        self.logger.debug(
-            f'Got {name} data in {time()-t0:.3f} seconds')
+            for i, d in enumerate(data):
+                if isinstance(d.get('data'), (NXroot, NXentry)):
+                    matching_data = d.get('data')
+                    name = d.get('name')
+                    if remove:
+                        data.pop(i)
+                    break
+            if not matching_data:
+                raise ValueError(f'No NXroot or NXentry data item found')
+            self.logger.debug(
+               f'Got {name} data in {time()-t0:.3f} seconds')
+        else:
+            self.logger.debug(f'Getting {name} data item')
+            for i, d in enumerate(data):
+                if d.get('name') == name:
+                    matching_data = d.get('data')
+                    if remove:
+                        data.pop(i)
+                    break
+            if not matching_data:
+                raise ValueError(f'No match for {name} data item found')
+            self.logger.debug(
+               f'Got {name} data in {time()-t0:.3f} seconds')
 
         return matching_data
 

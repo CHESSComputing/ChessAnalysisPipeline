@@ -1200,7 +1200,7 @@ class MapProcessor(Processor):
     scalar-valued raw data requested by the supplied map configuration.
     """
     def process(
-            self, data, config=None, detector_names=None, num_proc=1,
+            self, data, config=None, detectors=None, num_proc=1,
             comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
@@ -1213,10 +1213,10 @@ class MapProcessor(Processor):
         :param config: Initialization parameters for an instance of
             common.models.map.MapConfig.
         :type config: dict, optional
-        :param detector_names: Detector names/prefixes to include raw
-            data for in the returned NeXus NXentry object.
-        :type detector_names: Union(int, str, list[int], list[str]),
-            optional
+        :param detectors: Detectors to include raw data for in the
+            returned NeXus NXentry object (overruling the detector
+            info in data, if present).
+        :type detectors: list[dict], optional
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
@@ -1259,6 +1259,20 @@ class MapProcessor(Processor):
             except Exception as exc:
                 raise RuntimeError from exc
 
+        # Validate the detectors
+        try:
+            # Local modules
+            from CHAP.common.models.map import DetectorConfig
+
+            detector_config = DetectorConfig(detectors=detectors)
+        except:
+            try:
+                detector_config = self.get_config(
+                    data, 'common.models.map.DetectorConfig',
+                    inputdir=inputdir)
+            except Exception as exc:
+                raise RuntimeError from exc
+
         # Validate the number of processors
         if not isinstance(num_proc, int):
             self.logger.warning('Ignoring invalid parameter num_proc '
@@ -1281,34 +1295,6 @@ class MapProcessor(Processor):
             except:
                 self.logger.warning('Unable to load mpi4py, running serially')
                 num_proc = 1
-
-        # Validate the detector names/prefixes
-        if map_config.experiment_type == 'EDD':
-            if detector_names is None:
-                detector_indices = None
-            else:
-                if isinstance(detector_names, int):
-                    detector_names = [str(detector_names)]
-                elif isinstance(detector_names, str):
-                    try:
-                        detector_names = [
-                            str(v) for v in string_to_list(
-                                detector_names, raise_error=True)]
-                    except Exception as exc:
-                        raise ValueError('Invalid parameter detector_names '
-                                         f'({detector_names})') from exc
-                else:
-                    detector_names = [str(v) for v in detector_names]
-                detector_indices = [int(name) for name in detector_names]
-        else:
-            if detector_names is None:
-                raise ValueError(
-                    'Missing "detector_names" parameter')
-            if isinstance(detector_names, str):
-                detector_names = [detector_names]
-            if not is_str_series(detector_names, log=False):
-                raise ValueError(
-                    f'Invalid parameter detector_names ({detector_names})')
 
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1342,7 +1328,9 @@ class MapProcessor(Processor):
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
                     [{'common.MapProcessor': {
-                        'config': config, 'detector_names': detector_names}}])
+                        'config': config,
+                        'detectors': [
+                            dict(d) for d in detector_config.detectors]}}])
                 offsets.append(n_scan)
                 n_scan += num
 
@@ -1390,12 +1378,12 @@ class MapProcessor(Processor):
         if map_config.experiment_type == 'EDD':
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data_edd(
-                    map_config, detector_indices, common_comm, num_scan,
+                    map_config, detector_config, common_comm, num_scan,
                     offset)
         else:
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data(
-                    map_config, detector_names, common_comm, num_scan, offset)
+                    map_config, detector_config, common_comm, num_scan, offset)
         if not rank:
             self.logger.debug(f'Data shape: {data.shape}')
             if independent_dimensions is not None:
@@ -1417,23 +1405,22 @@ class MapProcessor(Processor):
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
 
-        # Construct the NeXus NXentry object
-        nxentry = self._get_nxentry(
-            map_config, detector_names, data, independent_dimensions,
+        # Construct the NeXus NXroot object
+        nxroot = self._get_nxroot(
+            map_config, detector_config, data, independent_dimensions,
             all_scalar_data)
 
-        return nxentry
+        return nxroot
 
-    def _get_nxentry(
-            self, map_config, detector_names, data, independent_dimensions,
+    def _get_nxroot(
+            self, map_config, detector_config, data, independent_dimensions,
             all_scalar_data):
-        """Use a `MapConfig` to construct a NeXus NXentry object.
+        """Use a `MapConfig` to construct a NeXus NXroot object.
 
         :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
-        :param detector_names: Detector names to include raw data
-            for in the returned NeXus NXentry object.
-        :type detector_names: list[str]
+        :param detector_config: A valid detector configuration.
+        :type detector_config: common.models.map.DetectorConfig
         :param data: The map's raw data.
         :type data: numpy.ndarray
         :param independent_dimensions: The map's independent
@@ -1443,7 +1430,7 @@ class MapProcessor(Processor):
         :type all_scalar_data: numpy.ndarray
         :return: The map's data and metadata contained in a NeXus
             structure.
-        :rtype: nexusformat.nexus.NXentry
+        :rtype: nexusformat.nexus.NXroot
         """
         # System modules
         from copy import deepcopy
@@ -1453,20 +1440,43 @@ class MapProcessor(Processor):
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
+            NXdetector,
             NXentry,
             NXfield,
+            NXlinkfield,
             NXsample,
+            NXroot,
         )
 
         # Local modules:
         from CHAP.common.models.map import PointByPointScanData
 
-        # Set up NeXus NXentry and add misc. CHESS-specific metadata
+        def linkdims(nxgroup, nxdata_source):
+            "Link the dimensions for an NXgroup."""
+            source_axes = [k for k in nxdata_source.keys()]
+            if isinstance(source_axes, str):
+                source_axes = [source_axes]
+            axes = []
+            for dim in source_axes:
+                axes.append(dim)
+                if isinstance(nxdata_source[dim], NXlinkfield):
+                    nxgroup[dim] = nxdata_source[dim]
+                else:
+                    nxgroup.makelink(nxdata_source[dim])
+                if f'{dim}_indices' in nxdata_source.attrs:
+                    nxgroup.attrs[f'{dim}_indices'] = \
+                        nxdata_source.attrs[f'{dim}_indices']
+            nxgroup.attrs['axes'] = axes
+
+        # Set up NeXus NXroot/NXentry and add CHESS-specific metadata
+        nxroot = NXroot()
         nxentry = NXentry(name=map_config.title)
+        nxroot[nxentry.nxname] = nxentry
+        nxentry.set_default()
+        nxentry.map_config = dumps(map_config.dict())
         nxentry.attrs['station'] = map_config.station
-        for key, value in map_config.attrs.items():
-            nxentry.attrs[key] = value
-        nxentry.detector_names = detector_names
+        for k, v in map_config.attrs.items():
+            nxentry.attrs[k] = v
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
@@ -1477,31 +1487,30 @@ class MapProcessor(Processor):
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
 
-        # Set up default NeXus NXdata group (squeeze out constant dimensions)
+        # Set up independent dimensions NeXus NXdata group
+        # (squeeze out constant dimensions)
         constant_dim = []
         for i, dim in enumerate(map_config.independent_dimensions):
             unique = np.unique(independent_dimensions[i])
             if unique.size == 1:
                 constant_dim.append(i)
-        nxentry.data = NXdata(
-            NXfield(data, 'detector_data'),
-            tuple([
-                NXfield(
+        nxentry.independent_dimensions = NXdata()
+        for i, dim in enumerate(map_config.independent_dimensions):
+            if i not in constant_dim:
+                nxentry.independent_dimensions[dim.label] = NXfield(
                     independent_dimensions[i], dim.label,
                     attrs={'units': dim.units,
                            'long_name': f'{dim.label} ({dim.units})',
                            'data_type': dim.data_type,
                            'local_name': dim.name})
-                for i, dim in enumerate(map_config.independent_dimensions)
-                    if i not in constant_dim]))
-        nxentry.data.set_default()
 
-        # Set up auxiliary NeXus NXdata group (add the constant dimensions)
-        auxiliary_signals = []
-        auxiliary_data = []
+        # Set up scalar data NeXus NXdata group
+        # (add the constant independent dimensions)
+        scalar_signals = []
+        scalar_data = []
         for i, dim in enumerate(map_config.all_scalar_data):
-            auxiliary_signals.append(dim.label)
-            auxiliary_data.append(NXfield(
+            scalar_signals.append(dim.label)
+            scalar_data.append(NXfield(
                 value=all_scalar_data[i],
                 units=dim.units,
                 attrs={'long_name': f'{dim.label} ({dim.units})',
@@ -1509,8 +1518,8 @@ class MapProcessor(Processor):
                        'local_name': dim.name}))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
             if i in constant_dim:
-                auxiliary_signals.append(dim.label)
-                auxiliary_data.append(NXfield(
+                scalar_signals.append(dim.label)
+                scalar_data.append(NXfield(
                     independent_dimensions[i], dim.label,
                     attrs={'units': dim.units,
                            'long_name': f'{dim.label} ({dim.units})',
@@ -1519,30 +1528,37 @@ class MapProcessor(Processor):
                 map_config.all_scalar_data.append(
                     PointByPointScanData(**dict(dim)))
                 map_config.independent_dimensions.remove(dim)
-        if auxiliary_signals:
-            nxentry.auxdata = NXdata()
-            for label, ddata in zip(auxiliary_signals, auxiliary_data):
-                nxentry.auxdata[label] = ddata
-            if 'SCAN_N' in auxiliary_signals:
-                nxentry.auxdata.attrs['signal'] = 'SCAN_N'
+        if scalar_signals:
+            nxentry.scalar_data = NXdata()
+            for k, v in zip(scalar_signals, scalar_data):
+                nxentry.scalar_data[k] = v
+            if 'SCAN_N' in scalar_signals:
+                nxentry.scalar_data.attrs['signal'] = 'SCAN_N'
             else:
-                nxentry.auxdata.attrs['signal'] = auxiliary_signals[0]
-            auxiliary_signals.remove(nxentry.auxdata.attrs['signal'])
-            nxentry.auxdata.attrs['auxiliary_signals'] = auxiliary_signals
+                nxentry.scalar_data.attrs['signal'] = scalar_signals[0]
+            scalar_signals.remove(nxentry.scalar_data.attrs['signal'])
+            nxentry.scalar_data.attrs['auxiliary_signals'] = scalar_signals
 
-        nxentry.map_config = dumps(map_config.dict())
+        # Add detector data
+        for i, detector in enumerate(detector_config.detectors):
+            nxentry[detector.id] = NXdetector()
+            nxdetector = nxentry[detector.id]
+            for k, v in detector.attrs.items():
+                nxdetector.attrs[k] = v
+            nxdetector.data = NXdata(
+                signal=NXfield(data[i], name='detector_data'))
+            linkdims(nxdetector.data, nxentry.independent_dimensions)
 
-        return nxentry
+        return nxroot
 
     def _read_raw_data_edd(
-            self, map_config, detector_indices, comm, num_scan, offset):
+            self, map_config, detector_config, comm, num_scan, offset):
         """Read the raw EDD data for a given map configuration.
 
         :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
-        :param detector_indices: Indices to the corresponding
-            detector names.
-        :type detector_indices: list[int]
+        :param detector_config: A valid detector configuration.
+        :type detector_config: common.models.map.DetectorConfig
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :param num_scan: Number of scans in the map.
@@ -1579,6 +1595,7 @@ class MapProcessor(Processor):
         scan = map_config.spec_scans[0]
         scan_numbers = scan.scan_numbers
         scanparser = scan.get_scanparser(scan_numbers[0])
+        detector_indices = [int(d.id) for d in detector_config.detectors]
         ddata = scanparser.get_detector_data(detector_indices)
         spec_scan_shape = scanparser.spec_scan_shape
         num_dim = np.prod(spec_scan_shape)
@@ -1695,18 +1712,19 @@ class MapProcessor(Processor):
                 offset += 1
 
         return (
-            data.reshape((np.prod(data.shape[:2]), *data.shape[2:])),
+            np.swapaxes(
+                data.reshape((np.prod(data.shape[:2]), *data.shape[2:])),
+                0, 1),
             independent_dimensions, all_scalar_data)
 
     def _read_raw_data(
-            self, map_config, detector_names, comm, num_scan, offset):
+            self, map_config, detector_config, comm, num_scan, offset):
         """Read the raw data for a given map configuration.
 
         :param map_config: A valid map configuration.
         :type map_config: common.models.map.MapConfig
-        :param detector_names: Detector names to include raw data
-            for in the returned NeXus NXentry object.
-        :type detector_names: list[str]
+        :param detector_config: A valid detector configuration.
+        :type detector_config: common.models.map.DetectorConfig
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :param num_scan: Number of scans in the map.
@@ -1738,19 +1756,21 @@ class MapProcessor(Processor):
             self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
-        # FIX: just one spec scan and one detector at this point
         assert len(map_config.spec_scans) == 1
-        assert len(detector_names) == 1
         scans = map_config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
-        ddata = scanparser.get_detector_data(detector_names[0])
+        ddata = scanparser.get_detector_data(detector_config.detectors[0].id)
+        # RV test and modify for multiple independent dimensions
+        num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
+        assert num_id == 1
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
-            data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
+            data = np.empty(
+                (num_det, num_scan, *ddata.shape), dtype=ddata.dtype)
             independent_dimensions = np.empty(
                 (num_scan, num_id, num_dim), dtype=np.float64)
             if num_sd:
@@ -1769,7 +1789,8 @@ class MapProcessor(Processor):
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf, _ = win.Shared_query(0)
             data = np.ndarray(
-                buffer=buf, dtype=ddata.dtype, shape=(num_scan, *ddata.shape))
+                buffer=buf, dtype=ddata.dtype,
+                shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
             if not rank:
@@ -1794,12 +1815,14 @@ class MapProcessor(Processor):
         init = True
         for scans in map_config.spec_scans:
             for scan_number in scans.scan_numbers:
-                if init:
-                    init = False
-                else:
-                    scanparser = scans.get_scanparser(scan_number)
-                    ddata = scanparser.get_detector_data(detector_names[0])
-                data[offset] = ddata
+                for i, detector in enumerate(detector_config.detectors):
+                    if init:
+                        init = False
+                    else:
+                        scanparser = scans.get_scanparser(scan_number)
+                        ddata = scanparser.get_detector_data(
+                            detector_config.detectors[i].id)
+                    data[i][offset] = ddata
                 for i, dim in enumerate(map_config.independent_dimensions):
                     if dim.data_type == 'scan_column':
                         independent_dimensions[offset,i] = dim.get_value(
@@ -1826,13 +1849,16 @@ class MapProcessor(Processor):
 
         if num_sd:
             return (
-                data.reshape((1, np.prod(data.shape[:2]), *data.shape[2:])),
+                data.reshape(
+                    (data.shape[0], np.prod(data.shape[1:3]),
+                     *data.shape[3:])),
                 np.stack(tuple([independent_dimensions[:,i].flatten()
                                 for i in range(num_id)])),
                 np.stack(tuple([all_scalar_data[:,i].flatten()
                                 for i in range(num_sd)])))
         return (
-            data.reshape((1, np.prod(data.shape[:2]), *data.shape[2:])),
+            data.reshape(
+                (data.shape[0], np.prod(data.shape[1:3]), *data.shape[3:])),
             np.stack(tuple([independent_dimensions[:,i].flatten()
                             for i in range(num_id)])),
             None)
