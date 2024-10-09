@@ -2670,7 +2670,7 @@ class StrainAnalysisProcessor(Processor):
                     if d.id == detector.id][0]
                 detector.add_calibration(calibration)
             else:
-                self.logger.warning(f'Skipping detector {index} '
+                self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
         if not self._detectors:
             raise ValueError('Unable to match an available calibrated '
@@ -2805,12 +2805,12 @@ class StrainAnalysisProcessor(Processor):
 
         # Check for oversampling axis and create the binned coordinates
         oversampling_axis = {}
-        if scan_type == 4 and strain_analysis_config.sum_fly_axes:
+        if scan_type == 4 and strain_analysis_config.sum_axes:
             # Local modules
             from CHAP.utils.general import rolling_average
 
             raise RuntimeError('oversampling needs testing')
-            fly_axis = nxdata_raw.attrs.get('fly_axis_labels')[0]
+            fly_axis = nxdata_raw.attrs.get('fly_axis_labels').nxdata[0]
             oversampling = strain_analysis_config.oversampling
             oversampling_axis[fly_axis] = rolling_average(
                     nxdata_raw[fly_axis].nxdata,
