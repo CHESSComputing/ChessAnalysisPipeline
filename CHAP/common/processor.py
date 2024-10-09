@@ -1465,7 +1465,10 @@ class MapProcessor(Processor):
                 if f'{dim}_indices' in nxdata_source.attrs:
                     nxgroup.attrs[f'{dim}_indices'] = \
                         nxdata_source.attrs[f'{dim}_indices']
-            nxgroup.attrs['axes'] = axes
+            if len(axes) == 1:
+                nxgroup.attrs['axes'] = axes
+            else:
+                nxgroup.attrs['unstructured_axes'] = axes
 
         # Set up NeXus NXroot/NXentry and add CHESS-specific metadata
         nxroot = NXroot()
@@ -1547,8 +1550,6 @@ class MapProcessor(Processor):
         for i, detector in enumerate(detector_config.detectors):
             nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
         linkdims(nxdata, nxentry.independent_dimensions)
-        nxdata.attrs['unstructured_axes'] = [
-            axis for axis in nxentry.independent_dimensions]
 
         return nxroot
 

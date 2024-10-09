@@ -2724,20 +2724,27 @@ class StrainAnalysisProcessor(Processor):
         )
 
         def linkdims(
-                nxgroup, nxdata_source, field_dims=None,
-                oversampling_axis=None):
+                nxgroup, nxdata_source, add_field_dims=None,
+                skip_field_dims=None, oversampling_axis=None):
             """Link the dimensions for an NXgroup."""
+            if skip_field_dims is None:
+                skip_field_dims = []
             if oversampling_axis is None:
                 oversampling_axis = {}
-            source_axes = nxdata_source.attrs['unstructured_axes']
+            if 'axes' in nxdata_source.attrs:
+                source_axes = nxdata_source.attrs['axes']
+            else:
+                source_axes = nxdata_source.attrs['unstructured_axes']
             if isinstance(source_axes, str):
                 source_axes = [source_axes]
-            unstructured_axes = []
+            axes = []
             for dim in source_axes:
-                unstructured_axes.append(dim)
+                if dim in skip_field_dims:
+                    continue
+                axes.append(dim)
                 if dim in oversampling_axis:
                     bin_name = dim.replace('fly_', 'bin_')
-                    unstructured_axes[unstructured_axes.index(dim)] = bin_name
+                    axes[axes.index(dim)] = bin_name
                     nxgroup[bin_name] = NXfield(
                         value=oversampling_axis[dim],
                         units=nxdata_source[dim].units,
@@ -2755,13 +2762,13 @@ class StrainAnalysisProcessor(Processor):
                     if f'{dim}_indices' in nxdata_source.attrs:
                         nxgroup.attrs[f'{dim}_indices'] = \
                             nxdata_source.attrs[f'{dim}_indices']
-            nxgroup.attrs['unstructured_axes'] = unstructured_axes
-            axes = []
-            if field_dims is not None:
-                for dims in field_dims:
-                    axes.append(dims['axis'])
-                    nxgroup.attrs[f'{dims["axis"]}_indices'] = dims['index']
+            if add_field_dims is not None:
+                for dim in add_field_dims:
+                    axes.append(dim)
+            if len(axes) < 3:
                 nxgroup.attrs['axes'] = axes
+            else:
+                nxgroup.attrs['unstructured_axes'] = axes
 
         if not self._interactive and not strain_analysis_config.materials:
             raise ValueError(
@@ -2786,15 +2793,9 @@ class StrainAnalysisProcessor(Processor):
                 nxdata_detectors.append(
                     self._get_sum_axes_data(nxdata_raw, detector.id))
         else:
-            exit('TODO')
-            mca_data = np.asarray(
-                nxentry[nxentry.default].nxsignal[:,self._detector_indices,:],
-                dtype=np.float64)
-            nxprocess.data = NXdata()
-            self._nxdata = nxprocess.data
-            linkdims(self._nxdata, nxentry.data)
-            self._nxdata.makelink(nxentry.data['detector_data'])
-            self._nxdata.attrs['signal'] = 'detector_data'
+            for detector in self._detectors:
+                nxdata_detectors.append(NXdata(
+                    NXfield(nxdata_raw[detector.id].nxdata, 'detector_data')))
         mean_data = [np.mean(
             nxdata.nxsignal.nxdata,
             axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
@@ -2849,7 +2850,7 @@ class StrainAnalysisProcessor(Processor):
             data = nxdata.nxsignal
 
             # Get the MCA bin energies
-            mca_bin_energies = detector.energies
+            bin_energies = detector.energies
 
             # Get the unique HKLs and lattice spacings for the strain
             # analysis materials
@@ -2867,11 +2868,21 @@ class StrainAnalysisProcessor(Processor):
             nxdetector.detector_config = dumps(detector.dict())
             nxdetector.data = NXdata()
             det_nxdata = nxdetector.data
-            for axis in nxdata.attrs['axes']:
-                det_nxdata[axis] = nxdata[axis]
-            det_nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes']
+            if 'axes' in nxdata.attrs:
+                axes = nxdata.attrs['axes']
+                if isinstance(axes, list):
+                    for axis in axes:
+                        det_nxdata[axis] = nxdata[axis]
+                    det_nxdata.attrs['unstructured_axes'] = axes + ['energy']
+                else:
+                    det_nxdata[axes] = nxdata[axes]
+                    det_nxdata.attrs['axes'] = [axes, 'energy']
+            else:
+                linkdims(
+                    det_nxdata, nxdata_raw, add_field_dims=['energy'],
+                    oversampling_axis=oversampling_axis)
             mask = detector.mca_mask()
-            energies = mca_bin_energies[mask]
+            energies = bin_energies[mask]
             det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
             det_nxdata.tth = NXfield(
                 dtype=np.float64,
@@ -2920,13 +2931,13 @@ class StrainAnalysisProcessor(Processor):
                     width=5)
                 #heights = peaks[1]['peak_heights']
                 widths = peaks[1]['widths']
-                centers = [mca_bin_energies[v] for v in peaks[0]]
+                centers = [bin_energies[v] for v in peaks[0]]
                 use_peaks = np.zeros((peak_locations.size)).astype(bool)
                 # RV Potentially use peak_heights/widths as initial
                 # values in fit?
                 # peak_heights = np.zeros((peak_locations.size))
                 # peak_widths = np.zeros((peak_locations.size))
-                delta = mca_bin_energies[1]-mca_bin_energies[0]
+                delta = bin_energies[1] - bin_energies[0]
                 #for height, width, center in zip(heights, widths, centers):
                 for width, center in zip(widths, centers):
                     for n, loc in enumerate(peak_locations):
@@ -2970,11 +2981,7 @@ class StrainAnalysisProcessor(Processor):
             # Full map of results
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
-            linkdims(
-                fit_nxdata, det_nxdata,
-                [{'axis': 'energy', 'index': data.ndim-1}],
-                oversampling_axis=oversampling_axis)
-            fit_nxdata.makelink(det_nxdata.energy)
+            linkdims(fit_nxdata, det_nxdata)
             fit_nxdata.best_fit = uniform_best_fit
             fit_nxdata.residuals = uniform_residuals
             fit_nxdata.redchi = uniform_redchi
@@ -2996,17 +3003,19 @@ class StrainAnalysisProcessor(Processor):
                     'keV'
                 # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                linkdims(fit_nxgroup[hkl_name].centers, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].centers, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
                 fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
-#                fit_nxdata.makelink(
-#                    fit_nxgroup[f'{hkl_name}/centers/values'], name=hkl_name)
                 # Report HKL peak amplitudes
                 fit_nxgroup[hkl_name].amplitudes = NXdata()
-                linkdims(fit_nxgroup[hkl_name].amplitudes, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].amplitudes, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].amplitudes.values = NXfield(
                     value=amplitudes_fit, attrs={'units': 'counts'})
                 fit_nxgroup[hkl_name].amplitudes.errors = NXfield(
@@ -3014,7 +3023,9 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
                 # Report HKL peak FWHM
                 fit_nxgroup[hkl_name].sigmas = NXdata()
-                linkdims(fit_nxgroup[hkl_name].sigmas, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].sigmas, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].sigmas.values = NXfield(
                     value=sigmas_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].sigmas.errors = NXfield(
@@ -3027,6 +3038,23 @@ class StrainAnalysisProcessor(Processor):
                 from matplotlib import animation
                 import matplotlib.pyplot as plt
 
+                def animate(i):
+                    data = det_nxdata.intensity.nxdata[i]
+                    max_ = data.max()
+                    norm = max(1.0, max_)
+                    intensity.set_ydata(data / norm)
+                    best_fit.set_ydata(unconstrained_best_fit[i] / norm)
+                    index.set_text('\n'.join(
+                        [f'norm = {int(max_)}'] +
+                        ['relative norm = '
+                         f'{(max_ / norm_all_data):.5f}'] +
+                        [f'{dim}[{i}] = {det_nxdata[dim][i]}'
+                         for dim in axes]))
+                    if self._save_figures:
+                        plt.savefig(os.path.join(
+                            path, f'frame_{str(i).zfill(num_digit)}.png'))
+                    return intensity, best_fit, index
+
                 if self._save_figures:
                     path = os.path.join(
                         self._outputdir,
@@ -3034,26 +3062,13 @@ class StrainAnalysisProcessor(Processor):
                     if not os.path.isdir(path):
                         os.mkdir(path)
 
+                if 'axes' in det_nxdata.attrs:
+                    axes = det_nxdata.attrs['axes']
+                else:
+                    axes = det_nxdata.attrs['unstructured_axes']
+                if 'energy' in axes:
+                    axes.remove('energy')
                 norm_all_data = max(1.0, det_nxdata.intensity.max())
-                def animate(i):
-                    data = det_nxdata.intensity.nxdata[i]
-                    max_ = data.max()
-                    norm = max(1.0, max_)
-                    intensity.set_ydata(data / norm)
-                    best_fit.set_ydata(unconstrained_best_fit[i] / norm)
-                    axes = nxdata.attrs['axes']
-                    if isinstance(axes, str):
-                        axes = [axes]
-                    index.set_text('\n'.join(
-                        [f'norm = {int(max_)}'] +
-                        ['relative norm = '
-                         f'{(max_ / norm_all_data):.5f}'] +
-                        [f'{dim}[{i}] = {nxdata[dim][i]}'
-                         for dim in axes]))
-                    if self._save_figures:
-                        plt.savefig(os.path.join(
-                            path, f'frame_{str(i).zfill(num_digit)}.png'))
-                    return intensity, best_fit, index
 
                 fig, ax = plt.subplots()
                 data = det_nxdata.intensity.nxdata[0]
@@ -3135,20 +3150,13 @@ class StrainAnalysisProcessor(Processor):
             # Full map of results
             fit_nxgroup.results = NXdata()
             fit_nxdata = fit_nxgroup.results
-            linkdims(
-                fit_nxdata, det_nxdata,
-                [{'axis': 'energy', 'index': data.ndim-1}],
-                oversampling_axis=oversampling_axis)
-            fit_nxdata.makelink(det_nxdata.energy)
+            linkdims(fit_nxdata, det_nxdata)
             fit_nxdata.best_fit= unconstrained_best_fit
             fit_nxdata.residuals = unconstrained_residuals
             fit_nxdata.redchi = unconstrained_redchi
             fit_nxdata.success = unconstrained_success
 
             # Peak-by-peak results
-#            fit_nxgroup.fit_hkl_centers = NXdata()
-#            fit_nxdata = fit_nxgroup.fit_hkl_centers
-#            linkdims(fit_nxdata, det_nxdata)
             for (hkl, centers_fit, centers_error,
                 amplitudes_fit, amplitudes_error, sigmas_fit,
                 sigmas_error) in zip(
@@ -3162,7 +3170,8 @@ class StrainAnalysisProcessor(Processor):
                 # Report initial guesses HKL peak centers
                 fit_nxgroup[hkl_name].center_initial_guess = NXdata()
                 linkdims(
-                    fit_nxgroup[hkl_name].center_initial_guess, det_nxdata)
+                    fit_nxgroup[hkl_name].center_initial_guess, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].center_initial_guess.makelink(
                     nxdetector.uniform_fit[f'{hkl_name}/centers/values'],
                     name='values')
@@ -3170,17 +3179,19 @@ class StrainAnalysisProcessor(Processor):
                     'values'
                 # Report HKL peak centers
                 fit_nxgroup[hkl_name].centers = NXdata()
-                linkdims(fit_nxgroup[hkl_name].centers, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].centers, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].centers.values = NXfield(
                     value=centers_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].centers.errors = NXfield(
                     value=centers_error)
-#                fit_nxdata.makelink(fit_nxgroup[f'{hkl_name}/centers/values'],
-#                                    name=hkl_name)
                 fit_nxgroup[hkl_name].centers.attrs['signal'] = 'values'
                 # Report HKL peak amplitudes
                 fit_nxgroup[hkl_name].amplitudes = NXdata()
-                linkdims(fit_nxgroup[hkl_name].amplitudes, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].amplitudes, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].amplitudes.values = NXfield(
                     value=amplitudes_fit, attrs={'units': 'counts'})
                 fit_nxgroup[hkl_name].amplitudes.errors = NXfield(
@@ -3188,7 +3199,9 @@ class StrainAnalysisProcessor(Processor):
                 fit_nxgroup[hkl_name].amplitudes.attrs['signal'] = 'values'
                 # Report HKL peak sigmas
                 fit_nxgroup[hkl_name].sigmas = NXdata()
-                linkdims(fit_nxgroup[hkl_name].sigmas, det_nxdata)
+                linkdims(
+                    fit_nxgroup[hkl_name].sigmas, det_nxdata,
+                    skip_field_dims=['energy'])
                 fit_nxgroup[hkl_name].sigmas.values = NXfield(
                     value=sigmas_fit, attrs={'units': 'keV'})
                 fit_nxgroup[hkl_name].sigmas.errors = NXfield(
@@ -3208,13 +3221,15 @@ class StrainAnalysisProcessor(Processor):
         )
 
         data = nxdata[index].nxdata
-        unstructured_axes = nxdata.attrs['unstructured_axes']
-        try:
+        if 'axes' in nxdata:
+            axes = nxdata.attrs['axes']
+        else:
+            axes = nxdata.attrs['unstructured_axes']
+        if 'fly_axis_labels' in nxdata.attrs:
             sum_axes = nxdata.attrs['fly_axis_labels']
-        except:
+        else:
             sum_axes = []
-        axes = [nxdata[axis] for axis in unstructured_axes
-                if axis not in sum_axes]
+        axes = [nxdata[axis] for axis in axes if axis not in sum_axes]
         unique_points = []
         sum_indices = []
         for i in range(data.shape[0]):
