@@ -518,9 +518,7 @@ class SetupNXdataReader(Reader):
         :rtype: dict
         """
         from CHAP.common.models.map import DetectorConfig
-        if detectors is None:
-            detectors = [{'id': i} for i in range(23)]
-        detector_config = DetectorConfig(detectors=detectors)
+
         # Columns in input .txt file:
         # 0: scan number
         # 1: dataset index
@@ -571,25 +569,24 @@ class SetupNXdataReader(Reader):
             'entire dataset: scan type, configuration descriptor')
         scan_type = dataset_lines[0][12]
         self.logger.debug(f'scan_type = {scan_type}')
-        coords = [
-            {'name': 'labx',
-             'values': np.unique([l[3] for l in dataset_lines]),
+        # Set up even the potential "coordinates" (labx, laby, labz,
+        # ometotal) as "signals" because we want to force
+        # common.SetupNXdataProcessor to set up all EDD datasets as
+        # UNstructured with a single actual coordinate
+        # (dataset_pont_index).
+        signals = [
+            {'name': 'labx', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'labx',
                        'data_type': 'smb_par'}},
-            {'name': 'laby',
-             'values': np.unique([l[4] for l in dataset_lines]),
+            {'name': 'laby', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'laby',
                        'data_type': 'smb_par'}},
-            {'name': 'labz',
-             'values': np.unique([l[5] for l in dataset_lines]),
+            {'name': 'labz', 'shape': [],
              'attrs': {'units': 'mm', 'local_name': 'labz',
                        'data_type': 'smb_par'}},
-            {'name': 'ometotal',
-             'values': np.unique([l[6] + l[7] for l in dataset_lines]),
+            {'name': 'ometotal', 'shape': [],
              'attrs': {'units': 'degrees', 'local_name': 'ometotal',
                        'data_type': 'smb_par'}},
-        ]
-        signals = [
             {'name': 'presample_intensity', 'shape': [],
              'attrs': {'units': 'counts', 'local_name': 'a3ic1',
                        'data_type': 'scan_column'}},
@@ -612,30 +609,24 @@ class SetupNXdataReader(Reader):
              'attrs': {'units': 'mm', 'local_name': 'z_effective',
                        'data_type': 'smb_par'}},
         ]
+
+        # Add each MCA channel to the list of signals
+        if detectors is None:
+            # Default to using all 23 channels from the XPS23 detector
+            detectors = [{'id': i} for i in range(23)]
+        detector_config = DetectorConfig(detectors=detectors)
         for d in detector_config.detectors:
             signals.append(
                 {'name': d.id, 'attrs': d.attrs,
                  'shape': d.attrs.get('shape', (4096,))})
+
+        # Attributes to attach for use by edd.StrainAnalysisProcessor:
         attrs = dict(dataset_id=dataset_id,
                      config_id=dataset_lines[0][2],
                      scan_type=scan_type)
 
-        # For potential coordinate axes w/ only one unique value, do
-        # not consider them a coordinate. Make them a signal instead.
-        _coords = []
-        for i, c in enumerate(coords):
-            if len(c['values']) == 1:
-                self.logger.debug(f'Moving {c["name"]} from coords to signals')
-                # signal = coords.pop(i)
-                del c['values']
-                c['shape'] = []
-                signals.append(c)
-            else:
-                _coords.append(c)
-        coords = _coords
-
-        # Append additional coords depending on the scan type of the
-        # dataset. Also find the number of points / scan.
+        # Append additional fly_* signals depending on the scan type
+        # of the dataset. Also find the number of points / scan.
         if scan_type == 0:
             scan_npts = 1
         else:
@@ -644,57 +635,32 @@ class SetupNXdataReader(Reader):
             axes_labels = {1: 'fly_labx', 2: 'fly_laby', 3: 'fly_labz',
                            4: 'fly_ometotal'}
             axes_units = {1: 'mm', 2: 'mm', 3: 'mm', 4: 'degrees'}
-            coords.append({
+            signals.append({
                 'name': axes_labels[dataset_lines[0][13]],
-                'values': np.round(np.linspace(
-                     dataset_lines[0][14], dataset_lines[0][15],
-                     dataset_lines[0][16]), 3),
                 'attrs': {'units': axes_units[dataset_lines[0][13]],
                           'relative': True},
+                'shape': []
             })
-            scan_npts = len(coords[-1]['values'])
+            scan_npts = dataset_lines[0][16]
             fly_axis_labels = [axes_labels[dataset_lines[0][13]]]
             if scan_type in (2, 3, 5):
-                coords.append({
+                signals.append({
                     'name': axes_labels[dataset_lines[0][17]],
-                    'values': np.round(np.linspace(
-                        dataset_lines[0][18], dataset_lines[0][19],
-                        dataset_lines[0][20]), 3),
                     'attrs': {'units': axes_units[dataset_lines[0][17]],
                               'relative': True},
+                    'shape': []
                 })
-                scan_npts *= len(coords[-1]['values'])
+                scan_npts *= dataset_lines[0][20]
                 if scan_type == 5:
                     attrs['bin_axis'] = axes_labels[dataset_lines[0][21]]
                 fly_axis_labels.append(axes_labels[dataset_lines[0][17]])
             attrs['fly_axis_labels'] = fly_axis_labels
 
-        # Determine if the datset is structured or unstructured.
-        total_npts = len(dataset_lines) * scan_npts
-        self.logger.debug(f'Total # of points in the dataset: {total_npts}')
-        self.logger.debug(
-            'Determined number of unique coordinate values: '
-            + str({c['name']: len(c['values']) for c in coords}))
-        coords_npts = np.prod([len(c['values']) for c in coords])
-        self.logger.debug(
-            f'If dataset is structured, # of points should be: {coords_npts}')
-        if coords_npts != total_npts:
-            attrs['unstructured_axes'] = []
-            self.logger.warning(
-                'Dataset is unstructured. All coordinates will be treated as '
-                'singals, and the dataset will have a single coordinate '
-                'instead: data point index.')
-            for c in coords:
-                del c['values']
-                c['shape'] = []
-                signals.append(c)
-                attrs['unstructured_axes'].append(c['name'])
-            coords = [{'name': 'dataset_point_index',
-                       'values': np.arange(total_npts),
-                       'attrs': {'units': 'n/a'}}]
-        else:
-            signals.append({'name': 'dataset_point_index', 'shape': [],
-                            'attrs': {'units': 'n/a'}})
+        # Set up the single unstructured dataset coordinate
+        coords = [{'name': 'dataset_point_index',
+                   'values': list(range(len(dataset_lines) * scan_npts)),
+                   'attrs': {'units': 'n/a'}}]
+
         return {'coords': coords, 'signals': signals, 'attrs': attrs}
 
 
