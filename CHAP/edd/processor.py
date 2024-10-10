@@ -2649,7 +2649,10 @@ class StrainAnalysisProcessor(Processor):
 
         # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
-        nxentry = nxroot[nxroot.default]
+        if 'default' in nxroot.attrs:
+            nxentry = nxroot[nxroot.default]
+        else:
+            nxentry = nxroot.entry # FIXME
         nxdata = nxentry[nxentry.default]
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
