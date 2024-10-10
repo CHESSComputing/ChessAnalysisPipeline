@@ -737,7 +737,10 @@ class ConstructBaseline(Processor):
             full_output=True)
 
         if not interactive and filename is None:
-            return baseline
+            config = {
+                'tol': tol, 'lambda': lam, 'max_iter': max_iter,
+                'num_iter': num_iter, 'error': error, 'mask': mask}
+            return baseline, config
 
         lambdas = [lam]
         weights = [w]
