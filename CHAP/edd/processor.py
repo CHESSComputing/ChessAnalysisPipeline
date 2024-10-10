@@ -2723,10 +2723,13 @@ class StrainAnalysisProcessor(Processor):
         # Collect the raw MCA data
         nxdata_raw = nxentry[nxentry.default]
         scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
-        if strain_analysis_config.sum_axes and scan_type > 2:
+        if (isinstance(strain_analysis_config.sum_axes, list)
+                or strain_analysis_config.sum_axes and scan_type > 2):
             for index, detector in enumerate(self._detectors):
                 self._nxdata_detectors.append(
-                    self._get_sum_axes_data(nxdata_raw, detector.id))
+                    self._get_sum_axes_data(
+                        nxdata_raw, detector.id,
+                        strain_analysis_config.sum_axes))
         else:
             for detector in self._detectors:
                 self._nxdata_detectors.append(NXdata(
@@ -2760,6 +2763,7 @@ class StrainAnalysisProcessor(Processor):
         self._get_energy_and_masks()
 
         # Get and subtract the detector baselines
+        #FIX does not work for non-interactive
         self._subtract_baselines()
 
         # Adjust the material properties
@@ -3041,7 +3045,7 @@ class StrainAnalysisProcessor(Processor):
                     'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
 
-    def _get_sum_axes_data(self, nxdata, index):
+    def _get_sum_axes_data(self, nxdata, index, sum_axes=True):
         """Get the raw MCA data collected by the scan averaged over the
         sum_axes.
         """
@@ -3056,10 +3060,11 @@ class StrainAnalysisProcessor(Processor):
             axes = nxdata.attrs['axes']
         else:
             axes = nxdata.attrs['unstructured_axes']
-        if 'fly_axis_labels' in nxdata.attrs:
-            sum_axes = nxdata.attrs['fly_axis_labels']
-        else:
-            sum_axes = []
+        if not isinstance(sum_axes, list):
+            if 'fly_axis_labels' in nxdata.attrs:
+                sum_axes = nxdata.attrs['fly_axis_labels']
+            else:
+                sum_axes = []
         axes = [nxdata[axis] for axis in axes if axis not in sum_axes]
         unique_points = []
         sum_indices = []

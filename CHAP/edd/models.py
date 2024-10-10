@@ -1021,7 +1021,7 @@ class StrainAnalysisConfig(BaseModel):
     :type flux_file: str, optional
     :ivar sum_axes: Whether to sum over the fly axis or not
         for EDD scan types not 0, defaults to `True`.
-    :type sum_axes: bool, optional
+    :type sum_axes: Union[bool, list[str]], optional
     :ivar oversampling: FIX
     :type oversampling: FIX
     """
@@ -1030,7 +1030,8 @@ class StrainAnalysisConfig(BaseModel):
         min_length=1, item_type=MCAElementStrainAnalysisConfig)] = None
     materials: conlist(item_type=MaterialConfig)
     flux_file: Optional[FilePath] = None
-    sum_axes: Optional[bool] = True
+    sum_axes: Optional[
+        Union[bool, conlist(min_length=1, item_type=str)]] = True
     oversampling: Optional[
         Annotated[Dict, Field(validate_default=True)]] = {'num': 10}
 
