@@ -1235,8 +1235,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         if detector_id is None:
             change_fig_title('Select data and HKLs to use in fitting')
         else:
-            change_fig_title(
-                f'Select data and HKLs to use in fitting {detector_id}')
+            change_fig_title('Select data and HKLs to use in fitting '
+                             f'detector {detector_id}')
         fig.subplots_adjust(bottom=0.2)
         if ref_map is not None:
             position_cax()
@@ -1524,22 +1524,29 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                 uniform_fit_amplitudes_errors[n] *= uniform_success
                 uniform_fit_sigmas[n] *= uniform_success
                 uniform_fit_sigmas_errors[n] *= uniform_success
-    uniform_best_fit = uniform_fit.best_fit
-    uniform_residuals = uniform_fit.residual
-    uniform_redchi = uniform_fit.redchi
 
     if num_peak == 1:
         return (
-            uniform_fit_centers, uniform_fit_centers_errors,
-            uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-            uniform_fit_sigmas, uniform_fit_sigmas_errors,
-            uniform_best_fit, uniform_residuals, uniform_redchi,
-            uniform_success, uniform_fit_centers, uniform_fit_centers_errors,
-            uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-            uniform_fit_sigmas, uniform_fit_sigmas_errors,
-            uniform_best_fit, uniform_residuals,
-            uniform_redchi, uniform_success
-        )
+            {'centers': uniform_fit_centers,
+             'centers_errors': uniform_fit_centers_errors,
+             'amplitudes': uniform_fit_amplitudes,
+             'amplitudes_errors': uniform_fit_amplitudes_errors,
+             'sigmas': uniform_fit_sigmas,
+             'sigmas_errors': uniform_fit_sigmas_errors,
+             'best_fits': uniform_fit.best_fit,
+             'residuals': uniform_fit.residual,
+             'redchis': uniform_fit.redchi,
+             'success': uniform_success},
+            {'centers': uniform_fit_centers,
+             'centers_errors': uniform_fit_centers_errors,
+             'amplitudes': uniform_fit_amplitudes,
+             'amplitudes_errors': uniform_fit_amplitudes_errors,
+             'sigmas': uniform_fit_sigmas,
+             'sigmas_errors': uniform_fit_sigmas_errors,
+             'best_fits': uniform_fit.best_fit,
+             'residuals': uniform_fit.residual,
+             'redchis': uniform_fit.redchi,
+             'success': uniform_success})
 
     # Perform unconstrained fit
     config['models'][-1]['fit_type'] = 'unconstrained'
@@ -1609,18 +1616,25 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                 unconstrained_fit_amplitudes_errors[n] *= unconstrained_success
                 unconstrained_fit_sigmas[n] *= unconstrained_success
                 unconstrained_fit_sigmas_errors[n] *= unconstrained_success
-    unconstrained_best_fit = unconstrained_fit.best_fit
-    unconstrained_residuals = unconstrained_fit.residual
-    unconstrained_redchi = unconstrained_fit.redchi
 
     return (
-        uniform_fit_centers, uniform_fit_centers_errors,
-        uniform_fit_amplitudes, uniform_fit_amplitudes_errors,
-        uniform_fit_sigmas, uniform_fit_sigmas_errors,
-        uniform_best_fit, uniform_residuals, uniform_redchi, uniform_success,
-        unconstrained_fit_centers, unconstrained_fit_centers_errors,
-        unconstrained_fit_amplitudes, unconstrained_fit_amplitudes_errors,
-        unconstrained_fit_sigmas, unconstrained_fit_sigmas_errors,
-        unconstrained_best_fit, unconstrained_residuals,
-        unconstrained_redchi, unconstrained_success
-    )
+        {'centers': uniform_fit_centers,
+         'centers_errors': uniform_fit_centers_errors,
+         'amplitudes': uniform_fit_amplitudes,
+         'amplitudes_errors': uniform_fit_amplitudes_errors,
+         'sigmas': uniform_fit_sigmas,
+         'sigmas_errors': uniform_fit_sigmas_errors,
+         'best_fits': uniform_fit.best_fit,
+         'residuals': uniform_fit.residual,
+         'redchis': uniform_fit.redchi,
+         'success': uniform_success},
+        {'centers': unconstrained_fit_centers,
+         'centers_errors': unconstrained_fit_centers_errors,
+         'amplitudes': unconstrained_fit_amplitudes,
+         'amplitudes_errors': unconstrained_fit_amplitudes_errors,
+         'sigmas': unconstrained_fit_sigmas,
+         'sigmas_errors': unconstrained_fit_sigmas_errors,
+         'best_fits': unconstrained_fit.best_fit,
+         'residuals': unconstrained_fit.residual,
+         'redchis': unconstrained_fit.redchi,
+         'success': unconstrained_success})
