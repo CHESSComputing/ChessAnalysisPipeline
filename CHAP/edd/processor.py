@@ -3143,7 +3143,7 @@ class StrainAnalysisProcessor(Processor):
     def _strain_analysis(
             self, nxdata_raw, nxprocess, oversampling_axis, materials, index,
             nxdata, detector):
-        "Perform the strain analysis for a single detector."""
+        """Perform the strain analysis for a single detector."""
         # Third party modules
         from nexusformat.nexus import (
             NXcollection,
@@ -3202,12 +3202,12 @@ class StrainAnalysisProcessor(Processor):
         det_nxdata.uniform_microstrain = NXfield(
             dtype=np.float64,
             shape=(nxdata.shape[0]),
-            attrs={'long_name': 'Strain from uniform fit(\u03BC\u03B5)'})
+            attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
         det_nxdata.unconstrained_microstrain = NXfield(
             dtype=np.float64,
             shape=(nxdata.shape[0]),
             attrs={'long_name':
-                       'Strain from unconstrained fit(\u03BC\u03B5)'})
+                       'Strain from unconstrained fit (\u03BC\u03B5)'})
 
         # Add the detector data
         det_nxdata.intensity = NXfield(
