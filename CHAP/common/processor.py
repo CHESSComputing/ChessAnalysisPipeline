@@ -2749,7 +2749,7 @@ class UpdateNXdataProcessor(Processor):
           nxdata_path: /entry/samplename_dataset_1
     ```
     """
-    def process(self, data, nxfilename, nxdata_path, data_points=[],
+    def process(self, data, nxfilename, nxdata_path, data_points=None,
                 allow_approximate_coordinates=True):
         """Write new data points to the signal fields of an existing
         NeXus NXdata object representing a structued dataset in a NeXus
@@ -2770,8 +2770,8 @@ class UpdateNXdataProcessor(Processor):
         :param data_points: List of data points, each one a dictionary
             whose keys are the names of the coordinates and axes, and
             whose values are the values of each coordinate / signal at
-            a single point in the dataset. Deafults to [].
-        :type data_points: list[dict[str, object]]
+            a single point in the dataset. Deafults to None.
+        :type data_points: Optional[list[dict[str, object]]]
         :param allow_approximate_coordinates: Parameter to allow the
             nearest existing match for the new data points'
             coordinates to be used if an exact match connot be found
@@ -2784,10 +2784,14 @@ class UpdateNXdataProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import NXFile
 
+        if data_points is None:
+            data_points = []
+        self.logger.debug(f'Got {len(data_points)} data points from keyword')
         _data_points = self.unwrap_pipelinedata(data)[0]
         if isinstance(_data_points, list):
+            self.logger.debug(f'Got {len(_data_points)} from pipeline data')
             data_points.extend(_data_points)
-        self.logger.info(f'Updating {len(data_points)} data points')
+        self.logger.info(f'Updating {len(data_points)} data points total')
 
         nxfile = NXFile(nxfilename, 'rw')
         nxdata = nxfile.readfile()[nxdata_path]
@@ -2803,7 +2807,7 @@ class UpdateNXdataProcessor(Processor):
                     f'axis. Skipping. Axes are: {", ".join(axes_names)}')
                 continue
             self.logger.debug(
-                f'Coordinates for data point {i}: '
+                f'Coordinates for data point {i}: ' +
                 ', '.join([f'{a}={d[a]}' for a in axes_names]))
             # Get the index of the data point in the dataset based on
             # its values for each coordinate.
