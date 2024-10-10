@@ -563,9 +563,9 @@ def select_material_params(
     :rtype: list[CHAP.edd.models.MaterialConfig]
     """
     # Third party modules
+    import matplotlib.pyplot as plt
     if interactive or filename is not None:
         from hexrd.material import Material
-        import matplotlib.pyplot as plt
         from matplotlib.widgets import Button, TextBox, RadioButtons
 
     # Local modules
