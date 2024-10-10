@@ -309,9 +309,9 @@ class LatticeParameterRefinementProcessor(Processor):
                 raise RuntimeError from exc
 
         if len(strain_analysis_config.materials) > 1:
-            msg = 'Not implemented for multiple materials'
-            self.logger.error('Not implemented for multiple materials')
-            raise NotImplementedError(msg)
+            error_msg = 'Not implemented for multiple materials'
+            self.logger.error(error_msg)
+            raise NotImplementedError(error_msg)
 
         # Collect the raw MCA data
         raise RuntimeError(
@@ -2770,7 +2770,9 @@ class StrainAnalysisProcessor(Processor):
         self._subtract_baselines()
 
         # Adjust the material properties
-        self._adjust_material_props(strain_analysis_config.materials)
+        strain_analysis_config.materials = self._adjust_material_props(
+            strain_analysis_config.materials)
+        self.logger.debug(f'materials: {strain_analysis_config.materials}')
 
         # Get the mask and HKLs used in the strain analysis
         self._get_mask_hkls(strain_analysis_config.materials)
@@ -2868,19 +2870,17 @@ class StrainAnalysisProcessor(Processor):
 
         # ASK: extend to multiple detectors?
         detector = self._detectors[0]
-        tth = detector.tth_calibrated
         if self._save_figures:
             filename = os.path.join(
                 self._outputdir,
                 f'{detector.id}_strainanalysis_material_config.png')
         else:
             filename = None
-        materials = select_material_params(
+        return select_material_params(
             detector.energies, self._mean_data[0]*self._energy_masks[0],
-            tth, label='Sum of all spectra in the map',
+            detector.tth_calibrated, label='Sum of all spectra in the map',
             preselected_materials=materials, interactive=self._interactive,
             filename=filename)
-        self.logger.debug(f'materials: {materials}')
 
     def _create_animation(
             self, det_nxdata, energies, best_fits, detector_id):

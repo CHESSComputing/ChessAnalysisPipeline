@@ -563,9 +563,9 @@ def select_material_params(
     :rtype: list[CHAP.edd.models.MaterialConfig]
     """
     # Third party modules
-    import matplotlib.pyplot as plt
     if interactive or filename is not None:
         from hexrd.material import Material
+        import matplotlib.pyplot as plt
         from matplotlib.widgets import Button, TextBox, RadioButtons
 
     # Local modules
@@ -634,6 +634,14 @@ def select_material_params(
     def accept(event):
         """Callback function for the "Accept" button."""
         plt.close()
+
+    if not interactive and filename is None:
+        if preselected_materials is None:
+            raise RuntimeError(
+                'If the material properties are not explicitly provided, '
+                f'{self.__class__.__name__} must be run with '
+                '`interactive=True`.')
+        return preselected_materials
 
     materials = []
     added_material = []
@@ -953,15 +961,15 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             elif removed_hkls:
                 change_error_text(
                     'Removed HKL(s) outside the selected energy mask')
-        # If using ref_map, update the colorbar range to min / max of
-        # the selected data only
-        if ref_map is not None:
-            selected_data = ref_map[:,get_mask()]
-            ref_map_mappable = ax_map.pcolormesh(
-                x, np.arange(ref_map.shape[0]), ref_map,
-                vmin=selected_data.min(), vmax=selected_data.max())
-            fig.colorbar(ref_map_mappable, cax=cax)
-        plt.draw()
+            # If using ref_map, update the colorbar range to min / max of
+            # the selected data only
+            if ref_map is not None:
+                selected_data = ref_map[:,get_mask()]
+                ref_map_mappable = ax_map.pcolormesh(
+                    x, np.arange(ref_map.shape[0]), ref_map,
+                    vmin=selected_data.min(), vmax=selected_data.max())
+                fig.colorbar(ref_map_mappable, cax=cax)
+            plt.draw()
 
     def add_span(event, xrange_init=None):
         """Callback function for the "Add span" button."""
