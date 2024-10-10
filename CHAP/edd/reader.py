@@ -621,9 +621,10 @@ class SetupNXdataReader(Reader):
                  'shape': d.attrs.get('shape', (4096,))})
 
         # Attributes to attach for use by edd.StrainAnalysisProcessor:
-        attrs = dict(dataset_id=dataset_id,
-                     config_id=dataset_lines[0][2],
-                     scan_type=scan_type)
+        attrs = {'dataset_id': dataset_id,
+                 'config_id': dataset_lines[0][2],
+                 'scan_type': scan_type,
+                 'unstructured_axes': ['labx', 'laby', 'labz', 'ometotal']}
 
         # Append additional fly_* signals depending on the scan type
         # of the dataset. Also find the number of points / scan.
