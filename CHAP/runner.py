@@ -88,8 +88,9 @@ def parser():
     """
     pparser = argparse.ArgumentParser(prog='PROG')
     pparser.add_argument(
-        'config', action='store', default='',
-        help='Input configuration file')
+        'config', action='store', default='', help='Input configuration file')
+    pparser.add_argument(
+        '-p', '--pipeline', nargs='*', help='Pipeline name')
     return pparser
 
 def main():
@@ -111,7 +112,7 @@ def main():
         config = safe_load(file)
 
     # Check if run was a worker spawned by another Processor
-    run_config = RunConfig(config.get('config'), comm)
+    run_config = RunConfig(config.pop('config'), comm)
     if have_mpi and run_config.spawn:
         sub_comm = MPI.Comm.Get_parent()
         common_comm = sub_comm.Merge(True)
@@ -128,7 +129,19 @@ def main():
         common_comm = comm
 
     # Get the pipeline configurations
-    pipeline_config = config.get('pipeline', [])
+    pipeline = args.pipeline
+    pipeline_config = []
+    if pipeline is None:
+        for sub_pipeline in config.values():
+            pipeline_config += sub_pipeline
+    else:
+        for sub_pipeline in pipeline:
+            if sub_pipeline in config:
+                pipeline_config += config.get(sub_pipeline)
+            else:
+                raise ValueError(
+                    f'Invalid pipeline option: \'{sub_pipeline}\' missing in '
+                    f'the pipeline configuration ({list(config.keys())})')
 
     # Profiling setup
     if run_config.profile:
