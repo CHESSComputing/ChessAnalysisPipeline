@@ -540,8 +540,8 @@ class SetupNXdataReader(Reader):
         # 14 + 4n: lower bound
         # 15 + 4n: upper bound
         # 16 + 4n: no. points
-        # (For scan types 1, 4: n = 1)
-        # (For scan types 2, 3, 5: n = 1 or 2)
+        # (For scan types 1, 4: n = 0)
+        # (For scan types 2, 3, 5: n = 0 or 1)
 
         # For scan type 5 only:
         # 21: bin axis
@@ -575,37 +575,37 @@ class SetupNXdataReader(Reader):
         # UNstructured with a single actual coordinate
         # (dataset_pont_index).
         signals = [
-            {'name': 'labx', 'shape': [],
+            {'name': 'labx', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'labx',
                        'data_type': 'smb_par'}},
-            {'name': 'laby', 'shape': [],
+            {'name': 'laby', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'laby',
                        'data_type': 'smb_par'}},
-            {'name': 'labz', 'shape': [],
+            {'name': 'labz', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'labz',
                        'data_type': 'smb_par'}},
-            {'name': 'ometotal', 'shape': [],
+            {'name': 'ometotal', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'degrees', 'local_name': 'ometotal',
                        'data_type': 'smb_par'}},
-            {'name': 'presample_intensity', 'shape': [],
+            {'name': 'presample_intensity', 'shape': [], 'dtype': 'uint64',
              'attrs': {'units': 'counts', 'local_name': 'a3ic1',
                        'data_type': 'scan_column'}},
-            {'name': 'postsample_intensity', 'shape': [],
+            {'name': 'postsample_intensity', 'shape': [], 'dtype': 'uint64',
              'attrs': {'units': 'counts', 'local_name': 'diode',
                        'data_type': 'scan_column'}},
-            {'name': 'dwell_time_actual', 'shape': [],
+            {'name': 'dwell_time_actual', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'seconds', 'local_name': 'sec',
                        'data_type': 'scan_column'}},
-            {'name': 'SCAN_N', 'shape': [],
+            {'name': 'SCAN_N', 'shape': [], 'dtype': 'uint8',
              'attrs': {'units': 'n/a', 'local_name': 'SCAN_N',
                        'data_type': 'smb_par'}},
-            {'name': 'rsgap_size', 'shape': [],
+            {'name': 'rsgap_size', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'rsgap_size',
                        'data_type': 'smb_par'}},
-            {'name': 'x_effective', 'shape': [],
+            {'name': 'x_effective', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'x_effective',
                        'data_type': 'smb_par'}},
-            {'name': 'z_effective', 'shape': [],
+            {'name': 'z_effective', 'shape': [], 'dtype': 'float64',
              'attrs': {'units': 'mm', 'local_name': 'z_effective',
                        'data_type': 'smb_par'}},
         ]
@@ -617,7 +617,7 @@ class SetupNXdataReader(Reader):
         detector_config = DetectorConfig(detectors=detectors)
         for d in detector_config.detectors:
             signals.append(
-                {'name': d.id, 'attrs': d.attrs,
+                {'name': d.id, 'attrs': d.attrs, 'dtype': 'uint64',
                  'shape': d.attrs.get('shape', (4096,))})
 
         # Attributes to attach for use by edd.StrainAnalysisProcessor:
@@ -630,6 +630,7 @@ class SetupNXdataReader(Reader):
         # of the dataset. Also find the number of points / scan.
         if scan_type == 0:
             scan_npts = 1
+            fly_axis_values = None
         else:
             self.logger.warning(
                 'Assuming scan parameters are identical for all scans.')
@@ -644,6 +645,11 @@ class SetupNXdataReader(Reader):
             })
             scan_npts = dataset_lines[0][16]
             fly_axis_labels = [axes_labels[dataset_lines[0][13]]]
+            fly_axis_values = {fly_axis_labels[0]:
+                               np.round(np.linspace(
+                                   dataset_lines[0][14], dataset_lines[0][15],
+                                   dataset_lines[0][16]), 3)}
+            scan_shape = (len(fly_axis_values[fly_axis_labels[0]]),)
             if scan_type in (2, 3, 5):
                 signals.append({
                     'name': axes_labels[dataset_lines[0][17]],
@@ -655,14 +661,42 @@ class SetupNXdataReader(Reader):
                 if scan_type == 5:
                     attrs['bin_axis'] = axes_labels[dataset_lines[0][21]]
                 fly_axis_labels.append(axes_labels[dataset_lines[0][17]])
+                fly_axis_values[fly_axis_labels[-1]] = np.round(
+                    np.linspace(dataset_lines[0][18], dataset_lines[0][19],
+                                dataset_lines[0][20]), 3)
+                scan_shape = (*scan_shape,
+                              len(fly_axis_values[fly_axis_labels[-1]]))
             attrs['fly_axis_labels'] = fly_axis_labels
 
         # Set up the single unstructured dataset coordinate
+        dataset_npts = len(dataset_lines) * scan_npts
         coords = [{'name': 'dataset_point_index',
-                   'values': list(range(len(dataset_lines) * scan_npts)),
+                   'values': list(range(dataset_npts)),
                    'attrs': {'units': 'n/a'}}]
 
-        return {'coords': coords, 'signals': signals, 'attrs': attrs}
+        # Set up the list of data_points to fill out the known values
+        # of the physical "coordinates"
+        data_points = []
+        for i in range(dataset_npts):
+            l = dataset_lines[i // scan_npts]
+            data_point = {
+                'dataset_point_index': i,
+                'labx': l[3], 'laby': l[4], 'labz': l[5],
+                'ometotal': l[6] + l[7]}
+            if fly_axis_values:
+                scan_step_index = i % scan_npts
+                scan_steps = np.ndindex(scan_shape[::-1])
+                ii = 0
+                while ii <= scan_step_index:
+                    scan_step = next(scan_steps)
+                    ii += 1
+                scan_step_indices = scan_step[::-1]
+                for iii, (k, v) in enumerate(fly_axis_values.items()):
+                    data_point[k] = v[scan_step_indices[iii]]
+            data_points.append(data_point)
+
+        return {'coords': coords, 'signals': signals,
+                'attrs': attrs, 'data_points': data_points}
 
 
 class UpdateNXdataReader(Reader):
