@@ -667,6 +667,7 @@ class SetupNXdataReader(Reader):
                 scan_shape = (*scan_shape,
                               len(fly_axis_values[fly_axis_labels[-1]]))
             attrs['fly_axis_labels'] = fly_axis_labels
+            attrs['unstructured_axes_labels'].extend(fly_axis_labels)
 
         # Set up the single unstructured dataset coordinate
         dataset_npts = len(dataset_lines) * scan_npts

@@ -3064,7 +3064,7 @@ class StrainAnalysisProcessor(Processor):
         else:
             axes = nxdata.attrs['unstructured_axes']
         if not isinstance(sum_axes, list):
-            if 'fly_axis_labels' in nxdata.attrs:
+            if sum_axes and 'fly_axis_labels' in nxdata.attrs:
                 sum_axes = nxdata.attrs['fly_axis_labels']
             else:
                 sum_axes = []
