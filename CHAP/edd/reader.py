@@ -641,7 +641,7 @@ class SetupNXdataReader(Reader):
                 'name': axes_labels[dataset_lines[0][13]],
                 'attrs': {'units': axes_units[dataset_lines[0][13]],
                           'relative': True},
-                'shape': []
+                'shape': [], 'dtype': 'float64'
             })
             scan_npts = dataset_lines[0][16]
             fly_axis_labels = [axes_labels[dataset_lines[0][13]]]
@@ -655,7 +655,7 @@ class SetupNXdataReader(Reader):
                     'name': axes_labels[dataset_lines[0][17]],
                     'attrs': {'units': axes_units[dataset_lines[0][17]],
                               'relative': True},
-                    'shape': []
+                    'shape': [], 'dtype': 'float64'
                 })
                 scan_npts *= dataset_lines[0][20]
                 if scan_type == 5:
