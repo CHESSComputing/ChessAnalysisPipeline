@@ -146,7 +146,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                 title='Click and drag to select data range to include when '
                       'measuring diffraction volume length',
                 xlabel='Uncalibrated energy (keV)',
-                ylabel='MCA intensity (counts)',
+                ylabel='Intensity (counts)',
                 min_num_index_ranges=1,
                 interactive=interactive, filename=filename)
             self.logger.debug(
@@ -198,7 +198,7 @@ class DiffractionVolumeLengthProcessor(Processor):
                     title=('Click and drag to indicate the boundary '
                            'of the diffraction volume'),
                     xlabel=('Beam direction (offset from scan "center")'),
-                    ylabel='MCA intensity (normalized)',
+                    ylabel='Normalized intensity (-)',
                     min_num_index_ranges=1,
                     max_num_index_ranges=1,
                     interactive=interactive)
@@ -217,7 +217,7 @@ class DiffractionVolumeLengthProcessor(Processor):
             fig, ax = plt.subplots()
             ax.set_title(f'Diffraction Volume ({detector.id})')
             ax.set_xlabel('Beam direction (offset from scan "center")')
-            ax.set_ylabel('MCA intensity (normalized)')
+            ax.set_ylabel('Normalized intensity (-)')
             ax.plot(x, masked_sum, label='total (masked & normalized)')
             ax.plot(x, fit.best_fit, label='gaussian fit (to total)')
             ax.plot(x, masked_max, label='maximum (masked)')
@@ -678,7 +678,7 @@ class LatticeParameterRefinementProcessor(Processor):
             ax.set_title(
                 f'Detector {detector.id}: Lattice Parameter Refinement')
             ax.set_xlabel('Detector energy (keV)')
-            ax.set_ylabel('Mean intensity (a.u.)')
+            ax.set_ylabel('Mean intensity (counts)')
             ax.plot(energies, mean_intensity, 'k.', label='MCA data')
             ax.plot(energies, uniform_best_fit, 'r', label='Best uniform fit')
             ax.plot(
@@ -769,9 +769,11 @@ class MCAEnergyCalibrationProcessor(Processor):
         :rtype: dict
         """
         # Third party modules
+        from json import loads
         from nexusformat.nexus import NXroot
 
         # Local modules
+        from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import (
             BaselineConfig,
             MCAElementCalibrationConfig,
@@ -785,7 +787,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
-        nxroot = self.get_data(data, 'SpecReader')
+        nxroot = self.get_data(data)
         if not isinstance(nxroot, NXroot):
             raise RuntimeError('No valid NXroot data in input pipeline data')
         nxentry = nxroot[nxroot.default]
@@ -808,18 +810,19 @@ class MCAEnergyCalibrationProcessor(Processor):
                 raise RuntimeError from exc
 
         # Validate the detector configuration
+        detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
         available_detector_indices = [
-            int(d) for d in nxentry.detector_ids.nxdata]
+            int(d.id) for d in detector_config.detectors]
         if calibration_config.detectors is None:
             calibration_config.detectors = [
                 MCAElementCalibrationConfig(id=d)
-                for d in nxentry.detector_ids.nxdata]
+                for d in available_detector_indices]
         else:
             for detector in deepcopy(calibration_config.detectors):
                 index = int(detector.id)
                 if index not in available_detector_indices:
                     self.logger.warning(
-                        f'Skipping detector {int} (no raw data)')
+                        f'Skipping detector {index} (no raw data)')
                     calibration_config.detectors.remove(detector)
 
         # Validate the fit index range
@@ -979,7 +982,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 spectrum, mask=energy_mask, tol=detector.baseline.tol,
                 lam=detector.baseline.lam, max_iter=detector.baseline.max_iter,
                 title=f'Baseline for detector {detector.id}',
-                xlabel='Energy (keV)', ylabel='Intensity (counts)',
+                xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
             spectrum = np.maximum(spectrum-baseline, 0)
@@ -996,7 +999,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         mask, fit_index_ranges = select_mask_1d(
             spectrum, x=bins,
             preselected_index_ranges=calibration_config.fit_index_ranges,
-            xlabel='Detector channel', ylabel='Intensity',
+            xlabel='Detector channel (-)', ylabel='Intensity (counts)',
             min_num_index_ranges=1, interactive=interactive,
             filename=filename)
         self.logger.debug(
@@ -1073,8 +1076,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             fig.suptitle(f'Detector {detector.id} Energy Calibration')
             # Left plot: raw MCA data & best fit of peaks
             axs[0].set_title('MCA Spectrum Peak Fit')
-            axs[0].set_xlabel('Detector channel')
-            axs[0].set_ylabel('Intensity (a.u)')
+            axs[0].set_xlabel('Detector channel (-)')
+            axs[0].set_ylabel('Intensity (counts)')
             axs[0].plot(bins[mask], spectrum[mask], 'b.', label='MCA data')
             axs[0].plot(
                 bins[mask], spectrum_fit.best_fit, 'r', label='Best fit')
@@ -1083,7 +1086,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             # fit peak locations
             axs[1].set_title(
                 'Channel Energies vs. Channel Indices')
-            axs[1].set_xlabel('Detector channel')
+            axs[1].set_xlabel('Detector channel (-)')
             axs[1].set_ylabel('Channel energy (keV)')
             axs[1].plot(fit_peak_indices, peak_energies,
                         c='b', marker='o', ms=6, mfc='none', ls='',
@@ -1220,8 +1223,8 @@ class MCAEnergyCalibrationProcessor(Processor):
                 if not peak_indices:
                     plt.close()
                     fig, ax = plt.subplots(figsize=(11, 8.5))
-                    ax.set_xlabel('Detector channel', fontsize='x-large')
-                    ax.set_ylabel('Intensity', fontsize='x-large')
+                    ax.set_xlabel('Detector channel (-)', fontsize='x-large')
+                    ax.set_ylabel('Intensity (counts)', fontsize='x-large')
                     ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
                     fig.subplots_adjust(bottom=0.0, top=0.85)
                     ax.plot(np.arange(y.size), y, color='k')
@@ -1257,8 +1260,8 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.plot(np.arange(y.size), y, color='k')
-        ax.set_xlabel('Detector channel', fontsize='x-large')
-        ax.set_ylabel('Intensity', fontsize='x-large')
+        ax.set_xlabel('Detector channel (-)', fontsize='x-large')
+        ax.set_ylabel('Intensity (counts)', fontsize='x-large')
         ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
         fig.subplots_adjust(bottom=0.0, top=0.85)
 
@@ -1340,8 +1343,8 @@ class MCATthCalibrationProcessor(Processor):
             self, data, config=None, tth_initial_guess=None,
             include_energy_ranges=None, calibration_method='iterate_tth',
             quadratic_energy_calibration=False, centers_range=20,
-            fwhm_min=None, fwhm_max=None, background=None, baseline=False,
-            save_figures=False, inputdir='.', outputdir='.',
+            fwhm_min=None, fwhm_max=None, background='constant',
+            baseline=False, save_figures=False, inputdir='.', outputdir='.',
             interactive=False):
         """Return the calibrated 2&theta value and the fine tuned
         energy calibration coefficients to convert MCA channel
@@ -1407,23 +1410,25 @@ class MCATthCalibrationProcessor(Processor):
         :rtype: dict[str,float]
         """
         # Third party modules
+        from json import loads
         from nexusformat.nexus import NXroot
 
         # Local modules
+        from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import BaselineConfig
         from CHAP.utils.general import (
             is_int,
             is_str_series,
+            list_to_string,
         )
 
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
-        nxroot = self.get_data(data, 'SpecReader')
+        nxroot = self.get_data(data)
         if not isinstance(nxroot, NXroot):
             raise RuntimeError('No valid NXroot data in input pipeline data')
         nxentry = nxroot[nxroot.default]
-
         # Load the validated 2&theta calibration configuration
         try:
             calibration_config = self.get_config(
@@ -1446,17 +1451,25 @@ class MCATthCalibrationProcessor(Processor):
         # Validate the detector configuration
         if calibration_config.detectors is None:
             raise RuntimeError('No available calibrated detectors')
+        detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
         available_detector_indices = [
-            int(d) for d in nxentry.detector_ids.nxdata]
-        detectors = []
-        for detector in calibration_config.detectors:
+            int(d.id) for d in detector_config.detectors]
+        calibration_detector_indices = []
+        for detector in deepcopy(calibration_config.detectors):
             index = int(detector.id)
             if index in available_detector_indices:
-                detectors.append(detector)
+                calibration_detector_indices.append(index)
             else:
-                self.logger.warning(
-                    f'Skipping detector {detector.id} '
-                    '(no energy calibration data)')
+                self.logger.warning(f'Skipping detector {index} (no raw data)')
+                calibration_config.detectors.remove(detector)
+        detectors = calibration_config.detectors
+        skipped_detector_indices = [
+            index for index in available_detector_indices
+            if index not in calibration_detector_indices]
+        if skipped_detector_indices:
+            self.logger.warning('Skipping detector(s) '
+                                f'{list_to_string(skipped_detector_indices)} '
+                                '(no calibration data)')
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
@@ -1633,7 +1646,7 @@ class MCATthCalibrationProcessor(Processor):
                 spectrum, mask=energy_mask, tol=detector.baseline.tol,
                 lam=detector.baseline.lam, max_iter=detector.baseline.max_iter,
                 title=f'Baseline for detector {detector.id}',
-                xlabel='Energy (keV)', ylabel='Intensity (counts)',
+                xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
             spectrum = np.maximum(spectrum-baseline, 0)
@@ -2246,7 +2259,7 @@ class MCATthCalibrationProcessor(Processor):
             # Upper left axes: best fit with calibrated peak centers
             axs[0,0].set_title(r'2$\theta$ Calibration Fits')
             axs[0,0].set_xlabel('Energy (keV)')
-            axs[0,0].set_ylabel('Intensity (a.u)')
+            axs[0,0].set_ylabel('Intensity (counts)')
             for i, e_peak in enumerate(e_bragg_fit):
                 axs[0,0].axvline(e_peak, c='k', ls='--')
                 axs[0,0].text(e_peak, 1, str(hkls_fit[i])[1:-1],
@@ -2285,7 +2298,7 @@ class MCATthCalibrationProcessor(Processor):
             # Lower left axes: fit residual
             axs[1,0].set_title('Fit Residuals')
             axs[1,0].set_xlabel('Energy (keV)')
-            axs[1,0].set_ylabel('Residual (a.u)')
+            axs[1,0].set_ylabel('Residual (counts)')
             if residual_uniform is None:
                 axs[1,0].plot(
                     mca_energies_fit, residual_unconstrained, c='C1',
@@ -2526,7 +2539,7 @@ class MCACalibratedDataPlotter(Processor):
             title += ' (sum of all spectra in the scan)'
         ax.set_title(title)
         ax.set_xlabel('Calibrated energy (keV)')
-        ax.set_ylabel('Intenstiy (a.u)')
+        ax.set_ylabel('Intenstiy (counts)')
         for detector in calibration_config.detectors:
             if scan_step_index is None:
                 spectrum = np.sum(
@@ -2934,7 +2947,7 @@ class StrainAnalysisProcessor(Processor):
             'k-', label='fit')
         ax.set(
             title='Unconstrained fits',
-            xlabel='Energy (keV)',
+            xlabel='Detector energy (keV)',
             ylabel='Normalized intensity (-)')
         ax.legend(loc='upper right')
         ax.set_ylim(-0.05, 1.05)

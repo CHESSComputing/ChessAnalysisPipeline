@@ -768,9 +768,10 @@ class ConstructBaseline(Processor):
                 x[mask.astype(bool)], y[mask.astype(bool)], label='input data')
         baseline_handle = ax.plot(x, baseline, label='baseline')[0]
 #        ax.plot(x, y-baseline, label='baseline corrected data')
+        ax.legend()
         ax.set_xlabel(xlabel, fontsize='x-large')
         ax.set_ylabel(ylabel, fontsize='x-large')
-        ax.legend()
+        ax.set_xlim(x[0], x[-1])
         if title is None:
             fig_title = plt.figtext(*title_pos, 'Baseline', **title_props)
         else:
@@ -1766,12 +1767,10 @@ class MapProcessor(Processor):
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
         ddata = scanparser.get_detector_data(detector_config.detectors[0].id)
-        # RV test and modify for multiple independent dimensions
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
-        assert num_id == 1
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
             data = np.empty(
