@@ -32,6 +32,7 @@ from scipy.interpolate import interp1d
 from typing_extensions import Annotated
 
 # Local modules
+from CHAP.common.models.map import Detector
 from CHAP.utils.parfile import ParFile
 
 # Baseline configuration class
@@ -125,7 +126,7 @@ class MaterialConfig(BaseModel):
 
 # Detector configuration classes
 
-class MCAElementConfig(BaseModel):
+class MCAElementConfig(Detector):
     """Class representing metadata required to configure a single MCA
     detector element.
 
@@ -135,23 +136,7 @@ class MCAElementConfig(BaseModel):
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
     """
-    id: constr(min_length=1) = '0'
     num_bins: Optional[conint(gt=0)] = None
-    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
-
-    @field_validator('id', mode='before')
-    @classmethod
-    def validate_id(cls, id):
-        """Validate the detector id.
-
-        :param id: The detector id (name or channel index).
-        :type id: int, str
-        :return: The detector id.
-        :rtype: str
-        """
-        if isinstance(id, int):
-            return str(id)
-        return id
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a

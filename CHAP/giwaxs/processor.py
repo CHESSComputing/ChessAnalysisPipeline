@@ -26,7 +26,8 @@ class GiwaxsConversionProcessor(Processor):
             self, data, config, save_figures=False, outputdir='.',
             interactive=False):
         """Process the GIWAXS input images & configuration and return
-        a map of the images in rectangular coordinates.
+        a map of the images in rectangular coordinates as a
+        `nexusformat.nexus.NXroot` object.
 
         :param data: Results of `common.MapProcessor` containing the
             map of GIWAXS input images.
@@ -43,7 +44,7 @@ class GiwaxsConversionProcessor(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :return: NXroot containing the converted GIWAXS images.
+        :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -91,9 +92,9 @@ class GiwaxsConversionProcessor(Processor):
             outputdir='.'):
         """Return NXroot containing the converted GIWAXS images.
 
-        :param nxroot: The GIWAXS map with the raw detector data.
+        :param nxroot: GIWAXS map with the raw detector data.
         :type nxroot: nexusformat.nexus.NXroot
-        :param config: The GIWAXS conversion configuration.
+        :param config: GIWAXS conversion configuration.
         :type config: CHAP.giwaxs.models.GiwaxsConversionConfig
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
@@ -104,7 +105,7 @@ class GiwaxsConversionProcessor(Processor):
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
-        :return: NXroot containing the converted GIWAXS images.
+        :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -131,30 +132,24 @@ class GiwaxsConversionProcessor(Processor):
 
         # Validate the detector and independent dimensions
         nxentry = nxroot[nxroot.default]
+        nxdata = nxentry[nxentry.default]
         if len(config.detectors) > 1:
             raise RuntimeError('More than one detector not yet implemented')
         detector = config.detectors[0]
-        nxdetector = nxentry.get(detector.prefix)
-        if nxdetector is None:
-            raise RuntimeError(
-                f'Unable to find detector data in {nxentry.tree}')
-        if str(nxdetector.nxname) != detector.prefix:
-            raise RuntimeError(
-                f'Inconsistent detectors ({nxdetector.nxname} vs '
-                f'{detector.prefix})')
-        if not isinstance(nxentry[detector.prefix].data.attrs['axes'], str):
+        if detector.prefix not in nxdata:
+            raise RuntimeError('Unable to find detector data for '
+                               f'{detector.prefix} in {nxentry.tree}')
+        if not isinstance(nxdata.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
 
         # Collect the raw giwaxs images
         if config.scan_step_indices is None:
-            thetas = nxdetector.data[nxdetector.data.attrs['axes']]
-            giwaxs_data = nxdetector.data.detector_data
+            thetas = nxdata[nxdata.attrs['axes']]
+            giwaxs_data = nxdata[detector.prefix]
         else:
-            thetas = nxdetector.data[nxdetector.data.attrs['axes']][
-                config.scan_step_indices]
-            giwaxs_data = nxdetector.data.detector_data[
-                config.scan_step_indices]
+            thetas = nxdata[nxdata.attrs['axes']][config.scan_step_indices]
+            giwaxs_data = nxdata[detector.prefix][config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
@@ -476,14 +471,14 @@ class GiwaxsConversionProcessor(Processor):
         parallel components of q relative to the detector surface
         for each pixel in an image for each theta.
 
-        :param images: The GIWAXS images.
+        :param images: GIWAXS images.
         :type images: numpy.ndarray
-        :param thetas: The theta values for the images.
+        :param thetas: Image theta values.
         :type thetas: numpy.ndarray
-        :param poni_file: The path to the detector PONI file.
+        :param poni_file: Path to the detector PONI file.
         :type poni_file: str
-        :return: The perpendicular and parallel components of q
-            relative to the detector surface.
+        :return: Perpendicular and parallel components of q relative
+            to the detector surface.
         :rtype: numpy.ndarray, numpy.ndarray
         """
         # Third party modules
@@ -572,7 +567,7 @@ class IntegrationProcessor(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :return: NXroot containing the integrated GIWAXS images.
+        :return: Integrated GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -618,11 +613,12 @@ class IntegrationProcessor(Processor):
     def integrate_data(
             self, nxroot, config, save_figures=False, interactive=False,
             outputdir='.'):
-        """Return NXroot containing the integrates GIWAXS images.
+        """Return a 'nexusformat.nexus.NXroot` object containing the
+        integrates GIWAXS images.
 
-        :param nxroot: The GIWAXS map with the raw detector data.
+        :param nxroot: GIWAXS map with the raw detector data.
         :type nxroot: nexusformat.nexus.NXroot
-        :param config: The GIWAXS integration configuration.
+        :param config: GIWAXS integration configuration.
         :type config: CHAP.giwaxs.models.IntegrationConfig
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
@@ -633,7 +629,7 @@ class IntegrationProcessor(Processor):
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
-        :return: NXroot containing the integrates GIWAXS images.
+        :return: Integrated GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -817,18 +813,18 @@ class IntegrationProcessor(Processor):
         artificially rotate detectors to achieve a continuous azimuthal
         integration range.
 
-        :param chi_min: The minimum value of the azimuthal range.
+        :param chi_min: Minimum azimuthal range value.
         :type chi_min: float
-        :param chi_max: The maximum value of the azimuthal range.
+        :param chi_max: Maximum azimuthal range value.
         :type chi_max: float
         :param right_handed: For radial and cake integration, reverse
             the direction of the azimuthal coordinate from pyFAI's
             convention.
         :type right_handed: bool
-        :return: The following four values: the adjusted minimum value
-            of the azimuthal range, the adjusted maximum value of the
-            azimuthal range, the value by which the chi angle was
-            adjusted, the position of the chi discontinuity.
+        :return: Adjusted minimum value of the azimuthal range,
+            adjusted maximum value of the azimuthal range, value by
+            which the chi angle was adjusted, and position of the chi
+            discontinuity.
         """
         # Fix chi discontinuity at 180 degrees for now.
         chi_disc = 180
@@ -850,11 +846,11 @@ class IntegrationProcessor(Processor):
         :param poni_files: Tuple of strings, each string being a path
            to a PONI file.
         :type poni_files: tuple
-        :param chi_offset: The angle in degrees by which the
+        :param chi_offset: Angle in degrees by which the
             `AzimuthalIntegrator` objects will be rotated,
             defaults to 0.
         :type chi_offset: float, optional
-        :return: List of `AzimuthalIntegrator` objects
+        :return: List of `AzimuthalIntegrator` objects.
         :rtype: list[pyFAI.azimuthalIntegrator.AzimuthalIntegrator]
         """
         # Third party modules

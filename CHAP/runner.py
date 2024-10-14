@@ -90,7 +90,7 @@ def parser():
     pparser.add_argument(
         'config', action='store', default='', help='Input configuration file')
     pparser.add_argument(
-        '-p', '--pipeline', nargs='*', help='Pipeline name')
+        '-p', '--pipeline', nargs='*', help='Pipeline name(s)')
     return pparser
 
 def main():
@@ -199,7 +199,8 @@ def set_logger(log_level='INFO'):
     logger.setLevel(log_level)
     log_handler = logging.StreamHandler()
     log_handler.setFormatter(logging.Formatter(
-        '{name:20}: {levelname}: {message}', style='{'))
+        '{asctime}: {name:20}: {levelname}: {message}',
+        datefmt='%Y-%m-%d %H:%M:%S', style='{'))
     logger.addHandler(log_handler)
     return logger, log_handler
 

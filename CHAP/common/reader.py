@@ -396,7 +396,7 @@ class NXfieldReader(Reader):
 class SpecReader(Reader):
     """Reader for CHESS SPEC scans."""
     def read(
-            self, filename=None, config=None, detector_ids=None,
+            self, filename=None, config=None, detectors=None,
             inputdir=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as a Nexus NXentry object.
@@ -408,10 +408,10 @@ class SpecReader(Reader):
         :param config: A SPEC configuration to be passed directly
             to the constructor of `CHAP.common.models.map.SpecConfig`.
         :type config: dict, optional
-        :param detector_ids: Detector ids (channel indices/names/
-            prefixes) to include raw data for in the returned NeXus
-            NXentry object.
-        :type detector_ids: Union(int, str, list[int], list[str]),
+        :param detectors: Detector configurations of the detectors
+            to include raw data for in the returned NeXus output,
+            defaults to None (only a valid input for EDD).
+        :type detectors: CHAP.common.models.map.DetectorConfig,
             optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
@@ -431,7 +431,11 @@ class SpecReader(Reader):
         )
 
         # Local modules
-        from CHAP.common.models.map import SpecConfig
+        from CHAP.common.models.map import (
+            Detector,
+            DetectorConfig,
+            SpecConfig,
+        )
 
         if filename is not None:
             if config is not None:
@@ -455,29 +459,13 @@ class SpecReader(Reader):
         # SpecConfig
         config = SpecConfig(**config, inputdir=inputdir)
 
-        # Validate the detector ids
-        if config.experiment_type == 'EDD':
-            if detector_ids is not None:
-                if isinstance(detector_ids, (int, str)):
-                    detector_ids = [str(detector_ids)]
-                for i, detector_id in enumerate(detector_ids):
-                    if isinstance(detector_id, int):
-                        detector_ids[i] = str(detector_id)
-                    elif not isinstance(detector_id, str):
-                        raise ValueError('Invalid "detector_ids" parameter '
-                                         f'({detector_ids})')
+        # Validate the detector configuration
+        if detectors is None:
+            if config.experiment_type != 'EDD':
+                raise RuntimeError('Missing parameter detectors for '
+                                   f'experiment type {config.experiment_type}')
         else:
-            # Local modules
-            from CHAP.utils.general import is_str_series
-
-            if detector_ids is None:
-                raise ValueError(
-                    'Missing "detector_ids" parameter')
-            if isinstance(detector_ids, str):
-                detector_ids = [detector_ids]
-            if not is_str_series(detector_ids, log=False):
-                raise ValueError(
-                    'Invalid "detector_ids" parameter ({detector_ids})')
+            detectors = DetectorConfig(detectors=detectors)
 
         # Create the NXroot object
         nxroot = NXroot()
@@ -491,14 +479,10 @@ class SpecReader(Reader):
         nxentry.config = dumps(config.dict())
         nxentry.attrs['station'] = config.station
         if config.experiment_type == 'EDD':
-            if detector_ids is None:
+            if detectors is None:
                 detector_indices = None
             else:
-                nxentry.detector_ids = detector_ids
-                detector_indices = [int(d) for d in detector_ids]
-        else:
-            if detector_ids is not None:
-                nxentry.detector_ids = detector_ids
+                detector_indices = [int(d.id) for d in detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
         for scans in config.spec_scans:
@@ -542,9 +526,10 @@ class SpecReader(Reader):
                         nxdata[detector_id] = NXfield(
                            value=scanparser.get_detector_data(detector_id))
 
-        if config.experiment_type == 'EDD' and detector_ids is None:
-            nxentry.detector_ids = [
-                str(i) for i in range(nxdata.data.shape[1])]
+        if detectors is None and config.experiment_type == 'EDD':
+            detectors = DetectorConfig(
+                detectors=[Detector(id=i) for i in range(nxdata.data.shape[1])])
+        nxentry.detectors = dumps(detectors.dict())
 
         #return nxroot, nxpaths
         return nxroot
