@@ -1341,7 +1341,8 @@ class MCATthCalibrationProcessor(Processor):
     """
     def process(
             self, data, config=None, tth_initial_guess=None,
-            include_energy_ranges=None, calibration_method='iterate_tth',
+            include_energy_ranges=None,
+            calibration_method='direct_fit_residual',
             quadratic_energy_calibration=False, centers_range=20,
             fwhm_min=None, fwhm_max=None, background='constant',
             baseline=False, save_figures=False, inputdir='.', outputdir='.',
@@ -1367,7 +1368,7 @@ class MCATthCalibrationProcessor(Processor):
             each of the detectors.
         :type include_energy_ranges: list[[float, float]], optional
         :param calibration_method: Type of calibration method,
-            defaults to `'iterate_tth'`.
+            defaults to `'direct_fit_residual'`.
         :type calibration_method:
             Union['direct_fit_residual', 'direct_fit_peak_energies',
                 'direct_fit_combined', 'iterate_tth'], optional
@@ -2578,7 +2579,7 @@ class StrainAnalysisProcessor(Processor):
         self._nxdata_detectors = []
 
     def process(
-            self, data, config=None, find_peaks=False, skip_animation=False,
+            self, data, config=None, find_peaks=True, skip_animation=False,
             save_figures=False, inputdir='.', outputdir='.',
             interactive=False):
         """Return the strain analysis & associated metadata as a
@@ -2594,7 +2595,7 @@ class StrainAnalysisProcessor(Processor):
         :param find_peaks: Exclude peaks where the average spectrum
             is below the `rel_height_cutoff` (in the detector
             configuration) cutoff relative to the maximum value of the
-            average spectrum, defaults to `False`.
+            average spectrum, defaults to `True`.
         :type find_peaks: bool, optional
         :param skip_animation: Skip the animation and plotting of
             the strain analysis fits, defaults to `False`.
