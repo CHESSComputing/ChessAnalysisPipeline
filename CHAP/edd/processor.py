@@ -993,7 +993,7 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Select the mask/detector channel ranges for fitting
         if save_figures:
             filename = os.path.join(
-                outputdir, f'{detector.id}_mca_energy_calibration_mask.png')
+                outputdir, f'{detector.id}_energy_calibration_mask.png')
         else:
             filename = None
         mask, fit_index_ranges = select_mask_1d(
@@ -1014,7 +1014,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             filename = os.path.join(
                 outputdir,
                 f'{detector.id}'
-                    '_mca_energy_calibration_initial_peak_positions.png')
+                    '_energy_calibration_initial_peak_positions.png')
         else:
             filename = None
         input_indices = [index_nearest(uncalibrated_energies, energy)
@@ -1657,7 +1657,7 @@ class MCATthCalibrationProcessor(Processor):
         # Adjust initial tth guess
         if save_figures:
             filename = os.path.join(
-               outputdir, f'{detector.id}_calibration_tth_initial_guess.png')
+               outputdir, f'{detector.id}_tth_calibration_initial_guess.png')
         else:
             filename = None
         tth_init = select_tth_initial_guess(
@@ -1669,7 +1669,7 @@ class MCATthCalibrationProcessor(Processor):
         # Select the mask and HKLs for the Bragg peaks
         if save_figures:
             filename = os.path.join(
-                outputdir, f'{detector.id}_calibration_fit_mask_hkls.png')
+                outputdir, f'{detector.id}_tth_calibration_mask_hkls.png')
         if calibration_method == 'iterate_tth':
             num_hkl_min = 2
         else:
@@ -3082,10 +3082,13 @@ class StrainAnalysisProcessor(Processor):
             else:
                 sum_axes = []
         axes = [nxdata[axis] for axis in axes if axis not in sum_axes]
+        dims = []
+        for axis in axes:
+            dims.append(nxdata[axis.nxname].nxdata)
         unique_points = []
         sum_indices = []
         for i in range(data.shape[0]):
-            point = [float(nxdata[axis.nxname][i]) for axis in axes]
+            point = [float(dims[j][i]) for j, axis in enumerate(axes)]
             try:
                 sum_indices[unique_points.index(point)].append(i)
             except:
