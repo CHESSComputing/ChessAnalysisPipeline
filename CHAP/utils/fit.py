@@ -2398,8 +2398,9 @@ class FitMap(Fit):
         # Check input parameters
         if self._model is None:
             logger.error('Undefined fit model')
+        num_proc_max = max(1, cpu_count()//4)
         if config is None:
-            num_proc = kwargs.pop('num_proc', cpu_count())
+            num_proc = kwargs.pop('num_proc', num_proc_max)
             self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
             self._try_no_bounds = kwargs.pop('try_no_bounds', False)
             self._redchi_cutoff = kwargs.pop('redchi_cutoff', 0.1)
@@ -2418,12 +2419,12 @@ class FitMap(Fit):
             logger.warning(
                 'Missing joblib in the conda environment, running serially')
             num_proc = 1
-        if num_proc > cpu_count():
+        if num_proc > num_proc_max:
             logger.warning(
                 f'The requested number of processors ({num_proc}) exceeds the '
-                'maximum number of processors, num_proc reduced to '
-                f'{cpu_count()}')
-            num_proc = cpu_count()
+                'maximum allowed number of processors, num_proc reduced to '
+                f'{num_proc_max}')
+            num_proc = num_proc_max
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -2712,11 +2713,13 @@ class FitMap(Fit):
             self._fit(n_start+n, current_best_values, **kwargs)
 
     def _fit(self, n, current_best_values, return_result=False, **kwargs):
-        # Do not attempt a fit if the data is entirely below the cutoff
-        if (self._rel_height_cutoff is not None
-                and self._ymap_norm[n].max() < self._rel_height_cutoff):
-            logger.debug(f'Skipping fit for n = {n} (rel norm = '
-                           f'{self._ymap_norm[n].max():.5f})')
+        # Do not attempt a fit if the data is zero or entirely below
+        # the cutoff
+        y_max = self._ymap_norm[n].max()
+        if (y_max == 0.0
+                or (self._rel_height_cutoff is not None
+                    and y_max < self._rel_height_cutoff)):
+            logger.debug(f'Skipping fit for n = {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 from CHAP.utils.fit import ModelResult
 

@@ -2684,19 +2684,28 @@ class StrainAnalysisProcessor(Processor):
                     f'Skipping detector {detector.id} (no raw data)')
                 strain_analysis_config.detectors.remove(detector)
             elif detector.id in calibration_detector_ids:
-                for k, v in nxdata[detector.id].attrs.items():
-                    detector.attrs[k] = v
-                self._detectors.append(detector)
-                calibration = [
-                    d for d in calibration_config.detectors
-                    if d.id == detector.id][0]
-                detector.add_calibration(calibration)
+                det_data = nxdata[detector.id].nxdata
+                if det_data.ndim != 2:
+                    self.logger.warning(
+                        f'Skipping detector {detector.id} (Illegal data shape '
+                        f'{det_data.shape})')
+                elif det_data.sum():
+                    for k, v in nxdata[detector.id].attrs.items():
+                        detector.attrs[k] = v
+                    self._detectors.append(detector)
+                    calibration = [
+                        d for d in calibration_config.detectors
+                        if d.id == detector.id][0]
+                    detector.add_calibration(calibration)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {detector.id} (zero intensity)')
             else:
                 self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
         if not self._detectors:
-            raise ValueError('Unable to match an available calibrated '
-                             'detector for the strain analysis')
+            raise ValueError('No valid data or unable to match an available '
+                             'calibrated detector for the strain analysis')
 
         # Perform the strain analysis and return the result
         return self.get_nxroot(nxentry, strain_analysis_config)
@@ -2751,9 +2760,12 @@ class StrainAnalysisProcessor(Processor):
             for detector in self._detectors:
                 self._nxdata_detectors.append(NXdata(
                     NXfield(nxdata_raw[detector.id].nxdata, 'detector_data')))
-        self._mean_data = [np.mean(
-            nxdata.nxsignal.nxdata,
-            axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
+        self._mean_data = [
+            np.mean(
+                nxdata.nxsignal.nxdata[
+                    [i for i in range(0, nxdata.nxsignal.shape[0])
+                     if nxdata[i].nxsignal.nxdata.sum()]],
+                axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
             for nxdata in self._nxdata_detectors]
         self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
@@ -3286,8 +3298,12 @@ class StrainAnalysisProcessor(Processor):
 
         # Perform the fit
         self.logger.debug(f'Fitting detector {detector.id} ...')
+        data = det_nxdata.intensity.nxdata
+#RV could filter out zero data fits here as well, but deons't seem to make much speed difference
+#        fit_flags = [data[i].sum() != 0 for i in range(data.shape[0])]
         uniform_results, unconstrained_results = get_spectra_fits(
-            det_nxdata.intensity.nxdata, energies, peak_locations[use_peaks],
+            data, energies, peak_locations[use_peaks],
+#            data[fit_flags], energies, peak_locations[use_peaks],
             detector)
         self.logger.debug('... done')
 
