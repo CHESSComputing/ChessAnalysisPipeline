@@ -622,8 +622,8 @@ class ConstructBaseline(Processor):
 
     @staticmethod
     def construct_baseline(
-        y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-        xlabel=None, ylabel=None, interactive=False, filename=None):
+            y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
+            xlabel=None, ylabel=None, interactive=False, filename=None):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -2258,8 +2258,9 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
     [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/index.html)
     package.
     """
-    def process(self, data, poni_file, npt, mask_file=None,
-                integrate1d_kwargs=None, inputdir='.'):
+    def process(
+            self, data, poni_file, npt, mask_file=None,
+            integrate1d_kwargs=None, inputdir='.'):
         """Azimuthally integrate the detector data provided and return
         the result as a dictionary of numpy arrays containing the
         values of the radial coordinate of the result, the intensities
@@ -2509,9 +2510,9 @@ class SetupNXdataProcessor(Processor):
             filename: data.nxs
        ```
     """
-    def process(self, data, nxname='data',
-                coords=None, signals=None, attrs=None, data_points=None,
-                extra_nxfields=None, duplicates='overwrite'):
+    def process(
+            self, data, nxname='data', coords=None, signals=None, attrs=None,
+            data_points=None, extra_nxfields=None, duplicates='overwrite'):
         """Return a NeXus NXdata object that has the requisite axes
         and NeXus NXfield entries to represent a structured dataset
         with the properties provided. Properties may be provided either
@@ -2524,8 +2525,8 @@ class SetupNXdataProcessor(Processor):
 
         :param data: Data from the previous item in a `Pipeline`.
         :type data: list[PipelineData]
-        :param nxname: Name for the returned NeXus NXdata object.
-            Defaults to `'data'`.
+        :param nxname: Name for the returned NeXus NXdata object,
+            defaults to `'data'`.
         :type nxname: str, optional
         :param coords: List of dictionaries defining the coordinates
             of the dataset. Each dictionary must have the keys
@@ -2560,13 +2561,13 @@ class SetupNXdataProcessor(Processor):
             even entirely) fil out the "empty" signal NeXus NXfield's
             before returning the NeXus NXdata object.
         :type data_points: list[dict[str, object]], optional
-        :param extra_nxfields: List "extra" NeXus NXfield's to include that
-            can be described neither as a signal of the dataset, not a
-            dedicated coordinate. This paramteter is good for
+        :param extra_nxfields: List "extra" NeXus NXfields to include
+            that can be described neither as a signal of the dataset,
+            not a dedicated coordinate. This paramteter is good for
             including "alternate" values for one of the coordinate
             dimensions -- the same coordinate axis expressed in
-            different units, for instance. Each item in the list
-            shoulde be a dictionary of parameters for the
+            different units, for instance. Each item in the list should
+            be a dictionary of parameters for the
             `nexusformat.nexus.NXfield` constructor.
         :type extra_nxfields: list[dict[str, object]], optional
         :param duplicates: Behavior to use if any new data points occur
@@ -2599,7 +2600,7 @@ class SetupNXdataProcessor(Processor):
         if isinstance(setup_params, dict):
             for a in ('coords', 'signals', 'attrs', 'data_points'):
                 setup_param = setup_params.get(a)
-                if not getattr(self, a) and setup_param:
+                if not getattr(self, a) and setup_param is not None:
                     self.logger.info(f'Using input data from pipeline for {a}')
                     setattr(self, a, setup_param)
                 else:
@@ -2630,7 +2631,9 @@ class SetupNXdataProcessor(Processor):
         :type data_point: dict[str, object]
         :returns: None
         """
-        self.logger.info(f'Adding data point no. {len(self.data_points)}')
+        self.logger.info(
+            f'Adding data point no. {data_point["dataset_point_index"]+1} of '
+            f'{len(self.data_points)}')
         self.logger.debug(f'New data point: {data_point}')
         valid, msg = self.validate_data_point(data_point)
         if not valid:
@@ -2662,10 +2665,11 @@ class SetupNXdataProcessor(Processor):
             msg = 'Missing coordinate values'
         # Ensure a value is present for all signals
         for s in self.signals:
-            if s['name'] not in data_point:
-                data_point[s['name']] = np.full(s['shape'], 0)
+            name = s['name']
+            if name not in data_point:
+                data_point[name] = np.full(s['shape'], 0)
             else:
-                if not data_point[s['name']].shape == tuple(s['shape']):
+                if not data_point[name].shape == tuple(s['shape']):
                     valid = False
                     msg = f'Shape mismatch for signal {s}'
         return valid, msg
@@ -2712,8 +2716,9 @@ class SetupNXdataProcessor(Processor):
         """
         index = self.get_index(data_point)
         for s in self.signals:
-            if s['name'] in data_point:
-                self.nxdata[s['name']][index] = data_point[s['name']]
+            name = s['name']
+            if name in data_point:
+                self.nxdata[name][index] = data_point[name]
 
     def get_index(self, data_point):
         """Return a tuple representing the array index of `data_point`
@@ -2754,7 +2759,7 @@ class UpdateNXdataProcessor(Processor):
     ```
     """
     def process(self, data, nxfilename, nxdata_path, data_points=None,
-                allow_approximate_coordinates=True):
+            allow_approximate_coordinates=False, inputdir=None):
         """Write new data points to the signal fields of an existing
         NeXus NXdata object representing a structued dataset in a NeXus
         file. Return the list of data points used to update the
@@ -2780,7 +2785,7 @@ class UpdateNXdataProcessor(Processor):
             nearest existing match for the new data points'
             coordinates to be used if an exact match connot be found
             (sometimes this is due simply to differences in rounding
-            convetions). Defaults to True.
+            convetions). Defaults to False.
         :type allow_approximate_coordinates: bool, optional
         :returns: Complete list of data points used to update the dataset.
         :rtype: list[dict[str, object]]
@@ -2797,6 +2802,8 @@ class UpdateNXdataProcessor(Processor):
             data_points.extend(_data_points)
         self.logger.info(f'Updating {len(data_points)} data points total')
 
+        if inputdir is not None and not os.path.isabs(nxfilename):
+            nxfilename = os.path.join(inputdir, nxfilename)
         nxfile = NXFile(nxfilename, 'rw')
         nxdata = nxfile.readfile()[nxdata_path]
         axes_names = [a.nxname for a in nxdata.nxaxes]
@@ -2847,12 +2854,10 @@ class UpdateNXdataProcessor(Processor):
                 try:
                     nxfile.writevalue(
                         os.path.join(nxdata_path, k), np.asarray(v), index)
-                    # self.logger.debug(
-                    #     f'Wrote to {os.path.join(nxdata_path, k)}'
-                    #     + f' in {nxfilename}'
-                    #     + f' at index {index} '
-                    #     + f' value: {np.asarray(v)}'
-                    #     + f' (type: {type(v)})')
+#                    self.logger.debug(
+#                        f'Wrote to {os.path.join(nxdata_path, k)} in '
+#                        f'{nxfilename} at index {index} value: {np.asarray(v)}'
+#                        f' (type: {type(v)})')
                 except Exception as exc:
                     self.logger.error(
                         f'Error updating signal {k} for new data point '
