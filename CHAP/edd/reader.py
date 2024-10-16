@@ -846,24 +846,31 @@ class UpdateNXdataReader(Reader):
         if detector_ids is None:
             detector_ids = [i for i in range(23)]
         detector_data = scanparser.get_detector_data(detector_ids)
-        detector_data = {_id: detector_data[:,i,:]
-                         for i, _id in enumerate(detector_ids)}
+        detector_data = {id_: detector_data[:,i,:]
+                         for i, id_ in enumerate(detector_ids)}
+        spec_scan_data = scanparser.spec_scan_data
+        motor_vals_relative = scanparser.spec_scan_motor_vals_relative
         data_points = []
         self.logger.info(f'Getting {scanparser.spec_scan_npts} data points')
         for i in range(scanparser.spec_scan_npts):
             self.logger.debug(f'Getting data point for scan step index {i}')
+            index = dataset_point_index_offset + i
+            data_points += [
+                {'nxpath': f'entry/data/{k}', 'index': index, 'value': v}
+                for k, v in smb_par_values.items()]
+            data_points += [
+                {'nxpath': f'entry/data/{id_}', 'index': index,
+                 'value': data[i]}
+                for id_, data in detector_data.items()]
+            data_points += [
+                {'nxpath': f'entry/data/{c}', 'index': index,
+                 'value': spec_scan_data[counters[c]][i]}
+                for c in counters]
             step = scanparser.get_scan_step(i)
-            data_points.append({
-                'dataset_point_index': dataset_point_index_offset + i,
-                **smb_par_values,
-                **{str(_id): data[i]
-                   for _id, data in detector_data.items()},
-                **{c: scanparser.spec_scan_data[counters[c]][i]
-                   for c in counters},
-                **{a: round(
-                    scanparser.spec_scan_motor_vals_relative[_i][step[_i]], 3)
-                   for _i, a in enumerate(scan_axes)},
-            })
+            data_points += [
+                {'nxpath': f'entry/data/{a}', 'index': index,
+                 'value': round(motor_vals_relative[j][step[j]], 3)}
+                for j, a in enumerate(scan_axes)]
 
         return data_points
 

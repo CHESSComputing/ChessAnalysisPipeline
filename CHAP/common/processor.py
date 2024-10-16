@@ -1227,8 +1227,7 @@ class MapProcessor(Processor):
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
+            input configuration are not absolute paths.
         :type inputdir: str, optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
@@ -2735,6 +2734,89 @@ class SetupNXdataProcessor(Processor):
                      for c in self.coords)
 
 
+class UpdateNXvalueProcessor(Processor):
+    """Processor to fill in part(s) of a NeXus object representing a
+    structured dataset that's already been written to a NeXus file.
+
+    This Processor is most useful as an "update" step for a NeXus
+    NXdata object created by `common.SetupNXdataProcessor`, and is
+    most easy to use in a `Pipeline` immediately after another
+    `PipelineItem` designed specifically to return a value that can
+    be used as input to this `Processor`.
+
+    Example of use in a `Pipeline` configuration:
+    ```yaml
+    config:
+      inputdir: /rawdata/samplename
+    pipeline:
+      - edd.UpdateNXdataReader:
+          spec_file: spec.log
+          scan_number: 1
+      - common.UpdateNXvalueProcessor:
+          nxfilename: /reduceddata/samplename/data.nxs
+    ```
+    """
+    def process(self, data, nxfilename, data_points=None, inputdir=None):
+        """Write new data values to an existing NeXus object
+        representing an unstructured dataset in a NeXus file.
+        Return the list of data points used to update the dataset.
+
+        :param data: Data from the previous item in a `Pipeline`. May
+            contain a list of data points that will extend the list of
+            data points optionally provided with the `data_points`
+            argument.
+        :type data: list[PipelineData]
+        :param nxfilename: Name of the NeXus file containing the
+            NeXus object to update.
+        :type nxfilename: str
+        :param data_points: List of data points, each one a dictionary
+            whose keys are the names of the nxpath, the index of the
+            data point in the dataset, and the data value.
+        :type data_points: Optional[list[dict[str, object]]]
+        :param inputdir: Input directory, used only if `nxfilename` is
+            not an absolute paths.
+        :type inputdir: str, optional
+        :returns: Complete list of data points used to update the
+            dataset.
+        :rtype: list[dict[str, object]]
+        """
+        # Third party modules
+        from nexusformat.nexus import NXFile
+
+        # Local modules
+        from CHAP.utils.general import list_to_string
+
+        if data_points is None:
+            data_points = []
+        self.logger.debug(f'Got {len(data_points)} data points from keyword')
+        ddata_points = self.unwrap_pipelinedata(data)[0]
+        if isinstance(ddata_points, list):
+            self.logger.debug(f'Got {len(ddata_points)} from pipeline data')
+            data_points.extend(ddata_points)
+        self.logger.info(f'Updating a total of {len(data_points)} data points')
+
+        if inputdir is not None and not os.path.isabs(nxfilename):
+            nxfilename = os.path.join(inputdir, nxfilename)
+        nxfile = NXFile(nxfilename, 'rw')
+
+        indices = []
+        for data_point in data_points:
+            try:
+                nxfile.writevalue(
+                    data_point['nxpath'], np.asarray(data_point['value']),
+                    data_point['index'])
+                indices.append(data_point['index'])
+            except Exception as exc:
+                self.logger.error(f'Error updating {data_point["nxpath"]} for '
+                                  f'data point {data_point["index"]}: {exc}')
+        self.logger.info(
+            f'Successfully updated data_points {list_to_string(indices)}')
+
+        nxfile.close()
+
+        return data_points
+
+
 class UpdateNXdataProcessor(Processor):
     """Processor to fill in part(s) of a NeXus NXdata representing a
     structured dataset that's already been written to a NeXus file.
@@ -2753,12 +2835,13 @@ class UpdateNXdataProcessor(Processor):
       - edd.UpdateNXdataReader:
           spec_file: spec.log
           scan_number: 1
-      - common.SetupNXdataProcessor:
+      - common.UpdateNXdataProcessor:
           nxfilename: /reduceddata/samplename/data.nxs
           nxdata_path: /entry/samplename_dataset_1
     ```
     """
-    def process(self, data, nxfilename, nxdata_path, data_points=None,
+    def process(
+            self, data, nxfilename, nxdata_path, data_points=None,
             allow_approximate_coordinates=False, inputdir=None):
         """Write new data points to the signal fields of an existing
         NeXus NXdata object representing a structued dataset in a NeXus
