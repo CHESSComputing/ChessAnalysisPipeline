@@ -24,6 +24,7 @@ from CHAP.common.processor import (
     PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
     SetupNXdataProcessor,
+    UpdateNXvalueProcessor,
     UpdateNXdataProcessor,
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
