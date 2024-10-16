@@ -2084,7 +2084,7 @@ class FitMap(Fit):
         self._best_values = None
         self._inv_transpose = None
         self._max_nfev = None
-        self._memfolder = None
+        self._memfolder = config.memfolder
         self._new_parameters = None
         self._num_func_eval = None
         self._out_of_bounds = None
@@ -2319,7 +2319,6 @@ class FitMap(Fit):
             return
         try:
             rmtree(self._memfolder)
-            self._memfolder = None
         except:
             logger.warning('Could not clean-up automatically.')
 
@@ -2514,7 +2513,6 @@ class FitMap(Fit):
                     np.zeros(self._map_dim, dtype=np.float64)
                     for _ in range(num_new_parameters)]
         else:
-            self._memfolder = 'joblib_memmap'
             try:
                 mkdir(self._memfolder)
             except FileExistsError:

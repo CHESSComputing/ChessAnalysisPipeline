@@ -568,6 +568,7 @@ class FitConfig(BaseModel):
     num_proc: conint(gt=0) = 1
     plot: StrictBool = False
     print_report:  StrictBool = False
+    memfolder: str = 'joblib_memmap'
 
     @field_validator('method')
     @classmethod
