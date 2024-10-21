@@ -18,5 +18,6 @@ from CHAP.edd.reader import (
     SetupNXdataReader,
     UpdateNXdataReader,
     NXdataSliceReader,
+    SliceNXdataReader,
 )
 # from CHAP.edd.writer import

@@ -1398,6 +1398,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray]
     """
+    from os import getpid
     # Third party modules
     from nexusformat.nexus import NXdata, NXfield
 
@@ -1432,6 +1433,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
 #        'method': 'trf',
         'method': 'leastsq',
 #        'method': 'least_squares',
+        'memfolder': f'/tmp/{getpid()}_joblib_memmap',
     }
 
     # Perform uniform fit
