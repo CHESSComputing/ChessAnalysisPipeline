@@ -2737,7 +2737,6 @@ class StrainAnalysisProcessor(Processor):
             return nxroot
         elif setup:
             nxroot = self._get_nxroot(nxentry, strain_analysis_config, update)
-            exit('HERE 2')
             return self._get_nxroot(nxentry, strain_analysis_config, update)
         elif update:
             points = self._strain_analysis(nxentry.data, strain_analysis_config)
@@ -3321,6 +3320,12 @@ class StrainAnalysisProcessor(Processor):
         #print(f'\n\npoint 0: {points[0]}')
         #print(f'len(points): {len(points)}\n\n')
 
+        # Get the energy masks
+        self._get_energy_and_masks()
+
+        # Get the mask and HKLs used in the strain analysis
+        self._get_mask_hkls(strain_analysis_config.materials)
+
         # Loop over the detectors to fill in the nxprocess
         for index, (nxdata, detector) in enumerate(
                 zip(self._nxdata_detectors, self._detectors)):
@@ -3344,6 +3349,7 @@ class StrainAnalysisProcessor(Processor):
             hkls, ds = get_unique_hkls_ds(
                 strain_analysis_config.materials, tth_tol=detector.hkl_tth_tol,
                 tth_max=detector.tth_max)
+            #print(f'\n\nhkls {np.asarray(hkls).shape}: {hkls}')
 
             # Get the HKLs and lattice spacings that will be used for
             # fitting
@@ -3351,6 +3357,7 @@ class StrainAnalysisProcessor(Processor):
             ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
             peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
             #print(f'\n\nhkls_fit {np.asarray(hkls_fit).shape}: {hkls_fit}')
+            #print(f'\n\npeak_locations {np.asarray(peak_locations).shape}: {peak_locations}')
 
             # Find initial peak estimates
             if not self._find_peaks or detector.rel_height_cutoff is None:
