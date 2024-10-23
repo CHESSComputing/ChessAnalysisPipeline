@@ -1013,7 +1013,7 @@ class StrainAnalysisConfig(BaseModel):
     inputdir: Optional[DirectoryPath] = None
     detectors: Optional[conlist(
         min_length=1, item_type=MCAElementStrainAnalysisConfig)] = None
-    materials: conlist(item_type=MaterialConfig)
+    materials: Optional[conlist(item_type=MaterialConfig)] = None
     flux_file: Optional[FilePath] = None
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True

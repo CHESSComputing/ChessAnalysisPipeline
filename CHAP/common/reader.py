@@ -243,8 +243,7 @@ class NexusReader(Reader):
         # Third party modules
         from nexusformat.nexus import nxload
 
-        nxobject = nxload(filename)[nxpath]
-        return nxobject
+        return nxload(filename)[nxpath]
 
 
 class NXdataReader(Reader):

@@ -21,6 +21,18 @@ from CHAP.processor import Processor
 # Current good detector channels for the 23 channel EDD detector:
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
+def get_axes(nxdata, skip_axes=None):
+    """Get the axes of an NXdata object."""
+    if skip_axes is None:
+        skip_axes = []
+    if 'unstructured_axes' in nxdata.attrs:
+        axes = nxdata.attrs['unstructured_axes']
+    else:
+        axes = nxdata.attrs['axes']
+    if isinstance(axes, str):
+        axes = [axes]
+    return [str(a) for a in axes if a not in skip_axes]
+
 
 class DiffractionVolumeLengthProcessor(Processor):
     """A Processor using a steel foil raster scan to calculate the
@@ -2544,8 +2556,7 @@ class MCACalibratedDataPlotter(Processor):
         for detector in calibration_config.detectors:
             if scan_step_index is None:
                 spectrum = np.sum(
-                    scanparser.get_all_detector_data(detector._id),
-                    axis=0)
+                    scanparser.get_all_detector_data(detector._id), axis=0)
             else:
                 spectrum = scanparser.get_detector_data(
                     detector._id, scan_step_index=scan_step_index)
@@ -2578,12 +2589,52 @@ class StrainAnalysisProcessor(Processor):
         self._mean_data = []
         self._nxdata_detectors = []
 
+    @staticmethod
+    def add_points(nxroot, points):
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdetector,
+            NXprocess,
+        )
+
+        nxprocess = None
+        for nxobject in nxroot.values():
+            if isinstance(nxobject, NXprocess):
+                nxprocess = nxobject
+                break
+        if nxprocess is None:
+            raise RuntimeError('Unable to find the strainanalysis object')
+
+        nxdetector_ref = None
+        for nxobject in nxprocess.values():
+            if isinstance(nxobject, NXdetector):
+                nxdetector_ref = nxobject
+                break
+        if nxdetector_ref is None:
+            raise RuntimeError(
+                'Unable to find a detector in strainanalysis object')
+        axes = get_axes(nxdetector_ref.data, skip_axes=['energy'])
+        coords = np.asarray([nxdetector_ref.data[a].nxdata for a in axes]).T
+
+        for point in points:
+            # Use pop?
+            point_coords = [point[a] for a in axes]
+            # FIX Can we someway use np.argwhere?
+            for index, current_coords in enumerate(coords):
+                if np.array_equal(point_coords, current_coords):
+                    break
+            else:
+                raise RuntimeError(f'Unable to match point {point}')
+            for k, v in point.items():
+                if k not in axes:
+                    nxprocess[k][index] = v
+
     def process(
             self, data, config=None, find_peaks=True, skip_animation=False,
-            save_figures=False, inputdir='.', outputdir='.',
-            interactive=False):
-        """Return the strain analysis & associated metadata as a
-        `nexusformat.nexus.NXroot` object.
+            setup=True, update=True, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
+        """Return the strain analysis results as a list of updated
+        points or a `nexusformat.nexus.NXroot` object.
 
         :param data: Input data containing configurations for a map,
             completed energy/tth calibration, and parameters for strain
@@ -2600,6 +2651,13 @@ class StrainAnalysisProcessor(Processor):
         :param skip_animation: Skip the animation and plotting of
             the strain analysis fits, defaults to `False`.
         :type skip_animation: bool, optional
+        :param setup: Setup the strain analysis `NXroot` object,
+            defaults to `True`.
+        :type setup: bool, optional
+        :param update: Perform the strain analysis and return the
+            results as a list of updated points or update the results
+            in the `NXroot` object, defaults to `True`.
+        :type update: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -2615,8 +2673,9 @@ class StrainAnalysisProcessor(Processor):
         :type interactive: bool, optional
         :raises RuntimeError: Unable to get a valid strain analysis
             configuration.
-        :return: The strain analysis & associated metadata.
-        :rtype: nexusformat.nexus.NXroot
+        :return: The strain analysis results.
+        :rtype: Union[list[dict[str, object]],
+                      nexusformat.nexus.NXroot]
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -2624,6 +2683,22 @@ class StrainAnalysisProcessor(Processor):
             NXroot,
         )
 
+        # Local modules
+        from CHAP.edd.models import (
+            MCAElementStrainAnalysisConfig,
+            StrainAnalysisConfig,
+        )
+
+        if setup:
+            if interactive:
+                self.logger.warning('Ineractive option disabled during setup')
+                interactive = False
+            if save_figures:
+                self.logger.warning(
+                    'Saving figures option disabled during setup')
+                save_figures = False
+        elif not update:
+            raise RuntimeError('Illegal combination of setup and update')
         self._find_peaks = find_peaks
         self._skip_animation = skip_animation
         self._save_figures = save_figures
@@ -2640,22 +2715,24 @@ class StrainAnalysisProcessor(Processor):
                 nxroot[nxobject.nxname] = nxobject
                 nxobject.set_default()
             else:
-                raise
+                raise RuntimeError
         except Exception as exc:
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
 
-        # Load the validated calibration and strain analysis configuration
+        # Load the validated calibration configuration
+        calibration_config = self.get_config(
+            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
+
+        # Load the validated strain analysis configuration
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except:
-            self.logger.info('No valid strain analysis config in input '
-                             'pipeline data, using config parameter instead')
+            self.logger.info(
+                'No valid strain analysis config in input '
+                'pipeline data, using config parameter instead')
             try:
-                # Local modules
-                from CHAP.edd.models import StrainAnalysisConfig
-
                 strain_analysis_config = StrainAnalysisConfig(
                     **config, inputdir=inputdir)
             except Exception as exc:
@@ -2666,18 +2743,13 @@ class StrainAnalysisProcessor(Processor):
         if 'default' in nxroot.attrs:
             nxentry = nxroot[nxroot.default]
         else:
-            nxentry = nxroot.entry # FIXME
+            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
         nxdata = nxentry[nxentry.default]
-        calibration_config = self.get_config(
-            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
         calibration_detector_ids = [d.id for d in calibration_config.detectors]
         if strain_analysis_config.detectors is None:
-            # Local modules:
-            from CHAP.edd.models import MCAElementStrainAnalysisConfig
-
             strain_analysis_config.detectors = [
                 MCAElementStrainAnalysisConfig(**dict(d))
-                for d in calibration_config.detectors if int(d.id) in nxdata]
+                for d in calibration_config.detectors if d.id in nxdata]
         for detector in deepcopy(strain_analysis_config.detectors):
             if detector.id not in nxdata:
                 self.logger.warning(
@@ -2689,7 +2761,7 @@ class StrainAnalysisProcessor(Processor):
                     self.logger.warning(
                         f'Skipping detector {detector.id} (Illegal data shape '
                         f'{det_data.shape})')
-                elif det_data.sum():
+                elif setup or det_data.sum():
                     for k, v in nxdata[detector.id].attrs.items():
                         detector.attrs[k] = v
                     self._detectors.append(detector)
@@ -2707,166 +2779,66 @@ class StrainAnalysisProcessor(Processor):
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
 
-        # Perform the strain analysis and return the result
-        return self.get_nxroot(nxentry, strain_analysis_config)
+        if setup and update:
+            nxroot = self._get_nxroot(nxentry, strain_analysis_config, update)
+            points = self._strain_analysis(
+                nxentry.data, strain_analysis_config)
+            self.add_points(nxroot, points)
+            return nxroot
+        elif setup:
+            return self._get_nxroot(nxentry, strain_analysis_config, update)
+        elif update:
+            return self._strain_analysis(nxentry.data, strain_analysis_config)
+        return None
 
-    def get_nxroot(self, nxentry, strain_analysis_config):
-        """Return a `nexusformat.nexus.NXroot` object containing the
-        strain analysis results & associated metadata.
-
-        :param nxentry: Strain analysis map, including the raw
-            detector data.
-        :type nxentry: nexusformat.nexus.NXentry
-        :param strain_analysis_config: Strain analysis processing
-            configuration.
-        :type strain_analysis_config:
-            CHAP.edd.models.StrainAnalysisConfig
-        :return: Strain analysis results & associated metadata..
-        :rtype: nexusformat.nexus.NXroot
-        """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXdata,
-            NXfield,
-            NXprocess,
-            NXroot,
-        )
-
-        if not self._interactive and not strain_analysis_config.materials:
-            raise ValueError(
-                'No material provided. Provide a material in the '
-                'StrainAnalysis Configuration, or re-run the pipeline with '
-                'the --interactive flag.')
-
-        # Create the NXroot object
-        nxroot = NXroot()
-        nxroot[nxentry.nxname] = nxentry
-        nxroot[f'{nxentry.nxname}_strainanalysis'] = NXprocess()
-        nxprocess = nxroot[f'{nxentry.nxname}_strainanalysis']
-        nxprocess.strain_analysis_config = dumps(
-            strain_analysis_config.dict())
-
-        # Collect the raw MCA data
-        nxdata_raw = nxentry[nxentry.default]
-        scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
-        if (isinstance(strain_analysis_config.sum_axes, list)
-                or strain_analysis_config.sum_axes and scan_type > 2):
-            for index, detector in enumerate(self._detectors):
-                self._nxdata_detectors.append(
-                    self._get_sum_axes_data(
-                        nxdata_raw, detector.id,
-                        strain_analysis_config.sum_axes))
-        else:
-            for detector in self._detectors:
-                self._nxdata_detectors.append(NXdata(
-                    NXfield(nxdata_raw[detector.id].nxdata, 'detector_data')))
-        self._mean_data = [
-            np.mean(
-                nxdata.nxsignal.nxdata[
-                    [i for i in range(0, nxdata.nxsignal.shape[0])
-                     if nxdata[i].nxsignal.nxdata.sum()]],
-                axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
-            for nxdata in self._nxdata_detectors]
-        self.logger.debug(
-            f'mean_data shape: {np.asarray(self._mean_data).shape}')
-
-        # Check for oversampling axis and create the binned coordinates
-        oversampling_axis = {}
-        if scan_type == 4 and strain_analysis_config.sum_axes:
-            # Local modules
-            from CHAP.utils.general import rolling_average
-
-            raise RuntimeError('oversampling needs testing')
-            fly_axis = nxdata_raw.attrs.get('fly_axis_labels').nxdata[0]
-            oversampling = strain_analysis_config.oversampling
-            oversampling_axis[fly_axis] = rolling_average(
-                    nxdata_raw[fly_axis].nxdata,
-                    start=oversampling.get('start', 0),
-                    end=oversampling.get('end'),
-                    width=oversampling.get('width'),
-                    stride=oversampling.get('stride'),
-                    num=oversampling.get('num'),
-                    mode=oversampling.get('mode', 'valid'))
-
-        # Get the energy masks
-        self._get_energy_and_masks()
-
-        # Get and subtract the detector baselines
-        #FIX does not work for non-interactive
-        self._subtract_baselines()
-
-        # Adjust the material properties
-        strain_analysis_config.materials = self._adjust_material_props(
-            strain_analysis_config.materials)
-        self.logger.debug(f'materials: {strain_analysis_config.materials}')
-
-        # Get the mask and HKLs used in the strain analysis
-        self._get_mask_hkls(strain_analysis_config.materials)
-
-        # Loop over the detectors to perform the strain analysis
-        for index, (nxdata, detector) in enumerate(
-                zip(self._nxdata_detectors, self._detectors)):
-            self._strain_analysis(
-                nxdata_raw, nxprocess, oversampling_axis,
-                strain_analysis_config.materials, index, nxdata, detector)
-
-        return nxroot
-
-    def _add_fit_results(
-            self, nxcollection, det_nxdata, hkls, peak_locations, centers,
-            centers_errors, amplitudes, amplitudes_errors, sigmas,
-            sigmas_errors, best_fits, residuals, redchis, success):
-        """Return the fit results as a `nexusformat.nexus.NXcollection`
+    def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
+        """Add the fit collection as a `nexusformat.nexus.NXcollection`
         object."""
         # Third party modules
         from nexusformat.nexus import (
+            NXcollection,
             NXdata,
             NXfield,
             NXparameters,
         )
-        if not isinstance(peak_locations, np.ndarray):
-            uniform_fit = peak_locations
-            peak_locations = len(hkls) * [None]
+
+        nxdetector[f'{fit_type}_fit'] = NXcollection()
+        nxcollection = nxdetector[f'{fit_type}_fit']
+        det_nxdata = nxdetector.data
+
+        # Get data shape
+        shape = det_nxdata.intensity.shape
 
         # Full map of results
         nxcollection.results = NXdata()
         nxdata = nxcollection.results
         self._linkdims(nxdata, det_nxdata)
-        nxdata.best_fit = best_fits
-        nxdata.residuals = residuals
-        nxdata.redchi = redchis
-        nxdata.success = success
+        nxdata.best_fit = NXfield(shape=shape, dtype=np.float64)
+        nxdata.residual = NXfield(shape=shape, dtype=np.float64)
+        nxdata.redchi = NXfield(shape=[shape[0]], dtype=np.float64)
+        nxdata.success = NXfield(shape=[shape[0]], dtype='bool')
 
         # Peak-by-peak results
-        for (hkl, center_guess, center, center_error, amplitude,
-                amplitude_error, sigma, sigma_error) in zip(
-                    hkls, peak_locations, centers, centers_errors, amplitudes,
-                    amplitudes_errors, sigmas, sigmas_errors):
+        for hkl in hkls:
             hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
             nxcollection[hkl_name] = NXparameters()
-            # Report initial HKL peak centers
-            if center_guess is None:
+            # Create initial centers field
+            if fit_type == 'uniform':
+                nxcollection[hkl_name].center_initial_guess = 0.0
+            else:
                 nxcollection[hkl_name].center_initial_guess = NXdata()
                 self._linkdims(
                     nxcollection[hkl_name].center_initial_guess, det_nxdata,
                     skip_field_dims=['energy'])
-                nxcollection[hkl_name].center_initial_guess.makelink(
-                    uniform_fit[f'{hkl_name}/centers/values'], name='values')
-                nxcollection[hkl_name].center_initial_guess.attrs['signal'] = \
-                    'values'
-            else:
-                nxcollection[hkl_name].center_initial_guess = center_guess
-                nxcollection[hkl_name].center_initial_guess.attrs['units'] = \
-                    'keV'
             # Report HKL peak centers
             nxcollection[hkl_name].centers = NXdata()
             self._linkdims(
                 nxcollection[hkl_name].centers, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].centers.values = NXfield(
-                value=center, attrs={'units': 'keV'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
             nxcollection[hkl_name].centers.errors = NXfield(
-                value=center_error)
+                shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].centers.attrs['signal'] = 'values'
             # Report HKL peak amplitudes
             nxcollection[hkl_name].amplitudes = NXdata()
@@ -2874,9 +2846,9 @@ class StrainAnalysisProcessor(Processor):
                 nxcollection[hkl_name].amplitudes, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].amplitudes.values = NXfield(
-                value=amplitude, attrs={'units': 'counts'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'counts'})
             nxcollection[hkl_name].amplitudes.errors = NXfield(
-                value=amplitude_error)
+                shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].amplitudes.attrs['signal'] = 'values'
             # Report HKL peak FWHM
             nxcollection[hkl_name].sigmas = NXdata()
@@ -2884,9 +2856,9 @@ class StrainAnalysisProcessor(Processor):
                 nxcollection[hkl_name].sigmas, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].sigmas.values = NXfield(
-                value=sigma, attrs={'units': 'keV'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
             nxcollection[hkl_name].sigmas.errors = NXfield(
-                value=sigma_error)
+                shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
 
     def _adjust_material_props(self, materials):
@@ -2927,10 +2899,8 @@ class StrainAnalysisProcessor(Processor):
             best_fit.set_ydata(best_fits[i] / norm)
             index.set_text('\n'.join(
                 [f'norm = {int(max_)}'] +
-                ['relative norm = '
-                 f'{(max_ / norm_all_data):.5f}'] +
-                [f'{dim}[{i}] = {det_nxdata[dim][i]}'
-                 for dim in axes]))
+                ['relative norm = {(max_ / norm_all_data):.5f}'] +
+                [f'{dim}[{i}] = {det_nxdata[a][i]}' for a in axes]))
             if self._save_figures:
                 plt.savefig(os.path.join(
                     path, f'frame_{str(i).zfill(num_digit)}.png'))
@@ -2943,10 +2913,7 @@ class StrainAnalysisProcessor(Processor):
             if not os.path.isdir(path):
                 os.mkdir(path)
 
-        if 'axes' in det_nxdata.attrs:
-            axes = det_nxdata.attrs['axes']
-        else:
-            axes = det_nxdata.attrs['unstructured_axes']
+        axes = get_axes(det_nxdata)
         if 'energy' in axes:
             axes.remove('energy')
         norm_all_data = max(1.0, det_nxdata.intensity.max())
@@ -2955,9 +2922,7 @@ class StrainAnalysisProcessor(Processor):
         data = det_nxdata.intensity.nxdata[0]
         norm = max(1.0, data.max())
         intensity, = ax.plot(energies, data / norm, 'b.', label='data')
-        best_fit, = ax.plot(
-            energies, best_fits[0] / norm,
-            'k-', label='fit')
+        best_fit, = ax.plot(energies, best_fits[0] / norm, 'k-', label='fit')
         ax.set(
             title='Unconstrained fits',
             xlabel='Detector energy (keV)',
@@ -3044,9 +3009,8 @@ class StrainAnalysisProcessor(Processor):
                 filename = None
             include_bin_ranges, hkl_indices = \
                 select_mask_and_hkls(
-                    detector.energies,
-                    self._mean_data[index]*self._energy_masks[index],
-                    hkls, ds, detector.tth_calibrated,
+                    detector.energies, self._mean_data, hkls, ds,
+                    detector.tth_calibrated,
                     preselected_bin_ranges=detector.include_bin_ranges,
                     preselected_hkl_indices=detector.hkl_indices,
                     detector_id=detector.id,
@@ -3074,6 +3038,190 @@ class StrainAnalysisProcessor(Processor):
                     'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
 
+    def _get_nxroot(self, nxentry, strain_analysis_config, update):
+        """Return a `nexusformat.nexus.NXroot` object initialized for
+        the stress analysis.
+
+        :param nxentry: Strain analysis map, including the raw
+            detector data.
+        :type nxentry: nexusformat.nexus.NXentry
+        :param strain_analysis_config: Strain analysis processing
+            configuration.
+        :type strain_analysis_config:
+            CHAP.edd.models.StrainAnalysisConfig
+        :param update: Perform the strain analysis and return the
+            results as a list of updated points or update the results
+            in the `NXroot` object, defaults to `True`.
+        :type update: bool, optional
+        :return: Strain analysis results & associated metadata..
+        :rtype: nexusformat.nexus.NXroot
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXfield,
+            NXprocess,
+            NXroot,
+        )
+
+        from CHAP.edd.utils import get_unique_hkls_ds
+        from CHAP.utils.general import nxcopy
+
+        if not self._interactive and not strain_analysis_config.materials:
+            raise ValueError(
+                'No material provided. Provide a material in the '
+                'StrainAnalysis Configuration, or re-run the pipeline with '
+                'the --interactive flag.')
+
+        # Create the NXroot object
+        nxroot = NXroot()
+        nxroot[nxentry.nxname] = nxentry
+        nxroot[f'{nxentry.nxname}_strainanalysis'] = NXprocess()
+        nxprocess = nxroot[f'{nxentry.nxname}_strainanalysis']
+        nxprocess.strain_analysis_config = dumps(
+            strain_analysis_config.dict())
+        nxdata_raw = nxentry[nxentry.default]
+
+        have_det_nxdata = False
+        oversampling_axis = {}
+        if strain_analysis_config.sum_axes:
+            scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
+
+            if scan_type == 4:
+                # Local modules
+                from CHAP.utils.general import rolling_average
+
+                # Check for oversampling axis and create the binned
+                # coordinates
+                raise RuntimeError('oversampling needs testing')
+                fly_axis = nxdata_raw.attrs.get('fly_axis_labels').nxdata[0]
+                oversampling = strain_analysis_config.oversampling
+                oversampling_axis[fly_axis] = rolling_average(
+                        nxdata_raw[fly_axis].nxdata,
+                        start=oversampling.get('start', 0),
+                        end=oversampling.get('end'),
+                        width=oversampling.get('width'),
+                        stride=oversampling.get('stride'),
+                        num=oversampling.get('num'),
+                        mode=oversampling.get('mode', 'valid'))
+            elif (scan_type > 2
+                    or isinstance(strain_analysis_config.sum_axes, list)):
+                # Collect the raw MCA data averaged over sum_axes
+                for index, detector in enumerate(self._detectors):
+                    self._nxdata_detectors.append(
+                        self._get_sum_axes_data(
+                            nxdata_raw, detector.id,
+                            strain_analysis_config.sum_axes))
+                have_det_nxdata = True
+        if not have_det_nxdata:
+            # Collect the raw MCA data if not averaged over sum_axes
+            axes = get_axes(nxdata_raw)
+            for detector in self._detectors:
+                nxdata_det = NXdata(
+                    NXfield(nxdata_raw[detector.id].nxdata, 'detector_data'),
+                    tuple([
+                        NXfield(
+                            nxdata_raw[a].nxdata, a, attrs=nxdata_raw[a].attrs)
+                        for a in axes]))
+                if len(axes) > 1:
+                    nxdata_det.attrs['unstructured_axes'] = \
+                        nxdata_det.attrs.pop('axes')
+                self._nxdata_detectors.append(nxdata_det)
+        if update:
+            self._mean_data = [
+                np.mean(
+                    nxdata.nxsignal.nxdata[
+                        [i for i in range(0, nxdata.nxsignal.shape[0])
+                         if nxdata[i].nxsignal.nxdata.sum()]],
+                    axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
+                for nxdata in self._nxdata_detectors]
+        else:
+            self._mean_data = len(self._nxdata_detectors)*[
+                np.zeros((self._nxdata_detectors[0].nxsignal.shape[-1]))]
+        self.logger.debug(
+            f'mean_data shape: {np.asarray(self._mean_data).shape}')
+
+        # Get the energy masks
+        self._get_energy_and_masks()
+
+        # Get the mask and HKLs used in the strain analysis
+        self._get_mask_hkls(strain_analysis_config.materials)
+
+        # Loop over the detectors to fill in the nxprocess
+        for index, (nxdata, detector) in enumerate(
+                zip(self._nxdata_detectors, self._detectors)):
+
+            # Get the current data object
+            data = nxdata.nxsignal
+
+            # Get the MCA bin energies
+            bin_energies = detector.energies
+
+            # Setup the NXdetector object for the current detector
+            self.logger.debug(
+                f'Setting up NXdata group for {detector.id}')
+            nxdetector = NXdetector()
+            nxprocess[detector.id] = nxdetector
+            nxdetector.local_name = detector.id
+            nxdetector.detector_config = dumps(detector.dict())
+            nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
+            det_nxdata = nxdetector.data
+            if 'axes' in det_nxdata.attrs:
+                if isinstance(det_nxdata.attrs['axes'], str):
+                    det_nxdata.attrs['axes'] = [
+                        det_nxdata.attrs['axes'], 'energy']
+                else:
+                    det_nxdata.attrs['axes'].append('energy')
+            else:
+                det_nxdata.attrs['axes'] = ['energy']
+            mask = detector.mca_mask()
+            energies = bin_energies[mask]
+            det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
+            det_nxdata.tth = NXfield(
+                dtype=np.float64,
+                shape=(nxdata.shape[0]),
+                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'})
+            det_nxdata.uniform_microstrain = NXfield(
+                dtype=np.float64,
+                shape=(nxdata.shape[0]),
+                attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
+            det_nxdata.unconstrained_microstrain = NXfield(
+                dtype=np.float64,
+                shape=(nxdata.shape[0]),
+                attrs={'long_name':
+                           'Strain from unconstrained fit (\u03BC\u03B5)'})
+
+            # Add the detector data
+            det_nxdata.intensity = NXfield(
+                value=np.asarray([data[i].astype(np.float64)[mask]
+                                  for i in range(data.shape[0])]),
+                attrs={'units': 'counts'})
+            det_nxdata.summed_intensity = det_nxdata.intensity.sum(axis=0)
+            det_nxdata.attrs['signal'] = 'intensity'
+
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials
+            hkls, _ = get_unique_hkls_ds(
+                strain_analysis_config.materials, tth_tol=detector.hkl_tth_tol,
+                tth_max=detector.tth_max)
+
+            # Get the HKLs and lattice spacings that will be used for
+            # fitting
+            hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
+
+            # Add the uniform fit nxcollection
+            self._add_fit_nxcollection(nxdetector, 'uniform', hkls_fit)
+
+            # Add the unconstrained fit nxcollection
+            self._add_fit_nxcollection(nxdetector, 'unconstrained', hkls_fit)
+
+            # Add the microstrain fields
+            tth_map = detector.get_tth_map((nxdata.shape[0],))
+            det_nxdata.tth.nxdata = tth_map
+
+        return nxroot
+
     def _get_sum_axes_data(self, nxdata, index, sum_axes=True):
         """Get the raw MCA data collected by the scan averaged over the
         sum_axes.
@@ -3085,38 +3233,39 @@ class StrainAnalysisProcessor(Processor):
         )
 
         data = nxdata[index].nxdata
-        if 'axes' in nxdata:
-            axes = nxdata.attrs['axes']
-        else:
-            axes = nxdata.attrs['unstructured_axes']
         if not isinstance(sum_axes, list):
             if sum_axes and 'fly_axis_labels' in nxdata.attrs:
                 sum_axes = nxdata.attrs['fly_axis_labels']
             else:
                 sum_axes = []
-        axes = [nxdata[axis] for axis in axes if axis not in sum_axes]
-        dims = []
-        for axis in axes:
-            dims.append(nxdata[axis.nxname].nxdata)
-        unique_points = []
+        axes = [a for a in get_axes(nxdata) if a not in sum_axes]
+        dims = np.asarray([nxdata[a].nxdata for a in axes], dtype=np.float64).T
         sum_indices = []
+        unique_points = []
         for i in range(data.shape[0]):
-            point = [float(dims[j][i]) for j, axis in enumerate(axes)]
-            try:
-                sum_indices[unique_points.index(point)].append(i)
-            except:
+            point = dims[i]
+            found = False
+            for index, unique_point in enumerate(unique_points):
+                if all(point == unique_point):
+                    sum_indices[index].append(i)
+                    found = True
+                    break
+            if not found:
                 unique_points.append(point)
                 sum_indices.append([i])
-        mean_data = np.empty((len(unique_points), data.shape[-1]))
-        for i in range(len(unique_points)):
+        unique_points = np.asarray(unique_points).T
+        mean_data = np.empty((unique_points.shape[1], data.shape[-1]))
+        for i in range(unique_points.shape[1]):
             mean_data[i] = np.mean(data[sum_indices[i]], axis=0)
-        return NXdata(
+        nxdata_det = NXdata(
             NXfield(mean_data, 'detector_data'),
             tuple([
-                NXfield(
-                    [p[i] for p in unique_points], axis.nxname,
-                    attrs=axis.attrs)
-                for i, axis in enumerate(axes)]))
+                NXfield(unique_points[i], a, attrs=nxdata[a].attrs)
+                for i, a in enumerate(axes)]))
+        if len(axes) > 1:
+            nxdata_det.attrs['unstructured_axes'] = \
+                nxdata_det.attrs.pop('axes')
+        return nxdata_det
 
     def _linkdims(
             self, nxgroup, nxdata_source, add_field_dims=None,
@@ -3124,6 +3273,7 @@ class StrainAnalysisProcessor(Processor):
         """Link the dimensions for a 'nexusformat.nexus.NXgroup`
         object."""
         # Third party modules
+        from nexusformat.nexus import NXfield
         from nexusformat.nexus.tree import NXlinkfield
 
         if skip_field_dims is None:
@@ -3131,19 +3281,24 @@ class StrainAnalysisProcessor(Processor):
         if oversampling_axis is None:
             oversampling_axis = {}
         if 'axes' in nxdata_source.attrs:
-            source_axes = nxdata_source.attrs['axes']
+            axes = nxdata_source.attrs['axes']
+            if isinstance(axes, str):
+                axes = [axes]
         else:
-            source_axes = nxdata_source.attrs['unstructured_axes']
-        if isinstance(source_axes, str):
-            source_axes = [source_axes]
-        axes = []
-        for dim in source_axes:
-            if dim in skip_field_dims:
-                continue
-            axes.append(dim)
+            axes = []
+        axes = [a for a in axes if a not in skip_field_dims]
+        if 'unstructured_axes' in nxdata_source.attrs:
+            unstructured_axes = nxdata_source.attrs['unstructured_axes']
+            if isinstance(unstructured_axes, str):
+                unstructured_axes = [unstructured_axes]
+        else:
+            unstructured_axes = []
+        link_axes = axes + unstructured_axes
+        for dim in link_axes:
             if dim in oversampling_axis:
                 bin_name = dim.replace('fly_', 'bin_')
                 axes[axes.index(dim)] = bin_name
+                exit('FIX need to replace in both axis and unstructured_axes if present')
                 nxgroup[bin_name] = NXfield(
                     value=oversampling_axis[dim],
                     units=nxdata_source[dim].units,
@@ -3161,23 +3316,21 @@ class StrainAnalysisProcessor(Processor):
                 if f'{dim}_indices' in nxdata_source.attrs:
                     nxgroup.attrs[f'{dim}_indices'] = \
                         nxdata_source.attrs[f'{dim}_indices']
-        if add_field_dims is not None:
-            for dim in add_field_dims:
-                axes.append(dim)
-        if len(axes) < 3:
-            nxgroup.attrs['axes'] = axes
+        if add_field_dims is None:
+            if axes:
+                nxgroup.attrs['axes'] = axes
+            if unstructured_axes:
+                nxgroup.attrs['unstructured_axes'] = unstructured_axes
         else:
-            nxgroup.attrs['unstructured_axes'] = axes
+            nxgroup.attrs['axes'] = axes + add_field_dims
+        if unstructured_axes:
+            nxgroup.attrs['unstructured_axes'] = unstructured_axes
 
-    def _strain_analysis(
-            self, nxdata_raw, nxprocess, oversampling_axis, materials, index,
-            nxdata, detector):
-        """Perform the strain analysis for a single detector."""
+    def _strain_analysis(self, nxdata, strain_analysis_config):
+        """Perform the strain analysis on the full or partial map."""
         # Third party modules
         from nexusformat.nexus import (
-            NXcollection,
             NXdata,
-            NXdetector,
             NXfield,
         )
 
@@ -3188,157 +3341,194 @@ class StrainAnalysisProcessor(Processor):
             get_unique_hkls_ds,
         )
 
-        # Get the current data object
-        data = nxdata.nxsignal
-
-        # Get the MCA bin energies
-        bin_energies = detector.energies
-
-        # Get the unique HKLs and lattice spacings for the strain
-        # analysis materials
-        hkls, ds = get_unique_hkls_ds(
-            materials, tth_tol=detector.hkl_tth_tol, tth_max=detector.tth_max)
-
-        # Setup the NXdetector object for the current detector
-        self.logger.debug(
-            f'Setting up NXdata group for {detector.id}')
-        nxdetector = NXdetector()
-        nxprocess[detector.id] = nxdetector
-        nxdetector.local_name = detector.id
-        nxdetector.detector_config = dumps(detector.dict())
-        nxdetector.data = NXdata()
-        det_nxdata = nxdetector.data
-        if 'axes' in nxdata.attrs:
-            axes = nxdata.attrs['axes']
-            if isinstance(axes, list):
-                for axis in axes:
-                    det_nxdata[axis] = nxdata[axis]
-                det_nxdata.attrs['unstructured_axes'] = axes + ['energy']
+        # Collect the raw MCA data
+        if not self._nxdata_detectors:
+            scan_type = int(str(nxdata.attrs.get('scan_type', 0)))
+            if (isinstance(strain_analysis_config.sum_axes, list)
+                    or strain_analysis_config.sum_axes and scan_type > 2):
+                # Collect the raw MCA data averaged over sum_axes
+                for index, detector in enumerate(self._detectors):
+                    self._nxdata_detectors.append(
+                        self._get_sum_axes_data(
+                            nxdata, detector.id,
+                            strain_analysis_config.sum_axes))
             else:
-                det_nxdata[axes] = nxdata[axes]
-                det_nxdata.attrs['axes'] = [axes, 'energy']
-        else:
-            self._linkdims(
-                det_nxdata, nxdata_raw, add_field_dims=['energy'],
-                oversampling_axis=oversampling_axis)
-        mask = detector.mca_mask()
-        energies = bin_energies[mask]
-        det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
-        det_nxdata.tth = NXfield(
-            dtype=np.float64,
-            shape=(nxdata.shape[0]),
-            attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'})
-        det_nxdata.uniform_microstrain = NXfield(
-            dtype=np.float64,
-            shape=(nxdata.shape[0]),
-            attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
-        det_nxdata.unconstrained_microstrain = NXfield(
-            dtype=np.float64,
-            shape=(nxdata.shape[0]),
-            attrs={'long_name':
-                       'Strain from unconstrained fit (\u03BC\u03B5)'})
+                # Collect the raw MCA data if not averaged over sum_axes
+                axes = get_axes(nxdata)
+                for detector in self._detectors:
+                    nxdata_det = NXdata(
+                        NXfield(nxdata[detector.id].nxdata, 'detector_data'),
+                        tuple([
+                            NXfield(nxdata[a].nxdata, a, attrs=nxdata[a].attrs)
+                            for a in axes]))
+                    if len(axes) > 1:
+                        nxdata_det.attrs['unstructured_axes'] = \
+                            nxdata_det.attrs.pop('axes')
+                    self._nxdata_detectors.append(nxdata_det)
+                    axes = get_axes(nxdata)
 
-        # Add the detector data
-        det_nxdata.intensity = NXfield(
-            value=np.asarray([data[i].astype(np.float64)[mask]
-                              for i in range(data.shape[0])]),
-            attrs={'units': 'counts'})
-        det_nxdata.summed_intensity = det_nxdata.intensity.sum(axis=0)
-        det_nxdata.attrs['signal'] = 'intensity'
+        nxdata_ref = self._nxdata_detectors[0]
 
-        # Perform the strain analysis
+        # Setup the points list with the map axes values
+        axes = get_axes(nxdata_ref)
+        points = [
+            {a: nxdata_ref[a].nxdata[i] for a in axes}
+            for i in range(nxdata_ref[axes[0]].size)]
 
-        self.logger.debug(
-            f'Beginning strain analysis for {detector.id}')
+        # Get the energy masks
+        self._get_energy_and_masks()
 
-        # Get the HKLs and lattice spacings that will be used for
-        # fitting
-        hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
-        ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
-        peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
+        # Get the mask and HKLs used in the strain analysis
+        self._get_mask_hkls(strain_analysis_config.materials)
 
-        # Find initial peak estimates
-        if not self._find_peaks or detector.rel_height_cutoff is None:
-            use_peaks = np.ones((peak_locations.size)).astype(bool)
-        else:
-            # Third party modules
-            from scipy.signal import find_peaks as find_peaks_scipy
+        # Loop over the detectors to fill in the nxprocess
+        for index, (nxdata, detector) in enumerate(
+                zip(self._nxdata_detectors, self._detectors)):
 
-            peaks = find_peaks_scipy(
-                self._mean_data[index],
-                height=(detector.rel_height_cutoff *
-                    self._mean_data[index][mask].max()),
-                width=5)
-            #heights = peaks[1]['peak_heights']
-            widths = peaks[1]['widths']
-            centers = [bin_energies[v] for v in peaks[0]]
-            use_peaks = np.zeros((peak_locations.size)).astype(bool)
-            # RV Potentially use peak_heights/widths as initial
-            # values in fit?
-            # peak_heights = np.zeros((peak_locations.size))
-            # peak_widths = np.zeros((peak_locations.size))
-            delta = bin_energies[1] - bin_energies[0]
-            #for height, width, center in zip(heights, widths, centers):
-            for width, center in zip(widths, centers):
-                for n, loc in enumerate(peak_locations):
-                    # RV Hardwired range now, use detector.centers_range?
-                    if center-width*delta < loc < center+width*delta:
-                        use_peaks[n] = True
-                        # peak_heights[n] = height
-                        # peak_widths[n] = width*delta
-                        break
-        if any(use_peaks):
             self.logger.debug(
-                f'Using peaks with centers at {peak_locations[use_peaks]}')
-        else:
-            self.logger.warning(
-                'No matching peaks with heights above the threshold, '
-                f'skipping the fit for detector {detector.id}')
-            return
+                f'Beginning strain analysis for {detector.id}')
 
-        # Perform the fit
-        self.logger.debug(f'Fitting detector {detector.id} ...')
-        data = det_nxdata.intensity.nxdata
-#RV could filter out zero data fits here as well, but deons't seem to make much speed difference
-#        fit_flags = [data[i].sum() != 0 for i in range(data.shape[0])]
-        uniform_results, unconstrained_results = get_spectra_fits(
-            data, energies, peak_locations[use_peaks],
-#            data[fit_flags], energies, peak_locations[use_peaks],
-            detector)
-        self.logger.debug('... done')
+            # Get the MCA bin energies
+            bin_energies = detector.energies
+            mask = detector.mca_mask()
+            energies = bin_energies[mask]
 
-        # Add the uniform fit results
-        nxdetector.uniform_fit = NXcollection()
-        self._add_fit_results(
-            nxdetector.uniform_fit, det_nxdata, hkls_fit, peak_locations,
-            **uniform_results)
+            # Get the spectra for this detector
+            intensities = nxdata.nxsignal.nxdata.T[mask].T
 
-        # Add the unconstrained fit results
-        nxdetector.unconstrained_fit = NXcollection()
-        self._add_fit_results(
-            nxdetector.unconstrained_fit, det_nxdata, hkls_fit,
-            nxdetector.uniform_fit, **unconstrained_results)
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials
+            hkls, ds = get_unique_hkls_ds(
+                strain_analysis_config.materials, tth_tol=detector.hkl_tth_tol,
+                tth_max=detector.tth_max)
 
-        # Add the microstrain results
-        tth_map = detector.get_tth_map((nxdata.shape[0],))
-        det_nxdata.tth.nxdata = tth_map
-        nominal_centers = np.asarray(
-            [get_peak_locations(d0, tth_map)
-             for d0, use_peak in zip(ds_fit, use_peaks) if use_peak])
-        uniform_strains = np.log(
-            nominal_centers / uniform_results['centers'])
-        uniform_strain = np.mean(uniform_strains, axis=0)
-        det_nxdata.uniform_microstrain.nxdata = uniform_strain * 1e6
-        unconstrained_strains = np.log(
-            nominal_centers / unconstrained_results['centers'])
-        unconstrained_strain = np.mean(unconstrained_strains, axis=0)
-        det_nxdata.unconstrained_microstrain.nxdata = \
-            unconstrained_strain * 1e6
+            # Get the HKLs and lattice spacings that will be used for
+            # fitting
+            hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
+            ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
+            peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
 
-        # Create an animation of the fit results
-        self._create_animation(
-            det_nxdata, energies, unconstrained_results['best_fits'],
-            detector.id)
+            # Find initial peak estimates
+            if not self._find_peaks or detector.rel_height_cutoff is None:
+                use_peaks = np.ones((peak_locations.size)).astype(bool)
+            else:
+                # Third party modules
+                from scipy.signal import find_peaks as find_peaks_scipy
+
+                # FIX
+                peaks = find_peaks_scipy(
+                    self._mean_data[index],
+                    height=(detector.rel_height_cutoff *
+                        self._mean_data[index][mask].max()),
+                    width=5)
+                #heights = peaks[1]['peak_heights']
+                widths = peaks[1]['widths']
+                centers = [bin_energies[v] for v in peaks[0]]
+                use_peaks = np.zeros((peak_locations.size)).astype(bool)
+                # RV Potentially use peak_heights/widths as initial
+                # values in fit?
+                # peak_heights = np.zeros((peak_locations.size))
+                # peak_widths = np.zeros((peak_locations.size))
+                delta = bin_energies[1] - bin_energies[0]
+                #for height, width, center in zip(heights, widths, centers):
+                for width, center in zip(widths, centers):
+                    for n, loc in enumerate(peak_locations):
+                        # RV Hardwired range now, use detector.centers_range?
+                        if center-width*delta < loc < center+width*delta:
+                            use_peaks[n] = True
+                            # peak_heights[n] = height
+                            # peak_widths[n] = width*delta
+                            break
+            if any(use_peaks):
+                self.logger.debug(
+                    f'Using peaks with centers at {peak_locations[use_peaks]}')
+            else:
+                self.logger.warning(
+                    'No matching peaks with heights above the threshold, '
+                    f'skipping the fit for detector {detector.id}')
+                return []
+            hkls_fit = hkls_fit[use_peaks]
+
+            # Perform the fit
+            self.logger.debug(f'Fitting detector {detector.id} ...')
+            uniform_results, unconstrained_results = get_spectra_fits(
+                intensities, energies, peak_locations[use_peaks], detector)
+            self.logger.debug('... done')
+
+            # Add the fit results to the list of points
+            tth_map = detector.get_tth_map((nxdata.shape[0],))
+            nominal_centers = np.asarray(
+                [get_peak_locations(d0, tth_map)
+                 for d0, use_peak in zip(ds_fit, use_peaks) if use_peak])
+            uniform_strains = np.log(
+                nominal_centers / uniform_results['centers'])
+            uniform_strain = np.mean(uniform_strains, axis=0)
+            unconstrained_strains = np.log(
+                nominal_centers / unconstrained_results['centers'])
+            unconstrained_strain = np.mean(unconstrained_strains, axis=0)
+            for i, point in enumerate(points):
+                point.update({
+                    f'{detector.id}/data/intensity': intensities[i],
+                    f'{detector.id}/data/uniform_microstrain':
+                        uniform_strain[i],
+                    f'{detector.id}/data/unconstrained_microstrain':
+                        unconstrained_strain[i],
+                    f'{detector.id}/uniform_fit/results/best_fit':
+                        uniform_results['best_fits'][i],
+                    f'{detector.id}/uniform_fit/results/residual':
+                        uniform_results['residuals'][i],
+                    f'{detector.id}/uniform_fit/results/redchi':
+                        uniform_results['redchis'][i],
+                    f'{detector.id}/uniform_fit/results/success':
+                        uniform_results['success'][i],
+                    f'{detector.id}/unconstrained_fit/results/best_fit':
+                        unconstrained_results['best_fits'][i],
+                    f'{detector.id}/unconstrained_fit/results/residual':
+                        unconstrained_results['residuals'][i],
+                    f'{detector.id}/unconstrained_fit/results/redchi':
+                        unconstrained_results['redchis'][i],
+                    f'{detector.id}/unconstrained_fit/results/success':
+                        unconstrained_results['success'][i],
+                })
+                for j, hkl in enumerate(hkls_fit):
+                    hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
+                    uniform_fit_path = f'{detector.id}/uniform_fit/{hkl_name}'
+                    unconstrained_fit_path = \
+                        f'{detector.id}/unconstrained_fit/{hkl_name}'
+                    centers = uniform_results['centers']
+                    point.update({
+                        f'{uniform_fit_path}/centers/values':
+                            uniform_results['centers'][j][i],
+                        f'{uniform_fit_path}/centers/errors':
+                            uniform_results['centers_errors'][j][i],
+                        f'{uniform_fit_path}/amplitudes/values':
+                            uniform_results['amplitudes'][j][i],
+                        f'{uniform_fit_path}/amplitudes/errors':
+                            uniform_results['amplitudes_errors'][j][i],
+                        f'{uniform_fit_path}/sigmas/values':
+                            uniform_results['sigmas'][j][i],
+                        f'{uniform_fit_path}/sigmas/errors':
+                            uniform_results['sigmas_errors'][j][i],
+                        f'{unconstrained_fit_path}/centers/values':
+                            unconstrained_results['centers'][j][i],
+                        f'{unconstrained_fit_path}/centers/errors':
+                            unconstrained_results['centers_errors'][j][i],
+                        f'{unconstrained_fit_path}/amplitudes/values':
+                            unconstrained_results['amplitudes'][j][i],
+                        f'{unconstrained_fit_path}/amplitudes/errors':
+                            unconstrained_results['amplitudes_errors'][j][i],
+                        f'{unconstrained_fit_path}/sigmas/values':
+                            unconstrained_results['sigmas'][j][i],
+                        f'{unconstrained_fit_path}/sigmas/errors':
+                            unconstrained_results['sigmas_errors'][j][i],
+                    })
+
+            # Create an animation of the fit points
+            #FIXself._create_animation(
+            #    det_nxdata, energies, unconstrained_results['best_fits'],
+            #    detector.id)
+
+        return points
 
     def _subtract_baselines(self):
         """Get and subtract the detector baselines."""

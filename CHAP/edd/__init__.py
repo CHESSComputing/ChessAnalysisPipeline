@@ -20,4 +20,6 @@ from CHAP.edd.reader import (
     NXdataSliceReader,
     SliceNXdataReader,
 )
-# from CHAP.edd.writer import
+from CHAP.edd.writer import (
+    StrainAnalysisUpdateWriter,
+)
