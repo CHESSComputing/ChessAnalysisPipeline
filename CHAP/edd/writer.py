@@ -14,7 +14,7 @@ class StrainAnalysisUpdateWriter(Writer):
 
         points = self.unwrap_pipelinedata(data)[0]
         nxroot = nxload(filename, mode='r+')
-        StrainAnalysisProcessor.add_points(nxroot, points)
+        StrainAnalysisProcessor.add_points(nxroot, points, logger=self.logger)
 
         return nxroot
 

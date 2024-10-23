@@ -22,7 +22,7 @@ from CHAP.processor import Processor
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
 def get_axes(nxdata, skip_axes=None):
-    """Get the axes of an NXdata object."""
+    """Get the axes of an NXdata object used in EDD."""
     if skip_axes is None:
         skip_axes = []
     if 'unstructured_axes' in nxdata.attrs:
@@ -2590,7 +2590,7 @@ class StrainAnalysisProcessor(Processor):
         self._nxdata_detectors = []
 
     @staticmethod
-    def add_points(nxroot, points):
+    def add_points(nxroot, points, logger=None):
         # Third party modules
         from nexusformat.nexus import (
             NXdetector,
@@ -2615,18 +2615,25 @@ class StrainAnalysisProcessor(Processor):
         axes = get_axes(nxdata_detectors[0], skip_axes=['energy'])
         coords = np.asarray([nxdata_detectors[0][a].nxdata for a in axes]).T
 
-        for point in points:
-            # Use pop?
-            point_coords = [point[a] for a in axes]
-            # FIX Can we someway use np.argwhere?
-            for index, current_coords in enumerate(coords):
-                if np.array_equal(point_coords, current_coords):
-                    break
-            else:
-                raise RuntimeError(f'Unable to match point {point}')
-            for k, v in point.items():
-                if k not in axes:
-                    nxprocess[k][index] = v
+        def get_matching_indices(all_coords, point_coords, decimals=None):
+            if isinstance(decimals, int):
+                all_coords = np.round(all_coords, decimals=decimals)
+                point_coords = np.round(point_coords, decimals=decimals)
+            coords_match = np.all(all_coords == point_coords, axis=1)
+            index = np.where(coords_match)[0]
+            return index
+
+        # FIX: can we round to 3 decimals right away in general?
+        # FIX: assumes points contains a sorted and continous slice of updates
+        i_0 = get_matching_indices(
+            coords, np.asarray([points[0][a] for a in axes]), decimals=3)[0]
+        i_f = get_matching_indices(
+            coords, np.asarray([points[-1][a] for a in axes]), decimals=3)[0]
+        slices = {k: np.asarray([p[k] for p in points]) for k in points[0]}
+        for k, v in slices.items():
+            if k not in axes:
+                logger.info(f'Updating field {k}')
+                nxprocess[k][i_0:i_f+1] = v
 
         # Add the summed intensity for each detector
         for nxdata in nxdata_detectors:
@@ -2792,7 +2799,7 @@ class StrainAnalysisProcessor(Processor):
         if setup and update:
             nxroot = self._get_nxroot(nxentry, strain_analysis_config, update)
             points = self._strain_analysis(nxdata_raw, strain_analysis_config)
-            self.add_points(nxroot, points)
+            self.add_points(nxroot, points, logger=self.logger)
             return nxroot
         elif setup:
             return self._get_nxroot(nxentry, strain_analysis_config, update)
@@ -3430,10 +3437,10 @@ class StrainAnalysisProcessor(Processor):
             hkls_fit = hkls_fit[use_peaks]
 
             # Perform the fit
-            self.logger.debug(f'Fitting detector {detector.id} ...')
+            self.logger.info(f'Fitting detector {detector.id} ...')
             uniform_results, unconstrained_results = get_spectra_fits(
                 intensities, energies, peak_locations[use_peaks], detector)
-            self.logger.debug('... done')
+            self.logger.info('... done')
 
             # Add the fit results to the list of points
             tth_map = detector.get_tth_map((nxdata.shape[0],))
