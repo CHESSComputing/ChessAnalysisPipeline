@@ -2397,7 +2397,7 @@ class FitMap(Fit):
         # Check input parameters
         if self._model is None:
             logger.error('Undefined fit model')
-        num_proc_max = max(1, cpu_count()//4)
+        num_proc_max = max(1, cpu_count())
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
             self._rel_height_cutoff = kwargs.pop('rel_height_cutoff')
@@ -2702,8 +2702,9 @@ class FitMap(Fit):
                         _max *= self._norm[1]
                     par.set(value=value, min=_min, max=_max)
 
-        # Free the shared memory
-        self.freemem()
+        if num_proc > 1:
+            # Free the shared memory
+            self.freemem()
 
     def _fit_parallel(self, current_best_values, num, n_start, **kwargs):
         num = min(num, self._map_dim-n_start)
