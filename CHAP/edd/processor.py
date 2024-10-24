@@ -2585,6 +2585,8 @@ class StrainAnalysisProcessor(Processor):
         self._interactive = False
 
         self._detectors = []
+        self._energies = []
+        self._masks = []
         self._mean_data = []
         self._nxdata_detectors = []
 
@@ -2785,6 +2787,7 @@ class StrainAnalysisProcessor(Processor):
             else:
                 self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
+            self._energies.append(detector.energies)
         if not self._detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
@@ -2798,6 +2801,9 @@ class StrainAnalysisProcessor(Processor):
 
         # Get the mask and HKLs used in the strain analysis
         self._get_mask_hkls(strain_analysis_config.materials)
+
+        # Apply the combined energy ranges mask
+        self._apply_combined_mask()
 
         # Setup and/or run the strain analysis
         if setup and update:
@@ -2894,7 +2900,7 @@ class StrainAnalysisProcessor(Processor):
         else:
             filename = None
         return select_material_params(
-            detector.energies, self._mean_data[0], detector.tth_calibrated,
+            self._energies[0], self._mean_data[0], detector.tth_calibrated,
             label='Sum of all spectra in the map',
             preselected_materials=materials, interactive=self._interactive,
             filename=filename)
@@ -2903,16 +2909,31 @@ class StrainAnalysisProcessor(Processor):
         """Apply an energy mask by blanking out data below and/or
         above a certain threshold.
         """
-        for mean_data, nxdata, detector in zip(
-                self._mean_data, self._nxdata_detectors, self._detectors):
-            energy_mask = np.where(detector.energies >= lower_cutoff, 1, 0)
-            energy_mask = np.where(
-                detector.energies <= upper_cutoff, energy_mask, 0)
+        dtype = self._nxdata_detectors[0].nxsignal.dtype
+        for index, (energies, detector) in enumerate(
+                zip(self._energies, self._detectors)):
+            energy_mask = np.where(energies >= lower_cutoff, 1, 0)
+            energy_mask = np.where(energies <= upper_cutoff, energy_mask, 0)
             # Also blank out the last channel, which has shown to be
             # troublesome
             energy_mask[-1] = 0
-            mean_data *= energy_mask
-            nxdata.nxsignal.nxdata *= energy_mask.astype(nxdata.nxsignal.dtype)
+            self._mean_data[index] *= energy_mask
+            self._nxdata_detectors[index].nxsignal.nxdata *= \
+                energy_mask.astype(dtype)
+
+    def _apply_combined_mask(self):
+        """Apply the combined mask over the combined included energy
+        ranges.
+        """
+        for index, (energies, mean_data, nxdata, detector) in enumerate(
+                zip(self._energies, self._mean_data, self._nxdata_detectors,
+                    self._detectors)):
+            mask = detector.mca_mask()
+            low, upp = np.argmax(mask), mask.size - np.argmax(mask[::-1])
+            self._energies[index] = energies[low:upp]
+            self._masks.append(detector.mca_mask()[low:upp])
+            self._mean_data[index] = mean_data[low:upp]
+            self._nxdata_detectors[index].nxsignal = nxdata.nxsignal[:,low:upp]
 
     def _create_animation(
             self, nxdata, energies, intensities, best_fits, detector_id):
@@ -3012,8 +3033,9 @@ class StrainAnalysisProcessor(Processor):
             select_mask_and_hkls,
         )
 
-        for index, (nxdata, detector) in enumerate(
-                zip(self._nxdata_detectors, self._detectors)):
+        for energies, mean_data, nxdata, detector in zip(
+                self._energies, self._mean_data, self._nxdata_detectors,
+                self._detectors):
 
             # Get the unique HKLs and lattice spacings for the strain
             # analysis materials
@@ -3031,8 +3053,7 @@ class StrainAnalysisProcessor(Processor):
                 filename = None
             include_bin_ranges, hkl_indices = \
                 select_mask_and_hkls(
-                    detector.energies, self._mean_data[index], hkls, ds,
-                    detector.tth_calibrated,
+                    energies, mean_data, hkls, ds, detector.tth_calibrated,
                     preselected_bin_ranges=detector.include_bin_ranges,
                     preselected_hkl_indices=detector.hkl_indices,
                     detector_id=detector.id, ref_map=nxdata.nxsignal.nxdata,
@@ -3058,14 +3079,6 @@ class StrainAnalysisProcessor(Processor):
                     'No value provided for hkl_indices. Provide them in '
                     'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
-
-            # Apply the mask to the detector data
-            #mask = detector.mca_mask()
-            #mean_data = mean_data[mask]
-            #print(f'nxdata.nxsignal.shape: {nxdata.nxsignal.shape}')
-            #data = np.asarray([
-            #    data[mask] for data in nxdata.nxsignal.nxdata])
-            #exit(f'data: {type(data)} {data.shape}')
 
     def _get_nxroot(self, nxentry, strain_analysis_config, update):
         """Return a `nexusformat.nexus.NXroot` object initialized for
@@ -3111,11 +3124,13 @@ class StrainAnalysisProcessor(Processor):
             strain_analysis_config.dict())
 
         # Loop over the detectors to fill in the nxprocess
-        for index, (nxdata, detector) in enumerate(
-                zip(self._nxdata_detectors, self._detectors)):
+        for energies, mask, nxdata, detector in zip(
+                self._energies, self._masks, self._nxdata_detectors,
+                self._detectors):
 
             # Get the current data object
             data = nxdata.nxsignal
+            num_points = data.shape[0]
 
             # Setup the NXdetector object for the current detector
             self.logger.debug(
@@ -3134,27 +3149,26 @@ class StrainAnalysisProcessor(Processor):
                     det_nxdata.attrs['axes'].append('energy')
             else:
                 det_nxdata.attrs['axes'] = ['energy']
-            mask = detector.mca_mask()
             det_nxdata.energy = NXfield(
-                value=detector.energies[mask], attrs={'units': 'keV'})
+                value=energies[mask], attrs={'units': 'keV'})
             det_nxdata.tth = NXfield(
                 dtype=np.float64,
-                shape=(nxdata.shape[0]),
+                shape=(num_points,),
                 attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'})
             det_nxdata.uniform_microstrain = NXfield(
                 dtype=np.float64,
-                shape=(nxdata.shape[0]),
+                shape=(num_points,),
                 attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
             det_nxdata.unconstrained_microstrain = NXfield(
                 dtype=np.float64,
-                shape=(nxdata.shape[0]),
+                shape=(num_points,),
                 attrs={'long_name':
                            'Strain from unconstrained fit (\u03BC\u03B5)'})
 
             # Add the detector data
             det_nxdata.intensity = NXfield(
                 value=np.asarray([data[i].astype(np.float64)[mask]
-                                  for i in range(data.shape[0])]),
+                                  for i in range(num_points)]),
                 attrs={'units': 'counts'})
             det_nxdata.attrs['signal'] = 'intensity'
 
@@ -3175,12 +3189,12 @@ class StrainAnalysisProcessor(Processor):
             self._add_fit_nxcollection(nxdetector, 'unconstrained', hkls_fit)
 
             # Add the microstrain fields
-            tth_map = detector.get_tth_map((nxdata.shape[0],))
+            tth_map = detector.get_tth_map((num_points,))
             det_nxdata.tth.nxdata = tth_map
 
         return nxroot
 
-    def _get_sum_axes_data(self, nxdata, index, sum_axes=True):
+    def _get_sum_axes_data(self, nxdata, detector_id, sum_axes=True):
         """Get the raw MCA data collected by the scan averaged over the
         sum_axes.
         """
@@ -3190,7 +3204,7 @@ class StrainAnalysisProcessor(Processor):
             NXfield,
         )
 
-        data = nxdata[index].nxdata
+        data = nxdata[detector_id].nxdata
         if not isinstance(sum_axes, list):
             if sum_axes and 'fly_axis_labels' in nxdata.attrs:
                 sum_axes = nxdata.attrs['fly_axis_labels']
@@ -3318,7 +3332,7 @@ class StrainAnalysisProcessor(Processor):
             elif (scan_type > 2
                     or isinstance(strain_analysis_config.sum_axes, list)):
                 # Collect the raw MCA data averaged over sum_axes
-                for index, detector in enumerate(self._detectors):
+                for detector in self._detectors:
                     self._nxdata_detectors.append(
                         self._get_sum_axes_data(
                             nxdata_raw, detector.id,
@@ -3381,15 +3395,12 @@ class StrainAnalysisProcessor(Processor):
             for i in range(nxdata_ref[axes[0]].size)]
 
         # Loop over the detectors to fill in the nxprocess
-        for index, (nxdata, detector) in enumerate(
-                zip(self._nxdata_detectors, self._detectors)):
+        for energies, mask, mean_data, nxdata, detector in zip(
+                self._energies, self._masks, self._mean_data,
+                self._nxdata_detectors, self._detectors):
 
             self.logger.debug(
                 f'Beginning strain analysis for {detector.id}')
-
-            # Get the mask and the MCA channel energies
-            mask = detector.mca_mask()
-            energies = detector.energies[mask]
 
             # Get the spectra for this detector
             intensities = nxdata.nxsignal.nxdata.T[mask].T
@@ -3413,7 +3424,6 @@ class StrainAnalysisProcessor(Processor):
                 # Third party modules
                 from scipy.signal import find_peaks as find_peaks_scipy
 
-                mean_data = self._mean_data[index][mask]
                 peaks = find_peaks_scipy(
                     mean_data, width=5,
                     height=(detector.rel_height_cutoff * mean_data.max()))
@@ -3448,7 +3458,8 @@ class StrainAnalysisProcessor(Processor):
             # Perform the fit
             self.logger.info(f'Fitting detector {detector.id} ...')
             uniform_results, unconstrained_results = get_spectra_fits(
-                intensities, energies, peak_locations[use_peaks], detector)
+                intensities, energies[mask], peak_locations[use_peaks],
+                detector)
             self.logger.info('... done')
 
             # Add the fit results to the list of points
@@ -3521,7 +3532,7 @@ class StrainAnalysisProcessor(Processor):
 
             # Create an animation of the fit points
             self._create_animation(
-                nxdata, energies, intensities,
+                nxdata, energies[mask], intensities,
                 unconstrained_results['best_fits'], detector.id)
 
         return points
@@ -3533,7 +3544,8 @@ class StrainAnalysisProcessor(Processor):
         from CHAP.common.processor import ConstructBaseline
 
         baselines = []
-        for index, detector in enumerate(self._detectors):
+        for mean_data, nxdata, detector in zip(
+                self._mean_data, self._nxdata_detectors, self._detectors):
             if detector.baseline:
                 if isinstance(detector.baseline, bool):
                     detector.baseline = BaselineConfig()
@@ -3546,7 +3558,7 @@ class StrainAnalysisProcessor(Processor):
 
                 baseline, baseline_config = \
                     ConstructBaseline.construct_baseline(
-                        self._mean_data[index], tol=detector.baseline.tol,
+                        mean_data, tol=detector.baseline.tol,
                         lam=detector.baseline.lam,
                         max_iter=detector.baseline.max_iter,
                         title=f'Baseline for detector {detector.id}',
@@ -3558,11 +3570,9 @@ class StrainAnalysisProcessor(Processor):
                 detector.baseline.attrs['num_iter'] = \
                     baseline_config['num_iter']
                 detector.baseline.attrs['error'] = baseline_config['error']
-        if baselines:
-            for nxdata, baseline in zip(self._nxdata_detectors, baselines):
-                nxdata.nxsignal = np.maximum(0, nxdata.nxsignal-baseline)
-            self._mean_data = np.maximum(
-                0, self._mean_data-np.asarray(baselines))
+
+                nxdata.nxsignal -= baseline
+                mean_data -= baseline
 
 
 if __name__ == '__main__':
