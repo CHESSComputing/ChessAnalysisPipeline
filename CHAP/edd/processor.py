@@ -3439,7 +3439,15 @@ class StrainAnalysisProcessor(Processor):
             # Perform the fit
             self.logger.info(f'Fitting detector {detector.id} ...')
             uniform_results, unconstrained_results = get_spectra_fits(
-                intensities, energies, peak_locations[use_peaks], detector)
+                np.squeeze(intensities), energies, peak_locations[use_peaks], detector)
+            if intensities.shape[0] == 1:
+                uniform_results = {k: [v] for k, v in uniform_results.items()}
+                unconstrained_results = {k: [v] for k, v in unconstrained_results.items()}
+                for field in ('centers', 'amplitudes', 'sigmas'):
+                    uniform_results[field] = np.asarray(uniform_results[field]).T
+                    uniform_results[f'{field}_errors'] = np.asarray(uniform_results[f'{field}_errors']).T
+                    unconstrained_results[field] = np.asarray(unconstrained_results[field]).T
+                    unconstrained_results[f'{field}_errors'] = np.asarray(unconstrained_results[f'{field}_errors']).T
             self.logger.info('... done')
 
             # Add the fit results to the list of points
