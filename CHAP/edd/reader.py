@@ -849,28 +849,26 @@ class UpdateNXdataReader(Reader):
         detector_data = {id_: detector_data[:,i,:]
                          for i, id_ in enumerate(detector_ids)}
         spec_scan_data = scanparser.spec_scan_data
-        motor_vals_relative = scanparser.spec_scan_motor_vals_relative
-        data_points = []
         self.logger.info(f'Getting {scanparser.spec_scan_npts} data points')
-        for i in range(scanparser.spec_scan_npts):
-            self.logger.debug(f'Getting data point for scan step index {i}')
-            index = dataset_point_index_offset + i
-            data_points += [
-                {'nxpath': f'entry/data/{k}', 'index': index, 'value': v}
-                for k, v in smb_par_values.items()]
-            data_points += [
-                {'nxpath': f'entry/data/{id_}', 'index': index,
-                 'value': data[i]}
-                for id_, data in detector_data.items()]
-            data_points += [
-                {'nxpath': f'entry/data/{c}', 'index': index,
-                 'value': spec_scan_data[counters[c]][i]}
-                for c in counters]
-            step = scanparser.get_scan_step(i)
-            data_points += [
-                {'nxpath': f'entry/data/{a}', 'index': index,
-                 'value': round(motor_vals_relative[j][step[j]], 3)}
-                for j, a in enumerate(scan_axes)]
+        idx = slice(dataset_point_index_offset,
+                    dataset_point_index_offset + scanparser.spec_scan_npts)
+        data_points = [
+            {'nxpath': f'entry/data/{k}',
+             'value': [v] * scanparser.spec_scan_npts,
+             'index': idx}
+            for k, v in smb_par_values.items()]
+        data_points.extend([
+            {'nxpath': f'entry/data/{id_}',
+             'value': data,
+             'index': idx}
+            for id_, data in detector_data.items()
+        ])
+        data_points.extend([
+            {'nxpath': f'entry/data/{c}',
+             'value': spec_scan_data[counters[c]],
+             'index': idx}
+            for c in counters
+        ])
 
         return data_points
 

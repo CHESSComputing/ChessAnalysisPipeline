@@ -2809,8 +2809,8 @@ class UpdateNXvalueProcessor(Processor):
             except Exception as exc:
                 self.logger.error(f'Error updating {data_point["nxpath"]} for '
                                   f'data point {data_point["index"]}: {exc}')
-        self.logger.info(
-            f'Successfully updated data_points {list_to_string(indices)}')
+            else:
+                self.logger.debug(f'Updated data point {data_point}')
 
         nxfile.close()
 
