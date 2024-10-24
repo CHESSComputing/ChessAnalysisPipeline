@@ -3458,7 +3458,7 @@ class StrainAnalysisProcessor(Processor):
             # Perform the fit
             self.logger.info(f'Fitting detector {detector.id} ...')
             uniform_results, unconstrained_results = get_spectra_fits(
-                np.squeeze(intensities[mask]), energies[mask],
+                np.squeeze(intensities), energies[mask],
                 peak_locations[use_peaks], detector)
             if intensities.shape[0] == 1:
                 uniform_results = {k: [v] for k, v in uniform_results.items()}
