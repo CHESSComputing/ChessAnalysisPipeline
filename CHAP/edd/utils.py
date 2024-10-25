@@ -592,6 +592,40 @@ def select_material_params(
                 f'-  {m.name}:  sgnum = {m.sgnum},  lat params = {lat_params}',
                 fontsize='large', ha='left', va='center'))
 
+    def modify(event):
+        """Callback function for the "Modify" button."""
+        for mat_text in mat_texts:
+            mat_text.remove()
+        mat_texts.clear()
+        for button in buttons:
+            button[0].disconnect(button[1])
+            button[0].ax.remove()
+        buttons.clear()
+        if len(materials) == 1:
+            modified_material.clear()
+            modified_material.append(materials[0].name)
+            plt.close()
+        else:
+            def modify_material(label):
+                modified_material.clear()
+                modified_material.append(label)
+                radio_btn.disconnect(radio_cid)
+                radio_btn.ax.remove()
+                plt.close()
+
+            mat_texts.append(
+                plt.figtext(
+                    0.1, 0.1 + 0.05*len(materials),
+                    'Select a material to modify:',
+                    fontsize='x-large', ha='left', va='center'))
+            radio_btn = RadioButtons(
+                plt.axes([0.1, 0.05, 0.3, 0.05*len(materials)]),
+                labels = list(reversed([m.name for m in materials])),
+                activecolor='k')
+            modified_material.append(radio_btn.value_selected)
+            radio_cid = radio_btn.on_clicked(modify_material)
+            plt.draw()
+
     def add(event):
         """Callback function for the "Add" button."""
         added_material.append(True)
@@ -644,6 +678,7 @@ def select_material_params(
         return preselected_materials
 
     materials = []
+    modified_material = []
     added_material = []
     removed_material = []
     mat_texts = []
@@ -699,15 +734,22 @@ def select_material_params(
                     fontsize='x-large', ha='left', va='center'))
         plt.subplots_adjust(bottom=0.2 + 0.05*len(materials))
 
+        # Setup "Modify" button
+        if materials:
+            modify_btn = Button(
+                plt.axes([0.1, 0.025, 0.15, 0.05]), 'Modify material')
+            modify_cid = modify_btn.on_clicked(modify)
+            buttons.append((modify_btn, modify_cid))
+
         # Setup "Add" button
-        add_btn = Button(plt.axes([0.1, 0.025, 0.15, 0.05]), 'Add material')
+        add_btn = Button(plt.axes([0.317, 0.025, 0.15, 0.05]), 'Add material')
         add_cid = add_btn.on_clicked(add)
         buttons.append((add_btn, add_cid))
 
         # Setup "Remove" button
         if materials:
             remove_btn = Button(
-                plt.axes([0.425, 0.025, 0.15, 0.05]), 'Remove material')
+               plt.axes([0.533, 0.025, 0.15, 0.05]), 'Remove material')
             remove_cid = remove_btn.on_clicked(remove)
             buttons.append((remove_btn, remove_cid))
 
@@ -740,6 +782,35 @@ def select_material_params(
         fig.savefig(filename)
     plt.close()
 
+    if modified_material:
+        # Local modules
+        from CHAP.utils.general import input_num_list
+
+        for index, m in enumerate(materials):
+            if m.name in modified_material:
+                break
+        error = True
+        while error:
+            try:
+                print(f'\nCurrent lattice parameters for {m.name}: '
+                      f'{[m.latticeParameters[i].value for i in range(6)]}')
+                lat_params = input_num_list(
+                    'Enter updated lattice parameters for this material',
+                    raise_error=True, log=False)
+                new_material = MaterialConfig(
+                    material_name=m.name, sgnum=m.sgnum,
+                    lattice_parameters=lat_params)
+                error = False
+            except (
+                    ValueError, TypeError, SyntaxError, MemoryError,
+                    RecursionError, IndexError) as e:
+                print(f'{e}: try again')
+            except:
+                raise
+        materials[index] = new_material
+        return select_material_params(
+            x, y, tth, preselected_materials=materials, label=label,
+            interactive=interactive, filename=filename)
     if added_material:
         # Local modules
         from CHAP.utils.general import (
@@ -756,7 +827,7 @@ def select_material_params(
                     'Enter the space group for this material',
                     raise_error=True, log=False)
                 lat_params = input_num_list(
-                    'Enter the lattice properties for this material',
+                    'Enter the lattice parameters for this material',
                     raise_error=True, log=False)
                 print()
                 new_material = MaterialConfig(
