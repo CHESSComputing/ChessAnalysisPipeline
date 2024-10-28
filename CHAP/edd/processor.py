@@ -387,10 +387,10 @@ class LatticeParameterRefinementProcessor(Processor):
                 else:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (zero intensity)')
+                self._energies.append(detector.energies)
             else:
                 self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
-            self._energies.append(detector.energies)
         if not self._detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
