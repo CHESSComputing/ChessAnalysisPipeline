@@ -28,7 +28,7 @@ def get_axes(nxdata, skip_axes=None):
     if 'unstructured_axes' in nxdata.attrs:
         axes = nxdata.attrs['unstructured_axes']
     elif 'axes' in nxdata.attrs:
-        axes = nxdata.attrs.['axes']
+        axes = nxdata.attrs['axes']
     else:
         return []
     if isinstance(axes, str):
