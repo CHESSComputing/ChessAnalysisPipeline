@@ -1002,7 +1002,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum = np.maximum(spectrum-baseline, 0)
+            spectrum -= baseline
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -1667,7 +1667,7 @@ class MCATthCalibrationProcessor(Processor):
                 xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum = np.maximum(spectrum-baseline, 0)
+            spectrum -= baseline
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -2393,7 +2393,7 @@ class MCATthCalibrationProcessor(Processor):
 
             if save_figures:
                 figfile = os.path.join(
-                    outputdir, f'{detector.id}_tth_calibration_fits.png')
+                    outputdir, f'{detector.id}_tth_calibration_fit.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
