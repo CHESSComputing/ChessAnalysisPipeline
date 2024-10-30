@@ -956,9 +956,11 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     calibration for an MCA detector.
 
     :ivar calibration_method: Type of calibration method,
-        defaults to `'direct_fit_residual'`.
+        defaults to `'fix_tth_to_tth_init'`.
     :type calibration_method:
-        Literal['direct_fit_residual', 'iterate_tth'], optional
+        Literal['fix_tth_to_tth_init', 'direct_fit_residual',
+        'direct_fit_peak_energies', 'direct_fit_combined',
+        'iterate_tth'], optional
     :ivar max_iter: Maximum number of iterations of the calibration
         routine (only used for `'iterate_tth'`), defaults to `10`.
     :type max_iter: int, optional
@@ -969,10 +971,11 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     :ivar tune_tth_tol: float, optional
     """
     calibration_method: Optional[Literal[
+        'fix_tth_to_tth_init',
         'direct_fit_residual',
         'direct_fit_peak_energies',
         'direct_fit_combined',
-        'iterate_tth']] = 'iterate_tth'
+        'iterate_tth']] = 'fix_tth_to_tth_init'
     max_iter: conint(gt=0) = 10
     tune_tth_tol: confloat(ge=0) = 1e-8
 
