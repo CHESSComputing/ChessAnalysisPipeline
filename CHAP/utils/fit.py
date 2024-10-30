@@ -221,20 +221,31 @@ class FitProcessor(Processor):
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
-                if model_config.centers_range is None:
-                    cen_min = None
-                    cen_max = None
+                if model_config.centers_range == 0:
+                    models.append(Gaussian(
+                        model='gaussian',
+                        prefix=prefix,
+                        parameters=[
+                             {'name': 'amplitude', 'min': FLOAT_MIN},
+                             {'name': 'center', 'value': cen, 'vary': False},
+                             {'name': 'sigma', 'min': sig_min, 'max': sig_max}
+                        ]))
                 else:
-                    cen_min = cen - model_config.centers_range
-                    cen_max = cen + model_config.centers_range
-                models.append(Gaussian(
-                    model='gaussian',
-                    prefix=prefix,
-                    parameters=[
-                         {'name': 'amplitude', 'min': FLOAT_MIN},
-                         {'name': 'center', 'value': cen, 'min': cen_min,
-                          'max': cen_max},
-                         {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
+                    if model_config.centers_range is None:
+                        cen_min = None
+                        cen_max = None
+                    else:
+                        cen_min = cen - model_config.centers_range
+                        cen_max = cen + model_config.centers_range
+                    models.append(Gaussian(
+                        model='gaussian',
+                        prefix=prefix,
+                        parameters=[
+                             {'name': 'amplitude', 'min': FLOAT_MIN},
+                             {'name': 'center', 'value': cen, 'min': cen_min,
+                              'max': cen_max},
+                             {'name': 'sigma', 'min': sig_min, 'max': sig_max}
+                        ]))
 
         return parameters, models
 
