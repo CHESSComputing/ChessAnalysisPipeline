@@ -14,8 +14,8 @@ pipeline:
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detector_names:
-        - sim
+      detectors:
+        - id: sim
       schema: tomofields
 #  - common.NexusWriter:
 #      filename: map_hollow_cube.nxs
@@ -33,8 +33,8 @@ pipeline:
               - spec_file: ../data/hollow_cube/hollow_cube
                 scan_numbers:
                 - 1
-            detector_names:
-              - sim
+            detectors:
+              - id: sim
             schema: darkfield
         - common.SpecReader:
             inputdir: ../data/hollow_cube
@@ -45,8 +45,8 @@ pipeline:
               - spec_file: hollow_cube
                 scan_numbers:
                 - 2
-            detector_names:
-              - sim
+            detectors:
+              - id: sim
             schema: brightfield
         - common.YAMLReader:
             filename: detector.yaml

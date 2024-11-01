@@ -521,9 +521,9 @@ class SpecReader(Reader):
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
-                    for detector_id in detector_ids:
-                        nxdata[detector_id] = NXfield(
-                           value=scanparser.get_detector_data(detector_id))
+                    for detector in detectors.detectors:
+                        nxdata[detector.id] = NXfield(
+                           value=scanparser.get_detector_data(detector.id))
 
         if detectors is None and config.experiment_type == 'EDD':
             detectors = DetectorConfig(

@@ -14,8 +14,8 @@ pipeline:
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detector_names:
-        - sim
+      detectors:
+        - id: sim
       schema: tomofields
   - pipeline.MultiplePipelineItem:
       items:
@@ -27,8 +27,8 @@ pipeline:
               - spec_file: ../data/hollow_brick/spec.log
                 scan_numbers:
                 - 1
-            detector_names:
-              - sim
+            detectors:
+              - id: sim
             schema: darkfield
         - common.SpecReader:
             inputdir: ../data/hollow_brick
@@ -39,8 +39,8 @@ pipeline:
               - spec_file: spec.log
                 scan_numbers:
                 - 2
-            detector_names:
-              - sim
+            detectors:
+              - id: sim
             schema: brightfield
         - common.YAMLReader:
             filename: detector.yaml
