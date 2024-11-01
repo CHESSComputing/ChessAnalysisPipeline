@@ -1196,7 +1196,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             peaks = find_peaks_scipy(y, height=min_height,
                 prominence=0.05*y.max(), width=min_width)
             available_peak_indices = list(peaks[0])
-            max_peak_index = np.asarray(peaks[1]).argmax()
+            max_peak_index = np.asarray(peaks[1]["peak_heights"]).argmax()
             ratio = (available_peak_indices[max_peak_index]
                      / input_indices[input_max_peak_index])
             peak_indices = [-1]*num_peak
@@ -1220,7 +1220,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             while len(set(peak_indices)) < num_peak:
                 change_fig_title(f'Select {num_peak} peak positions')
                 peak_indices = [
-                    int(pt[0]) for pt in plt.ginput(num_peak, timeout=15)]
+                    int(pt[0]) for pt in plt.ginput(num_peak, timeout=30)]
                 if len(set(peak_indices)) < num_peak:
                     error_text = f'Choose {num_peak} unique position'
                     peak_indices.clear()
@@ -1759,7 +1759,7 @@ class MCATthCalibrationProcessor(Processor):
             # Get initial peak centers
             peaks = find_peaks_scipy(
                 spectrum_fit, width=5,
-                height=(0.01 * spectrum[mca_mask].max()))
+                height=(0.005 * spectrum[mca_mask].max()))
             centers = [mca_bins_fit[v] for v in peaks[0]]
             centers = [centers[index_nearest(centers, c)]
                        for c in [index_nearest(mca_bin_energies, e)
