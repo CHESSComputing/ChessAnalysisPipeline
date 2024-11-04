@@ -1100,6 +1100,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[0].plot(bins[mask], spectrum[mask], 'b.', label='MCA data')
             axs[0].plot(
                 bins[mask], spectrum_fit.best_fit, 'r', label='Best fit')
+            axs[0].plot(
+                bins[mask], spectrum_fit.residual, 'g', label='Residual')
             axs[0].legend()
             # Right plot: linear fit of theoretical peak energies vs
             # fit peak locations
@@ -1110,25 +1112,21 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[1].plot(fit_peak_indices, peak_energies,
                         c='b', marker='o', ms=6, mfc='none', ls='',
                         label='Initial peak positions')
-            axs[1].plot(fit_peak_indices, energy_fit.best_fit,
-                        c='k', marker='+', ms=6, ls='',
-                        label='Fitted peak positions')
             axs[1].plot(bins[mask], b*bins[mask] + c, 'r',
-                        label='Best linear fit')
+                        label=f'Best linear fit:\nm = {b:.5f} $keV$/channel\n'
+                              f'b = {c:.5f} $keV$')
+            axs[1].set_ylim(
+                (None, 1.2*axs[1].get_ylim()[1]-0.2*axs[1].get_ylim()[0]))
             axs[1].legend()
-            # Add text box showing computed values of linear E
-            # correction parameters
-            axs[1].text(
-                0.98, 0.02,
-                'Calibrated values:\n\n'
-                    f'Linear coefficient:\n    {b:.5f} $keV$/channel\n\n'
-                    f'Constant offset:\n    {c:.5f} $keV$',
-                ha='right', va='bottom', ma='left',
-                transform=axs[1].transAxes,
-                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
-                      'fc': (1., 0.8, 0.8, 0.8)},
-            )
-
+            ax2 = axs[1].twinx()
+            ax2.set_ylabel('Residual (keV)', color='g')
+            ax2.tick_params(axis='y', labelcolor='g')
+            ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax2.plot(
+                fit_peak_indices, peak_energies-energy_fit.best_fit,
+                c='g', marker='o', ms=6, ls='', label='Residual')
+            ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
+            ax2.legend()
             fig.tight_layout()
 
             if save_figures:
@@ -2411,7 +2409,7 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,0].legend()
 
             # Upper right axes: E vs strain for each fit
-            axs[0,1].set_title('HKL Energy vs. Microstrain')
+            axs[0,1].set_title('Peak Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
             if strain_uniform is not None:
@@ -2444,32 +2442,35 @@ class MCATthCalibrationProcessor(Processor):
                     label = 'Quadratic fit'
                 else:
                     label = 'Linear fit'
+            label += f'\nTakeoff angle: {tth_fit:.5f}'r'$^\circ$'
+            if quadratic_energy_calibration:
+                label += f'\na = {a_fit:.5e} $keV$/channel$^2$'
+                label += \
+                    f'\nb = {b_fit:.5f} $keV$/channel\nc = {c_fit:.5f} $keV$'
+            else:
+                label += f'\nm = {b_fit:.5f} $keV$/channel' \
+                         f'\nb = {c_fit:.5f} $keV$'
             if calibration_method != 'fix_tth_to_tth_init':
                 axs[1,1].plot(
                     e_bragg_fit, e_bragg_uniform, marker='x', ls='',
                     label='Single strain')
             axs[1,1].plot(
-                e_fit, e_unconstrained, marker='o', mfc='none', ls='',
-                label='Unconstrained')
+                e_fit, e_fit, marker='o', mfc='none', ls='',
+                label='Theoretical peak positions')
             axs[1,1].plot(
                 e_fit, peak_energies_fit, c='C1', label=label)
+            axs[1,1].set_ylim(
+                (None, 1.2*axs[1,1].get_ylim()[1]-0.2*axs[1,1].get_ylim()[0]))
             axs[1,1].legend()
-            txt = 'Calibrated values:' \
-                  f'\nTakeoff angle:\n    {tth_fit:.5f}'r'$^\circ$'
-            if quadratic_energy_calibration:
-                txt += '\nQuadratic coefficient (a):' \
-                       f'\n    {a_fit:.5e} $keV$/channel$^2$'
-            txt += '\nLinear coefficient (b):' \
-                   f'\n    {b_fit:.5f} $keV$/channel' \
-                   f'\nConstant offset (c):\n    {c_fit:.5f}'
-            axs[1,1].text(
-                0.98, 0.02, txt,
-                ha='right', va='bottom', ma='left',
-                transform=axs[1,1].transAxes,
-                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
-                      'fc': (1., 0.8, 0.8, 0.8)},
-            )
-
+            ax2 = axs[1,1].twinx()
+            ax2.set_ylabel('Residual (keV)', color='g')
+            ax2.tick_params(axis='y', labelcolor='g')
+            ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax2.plot(
+                e_fit, e_fit-peak_energies_fit, c='g', marker='o', ms=6, ls='',
+                label='Residual')
+            ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
+            ax2.legend()
             fig.tight_layout()
 
             if save_figures:
