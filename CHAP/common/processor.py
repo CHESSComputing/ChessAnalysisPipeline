@@ -1600,8 +1600,14 @@ class MapProcessor(Processor):
         scan = map_config.spec_scans[0]
         scan_numbers = scan.scan_numbers
         scanparser = scan.get_scanparser(scan_numbers[0])
-        detector_indices = [int(d.id) for d in detector_config.detectors]
-        ddata = scanparser.get_detector_data(detector_indices)
+        if detector_config.detectors[0].id == 'mca1':
+            if len(detector_config.detectors) != 1:
+                raise ValueError(
+                    'Multiple detectors not implemented for mca1 detector')
+            detector_ids = ['mca1']
+        else:
+            detector_ids = [int(d.id) for d in detector_config.detectors]
+        ddata = scanparser.get_detector_data(detector_ids)
         spec_scan_shape = scanparser.spec_scan_shape
         num_dim = np.prod(spec_scan_shape)
         num_id = len(map_config.independent_dimensions)
@@ -1654,7 +1660,7 @@ class MapProcessor(Processor):
                 else:
                     scanparser = scan.get_scanparser(scan_number)
                     assert spec_scan_shape == scanparser.spec_scan_shape
-                    ddata = scanparser.get_detector_data(detector_indices)
+                    ddata = scanparser.get_detector_data(detector_ids)
                 data[offset] = ddata
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 start_dim = offset * num_dim

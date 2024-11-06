@@ -130,9 +130,6 @@ class MCAElementConfig(Detector):
     """Class representing metadata required to configure a single MCA
     detector element.
 
-    :ivar id: The MCA detector id (name or channel index) in the scan,
-        defaults to `'0'`.
-    :type id: str
     :ivar num_bins: Number of MCA channels.
     :type num_bins: int, optional
     """

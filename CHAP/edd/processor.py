@@ -355,7 +355,6 @@ class LatticeParameterRefinementProcessor(Processor):
             except Exception as exc:
                 raise RuntimeError from exc
 
-        # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
         if 'default' in nxroot.attrs:
             nxentry = nxroot[nxroot.default]
@@ -830,19 +829,43 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Validate the detector configuration
         detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        available_detector_indices = [
-            int(d.id) for d in detector_config.detectors]
-        if calibration_config.detectors is None:
-            calibration_config.detectors = [
-                MCAElementCalibrationConfig(id=d)
-                for d in available_detector_indices]
-        else:
-            for detector in deepcopy(calibration_config.detectors):
-                index = int(detector.id)
-                if index not in available_detector_indices:
+        if detector_config.detectors[0].id == 'mca1':
+            if len(detector_config.detectors) != 1:
+                raise ValueError(
+                    'Multiple detectors not implemented for mca1 detector')
+            available_detector_indices = ['mca1']
+            if calibration_config.detectors is None:
+                calibration_config.detectors = [
+                    MCAElementCalibrationConfig(id='mca1')]
+            elif len(calibration_config.detectors) == 1:
+                id_ = calibration_config.detectors[0].id
+                if id_ != 'mca1':
                     self.logger.warning(
-                        f'Skipping detector {index} (no raw data)')
-                    calibration_config.detectors.remove(detector)
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors = []
+            else:
+                raise ValueError('Multiple detectors not implemented '
+                                 'for mca1 detector')
+        else:
+            available_detector_indices = [
+                int(d.id) for d in detector_config.detectors]
+            if calibration_config.detectors is None:
+                calibration_config.detectors = [
+                    MCAElementCalibrationConfig(id=i)
+                    for i in available_detector_indices]
+            else:
+                for detector in deepcopy(calibration_config.detectors):
+                    id_ = int(detector.id)
+                    if id_ not in available_detector_indices:
+                        self.logger.warning(
+                            f'Skipping detector {id_} (no raw data)')
+                        calibration_config.detectors.remove(detector)
+            for detector in calibration_config.detectors:
+                detector.id = int(detector.id)
+        if not calibration_config.detectors:
+            self.logger.warning(
+                f'No raw data for the requested calibration detectors)')
+            exit('Code terminated')
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
@@ -910,7 +933,7 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Calibrate detector channel energies based on fluorescence peaks
         for detector in calibration_config.detectors:
-            index = available_detector_indices.index(int(detector.id))
+            index = available_detector_indices.index(detector.id)
             if background is not None:
                 detector.background = background.copy()
             if baseline:
@@ -1257,9 +1280,6 @@ class MCAEnergyCalibrationProcessor(Processor):
         y = np.asarray(y)
         if detector_id is None:
             detector_id = ''
-        elif not isinstance(detector_id, str):
-            raise ValueError(
-                f'Invalid parameter `detector_id`: {detector_id}')
         elif not reset_flag:
             detector_id = f' on detector {detector_id}'
         num_peak = len(input_indices)
@@ -1471,20 +1491,40 @@ class MCATthCalibrationProcessor(Processor):
         if calibration_config.detectors is None:
             raise RuntimeError('No available calibrated detectors')
         detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        available_detector_indices = [
-            int(d.id) for d in detector_config.detectors]
         calibration_detector_indices = []
-        for detector in deepcopy(calibration_config.detectors):
-            index = int(detector.id)
-            if index in available_detector_indices:
-                calibration_detector_indices.append(index)
+        if detector_config.detectors[0].id == 'mca1':
+            if len(detector_config.detectors) != 1:
+                raise ValueError(
+                    'Multiple detectors not implemented for mca1 detector')
+            available_detector_indices = ['mca1']
+            if len(calibration_config.detectors) == 1:
+                id_ = calibration_config.detectors[0].id
+                if id_ in available_detector_indices:
+                    calibration_detector_indices.append(id_)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors.remove(detector)
             else:
-                self.logger.warning(f'Skipping detector {index} (no raw data)')
-                calibration_config.detectors.remove(detector)
+                raise ValueError('Multiple detectors not implemented '
+                                 'for mca1 detector')
+        else:
+            available_detector_indices = [
+                int(d.id) for d in detector_config.detectors]
+            for detector in deepcopy(calibration_config.detectors):
+                id_ = int(detector.id)
+                if id_ in available_detector_indices:
+                    calibration_detector_indices.append(id_)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors.remove(detector)
+            for detector in calibration_config.detectors:
+                detector.id = int(detector.id)
         detectors = calibration_config.detectors
         skipped_detector_indices = [
-            index for index in available_detector_indices
-            if index not in calibration_detector_indices]
+            id_ for id_ in available_detector_indices
+            if id_ not in calibration_detector_indices]
         if skipped_detector_indices:
             self.logger.warning('Skipping detector(s) '
                                 f'{list_to_string(skipped_detector_indices)} '
@@ -1553,7 +1593,7 @@ class MCATthCalibrationProcessor(Processor):
 
         # Calibrate detector channel energies
         for detector in detectors:
-            index = available_detector_indices.index(int(detector.id))
+            index = available_detector_indices.index(detector.id)
             if tth_initial_guess is not None:
                 detector.tth_initial_guess = tth_initial_guess
             if include_energy_ranges is not None:
@@ -2457,8 +2497,7 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,1].plot(
                 e_fit, e_fit, marker='o', mfc='none', ls='',
                 label='Theoretical peak positions')
-            axs[1,1].plot(
-                e_fit, peak_energies_fit, c='C1', label=label)
+            axs[1,1].plot(e_fit, peak_energies_fit, c='C1', label=label)
             axs[1,1].set_ylim(
                 (None, 1.2*axs[1,1].get_ylim()[1]-0.2*axs[1,1].get_ylim()[0]))
             axs[1,1].legend()
@@ -2941,6 +2980,7 @@ class StrainAnalysisProcessor(Processor):
                 raise RuntimeError from exc
 
         # Validate the detector configuration and load, validate and
+        # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
         if 'default' in nxroot.attrs:
             nxentry = nxroot[nxroot.default]
@@ -2971,13 +3011,13 @@ class StrainAnalysisProcessor(Processor):
                         d for d in calibration_config.detectors
                         if d.id == detector.id][0]
                     detector.add_calibration(calibration)
+                    self._energies.append(detector.energies)
                 else:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (zero intensity)')
             else:
                 self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
-            self._energies.append(detector.energies)
         if not self._detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')

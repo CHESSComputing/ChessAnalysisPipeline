@@ -1,43 +1,130 @@
 config:
   root: examples/edd
-  log_level: DEBUG
-  interactive: false
-  profile: false
   outputdir: output
+  interactive: false
+  log_level: DEBUG
+  profile: false
 
-pipeline:
+energy:
 
-  # # Calibrate detector
-  # - common.YAMLReader:
-  #     filename: ceria_calibration.yaml
-  #     schema: edd.models.MCACeriaCalibrationConfig
-  # - edd.MCACeriaCalibrationProcessor:
-  #     save_figures: true
-  # - common.YAMLWriter:
-  #     filename: ceria_calibrated.yaml
-  #     force_overwrite: true
+  # Read the detector data
+  - common.SpecReader:
+      config:
+        station: id1a3
+        experiment_type: EDD
+        spec_scans:
+          - spec_file: ceria_2222-2/spec.log
+            scan_numbers: 1
+#      detectors:
+#        - id: mca1
 
-  # # Measure diffraction volume length
-  # - common.YAMLReader:
-  #     filename: dvl.yaml
-  #     schema: edd.models.DiffractionVolumeLengthConfig
-  # - edd.DiffractionVolumeLengthProcessor:
-  #     save_figures: true
-  # - common.YAMLWriter:
-  #     filename: dvl_measured.yaml
-  #     force_overwrite: true
+  # Perform energy calibration
+  - edd.MCAEnergyCalibrationProcessor:
+      config:
+        peak_energies: [34.276, 34.717, 39.255, 40.231]
+        fit_index_ranges: [[420, 600]]
+        max_peak_index: 1
+#        detectors:
+#          - id: mca1
+      baseline: true
+#      background: constant
+      save_figures: true
+      schema: edd.models.MCAEnergyCalibrationConfig
 
-  # Get microstrain maps
+  # Save the calibration configuration at the only-energy-calibrated stage
+  - common.YAMLWriter:
+      filename: energy_calibration_result.yaml
+      force_overwrite: true
+
+tth:
+
+  # Read the tth calibration spec configuration and the 
+  # calibration configuration at the only-energy-calibrated stage
   - pipeline.MultiplePipelineItem:
       items:
+        - common.SpecReader:
+            config:
+              station: id1a3
+              experiment_type: EDD
+              spec_scans:
+                - spec_file: ceria_2222-2/spec.log
+                  scan_numbers: 1
         - common.YAMLReader:
-            filename: output/ceria_calibrated.yaml
-            schema: edd.models.MCACeriaCalibrationConfig
-        - common.YAMLReader:
-            filename: strain_analysis.yaml
-            schema: edd.models.StrainAnalysisConfig
-  - edd.StrainAnalysisProcessor:
+            filename: output/energy_calibration_result.yaml
+            schema: edd.models.MCATthCalibrationConfig
+
+  # Perform the tth calibration
+  - edd.MCATthCalibrationProcessor:
+      tth_initial_guess: 7.67
+      include_energy_ranges: [[55, 99], [106, 110], [116, 120], [126, 130]]
+      baseline: true
+      background: constant
+      fwhm_min: 3
+      fwhm_max: 25
       save_figures: true
-#  - common.NexusWriter:
-#      filename: strain_map.nxs
-#      force_overwrite: true
+
+  # Save the energy-and-tth-calibrated calibration configuration
+  - common.YAMLWriter:
+      filename: tth_calibration_result.yaml
+      force_overwrite: true
+
+map:
+
+  - common.MapProcessor:
+      config:
+        title: set2_c1-1
+        station: id1a3
+        experiment_type: EDD
+        sample:
+          name: set2_c1-1
+        spec_scans:
+        - spec_file: set2_c1-1/spec.log
+          scan_numbers: '1-13, 21-30, 32-34, 42-54'
+        independent_dimensions:
+          - label: sample_y
+            data_type: smb_par
+            units: mm
+            name: sampYcp
+          - label: sample_z
+            data_type: smb_par
+            units: mm
+            name: rsampZ
+          - label: angle
+            data_type: smb_par
+            units: degrees
+            name: compangle
+      detectors:
+      - id : mca1
+      schema: common.models.map.MapConfig
+  - common.NexusWriter:
+      filename: raw_data.nxs
+      force_overwrite: true
+
+strain:
+
+  # Get the map configuration
+  - pipeline.MultiplePipelineItem:
+      items:
+        - common.NexusReader:
+            filename: output/raw_data.nxs
+        - common.YAMLReader:
+            filename: output/tth_calibration_result.yaml
+            schema: edd.models.MCATthCalibrationConfig
+  - edd.StrainAnalysisProcessor:
+      config:
+        detectors:
+          - id: mca1
+            background: linear
+            baseline: true
+            rel_height_cutoff: 0.05
+            include_bin_ranges: [[736, 1529]]
+        materials:
+          - material_name: steel_set
+            sgnum: 229
+            lattice_parameters: 2.86825
+      find_peaks: true
+      skip_animation: true
+      save_figures: true
+  - common.NexusWriter:
+      filename: strain_map.nxs
+      force_overwrite: true
