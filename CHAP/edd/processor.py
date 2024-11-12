@@ -731,10 +731,8 @@ class MCAEnergyCalibrationProcessor(Processor):
     diffraction peaks, as this Processor does not account for
     2&theta."""
     def process(
-            self, data, config=None, centers_range=20, fwhm_min=None,
-            fwhm_max=None, max_energy_kev=200.0, background=None,
-            baseline=False, save_figures=False, interactive=False,
-            inputdir='.', outputdir='.'):
+            self, data, config=None, max_energy_kev=200.0, save_figures=False,
+            interactive=False, inputdir='.', outputdir='.'):
         """For each detector in the `MCAEnergyCalibrationConfig`
         provided with `data`, fit the specified peaks in the MCA
         spectrum specified. Using the difference between the provided
@@ -750,25 +748,9 @@ class MCAEnergyCalibrationProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.MCAEnergyCalibrationConfig.
         :type config: dict, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
         :type max_energy_kev: float, optional
-        :param background: Background model for peak fitting.
-        :type background: str, list[str], optional
-        :param baseline: Automated baseline subtraction configuration,
-            defaults to `False`.
-        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -792,10 +774,7 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import (
-            BaselineConfig,
-            MCAElementCalibrationConfig,
-        )
+        from CHAP.edd.models import MCAElementCalibrationConfig
         from CHAP.utils.general import (
             is_int,
             is_num,
@@ -866,6 +845,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             self.logger.warning(
                 f'No raw data for the requested calibration detectors)')
             exit('Code terminated')
+        detectors = calibration_config.detectors
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
@@ -875,30 +855,9 @@ class MCAEnergyCalibrationProcessor(Processor):
                 '`interactive=True`.')
 
         # Validate the optional inputs
-        if not is_int(centers_range, gt=0, log=False):
-            raise RuntimeError(
-                f'Invalid centers_range parameter ({centers_range})')
-        if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
-        if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
         if not is_num(max_energy_kev, gt=0, log=False):
             raise RuntimeError(
                 f'Invalid max_energy_kev parameter ({max_energy_kev})')
-        if background is not None:
-            if isinstance(background, str):
-                background = [background]
-            elif not is_str_series(background, log=False):
-                raise RuntimeError(
-                    f'Invalid background parameter ({background})')
-        if isinstance(baseline, bool):
-            if baseline:
-                baseline = BaselineConfig()
-        else:
-            try:
-                baseline = BaselineConfig(**baseline)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
 
         # Collect and sum the detector data
         mca_data = []
@@ -908,9 +867,17 @@ class MCAEnergyCalibrationProcessor(Processor):
         summed_detector_data = np.asarray(mca_data).sum(axis=(0,1))
 
         # Get the detectors' num_bins parameter
-        for detector in calibration_config.detectors:
+        for detector in detectors:
             if detector.num_bins is None:
                 detector.num_bins = summed_detector_data.shape[-1]
+
+        # Copy any configurational parameters that supersede the
+        # individual input detector values
+        for detector in detectors:
+            if calibration_config.background is not None:
+                detector.background = calibration_config.background.copy()
+            if calibration_config.baseline:
+                detector.baseline = calibration_config.baseline.model_copy()
 
         # Check each detector's include_energy_ranges field against the
         # flux file, if available.
@@ -919,7 +886,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
             flux_e_max = flux_file_energies.max()
-            for detector in calibration_config.detectors:
+            for detector in detectors:
                 for i, (det_e_min, det_e_max) in enumerate(
                         deepcopy(detector.include_energy_ranges)):
                     if det_e_min < flux_e_min or det_e_max > flux_e_max:
@@ -932,23 +899,17 @@ class MCAEnergyCalibrationProcessor(Processor):
                         detector.include_energy_ranges[i] = energy_range
 
         # Calibrate detector channel energies based on fluorescence peaks
-        for detector in calibration_config.detectors:
+        for detector in detectors:
             index = available_detector_indices.index(detector.id)
-            if background is not None:
-                detector.background = background.copy()
-            if baseline:
-                detector.baseline = baseline.model_copy()
             detector.energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, summed_detector_data[index],
-                centers_range, fwhm_min, fwhm_max, max_energy_kev,
-                save_figures, interactive, outputdir)
+                max_energy_kev, save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
     def calibrate(
-            self, calibration_config, detector, spectrum, centers_range,
-            fwhm_min, fwhm_max, max_energy_kev, save_figures, interactive,
-            outputdir):
+            self, calibration_config, detector, spectrum, max_energy_kev,
+            save_figures, interactive, outputdir):
         """Return energy_calibration_coeffs (a, b, and c) for
         quadratically converting the current detector's MCA channels
         to bin energies.
@@ -959,17 +920,6 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type detector: MCAElementCalibrationConfig
         :param spectrum: Summed MCA spectrum for the current detector.
         :type spectrum: numpy.ndarray
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
         :type max_energy_kev: float
@@ -1069,16 +1019,19 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Construct the fit model
         models = []
         if detector.background is not None:
-            if isinstance(detector.background, str):
+            if len(detector.background) == 1:
                 models.append(
-                    {'model': detector.background, 'prefix': 'bkgd_'})
+                    {'model': detector.background[0], 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
                     models.append({'model': model, 'prefix': f'{model}_'})
+        if calibration_config.centers_range is None:
+            calibration_config.centers_range = 20
         models.append(
             {'model': 'multipeak', 'centers': initial_peak_indices,
-             'centers_range': centers_range, 'fwhm_min': fwhm_min,
-             'fwhm_max': fwhm_max})
+             'centers_range': calibration_config.centers_range,
+             'fwhm_min': calibration_config.fwhm_min,
+             'fwhm_max': calibration_config.fwhm_max})
         self.logger.debug('Fitting spectrum')
         fit = FitProcessor()
         spectrum_fit = fit.process(
@@ -1377,13 +1330,8 @@ class MCATthCalibrationProcessor(Processor):
     energy calibration coefficients for an EDD experimental setup.
     """
     def process(
-            self, data, config=None, tth_initial_guess=None,
-            include_energy_ranges=None,
-            calibration_method='fix_tth_to_tth_init',
-            quadratic_energy_calibration=False, centers_range=20,
-            fwhm_min=None, fwhm_max=None, background='constant',
-            baseline=False, save_figures=False, inputdir='.', outputdir='.',
-            interactive=False):
+            self, data, config=None, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
         """Return the calibrated 2&theta value and the fine tuned
         energy calibration coefficients to convert MCA channel
         indices to MCA channel energies.
@@ -1394,42 +1342,6 @@ class MCATthCalibrationProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.MCATthCalibrationConfig.
         :type config: dict, optional
-        :param tth_initial_guess: Initial guess for 2&theta to supercede
-            the values from the energy calibration detector cofiguration
-            on each of the detectors.
-        :type tth_initial_guess: float, optional
-        :param include_energy_ranges: List of MCA channel energy ranges
-            in keV whose data should be included after applying a mask
-            (bounds are inclusive). If specified, these supercede the
-            values from the energy calibration detector cofiguration on
-            each of the detectors.
-        :type include_energy_ranges: list[[float, float]], optional
-        :param calibration_method: Type of calibration method,
-            defaults to `'fix_tth_to_tth_init'`.
-        :type calibration_method:
-            Union['fix_tth_to_tth_init', 'direct_fit_residual',
-                'direct_fit_peak_energies', 'direct_fit_combined',
-                'iterate_tth'], optional
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
-        :param background: Background model for peak fitting.
-        :type background: str, list[str], optional
-        :param baseline: Automated baseline subtraction configuration,
-            defaults to `False`.
-        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -1454,7 +1366,7 @@ class MCATthCalibrationProcessor(Processor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import BaselineConfig
+        from CHAP.edd.models import MCATthCalibrationConfig
         from CHAP.utils.general import (
             is_int,
             is_str_series,
@@ -1468,22 +1380,26 @@ class MCATthCalibrationProcessor(Processor):
         if not isinstance(nxroot, NXroot):
             raise RuntimeError('No valid NXroot data in input pipeline data')
         nxentry = nxroot[nxroot.default]
+
         # Load the validated 2&theta calibration configuration
         try:
-            calibration_config = self.get_config(
-                data, 'edd.models.MCATthCalibrationConfig',
-                calibration_method=calibration_method,
-                inputdir=inputdir)
+            try:
+                calibration_config = self.get_config(
+                    data, 'edd.models.MCAEnergyCalibrationConfig',
+                    inputdir=inputdir).dict()
+            except:
+                calibration_config = self.get_config(
+                    data, 'edd.models.MCATthCalibrationConfig',
+                    inputdir=inputdir).dict()
+            if config is not None:
+                calibration_config.update(config)
+            calibration_config = MCATthCalibrationConfig(**calibration_config)
         except:
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
-                # Local modules
-                from CHAP.edd.models import MCATthCalibrationConfig
-
                 calibration_config = MCATthCalibrationConfig(
-                    **config, calibration_method=calibration_method,
-                    inputdir=inputdir)
+                    **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
 
@@ -1537,29 +1453,6 @@ class MCATthCalibrationProcessor(Processor):
                 f'{self.__class__.__name__} must be run with '
                 '`interactive=True`.')
 
-        # Validate the optional inputs
-        if not is_int(centers_range, gt=0, log=False):
-            raise RuntimeError(
-                f'Invalid centers_range parameter ({centers_range})')
-        if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
-        if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
-        if background is not None:
-            if isinstance(background, str):
-                background = [background]
-            elif not is_str_series(background, log=False):
-                raise RuntimeError(
-                    f'Invalid background parameter ({background})')
-        if isinstance(baseline, bool):
-            if baseline:
-                baseline = BaselineConfig()
-        else:
-            try:
-                baseline = BaselineConfig(**baseline)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
-
         # Collect and sum the detector data
         mca_data = []
         for scan_name in nxentry.spec_scans:
@@ -1571,6 +1464,20 @@ class MCATthCalibrationProcessor(Processor):
         for detector in detectors:
             if detector.num_bins is None:
                 detector.num_bins = summed_detector_data.shape[-1]
+
+        # Copy any configurational parameters that supersede the
+        # detector values during the energy calibration
+        for detector in detectors:
+            if calibration_config.tth_initial_guess is not None:
+                detector.tth_initial_guess = \
+                    calibration_config.tth_initial_guess
+            if calibration_config.include_energy_ranges is not None:
+                detector.include_energy_ranges = \
+                    calibration_config.include_energy_ranges
+            if calibration_config.background is not None:
+                detector.background = calibration_config.background.copy()
+            if calibration_config.baseline:
+                detector.baseline = calibration_config.baseline.model_copy()
 
         # Check each detector's include_energy_ranges field against the
         # flux file, if available.
@@ -1594,25 +1501,14 @@ class MCATthCalibrationProcessor(Processor):
         # Calibrate detector channel energies
         for detector in detectors:
             index = available_detector_indices.index(detector.id)
-            if tth_initial_guess is not None:
-                detector.tth_initial_guess = tth_initial_guess
-            if include_energy_ranges is not None:
-                detector.include_energy_ranges = include_energy_ranges
-            if background is not None:
-                detector.background = background.copy()
-            if baseline:
-                detector.baseline = baseline
             self.calibrate(
                 calibration_config, detector, summed_detector_data[index],
-                quadratic_energy_calibration, centers_range, fwhm_min,
-                fwhm_max, save_figures, interactive, outputdir)
+                save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
     def calibrate(
-            self, calibration_config, detector, spectrum,
-            quadratic_energy_calibration=False, centers_range=20,
-            fwhm_min=None, fwhm_max=None, save_figures=False,
+            self, calibration_config, detector, spectrum, save_figures=False,
             interactive=False, outputdir='.'):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
@@ -1627,21 +1523,6 @@ class MCATthCalibrationProcessor(Processor):
         :type detector: CHAP.edd.models.MCAElementCalibrationConfig
         :param spectrum: Summed MCA spectrum for the current detector.
         :type spectrum: numpy.ndarray
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -1677,6 +1558,11 @@ class MCATthCalibrationProcessor(Processor):
         self.logger.info(f'Calibrating detector {detector.id}')
 
         calibration_method = calibration_config.calibration_method
+        centers_range = calibration_config.centers_range
+        if centers_range is None:
+            centers_range = 20
+        quadratic_energy_calibration = \
+            calibration_config.quadratic_energy_calibration
 
         # Get the unique HKLs and lattice spacings for the calibration
         # material
@@ -1806,16 +1692,17 @@ class MCATthCalibrationProcessor(Processor):
             # Perform an unconstrained fit in terms of MCA bin index
             models = []
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': centers_range,
-                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(spectrum_fit, 'y'),
@@ -1885,12 +1772,12 @@ class MCATthCalibrationProcessor(Processor):
                 tth_max = 1.1*tth_init
                 b_min = 0.1*b_init
                 b_max = 10.0*b_init
-                if isinstance(fwhm_min, (int,float)):
-                    sig_min = fwhm_min/2.35482
+                if calibration_config.fwhm_min is not None:
+                    sig_min = calibration_config.fwhm_min/2.35482
                 else:
                     sig_min = None
-                if isinstance(fwhm_max, (int,float)):
-                    sig_max = fwhm_max/2.35482
+                if calibration_config.fwhm_max is not None:
+                    sig_max = calibration_config.fwhm_max/2.35482
                 else:
                     sig_max = None
 
@@ -1909,9 +1796,9 @@ class MCATthCalibrationProcessor(Processor):
 
             # Add the background
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
@@ -2007,16 +1894,17 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             models = []
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': centers_range,
-                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(spectrum_fit, 'y'),
@@ -2122,16 +2010,17 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             models = []
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': centers_range,
-                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(spectrum_fit, 'y'),
@@ -2215,14 +2104,14 @@ class MCATthCalibrationProcessor(Processor):
             e_bragg_fit = e_bragg_init
             mca_bin_energies_fit = mca_bin_energies[mca_mask]
             a_init, b_init, c_init = detector.energy_calibration_coeffs
-            if isinstance(fwhm_min, (int, float)):
-                ffwhm_min = fwhm_min*b_init
+            if calibration_config.fwhm_min is not None:
+                fwhm_min = calibration_config.fwhm_min*b_init
             else:
-                ffwhm_min = None
-            if isinstance(fwhm_max, (int, float)):
-                ffwhm_max = fwhm_max*b_init
+                fwhm_min = None
+            if calibration_config.fwhm_max is not None:
+                fwhm_max = calibration_config.fwhm_max*b_init
             else:
-                ffwhm_max = None
+                fwhm_max = None
             for iter_i in range(calibration_config.max_iter):
                 self.logger.debug(f'Tuning tth: iteration no. {iter_i}, '
                                   f'starting value = {tth_fit} ')
@@ -2230,9 +2119,10 @@ class MCATthCalibrationProcessor(Processor):
                 # Construct the fit model
                 models = []
                 if detector.background is not None:
-                    if isinstance(detector.background, str):
+                    if len(detector.background) == 1:
                         models.append(
-                            {'model': detector.background, 'prefix': 'bkgd_'})
+                            {'model': detector.background[0],
+                             'prefix': 'bkgd_'})
                     else:
                         for model in detector.background:
                             models.append(
@@ -2241,7 +2131,7 @@ class MCATthCalibrationProcessor(Processor):
                     {'model': 'multipeak', 'centers': list(e_bragg_fit),
                      'fit_type': 'uniform',
                      'centers_range': centers_range*b_init,
-                     'fwhm_min': ffwhm_min, 'fwhm_max': ffwhm_max})
+                     'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
 
                 # Perform the uniform
                 fit = FitProcessor()
@@ -2348,19 +2238,20 @@ class MCATthCalibrationProcessor(Processor):
             # Get an unconstrained fit
             if (calibration_method
                     not in ('fix_tth_to_tth_init', 'iterate_tth')):
-                if isinstance(fwhm_min, (int, float)):
-                    ffwhm_min = fwhm_min*b_fit
+                if calibration_config.fwhm_min is not None:
+                    fwhm_min = calibration_config.fwhm_min*b_fit
                 else:
-                    ffwhm_min = None
-                if isinstance(fwhm_max, (int, float)):
-                    ffwhm_max = fwhm_max*b_fit
+                    fwhm_min = None
+                if calibration_config.fwhm_max is not None:
+                    fwhm_max = calibration_config.fwhm_max*b_fit
                 else:
-                    ffwhm_max = None
+                    fwhm_max = None
                 models = []
                 if detector.background is not None:
-                    if isinstance(detector.background, str):
+                    if len(detector.background) == 1:
                         models.append(
-                            {'model': detector.background, 'prefix': 'bkgd_'})
+                            {'model': detector.background[0],
+                             'prefix': 'bkgd_'})
                     else:
                         for model in detector.background:
                             models.append(
@@ -2368,7 +2259,7 @@ class MCATthCalibrationProcessor(Processor):
                 models.append(
                     {'model': 'multipeak', 'centers': list(peak_energies_fit),
                      'centers_range': centers_range*b_fit,
-                     'fwhm_min': ffwhm_min, 'fwhm_max': ffwhm_max})
+                     'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
                 fit = FitProcessor()
                 result = fit.process(
                     NXdata(NXfield(spectrum_fit, 'y'),
@@ -2551,24 +2442,25 @@ class MCATthCalibrationProcessor(Processor):
         # Perform an unconstrained fit on the fluorescence peaks
         models = []
         if ddetector.background is not None:
-            if isinstance(ddetector.background, str):
+            if len(ddetector.background) == 1:
                 models.append(
-                    {'model': ddetector.background, 'prefix': 'bkgd_'})
+                    {'model': ddetector.background[0],
+                     'prefix': 'bkgd_'})
             else:
                 for model in ddetector.background:
                     models.append({'model': model, 'prefix': f'{model}_'})
-        if isinstance(fwhm_min, (int, float)):
-            ffwhm_min = fwhm_min*b_fit
+        if calibration_config.fwhm_min is not None:
+            fwhm_min = calibration_config.fwhm_min*b_fit
         else:
-            ffwhm_min = None
-        if isinstance(fwhm_max, (int, float)):
-            ffwhm_max = fwhm_max*b_fit
+            fwhm_min = None
+        if calibration_config.fwhm_max is not None:
+            fwhm_max = calibration_config.fwhm_max*b_fit
         else:
-            ffwhm_max = None
+            fwhm_max = None
         models.append(
             {'model': 'multipeak', 'centers': e_xrf,
              'centers_range': centers_range*b_fit,
-             'fwhm_min': ffwhm_min, 'fwhm_max': ffwhm_max})
+             'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
         fit = FitProcessor()
         result = fit.process(
             NXdata(NXfield(spectrum_fit, 'y'),
@@ -2797,8 +2689,6 @@ class StrainAnalysisProcessor(Processor):
     """
     def __init__(self):
         super().__init__()
-        self._find_peaks = False
-        self._skip_animation = False
         self._save_figures = False
         self._inputdir = '.'
         self._outputdir = '.'
@@ -2870,9 +2760,9 @@ class StrainAnalysisProcessor(Processor):
             nxdata.summed_intensity = nxdata.intensity.sum(axis=0)
 
     def process(
-            self, data, config=None, find_peaks=True, skip_animation=False,
-            setup=True, update=True, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config=None, setup=True, update=True,
+            save_figures=False, inputdir='.', outputdir='.',
+            interactive=False):
         """Setup the strain analysis and/or return the strain analysis
         results as a list of updated points or a
         `nexusformat.nexus.NXroot` object.
@@ -2884,14 +2774,6 @@ class StrainAnalysisProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.StrainAnalysisConfig.
         :type config: dict, optional
-        :param find_peaks: Exclude peaks where the average spectrum
-            is below the `rel_height_cutoff` (in the detector
-            configuration) cutoff relative to the maximum value of the
-            average spectrum, defaults to `True`.
-        :type find_peaks: bool, optional
-        :param skip_animation: Skip the animation and plotting of
-            the strain analysis fits, defaults to `False`.
-        :type skip_animation: bool, optional
         :param setup: Setup the strain analysis
             `nexusformat.nexus.NXroot` object, defaults to `True`.
         :type setup: bool, optional
@@ -2940,8 +2822,6 @@ class StrainAnalysisProcessor(Processor):
                 self.logger.warning(
                     'Saving figures option disabled during setup')
                 save_figures = False
-        self._find_peaks = find_peaks
-        self._skip_animation = skip_animation
         self._save_figures = save_figures
         self._outputdir = outputdir
         self._interactive = interactive
@@ -3120,7 +3000,10 @@ class StrainAnalysisProcessor(Processor):
     def _adjust_material_props(self, materials, index=0):
         """Adjust the material properties."""
         # Local modules
-        from CHAP.edd.utils import select_material_params
+        if self._interactive:
+            from CHAP.edd.select_material_params_gui import select_material_params
+        else:
+            from CHAP.edd.utils import select_material_params
 
         detector = self._detectors[index]
         if self._save_figures:
@@ -3171,10 +3054,6 @@ class StrainAnalysisProcessor(Processor):
         # Third party modules
         from matplotlib import animation
         import matplotlib.pyplot as plt
-
-        if (self._skip_animation
-                or not (self._interactive or self._save_figures)):
-            return
 
         def animate(i):
             data = intensities[i]
@@ -3655,7 +3534,7 @@ class StrainAnalysisProcessor(Processor):
             peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
 
             # Find initial peak estimates
-            if not self._find_peaks or detector.rel_height_cutoff is None:
+            if not strain_analysis_config.find_peaks or detector.rel_height_cutoff is None:
                 use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
@@ -3777,9 +3656,11 @@ class StrainAnalysisProcessor(Processor):
                     })
 
             # Create an animation of the fit points
-            self._create_animation(
-                nxdata, energies[mask], intensities,
-                unconstrained_results['best_fits'], detector.id)
+            if (strain_analysis_config.skip_animation
+                    or not (self._interactive or self._save_figures)):
+                self._create_animation(
+                    nxdata, energies[mask], intensities,
+                    unconstrained_results['best_fits'], detector.id)
 
         return points
 
