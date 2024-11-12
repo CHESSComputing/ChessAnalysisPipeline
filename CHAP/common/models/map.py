@@ -318,6 +318,7 @@ class PointByPointScanData(BaseModel):
     data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
                        'smb_par', 'expression']
     name: constr(strip_whitespace=True, min_length=1)
+    ndigits: Optional[conint(ge=0)] = None
 
     @field_validator('label')
     @classmethod
@@ -456,6 +457,8 @@ class PointByPointScanData(BaseModel):
         :rtype: float
         """
         if 'spec_motor' in self.data_type:
+            if ndigits is None:
+                ndigits = self.ndigits
             if 'absolute' in self.data_type:
                 relative = False
             return get_spec_motor_value(
@@ -517,10 +520,17 @@ def get_spec_motor_value(
         else:
             motor_value = scanparser.get_spec_scan_motor_vals(
                 relative)[motor_i]
+            if len(scanparser.spec_scan_shape) == 2:
+                if motor_i == 0:
+                    motor_value = np.concatenate(
+                        [motor_value] * scanparser.spec_scan_shape[1])
+                else:
+                    motor_value = np.repeat(
+                        motor_value, scanparser.spec_scan_shape[0])
     else:
         motor_value = scanparser.get_spec_positioner_value(spec_mnemonic)
     if ndigits is not None:
-        motor_value = round(motor_value, 3)
+        motor_value = np.round(motor_value, ndigits)
     return motor_value
 
 
