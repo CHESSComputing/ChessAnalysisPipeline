@@ -27,7 +27,13 @@ class ParFile():
         row. 1st index: column
     :type data: list[list]
     """
-    def __init__(self, par_file, scann_col_name='SCAN_N'):
+    def __init__(self, par_file, scan_numbers=None, scann_col_name='SCAN_N'):
+        # Local modules
+        from CHAP.utils.general import (
+            is_int_series,
+            string_to_list,
+        )
+
         self.par_file = str(par_file)
         self.json_file = self.par_file.replace('.par', '.json')
         self.spec_file = os.path.join(
@@ -61,6 +67,14 @@ class ParFile():
 
         self.scann_i = self.column_names.index(scann_col_name)
         self.scan_numbers = [data[self.scann_i] for data in self.data]
+        if scan_numbers is not None:
+            if isinstance(scan_numbers, int):
+                scan_numbers = [scan_numbers]
+            elif isinstance(scan_numbers, str):
+                scan_numbers = string_to_list(scan_numbers)
+            if not is_int_series(scan_numbers, ge=0, log=False):
+                raise TypeError(f'Invalid scan_numbers parameter ({scan_numbers})')
+            self.scan_numbers = [n for n in scan_numbers if n in self.scan_numbers]
 
     def get_map(
             self, experiment_type, station, par_dims, other_dims=None):

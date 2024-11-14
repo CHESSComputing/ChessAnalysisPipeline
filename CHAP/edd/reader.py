@@ -18,16 +18,21 @@ class EddMapReader(Reader):
     specific set of items to use for extra scalar datasets to include
     are hard-coded in. The raw data is read if detector_names are
     specified."""
-    def read(self, parfile, dataset_id=1):
+    def read(self, parfile, scan_numbers=None, dataset_id=1, inputdir='.'):
         """Return a validated `MapConfig` object representing an EDD
         dataset.
 
         :param parfile: Name of the EDD-style .par file containing the
             dataset.
         :type parfile: str
+        :param scan_numbers: List of scan numbers to use.
+        :type scan_numbers: Union(int, list[int], str), optional
         :param dataset_id: Number of the dataset in the .par file
             to return as a map, defaults to `1`.
         :type dataset_id: int, optional
+        :param inputdir: Input directory, used only if parfile is not
+            an absolute path, defaults to `'.'`.
+        :type inputdir: str, optional
         :returns: Map configuration packaged with the appropriate
             value for 'schema'.
         :rtype: PipelineData
@@ -39,7 +44,9 @@ class EddMapReader(Reader):
         )
         from CHAP.utils.parfile import ParFile
 
-        parfile = ParFile(parfile)
+        if not os.path.isabs(parfile):
+            parfile = os.path.join(inputdir, parfile)
+        parfile = ParFile(parfile, scan_numbers=scan_numbers)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
 
         attrs = {}

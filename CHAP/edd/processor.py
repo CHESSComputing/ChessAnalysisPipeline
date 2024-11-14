@@ -681,6 +681,8 @@ class LatticeParameterRefinementProcessor(Processor):
                 axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
             for nxdata in self._nxdata_detectors]
         self.logger.debug(
+            f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
+        self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
     def _subtract_baselines(self):
@@ -3477,6 +3479,8 @@ class StrainAnalysisProcessor(Processor):
             self._mean_data = len(self._nxdata_detectors)*[
                 np.zeros((self._nxdata_detectors[0].nxsignal.shape[-1]))]
         self.logger.debug(
+            f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
+        self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
     def _strain_analysis(self, strain_analysis_config):
@@ -3656,8 +3660,8 @@ class StrainAnalysisProcessor(Processor):
                     })
 
             # Create an animation of the fit points
-            if (strain_analysis_config.skip_animation
-                    or not (self._interactive or self._save_figures)):
+            if (not strain_analysis_config.skip_animation
+                    and (self._interactive or self._save_figures)):
                 self._create_animation(
                     nxdata, energies[mask], intensities,
                     unconstrained_results['best_fits'], detector.id)
