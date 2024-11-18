@@ -26,6 +26,7 @@ from CHAP.common.processor import (
     SetupNXdataProcessor,
     UpdateNXvalueProcessor,
     UpdateNXdataProcessor,
+    UnstructuredToStructuredProcessor,
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,

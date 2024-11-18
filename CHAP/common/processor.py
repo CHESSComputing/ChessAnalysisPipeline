@@ -2733,6 +2733,94 @@ class SetupNXdataProcessor(Processor):
                      for c in self.coords)
 
 
+class UnstructuredToStructuredProcessor(Processor):
+    """Processor to reshape data in an NXdata from an "unstructured"
+    to "structured" representation."""
+    def process(self, data):
+        from nexusformat.nexus import NXdata
+
+        data = self.unwrap_pipelinedata(data)[0]
+
+        if isinstance(data, NXdata):
+            return self.convert_nxdata(data)
+
+        else:
+            raise NotImplementedError(
+                f'Not implemented for input data with type{(type(nxdata))}')
+
+    def convert_nxdata(self, nxdata):
+        from copy import deepcopy
+        from nexusformat.nexus import NXdata, NXfield
+        import numpy as np
+
+        # Extract axes from the NXdata attributes
+        axes = []
+        for k, v in nxdata.attrs.items():
+            if 'axes' in k:
+                if isinstance(v, str):
+                    axes = [v]
+                else:
+                    axes = v.nxdata
+        # Identify unique coordinate points for each axis
+        unique_coords = {}
+        coords = {}
+        axes_attrs = {}
+        for a in axes:
+            coords[a] = nxdata[a].nxdata
+            unique_coords[a] = np.sort(np.unique(nxdata[a].nxdata))
+            axes_attrs[a] = deepcopy(nxdata[a].attrs)
+            if 'target' in axes_attrs[a]:
+                del axes_attrs[a]['target']
+
+        # Calculate the total number of unique coordinate points
+        unique_npts = np.prod([len(v) for k, v in unique_coords.items()])
+
+        # Identify signals in the NXdata
+        signals = []
+        if hasattr(nxdata, 'signal'):
+            signals = [nxdata.signal]
+        for k, v in nxdata.items():
+            if (isinstance(v, NXfield) and k not in axes
+                and k not in signals):
+                signals.append(k)
+        signal_npts = len(nxdata[signals[0]])
+
+        # Ensure the number of signal points matches the unique
+        # coordinate points
+        if unique_npts != signal_npts:
+            raise(RuntimeError(
+                f'Number of unique coordinate points ({unique_npts}) is not '
+                + f'equal to the number of signal points ({signal_npts})'))
+
+        # Create the structured NXdata object
+        structured_shape = tuple(len(unique_coords[a]) for a in axes)
+        nxdata_structured = NXdata(
+            name=f'{nxdata.nxname}_structured',
+            **{a: NXfield(
+                value=unique_coords[a],
+                attrs=axes_attrs[a])
+               for a in axes},
+            **{s: NXfield(
+                value=np.reshape( # FIX not always a sound way to reshape.
+                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
+                # dtype=nxdata[s].dtype,
+                # shape=(*structured_shape, *nxdata[s].shape[1:]),
+                attrs=nxdata[s].attrs)
+               for s in signals},
+            attrs=nxdata.attrs)
+
+        # Populate the structured NXdata object with values
+        # for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
+        #     structured_index = tuple(
+        #         np.asarray(
+        #             coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
+        #         for ii in range(len(axes)))
+        #     for s in signals:
+        #         nxdata_structured[s][structured_index] = nxdata[s][i]
+
+        return nxdata_structured
+
+
 class UpdateNXvalueProcessor(Processor):
     """Processor to fill in part(s) of a NeXus object representing a
     structured dataset that's already been written to a NeXus file.
