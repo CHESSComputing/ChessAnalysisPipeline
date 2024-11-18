@@ -290,9 +290,11 @@ def select_material_params(
     :return: The selected materials for the strain analyses.
     :rtype: list[CHAP.edd.models.MaterialConfig]
     """
+    # Local modules
     from CHAP.edd.select_material_params_gui import run_material_selector
+
     # Run the MaterialParamSelector with the callback function to
-    # handle materials data
+    # handle the materials data and, if requested, the output figure
     materials = None
     figure = None
     def on_complete(_materials, _figure):

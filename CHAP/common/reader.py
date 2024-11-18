@@ -479,11 +479,15 @@ class SpecReader(Reader):
         nxentry.attrs['station'] = config.station
         if config.experiment_type == 'EDD':
             if detectors is None:
-                detector_indices = None
+                detectors_ids = None
             else:
-                detector_indices = [int(d.id) for d in detectors.detectors]
+                try:
+                    detectors_ids = [int(d.id) for d in detectors.detectors]
+                except:
+                    detectors_ids = [d.id for d in detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
+        detector_data_format = None
         for scans in config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
@@ -491,6 +495,11 @@ class SpecReader(Reader):
             nxscans.attrs['scan_numbers'] = scans.scan_numbers
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
+                if detector_data_format is None:
+                    detector_data_format = scanparser.detector_data_format
+                elif scanparser.detector_data_format != detector_data_format:
+                    raise ValueError(
+                        'Mixing `spec` and `h5` data formats not implemented')
                 nxscans[scan_number] = NXcollection()
                 try:
                     nxscans[scan_number].spec_motors = dumps(
@@ -515,7 +524,7 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     nxdata.data = NXfield(
-                       value=scanparser.get_detector_data(detector_indices))
+                       value=scanparser.get_detector_data(detectors_ids))
                 else:
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
@@ -526,8 +535,14 @@ class SpecReader(Reader):
                            value=scanparser.get_detector_data(detector.id))
 
         if detectors is None and config.experiment_type == 'EDD':
-            detectors = DetectorConfig(
-                detectors=[Detector(id=i) for i in range(nxdata.data.shape[1])])
+            if detector_data_format == 'spec':
+                detectors = DetectorConfig(
+                    detectors=[Detector(id='mca1')
+                               for i in range(nxdata.data.shape[1])])
+            else:
+                detectors = DetectorConfig(
+                    detectors=[
+                        Detector(id=i) for i in range(nxdata.data.shape[1])])
         nxentry.detectors = dumps(detectors.dict())
 
         #return nxroot, nxpaths

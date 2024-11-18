@@ -70,7 +70,7 @@ energy_calibration:
         # calibrating the MCA channel energies. It is _strongly_
         # recommended to use fluorescence peaks for the energy
         # calibration.
-        peak_energies: [34.28, 34.72, 39.26, 40.2]
+        peak_energies: [34.276, 34.717, 39.255, 40.231]
 
         # Index of the peak in `peak_energies` with the highest
         # amplitude.
@@ -446,12 +446,12 @@ strain_analysis:
             # float may be provided (a).
             lattice_parameters: [2.9217, 4.66027]
 
-        # Optional (defaults to `true`). Whether to sum over the fly
-        # axis or not for EDD scan types larger than 2. Can be
-        # specified as a list over arbitrary summation axes overruling
-        # the default behavior for non-zero scan types.
-        sum_fly_axes: true
-
+        # Optional (defaults to `true`). Whether to sum over certain
+        # axis or not. The default for EDD scan types larger than 2 is
+        # to sum over the fly axis, but it can specified as a list
+        # over arbitrary summation axes overruling the default
+        # behavior for non-zero scan types.
+        sum_axes: true
 
       # Optional (default to `true`). Exclude peaks where the average
       # spectrum is below the `rel_height_cutoff` (in the detector
