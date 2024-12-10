@@ -1665,61 +1665,15 @@ class MapProcessor(Processor):
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 start_dim = offset * num_dim
                 end_dim = start_dim + num_dim
-                if len(spec_scan_shape) == 1:
-                    for i, dim in enumerate(map_config.independent_dimensions):
-                        v = dim.get_value(
+                for i, dim in enumerate(map_config.independent_dimensions):
+                    independent_dimensions[i][start_dim:end_dim] = \
+                        dim.get_value(
                             scan, scan_number, scan_step_index=-1,
                             relative=False)
-                        if dim.name in spec_scan_motor_mnes:
-                            independent_dimensions[i][start_dim:end_dim] = v
-                        else:
-                            independent_dimensions[i][start_dim:end_dim] = \
-                                np.repeat(v, spec_scan_shape[0])
-                    for i, dim in enumerate(map_config.all_scalar_data):
-                        v = dim.get_value(
-                            scan, scan_number, scan_step_index=-1,
-                            relative=False)
-                        #if dim.name in spec_scan_motor_mnes:
-                        if dim.data_type == 'scan_column':
-                            all_scalar_data[i][start_dim:end_dim] = v
-                        else:
-                            all_scalar_data[i][start_dim:end_dim] = \
-                                np.repeat(v, spec_scan_shape[0])
-                else:
-                    for i, dim in enumerate(map_config.independent_dimensions):
-                        v = dim.get_value(
-                            scan, scan_number, scan_step_index=-1,
-                            relative=False)
-                        if dim.name == spec_scan_motor_mnes[0]:
-                            # Fast motor
-                            independent_dimensions[i][start_dim:end_dim] = \
-                                np.concatenate((v,)*spec_scan_shape[1])
-                        elif dim.name == spec_scan_motor_mnes[1]:
-                            # Slow motor
-                            independent_dimensions[i][start_dim:end_dim] = \
-                                np.repeat(v, spec_scan_shape[0])
-                        else:
-                            independent_dimensions[i][start_dim:end_dim] = v
-                    for i, dim in enumerate(map_config.all_scalar_data):
-                        v = dim.get_value(
-                            scan, scan_number, scan_step_index=-1,
-                            relative=False)
-                        if dim.data_type == 'scan_column':
-                            all_scalar_data[i][start_dim:end_dim] = v
-                        elif dim.data_type == 'smb_par':
-                            if dim.name == spec_scan_motor_mnes[0]:
-                                # Fast motor
-                                all_scalar_data[i][start_dim:end_dim] = \
-                                     np.concatenate((v,)*spec_scan_shape[1])
-                            elif dim.name == spec_scan_motor_mnes[1]:
-                                # Slow motor
-                                all_scalar_data[i][start_dim:end_dim] = \
-                                     np.repeat(v, spec_scan_shape[0])
-                            else:
-                                all_scalar_data[i][start_dim:end_dim] = v
-                        else:
-                            raise RuntimeError(
-                                f'{dim.data_type} in data_type not tested')
+                for i, dim in enumerate(map_config.all_scalar_data):
+                    all_scalar_data[i][start_dim:end_dim] = dim.get_value(
+                        scan, scan_number, scan_step_index=-1,
+                        relative=False)
                 offset += 1
 
         return (
