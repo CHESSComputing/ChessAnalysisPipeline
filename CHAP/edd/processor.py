@@ -2362,15 +2362,12 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,1].set_ylabel('Energy (keV)')
             if calibration_method in ('fix_tth_to_tth_init', 'iterate_tth'):
                 e_fit = e_bragg_fit
-                e_unconstrained = e_bragg_unconstrained
                 if quadratic_energy_calibration:
                     label = 'Unconstrained: quadratic fit'
                 else:
                     label = 'Unconstrained: linear fit'
             else:
                 e_fit = np.concatenate((e_xrf, e_bragg_fit))
-                e_unconstrained = np.concatenate(
-                    (e_xrf, e_bragg_unconstrained))
                 if quadratic_energy_calibration:
                     label = 'Quadratic fit'
                 else:

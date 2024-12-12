@@ -2435,6 +2435,7 @@ class FitMap(Fit):
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
+        logger.debug(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -2799,7 +2800,12 @@ class FitMap(Fit):
                 if par.vary:
                     current_best_values[par.name] = par.value
         else:
-            logger.warning(f'Fit for n = {n} failed: {result.lmdif_message}')
+            errortxt = f'Fit for n = {n} failed'
+            if hasattr(result, 'lmdif_message'):
+                errortxt += f'\n\t{result.lmdif_message}'
+            if hasattr(result, 'message'):
+                errortxt += f'\n\t{result.message}'
+            logger.warning(f'{errortxt}')
 
         # Renormalize the data and results
         self._renormalize(n, result)
