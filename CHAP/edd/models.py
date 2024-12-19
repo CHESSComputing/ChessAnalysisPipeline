@@ -132,8 +132,10 @@ class MaterialConfig(BaseModel):
     """
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     lattice_parameters: Optional[Union[
-        confloat(gt=0),
-        conlist(min_length=1, max_length=6, item_type=confloat(gt=0))]] = None
+        confloat(gt=0, allow_inf_nan=False),
+        conlist(
+            min_length=1, max_length=6,
+            item_type=confloat(gt=0, allow_inf_nan=False))]] = None
     sgnum: Optional[conint(ge=0)] = None
 
     _material: Optional[Material]
@@ -167,7 +169,8 @@ class MaterialConfig(BaseModel):
         # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds
 
-        return get_unique_hkls_ds([self._material])
+        return get_unique_hkls_ds(
+            [self._material], tth_tol=tth_tol, tth_max=tth_max)
 
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
@@ -260,7 +263,7 @@ class MCAElementCalibrationConfig(MCAElementConfig):
             item_type=conlist(
                 min_length=2,
                 max_length=2,
-                item_type=confloat(ge=25))),
+                item_type=confloat(ge=25, allow_inf_nan=False))),
         Field(validate_default=True)] = [[50, 150]]
 
     _hkl_indices: list = PrivateAttr()
@@ -413,7 +416,7 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
                 item_type=conint(ge=0)))] = None
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
-    dvl_measured: Optional[confloat(gt=0)] = None
+    dvl_measured: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     fit_amplitude: Optional[float] = None
     fit_center: Optional[float] = None
     fit_sigma: Optional[float] = None
@@ -491,7 +494,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :type tth_calibrated: float, optional
     :ivar energy_calibration_coeffs: Detector channel index to energy
         polynomial conversion coefficients ([a, b, c] with
-        E_i = a*i^2 + b*i + c), defaults to `[0, 0, 1]`.
+        E_i = a*i^2 + b*i + c).
     :type energy_calibration_coeffs:
         list[float, float, float], optional
     :ivar calibration_bin_ranges: List of MCA channel index ranges
@@ -521,9 +524,9 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     rel_height_cutoff: Optional[
         confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)] = None
-    energy_calibration_coeffs: conlist(
+    energy_calibration_coeffs: Optional[conlist(
         min_length=3, max_length=3,
-        item_type=confloat(allow_inf_nan=False)) = [0, 0, 1]
+        item_type=confloat(allow_inf_nan=False))] = None
     calibration_bin_ranges: Optional[
         conlist(
             min_length=1,
@@ -538,7 +541,7 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         item_type=conlist(
             min_length=2,
             max_length=2,
-            item_type=confloat(ge=25))) = [[50, 150]]
+            item_type=confloat(ge=25, allow_inf_nan=False))) = [[50, 150]]
 
     #RV lots of overlap with MCAElementCalibrationConfig (only missing
     #   tth_initial_guess)
@@ -653,6 +656,10 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             return self.tth_map
         return np.full(map_shape, self.tth_calibrated)
 
+    def set_hkl_indices(self, hkl_indices):
+        """Set the attribute `hkl_indices`."""
+        self.hkl_indices = hkl_indices
+
     def dict(self, *args, **kwargs):
         """Return a representation of this configuration in a
         dictionary that is suitable for dumping to a YAML file.
@@ -766,8 +773,7 @@ class MCAScanDataConfig(BaseModel):
             if detector.num_bins is None:
                 try:
                     detector.num_bins = \
-                        self._scanparser.get_detector_num_bins(
-                                detector.id)
+                        self._scanparser.get_num_detector_bins()
                 except Exception as e:
                     raise ValueError('No value found for num_bins') from e
         if flux_file is not None:
@@ -865,15 +871,6 @@ class MCAEnergyCalibrationConfig(FitConfig):
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
     :type scan_step_indices: int, str, list[int], optional
-    :ivar detectors: List of individual MCA detector element
-        calibration configurations.
-    :type detectors: list[MCAElementCalibrationConfig], optional
-    :ivar flux_file: File name of the csv flux file containing station
-        beam energy in eV (column 0) versus flux (column 1).
-    :type flux_file: str, optional
-    :ivar material: Material configuration for the calibration,
-        defaults to `Ceria`.
-    :type material: MaterialConfig, optional
     :ivar peak_energies: Theoretical locations of peaks in keV to use
         for calibrating the MCA channel energies. It is _strongly_
         recommended to use fluorescence peaks for the energy
@@ -882,12 +879,23 @@ class MCAEnergyCalibrationConfig(FitConfig):
     :ivar max_peak_index: Index of the peak in `peak_energies`
         with the highest amplitude.
     :type max_peak_index: int
-    :ivar fit_index_ranges: Explicit ranges of uncalibrated MCA
-        channel index ranges to include during energy calibration
-        when the given peaks are fitted to the provied MCA spectrum.
-        Use this parameter or select it interactively by running a
-        pipeline with `config.interactive: True`.
-    :type fit_index_ranges: list[[int, int]], optional
+    :ivar detectors: List of individual MCA detector element
+        calibration configurations.
+    :type detectors: list[MCAElementCalibrationConfig], optional
+    :ivar fit_index_ranges: List of MCA channel index ranges to
+        include in the energy calibration. Use this parameter or
+        select it interactively by running a pipeline with
+        `config.interactive: True`.
+    :type include_bin_ranges: list[[int, int]], optional
+    :ivar max_energy_kev: Maximum channel energy of the MCA in
+        keV, defaults to `200.0`.
+    :type max_energy_kev: float, optional
+    :ivar flux_file: File name of the csv flux file containing station
+        beam energy in eV (column 0) versus flux (column 1).
+    :type flux_file: str, optional
+    :ivar material: Material configuration for the calibration,
+        defaults to `Ceria`.
+    :type material: MaterialConfig, optional
 
     Note: Fluorescence data:
         https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
@@ -896,7 +904,8 @@ class MCAEnergyCalibrationConfig(FitConfig):
     scan_step_indices: Optional[Annotated[conlist(
         min_length=1, item_type=conint(ge=0)),
         Field(validate_default=True)]] = None
-    peak_energies: conlist(min_length=2, item_type=confloat(gt=0))
+    peak_energies: conlist(
+        min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))
     max_peak_index: conint(ge=0)
     detectors: Optional[conlist(item_type=MCAElementCalibrationConfig)] = None
     fit_index_ranges: Optional[
@@ -906,6 +915,7 @@ class MCAEnergyCalibrationConfig(FitConfig):
                 min_length=2,
                 max_length=2,
                 item_type=conint(ge=0)))] = None
+    max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
     flux_file: Optional[FilePath] = None
     material: Optional[MaterialConfig] = MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)
@@ -1020,20 +1030,11 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     :ivar tth_max: Detector rotation about lab frame x axis,
        defaults to `90`.
     :type tth_max: float, optional
-    :ivar calibration_method: Type of calibration method,
-        defaults to `'fix_tth_to_tth_init'`.
-    :type calibration_method:
-        Literal['fix_tth_to_tth_init', 'direct_fit_residual',
-        'direct_fit_peak_energies', 'direct_fit_combined',
-        'iterate_tth'], optional
     :ivar include_energy_ranges: List of MCA channel energy ranges
         in keV whose data should be included after applying a mask
         (bounds are inclusive) superseding the global one in
         MCATthCalibrationConfig, defaults to `[[50, 150]]`.
     :type include_energy_ranges: list[[float, float]], optional
-    :ivar max_iter: Maximum number of iterations of the calibration
-        routine (only used for `'iterate_tth'`), defaults to `10`.
-    :type max_iter: int, optional
     :ivar quadratic_energy_calibration: Adds a quadratic term to
         the detector channel index to energy conversion, defaults
         to `False` (linear only).
@@ -1041,31 +1042,18 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
     :ivar tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
-    :ivar tune_tth_tol: Cutoff error for tuning 2&theta (only used for
-        `'iterate_tth'`). Stop iterating the calibration routine after
-        an iteration produces a change in the tuned value of 2&theta
-        that is smaller than this cutoff, defaults to `1e-8`.
-    :ivar tune_tth_tol: float, optional
     """
     tth_max: confloat(gt=0, allow_inf_nan=False) = 90.0
-    calibration_method: Optional[Literal[
-        'fix_tth_to_tth_init',
-        'direct_fit_residual',
-        'direct_fit_peak_energies',
-        'direct_fit_combined',
-        'iterate_tth']] = 'fix_tth_to_tth_init'
     include_energy_ranges: Annotated[
         conlist(
             min_length=1,
             item_type=conlist(
                 min_length=2,
                 max_length=2,
-                item_type=confloat(ge=25))),
+                item_type=confloat(ge=25, allow_inf_nan=False))),
         Field(validate_default=True)] = [[50, 150]]
-    max_iter: conint(gt=0) = 10
     quadratic_energy_calibration: bool = False
     tth_initial_guess: confloat(gt=0, le=tth_max, allow_inf_nan=False) = 5.0
-    tune_tth_tol: confloat(ge=0) = 1e-8
 
     def flux_file_energy_range(self):
         """Get the energy range in the flux corection file.
@@ -1090,10 +1078,6 @@ class MCATthCalibrationConfig(MCAEnergyCalibrationConfig):
         for k in ('tth_max', 'include_energy_ranges', 'tth_initial_guess'):
             if k in d:
                 del d[k]
-        if self.calibration_method != 'iterate_tth':
-            for k in ('max_iter', 'tune_tth_tol'):
-                if k in d:
-                    del d[k]
         return d
 
 

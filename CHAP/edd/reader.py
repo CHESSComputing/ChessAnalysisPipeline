@@ -77,7 +77,7 @@ class EddMapReader(Reader):
                 raise RuntimeError(
                     'Only one scan type per dataset is suported.')
             scan_type = scan_types[0]
-        except:
+        except Exception as e:
             # Third party modeuls
             from chess_scanparsers import SMBScanParser
 
@@ -86,7 +86,7 @@ class EddMapReader(Reader):
                 scan_type = 0
             else:
                 raise RuntimeError('Old style par files not supported for '
-                                   'spec_macro != tseries')
+                                   'spec_macro != tseries') from e
             attrs['scan_type'] = scan_type
         self.logger.debug(f'Scan type: {scan_type}')
 
@@ -731,8 +731,6 @@ class SliceNXdataReader(Reader):
 
         :raises ValueError: If no NXdata group is found in the file.
         """
-        import os
-        import numpy as np
         from nexusformat.nexus import NXentry, NXfield
 
         from CHAP.common import NexusReader

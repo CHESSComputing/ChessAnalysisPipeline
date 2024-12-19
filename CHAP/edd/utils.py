@@ -111,7 +111,7 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
 
 
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
-        interactive=False, filename=None):
+        interactive=False, filename=None, detector_id=None):
     """Show a matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
     initial 2&theta guess and responds by updating the HKL locations
@@ -136,6 +136,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :param filename: Save a .png of the plot to filename, defaults to
         `None`, in which case the plot is not saved.
     :type filename: str, optional
+    :param detector_id: Detector ID.
+    :type detector_id: str, optional
     :return: The selected initial guess for 2&theta.
     :rtype: float
     """
@@ -151,6 +153,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     def change_fig_title(title):
         """Change the figure title."""
+        if detector_id is not None:
+            title = f'Detector {detector_id}: {title}'
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
@@ -198,7 +202,6 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
-        change_fig_title(r'Initial guess for 2$\theta$='f'{tth_input.text}')
         plt.close()
 
     fig_title = []
@@ -215,8 +218,8 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.plot(x, y)
-    ax.set_xlabel('MCA channel energy (keV)')
-    ax.set_ylabel('MCA intensity (counts)')
+    ax.set_xlabel('Energy (keV)')
+    ax.set_ylabel('Intensity (counts)')
     ax.set_xlim(x[0], x[-1])
     peak_locations = get_peak_locations(ds, tth_initial_guess)
     hkl_peaks = [i for i, loc in enumerate(peak_locations)
@@ -260,6 +263,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     # Save the figures if requested and close
     if filename is not None:
+        if interactive:
+            title = r'Initial guess for 2$\theta$='f'{tth_input.text}'
+            if detector_id is not None:
+                title = f'Detector {detector_id}: {title}'
+            fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
         fig.tight_layout(rect=(0, 0, 1, 0.95))
         fig.savefig(filename)
@@ -422,8 +430,7 @@ def select_material_params(
         if preselected_materials is None:
             raise RuntimeError(
                 'If the material properties are not explicitly provided, '
-                f'{self.__class__.__name__} must be run with '
-                '`interactive=True`.')
+                'the pipeline must be run with `interactive=True`.')
         return preselected_materials
 
     materials = []
@@ -436,8 +443,8 @@ def select_material_params(
     # Create figure
     fig, ax = plt.subplots(figsize=(11, 8.5))
     ax.set_title(label, fontsize='x-large')
-    ax.set_xlabel('MCA channel energy (keV)', fontsize='large')
-    ax.set_ylabel('MCA intensity (counts)', fontsize='large')
+    ax.set_xlabel('Energy (keV)', fontsize='large')
+    ax.set_ylabel('Intensity (counts)', fontsize='large')
     ax.set_xlim(x[0], x[-1])
     ax.plot(x, y)
 
@@ -971,8 +978,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             if detector_id is None:
                 change_fig_title('Selected data and HKLs used in fitting')
             else:
-                change_fig_title(
-                    f'Selected data and HKLs used in fitting {detector_id}')
+                change_fig_title('Selected data and HKLs used in fitting '
+                                 f'detector {detector_id}')
             plt.close()
 
     if preselected_hkl_indices is None:
@@ -983,7 +990,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     fig_title = []
     error_texts = []
 
-    if ref_map is not None and ref_map.ndim == 1:
+    if (ref_map is not None
+            and (ref_map.ndim == 1
+                 or (ref_map.ndim == 2 and ref_map.shape[0] == 1))):
         ref_map = None
 
     # Make preselected_bin_ranges consistent with selected_hkl_indices
@@ -1062,7 +1071,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             ax_map.set_yticks([])
             ax_map.set_xlabel('Energy (keV)')
             ax_map.set_xlim(x[0], x[-1])
-            ((left, bottom), (right, top)) = ax_map.get_position().get_points()
+            ((_, bottom), (right, top)) = ax_map.get_position().get_points()
             cax = plt.axes([right + 0.01, bottom, 0.01, top - bottom])
             fig.colorbar(ref_map_mappable, cax=cax)
         handles = ax.plot(x, y, color='k', label=label)
@@ -1087,7 +1096,6 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         # Add HKL lines
         hkl_labels = [str(hkl)[1:-1] for hkl, loc in zip(hkls, hkl_locations)]
         for i, (loc, lbl) in enumerate(zip(hkl_locations, hkl_labels)):
-            nearest_index = np.searchsorted(x, loc)
             if i in selected_hkl_indices:
                 hkl_vline = ax.axvline(loc, **included_hkl_props)
             else:
@@ -1106,8 +1114,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             if detector_id is None:
                 change_fig_title('Selected data and HKLs used in fitting')
             else:
-                change_fig_title(
-                    f'Selected data and HKLs used in fitting {detector_id}')
+                change_fig_title('Selected data and HKLs used in fitting '
+                                 f'detector {detector_id}')
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
 
     else:
 
@@ -1152,6 +1163,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         plt.subplots_adjust(bottom=0.0)
 
     if filename is not None:
+        if interactive:
+            if error_texts:
+                error_texts[0].remove()
+                error_texts.pop()
+            title = 'Selected data and HKLs used in fitting'
+            if detector_id is not None:
+                title += f' detector {detector_id}'
+            fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
         fig.tight_layout(rect=(0, 0, 0.9, 0.9))
         if ref_map is not None:

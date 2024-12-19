@@ -211,6 +211,7 @@ class MaterialParamSelector:
         if self.on_complete:
             self.on_complete(self.materials, self.figure)
         self.root.destroy()  # Close the tkinter root window
+        plt.close()
 
 
 def run_material_selector(
@@ -290,9 +291,6 @@ def select_material_params(
     :return: The selected materials for the strain analyses.
     :rtype: list[CHAP.edd.models.MaterialConfig]
     """
-    # Local modules
-    from CHAP.edd.select_material_params_gui import run_material_selector
-
     # Run the MaterialParamSelector with the callback function to
     # handle the materials data and, if requested, the output figure
     materials = None
@@ -312,7 +310,6 @@ def select_material_params(
 
 
 if __name__ == '__main__':
-    import numpy as np
     from CHAP.edd.models import MaterialConfig
 
     x = np.linspace(40, 100, 100)

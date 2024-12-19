@@ -579,12 +579,14 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
             save_figures=False, outputdir='.', interactive=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
         :type data: list[PipelineData]
+        :param x: Independent dimension (only used when interactive is
+            `True` of when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
@@ -617,7 +619,7 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, mask, tol, lam, max_iter, save_figures, outputdir,
+            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
             interactive)
 
     @staticmethod
