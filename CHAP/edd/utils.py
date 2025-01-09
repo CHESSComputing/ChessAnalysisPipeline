@@ -61,17 +61,17 @@ def make_material(name, sgnum, lattice_parameters, dmin=0.6):
     return material
 
 
-def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
+def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
     """Return the unique HKLs and lattice spacings for the given list
     of materials.
 
     :param materials: Materials to get HKLs and lattice spacings for.
     :type materials: list[hexrd.material.Material]
+    :param tth_max: Detector rotation about hutch x axis.
+    :type tth_max: float, optional
     :param tth_tol: Minimum resolvable difference in 2&theta between
         two unique HKL peaks.
     :type tth_tol: float, optional
-    :param tth_max: Detector rotation about hutch x axis.
-    :type tth_max: float, optional
     :param round_sig: The number of significant figures in the unique
         lattice spacings, defaults to `8`.
     :type round_sig: int, optional
@@ -90,11 +90,11 @@ def get_unique_hkls_ds(materials, tth_tol=None, tth_max=None, round_sig=8):
     ds_index = np.empty((0))
     for i, material in enumerate(_materials):
         plane_data = material.planeData
-        if tth_tol is not None:
-            plane_data.tThWidth = np.radians(tth_tol)
         if tth_max is not None:
             plane_data.exclusions = None
             plane_data.tThMax = np.radians(tth_max)
+        if tth_tol is not None:
+            plane_data.tThWidth = np.radians(tth_tol)
         hkls = np.vstack((hkls, plane_data.hkls.T))
         ds_i = plane_data.getPlaneSpacings()
         ds = np.hstack((ds, ds_i))

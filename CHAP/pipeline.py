@@ -107,7 +107,8 @@ class PipelineItem():
                 break
 
         if not matching_config:
-            raise ValueError(f'No configuration for {schema} found')
+            raise ValueError(
+                f'Unable to find a configuration for schema `{schema}`')
 
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)

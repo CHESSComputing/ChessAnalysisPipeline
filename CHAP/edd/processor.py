@@ -82,9 +82,32 @@ class BaseEddProcessor(Processor):
             self._nxdata_detectors[index].nxsignal.nxdata *= \
                 energy_mask.astype(dtype)
 
+    def _apply_flux_correction(self, flux_file):
+        """Apply the flux correction."""
+        # Check each detector's include_energy_ranges field against the
+        # flux file, if available.
+        if flux_file is not None:
+            raise RuntimeError('Flux correction not tested after updates')
+            flux = np.loadtxt(calibration_config.flux_file)
+            flux_file_energies = flux[:,0]/1.e3
+            flux_e_min = flux_file_energies.min()
+            flux_e_max = flux_file_energies.max()
+            for detector in self._detectors:
+                for i, (det_e_min, det_e_max) in enumerate(
+                        deepcopy(detector.include_energy_ranges)):
+                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
+                        energy_range = [float(max(det_e_min, flux_e_min)),
+                                        float(min(det_e_max, flux_e_max))]
+                        print(
+                            f'WARNING: include_energy_ranges[{i}] out of range'
+                            f' ({detector.include_energy_ranges[i]}): adjusted'
+                            f' to {energy_range}')
+                        detector.include_energy_ranges[i] = energy_range
+
     def _get_mask_hkls(self, materials):
         """Get the mask and HKLs used in the current processor."""
         # Local modules
+        from CHAP.edd.models import MCAElementStrainAnalysisConfig
         from CHAP.edd.utils import (
             get_unique_hkls_ds,
             select_mask_and_hkls,
@@ -109,45 +132,43 @@ class BaseEddProcessor(Processor):
             # Get the unique HKLs and lattice spacings used in the
             # curent proessor
             hkls, ds = get_unique_hkls_ds(
-                materials, tth_tol=detector.hkl_tth_tol,
-                tth_max=detector.tth_max)
+                materials, tth_max=detector.tth_max, tth_tol=detector.tth_tol)
 
             # Interactively adjust the mask and HKLs used in the
             # current processor
+            if isinstance(detector, MCAElementStrainAnalysisConfig):
+                calibration_bin_ranges = detector.get_calibration_mask_ranges()
+            else:
+                calibration_bin_ranges = None
             if detector.tth_calibrated is None:
                 tth = detector.tth_initial_guess
             else:
                 tth = detector.tth_calibrated
-            if hasattr(detector, "calibration_bin_ranges"):
-                calibration_bin_ranges = detector.calibration_bin_ranges
-            else:
-                calibration_bin_ranges = None
             if self._save_figures:
                 filename = os.path.join(
                     self._outputdir, f'{detector.id}_{basename}')
             else:
                 filename = None
-            include_bin_ranges, hkl_indices = \
+            mask_ranges, hkl_indices = \
                 select_mask_and_hkls(
                     energies, mean_data, hkls, ds, tth,
-                    preselected_bin_ranges=detector.include_bin_ranges,
+                    preselected_bin_ranges=detector.get_mask_ranges(),
                     preselected_hkl_indices=detector.hkl_indices,
                     detector_id=detector.id, ref_map=nxdata.nxsignal.nxdata,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of the spectra in the map',
                     interactive=self._interactive, filename=filename)
-            detector.include_energy_ranges = \
-                detector.get_include_energy_ranges(include_bin_ranges)
-            detector.set_hkl_indices(hkl_indices)
+            detector.hkl_indices = hkl_indices
+            detector.convert_mask_ranges(mask_ranges)
             self.logger.debug(
-                f'include_energy_ranges for detector {detector.id}:'
-                f' {detector.include_energy_ranges}')
+                f'energy mask_ranges for detector {detector.id}:'
+                f' {detector.energy_mask_ranges}')
             self.logger.debug(
                 f'hkl_indices for detector {detector.id}:'
                 f' {detector.hkl_indices}')
-            if not detector.include_energy_ranges:
+            if not detector.energy_mask_ranges:
                 raise ValueError(
-                    'No value provided for include_energy_ranges. Provide '
+                    'No value provided for energy_mask_ranges. Provide '
                     'them in the tth calibration configuration, or re-run the '
                     'pipeline with the interactive flag set.')
             if not detector.hkl_indices:
@@ -159,7 +180,7 @@ class BaseEddProcessor(Processor):
     def _setup_detector_data(
             self, nxentry, available_detector_indices, max_energy_kev=None):
         """Load the raw MCA data from the SpecReader output and compute
-        the mean spectra.
+        the detector bin energies and the mean spectra.
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -182,21 +203,18 @@ class BaseEddProcessor(Processor):
 
         for detector in self._detectors:
             if detector.num_bins is None:
-                if max_energy_kev is None:
-                    raise ValueError('Invalid "max_energy_kev" parameter '
-                                     f'({max_energy_kev})')
                 detector.num_bins = num_bins
+            elif detector.num_bins != num_bins:
+                raise ValueError(
+                    'Inconsistent number of MCA detector channels between '
+                    'the raw data and the detector configuration '
+                    f'({num_bins} vs {detector.num_bins})')
+            if detector.energy_calibration_coeffs is None:
+                if max_energy_kev is None:
+                    raise ValueError(
+                        'Missing max_energy_kev parameter')
                 detector.energy_calibration_coeffs = [
                     0.0, max_energy_kev/(num_bins-1.0), 0.0]
-            else:
-                if detector.num_bins != num_bins:
-                    raise ValueError(
-                        'Inconsistent number of MCA detector channels between '
-                        'the raw data and the detector configuration '
-                        f'({num_bins} vs {detector.num_bins})')
-                if detector.energy_calibration_coeffs is None:
-                    raise ValueError(
-                        'Missing detector energy calibration coefficients')
             self._energies.append(detector.energies)
             index = int(available_detector_indices.index(detector.id))
             nxdata_det = NXdata(
@@ -251,6 +269,7 @@ class BaseEddProcessor(Processor):
                 if self._save_figures:
                     filename = os.path.join(
                         self._outputdir, f'{detector.id}_{basename}')
+
                 baseline, baseline_config = \
                     ConstructBaseline.construct_baseline(
                         mean_data, x=x, tol=detector.baseline.tol,
@@ -265,7 +284,8 @@ class BaseEddProcessor(Processor):
                 detector.baseline.lam = baseline_config['lambda']
                 detector.baseline.attrs['num_iter'] = \
                     baseline_config['num_iter']
-                detector.baseline.attrs['error'] = baseline_config['error']
+                detector.baseline.attrs['error'] = \
+                    baseline_config['error']
 
                 nxdata.nxsignal -= baseline
                 mean_data -= baseline
@@ -358,7 +378,8 @@ class BaseStrainProcessor(BaseEddProcessor):
     def _setup_detector_data(self, nxdata_raw, strain_analysis_config,
             update=True):
         """Load the raw MCA data map accounting for oversampling or
-        axes summation if requested and compute the mean spectra.
+        axes summation if requested and compute the detector bin
+        energies and the mean spectra.
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -366,7 +387,7 @@ class BaseStrainProcessor(BaseEddProcessor):
             NXfield,
         )
 
-        have_det_nxdata = False
+        have_raw_detector_data = False
         oversampling_axis = {}
         if strain_analysis_config.sum_axes:
             scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
@@ -395,8 +416,8 @@ class BaseStrainProcessor(BaseEddProcessor):
                         self._get_sum_axes_data(
                             nxdata_raw, detector.id,
                             strain_analysis_config.sum_axes))
-                have_det_nxdata = True
-        if not have_det_nxdata:
+                have_raw_detector_data = True
+        if not have_raw_detector_data:
             # Collect the raw MCA data if not averaged over sum_axes
             axes = get_axes(nxdata_raw)
             for detector in self._detectors:
@@ -421,6 +442,8 @@ class BaseStrainProcessor(BaseEddProcessor):
         else:
             self._mean_data = len(self._nxdata_detectors)*[
                 np.zeros((self._nxdata_detectors[0].nxsignal.shape[-1]))]
+        for detector in self._detectors:
+            self._energies.append(detector.energies)
         self.logger.debug(
             f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
         self.logger.debug(
@@ -717,6 +740,12 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             raise RuntimeError(
                 'No valid input in the pipeline data') from exc
 
+        # Load the detector data
+        if 'default' in nxroot.attrs:
+            nxentry = nxroot[nxroot.default]
+        else:
+            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+
         # Load the validated calibration configuration
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
@@ -735,50 +764,67 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             except Exception as exc:
                 raise RuntimeError from exc
 
-        # Validate the detector configuration and load, validate and
-        # add the calibration info to the detectors
-        if 'default' in nxroot.attrs:
-            nxentry = nxroot[nxroot.default]
-        else:
-            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+        # Validate the detector configuration and check against the raw
+        # data (availability and shape) and the calibration data
+        # Update any processor configuration parameters not superseded
+        # by individual detector values
         nxdata = nxentry[nxentry.default]
-        calibration_detector_indices = [
-            d.id for d in calibration_config.detectors]
         if strain_analysis_config.detectors is None:
             strain_analysis_config.detectors = [
-                MCAElementStrainAnalysisConfig(**dict(d))
+                MCAElementStrainAnalysisConfig(id=d.id)
                 for d in calibration_config.detectors if d.id in nxdata]
-        for detector in deepcopy(strain_analysis_config.detectors):
+        strain_analysis_config.update_detectors()
+        calibration_detector_ids = [d.id for d in calibration_config.detectors]
+        skipped_detectors = []
+        sskipped_detectors = []
+        detectors = []
+        for detector in strain_analysis_config.detectors:
             if detector.id not in nxdata:
-                self.logger.warning(
-                    f'Skipping detector {detector.id} (no raw data)')
-                strain_analysis_config.detectors.remove(detector)
-            elif detector.id in calibration_detector_indices:
-                det_data = nxdata[detector.id].nxdata
-                if det_data.ndim != 2:
+                skipped_detectors.append(detector.id)
+            elif detector.id not in calibration_detector_ids:
+                sskipped_detectors.append(detector.id)
+            else:
+                raw_detector_data = nxdata[detector.id].nxdata
+                if raw_detector_data.ndim != 2:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (Illegal data shape '
-                        f'{det_data.shape})')
-                elif det_data.sum():
+                        f'{raw_detector_data.shape})')
+                elif raw_detector_data.sum():
                     for k, v in nxdata[detector.id].attrs.items():
                         detector.attrs[k] = v
-                    self._detectors.append(detector)
-                    calibration = [
-                        d for d in calibration_config.detectors
-                        if d.id == detector.id][0]
-                    detector.add_calibration(calibration)
+                    detector.add_calibration(
+                        calibration_config.detectors[
+                            int(calibration_detector_ids.index(detector.id))])
+                    detectors.append(detector)
                 else:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (zero intensity)')
-                self._energies.append(detector.energies)
-            else:
-                self.logger.warning(f'Skipping detector {detector.id} '
-                                    '(no energy/tth calibration data)')
-        if not self._detectors:
+        if len(skipped_detectors) == 1:
+            self.logger.warning(
+                f'Skipping detector {skipped_detectors[0]} '
+                '(no raw data)')
+        elif skipped_detectors:
+            skipped_detectors = [int(d) for d in skipped_detectors]
+            self.logger.warning(
+                'Skipping detectors '
+                f'{list_to_string(skipped_detectors)} (no raw data)')
+        if len(sskipped_detectors) == 1:
+            self.logger.warning(
+                f'Skipping detector {sskipped_detectors[0]} '
+                '(no raw data)')
+        elif sskipped_detectors:
+            skipped_detectors = [int(d) for d in sskipped_detectors]
+            self.logger.warning(
+                'Skipping detectors '
+                f'{list_to_string(skipped_detectors)} (no calibration data)')
+        if not detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
+        strain_analysis_config.detectors = detectors
+        self._detectors = strain_analysis_config.detectors
 
-        # Load the raw MCA data and compute the mean spectra
+        # Load the raw MCA data and compute the detector bin energies
+        # and the mean spectra
         self._setup_detector_data(
             nxentry[nxentry.default], strain_analysis_config)
 
@@ -951,7 +997,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import MCAElementCalibrationConfig
+        from CHAP.edd.models import MCAElementConfig
 
         self._save_figures = save_figures
         self._outputdir = outputdir
@@ -970,94 +1016,81 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             calibration_config = self.get_config(
                 data, 'edd.models.MCAEnergyCalibrationConfig',
                 inputdir=inputdir)
-        except:
-            self.logger.info('No valid calibration config in input pipeline '
-                             'data, using config parameter instead.')
+        except Exception as e:
+            self.logger.info(f'{e}')
             try:
                 # Local modules
                 from CHAP.edd.models import MCAEnergyCalibrationConfig
 
                 calibration_config = MCAEnergyCalibrationConfig(
                     **config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+            except Exception as e:
+                self.logger.info('Invalid config parameter for '
+                                 f'{self.__name__}\n({config})')
+                raise RuntimeError from e
 
         # Validate the detector configuration
-        detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        if detector_config.detectors[0].id == 'mca1':
-            if len(detector_config.detectors) != 1:
-                raise ValueError(
-                    'Multiple detectors not implemented for mca1 detector')
-            available_detector_indices = ['mca1']
-            if calibration_config.detectors is None:
-                calibration_config.detectors = [
-                    MCAElementCalibrationConfig(id='mca1')]
+        raw_detectors = [MCAElementConfig(**d.dict()) for d in DetectorConfig(
+                             **loads(str(nxentry.detectors))).detectors]
+        raw_detector_ids = [d.id for d in raw_detectors]
+        if 'mca1' in raw_detector_ids and len(raw_detector_ids) != 1:
+            raise RuntimeError(
+                'Multiple detectors not implemented for mca1 detector')
+        if calibration_config.detectors is None:
+            calibration_config.detectors = raw_detectors
+            calibration_config.update_detectors()
         else:
-            available_detector_indices = [
-                d.id for d in detector_config.detectors]
-            if calibration_config.detectors is None:
-                calibration_config.detectors = [
-                    MCAElementCalibrationConfig(id=i)
-                    for i in available_detector_indices]
-        for detector in deepcopy(calibration_config.detectors):
-            if detector.id in available_detector_indices:
-                self._detectors.append(detector)
-            else:
+            skipped_detectors = []
+            detectors = []
+            for detector in calibration_config.detectors:
+                if detector.id in raw_detector_ids:
+                    raw_detector = raw_detectors[
+                        int(raw_detector_ids.index(detector.id))]
+                    for k, v in raw_detector.attrs.items():
+                        if k not in detector.attrs:
+                            detector.attrs[k] = v
+                    #for k in vars(detector).keys():
+                    #    print(f'{k} {getattr(detector, k)}')
+                    detectors.append(detector)
+                else:
+                    skipped_detectors.append(detector.id)
+            if len(skipped_detectors) == 1:
                 self.logger.warning(
-                    f'Skipping detector {detector.id} (no raw data)')
-        if not self._detectors:
+                    f'Skipping detector {skipped_detectors[0]} '
+                    '(no raw data)')
+            elif skipped_detectors:
+                # Local modules
+                from CHAP.utils.general import list_to_string
+
+                skipped_detectors = [int(d) for d in skipped_detectors]
+                self.logger.warning(
+                    'Skipping detectors '
+                    f'{list_to_string(skipped_detectors)} (no raw data)')
+            calibration_config.detectors = detectors
+        if not calibration_config.detectors:
             self.logger.warning(
                 'No raw data for the requested calibration detectors)')
             exit('Code terminated')
-        if self._detectors[0].id == 'mca1' and len(self._detectors) != 1:
+        if (calibration_config.detectors[0].id == 'mca1'
+                and len(calibration_config.detectors) != 1):
             self.logger.warning(
                 'Multiple detectors not implemented for mca1 detector')
             exit('Code terminated')
+        self._detectors = calibration_config.detectors
 
-        # Validate the fit index range
-        if calibration_config.fit_index_ranges is None and not interactive:
-            raise RuntimeError(
-                'If include_bin_ranges is not explicitly provided, '
-                f'{self.__class__.__name__} must be run with '
-                '`interactive=True`.')
-
-        # Copy any configurational parameters that supersede the
-        # individual input detector values
-        for detector in self._detectors:
-            if calibration_config.background is not None:
-                detector.background = calibration_config.background.copy()
-            if calibration_config.baseline:
-                detector.baseline = calibration_config.baseline.model_copy()
-
-        # Check each detector's include_energy_ranges field against the
-        # flux file, if available.
-        if calibration_config.flux_file is not None:
-            flux = np.loadtxt(calibration_config.flux_file)
-            flux_file_energies = flux[:,0]/1.e3
-            flux_e_min = flux_file_energies.min()
-            flux_e_max = flux_file_energies.max()
-            for detector in self._detectors:
-                for i, (det_e_min, det_e_max) in enumerate(
-                        deepcopy(detector.include_energy_ranges)):
-                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
-                        energy_range = [float(max(det_e_min, flux_e_min)),
-                                        float(min(det_e_max, flux_e_max))]
-                        print(
-                            f'WARNING: include_energy_ranges[{i}] out of range'
-                            f' ({detector.include_energy_ranges[i]}): adjusted'
-                            f' to {energy_range}')
-                        detector.include_energy_ranges[i] = energy_range
-
-        # Load the raw MCA data and compute the mean spectra
+        # Load the raw MCA data and compute the detector bin energies
+        # and the mean spectra
         self._setup_detector_data(
-            nxentry, available_detector_indices,
-            calibration_config.max_energy_kev)
+            nxentry, raw_detector_ids, calibration_config.max_energy_kev)
+
+        # Apply the flux correction
+        self._apply_flux_correction(calibration_config.flux_file)
 
         # Apply the energy mask
         self._apply_energy_mask()
 
         # Get the mask used in the energy calibration
-        self._get_mask(calibration_config.fit_index_ranges)
+        self._get_mask()
 
         # Apply the combined energy ranges mask
         self._apply_combined_mask()
@@ -1068,7 +1101,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # Calibrate detector channel energies based on fluorescence peaks
         return self._calibrate(calibration_config)
 
-    def _get_mask(self, fit_index_ranges):
+    def _get_mask(self):
         """Get the mask used in the energy calibration."""
         # Local modules
         from CHAP.utils.general import select_mask_1d
@@ -1083,22 +1116,20 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     f'{detector.id}_energy_calibration_mask.png')
             else:
                 filename = None
-            _, include_bin_ranges = select_mask_1d(
-                mean_data, preselected_index_ranges=fit_index_ranges,
+            _, detector.mask_ranges = select_mask_1d(
+                mean_data, preselected_index_ranges=detector.mask_ranges,
                 title=f'Mask for detector {detector.id}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
                 min_num_index_ranges=1, interactive=self._interactive,
                 filename=filename)
-            detector.include_energy_ranges = \
-                detector.get_include_energy_ranges(include_bin_ranges)
             self.logger.debug(
-                f'include_energy_ranges for detector {detector.id}:'
-                f' {detector.include_energy_ranges}')
-            if not detector.include_bin_ranges:
+                f'mask_ranges for detector {detector.id}:'
+                f' {detector.mask_ranges}')
+            if not detector.mask_ranges:
                 raise ValueError(
-                    'No value provided for fit_index_ranges. Provide '
-                    'them in the energy calibration configuration, or re-run '
+                    'No value provided for mask_ranges. Provide it in '
+                    'the energy calibration configuration, or re-run '
                     'the pipeline with the interactive flag set.')
 
     def _calibrate(self, calibration_config):
@@ -1148,8 +1179,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                              for energy in peak_energies]
             initial_peak_indices = self._get_initial_peak_positions(
                 mean_data*np.asarray(mask).astype(np.int32), low,
-                detector.include_bin_ranges, input_indices,
-                max_peak_index, filename, detector.id)
+                detector.mask_ranges, input_indices, max_peak_index,
+                filename, detector.id)
 
             # Construct the fit model and preform the fit
             models = []
@@ -1160,13 +1191,11 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
-            if calibration_config.centers_range is None:
-                calibration_config.centers_range = 20
             models.append(
                 {'model': 'multipeak', 'centers': initial_peak_indices,
-                 'centers_range': calibration_config.centers_range,
-                 'fwhm_min': calibration_config.fwhm_min,
-                 'fwhm_max': calibration_config.fwhm_max})
+                 'centers_range': detector.centers_range,
+                 'fwhm_min': detector.fwhm_min,
+                 'fwhm_max': detector.fwhm_max})
             self.logger.debug('Fitting spectrum')
             fit = FitProcessor()
             mean_data_fit = fit.process(
@@ -1254,9 +1283,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        # Update the detectors' info and return the calibration
-        # configuration
-        calibration_config.detectors = self._detectors
         return calibration_config.dict()
 
     def _get_initial_peak_positions(
@@ -1512,7 +1538,10 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import MCATthCalibrationConfig
+        from CHAP.edd.models import (
+            MCAElementConfig,
+            MCATthCalibrationConfig,
+        )
         from CHAP.utils.general import list_to_string
 
         self._save_figures = save_figures 
@@ -1528,113 +1557,126 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         nxentry = nxroot[nxroot.default]
 
         # Load the validated 2&theta calibration configuration
+        calibration_config = None
         try:
+            calibration_config = self.get_config(
+                data, 'edd.models.MCAEnergyCalibrationConfig',
+                inputdir=inputdir).dict()
+            calibration_config = MCATthCalibrationConfig(**calibration_config)
+        except Exception as e:
+            self.logger.info(f'{e}')
             try:
-                calibration_config = self.get_config(
-                    data, 'edd.models.MCAEnergyCalibrationConfig',
-                    inputdir=inputdir).dict()
-            except:
                 calibration_config = self.get_config(
                     data, 'edd.models.MCATthCalibrationConfig',
-                    inputdir=inputdir).dict()
-            if config is not None:
-                calibration_config.update(config)
-            calibration_config = MCATthCalibrationConfig(**calibration_config)
-        except:
-            self.logger.info('No valid calibration config in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                calibration_config = MCATthCalibrationConfig(
-                    **config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+                    inputdir=inputdir)
+            except Exception as e:
+                self.logger.info(f'{e}')
+        if calibration_config is None:
+            raise RuntimeError('Missing calibration configuration')
 
         # Validate the detector configuration
         if calibration_config.detectors is None:
-            raise RuntimeError('No available calibrated detectors')
-        detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        if detector_config.detectors[0].id == 'mca1':
-            if (len(detector_config.detectors) != 1
-                    or len(calibration_config.detectors) != 1):
-                raise ValueError(
-                    'Multiple detectors not implemented for mca1 detector')
-            available_detector_indices = ['mca1']
-        else:
-            available_detector_indices = [
-                d.id for d in detector_config.detectors]
-        calibration_detector_indices = []
-        for detector in deepcopy(calibration_config.detectors):
-            if detector.id in available_detector_indices:
-                calibration_detector_indices.append(detector.id)
-                self._detectors.append(detector)
-            else:
-                self.logger.warning(
-                    f'Skipping detector {detector.id} (no raw data)')
-        skipped_detector_indices = [
-            int(id_) for id_ in available_detector_indices
-            if id_ not in calibration_detector_indices]
-        if skipped_detector_indices:
-            self.logger.warning('Skipping detector(s) '
-                                f'{list_to_string(skipped_detector_indices)} '
-                                '(no calibration data)')
-
-        # Validate the fit index range
-        if calibration_config.fit_index_ranges is None and not interactive:
+            raise RuntimeError('No calibrated detectors')
+        raw_detectors = [MCAElementConfig(**d.dict()) for d in DetectorConfig(
+                             **loads(str(nxentry.detectors))).detectors]
+        raw_detector_ids = [d.id for d in raw_detectors]
+        if 'mca1' in raw_detector_ids and len(raw_detector_ids) != 1:
             raise RuntimeError(
-                'If `fit_index_ranges` is not explicitly provided, '
-                f'{self.__class__.__name__} must be run with '
-                '`interactive=True`.')
+                'Multiple detectors not implemented for mca1 detector')
+        skipped_detectors = []
+        detectors = []
+        for detector in calibration_config.detectors:
+            if detector.id in raw_detector_ids:
+                raw_detector = raw_detectors[
+                    int(raw_detector_ids.index(detector.id))]
+                for k, v in raw_detector.attrs.items():
+                    if k not in detector.attrs:
+                        detector.attrs[k] = v
+                #for k in vars(detector).keys():
+                #    print(f'{k} {getattr(detector, k)}')
+                detectors.append(detector)
+            else:
+                skipped_detectors.append(detector.id)
+        if len(skipped_detectors) == 1:
+            self.logger.warning(
+                f'Skipping detector {skipped_detectors[0]} '
+                '(no raw data)')
+        elif skipped_detectors:
+            skipped_detectors = [int(d) for d in skipped_detectors]
+            self.logger.warning(
+                'Skipping detectors '
+                f'{list_to_string(skipped_detectors)} (no raw data)')
+        calibration_config.detectors = detectors
+        calibration_detector_ids = [d.id for d in calibration_config.detectors]
 
-        # Copy any configurational parameters that supersede the
-        # detector values during the energy calibration
-        for detector in self._detectors:
-            if calibration_config.tth_initial_guess is not None:
-                detector.tth_initial_guess = \
-                    calibration_config.tth_initial_guess
-            if detector.tth_calibrated is not None:
-                self.logger.warning(
-                    'Ignoring tth_calibrated in calibration configuration')
-                detector.tth_calibrated = None
-            if calibration_config.include_energy_ranges is not None:
-                detector.include_energy_ranges = \
-                    calibration_config.include_energy_ranges
-            if calibration_config.background is not None:
-                detector.background = calibration_config.background.copy()
-            if calibration_config.baseline:
-                detector.baseline = calibration_config.baseline.model_copy()
+        # Update any processor configuration parameters not superseded by
+        # individual detector values
+        if config is not None:
+            if 'detectors' in config:
+                have_detectors = True
+            else:
+                config['detectors'] = calibration_config.detectors
+                have_detectors = False
+            try:
+                config = MCATthCalibrationConfig(**config)
+            except Exception as e:
+                self.logger.info('Invalid config parameter for '
+                                 f'{self.__name__}\n({config})')
+                raise RuntimeError from e
+            if have_detectors:
+                sskipped_detectors = []
+                detectors = []
+                for detector in config.detectors:
+                    if detector.id in calibration_detector_ids:
+                        calibration_detector = calibration_config.detectors[
+                            int(calibration_detector_ids.index(detector.id))]
+                        for k in vars(detector).keys():
+                            if k in ('mask_ranges', 'energy_mask_ranges'):
+                                continue
+                            v = getattr(detector, k)
+                            if v is None or not v:
+                                setattr(
+                                    detector, k,
+                                    getattr(calibration_detector, k))
+                        if detector.tth_calibrated is not None:
+                            self.logger.warning(
+                                'Ignoring tth_calibrated in calibration '
+                                'configuration')
+                            detector.tth_calibrated = None
+                        detectors.append(detector)
+                    else:
+                        sskipped_detectors.append(detector.id)
+                skipped_detectors = [d for d in sskipped_detectors
+                                     if d not in skipped_detectors]
+                if len(skipped_detectors) == 1:
+                    self.logger.warning(
+                        f'Skipping detector {skipped_detectors[0]} '
+                        '(no calibration data)')
+                elif skipped_detectors:
+                    skipped_detectors = [int(d) for d in skipped_detectors]
+                    self.logger.warning(
+                        'Skipping detectors '
+                        f'{list_to_string(skipped_detectors)} (no raw data)')
+                calibration_config.detectors = detectors
+        self._detectors = calibration_config.detectors
 
-        # Check each detector's include_energy_ranges field against the
-        # flux file, if available.
-        if calibration_config.flux_file is not None:
-            flux = np.loadtxt(calibration_config.flux_file)
-            flux_file_energies = flux[:,0]/1.e3
-            flux_e_min = flux_file_energies.min()
-            flux_e_max = flux_file_energies.max()
-            for detector in self._detectors:
-                for i, (det_e_min, det_e_max) in enumerate(
-                        deepcopy(detector.include_energy_ranges)):
-                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
-                        energy_range = [float(max(det_e_min, flux_e_min)),
-                                        float(min(det_e_max, flux_e_max))]
-                        print(
-                            f'WARNING: include_energy_ranges[{i}] out of range'
-                            f' ({detector.include_energy_ranges[i]}): adjusted'
-                            f' to {energy_range}')
-                        detector.include_energy_ranges[i] = energy_range
-
-        # Load the raw MCA data and compute the mean spectra
+        # Load the raw MCA data and compute the detector bin energies
+        # and the mean spectra
         self._setup_detector_data(
-            nxentry, calibration_detector_indices)
+            nxentry, calibration_detector_ids)
+
+        # Apply the flux correction
+        self._apply_flux_correction(calibration_config.flux_file)
 
         # Apply the energy mask
         self._apply_energy_mask()
 
         # Select the initial tth value
         if self._interactive or self._save_figures:
-            self._select_tth_init([calibration_config.material])
+            self._select_tth_init(calibration_config.materials)
 
         # Get the mask used in the energy calibration
-        self._get_mask_hkls([calibration_config.material])
+        self._get_mask_hkls(calibration_config.materials)
 
         # Apply the combined energy ranges mask
         self._apply_combined_mask()
@@ -1671,9 +1713,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
-        centers_range = calibration_config.centers_range
-        if centers_range is None:
-            centers_range = 20
+        #RV FIXcenters_range = calibration_config.centers_range
+        #if centers_range is None:
+        #    centers_range = 20
         quadratic_energy_calibration = \
             calibration_config.quadratic_energy_calibration
 
@@ -1695,8 +1737,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
             # Get the Bragg peak HKLs, lattice spacings and energies
             hkls, ds = get_unique_hkls_ds(
-                [calibration_config.material], tth_tol=detector.hkl_tth_tol,
-                tth_max=detector.tth_max)
+                calibration_config.materials, tth_max=detector.tth_max,
+                tth_tol=detector.tth_tol)
             hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
             ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             e_bragg = get_peak_locations(ds, tth)
@@ -1720,9 +1762,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
-                 'centers_range': centers_range,
-                 'fwhm_min': calibration_config.fwhm_min,
-                 'fwhm_max': calibration_config.fwhm_max})
+                 'centers_range': detector.centers_range,
+                 'fwhm_min': detector.fwhm_min,
+                 'fwhm_max': detector.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(mean_data, 'y'), NXfield(bins, 'x')),
@@ -1885,8 +1927,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             # Get the unique HKLs and lattice spacings for the tth
             # calibration
             hkls, ds = get_unique_hkls_ds(
-                materials, tth_tol=detector.hkl_tth_tol,
-                tth_max=detector.tth_max)
+                materials, tth_max=detector.tth_max, tth_tol=detector.tth_tol)
 
             if self._save_figures:
                 filename = os.path.join(
@@ -1898,7 +1939,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 energies, mean_data, hkls, ds, detector.tth_initial_guess,
                 self._interactive, filename, detector.id)
             self.logger.debug(
-                f'tth_initial_guess = {detector.tth_initial_guess}')
+                f'tth_initial_guess for detector {detector.id}: '
+                f'{detector.tth_initial_guess}')
 
 
 #class MCADataProcessor(Processor):
@@ -2223,6 +2265,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             raise RuntimeError(
                 'No valid input in the pipeline data') from exc
 
+        # Load the detector data
+        if 'default' in nxroot.attrs:
+            nxentry = nxroot[nxroot.default]
+        else:
+            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+
         # Load the validated calibration configuration
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
@@ -2241,50 +2289,68 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             except Exception as exc:
                 raise RuntimeError from exc
 
-        # Validate the detector configuration and load, validate and
-        # add the calibration info to the detectors
-        if 'default' in nxroot.attrs:
-            nxentry = nxroot[nxroot.default]
-        else:
-            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+        # Validate the detector configuration and check against the raw
+        # data (availability and shape) and the calibration data
+        # Update any processor configuration parameters not superseded
+        # by individual detector values
         nxdata = nxentry[nxentry.default]
-        calibration_detector_indices = [
-            d.id for d in calibration_config.detectors]
         if strain_analysis_config.detectors is None:
             strain_analysis_config.detectors = [
-                MCAElementStrainAnalysisConfig(**dict(d))
+                MCAElementStrainAnalysisConfig(id=d.id)
                 for d in calibration_config.detectors if d.id in nxdata]
-        for detector in deepcopy(strain_analysis_config.detectors):
+        strain_analysis_config.update_detectors()
+        calibration_detector_ids = [d.id for d in calibration_config.detectors]
+        skipped_detectors = []
+        sskipped_detectors = []
+        detectors = []
+        for detector in strain_analysis_config.detectors:
             if detector.id not in nxdata:
-                self.logger.warning(
-                    f'Skipping detector {detector.id} (no raw data)')
-                strain_analysis_config.detectors.remove(detector)
-            elif detector.id in calibration_detector_indices:
-                det_data = nxdata[detector.id].nxdata
-                if det_data.ndim != 2:
+                skipped_detectors.append(detector.id)
+            elif detector.id not in calibration_detector_ids:
+                sskipped_detectors.append(detector.id)
+            else:
+                raw_detector_data = nxdata[detector.id].nxdata
+                if raw_detector_data.ndim != 2:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (Illegal data shape '
-                        f'{det_data.shape})')
-                elif setup or det_data.sum():
+                        f'{raw_detector_data.shape})')
+                elif raw_detector_data.sum():
                     for k, v in nxdata[detector.id].attrs.items():
-                        detector.attrs[k] = v
-                    self._detectors.append(detector)
-                    calibration = [
-                        d for d in calibration_config.detectors
-                        if d.id == detector.id][0]
-                    detector.add_calibration(calibration)
-                    self._energies.append(detector.energies)
+                        print(f'\n\nk {type(k)}, v {type(v)} {type(v.nxdata)}: {k}, {v} {v.nxdata}\n\n')
+                        detector.attrs[k] = v.nxdata
+                    detector.add_calibration(
+                        calibration_config.detectors[
+                            int(calibration_detector_ids.index(detector.id))])
+                    detectors.append(detector)
                 else:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (zero intensity)')
-            else:
-                self.logger.warning(f'Skipping detector {detector.id} '
-                                    '(no energy/tth calibration data)')
-        if not self._detectors:
+        if len(skipped_detectors) == 1:
+            self.logger.warning(
+                f'Skipping detector {skipped_detectors[0]} '
+                '(no raw data)')
+        elif skipped_detectors:
+            skipped_detectors = [int(d) for d in skipped_detectors]
+            self.logger.warning(
+                'Skipping detectors '
+                f'{list_to_string(skipped_detectors)} (no raw data)')
+        if len(sskipped_detectors) == 1:
+            self.logger.warning(
+                f'Skipping detector {sskipped_detectors[0]} '
+                '(no raw data)')
+        elif sskipped_detectors:
+            skipped_detectors = [int(d) for d in sskipped_detectors]
+            self.logger.warning(
+                'Skipping detectors '
+                f'{list_to_string(skipped_detectors)} (no calibration data)')
+        if not detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
+        strain_analysis_config.detectors = detectors
+        self._detectors = strain_analysis_config.detectors
 
-        # Load the raw MCA data and compute the mean spectra
+        # Load the raw MCA data and compute the detector bin energies
+        # and the mean spectra
         self._setup_detector_data(
             nxentry[nxentry.default], strain_analysis_config, update)
 
@@ -2557,8 +2623,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             # Get the unique HKLs and lattice spacings for the strain
             # analysis materials
             hkls, _ = get_unique_hkls_ds(
-                strain_analysis_config.materials, tth_tol=detector.hkl_tth_tol,
-                tth_max=detector.tth_max)
+                strain_analysis_config.materials, tth_max=detector.tth_max,
+                tth_tol=detector.tth_tol)
 
             # Get the HKLs and lattice spacings that will be used for
             # fitting
@@ -2645,6 +2711,15 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             get_unique_hkls_ds,
         )
 
+        # Copy any configurational parameters that supersede the
+        # individual input detector values
+        for detector in self._detectors:
+            if strain_analysis_config.background is not None:
+                detector.background = strain_analysis_config.background.copy()
+            if strain_analysis_config.baseline:
+                detector.baseline = \
+                    strain_analysis_config.baseline.model_copy()
+
         # Get and subtract the detector baselines
         self._subtract_baselines()
 
@@ -2675,8 +2750,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             # Get the unique HKLs and lattice spacings for the strain
             # analysis materials
             hkls, ds = get_unique_hkls_ds(
-                strain_analysis_config.materials, tth_tol=detector.hkl_tth_tol,
-                tth_max=detector.tth_max)
+                strain_analysis_config.materials, tth_max=detector.tth_max,
+                tth_tol=detector.tth_tol)
 
             # Get the HKLs and lattice spacings that will be used for
             # fitting

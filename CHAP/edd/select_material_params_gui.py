@@ -182,7 +182,8 @@ class MaterialParamSelector:
 
     def update_plot(self):
         from CHAP.edd.utils import (
-            get_unique_hkls_ds, get_peak_locations
+            get_unique_hkls_ds,
+            get_peak_locations,
         )
         self.ax.cla()
         self.legend_handles = []

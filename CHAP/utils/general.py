@@ -1262,9 +1262,10 @@ def select_mask_1d(
     :param x: x-coordinates of the reference data.
     :type x: numpy.ndarray, optional
     :param preselected_index_ranges: List of preselected index ranges
-        to mask.
+        to mask (bounds are inclusive).
     :type preselected_index_ranges: Union(list[tuple(int, int)],
-        list[list[int]]), optional
+        list[list[int]], list[tuple(float, float)], list[list[float]]),
+        optional
     :param preselected_mask: Preselected boolean mask array.
     :type preselected_mask: numpy.ndarray, optional
     :param title: Title for the displayed figure.
@@ -1287,8 +1288,11 @@ def select_mask_1d(
     :type filename: str, optional
     :return: A boolean mask array and the list of selected index
         ranges.
-    :rtype: numpy.ndarray, list[tuple(int, int)]
+    :rtype: numpy.ndarray, list[list[int, int]]
     """
+    # System modules
+    from copy import deepcopy
+
     # Third party modules
     if interactive or filename is not None:
         from matplotlib.patches import Patch
@@ -1440,11 +1444,17 @@ def select_mask_1d(
     if preselected_index_ranges is None:
         preselected_index_ranges = []
     else:
-        if (not isinstance(preselected_index_ranges, list)
-                or any(not is_int_pair(v, ge=0, le=num_data)
-                       for v in preselected_index_ranges)):
+        if not isinstance(preselected_index_ranges, list):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
+        index_ranges = []
+        for i, v in enumerate(preselected_index_ranges):
+            if not is_num_pair(v):
+                raise ValueError('Invalid parameter preselected_index_ranges '
+                                 f'({preselected_index_ranges})')
+            index_ranges.append(
+                (max(0, int(v[0])), min(num_data, int(v[1])-1)))
+        preselected_index_ranges = index_ranges
 
     # Setup the preselected mask and index ranges if provided
     if preselected_mask is not None:
