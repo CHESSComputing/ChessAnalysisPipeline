@@ -26,6 +26,7 @@ from pydantic import (
     conlist,
     constr,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from scipy.interpolate import interp1d
@@ -35,9 +36,61 @@ from typing_extensions import Annotated
 from CHAP.common.models.map import Detector
 from CHAP.utils.parfile import ParFile
 
+# EDD pydantic basemodel with serialization
+
+class EDDBaseModel(BaseModel):
+    """Baseline EDD configuration class implementing robust
+    serialization tools.
+    """
+
+    @staticmethod
+    def eval_value(value):
+        if hasattr(value, '__dict__'):
+            value = dict(value)
+        elif isinstance(value, dict):
+            value = {k:EDDBaseModel.eval_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            value = [EDDBaseModel.eval_value(v) for v in value]
+        elif isinstance(value, tuple):
+            value = tuple(EDDBaseModel.eval_value(v) for v in value)
+        elif isinstance(value, np.ndarray):
+            value = value.tolist()
+        elif isinstance(value, PosixPath):
+            value = str(value)
+        return value
+
+    @model_serializer
+    def ser_model(self):
+        d = EDDBaseModel.eval_value(self)
+        if '_exclude' in d:
+            d.pop('_exclude')
+        return d
+
+    def __iter__(self):
+        for k in self.__dict__:
+            if not (hasattr(self, '_exclude') and k in self._exclude):
+                yield k, EDDBaseModel.eval_value(getattr(self, k))
+
+    def model_dump(self, *args, **kwargs):
+        if 'exclude' in kwargs and kwargs['exclude'] is not None:
+            self._exclude = kwargs['exclude']
+        d = super().model_dump()
+        if hasattr(self, '_exclude'):
+            del self._exclude
+        return d
+        
+    def model_dump_json(self, *args, **kwargs):
+        if 'exclude' in kwargs and kwargs['exclude'] is not None:
+            self._exclude = kwargs['exclude']
+        d = super().model_dump_json()
+        if hasattr(self, '_exclude'):
+            del self._exclude
+        return d
+
+
 # Baseline configuration class
 
-class BaselineConfig(BaseModel):
+class BaselineConfig(EDDBaseModel):
     """Baseline model configuration class.
 
     :ivar lam: The &lambda (smoothness) parameter (the balance
@@ -59,7 +112,7 @@ class BaselineConfig(BaseModel):
 
 # Fit configuration class
 
-class FitConfig(BaseModel):
+class FitConfig(EDDBaseModel):
     """Fit parameters configuration class for peak fitting.
 
     :ivar background: Background model for peak fitting,
@@ -122,6 +175,8 @@ class FitConfig(BaseModel):
         :return: List of validated background models.
         :rtype: list[str]
         """
+        if background is None:
+            return background
         if isinstance(background, str):
             return [background]
         return sorted(background)
@@ -172,21 +227,10 @@ class FitConfig(BaseModel):
             return sorted([sorted(v) for v in mask_ranges])
         return mask_ranges
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-#        d['baseline'] = self.baseline.dict()
-        return d
-
 
 # Material configuration class
 
-class MaterialConfig(BaseModel):
+class MaterialConfig(EDDBaseModel):
     """Sample material parameters configuration class.
 
     :ivar material_name: Sample material name.
@@ -242,17 +286,18 @@ class MaterialConfig(BaseModel):
 #        return get_unique_hkls_ds(
 #            [self._material], tth_max=tth_max, tth_tol=tth_tol)
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        if '_material' in d:
-            del d['_material']
-        return d
+#    def dict(self, *args, **kwargs):
+#        """Return a representation of this configuration in a
+#        dictionary that is suitable for dumping to a YAML file.
+#
+#        :return: Dictionary representation of the configuration.
+#        :rtype: dict
+#        """
+#        d = super().dict(*args, **kwargs)
+#        if '_material' in d:
+#            del d['_material']
+#        exit(f'\n\n{type(self)}\n{d}\nDone')
+#        return d
 
 
 # Detector configuration classes
@@ -378,17 +423,18 @@ class MCAElementConfig(Detector, FitConfig):
                 np.logical_and(channel_bins >= min_, channel_bins <= max_))
         return mask
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        if '_hkl_indices:' in d:
-            del d['_hkl_indices:']
-        return d
+#    def dict(self, *args, **kwargs):
+#        """Return a representation of this configuration in a
+#        dictionary that is suitable for dumping to a YAML file.
+#
+#        :return: Dictionary representation of the configuration.
+#        :rtype: dict
+#        """
+#        d = super().dict(*args, **kwargs)
+#        if '_hkl_indices:' in d:
+#            del d['_hkl_indices:']
+#        exit(f'\n\n{type(self)}\n{d}\nDone')
+#        return d
 
 
 #class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
@@ -567,23 +613,24 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             return self.tth_map
         return np.full(map_shape, self.tth_calibrated)
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        for k, v in d.items():
-            if isinstance(v, PosixPath):
-                d[k] = str(v)
-        return d
+#    def dict(self, *args, **kwargs):
+#        """Return a representation of this configuration in a
+#        dictionary that is suitable for dumping to a YAML file.
+#
+#        :return: Dictionary representation of the configuration.
+#        :rtype: dict
+#        """
+#        d = super().dict(*args, **kwargs)
+#        for k, v in d.items():
+#            if isinstance(v, PosixPath):
+#                d[k] = str(v)
+#        exit(f'\n\n{type(self)}\n{d}\nDone')
+#        return d
 
 
 # Processor configuration classes
 
-#class MCAScanDataConfig(BaseModel):
+#class MCAScanDataConfig(EDDBaseModel):
 #    """Class representing metadata required to locate raw MCA data for
 #    a single scan and construct a mask for it.
 #
@@ -881,27 +928,27 @@ class MCACalibrationConfig(FitConfig):
 
     def update_detectors(self):
         for detector in self.detectors:
-            for k, v in self:
+            for k in self.__dict__:
                 if hasattr(detector, k) and getattr(detector, k) is None:
-                    setattr(detector, k, v)
+                    setattr(detector, k, getattr(self, k))
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-        Exclude inputdir and the inherited FitConfig parameters.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        if 'inputdir' in d:
-            del d['inputdir']
-        for k in vars(FitConfig()).keys():
-            del d[k]
-        for k, v in d.items():
-            if isinstance(v, PosixPath):
-                d[k] = str(v)
-        return d
+#    def dict(self, *args, **kwargs):
+#        """Return a representation of this configuration in a
+#        dictionary that is suitable for dumping to a YAML file.
+#        Exclude inputdir and the inherited FitConfig parameters.
+#
+#        :return: Dictionary representation of the configuration.
+#        :rtype: dict
+#        """
+#        d = super().dict(*args, **kwargs)
+#        if 'inputdir' in d:
+#            del d['inputdir']
+#        for k in vars(FitConfig()).keys():
+#            del d[k]
+#        for k, v in d.items():
+#            if isinstance(v, PosixPath):
+#                d[k] = str(v)
+#        return d
 
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
@@ -953,7 +1000,7 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         return self
 
     @model_validator(mode='after')
-    def validate_max_peak_index(self):
+    def validate_peak_energies(self):
         """Validate the specified index of the XRF peak with the
         highest amplitude against the number of peak energies.
 
@@ -980,7 +1027,7 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     :type tth_initial_guess: float, optional
     """
     detectors: Optional[conlist(item_type=MCAElementConfig)] = None
-    quadratic_energy_calibration: bool = False
+    quadratic_energy_calibration: Optional[bool] = False
     tth_initial_guess: Optional[confloat(gt=0, allow_inf_nan=False)] = None
 
     @model_validator(mode='after')
@@ -1017,17 +1064,18 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
         energies = flux[:,0]/1.e3
         return energies.min(), energies.max()
 
-    def dict(self, *args, **kwargs):
-        """Return a representation of this configuration in a
-        dictionary that is suitable for dumping to a YAML file.
-
-        :return: Dictionary representation of the configuration.
-        :rtype: dict
-        """
-        d = super().dict(*args, **kwargs)
-        if 'tth_initial_guess' in d:
-            del d['tth_initial_guess']
-        return d
+#    def dict(self, *args, **kwargs):
+#        """Return a representation of this configuration in a
+#        dictionary that is suitable for dumping to a YAML file.
+#
+#        :return: Dictionary representation of the configuration.
+#        :rtype: dict
+#        """
+#        d = super().dict(*args, **kwargs)
+#        if 'tth_initial_guess' in d:
+#            del d['tth_initial_guess']
+#        exit(f'\n\n{type(self)}\n{d}\nDone')
+#        return d
 
 
 class StrainAnalysisConfig(MCACalibrationConfig):

@@ -9,7 +9,6 @@ Description: Module for Processors used only by EDD experiments
 
 # System modules
 from copy import deepcopy
-from json import dumps
 import os
 
 # Third party modules
@@ -1030,8 +1029,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 raise RuntimeError from e
 
         # Validate the detector configuration
-        raw_detectors = [MCAElementConfig(**d.dict()) for d in DetectorConfig(
-                             **loads(str(nxentry.detectors))).detectors]
+        raw_detectors = [
+            MCAElementConfig(**d.model_dump()) for d in DetectorConfig(
+                **loads(str(nxentry.detectors))).detectors]
         raw_detector_ids = [d.id for d in raw_detectors]
         if 'mca1' in raw_detector_ids and len(raw_detector_ids) != 1:
             raise RuntimeError(
@@ -1048,7 +1048,10 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                         int(raw_detector_ids.index(detector.id))]
                     for k, v in raw_detector.attrs.items():
                         if k not in detector.attrs:
-                            detector.attrs[k] = v
+                            if isinstance(v, list):  #RV FIX
+                                detector.attrs[k] = np.asarray(v)
+                            else:
+                                detector.attrs[k] = v
                     #for k in vars(detector).keys():
                     #    print(f'{k} {getattr(detector, k)}')
                     detectors.append(detector)
@@ -1151,6 +1154,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         )
 
         # Local modules
+        from CHAP.edd.models import FitConfig
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
@@ -1283,7 +1287,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        return calibration_config.dict()
+        return calibration_config.model_dump(
+            exclude={'inputdir'}|set(vars(FitConfig()).keys()))
 
     def _get_initial_peak_positions(
             self, y, low, index_ranges, input_indices, input_max_peak_index,
@@ -1539,6 +1544,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Local modules
         from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import (
+            FitConfig,
             MCAElementConfig,
             MCATthCalibrationConfig,
         )
@@ -1561,7 +1567,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         try:
             calibration_config = self.get_config(
                 data, 'edd.models.MCAEnergyCalibrationConfig',
-                inputdir=inputdir).dict()
+                inputdir=inputdir).model_dump()
             calibration_config = MCATthCalibrationConfig(**calibration_config)
         except Exception as e:
             self.logger.info(f'{e}')
@@ -1577,8 +1583,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Validate the detector configuration
         if calibration_config.detectors is None:
             raise RuntimeError('No calibrated detectors')
-        raw_detectors = [MCAElementConfig(**d.dict()) for d in DetectorConfig(
-                             **loads(str(nxentry.detectors))).detectors]
+        raw_detectors = [
+            MCAElementConfig(**d.model_dump()) for d in DetectorConfig(
+                **loads(str(nxentry.detectors))).detectors]
         raw_detector_ids = [d.id for d in raw_detectors]
         if 'mca1' in raw_detector_ids and len(raw_detector_ids) != 1:
             raise RuntimeError(
@@ -1706,6 +1713,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from scipy.signal import find_peaks as find_peaks_scipy
 
         # Local modules
+        from CHAP.edd.models import FitConfig
         from CHAP.edd.utils import (
             get_peak_locations,
             get_unique_hkls_ds,
@@ -1909,7 +1917,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Update the detectors' info and return the calibration
         # configuration
         calibration_config.detectors = self._detectors
-        return calibration_config.dict()
+        return calibration_config.model_dump(
+            exclude={'inputdir', 'tth_initial_guess'}|set(
+                vars(FitConfig()).keys()))
 
     def _select_tth_init(self, materials):
         """Select the initial 2&theta guess from the mean MCA
@@ -2316,7 +2326,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         f'{raw_detector_data.shape})')
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector.id].attrs.items():
-                        print(f'\n\nk {type(k)}, v {type(v)} {type(v.nxdata)}: {k}, {v} {v.nxdata}\n\n')
                         detector.attrs[k] = v.nxdata
                     detector.add_calibration(
                         calibration_config.detectors[
@@ -2365,12 +2374,14 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
         # Setup and/or run the strain analysis
         if setup and update:
-            nxroot = self._get_nxroot(nxentry, strain_analysis_config)
+            nxroot = self._get_nxroot(
+                nxentry, calibration_config, strain_analysis_config)
             points = self._strain_analysis(strain_analysis_config)
             self.add_points(nxroot, points, logger=self.logger)
             return nxroot
         elif setup:
-            return self._get_nxroot(nxentry, strain_analysis_config)
+            return self._get_nxroot(
+                nxentry, calibration_config, strain_analysis_config)
         elif update:
             return self._strain_analysis(strain_analysis_config)
         return None
@@ -2532,13 +2543,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             ani.save(path)
         plt.close()
 
-    def _get_nxroot(self, nxentry, strain_analysis_config):
+    def _get_nxroot(self, nxentry, calibration_config, strain_analysis_config):
         """Return a `nexusformat.nexus.NXroot` object initialized for
         the stress analysis.
 
         :param nxentry: Strain analysis map, including the raw
             MCA data.
         :type nxentry: nexusformat.nexus.NXentry
+        :param calibration_config: 2&theta calibration configuration.
+        :type calibration_config:
+            CHAP.edd.models.MCATthCalibrationConfig
         :param strain_analysis_config: Strain analysis processing
             configuration.
         :type strain_analysis_config:
@@ -2554,6 +2568,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             NXroot,
         )
 
+        # Local modules
+        from CHAP.edd.models import FitConfig
         from CHAP.edd.utils import get_unique_hkls_ds
         from CHAP.utils.general import nxcopy
 
@@ -2568,8 +2584,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxroot[nxentry.nxname] = nxentry
         nxroot[f'{nxentry.nxname}_strainanalysis'] = NXprocess()
         nxprocess = nxroot[f'{nxentry.nxname}_strainanalysis']
-        nxprocess.strain_analysis_config = dumps(
-            strain_analysis_config.dict())
+        nxprocess.calibration_config = \
+            calibration_config.model_dump_json(
+                exclude={'inputdir', 'tth_initial_guess'}|set(
+                vars(FitConfig()).keys()))
+        nxprocess.strain_analysis_config = \
+            strain_analysis_config.model_dump_json()
 
         # Loop over the detectors to fill in the nxprocess
         for energies, mask, nxdata, detector in zip(
@@ -2586,7 +2606,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxdetector = NXdetector()
             nxprocess[detector.id] = nxdetector
             nxdetector.local_name = detector.id
-            nxdetector.detector_config = dumps(detector.dict())
+            nxdetector.detector_config = detector.model_dump_json()
             nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
             det_nxdata = nxdetector.data
             if 'axes' in det_nxdata.attrs:
