@@ -1546,6 +1546,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from CHAP.edd.models import (
             FitConfig,
             MCAElementConfig,
+            MCAEnergyCalibrationConfig,
             MCATthCalibrationConfig,
         )
         from CHAP.utils.general import list_to_string
@@ -1577,6 +1578,13 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                     inputdir=inputdir)
             except Exception as e:
                 self.logger.info(f'{e}')
+                try:
+                    calibration_config = MCATthCalibrationConfig(
+                        **config, inputdir=inputdir)
+                except Exception as e:
+                    self.logger.info('Invalid config parameter for '
+                                     f'{self.__name__}\n({config})')
+                    raise ValueError(f'{e}') from e
         if calibration_config is None:
             raise RuntimeError('Missing calibration configuration')
 
