@@ -505,10 +505,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
-        nxroot = self.get_data(data)
-        if not isinstance(nxroot, NXroot):
-            raise RuntimeError('No valid NXroot data in input pipeline data')
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated DVL configuration
         try:
@@ -548,10 +545,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                         int(raw_detector_ids.index(detector.id))]
                     for k, v in raw_detector.attrs.items():
                         if k not in detector.attrs:
-                            if isinstance(v, list):  #RV FIX
-                                detector.attrs[k] = np.asarray(v)
-                            else:
-                                detector.attrs[k] = v
+                            detector.attrs[k] = v
                     #for k in vars(detector).keys():
                     #    print(f'{k} {getattr(detector, k)}')
                     detectors.append(detector)
@@ -853,17 +847,12 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                 nxroot = NXroot()
                 nxroot[nxobject.nxname] = nxobject
                 nxobject.set_default()
-            else:
-                raise RuntimeError
         except Exception as exc:
             raise RuntimeError(
                 'No valid input in the pipeline data') from exc
 
         # Load the detector data
-        if 'default' in nxroot.attrs:
-            nxentry = nxroot[nxroot.default]
-        else:
-            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+        nxentry = self.get_default_nxentry(nxroot)
 
         # Load the validated calibration configuration
         calibration_config = self.get_config(
@@ -1125,10 +1114,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
-        nxroot = self.get_data(data)
-        if not isinstance(nxroot, NXroot):
-            raise RuntimeError('No valid NXroot data in input pipeline data')
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated energy calibration configuration
         try:
@@ -1678,10 +1664,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
-        nxroot = self.get_data(data)
-        if not isinstance(nxroot, NXroot):
-            raise RuntimeError('No valid NXroot data in input pipeline data')
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated 2&theta calibration configuration
         calibration_config = None
@@ -2081,183 +2064,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 f'{detector.tth_initial_guess}')
 
 
-#class MCADataProcessor(Processor):
-#    """A Processor to return data from an MCA, restuctured to
-#    incorporate the shape & metadata associated with a map
-#    configuration to which the MCA data belongs, and linearly
-#    transformed according to the results of a energy/tth calibration.
-#    """
-#    def process(self, data, inputdir='.'):
-#        """Process configurations for a map and MCA detector(s), and
-#        return the calibrated MCA data collected over the map.
-#
-#        :param data: Input map configuration and results of
-#            energy/tth calibration.
-#        :type data: list[dict[str,object]]
-#        :param inputdir: Input directory, used only if files in the
-#            input configuration are not absolute paths,
-#            defaults to `'.'`.
-#        :type inputdir: str, optional
-#        :return: Calibrated and flux-corrected MCA data.
-#        :rtype: nexusformat.nexus.NXroot
-#        """
-#        print(f'data:\n{data}')
-#        exit('Done Here')
-#        map_config = self.get_config(
-#            data, 'common.models.map.MapConfig', inputdir=inputdir)
-#        calibration_config = self.get_config(
-#            data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
-#        nxroot = self.get_nxroot(map_config, calibration_config)
-#
-#        return nxroot
-#
-#    def get_nxroot(self, map_config, calibration_config):
-#        """Get a map of the MCA data collected by the scans in
-#        `map_config`. The MCA data will be calibrated and
-#        flux-corrected according to the parameters included in
-#        `calibration_config`. The data will be returned along with
-#        relevant metadata in the form of a NeXus structure.
-#
-#        :param map_config: The map configuration.
-#        :type map_config: CHAP.common.models.MapConfig.
-#        :param calibration_config: The calibration configuration.
-#        :type calibration_config:
-#            CHAP.edd.models.MCATthCalibrationConfig
-#        :return: A map of the calibrated and flux-corrected MCA data.
-#        :rtype: nexusformat.nexus.NXroot
-#        """
-#        # Third party modules
-#        from nexusformat.nexus import (
-#            NXdata,
-#            NXdetector,
-#            NXinstrument,
-#            NXroot,
-#        )
-#
-#        # Local modules
-#        from CHAP.common import MapProcessor
-#
-#        nxroot = NXroot()
-#
-#        nxroot[map_config.title] = MapProcessor.get_nxentry(map_config)
-#        nxentry = nxroot[map_config.title]
-#
-#        for detector in calibration_config.detectors:
-#            nxentry.instrument = NXinstrument()
-#            nxentry.instrument[detector.id] = NXdetector()
-#            nxentry.instrument[detector.id].calibration = dumps(
-#                detector.dict())
-#
-#            nxentry.instrument[detector.id].data = NXdata()
-#            nxdata = nxentry.instrument[detector.id].data
-#            nxdata.raw = np.empty((*map_config.shape,
-#                                   detector.num_bins))
-#            nxdata.raw.attrs['units'] = 'counts'
-#            nxdata.channel_energy = detector.slope_calibrated \
-#                * np.linspace(0, detector.max_energy_kev, detector.num_bins) \
-#                + detector.intercept_calibrated
-#            nxdata.channel_energy.attrs['units'] = 'keV'
-#
-#            for map_index in np.ndindex(map_config.shape):
-#                scans, scan_number, scan_step_index = \
-#                    map_config.get_scan_step_index(map_index)
-#                scanparser = scans.get_scanparser(scan_number)
-#                nxdata.raw[map_index] = scanparser.get_detector_data(
-#                    calibration_config.id, scan_step_index)
-#
-#            nxentry.data.makelink(nxdata.raw, name=detector.id)
-#            nxentry.data.makelink(
-#                nxdata.channel_energy, name=f'{detector.id}_channel_energy')
-#            if isinstance(nxentry.data.attrs['axes'], str):
-#                nxentry.data.attrs['axes'] = [
-#                    nxentry.data.attrs['axes'],
-#                    f'{detector.id}_channel_energy']
-#            else:
-#                nxentry.data.attrs['axes'] += [f'{detector.id}_channel_energy']
-#            nxentry.data.attrs['signal'] = detector.id
-#
-#        return nxroot
-
-
-#class MCACalibratedDataPlotter(Processor):
-#    """Convenience Processor for quickly visualizing calibrated MCA
-#    data from a single scan. Returns None!
-#    """
-#    def process(
-#            self, data, spec_file, scan_number, scan_step_index=None,
-#            material=None, save_figures=False, interactive=False,
-#            outputdir='.'):
-#        """Show a maplotlib figure of the MCA data fom the scan
-#        provided on a calibrated energy axis. If `scan_step_index` is
-#        None, a plot of the sum of all spectra across the whole scan
-#        will be shown.
-#
-#        :param data: PipelineData containing an MCA calibration.
-#        :type data: list[PipelineData]
-#        :param spec_file: SPEC file containing scan of interest.
-#        :type spec_file: str
-#        :param scan_number: Scan number of interest.
-#        :type scan_number: int
-#        :param scan_step_index: Scan step index of interest.
-#        :type scan_step_index: int, optional
-#        :param material: Material parameters to plot HKLs for.
-#        :type material: dict
-#        :param save_figures: Save .pngs of plots for checking inputs &
-#            outputs of this Processor.
-#        :type save_figures: bool
-#        :param interactive: Allows for user interactions.
-#        :type interactive: bool
-#        :param outputdir: Directory to which any output figures will
-#            be saved.
-#        :type outputdir: str
-#        :returns: None
-#        :rtype: None
-#        """
-#        # Third party modules
-#        from chess_scanparsers import SMBMCAScanParser as ScanParser
-#        import matplotlib.pyplot as plt
-#
-#        if material is not None:
-#            self.logger.warning('Plotting HKL lines is not supported yet.')
-#
-#        if scan_step_index is not None:
-#            if not isinstance(scan_step_index, int):
-#                try:
-#                    scan_step_index = int(scan_step_index)
-#                except Exception as exc:
-#                    msg = 'scan_step_index must be an int'
-#                    self.logger.error(msg)
-#                    raise TypeError(msg) from exc
-#
-#        calibration_config = self.get_config(
-#            data, 'edd.models.MCATthCalibrationConfig')
-#        scanparser = ScanParser(spec_file, scan_number)
-#
-#        fig, ax = plt.subplots(1, 1, figsize=(11, 8.5))
-#        title = f'{scanparser.scan_title} MCA Data'
-#        if scan_step_index is None:
-#            title += ' (sum of all spectra in the scan)'
-#        ax.set_title(title)
-#        ax.set_xlabel('Calibrated energy (keV)')
-#        ax.set_ylabel('Intenstiy (counts)')
-#        for detector in calibration_config.detectors:
-#            if scan_step_index is None:
-#                spectrum = np.sum(
-#                    scanparser.get_all_detector_data(detector.id), axis=0)
-#            else:
-#                spectrum = scanparser.get_detector_data(
-#                    detector.id, scan_step_index=scan_step_index)
-#            ax.plot(detector.energies, spectrum,
-#                    label=f'Detector {detector.id}')
-#        ax.legend()
-#        if save_figures:
-#            fig.savefig(os.path.join(
-#                outputdir, f'spectrum_{scanparser.scan_title}'))
-#        if interactive:
-#            plt.show()
-#        plt.close()
-
-
 class StrainAnalysisProcessor(BaseStrainProcessor):
     """Processor that takes a map of MCA data and returns a map of
     sample strains.
@@ -2404,10 +2210,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 'No valid input in the pipeline data') from exc
 
         # Load the detector data
-        if 'default' in nxroot.attrs:
-            nxentry = nxroot[nxroot.default]
-        else:
-            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+        nxentry = self.get_default_nxentry(nxroot)
 
         # Load the validated calibration configuration
         calibration_config = self.get_config(

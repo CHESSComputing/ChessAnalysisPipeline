@@ -65,6 +65,46 @@ class PipelineItem():
         self.logger.propagate = False
 
     @staticmethod
+    def get_default_nxentry(nxobject):
+        """Given a `nexusformat.nexus.NXroot` or 
+        `nexusformat.nexus.NXentry` object, return the default or
+        first `nexusformat.nexus.NXentry` match.
+
+        :param nxobject: Input data.
+        :type nxobject: nexusformat.nexus.NXroot,
+            nexusformat.nexus.NXentry
+        :raises ValueError: If unable to retrieve a
+            `nexusformat.nexus.NXentry` object.
+        :return: The input data if a `nexusformat.nexus.NXentry`
+            object or the default or first `nexusformat.nexus.NXentry`
+            object if a `nexusformat.nexus.NXroot` object.
+        :rtype: nexusformat.nexus.NXentry
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
+
+        if isinstance(nxobject, NXroot):
+            if 'default' in nxobject.attrs:
+                nxentry = nxobject[nxobject.default]
+            else:
+                nxentries = [
+                    v for v in nxobject.values() if isinstance(v, NXentry)]
+                if not nxentries:
+                    raise ValueError(f'Unable to retrieve a NXentry object')
+                elif len(nxentries) != 1:
+                    self.logger.warning(
+                        f'Found multiple NXentries, returning the first')
+                nxentry = nxentries[0]
+        elif isinstance(nxobject, NXentry):
+            nxentry = nxobject
+        else:
+            raise ValueError(f'Invalid parameter nxobject ({nxobject})')
+        return nxentry
+
+    @staticmethod
     def unwrap_pipelinedata(data):
         """Given a list of PipelineData objects, return a list of
         their `data` values.
@@ -121,9 +161,10 @@ class PipelineItem():
         return model_config
 
     def get_data(self, data, name=None, remove=True):
-        """Look through `data` for an item whose value for the first
-        `'name'` key matches `name` or whose type is either
-        nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
+        """Look through `data` for an item which is either a
+        nexusformat.nexus.NXroot or a nexusformat.nexus.NXentry
+        object. Pick the item for which the `'name'` key matches
+        `name` if set, pick the first match otherwise.
         Return the default nexusformat.nexus.NXentry object.
 
         :param data: Input data from a previous `PipelineItem`.
@@ -137,42 +178,42 @@ class PipelineItem():
             or if the associated object is not of type 
             nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
         :return: The first matching data item.
-        :rtype: nexusformat.nexus.NXentry
+        :rtype: Union[nexusformat.nexus.NXroot,
+            nexusformat.nexus.NXentry]
         """
-        t0 = time()
-        matching_data = False
-        if name is None:
-            # Third party modules
-            from nexusformat.nexus import (
-                NXentry,
-                NXroot,
-            )
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
 
+        nxobject = None
+        t0 = time()
+        if name is None:
             for i, d in enumerate(data):
                 if isinstance(d.get('data'), (NXroot, NXentry)):
-                    matching_data = d.get('data')
+                    nxobject = d.get('data')
                     name = d.get('name')
                     if remove:
                         data.pop(i)
                     break
-            if not matching_data:
+            else:
                 raise ValueError(f'No NXroot or NXentry data item found')
-            self.logger.debug(
-               f'Got {name} data in {time()-t0:.3f} seconds')
         else:
             self.logger.debug(f'Getting {name} data item')
             for i, d in enumerate(data):
-                if d.get('name') == name:
-                    matching_data = d.get('data')
+                if (d.get('name') == name
+                        and isinstance(d.get('data'), (NXroot, NXentry))):
+                    nxobject = d.get('data')
                     if remove:
                         data.pop(i)
                     break
-            if not matching_data:
+            else:
                 raise ValueError(f'No match for {name} data item found')
-            self.logger.debug(
-               f'Got {name} data in {time()-t0:.3f} seconds')
+        self.logger.debug(
+           f'Got {name} data in {time()-t0:.3f} seconds')
 
-        return matching_data
+        return nxobject
 
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the
