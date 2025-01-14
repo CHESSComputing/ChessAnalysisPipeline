@@ -50,6 +50,42 @@ class BaseEddProcessor(Processor):
         self._mean_data = []
         self._nxdata_detectors = []
 
+    def get_config(self, data, schema, remove=True, **kwargs):
+        """Look through `data` for an item whose value for the first
+        `'schema'` key matches `schema`. Convert the value for that
+        item's `'data'` key into the configuration `BaseModel`
+        identified by `schema` and return it.
+
+        :param data: Input data from a previous `PipelineItem`.
+        :type data: list[PipelineData].
+        :param schema: Name of the `BaseModel` class to match in
+            `data` & return.
+        :type schema: str
+        :param remove: If there is a matching entry in `data`, remove
+           it from the list, defaults to `True`.
+        :type remove: bool, optional
+        :raises ValueError: If there's no match for `schema` in `data`.
+        :return: The first matching configuration model.
+        :rtype: BaseModel
+        """
+        model_config = None
+        if 'config' in kwargs:
+            config = kwargs.pop('config')
+        try:
+            model_config = super().get_config(
+                data, schema, remove=remove, **kwargs)
+        except Exception as e:
+            self.logger.info(f'{e}')
+            try:
+                mod_name, cls_name = schema.rsplit('.', 1)
+                module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
+                model_config = getattr(module, cls_name)(**config, **kwargs)
+            except Exception as e:
+                self.logger.info('Invalid config parameter for '
+                                 f'{self.__name__}\n({config})')
+                raise RuntimeError from e
+        return model_config
+
     def _apply_combined_mask(self):
         """Apply the combined mask over the combined included energy
         ranges.
@@ -508,22 +544,9 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated DVL configuration
-        try:
-            dvl_config = self.get_config(
-                data, 'edd.models.DiffractionVolumeLengthConfig',
-                inputdir=inputdir)
-        except Exception as exc:
-            self.logger.error(exc)
-            try:
-                # Local modules
-                from CHAP.edd.models import DiffractionVolumeLengthConfig
-
-                dvl_config = DiffractionVolumeLengthConfig(
-                    **config, inputdir=inputdir)
-            except Exception as exc:
-                self.logger.info('Invalid config parameter for '
-                                 f'{self.__name__}\n({config})')
-                raise RuntimeError from exc
+        dvl_config = self.get_config(
+            data, 'edd.models.DiffractionVolumeLengthConfig',
+            inputdir=inputdir, config=config)
 
         # Validate the detector configuration
         raw_detectors = [
@@ -859,18 +882,9 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
 
         # Load the validated strain analysis configuration
-        try:
-            strain_analysis_config = self.get_config(
-                data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
-        except:
-            self.logger.info(
-                'No valid strain analysis config in input '
-                'pipeline data, using config parameter instead')
-            try:
-                strain_analysis_config = StrainAnalysisConfig(
-                    **config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        strain_analysis_config = self.get_config(
+            data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir,
+            config=config)
 
         # Validate the detector configuration and check against the raw
         # data (availability and shape) and the calibration data
@@ -963,7 +977,10 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         :rtype: CHAP.edd.models.StrainAnalysisConfig
         """
         # Local modules
-        from CHAP.edd.models import MaterialConfig
+        from CHAP.edd.models import (
+            FitConfig,
+            MaterialConfig,
+        )
 
         names = []
         sgnums = []
@@ -989,7 +1006,9 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                     material_name=name, sgnum=sgnum,
                     lattice_parameters=lat_params))
         strain_analysis_config.materials = refined_materials
-        return strain_analysis_config
+
+        return strain_analysis_config.model_dump(
+            exclude={'inputdir'}|set(vars(FitConfig()).keys()))
 
 #        """
 #        Method: given
@@ -1117,22 +1136,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated energy calibration configuration
-        try:
-            calibration_config = self.get_config(
-                data, 'edd.models.MCAEnergyCalibrationConfig',
-                inputdir=inputdir)
-        except Exception as e:
-            self.logger.info(f'{e}')
-            try:
-                # Local modules
-                from CHAP.edd.models import MCAEnergyCalibrationConfig
-
-                calibration_config = MCAEnergyCalibrationConfig(
-                    **config, inputdir=inputdir)
-            except Exception as e:
-                self.logger.info('Invalid config parameter for '
-                                 f'{self.__name__}\n({config})')
-                raise RuntimeError from e
+        calibration_config = self.get_config(
+            data, 'edd.models.MCAEnergyCalibrationConfig', inputdir=inputdir,
+            config=config)
 
         # Validate the detector configuration
         raw_detectors = [
@@ -1667,29 +1673,15 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         nxentry = self.get_default_nxentry(self.get_data(data))
 
         # Load the validated 2&theta calibration configuration
-        calibration_config = None
         try:
             calibration_config = self.get_config(
                 data, 'edd.models.MCAEnergyCalibrationConfig',
                 inputdir=inputdir).model_dump()
             calibration_config = MCATthCalibrationConfig(**calibration_config)
         except Exception as e:
-            self.logger.info(f'{e}')
-            try:
-                calibration_config = self.get_config(
-                    data, 'edd.models.MCATthCalibrationConfig',
-                    inputdir=inputdir)
-            except Exception as e:
-                self.logger.info(f'{e}')
-                try:
-                    calibration_config = MCATthCalibrationConfig(
-                        **config, inputdir=inputdir)
-                except Exception as e:
-                    self.logger.info('Invalid config parameter for '
-                                     f'{self.__name__}\n({config})')
-                    raise ValueError(f'{e}') from e
-        if calibration_config is None:
-            raise RuntimeError('Missing calibration configuration')
+            calibration_config = self.get_config(
+                data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir,
+                config=config)
 
         # Validate the detector configuration
         if calibration_config.detectors is None:
@@ -2217,18 +2209,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
 
         # Load the validated strain analysis configuration
-        try:
-            strain_analysis_config = self.get_config(
-                data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
-        except:
-            self.logger.info(
-                'No valid strain analysis config in input '
-                'pipeline data, using config parameter instead')
-            try:
-                strain_analysis_config = StrainAnalysisConfig(
-                    **config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        strain_analysis_config = self.get_config(
+            data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir,
+            config=config)
 
         # Validate the detector configuration and check against the raw
         # data (availability and shape) and the calibration data
