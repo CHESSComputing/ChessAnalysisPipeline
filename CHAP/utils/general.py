@@ -1323,7 +1323,7 @@ def select_mask_1d(
                 change_fnc(
                     f'{title}Selected ROI: {tuple(selected_index_ranges[0])}')
             else:
-                change_fnc('{title}Selected ROI: None')
+                change_fnc(f'{title}Selected ROI: None')
         return selected_index_ranges
 
     def add_span(event, xrange_init=None):

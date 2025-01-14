@@ -196,8 +196,14 @@ class BaseEddProcessor(Processor):
                 if data.ndim != 3:
                     raise ValueError(
                         f'Illegal raw detector data shape ({data.shape})')
-                raw_data.append(data.sum(axis=0))
-        raw_data = np.asarray(raw_data)
+                if self.__name__ == 'DiffractionVolumeLengthProcessor':
+                    raw_data.append(data)
+                else:
+                    raw_data.append(data.sum(axis=0))
+        if self.__name__ == 'DiffractionVolumeLengthProcessor':
+            raw_data = np.sum(raw_data, axis=0)
+        else:
+            raw_data = np.asarray(raw_data)
         num_bins = raw_data.shape[-1]
 
         for detector in self._detectors:
@@ -211,7 +217,7 @@ class BaseEddProcessor(Processor):
             if detector.energy_calibration_coeffs is None:
                 if max_energy_kev is None:
                     raise ValueError(
-                        'Missing max_energy_kev parameter')
+                            'Missing max_energy_kev parameter')
                 detector.energy_calibration_coeffs = [
                     0.0, max_energy_kev/(num_bins-1.0), 0.0]
             self._energies.append(detector.energies)
@@ -224,7 +230,7 @@ class BaseEddProcessor(Processor):
             np.mean(
                 nxdata.nxsignal.nxdata[
                     [i for i in range(0, nxdata.nxsignal.shape[0])
-                     if nxdata[i].nxsignal.nxdata.sum()]],
+                     if nxdata.nxsignal.nxdata[i].sum()]],
                 axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
             for nxdata in self._nxdata_detectors]
         self.logger.debug(
@@ -239,14 +245,16 @@ class BaseEddProcessor(Processor):
         from CHAP.common.processor import ConstructBaseline
 
         if self._save_figures:
-            if self.__name__ == 'MCAEnergyCalibrationProcessor':
+            if self.__name__ == 'LatticeParameterRefinementProcessor':
+                basename = 'lp_refinement_baseline.png'
+            elif self.__name__ == 'DiffractionVolumeLengthProcessor':
+                basename = 'dvl_baseline.png'
+            elif self.__name__ == 'MCAEnergyCalibrationProcessor':
                 basename = 'energy_calibration_baseline.png'
             elif self.__name__ == 'MCATthCalibrationProcessor':
                 basename = 'tth_calibration_baseline.png'
             elif self.__name__ == 'StrainAnalysisProcessor':
                 basename = 'strainanalysis_baseline.png'
-            elif self.__name__ == 'LatticeParameterRefinementProcessor':
-                basename = 'lp_refinement_baseline.png'
             else:
                 basename = f'{self.__name__}_baseline.png'
         else:
@@ -259,7 +267,8 @@ class BaseEddProcessor(Processor):
             if detector.baseline:
                 if isinstance(detector.baseline, bool):
                     detector.baseline = BaselineConfig()
-                if self.__name__ == 'MCAEnergyCalibrationProcessor':
+                if self.__name__ in ('DiffractionVolumeLengthProcessor',
+                                     'MCAEnergyCalibrationProcessor'):
                     x = low+np.arange(mean_data.size)
                     xlabel = 'Detector Channel (-)'
                 else:
@@ -449,228 +458,339 @@ class BaseStrainProcessor(BaseEddProcessor):
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
 
-#class DiffractionVolumeLengthProcessor(Processor):
-#    """A Processor using a steel foil raster scan to calculate the
-#    length of the diffraction volume for an EDD setup.
-#    """
-#    def process(
-#            self, data, config=None, save_figures=False, inputdir='.',
-#            outputdir='.', interactive=False):
-#        """Return the calculated value of the DV length.
-#
-#        :param data: Input configuration for the raw scan data & DVL
-#            calculation procedure.
-#        :type data: list[PipelineData]
-#        :param config: Initialization parameters for an instance of
-#            CHAP.edd.models.DiffractionVolumeLengthConfig.
-#        :type config: dict, optional
-#        :param save_figures: Save .pngs of plots for checking inputs &
-#            outputs of this Processor, defaults to `False`.
-#        :type save_figures: bool, optional
-#        :param inputdir: Input directory, used only if files in the
-#            input configuration are not absolute paths,
-#            defaults to `'.'`.
-#        :type inputdir: str, optional
-#        :param outputdir: Directory to which any output figures will
-#            be saved, defaults to `'.'`.
-#        :type outputdir: str, optional
-#        :param interactive: Allows for user interactions, defaults to
-#            `False`.
-#        :type interactive: bool, optional
-#        :raises RuntimeError: Unable to get a valid DVL configuration.
-#        :return: Complete DVL configuraiton dictionary.
-#        :rtype: dict
-#        """
-#        try:
-#            dvl_config = self.get_config(
-#                data, 'edd.models.DiffractionVolumeLengthConfig',
-#                inputdir=inputdir)
-#        except Exception as exc:
-#            self.logger.error(exc)
-#            self.logger.info('No valid DVL config in input pipeline data, '
-#                             'using config parameter instead.')
-#            try:
-#                # Local modules
-#                from CHAP.edd.models import DiffractionVolumeLengthConfig
-#
-#                dvl_config = DiffractionVolumeLengthConfig(
-#                    **config, inputdir=inputdir)
-#            except Exception as exc:
-#                self.logger.error('Could not get a valid DVL config')
-#                raise RuntimeError from exc
-#
-#        for detector in dvl_config.detectors:
-#            dvl = self.measure_dvl(
-#                dvl_config, detector, save_figures=save_figures,
-#                interactive=interactive, outputdir=outputdir)
-#            detector.dvl_measured = dvl
-#
-#        return dvl_config.dict()
-#
-#    def measure_dvl(
-#            self, dvl_config, detector, save_figures=False, outputdir='.',
-#            interactive=False):
-#        """Return a measured value for the length of the diffraction
-#        volume. Use the iron foil raster scan data provided in
-#        `dvl_config` and fit a gaussian to the sum of all MCA channel
-#        counts vs scanned motor position in the raster scan. The
-#        computed diffraction volume length is approximately equal to
-#        the standard deviation of the fitted peak.
-#
-#        :param dvl_config: Configuration for the DVL calculation
-#            procedure.
-#        :type dvl_config: CHAP.edd.models.DiffractionVolumeLengthConfig
-#        :param detector: A single MCA detector element configuration.
-#        :type detector:
-#            CHAP.edd.models.MCAElementDiffractionVolumeLengthConfig
-#        :param save_figures: Save .pngs of plots for checking inputs &
-#            outputs of this Processor, defaults to `False`.
-#        :type save_figures: bool, optional
-#        :param outputdir: Directory to which any output figures will
-#            be saved, defaults to `'.'`.
-#        :type outputdir: str, optional
-#        :param interactive: Allows for user interactions, defaults to
-#            `False`.
-#        :type interactive: bool, optional
-#        :raises ValueError: No value provided for included bin ranges
-#            for the MCA detector element.
-#        :return: Calculated diffraction volume length.
-#        :rtype: float
-#        """
-#        # Local modules
-#        from CHAP.utils.fit import Fit
-#        from CHAP.utils.general import (
-#            index_nearest,
-#            select_mask_1d,
-#        )
-#
-#        # Get raw MCA data from raster scan
-#        raise RuntimeError('DiffractionVolumeLengthProcessor not updated yet')
-#        mca_data = dvl_config.mca_data(detector)
-#
-#        # Blank out data below bin 500 (~25keV) as well as the last bin
-#        # FIX Not backward compatible with old detector
-#        energy_mask = np.ones(detector.num_bins, dtype=np.int16)
-#        energy_mask[:500] = 0
-#        energy_mask[-1] = 0
-#        mca_data = mca_data*energy_mask
-#
-#        # Interactively set or update mask, if needed & possible.
-#        if interactive or save_figures:
-#            if interactive:
-#                self.logger.info(
-#                    'Interactively select a mask in the matplotlib figure')
-#            if save_figures:
-#                filename = os.path.join(
-#                    outputdir, f'{detector.id}_dvl_mask.png')
-#            else:
-#                filename = None
-#            _, detector.include_bin_ranges = select_mask_1d(
-#                np.sum(mca_data, axis=0),
-#                x=np.arange(detector.num_bins, dtype=np.int16),
-#                label='Sum of MCA spectra over all scan points',
-#                preselected_index_ranges=detector.include_bin_ranges,
-#                title='Click and drag to select data range to include when '
-#                      'measuring diffraction volume length',
-#                xlabel='Uncalibrated energy (keV)',
-#                ylabel='Intensity (counts)',
-#                min_num_index_ranges=1,
-#                interactive=interactive, filename=filename)
-#            self.logger.debug(
-#                'Mask selected. Including detector bin ranges: '
-#                + str(detector.include_bin_ranges))
-#        if not detector.include_bin_ranges:
-#            raise ValueError(
-#                'No value provided for include_bin_ranges. Provide '
-#                'them in the dv measurement configuration, or re-run the '
-#                'pipeline with the interactive flag set.')
-#
-#        # Reduce the raw MCA data in 3 ways:
-#        # 1) sum of intensities in all detector bins
-#        # 2) max of intensities in detector bins after mask is applied
-#        # 3) sum of intensities in detector bins after mask is applied
-#        unmasked_sum = np.sum(mca_data, axis=1)
-#        mask = detector.mca_mask()
-#        masked_mca_data = mca_data[:,mask]
-#        masked_max = np.amax(masked_mca_data, axis=1)
-#        masked_sum = np.sum(masked_mca_data, axis=1)
-#
-#        # Find the motor position corresponding roughly to the center
-#        # of the diffraction volume
-#        scanned_vals = dvl_config.scanned_vals
-#        scan_center = np.sum(scanned_vals * masked_sum) / np.sum(masked_sum)
-#        x = scanned_vals - scan_center
-#
-#        # Normalize the data
-#        unmasked_sum = unmasked_sum / max(unmasked_sum)
-#        masked_max = masked_max / max(masked_max)
-#        masked_sum = masked_sum / max(masked_sum)
-#
-#        # Fit the masked summed data with a gaussian
-#        fit = Fit.fit_data(masked_sum, ('constant', 'gaussian'), x=x)
-#
-#        # Calculate / manually select diffraction volume length
-#        dvl = fit.best_values['sigma'] * detector.sigma_to_dvl_factor \
-#              - dvl_config.sample_thickness
-#        detector.fit_amplitude = fit.best_values['amplitude']
-#        detector.fit_center = scan_center + fit.best_values['center']
-#        detector.fit_sigma = fit.best_values['sigma']
-#        if detector.measurement_mode == 'manual':
-#            if interactive:
-#                _, dvl_bounds = select_mask_1d(
-#                    masked_sum, x=x,
-#                    preselected_index_ranges=[
-#                        (index_nearest(x, -dvl/2), index_nearest(x, dvl/2))],
-#                    title=('Click and drag to indicate the boundary '
-#                           'of the diffraction volume'),
-#                    xlabel=('Beam direction (offset from scan "center")'),
-#                    ylabel='Normalized intensity (-)',
-#                    min_num_index_ranges=1,
-#                    max_num_index_ranges=1,
-#                    interactive=interactive)
-#                dvl_bounds = dvl_bounds[0]
-#                dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
-#            else:
-#                self.logger.warning(
-#                    'Cannot manually indicate DVL when running CHAP '
-#                    'non-interactively. Using default DVL calcluation '
-#                    'instead.')
-#
-#        if interactive or save_figures:
-#            # Third party modules
-#            import matplotlib.pyplot as plt
-#
-#            fig, ax = plt.subplots()
-#            ax.set_title(f'Diffraction Volume ({detector.id})')
-#            ax.set_xlabel('Beam direction (offset from scan "center")')
-#            ax.set_ylabel('Normalized intensity (-)')
-#            ax.plot(x, masked_sum, label='total (masked & normalized)')
-#            ax.plot(x, fit.best_fit, label='gaussian fit (to total)')
-#            ax.plot(x, masked_max, label='maximum (masked)')
-#            ax.plot(x, unmasked_sum, label='total (unmasked)')
-#            ax.axvspan(
-#                fit.best_values['center']- dvl/2.,
-#                fit.best_values['center'] + dvl/2.,
-#                color='gray', alpha=0.5,
-#                label=f'diffraction volume ({detector.measurement_mode})')
-#            ax.legend()
-#            plt.figtext(
-#                0.5, 0.95,
-#                f'Diffraction volume length: {dvl:.2f}',
-#                fontsize='x-large',
-#                horizontalalignment='center',
-#                verticalalignment='bottom')
-#            if save_figures:
-#                fig.tight_layout(rect=(0, 0, 1, 0.95))
-#                figfile = os.path.join(
-#                    outputdir, f'{detector.id}_dvl.png')
-#                plt.savefig(figfile)
-#                self.logger.info(f'Saved figure to {figfile}')
-#            if interactive:
-#                plt.show()
-#            plt.close()
-#
-#        return dvl
+class DiffractionVolumeLengthProcessor(BaseEddProcessor):
+    """A Processor using a steel foil raster scan to calculate the
+    diffraction volume length for an EDD setup.
+    """
+    def process(
+            self, data, config=None, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
+        """Return the calculated value of the DVL.
+
+        :param data: Input configuration for the DVL calculation
+            procedure.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.edd.models.DiffractionVolumeLengthConfig.
+        :type config: dict, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+       :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :raises RuntimeError: Unable to get a valid DVL configuration.
+        :return: DVL configuration.
+        :rtype: dict
+        """
+        # Third party modules
+        from json import loads
+        from nexusformat.nexus import NXroot
+
+        # Local modules
+        from CHAP.common.models.map import DetectorConfig
+        from CHAP.edd.models import MCAElementConfig
+
+        self._save_figures = save_figures
+        self._outputdir = outputdir
+        self._interactive = interactive
+
+        # Load the detector data
+        # FIX input a numpy and create/use NXobject to numpy proc
+        # FIX right now spec info is lost in output yaml, add to it?
+        nxroot = self.get_data(data)
+        if not isinstance(nxroot, NXroot):
+            raise RuntimeError('No valid NXroot data in input pipeline data')
+        nxentry = nxroot[nxroot.default]
+
+        # Load the validated DVL configuration
+        try:
+            dvl_config = self.get_config(
+                data, 'edd.models.DiffractionVolumeLengthConfig',
+                inputdir=inputdir)
+        except Exception as exc:
+            self.logger.error(exc)
+            try:
+                # Local modules
+                from CHAP.edd.models import DiffractionVolumeLengthConfig
+
+                dvl_config = DiffractionVolumeLengthConfig(
+                    **config, inputdir=inputdir)
+            except Exception as exc:
+                self.logger.info('Invalid config parameter for '
+                                 f'{self.__name__}\n({config})')
+                raise RuntimeError from exc
+
+        # Validate the detector configuration
+        raw_detectors = [
+            MCAElementConfig(**d.model_dump()) for d in DetectorConfig(
+                **loads(str(nxentry.detectors))).detectors]
+        raw_detector_ids = [d.id for d in raw_detectors]
+        if 'mca1' in raw_detector_ids and len(raw_detector_ids) != 1:
+            raise RuntimeError(
+                'Multiple detectors not implemented for mca1 detector')
+        if dvl_config.detectors is None:
+            dvl_config.detectors = raw_detectors
+            dvl_config.update_detectors()
+        else:
+            skipped_detectors = []
+            detectors = []
+            for detector in dvl_config.detectors:
+                if detector.id in raw_detector_ids:
+                    raw_detector = raw_detectors[
+                        int(raw_detector_ids.index(detector.id))]
+                    for k, v in raw_detector.attrs.items():
+                        if k not in detector.attrs:
+                            if isinstance(v, list):  #RV FIX
+                                detector.attrs[k] = np.asarray(v)
+                            else:
+                                detector.attrs[k] = v
+                    #for k in vars(detector).keys():
+                    #    print(f'{k} {getattr(detector, k)}')
+                    detectors.append(detector)
+                else:
+                    skipped_detectors.append(detector.id)
+            if len(skipped_detectors) == 1:
+                self.logger.warning(
+                    f'Skipping detector {skipped_detectors[0]} '
+                    '(no raw data)')
+            elif skipped_detectors:
+                # Local modules
+                from CHAP.utils.general import list_to_string
+
+                skipped_detectors = [int(d) for d in skipped_detectors]
+                self.logger.warning(
+                    'Skipping detectors '
+                    f'{list_to_string(skipped_detectors)} (no raw data)')
+            dvl_config.detectors = detectors
+        if not dvl_config.detectors:
+            self.logger.warning(
+                'No raw data for the requested DVL measurement detectors)')
+            exit('Code terminated')
+        if (dvl_config.detectors[0].id == 'mca1'
+                and len(dvl_config.detectors) != 1):
+            self.logger.warning(
+                'Multiple detectors not implemented for mca1 detector')
+            exit('Code terminated')
+        self._detectors = dvl_config.detectors
+
+        # Load the raw MCA data and compute the detector bin energies
+        # and the mean spectra
+        self._setup_detector_data(
+            nxentry, raw_detector_ids, dvl_config.max_energy_kev)
+
+        # Load the scanned motor position values
+        scanned_vals = self._get_scanned_vals(nxentry)
+
+        # Apply the flux correction
+#        self._apply_flux_correction(dvl_config.flux_file)
+
+        # Apply the energy mask
+        self._apply_energy_mask()
+
+        # Get the mask used in the DVL measurement
+        self._get_mask()
+
+        # Apply the combined energy ranges mask
+        self._apply_combined_mask()
+
+        # Get and subtract the detector baselines
+        self._subtract_baselines()
+
+        # Calculate or manually select the diffraction volume lengths
+        return self._measure_dvl(dvl_config, scanned_vals)
+
+    def _get_mask(self):
+        """Get the mask used in the DVL measurement."""
+        # Local modules
+        from CHAP.utils.general import select_mask_1d
+
+        for mean_data, detector in zip(self._mean_data, self._detectors):
+
+            # Interactively adjust the mask used in the energy
+            # calibration
+            if self._save_figures:
+                filename = os.path.join(
+                    self._outputdir, f'{detector.id}_dvl_mask.png')
+            else:
+                filename = None
+            _, detector.mask_ranges = select_mask_1d(
+                mean_data, preselected_index_ranges=detector.mask_ranges,
+                title=f'Mask for detector {detector.id}',
+                xlabel='Detector Channel (-)',
+                ylabel='Intensity (counts)',
+                min_num_index_ranges=1, interactive=self._interactive,
+                filename=filename)
+            self.logger.debug(
+                f'mask_ranges for detector {detector.id}:'
+                f' {detector.mask_ranges}')
+            if not detector.mask_ranges:
+                raise ValueError(
+                    'No value provided for mask_ranges. Provide it in '
+                    'the DVL configuration, or re-run the pipeline '
+                    'with the interactive flag set.')
+
+    def _get_scanned_vals(self, nxentry):
+        """Load the raw MCA data from the SpecReader output and get
+        the scan columns.
+        """
+        # Third party modules
+        from json import loads
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
+        scanned_vals = None
+        for scan_name in nxentry.spec_scans:
+            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+                motor_mnes = loads(str(scan_data.spec_scan_motor_mnes))
+                if scanned_vals is None:
+                    scanned_vals = np.asarray(
+                        loads(str(scan_data.scan_columns))[motor_mnes[0]])
+                else:
+                    assert np.array_equal(scanned_vals, np.asarray(
+                        loads(str(scan_data.scan_columns))[motor_mnes[0]]))
+        return scanned_vals
+
+    def _measure_dvl(self, dvl_config, scanned_vals):
+        """Return a measured value for the length of the diffraction
+        volume. Use the iron foil raster scan data provided in
+        `dvl_config` and fit a gaussian to the sum of all MCA channel
+        counts vs scanned motor position in the raster scan. The
+        computed diffraction volume length is approximately equal to
+        the standard deviation of the fitted peak.
+
+        :param dvl_config: DVL measurement configuration.
+        :type dvl_config: CHAP.edd.models.DiffractionVolumeLengthConfig
+        :param scanned_vals: The scanned motor position values.
+        :type scanned_vals: numpy.ndarray
+        :return: Updated energy DVL measurement configuration.
+        :rtype: dict
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
+        # Local modules
+        from CHAP.edd.models import FitConfig
+        from CHAP.utils.fit import FitProcessor
+        from CHAP.utils.general import (
+            index_nearest,
+            select_mask_1d,
+        )
+
+        for mask, (low, _), nxdata, detector in zip(
+                self._masks, self._mask_index_ranges, self._nxdata_detectors,
+                self._detectors):
+
+            self.logger.info(f'Measuring DVL for detector {detector.id}')
+
+            masked_data = nxdata.nxsignal.nxdata[:,mask]
+            masked_max = np.max(masked_data, axis=1)
+            masked_sum = np.sum(masked_data, axis=1)
+
+            # Find the motor position corresponding roughly to the center
+            # of the diffraction volume
+            scan_center = np.sum(scanned_vals*masked_sum) / np.sum(masked_sum)
+            x = scanned_vals - scan_center
+
+            # Normalize the data
+            masked_max /= masked_max.max()
+            masked_sum /= masked_sum.max()
+
+            # Construct the fit model and preform the fit
+            models = []
+            if detector.background is not None:
+                if len(detector.background) == 1:
+                    models.append(
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                else:
+                    for model in detector.background:
+                        models.append({'model': model, 'prefix': f'{model}_'})
+            models.append({'model': 'gaussian'})
+            self.logger.debug('Fitting mean spectrum')
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(
+                    NXfield(masked_sum, 'y'), NXfield(x, 'x')),
+                    {'models': models, 'method': 'trf'})
+
+            # Calculate / manually select diffraction volume length
+            detector.dvl = float(
+               result.best_values['sigma'] * dvl_config.sigma_to_dvl_factor -
+               dvl_config.sample_thickness)
+            detector.fit_amplitude = float(result.best_values['amplitude'])
+            detector.fit_center = float(
+                scan_center + result.best_values['center'])
+            detector.fit_sigma = float(result.best_values['sigma'])
+            if dvl_config.measurement_mode == 'manual':
+                if self._interactive:
+                    _, dvl_bounds = select_mask_1d(
+                        masked_sum, x=x,
+                        preselected_index_ranges=[
+                            (index_nearest(x, -0.5*detector.dvl),
+                             index_nearest(x, 0.5*detector.dvl))],
+                        title=('Diffraction volume length'),
+                        xlabel=('Beam direction (offset from scan "center")'),
+                        ylabel='Normalized intensity (-)',
+                        min_num_index_ranges=1,
+                        max_num_index_ranges=1,
+                        interactive=self._interactive)
+                    dvl_bounds = dvl_bounds[0]
+                    detector.dvl = abs(x[dvl_bounds[1]] - x[dvl_bounds[0]])
+                else:
+                    self.logger.warning(
+                        'Cannot manually indicate DVL when running CHAP '
+                        'non-interactively. Using default DVL calcluation '
+                        'instead.')
+
+            if self._interactive or self._save_figures:
+                # Third party modules
+                import matplotlib.pyplot as plt
+
+                fig, ax = plt.subplots()
+                ax.set_title(f'Diffraction Volume ({detector.id})')
+                ax.set_xlabel('Beam direction (offset from scan "center")')
+                ax.set_ylabel('Normalized intensity (-)')
+                ax.plot(x, masked_sum, label='Sum of masked data')
+                ax.plot(x, masked_max, label='Maximum of masked data')
+                ax.plot(x, result.best_fit, label='Gaussian fit (to sum)')
+                ax.axvspan(
+                    result.best_values['center']- 0.5*detector.dvl,
+                    result.best_values['center'] + 0.5*detector.dvl,
+                    color='gray', alpha=0.5,
+                    label=f'diffraction volume ({dvl_config.measurement_mode})')
+                ax.legend()
+                plt.figtext(
+                    0.5, 0.95,
+                    f'Diffraction volume length: {detector.dvl:.2f}',
+                    fontsize='x-large',
+                    horizontalalignment='center',
+                    verticalalignment='bottom')
+                if self._save_figures:
+                    fig.tight_layout(rect=(0, 0, 1, 0.95))
+                    figfile = os.path.join(
+                        self._outputdir, f'{detector.id}_dvl.png')
+                    plt.savefig(figfile)
+                    self.logger.info(f'Saved figure to {figfile}')
+                if self._interactive:
+                    plt.show()
+                plt.close()
+
+        exclude = set(vars(FitConfig()).keys())
+        if dvl_config.measurement_mode == 'manual':
+            exclude |= {'sigma_to_dvl_factor'}
+        return dvl_config.model_dump(exclude=exclude)
 
 
 class LatticeParameterRefinementProcessor(BaseStrainProcessor):
@@ -703,7 +823,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :raises RuntimeError: Unable to get a valid DVL configuration.
+        :raises RuntimeError: Unable to refine the lattice parameters.
         :return: The strain analysis configuration with the refined
             lattice parameter configuration.
         :rtype: nexusformat.nexus.NXroot

@@ -518,6 +518,11 @@ class SpecReader(Reader):
                         {k:v for k,v in scanparser.pars.items()})
                 except:
                     pass
+                try:
+                    nxscans[scan_number].spec_scan_motor_mnes = dumps(
+                        scanparser.spec_scan_motor_mnes)
+                except:
+                    pass
                 if config.experiment_type == 'EDD':
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata

@@ -286,19 +286,6 @@ class MaterialConfig(EDDBaseModel):
 #        return get_unique_hkls_ds(
 #            [self._material], tth_max=tth_max, tth_tol=tth_tol)
 
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        if '_material' in d:
-#            del d['_material']
-#        exit(f'\n\n{type(self)}\n{d}\nDone')
-#        return d
-
 
 # Detector configuration classes
 
@@ -423,90 +410,24 @@ class MCAElementConfig(Detector, FitConfig):
                 np.logical_and(channel_bins >= min_, channel_bins <= max_))
         return mask
 
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        if '_hkl_indices:' in d:
-#            del d['_hkl_indices:']
-#        exit(f'\n\n{type(self)}\n{d}\nDone')
-#        return d
 
+class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
+    """Class representing metadata required to perform a diffraction
+    volume length measurement for a single MCA detector element.
 
-#class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
-#    """Class representing metadata required to perform a diffraction
-#    volume length measurement for a single MCA detector element.
-#
-#    :ivar include_bin_ranges: List of MCA channel index ranges
-#        whose data is included in the measurement.
-#    :type include_bin_ranges: list[[int, int]], optional
-#    :ivar measurement_mode: Placeholder for recording whether the
-#        measured DVL value was obtained through the automated
-#        calculation or a manual selection, defaults to `'auto'`.
-#    :type measurement_mode: Literal['manual', 'auto'], optional
-#    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
-#        form of the MCA detector data. `sigma_to_dvl_factor` is a
-#        scalar value that converts the standard deviation of the
-#        gaussian fit to the measured DVL, defaults to `3.5`.
-#    :type sigma_to_dvl_factor: Literal[3.5, 2.0, 4.0], optional
-#    :ivar dvl_measured: Placeholder for the measured diffraction
-#        volume length before writing the data to file.
-#    :type dvl_measured: float, optional
-#    :ivar fit_amplitude: Placeholder for amplitude of the gaussian fit.
-#    :type fit_amplitude: float, optional
-#    :ivar fit_center: Placeholder for center of the gaussian fit.
-#    :type fit_center: float, optional
-#    :ivar fit_sigma: Placeholder for sigma of the gaussian fit.
-#    :type fit_sigma: float, optional
-#    """
-#    include_bin_ranges: Optional[
-#        conlist(
-#            min_length=1,
-#            item_type=conlist(
-#                min_length=2,
-#                max_length=2,
-#                item_type=conint(ge=0)))] = None
-#    measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
-#    sigma_to_dvl_factor: Optional[Literal[3.5, 2.0, 4.0]] = 3.5
-#    dvl_measured: Optional[confloat(gt=0, allow_inf_nan=False)] = None
-#    fit_amplitude: Optional[float] = None
-#    fit_center: Optional[float] = None
-#    fit_sigma: Optional[float] = None
-#
-#    def mca_mask(self):
-#        """Get a boolean mask array to use on this MCA element's data.
-#        Note that the bounds of self.include_energy_ranges are
-#        inclusive.
-#
-#        :return: Boolean mask array.
-#        :rtype: numpy.ndarray
-#        """
-#        mask = np.asarray([False] * self.num_bins)
-#        bin_indices = np.arange(self.num_bins)
-#        for (min_, max_) in self.include_bin_ranges:
-#            mask = np.logical_or(
-#                mask, np.logical_and(bin_indices >= min_, bin_indices <= max_))
-#        return mask
-#
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#        Exclude `sigma_to_dvl_factor` from the dict representation if
-#        `measurement_mode` is `'manual'`.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        if self.measurement_mode == 'manual':
-#            del d['sigma_to_dvl_factor']
-#        for param in ('amplitude', 'center', 'sigma'):
-#            d[f'fit_{param}'] = float(d[f'fit_{param}'])
-#        return d
+    :ivar dvl: Measured diffraction volume length.
+    :type dvl: float, optional
+    :ivar fit_amplitude: Amplitude of the Gaussian fit.
+    :type fit_amplitude: float, optional
+    :ivar fit_center: Center of the Gaussian fit.
+    :type fit_center: float, optional
+    :ivar fit_sigma: Sigma of the Gaussian fit.
+    :type fit_sigma: float, optional
+    """
+    dvl: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    fit_amplitude: Optional[float] = None
+    fit_center: Optional[float] = None
+    fit_sigma: Optional[float] = None
 
 
 class MCAElementStrainAnalysisConfig(MCAElementConfig):
@@ -612,20 +533,6 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
                     f'{self.tth_map.shape} (expected {map_shape})')
             return self.tth_map
         return np.full(map_shape, self.tth_calibrated)
-
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        for k, v in d.items():
-#            if isinstance(v, PosixPath):
-#                d[k] = str(v)
-#        exit(f'\n\n{type(self)}\n{d}\nDone')
-#        return d
 
 
 # Processor configuration classes
@@ -778,38 +685,68 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 #            if k in d:
 #                del d[k]
 #        return d
-#
-#
-#class DiffractionVolumeLengthConfig(MCAScanDataConfig):
-#    """Class representing metadata required to perform a diffraction
-#    volume length calculation for an EDD setup using a steel-foil
-#    raster scan.
-#
-#    :ivar sample_thickness: Thickness of scanned foil sample. Quantity
-#        must be provided in the same units as the values of the
-#        scanning motor.
-#    :type sample_thickness: float
-#    :ivar detectors: Individual detector element DVL measurement
-#        configurations.
-#    :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
-#    """
-#    sample_thickness: float
-#    detectors: conlist(
-#        min_length=1, item_type=MCAElementDiffractionVolumeLengthConfig)
-#
-#    @property
-#    def scanned_vals(self):
-#        """Return the list of values visited by the scanning motor
-#        over the course of the raster scan.
-#
-#        :return: List of scanned motor values.
-#        :rtype: numpy.ndarray
-#        """
-#        if self._parfile is not None:
-#            return self._parfile.get_values(
-#                self.scan_column,
-#                scan_numbers=self._parfile.good_scan_numbers())
-#        return self.scanparser.spec_scan_motor_vals[0]
+
+
+class DiffractionVolumeLengthConfig(FitConfig):
+    """Class representing metadata required to perform a diffraction
+    volume length calculation for an EDD setup using a steel-foil
+    raster scan.
+
+    :ivar detectors: List of individual MCA detector element
+        DVL measurement configurations.
+    :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
+    :ivar max_energy_kev: Maximum channel energy of the MCA in
+        keV, defaults to `200.0`.
+    :type max_energy_kev: float, optional
+    :ivar measurement_mode: Placeholder for recording whether the
+        measured DVL value was obtained through the automated
+        calculation or a manual selection, defaults to `'auto'`.
+    :type measurement_mode: Literal['manual', 'auto'], optional
+    :ivar sample_thickness: Thickness of scanned foil sample. Quantity
+        must be provided in the same units as the values of the
+        scanning motor.
+    :type sample_thickness: float
+    :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
+        form of the MCA detector data. `sigma_to_dvl_factor` is a
+        scalar value that converts the standard deviation of the
+        gaussian fit to the measured DVL, defaults to `3.5`.
+    :type sigma_to_dvl_factor: Literal[2.0, 3.5, 4.0], optional
+    """
+    detectors: Optional[
+        conlist(item_type=MCAElementDiffractionVolumeLengthConfig)] = None
+    max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
+    measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
+    sample_thickness: confloat(gt=0, allow_inf_nan=False)
+    sigma_to_dvl_factor: Optional[Literal[2.0, 3.5, 4.0]] = 3.5
+
+    @model_validator(mode='after')
+    def validate_detectors(self):
+        """Validate the detector (energy) mask ranges.
+
+        :return: Updated energy calibration configuration class.
+        :rtype: DiffractionVolumeLengthConfig
+        """
+        if self.detectors is None:
+            return self
+        warning = False
+        if self.energy_mask_ranges:
+            self.energy_mask_ranges = None
+            warning = True
+        for detector in self.detectors:
+            if detector.energy_mask_ranges:
+                detector.energy_mask_ranges = None
+                warning = True
+        if warning:
+            print('Ignoring energy_mask_ranges parameter for energy '
+                  'calibration')
+        self.update_detectors()
+        return self
+
+    def update_detectors(self):
+        for detector in self.detectors:
+            for k in self.__dict__:
+                if hasattr(detector, k) and getattr(detector, k) is None:
+                    setattr(detector, k, getattr(self, k))
 
 
 class MCACalibrationConfig(FitConfig):
@@ -932,24 +869,6 @@ class MCACalibrationConfig(FitConfig):
                 if hasattr(detector, k) and getattr(detector, k) is None:
                     setattr(detector, k, getattr(self, k))
 
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#        Exclude inputdir and the inherited FitConfig parameters.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        if 'inputdir' in d:
-#            del d['inputdir']
-#        for k in vars(FitConfig()).keys():
-#            del d[k]
-#        for k, v in d.items():
-#            if isinstance(v, PosixPath):
-#                d[k] = str(v)
-#        return d
-
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     """Base class representing metadata required to perform an energy
@@ -1063,19 +982,6 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
         flux = np.loadtxt(self.flux_file)
         energies = flux[:,0]/1.e3
         return energies.min(), energies.max()
-
-#    def dict(self, *args, **kwargs):
-#        """Return a representation of this configuration in a
-#        dictionary that is suitable for dumping to a YAML file.
-#
-#        :return: Dictionary representation of the configuration.
-#        :rtype: dict
-#        """
-#        d = super().dict(*args, **kwargs)
-#        if 'tth_initial_guess' in d:
-#            del d['tth_initial_guess']
-#        exit(f'\n\n{type(self)}\n{d}\nDone')
-#        return d
 
 
 class StrainAnalysisConfig(MCACalibrationConfig):
