@@ -1873,7 +1873,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                  'fwhm_max': detector.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
-                NXdata(NXfield(mean_data, 'y'), NXfield(bins, 'x')),
+                NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins, 'x')),
                 {'models': models, 'method': 'trf'})
             best_fit = result.best_fit
             residual = result.residual
@@ -1934,24 +1934,24 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                         rotation=90, transform=axs[0,0].get_xaxis_transform())
                 if flux_correct is None:
                     axs[0,0].plot(
-                        energies, mean_data, marker='.', c='C2', ms=3,
+                        energies[mask], mean_data[mask], marker='.', c='C2', ms=3,
                         ls='', label='MCA data')
                 else:
                     axs[0,0].plot(
-                        energies, mean_data, marker='.', c='C2', ms=3,
+                        energies[mask], mean_data[mask], marker='.', c='C2', ms=3,
                         ls='', label='Flux-corrected MCA data')
                 if quadratic_energy_calibration:
                     label = 'Unconstrained fit using calibrated a, b, and c'
                 else:
                     label = 'Unconstrained fit using calibrated b and c'
-                axs[0,0].plot(energies, best_fit, c='C1', label=label)
+                axs[0,0].plot(energies[mask], best_fit, c='C1', label=label)
                 axs[0,0].legend()
 
                 # Lower left axes: fit residual
                 axs[1,0].set_title('Fit Residuals')
                 axs[1,0].set_xlabel('Energy (keV)')
                 axs[1,0].set_ylabel('Residual (counts)')
-                axs[1,0].plot(energies, residual, c='C1', label=label)
+                axs[1,0].plot(energies[mask], residual, c='C1', label=label)
                 axs[1,0].legend()
 
                 # Upper right axes: E vs strain for each fit
