@@ -487,7 +487,8 @@ class SpecReader(Reader):
                     detectors_ids = [d.id for d in detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
-        detector_data_format = None
+        if config.experiment_type == 'EDD':
+            detector_data_format = None
         for scans in config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
@@ -495,10 +496,12 @@ class SpecReader(Reader):
             nxscans.attrs['scan_numbers'] = scans.scan_numbers
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                if detector_data_format is None:
-                    detector_data_format = scanparser.detector_data_format
-                elif scanparser.detector_data_format != detector_data_format:
-                    raise ValueError(
+                if config.experiment_type == 'EDD':
+                    if detector_data_format is None:
+                        detector_data_format = scanparser.detector_data_format
+                    elif (scanparser.detector_data_format !=
+                            detector_data_format):
+                        raise ValueError(
                         'Mixing `spec` and `h5` data formats not implemented')
                 nxscans[scan_number] = NXcollection()
                 try:
