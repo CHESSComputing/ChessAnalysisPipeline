@@ -46,6 +46,9 @@ class EDDBaseModel(BaseModel):
         return self.model_dump(*args, **kwargs)
 
     def model_dump(self, *args, **kwargs):
+        if hasattr(self, '_exclude'):
+            kwargs['exclude'] = self._merge_exclude(
+                None if kwargs is None else kwargs.get('exclude'))
         return self._serialize(super().model_dump(*args, **kwargs))
 
     def model_dump_json(self, *args, **kwargs):
@@ -543,37 +546,29 @@ class DiffractionVolumeLengthConfig(FitConfig):
     _exclude = set(vars(FitConfig()).keys())
 
     @model_validator(mode='after')
-    def validate_detectors(self):
-        """Validate the detector (energy) mask ranges.
+    def validate_config(self):
+        """Update the configuration with costum defaults after the
+        normal native pydantic validation.
 
         :return: Updated energy calibration configuration class.
         :rtype: DiffractionVolumeLengthConfig
         """
-        if self.detectors is None:
-            return self
-        warning = False
-        if self.energy_mask_ranges:
-            self.energy_mask_ranges = None
-            warning = True
-        for detector in self.detectors:
-            if detector.energy_mask_ranges:
-                detector.energy_mask_ranges = None
+        if self.detectors is not None:
+            warning = False
+            if self.energy_mask_ranges:
+                self.energy_mask_ranges = None
                 warning = True
-        if warning:
-            print('Ignoring energy_mask_ranges parameter for energy '
-                  'calibration')
-        self.update_detectors()
-        return self
-
-    def model_dump(self, *args, **kwargs):
-        kwargs['exclude'] = self._merge_exclude(
-            None if kwargs is None else kwargs.get('exclude'))
+            for detector in self.detectors:
+                if detector.energy_mask_ranges:
+                    detector.energy_mask_ranges = None
+                    warning = True
+            if warning:
+                print('Ignoring energy_mask_ranges parameter for energy '
+                      'calibration')
+            self.update_detectors()
         if self.measurement_mode == 'manual':
-            if isinstance(kwargs['exclude'], set):
-                kwargs['exclude'] |= {'sigma_to_dvl_factor'}
-            else:
-                kwargs['exclude']['sigma_to_dvl_factor'] = True
-        return self._serialize(super().model_dump(*args, **kwargs))
+            self._exclude |= {'sigma_to_dvl_factor'}
+        return self
 
     def update_detectors(self):
         for detector in self.detectors:
@@ -697,11 +692,6 @@ class MCACalibrationConfig(FitConfig):
         relative_intensities = flux[:,1]/np.max(flux[:,1])
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
-
-    def model_dump(self, *args, **kwargs):
-        kwargs['exclude'] = self._merge_exclude(
-            None if kwargs is None else kwargs.get('exclude'))
-        return self._serialize(super().model_dump(*args, **kwargs))
 
     def update_detectors(self):
         for detector in self.detectors:
