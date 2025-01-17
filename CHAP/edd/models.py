@@ -42,50 +42,43 @@ class EDDBaseModel(BaseModel):
     """Baseline EDD configuration class implementing robust
     serialization tools.
     """
+    def dict(self, *args, **kwargs):
+        return self.model_dump(*args, **kwargs)
 
-    @staticmethod
-    def eval_value(value):
-        if hasattr(value, '__dict__'):
-            value = dict(value)
-        elif isinstance(value, dict):
-            value = {k:EDDBaseModel.eval_value(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            value = [EDDBaseModel.eval_value(v) for v in value]
-        elif isinstance(value, tuple):
-            value = tuple(EDDBaseModel.eval_value(v) for v in value)
+    def model_dump(self, *args, **kwargs):
+        return self._serialize(super().model_dump(*args, **kwargs))
+
+    def model_dump_json(self, *args, **kwargs):
+        # Third party modules
+        from json import dumps
+
+        return dumps(self.model_dump(*args, **kwargs))
+
+    def _merge_exclude(self, exclude):
+        if exclude is None:
+            exclude = self._exclude
+        elif isinstance(exclude, set):
+            if isinstance(self._exclude, set):
+                exclude |= self._exclude
+            elif isinstance(self._exclude, dict):
+                exclude = {**{v:True for v in exclude}, **self._exclude}
+        elif isinstance(exclude, dict):
+            if isinstance(self._exclude, set):
+                exclude = {**exclude, **{v:True for v in self._exclude}}
+            elif isinstance(self._exclude, dict):
+                exclude = {**exclude, **self._exclude}
+        return exclude
+
+    def _serialize(self, value):
+        if isinstance(value, dict):
+            value = {k:self._serialize(v) for k, v in value.items()}
+        elif isinstance(value, (tuple, list)):
+            value = [self._serialize(v) for v in value]
         elif isinstance(value, np.ndarray):
             value = value.tolist()
         elif isinstance(value, PosixPath):
             value = str(value)
         return value
-
-    @model_serializer
-    def ser_model(self):
-        d = EDDBaseModel.eval_value(self)
-        if '_exclude' in d:
-            d.pop('_exclude')
-        return d
-
-    def __iter__(self):
-        for k in self.__dict__:
-            if not (hasattr(self, '_exclude') and k in self._exclude):
-                yield k, EDDBaseModel.eval_value(getattr(self, k))
-
-    def model_dump(self, *args, **kwargs):
-        if 'exclude' in kwargs and kwargs['exclude'] is not None:
-            self._exclude = kwargs['exclude']
-        d = super().model_dump()
-        if hasattr(self, '_exclude'):
-            del self._exclude
-        return d
-        
-    def model_dump_json(self, *args, **kwargs):
-        if 'exclude' in kwargs and kwargs['exclude'] is not None:
-            self._exclude = kwargs['exclude']
-        d = super().model_dump_json()
-        if hasattr(self, '_exclude'):
-            del self._exclude
-        return d
 
 
 # Baseline configuration class
@@ -547,6 +540,8 @@ class DiffractionVolumeLengthConfig(FitConfig):
     sample_thickness: confloat(gt=0, allow_inf_nan=False)
     sigma_to_dvl_factor: Optional[Literal[2.0, 3.5, 4.0]] = 3.5
 
+    _exclude = set(vars(FitConfig()).keys())
+
     @model_validator(mode='after')
     def validate_detectors(self):
         """Validate the detector (energy) mask ranges.
@@ -569,6 +564,16 @@ class DiffractionVolumeLengthConfig(FitConfig):
                   'calibration')
         self.update_detectors()
         return self
+
+    def model_dump(self, *args, **kwargs):
+        kwargs['exclude'] = self._merge_exclude(
+            None if kwargs is None else kwargs.get('exclude'))
+        if self.measurement_mode == 'manual':
+            if isinstance(kwargs['exclude'], set):
+                kwargs['exclude'] |= {'sigma_to_dvl_factor'}
+            else:
+                kwargs['exclude']['sigma_to_dvl_factor'] = True
+        return self._serialize(super().model_dump(*args, **kwargs))
 
     def update_detectors(self):
         for detector in self.detectors:
@@ -598,13 +603,15 @@ class MCACalibrationConfig(FitConfig):
     Note: Fluorescence data:
         https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
     """
-    inputdir: Optional[DirectoryPath] = None
+    inputdir: Optional[DirectoryPath] = Field(None, exclude=True)
     flux_file: Optional[FilePath] = None
     materials: Optional[conlist(item_type=MaterialConfig)] = [MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)]
     scan_step_indices: Optional[Annotated[conlist(
         min_length=1, item_type=conint(ge=0)),
         Field(validate_default=True)]] = None
+
+    _exclude = set(vars(FitConfig()).keys())
 
     @model_validator(mode='before')
     @classmethod
@@ -691,6 +698,11 @@ class MCACalibrationConfig(FitConfig):
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
 
+    def model_dump(self, *args, **kwargs):
+        kwargs['exclude'] = self._merge_exclude(
+            None if kwargs is None else kwargs.get('exclude'))
+        return self._serialize(super().model_dump(*args, **kwargs))
+
     def update_detectors(self):
         for detector in self.detectors:
             for k in self.__dict__:
@@ -775,7 +787,8 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     """
     detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     quadratic_energy_calibration: Optional[bool] = False
-    tth_initial_guess: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    tth_initial_guess: Optional[
+        confloat(gt=0, allow_inf_nan=False)] = Field(None, exclude=True)
 
     @model_validator(mode='after')
     def validate_detectors(self):

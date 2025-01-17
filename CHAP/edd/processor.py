@@ -804,10 +804,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        exclude = set(vars(FitConfig()).keys())
-        if dvl_config.measurement_mode == 'manual':
-            exclude |= {'sigma_to_dvl_factor'}
-        return dvl_config.model_dump(exclude=exclude)
+        return dvl_config.model_dump()
 
 
 class LatticeParameterRefinementProcessor(BaseStrainProcessor):
@@ -1007,8 +1004,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                     lattice_parameters=lat_params))
         strain_analysis_config.materials = refined_materials
 
-        return strain_analysis_config.model_dump(
-            exclude={'inputdir'}|set(vars(FitConfig()).keys()))
+        return strain_analysis_config.model_dump()
 
 #        """
 #        Method: given
@@ -1399,8 +1395,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        return calibration_config.model_dump(
-            exclude={'inputdir'}|set(vars(FitConfig()).keys()))
+        return calibration_config.model_dump()
 
     def _get_initial_peak_positions(
             self, y, low, index_ranges, input_indices, input_max_peak_index,
@@ -2020,9 +2015,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Update the detectors' info and return the calibration
         # configuration
         calibration_config.detectors = self._detectors
-        return calibration_config.model_dump(
-            exclude={'inputdir', 'tth_initial_guess'}|set(
-                vars(FitConfig()).keys()))
+        return calibration_config.model_dump()
 
     def _select_tth_init(self, materials):
         """Select the initial 2&theta guess from the mean MCA
@@ -2499,9 +2492,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxroot[f'{nxentry.nxname}_strainanalysis'] = NXprocess()
         nxprocess = nxroot[f'{nxentry.nxname}_strainanalysis']
         nxprocess.calibration_config = \
-            calibration_config.model_dump_json(
-                exclude={'inputdir', 'tth_initial_guess'}|set(
-                vars(FitConfig()).keys()))
+            calibration_config.model_dump_json()
         nxprocess.strain_analysis_config = \
             strain_analysis_config.model_dump_json()
 
