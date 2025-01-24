@@ -21,9 +21,10 @@ energy:
       config:
         background: constant
         baseline: true
-        peak_energies: [34.276, 34.717, 39.255, 40.231]
-        max_peak_index: 1
-        fit_index_ranges: [[420, 600]]
+        mask_ranges: [[420, 600]]
+        max_peak_index: 0
+        max_energy_kev: 150.0
+        peak_energies: [34.717, 39.255, 40.231]
         detectors:
           - id: mca1
       save_figures: true
@@ -33,6 +34,7 @@ energy:
   - common.YAMLWriter:
       filename: energy_calibration_result.yaml
       force_overwrite: true
+      schema: edd.models.MCAEnergyCalibrationConfig
 
 tth:
 
@@ -54,10 +56,8 @@ tth:
   # Perform the tth calibration
   - edd.MCATthCalibrationProcessor:
       config:
-        fwhm_min: 3
-        fwhm_max: 25
-        include_energy_ranges: [[55, 99], [106, 110], [116, 120], [126, 130]]
-        tth_initial_guess: 7.67
+        energy_mask_ranges: [[51.9, 96.9], [103.1, 107.8]]
+        tth_initial_guess: 7.85
       save_figures: true
 
   # Save the energy-and-tth-calibrated calibration configuration
@@ -69,7 +69,7 @@ map:
 
   # Get the map configuration
   - edd.EddMapReader:
-      parfile: set2_c1-1/id1a3-wbmapscan-set2_c1-1.par
+      filename: set2_c1-1/id1a3-wbmapscan-set2_c1-1.par
       scan_numbers: '1-13, 21-30, 32-34, 42-54'
       dataset_id: 1
       schema: common.models.map.MapConfig
@@ -102,7 +102,7 @@ strain:
             background: constant
             baseline: true
             rel_height_cutoff: 0.02
-            include_bin_ranges: [[736, 1529]]
+            energy_mask_ranges: [[55., 123.]]
         find_peaks: true
         materials:
           - material_name: steel_set

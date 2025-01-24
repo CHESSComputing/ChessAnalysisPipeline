@@ -1262,9 +1262,10 @@ def select_mask_1d(
     :param x: x-coordinates of the reference data.
     :type x: numpy.ndarray, optional
     :param preselected_index_ranges: List of preselected index ranges
-        to mask.
+        to mask (bounds are inclusive).
     :type preselected_index_ranges: Union(list[tuple(int, int)],
-        list[list[int]]), optional
+        list[list[int]], list[tuple(float, float)], list[list[float]]),
+        optional
     :param preselected_mask: Preselected boolean mask array.
     :type preselected_mask: numpy.ndarray, optional
     :param title: Title for the displayed figure.
@@ -1287,8 +1288,11 @@ def select_mask_1d(
     :type filename: str, optional
     :return: A boolean mask array and the list of selected index
         ranges.
-    :rtype: numpy.ndarray, list[tuple(int, int)]
+    :rtype: numpy.ndarray, list[list[int, int]]
     """
+    # System modules
+    from copy import deepcopy
+
     # Third party modules
     if interactive or filename is not None:
         from matplotlib.patches import Patch
@@ -1306,7 +1310,7 @@ def select_mask_1d(
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
-    def get_selected_index_ranges(change_fnc=None):
+    def get_selected_index_ranges(change_fnc=None, title=''):
         selected_index_ranges = sorted(
             [[index_nearest(x, span.extents[0]),
               index_nearest(x, span.extents[1])+1]
@@ -1314,12 +1318,12 @@ def select_mask_1d(
         if change_fnc is not None:
             if len(selected_index_ranges) > 1:
                 change_fnc(
-                    f'Selected index ranges: {selected_index_ranges}')
+                    f'{title}Selected ROIs: {selected_index_ranges}')
             elif selected_index_ranges:
                 change_fnc(
-                    f'Selected ROI: {tuple(selected_index_ranges[0])}')
+                    f'{title}Selected ROI: {tuple(selected_index_ranges[0])}')
             else:
-                change_fnc('Selected ROI: None')
+                change_fnc(f'{title}Selected ROI: None')
         return selected_index_ranges
 
     def add_span(event, xrange_init=None):
@@ -1391,7 +1395,7 @@ def select_mask_1d(
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
-            get_selected_index_ranges(change_fig_title)
+            get_selected_index_ranges(change_fig_title, title)
             plt.close()
 
     def update_mask(mask, selected_index_ranges):
@@ -1434,15 +1438,23 @@ def select_mask_1d(
         if not np.all(x[:-1] < x[1:]):
             raise ValueError('Invalid x: must be monotonically increasing')
     if title is None:
-        title = 'Click and drag to select ranges to include in mask'
+        title = ''
+    else:
+        title = f'{title}: '
     if preselected_index_ranges is None:
         preselected_index_ranges = []
     else:
-        if (not isinstance(preselected_index_ranges, list)
-                or any(not is_int_pair(v, ge=0, le=num_data)
-                       for v in preselected_index_ranges)):
+        if not isinstance(preselected_index_ranges, list):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
+        index_ranges = []
+        for i, v in enumerate(preselected_index_ranges):
+            if not is_num_pair(v):
+                raise ValueError('Invalid parameter preselected_index_ranges '
+                                 f'({preselected_index_ranges})')
+            index_ranges.append(
+                (max(0, int(v[0])), min(num_data, int(v[1])-1)))
+        preselected_index_ranges = index_ranges
 
     # Setup the preselected mask and index ranges if provided
     if preselected_mask is not None:
@@ -1492,11 +1504,14 @@ def select_mask_1d(
 
     if not interactive:
 
-        get_selected_index_ranges(change_fig_title)
+        get_selected_index_ranges(change_fig_title, title)
+        if error_texts:
+            error_texts[0].remove()
+            error_texts.pop()
 
     else:
 
-        change_fig_title(title)
+        change_fig_title(f'{title}Click and drag to select ranges')
         get_selected_index_ranges(change_error_text)
         fig.subplots_adjust(bottom=0.2)
 
@@ -1533,6 +1548,12 @@ def select_mask_1d(
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
     if filename is not None:
+        if interactive:
+            if len(selected_index_ranges) > 1:
+                title += f'Selected ROIs: {selected_index_ranges}'
+            else:
+                title += f'Selected ROI: {tuple(selected_index_ranges[0])}'
+            fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
         fig.tight_layout(rect=(0, 0, 1, 0.95))
         fig.savefig(filename)
@@ -2038,6 +2059,7 @@ def select_image_indices(
         confirm_cid = confirm_btn.on_clicked(confirm)
 
         plt.show()
+        plt.close()
 
         # Disconnect all widget callbacks when figure is closed
         index_input.disconnect(indices_cid)
@@ -2127,6 +2149,7 @@ def quick_imshow(
             plt.savefig(path)
         if block:
             plt.show(block=block)
+    plt.close()
 
 
 def quick_plot(
@@ -2225,6 +2248,7 @@ def quick_plot(
         if save_fig:
             plt.savefig(path)
         plt.show(block=block)
+    plt.close()
 
 
 def nxcopy(

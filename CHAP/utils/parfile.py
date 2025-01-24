@@ -73,8 +73,10 @@ class ParFile():
             elif isinstance(scan_numbers, str):
                 scan_numbers = string_to_list(scan_numbers)
             if not is_int_series(scan_numbers, ge=0, log=False):
-                raise TypeError(f'Invalid scan_numbers parameter ({scan_numbers})')
-            self.scan_numbers = [n for n in scan_numbers if n in self.scan_numbers]
+                raise TypeError(
+                    f'Invalid scan_numbers parameter ({scan_numbers})')
+            self.scan_numbers = [
+                n for n in scan_numbers if n in self.scan_numbers]
 
     def get_map(
             self, experiment_type, station, par_dims, other_dims=None):
