@@ -69,7 +69,7 @@ map:
 
   # Get the map configuration
   - edd.EddMapReader:
-      parfile: set2_c1-1/id1a3-wbmapscan-set2_c1-1.par
+      filename: set2_c1-1/id1a3-wbmapscan-set2_c1-1.par
       scan_numbers: '1-13, 21-30, 32-34, 42-54'
       dataset_id: 1
       schema: common.models.map.MapConfig

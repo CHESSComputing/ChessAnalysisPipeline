@@ -8,7 +8,7 @@ Description: Module for Processors used only by EDD experiments
 """
 
 # System modules
-from copy import deepcopy
+#from copy import deepcopy
 import os
 
 # Third party modules
@@ -68,22 +68,23 @@ class BaseEddProcessor(Processor):
         :return: The first matching configuration model.
         :rtype: BaseModel
         """
+        config = None
         model_config = None
         if 'config' in kwargs:
             config = kwargs.pop('config')
         try:
             model_config = super().get_config(
                 data, schema, remove=remove, **kwargs)
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             self.logger.info(f'{e}')
             try:
                 mod_name, cls_name = schema.rsplit('.', 1)
                 module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
                 model_config = getattr(module, cls_name)(**config, **kwargs)
-            except Exception as e:
+            except ValueError as ee:
                 self.logger.info('Invalid config parameter for '
                                  f'{self.__name__}\n({config})')
-                raise RuntimeError from e
+                raise RuntimeError from ee
         return model_config
 
     def _apply_combined_mask(self):
@@ -123,21 +124,21 @@ class BaseEddProcessor(Processor):
         # flux file, if available.
         if flux_file is not None:
             raise RuntimeError('Flux correction not tested after updates')
-            flux = np.loadtxt(calibration_config.flux_file)
-            flux_file_energies = flux[:,0]/1.e3
-            flux_e_min = flux_file_energies.min()
-            flux_e_max = flux_file_energies.max()
-            for detector in self._detectors:
-                for i, (det_e_min, det_e_max) in enumerate(
-                        deepcopy(detector.include_energy_ranges)):
-                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
-                        energy_range = [float(max(det_e_min, flux_e_min)),
-                                        float(min(det_e_max, flux_e_max))]
-                        print(
-                            f'WARNING: include_energy_ranges[{i}] out of range'
-                            f' ({detector.include_energy_ranges[i]}): adjusted'
-                            f' to {energy_range}')
-                        detector.include_energy_ranges[i] = energy_range
+#            flux = np.loadtxt(calibration_config.flux_file)
+#            flux_file_energies = flux[:,0]/1.e3
+#            flux_e_min = flux_file_energies.min()
+#            flux_e_max = flux_file_energies.max()
+#            for detector in self._detectors:
+#                for i, (det_e_min, det_e_max) in enumerate(
+#                        deepcopy(detector.include_energy_ranges)):
+#                    if det_e_min < flux_e_min or det_e_max > flux_e_max:
+#                        energy_range = [float(max(det_e_min, flux_e_min)),
+#                                        float(min(det_e_max, flux_e_max))]
+#                        print(
+#                            f'WARNING: include_energy_ranges[{i}] out of range'
+#                            f' ({detector.include_energy_ranges[i]}): adjusted'
+#                            f' to {energy_range}')
+#                        detector.include_energy_ranges[i] = energy_range
 
     def _get_mask_hkls(self, materials):
         """Get the mask and HKLs used in the current processor."""
@@ -212,8 +213,7 @@ class BaseEddProcessor(Processor):
                     'the tth calibration configuration, or re-run the '
                     'pipeline with the interactive flag set.')
 
-    def _setup_detector_data(
-            self, nxentry, available_detector_indices, max_energy_kev=None):
+    def _setup_detector_data(self, nxobject, **kwargs):
         """Load the raw MCA data from the SpecReader output and compute
         the detector bin energies and the mean spectra.
         """
@@ -223,10 +223,14 @@ class BaseEddProcessor(Processor):
             NXfield,
         )
 
+        available_detector_ids = kwargs['available_detector_ids']
+        max_energy_kev = kwargs.get('max_energy_kev')
+
         scans = []
         raw_data = []
-        for scan_name in nxentry.spec_scans:
-            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+        for scan_name in nxobject.spec_scans:
+            spec_scan = nxobject.spec_scans[scan_name]
+            for scan_number, scan_data in spec_scan.items():
                 scans.append(f'{scan_name}_{scan_number}')
                 data = scan_data.data.data.nxdata
                 if data.ndim != 3:
@@ -257,7 +261,7 @@ class BaseEddProcessor(Processor):
                 detector.energy_calibration_coeffs = [
                     0.0, max_energy_kev/(num_bins-1.0), 0.0]
             self._energies.append(detector.energies)
-            index = int(available_detector_indices.index(detector.id))
+            index = int(available_detector_ids.index(detector.id))
             nxdata_det = NXdata(
                 NXfield(raw_data[:,index,:], 'detector_data'),
                 (NXfield(scans, 'scans')))
@@ -389,7 +393,7 @@ class BaseStrainProcessor(BaseEddProcessor):
             else:
                 sum_axes = []
         axes = get_axes(nxdata, skip_axes=sum_axes)
-        if not len(axes):
+        if not axes:
             return NXdata(NXfield([np.mean(data, axis=0)], 'detector_data'))
         dims = np.asarray([nxdata[a].nxdata for a in axes], dtype=np.float64).T
         sum_indices = []
@@ -419,8 +423,7 @@ class BaseStrainProcessor(BaseEddProcessor):
                 nxdata_det.attrs.pop('axes')
         return nxdata_det
 
-    def _setup_detector_data(self, nxdata_raw, strain_analysis_config,
-            update=True):
+    def _setup_detector_data(self, nxobject, **kwargs):
         """Load the raw MCA data map accounting for oversampling or
         axes summation if requested and compute the detector bin
         energies and the mean spectra.
@@ -431,10 +434,13 @@ class BaseStrainProcessor(BaseEddProcessor):
             NXfield,
         )
 
+        strain_analysis_config = kwargs['strain_analysis_config']
+        update = kwargs.get('update', True)
+
         have_raw_detector_data = False
         oversampling_axis = {}
         if strain_analysis_config.sum_axes:
-            scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
+            scan_type = int(str(nxobject.attrs.get('scan_type', 0)))
             if scan_type == 4:
                 # Local modules
                 from CHAP.utils.general import rolling_average
@@ -442,10 +448,10 @@ class BaseStrainProcessor(BaseEddProcessor):
                 # Check for oversampling axis and create the binned
                 # coordinates
                 raise RuntimeError('oversampling needs testing')
-                fly_axis = nxdata_raw.attrs.get('fly_axis_labels').nxdata[0]
+                fly_axis = nxobject.attrs.get('fly_axis_labels').nxdata[0]
                 oversampling = strain_analysis_config.oversampling
                 oversampling_axis[fly_axis] = rolling_average(
-                        nxdata_raw[fly_axis].nxdata,
+                        nxobject[fly_axis].nxdata,
                         start=oversampling.get('start', 0),
                         end=oversampling.get('end'),
                         width=oversampling.get('width'),
@@ -458,18 +464,18 @@ class BaseStrainProcessor(BaseEddProcessor):
                 for detector in self._detectors:
                     self._nxdata_detectors.append(
                         self._get_sum_axes_data(
-                            nxdata_raw, detector.id,
+                            nxobject, detector.id,
                             strain_analysis_config.sum_axes))
                 have_raw_detector_data = True
         if not have_raw_detector_data:
             # Collect the raw MCA data if not averaged over sum_axes
-            axes = get_axes(nxdata_raw)
+            axes = get_axes(nxobject)
             for detector in self._detectors:
                 nxdata_det = NXdata(
-                    NXfield(nxdata_raw[detector.id].nxdata, 'detector_data'),
+                    NXfield(nxobject[detector.id].nxdata, 'detector_data'),
                     tuple([
                         NXfield(
-                            nxdata_raw[a].nxdata, a, attrs=nxdata_raw[a].attrs)
+                            nxobject[a].nxdata, a, attrs=nxobject[a].attrs)
                         for a in axes]))
                 if len(axes) > 1:
                     nxdata_det.attrs['unstructured_axes'] = \
@@ -489,7 +495,7 @@ class BaseStrainProcessor(BaseEddProcessor):
         for detector in self._detectors:
             self._energies.append(detector.energies)
         self.logger.debug(
-            f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
+            f'data shape: {nxobject[self._detectors[0].id].nxdata.shape}')
         self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
@@ -528,7 +534,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         """
         # Third party modules
         from json import loads
-        from nexusformat.nexus import NXroot
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
@@ -601,7 +606,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry, raw_detector_ids, dvl_config.max_energy_kev)
+            nxentry, available_detector_ids=raw_detector_ids,
+            max_energy_kev=dvl_config.max_energy_kev)
 
         # Load the scanned motor position values
         scanned_vals = self._get_scanned_vals(nxentry)
@@ -660,14 +666,10 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         """
         # Third party modules
         from json import loads
-        from nexusformat.nexus import (
-            NXdata,
-            NXfield,
-        )
 
         scanned_vals = None
         for scan_name in nxentry.spec_scans:
-            for scan_number, scan_data in nxentry.spec_scans[scan_name].items():
+            for scan_data in nxentry.spec_scans[scan_name].values():
                 motor_mnes = loads(str(scan_data.spec_scan_motor_mnes))
                 if scanned_vals is None:
                     scanned_vals = np.asarray(
@@ -699,16 +701,14 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         )
 
         # Local modules
-        from CHAP.edd.models import FitConfig
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import (
             index_nearest,
             select_mask_1d,
         )
 
-        for mask, (low, _), nxdata, detector in zip(
-                self._masks, self._mask_index_ranges, self._nxdata_detectors,
-                self._detectors):
+        for mask, nxdata, detector in zip(
+                self._masks, self._nxdata_detectors, self._detectors):
 
             self.logger.info(f'Measuring DVL for detector {detector.id}')
 
@@ -849,10 +849,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         )
 
         # Local modules
-        from CHAP.edd.models import (
-            MCAElementStrainAnalysisConfig,
-            StrainAnalysisConfig,
-        )
+        from CHAP.edd.models import MCAElementStrainAnalysisConfig
+        from CHAP.utils.general import list_to_string
 
         self._save_figures = save_figures
         self._outputdir = outputdir
@@ -945,7 +943,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry[nxentry.default], strain_analysis_config)
+            nxentry[nxentry.default],
+            strain_analysis_config=strain_analysis_config)
 
         # Apply the energy mask
         self._apply_energy_mask()
@@ -974,15 +973,12 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         :rtype: CHAP.edd.models.StrainAnalysisConfig
         """
         # Local modules
-        from CHAP.edd.models import (
-            FitConfig,
-            MaterialConfig,
-        )
+        from CHAP.edd.models import MaterialConfig
 
         names = []
         sgnums = []
         lattice_parameters = []
-        for i, detector in enumerate(self._detectors):
+        for i in range(len(self._detectors)):
             for m in self._adjust_material_props(
                     strain_analysis_config.materials, i):
                 if m.material_name in names:
@@ -994,7 +990,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                     lattice_parameters.append([m.lattice_parameters])
         refined_materials = []
         for name, sgnum, lat_params in zip(names, sgnums, lattice_parameters):
-            if len(lat_params):
+            if lat_params:
                 refined_materials.append(MaterialConfig(
                     material_name=name, sgnum=sgnum,
                     lattice_parameters=np.asarray(lat_params).mean(axis=0)))
@@ -1116,7 +1112,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         """
         # Third party modules
         from json import loads
-        from nexusformat.nexus import NXroot
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
@@ -1192,7 +1187,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry, raw_detector_ids, calibration_config.max_energy_kev)
+            nxentry, available_detector_ids=raw_detector_ids,
+            max_energy_kev=calibration_config.max_energy_kev)
 
         # Apply the flux correction
         self._apply_flux_correction(calibration_config.flux_file)
@@ -1262,7 +1258,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         )
 
         # Local modules
-        from CHAP.edd.models import FitConfig
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
@@ -1484,8 +1479,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     peak_indices.clear()
                 outside_indices = []
                 for index in peak_indices:
-                    if not any(True if low <= index <= upp else False
-                           for low, upp in index_ranges):
+                    if not any(
+                            low <= index <= upp for low, upp in index_ranges):
                         outside_indices.append(index)
                 if len(outside_indices) == 1:
                     error_text = \
@@ -1559,8 +1554,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                                  f'routine{detector_id}')
             if peak_indices:
                 for index in peak_indices:
-                    if not any(True if low <= index <= upp else False
-                           for low, upp in index_ranges):
+                    if not any(
+                            low <= index <= upp for low, upp in index_ranges):
                         peak_indices.clear()
                         break
             if not peak_indices:
@@ -1646,19 +1641,16 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         """
         # Third party modules
         from json import loads
-        from nexusformat.nexus import NXroot
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import (
-            FitConfig,
             MCAElementConfig,
-            MCAEnergyCalibrationConfig,
             MCATthCalibrationConfig,
         )
         from CHAP.utils.general import list_to_string
 
-        self._save_figures = save_figures 
+        self._save_figures = save_figures
         self._outputdir = outputdir
         self._interactive = interactive
 
@@ -1673,7 +1665,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 data, 'edd.models.MCAEnergyCalibrationConfig',
                 inputdir=inputdir).model_dump()
             calibration_config = MCATthCalibrationConfig(**calibration_config)
-        except Exception as e:
+        except (TypeError, ValueError):
             calibration_config = self.get_config(
                 data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir,
                 config=config)
@@ -1768,7 +1760,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry, calibration_detector_ids)
+            nxentry, available_detector_ids=calibration_detector_ids)
 
         # Apply the flux correction
         self._apply_flux_correction(calibration_config.flux_file)
@@ -1811,7 +1803,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from scipy.signal import find_peaks as find_peaks_scipy
 
         # Local modules
-        from CHAP.edd.models import FitConfig
         from CHAP.edd.utils import (
             get_peak_locations,
             get_unique_hkls_ds,
@@ -1852,8 +1843,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
             # Get initial peak centers
             peaks = find_peaks_scipy(
-                mean_data, width=5, height=(0.005 * mean_data.max()))
-            centers = [v for v in peaks[0]]
+                mean_data, width=5, height=0.005*mean_data.max())
+            centers = list(peaks[0])
             centers = [low+centers[index_nearest(centers, c)]
                        for c in [index_nearest(energies, e) for e in e_bragg]]
 
@@ -1934,12 +1925,12 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                         rotation=90, transform=axs[0,0].get_xaxis_transform())
                 if flux_correct is None:
                     axs[0,0].plot(
-                        energies[mask], mean_data[mask], marker='.', c='C2', ms=3,
-                        ls='', label='MCA data')
+                        energies[mask], mean_data[mask], marker='.', c='C2',
+                        ms=3, ls='', label='MCA data')
                 else:
                     axs[0,0].plot(
-                        energies[mask], mean_data[mask], marker='.', c='C2', ms=3,
-                        ls='', label='Flux-corrected MCA data')
+                        energies[mask], mean_data[mask], marker='.', c='C2',
+                        ms=3, ls='', label='Flux-corrected MCA data')
                 if quadratic_energy_calibration:
                     label = 'Unconstrained fit using calibrated a, b, and c'
                 else:
@@ -2055,6 +2046,15 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     """
     @staticmethod
     def add_points(nxroot, points, logger=None):
+        """Add or update the strain analysis for a set of map points 
+        in a `nexusformat.nexus.NXroot` object.
+
+        :param nxroot: The strain analysis object to add/update the
+            points to.
+        :type nxroot: nexusformat.nexus.NXroot
+        :param points: The strain analysis results for a set of points.
+        :type points: list[dict[str, object]
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXdetector,
@@ -2078,7 +2078,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 'Unable to find detector data in strainanalysis object')
         axes = get_axes(nxdata_detectors[0], skip_axes=['energy'])
 
-        if len(axes):
+        if axes:
             coords = np.asarray(
                 [nxdata_detectors[0][a].nxdata for a in axes]).T
 
@@ -2160,10 +2160,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         )
 
         # Local modules
-        from CHAP.edd.models import (
-            MCAElementStrainAnalysisConfig,
-            StrainAnalysisConfig,
-        )
+        from CHAP.edd.models import MCAElementStrainAnalysisConfig
+        from CHAP.utils.general import list_to_string
+
 
         if not (setup or update):
             raise RuntimeError('Illegal combination of setup and update')
@@ -2268,7 +2267,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry[nxentry.default], strain_analysis_config, update)
+            nxentry[nxentry.default],
+            strain_analysis_config=strain_analysis_config, update=update)
 
         # Apply the energy mask
         self._apply_energy_mask()
@@ -2286,10 +2286,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             points = self._strain_analysis(strain_analysis_config)
             self.add_points(nxroot, points, logger=self.logger)
             return nxroot
-        elif setup:
+        if setup:
             return self._get_nxroot(
                 nxentry, calibration_config, strain_analysis_config)
-        elif update:
+        if update:
             return self._strain_analysis(strain_analysis_config)
         return None
 
@@ -2412,7 +2412,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         index = ax.text(
             0.05, 0.95, '', transform=ax.transAxes, va='top')
 
-        num_frame = int(intensities.size / intensities.shape[-1])
+        num_frame = intensities.size // intensities.shape[-1]
         num_digit = len(str(num_frame))
         if not self._save_figures:
             ani = animation.FuncAnimation(
@@ -2476,7 +2476,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         )
 
         # Local modules
-        from CHAP.edd.models import FitConfig
         from CHAP.edd.utils import get_unique_hkls_ds
         from CHAP.utils.general import nxcopy
 
@@ -2599,7 +2598,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             if dim in oversampling_axis:
                 bin_name = dim.replace('fly_', 'bin_')
                 axes[axes.index(dim)] = bin_name
-                exit('FIX need to replace in both axis and unstructured_axes if present')
+                exit('FIX replace in both axis and unstructured_axes')
                 nxgroup[bin_name] = NXfield(
                     value=oversampling_axis[dim],
                     units=nxdata_source[dim].units,
@@ -2654,7 +2653,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         # Setup the points list with the map axes values
         nxdata_ref = self._nxdata_detectors[0]
         axes = get_axes(nxdata_ref)
-        if len(axes):
+        if axes:
             points = [
                 {a: nxdata_ref[a].nxdata[i] for a in axes}
                 for i in range(nxdata_ref[axes[0]].size)]
@@ -2695,7 +2694,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
                 peaks = find_peaks_scipy(
                     mean_data, width=5,
-                    height=(detector.rel_height_cutoff * mean_data.max()))
+                    height=detector.rel_height_cutoff*mean_data.max())
                 #heights = peaks[1]['peak_heights']
                 widths = peaks[1]['widths']
                 centers = [energies[v] for v in peaks[0]]

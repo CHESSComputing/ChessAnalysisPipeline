@@ -1,7 +1,6 @@
 """EDD Pydantic model classes."""
 
 # System modules
-from copy import deepcopy
 import os
 from pathlib import PosixPath
 from typing import (
@@ -12,7 +11,6 @@ from typing import (
 )
 
 # Third party modules
-from chess_scanparsers import SMBMCAScanParser as ScanParser
 import numpy as np
 from hexrd.material import Material
 from pydantic import (
@@ -26,7 +24,6 @@ from pydantic import (
     conlist,
     constr,
     field_validator,
-    model_serializer,
     model_validator,
 )
 from scipy.interpolate import interp1d
@@ -34,7 +31,7 @@ from typing_extensions import Annotated
 
 # Local modules
 from CHAP.common.models.map import Detector
-from CHAP.utils.parfile import ParFile
+#from CHAP.utils.parfile import ParFile
 
 # EDD pydantic basemodel with serialization
 
@@ -315,7 +312,7 @@ class MCAElementConfig(Detector, FitConfig):
     @property
     def energies(self):
         """Return calibrated bin energies."""
-        a, b, c = self.energy_calibration_coeffs
+        a, b, c = tuple(self.energy_calibration_coeffs)
         channel_bins = np.arange(self.num_bins)
         return (a*channel_bins + b)*channel_bins + c
 
@@ -571,10 +568,14 @@ class DiffractionVolumeLengthConfig(FitConfig):
         return self
 
     def update_detectors(self):
-        for detector in self.detectors:
-            for k in self.__dict__:
-                if hasattr(detector, k) and getattr(detector, k) is None:
-                    setattr(detector, k, getattr(self, k))
+        """Update any processor configuration parameters not superseded
+        by individual detector values.
+        """
+        if self.detectors is not None:
+            for detector in self.detectors:
+                for k in self.__dict__:
+                    if hasattr(detector, k) and getattr(detector, k) is None:
+                        setattr(detector, k, getattr(self, k))
 
 
 class MCACalibrationConfig(FitConfig):
@@ -694,6 +695,9 @@ class MCACalibrationConfig(FitConfig):
         return interpolation_function
 
     def update_detectors(self):
+        """Update any processor configuration parameters not superseded
+        by individual detector values.
+        """
         for detector in self.detectors:
             for k in self.__dict__:
                 if hasattr(detector, k) and getattr(detector, k) is None:
@@ -738,10 +742,11 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         if self.energy_mask_ranges:
             self.energy_mask_ranges = None
             warning = True
-        for detector in self.detectors:
-            if detector.energy_mask_ranges:
-                detector.energy_mask_ranges = None
-                warning = True
+        if self.detectors is not None:
+            for detector in self.detectors:
+                if detector.energy_mask_ranges:
+                    detector.energy_mask_ranges = None
+                    warning = True
         if warning:
             print('Ignoring energy_mask_ranges parameter for energy '
                   'calibration')
@@ -793,10 +798,11 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
         if self.mask_ranges:
             self.mask_ranges = None
             warning = True
-        for detector in self.detectors:
-            if detector.mask_ranges:
-                detector.mask_ranges = None
-                warning = True
+        if self.detectors is not None:
+            for detector in self.detectors:
+                if detector.mask_ranges:
+                    detector.mask_ranges = None
+                    warning = True
         if warning:
             print('Ignoring mask_ranges parameter for tth calibration')
         self.update_detectors()
@@ -858,10 +864,11 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         if self.mask_ranges:
             self.mask_ranges = None
             warning = True
-        for detector in self.detectors:
-            if detector.mask_ranges:
-                detector.mask_ranges = None
-                warning = True
+        if self.detectors is not None:
+            for detector in self.detectors:
+                if detector.mask_ranges:
+                    detector.mask_ranges = None
+                    warning = True
         if warning:
             print('Ignoring mask_ranges parameter for strain analysis')
         self.update_detectors()
@@ -967,4 +974,3 @@ class StrainAnalysisConfig(MCACalibrationConfig):
             raise ValueError('Invalid input parameters, specify at least one '
                              'of "width", "stride" or "num"')
         return oversampling
-

@@ -1,3 +1,4 @@
+# Third party modules
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,23 +6,23 @@ import tkinter as tk
 from tkinter import messagebox
 
 class MaterialParamSelector:
-    def __init__(self, root, x, y, tth, label, preselected_materials,
-                 on_complete):
+    def __init__(
+            self, root, x, y, tth, preselected_materials, label, on_complete):
 
         self.root = root
         self.root.title('Material Parameter Selection')
         self.on_complete = on_complete  # Completion callback
-        
+
         # Reference data
         self.ref_data_x = x
         self.ref_data_y = y
         self.ref_data_label = label
         self.tth = tth
-        
+
         # Materials
         self.materials = []
         self.selected_material = None
-        
+
         # Create plot
         self.figure, self.ax = plt.subplots()
         self.legend_handles = []
@@ -37,11 +38,11 @@ class MaterialParamSelector:
         self.add_material_button = tk.Button(
             root, text='Add Material', command=self.add_material)
         self.add_material_button.grid(row=0, column=2)
-        
+
         self.remove_material_button = tk.Button(
             root, text='Remove Material', command=self.remove_material)
         self.remove_material_button.grid(row=1, column=2)
-        
+ 
         # Parameter fields
         self.fields = {}
         for i, field in enumerate(
@@ -94,7 +95,9 @@ class MaterialParamSelector:
         self.canvas.draw()
 
     def add_material(self, new_material=None):
+        # Local modules
         from CHAP.edd.models import MaterialConfig
+
         if new_material is None:
             new_material = MaterialConfig(
                 material_name='Ti64',
@@ -106,7 +109,7 @@ class MaterialParamSelector:
         self.material_listbox.select_set(tk.END)
         self.on_material_select(None)
         self.update_plot()
-        
+
     def remove_material(self):
         if self.selected_material is not None:
             self.materials.pop(self.selected_material)
@@ -116,11 +119,12 @@ class MaterialParamSelector:
             self.update_plot()
 
     def update_material(self):
+        # Local modules
         from CHAP.edd.utils import make_material
 
         if self.selected_material is None:
             return
-        
+ 
         material = self.materials[self.selected_material]
         try:
             # Retrieve values from fields
@@ -151,7 +155,7 @@ class MaterialParamSelector:
             for i, key in enumerate(('a', 'b', 'c', 'alpha', 'beta', 'gamma')):
                 self.fields[key].insert(
                     0, str(_material.latticeParameters[i].value))
-            
+ 
             # Update the listbox name display
             self.material_listbox.delete(self.selected_material)
             self.material_listbox.insert(
@@ -181,10 +185,12 @@ class MaterialParamSelector:
             entry.delete(0, tk.END)
 
     def update_plot(self):
+        # Local modules
         from CHAP.edd.utils import (
             get_unique_hkls_ds,
             get_peak_locations,
         )
+
         self.ax.cla()
         self.legend_handles = []
         self.plot_reference_data()  # Re-plot reference data
@@ -214,7 +220,6 @@ class MaterialParamSelector:
         self.root.destroy()  # Close the tkinter root window
         plt.close()
 
-
 def run_material_selector(
         x, y, tth, preselected_materials=None, label='Reference Data',
         on_complete=None, interactive=False):
@@ -241,18 +246,16 @@ def run_material_selector(
     :return: The selected materials for the strain analyses.
     :rtype: list[CHAP.edd.models.MaterialConfig]
     """
-    import tkinter as tk
-
     # Initialize the main application window
     root = tk.Tk()
-    
+ 
     # Create the material parameter selection GUI within the main
     # window
     # This GUI allows the user to adjust and visualize lattice
     # parameters and space group
     app = MaterialParamSelector(
         root, x, y, tth, preselected_materials, label, on_complete)
-    
+ 
     if interactive:
         # If interactive mode is enabled, start the GUI event loop to
         # allow user interaction
@@ -261,7 +264,6 @@ def run_material_selector(
         # If not in interactive mode, immediately close the
         # application
         app.on_close()
-
 
 def select_material_params(
         x, y, tth, preselected_materials=None, label='Reference Data',
@@ -301,8 +303,8 @@ def select_material_params(
         materials = _materials
         figure = _figure
 
-    run_material_selector(x, y, tth, label, preselected_materials,
-                          on_complete, interactive)
+    run_material_selector(
+        x, y, tth, preselected_materials, label, on_complete, interactive)
 
     if filename is not None:
         figure.savefig(filename)
@@ -311,12 +313,12 @@ def select_material_params(
 
 
 if __name__ == '__main__':
+    # Local modules
     from CHAP.edd.models import MaterialConfig
 
     x = np.linspace(40, 100, 100)
     y = np.sin(x)
     tth = 5
-
     preselected_materials = [
         MaterialConfig(
             material_name='Ti64_orig',
@@ -326,7 +328,6 @@ if __name__ == '__main__':
     ]
     materials = select_material_params(
         x, y, tth, preselected_materials=preselected_materials,
-        interactive=True,
-        filename=None,
+        interactive=True, filename=None,
     )
     print(f'Returned materials: {materials}')
