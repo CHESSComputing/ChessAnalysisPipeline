@@ -1204,8 +1204,8 @@ class MapProcessor(Processor):
     scalar-valued raw data requested by the supplied map configuration.
     """
     def process(
-            self, data, config=None, detectors=None, num_proc=1,
-            comm=None, inputdir=None):
+            self, data, config=None, detectors=None, placeholder_data=False,
+            num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -1221,6 +1221,10 @@ class MapProcessor(Processor):
             returned NeXus NXentry object (overruling the detector
             info in data, if present).
         :type detectors: list[dict], optional
+        :param placeholder_data: For SMB EDD maps only. Value to use
+            for missing detecotr data frames, or `False` if missing
+            data should raise an error. Defaults to `False`.
+        :type placeholder_data: object
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
@@ -1382,7 +1386,7 @@ class MapProcessor(Processor):
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data_edd(
                     map_config, detector_config, common_comm, num_scan,
-                    offset)
+                    offset, placeholder_data)
         else:
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data(
@@ -1411,13 +1415,13 @@ class MapProcessor(Processor):
         # Construct the NeXus NXroot object
         nxroot = self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
-            all_scalar_data)
+            all_scalar_data, placeholder_data)
 
         return nxroot
 
     def _get_nxroot(
             self, map_config, detector_config, data, independent_dimensions,
-            all_scalar_data):
+            all_scalar_data, placeholder_data):
         """Use a `MapConfig` to construct a NeXus NXroot object.
 
         :param map_config: A valid map configuration.
@@ -1521,6 +1525,18 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
+        self.logger.debug(f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
+        if (map_config.experiment_type == 'EDD'
+            and not placeholder_data is False):
+            scalar_signals.append('placeholder_data_used')
+            scalar_data.append(NXfield(
+                value=all_scalar_data[-1],
+                attrs={'description': (
+                    'Indicates whether placeholder data may be present for the'
+                    + 'corresponding frames of detector data.'
+                )
+                       }
+            ))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
@@ -1557,7 +1573,8 @@ class MapProcessor(Processor):
         return nxroot
 
     def _read_raw_data_edd(
-            self, map_config, detector_config, comm, num_scan, offset):
+            self, map_config, detector_config, comm, num_scan, offset,
+            placeholder_data):
         """Read the raw EDD data for a given map configuration.
 
         :param map_config: A valid map configuration.
@@ -1570,6 +1587,10 @@ class MapProcessor(Processor):
         :type num_scan: int
         :param offset: Offset scan number of current processor.
         :type offset: int
+        :param placeholder_data: Value to use for missing detecotr
+            data frames, or `False` if missing data should raise an
+            error.
+        :type placeholder_data: object
         :return: The map's raw data, independent dimensions and scalar
             data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
@@ -1607,11 +1628,14 @@ class MapProcessor(Processor):
             detector_ids = ['mca1']
         else:
             detector_ids = [int(d.id) for d in detector_config.detectors]
-        ddata = scanparser.get_detector_data(detector_ids)
+        ddata, placeholder_used = scanparser.get_detector_data(
+            detector_ids, placeholder_data=placeholder_data)
         spec_scan_shape = scanparser.spec_scan_shape
         num_dim = np.prod(spec_scan_shape)
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
+        if placeholder_data is not False:
+            num_sd += 1
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
             data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
@@ -1660,7 +1684,8 @@ class MapProcessor(Processor):
                 else:
                     scanparser = scan.get_scanparser(scan_number)
                     assert spec_scan_shape == scanparser.spec_scan_shape
-                    ddata = scanparser.get_detector_data(detector_ids)
+                    ddata, placeholder_used = scanparser.get_detector_data(
+                        detector_ids, placeholder_data=placeholder_data)
                 data[offset] = ddata
                 spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 start_dim = offset * num_dim
@@ -1674,6 +1699,9 @@ class MapProcessor(Processor):
                     all_scalar_data[i][start_dim:end_dim] = dim.get_value(
                         scan, scan_number, scan_step_index=-1,
                         relative=False)
+                    if placeholder_data is not False:
+                        all_scalar_data[-1][start_dim:end_dim] = \
+                            placeholder_used
                 offset += 1
 
         return (
