@@ -2102,7 +2102,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             slices = {k: np.asarray([p[k] for p in points]) for k in points[0]}
             for k, v in slices.items():
                 if k not in axes:
-                    logger.info(f'Updating field {k}')
+                    logger.debug(f'Updating field {k}')
                     nxprocess[k][i_0:i_f+1] = v
         else:
             for k, v in points[0].items():
@@ -2284,7 +2284,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxroot = self._get_nxroot(
                 nxentry, calibration_config, strain_analysis_config)
             points = self._strain_analysis(strain_analysis_config)
-            self.add_points(nxroot, points, logger=self.logger)
+            if points:
+                self.logger.info(f'Adding {len(points)} points')
+                self.add_points(nxroot, points, logger=self.logger)
+                self.logger.info(f'... done')
+            else:
+                self.logger.warning('Skip adding points')
             return nxroot
         if setup:
             return self._get_nxroot(
