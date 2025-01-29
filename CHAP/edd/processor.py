@@ -465,7 +465,7 @@ class BaseStrainProcessor(BaseEddProcessor):
                     self._nxdata_detectors.append(
                         self._get_sum_axes_data(
                             nxobject, detector.id,
-                            strain_analysis_config.sum_axes))
+                            sum_axes=strain_analysis_config.sum_axes))
                 have_raw_detector_data = True
         if not have_raw_detector_data:
             # Collect the raw MCA data if not averaged over sum_axes
