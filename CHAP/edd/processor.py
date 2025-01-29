@@ -2748,7 +2748,7 @@ class StrainAnalysisProcessor(Processor):
             slices = {k: np.asarray([p[k] for p in points]) for k in points[0]}
             for k, v in slices.items():
                 if k not in axes:
-                    logger.info(f'Updating field {k}')
+                    logger.debug(f'Updating field {k}')
                     nxprocess[k][i_0:i_f+1] = v
         else:
             for k, v in points[0].items():
@@ -2918,7 +2918,12 @@ class StrainAnalysisProcessor(Processor):
         if setup and update:
             nxroot = self._get_nxroot(nxentry, strain_analysis_config, update)
             points = self._strain_analysis(strain_analysis_config)
-            self.add_points(nxroot, points, logger=self.logger)
+            if points:
+                self.logger.info(f'Adding {len(points)} points')
+                self.add_points(nxroot, points, logger=self.logger)
+                self.logger.info(f'... done')
+            else:
+                self.logger.warning('Skip adding points')
             return nxroot
         elif setup:
             return self._get_nxroot(nxentry, strain_analysis_config, update)
@@ -3532,10 +3537,12 @@ class StrainAnalysisProcessor(Processor):
             # fitting
             hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
             ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
-            peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
+            peak_locations = get_peak_locations(
+                ds_fit, detector.tth_calibrated)
 
             # Find initial peak estimates
-            if not strain_analysis_config.find_peaks or detector.rel_height_cutoff is None:
+            if (not strain_analysis_config.find_peaks
+                    or detector.rel_height_cutoff is None):
                 use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
