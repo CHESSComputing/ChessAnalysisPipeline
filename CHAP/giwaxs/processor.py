@@ -8,7 +8,7 @@ Description: Module for Processors used only by GIWAXS experiments
 """
 # System modules
 from copy import deepcopy
-from json import dumps
+from json import loads
 import os
 
 # Third party modules
@@ -23,8 +23,8 @@ class GiwaxsConversionProcessor(Processor):
     rectangular coordinates.
     """
     def process(
-            self, data, config, save_figures=False, outputdir='.',
-            interactive=False):
+            self, data, config, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
         """Process the GIWAXS input images & configuration and return
         a map of the images in rectangular coordinates as a
         `nexusformat.nexus.NXroot` object.
@@ -33,11 +33,15 @@ class GiwaxsConversionProcessor(Processor):
             map of GIWAXS input images.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            giwaxs.models.GiwaxsConversionConfig.
+            giwaxs.models.GiwaxsConversionProcessorConfig.
         :type config: dict
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
@@ -71,15 +75,17 @@ class GiwaxsConversionProcessor(Processor):
         # Load the validated GIWAXS conversion configuration
         try:
             giwaxs_config = self.get_config(
-                data, 'giwaxs.models.GiwaxsConversionConfig')
+                data, 'giwaxs.models.GiwaxsConversionProcessorConfig',
+                inputdir=inputdir)
         except:
             self.logger.info('No valid conversion config in input pipeline '
                              'data, using config parameter instead.')
             try:
                 # Local modules
-                from CHAP.giwaxs.models import GiwaxsConversionConfig
+                from CHAP.giwaxs.models import GiwaxsConversionProcessorConfig
 
-                giwaxs_config = GiwaxsConversionConfig(**config)
+                giwaxs_config = GiwaxsConversionProcessorConfig(
+                    **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
 
@@ -95,7 +101,7 @@ class GiwaxsConversionProcessor(Processor):
         :param nxroot: GIWAXS map with the raw detector data.
         :type nxroot: nexusformat.nexus.NXroot
         :param config: GIWAXS conversion configuration.
-        :type config: CHAP.giwaxs.models.GiwaxsConversionConfig
+        :type config: CHAP.giwaxs.models.GiwaxsConversionProcessorConfig
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -128,17 +134,18 @@ class GiwaxsConversionProcessor(Processor):
             # Copy nxroot if nxroot is read as read-only
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        nxprocess.conversion_config = dumps(config.dict())
+        nxprocess.conversion_config = config.model_dump_json()
 
-        # Validate the detector and independent dimensions
+        # Validate the azimuthal integrators and independent dimensions
         nxentry = nxroot[nxroot.default]
         nxdata = nxentry[nxentry.default]
-        if len(config.detectors) > 1:
-            raise RuntimeError('More than one detector not yet implemented')
-        detector = config.detectors[0]
-        if detector.prefix not in nxdata:
+        ais = config.azimuthal_integrators
+        if len(ais) > 1:
+            raise RuntimeError(
+                'More than one azimuthal integrator not yet implemented')
+        if ais[0].id not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{detector.prefix} in {nxentry.tree}')
+                               f'{ais[0].id} in {nxentry.tree}')
         if not isinstance(nxdata.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
@@ -146,10 +153,10 @@ class GiwaxsConversionProcessor(Processor):
         # Collect the raw giwaxs images
         if config.scan_step_indices is None:
             thetas = nxdata[nxdata.attrs['axes']]
-            giwaxs_data = nxdata[detector.prefix]
+            giwaxs_data = nxdata[ais[0].id]
         else:
             thetas = nxdata[nxdata.attrs['axes']][config.scan_step_indices]
-            giwaxs_data = nxdata[detector.prefix][config.scan_step_indices]
+            giwaxs_data = nxdata[ais[0].id][config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
@@ -158,8 +165,7 @@ class GiwaxsConversionProcessor(Processor):
 
         # Get the components of q parallel and perpendicular to the
         # detector
-        q_par, q_perp = self._calc_q_coords(
-            giwaxs_data, thetas, detector.poni_file)
+        q_par, q_perp = self._calc_q_coords(giwaxs_data, thetas, ais[0].ai)
 
         # Get the range of the perpendicular component of q and that
         # of the parallel one at near grazing incidence as well as
@@ -466,7 +472,7 @@ class GiwaxsConversionProcessor(Processor):
             return data_rect, norm, xmap, ymap, xwid, ywid
         return data_rect
 
-    def _calc_q_coords(self, images, thetas, poni_file):
+    def _calc_q_coords(self, images, thetas, ai):
         """Return a 3D arrays representing the perpendicular and
         parallel components of q relative to the detector surface
         for each pixel in an image for each theta.
@@ -475,8 +481,8 @@ class GiwaxsConversionProcessor(Processor):
         :type images: numpy.ndarray
         :param thetas: Image theta values.
         :type thetas: numpy.ndarray
-        :param poni_file: Path to the detector PONI file.
-        :type poni_file: str
+        :param ai: Azimuthal integrator.
+        :type ai: pyFAI.azimuthalIntegrator.AzimuthalIntegrator
         :return: Perpendicular and parallel components of q relative
             to the detector surface.
         :rtype: numpy.ndarray, numpy.ndarray
@@ -488,16 +494,15 @@ class GiwaxsConversionProcessor(Processor):
         # PONI coordinates relative to the left bottom detector corner
         # viewed along the beam with the "1" and "2" directions along
         # the detector rows and columns, respectively
-        poni = load(poni_file)
-        assert poni.get_shape() == images.shape[1:]
-        image_dim = poni.get_shape()
-        sample_to_detector = poni.dist*1000     # Sample to detector  (mm)
-        pixel_size = round(poni.pixel1*1000, 3) # Pixel size (mm)
-        poni1 = poni.poni1*1000 # Point of normal incidence 1 (mm)
-        poni2 = poni.poni2*1000 # Point of normal incidence 2 (mm)
-        rot1 = poni.rot1        # Rotational angle 1 (rad)
-        rot2 = poni.rot2        # Rotational angle 2 (rad)
-        xray_wavevector = 2.e-10*np.pi / poni.wavelength
+        assert ai.get_shape() == images.shape[1:]
+        image_dim = ai.get_shape()
+        sample_to_detector = ai.dist*1000     # Sample to detector  (mm)
+        pixel_size = round(ai.pixel1*1000, 3) # Pixel size (mm)
+        poni1 = ai.poni1*1000 # Point of normal incidence 1 (mm)
+        poni2 = ai.poni2*1000 # Point of normal incidence 2 (mm)
+        rot1 = ai.rot1        # Rotational angle 1 (rad)
+        rot2 = ai.rot2        # Rotational angle 2 (rad)
+        xray_wavevector = 2.e-10*np.pi / ai.wavelength
 
         # Pixel locations relative to where the incident beam
         # intersects the detector in the GIWAXS coordinates frame
@@ -544,30 +549,35 @@ class GiwaxsConversionProcessor(Processor):
         return q_par, q_perp
 
 
-class IntegrationProcessor(Processor):
-    """A processor for integrating GIWAXS images."""
+class PyfaiIntegrationProcessor(Processor):
+    """A processor for azimuthally integrating images."""
     def process(
-            self, data, config, save_figures=False, outputdir='.',
-            interactive=False):
-        """Process the GIWAXS input images & configuration and return
-        a map of the integrated images.
+            self, data, config, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
+        """Process the input images & configuration and return a map of
+        the azimuthally integrated images.
 
-        :param data: Results of `common.MapProcessor` containing the
-            map of GIWAXS input images.
+        :param data: Results of `common.MapProcessor` or other suitable
+            preprocessor of the raw detector data containing the map of
+            input images.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            giwaxs.models.IntegrationConfig.
+            giwaxs.models.PyfaiIntegrationProcessorConfig.
         :type config: dict
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :return: Integrated GIWAXS images.
+        :return: Integrated images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -583,57 +593,123 @@ class IntegrationProcessor(Processor):
                 nxroot = nxobject
             elif isinstance(nxobject, NXentry):
                 nxroot = NXroot()
-                nxroot[nxentry.nxname] = nxentry
-                nxentry.set_default()
+                nxroot[nxobject.nxname] = nxobject
+                nxobject.set_default()
             else:
                 raise
         except Exception as exc:
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
 
-        # Load the validated GIWAXS integration configuration
+        # Load the validated integration configuration
         try:
-            giwaxs_config = self.get_config(
-                data, 'giwaxs.models.IntegrationConfig')
+            config = self.get_config(
+                data, 'giwaxs.models.PyfaiIntegrationProcessorConfig',
+                inputdir=inputdir)
         except:
             self.logger.info('No valid integration config in input pipeline '
                              'data, using config parameter instead.')
             try:
                 # Local modules
-                from CHAP.giwaxs.models import IntegrationConfig
+                from CHAP.giwaxs.models import PyfaiIntegrationProcessorConfig
 
-                giwaxs_config = IntegrationConfig(**config[0])
+                config = PyfaiIntegrationProcessorConfig(
+                    **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
 
-        return self.integrate_data(
-            nxroot, giwaxs_config, save_figures=save_figures,
-            interactive=interactive, outputdir=outputdir)
+        # Validate the azimuthal integrator configuration and check
+        # against the input data (availability and shape)
+        experiment_type = loads(
+            str(nxroot[nxroot.default].map_config))['experiment_type']
+        data = {}
+        independent_dims = {}
+        if experiment_type == 'GIWAXS':
+            if f'{nxroot.default}_converted' in nxroot:
+                nxprocess_converted = nxroot[f'{nxroot.default}_converted']
+                conversion_config = loads(
+                    str(nxprocess_converted.conversion_config))
+                converted_ais = conversion_config['azimuthal_integrators']
+                if len(converted_ais) > 1:
+                    raise RuntimeError(
+                        'More than one detector not yet implemented')
+                if config.azimuthal_integrators is None:
+                    # Local modules
+                    from CHAP.giwaxs.models import AzimuthalIntegratorConfig
 
-    def integrate_data(
-            self, nxroot, config, save_figures=False, interactive=False,
-            outputdir='.'):
-        """Return a 'nexusformat.nexus.NXroot` object containing the
-        integrates GIWAXS images.
+                    config.azimuthal_integrators = [AzimuthalIntegratorConfig(
+                        **converted_ais[0])]
+                else:
+                    converted_ids = [ai['id'] for ai in converted_ais]
+                    skipped_detectors = []
+                    ais = []
+                    for ai in config.azimuthal_integrators:
+                        if ai.id in converted_ids:
+                            ais.append(ai)
+                        else:
+                            skipped_detectors.append(ai.id)
+                    if skipped_detectors:
+                        self.logger.warning(
+                            f'Skipping detector(s) {skipped_detectors} '
+                            '(no converted data)')
+                    if not ais:
+                        raise RuntimeError(
+                            'No matching azimuthal integrators found')
+                    config.azimuthal_integrators = ais
+                nxdata = nxprocess_converted.data
+                if len(nxdata.attrs['axes']) != 3:
+                    raise RuntimeError('More than one independent dimension '
+                                       'not yet implemented')
+                independent_dims[config.azimuthal_integrators[0].id] = \
+                    nxdata[nxdata.attrs['axes'][0]]
+                data[config.azimuthal_integrators[0].id] = np.flip(
+                    nxdata.converted.nxdata, axis=1)
+            else:
+                self.logger.warning(
+                    f'No converted data found, use raw data for integration')
+                nxentry = nxroot[nxroot.default]
+                detector_ids = [
+                    str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
+                if len(detector_ids) > 1:
+                    raise RuntimeError(
+                        'More than one detector not yet implemented')
+                if config.azimuthal_integrators is None:
+                    raise ValueError(
+                        'Missing azimuthal_integrators parameter in '
+                        f'PyfaiIntegrationProcessor.config ({config})')
+                nxdata = nxentry[nxentry.default]
+                if not isinstance(nxdata.attrs['axes'], str):
+                    raise RuntimeError('More than one independent dimension '
+                                       'not yet implemented')
+                skipped_detectors = []
+                ais = []
+                for ai in config.azimuthal_integrators:
+                    if ai.id in nxdata:
+                        if nxdata[ai.id].ndim != 3:
+                            raise RuntimeError(
+                                'Inconsistent raw data dimension '
+                                f'{nxdata[ai.id].ndim}')
+                        ais.append(ai)
+                    else:
+                        skipped_detectors.append(ai.id)
+                if skipped_detectors:
+                    self.logger.warning('Skipping detector(s) '
+                                        f'{skipped_detectors} (no raw data)')
+                if not ais:
+                    raise RuntimeError('No matching raw detector data found')
+                config.azimuthal_integrators = ais
+                independent_dims[ais[0].id] = nxdata[nxdata.attrs['axes']]
+                data[ais[0].id] = nxdata[ais[0].id]
 
-        :param nxroot: GIWAXS map with the raw detector data.
-        :type nxroot: nexusformat.nexus.NXroot
-        :param config: GIWAXS integration configuration.
-        :type config: CHAP.giwaxs.models.IntegrationConfig
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
-        :return: Integrated GIWAXS images.
-        :rtype: nexusformat.nexus.NXroot
-        """
+        # Select the giwaxs images to integrate
+        if False and config.scan_step_indices is not None:
+            raise RuntimeError('config.scan_step_indices not tested yet')
+            independent_dims = independent_dims[config.scan_step_indices]
+            data = data[config.scan_step_indices]
+        self.logger.debug(
+            f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
+
         # Third party modules
-        from json import loads
         if interactive or save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
@@ -642,226 +718,39 @@ class IntegrationProcessor(Processor):
             NXprocess,
         )
 
-        # Add the NXprocess object to the NXroot
-        nxprocess = NXprocess()
-        try:
-            nxroot[f'{nxroot.default}_{config.integration_type}'] = nxprocess
-        except:
-            # Local imports
-            from CHAP.utils.general import nxcopy
+        # Local imports
+        from CHAP.utils.general import nxcopy
 
-            # Copy nxroot if nxroot is read as read-only
-            nxroot = nxcopy(nxroot)
-            nxroot[f'{nxroot.default}_{config.integration_type}'] = nxprocess
-        nxprocess.integration_config = dumps(config.dict())
+        # Perform integration(s)
+        ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
+        for integration in config.integrations:
 
-        # Validate the detector and independent dimensions
-        try:
-            # Local imports
-            from CHAP.giwaxs.models import Detector
+            # Add a NXprocess object(s) to the NXroot
+            nxprocess = NXprocess()
+            try:
+                nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
+            except:
+                # Copy nxroot if nxroot is read as read-only
+                nxroot = nxcopy(nxroot)
+                nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
+            nxprocess.integration_config = integration.model_dump_json()
 
-            nxprocess_converted = nxroot[f'{nxroot.default}_converted']
-            conversion_config = loads(
-                str(nxprocess_converted.conversion_config))
-            detectors = conversion_config['detectors']
-            if len(detectors) > 1:
-                raise RuntimeError('More than one detector not yet implemented')
-            nxdata = nxprocess_converted.data
-            if len(nxdata.attrs['axes']) != 3:
-                raise RuntimeError(
-                    'More than one independent dimension not yet implemented')
-            thetas = nxdata[nxdata.attrs['axes'][0]]
-            data = np.flip(nxdata.converted, axis=1)
-            config = deepcopy(config)
-            config.detectors = [
-                Detector(**dict(detector)) for detector in config.detectors]
-            nxprocess.attrs['data_source'] = nxdata.converted.nxpath
-        except Exception as exc:
-            self.logger.warning(f'{exc}, use raw data for integration')
-            nxentry = nxroot[nxroot.default]
-            if nxentry.detector_names.size > 1 or len(config.detectors) > 1:
-                raise RuntimeError('More than one detector not yet implemented')
-            detector = config.detectors[0]
-            if str(nxentry.detector_names[0]) != detector.prefix:
-                raise RuntimeError(
-                    f'Inconsistent detector names ({nxentry.detector_names[0]}'
-                    f' vs {detector.prefix})')
-            nxdata = nxentry.data
-            if not isinstance(nxdata.attrs['axes'], str):
-                raise RuntimeError(
-                    'More than one independent dimension not yet implemented')
-            thetas = nxdata[nxdata.attrs['axes']]
-            data = nxdata.detector_data[0]
-            nxprocess.attrs['data_source'] = nxdata.detector_data.nxpath
+            # Integrate the data
+            results = integration.integrate(ais, data)
 
-        # Select the giwaxs images to integrate
-        if config.scan_step_indices is None:
-            giwaxs_data = data.nxdata
-        else:
-            thetas = thetas[config.scan_step_indices]
-            giwaxs_data = data[config.scan_step_indices]
-        self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
-        effective_map_shape = giwaxs_data.shape[:-2]
-        self.logger.debug(f'effective_map_shape: {effective_map_shape}')
-        image_dims = giwaxs_data.shape[1:]
-        self.logger.debug(f'image_dims: {image_dims}')
-
-        # Integrate the data
-        if config.integration_type == 'azimuthal':
-            data = self.get_azimuthally_integrated_data(giwaxs_data)
-        elif config.integration_type == 'radial':
-            data = self.get_radially_integrated_data(giwaxs_data)
-        elif config.integration_type == 'cake':
-            data, radial_coords, azimuthal_coords = \
-                self.get_cake_integrated_data(giwaxs_data, config)
-
-        # Create the NXdata object with the converted images
-        if False: #RV len(thetas) == 1:
+            # Create the NXdata object with the integrated data
+            intensities = [v.intensity for v in results]
+            coords = [v for k, v in independent_dims.items() if k in ais]
+            if hasattr(results[0], 'azimuthal'):
+                coords.append(NXfield(
+                    results[0].azimuthal, 'chi', attrs={'units': 'degrees'}))
+            coords.append(NXfield(
+                results[0].radial, 'r', attrs={'units': '\u212b'}))
             nxprocess.data = NXdata(
-                NXfield(np.asarray(data[0]), 'integrated'),
-                (NXfield(radial_coords, 'r', attrs={'units': '\u212b'}),
-                 NXfield(azimuthal_coords, 'chi', attrs={'units': 'degrees'})))
-            nxprocess.data.thetas = NXfield(
-                thetas[0], 'thetas', attrs={'units': 'rad'})
-        else:
-            nxprocess.data = NXdata(
-                NXfield(np.asarray(data), 'integrated'),
-                (NXfield(
-                     thetas, 'thetas', attrs={'units': 'rad'}),
-                 NXfield(azimuthal_coords, 'chi', attrs={'units': 'degrees'}),
-                 NXfield(radial_coords, 'r', attrs={'units': '\u212b'})))
-        nxprocess.default = 'data'
+                NXfield(np.asarray(intensities), 'integrated'), tuple(coords))
+            nxprocess.default = 'data'
 
         return nxroot
-
-    def get_cake_integrated_data(self, giwaxs_data, config):
-        integrator = self.get_multi_geometry_integrator(
-            tuple([detector.poni_file for detector in config.detectors]),
-            config.radial_units, (config.radial_min, config.radial_max),
-            (config.azimuthal_min, config.azimuthal_max), config.right_handed)
-        error_model = 'poisson' if config.include_errors else None
-        data = []
-        for i in range(giwaxs_data.shape[0]):
-            data.append(integrator.integrate2d(
-                [giwaxs_data[i]], npt_rad=config.radial_npt,
-                npt_azim=config.azimuthal_npt, method='bbox',
-                error_model=error_model))
-
-        if config.right_handed:
-            # Third party modules
-            from pyFAI.containers import Integrate2dResult
-
-            result = []
-            if False: #config.include_errors:
-                # Only works for versions of pyfai pyfai>=2023.*
-                for d in data:
-                    result.append(Integrate2dResult(
-                        np.flip(d.intensity, axis=0), d.radial, d.azimuthal,
-                        np.flip(d.sigma, axis=0)).intensity)
-            else:
-                for d in data:
-                    result.append(Integrate2dResult(
-                        np.flip(d.intensity, axis=0), d.radial,
-                        d.azimuthal).intensity)
-            return result, data[0].radial, data[0].azimuthal
-        return [d.intensity for d in data], data[0].radial, data[0].azimuthal
-
-    def get_multi_geometry_integrator(
-            self, poni_files, radial_unit, radial_range, azimuthal_range,
-            right_handed):
-        """Return a `MultiGeometry` instance that can be used for
-        azimuthal or cake integration.
-
-        :param poni_files: Tuple of PONI files that describe the
-            detectors to be integrated.
-        :type poni_files: tuple
-        :param radial_unit: Unit to use for radial integration range.
-        :type radial_unit: str
-        :param radial_range: Tuple describing the range for radial
-            integration.
-        :type radial_range: tuple[float,float]
-        :param azimuthal_range: Tuple describing the range for
-            azimuthal integration.
-        :type azimuthal_range: tuple[float,float]
-        :param right_handed: For radial and cake integration, reverse
-            the direction of the azimuthal coordinate from pyFAI's
-            convention.
-        :type right_handed: bool
-        :return: `MultiGeometry` instance that can be used for
-            azimuthal or cake integration.
-        :rtype: pyFAI.multi_geometry.MultiGeometry
-        """
-        # Third party modules
-        from pyFAI.multi_geometry import MultiGeometry
-
-        chi_min, chi_max, chi_offset, chi_disc = \
-            self.get_azimuthal_adjustments(*azimuthal_range, right_handed)
-        ais = deepcopy(self.get_azimuthal_integrators(
-            poni_files, chi_offset=chi_offset))
-        multi_geometry = MultiGeometry(
-            ais, unit=radial_unit, radial_range=radial_range,
-            azimuth_range=(chi_min,chi_max),
-            wavelength=sum([ai.wavelength for ai in ais])/len(ais),
-            chi_disc=chi_disc)
-        return multi_geometry
-
-    def get_azimuthal_adjustments(self, chi_min, chi_max, right_handed):
-        """Fix chi discontinuity at 180 degrees and return the adjusted
-        chi range, offset, and discontinuty.
-
-        If the discontinuity is crossed, obtain the offset to
-        artificially rotate detectors to achieve a continuous azimuthal
-        integration range.
-
-        :param chi_min: Minimum azimuthal range value.
-        :type chi_min: float
-        :param chi_max: Maximum azimuthal range value.
-        :type chi_max: float
-        :param right_handed: For radial and cake integration, reverse
-            the direction of the azimuthal coordinate from pyFAI's
-            convention.
-        :type right_handed: bool
-        :return: Adjusted minimum value of the azimuthal range,
-            adjusted maximum value of the azimuthal range, value by
-            which the chi angle was adjusted, and position of the chi
-            discontinuity.
-        """
-        # Fix chi discontinuity at 180 degrees for now.
-        chi_disc = 180
-        # Force a right-handed coordinate system if requested
-        if right_handed:
-            chi_min, chi_max = 360 - chi_max, 360 - chi_min
-        # If the discontinuity is crossed, artificially rotate the detectors to
-        # achieve a continuous azimuthal integration range
-        if chi_min < chi_disc and chi_max > chi_disc:
-            chi_offset = chi_max - chi_disc
-        else:
-            chi_offset = 0
-        return chi_min-chi_offset, chi_max-chi_offset, chi_offset, chi_disc
-
-    def get_azimuthal_integrators(self, poni_files, chi_offset=0):
-        """Return a list of `AzimuthalIntegrator` objects generated
-        from PONI files.
-
-        :param poni_files: Tuple of strings, each string being a path
-           to a PONI file.
-        :type poni_files: tuple
-        :param chi_offset: Angle in degrees by which the
-            `AzimuthalIntegrator` objects will be rotated,
-            defaults to 0.
-        :type chi_offset: float, optional
-        :return: List of `AzimuthalIntegrator` objects.
-        :rtype: list[pyFAI.azimuthalIntegrator.AzimuthalIntegrator]
-        """
-        # Third party modules
-        from pyFAI import load
-
-        ais = []
-        for poni_file in poni_files:
-            ai = load(poni_file)
-            ai.rot3 += chi_offset * np.pi/180
-            ais.append(ai)
-        return ais
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ Description: Module for Processors used in multiple experiment-specific
 """
 
 # System modules
+from copy import deepcopy
 import os
 
 # Third party modules
@@ -1222,9 +1223,9 @@ class MapProcessor(Processor):
             info in data, if present).
         :type detectors: list[dict], optional
         :param placeholder_data: For SMB EDD maps only. Value to use
-            for missing detecotr data frames, or `False` if missing
-            data should raise an error. Defaults to `False`.
-        :type placeholder_data: object
+            for missing detector data frames, or `False` if missing
+            data should raise an error, defaults to `False`.
+        :type placeholder_data: object, optional
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
@@ -1237,7 +1238,6 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
-        from copy import deepcopy
         import logging
         from tempfile import NamedTemporaryFile
 
@@ -1435,12 +1435,15 @@ class MapProcessor(Processor):
         :type independent_dimensions: numpy.ndarray
         :param all_scalar_data: The map's scalar data.
         :type all_scalar_data: numpy.ndarray
+        :param placeholder_data: For SMB EDD maps only. Value to use
+            for missing detector data frames, or `False` if missing
+            data should raise an error.
+        :type placeholder_data: object
         :return: The map's data and metadata contained in a NeXus
             structure.
         :rtype: nexusformat.nexus.NXroot
         """
         # System modules
-        from copy import deepcopy
         from json import dumps
 
         # Third party modules
@@ -1525,18 +1528,17 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        self.logger.debug(f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
+        if map_config.all_scalar_data:
+            self.logger.debug(
+                f'all_scalar_data.shape = {all_scalar_data.shape}')
         if (map_config.experiment_type == 'EDD'
-            and not placeholder_data is False):
+                and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
             scalar_data.append(NXfield(
                 value=all_scalar_data[-1],
                 attrs={'description': (
-                    'Indicates whether placeholder data may be present for the'
-                    + 'corresponding frames of detector data.'
-                )
-                       }
-            ))
+                    'Indicates whether placeholder data may be present for '
+                    'the corresponding frames of detector data.')}))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
@@ -1564,6 +1566,8 @@ class MapProcessor(Processor):
         nxdata = NXdata()
         nxentry.data = nxdata
         nxentry.data.set_default()
+        nxentry.detector_ids = [
+            str(detector.id) for detector in detector_config.detectors]
         for k, v in map_config.attrs.items():
             nxdata.attrs[k] = v
         for i, detector in enumerate(detector_config.detectors):
@@ -1587,7 +1591,7 @@ class MapProcessor(Processor):
         :type num_scan: int
         :param offset: Offset scan number of current processor.
         :type offset: int
-        :param placeholder_data: Value to use for missing detecotr
+        :param placeholder_data: Value to use for missing detector
             data frames, or `False` if missing data should raise an
             error.
         :type placeholder_data: object
@@ -1905,9 +1909,6 @@ class MPIMapProcessor(Processor):
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
-        # System modules
-        from copy import deepcopy
-
         # Third party modules
         from mpi4py import MPI
 
@@ -1994,7 +1995,6 @@ class MPISpawnMapProcessor(Processor):
            list of sub-pipeline items.
         """
         # System modules
-        from copy import deepcopy
         from tempfile import NamedTemporaryFile
 
         # Third party modules
@@ -2287,6 +2287,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         else:
             # Third party modules
             import fabio
+
             if not os.path.isabs(mask_file):
                 mask_file = os.path.join(inputdir, mask_file)
             mask = fabio.open(mask_file).data
@@ -2737,9 +2738,11 @@ class UnstructuredToStructuredProcessor(Processor):
                 f'Not implemented for input data with type{(type(nxdata))}')
 
     def convert_nxdata(self, nxdata):
-        from copy import deepcopy
-        from nexusformat.nexus import NXdata, NXfield
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         # Extract axes from the NXdata attributes
         axes = []
@@ -3158,8 +3161,6 @@ class SumProcessor(Processor):
         :return: The summed data.
         :rtype: numpy.ndarray
         """
-        from copy import deepcopy
-
         nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
         if len(nxpaths) == 1:
             return nxentry[nxpaths[0]]
