@@ -7,7 +7,6 @@ Author     : Rolf Verberg
 Description: Module for Processors used only by GIWAXS experiments
 """
 # System modules
-from copy import deepcopy
 from json import loads
 import os
 
@@ -67,7 +66,8 @@ class GiwaxsConversionProcessor(Processor):
                 nxroot[nxobject.nxname] = nxobject
                 nxobject.set_default()
             else:
-                raise
+                raise ValueError(
+                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
         except Exception as exc:
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
@@ -77,7 +77,7 @@ class GiwaxsConversionProcessor(Processor):
             giwaxs_config = self.get_config(
                 data, 'giwaxs.models.GiwaxsConversionProcessorConfig',
                 inputdir=inputdir)
-        except:
+        except Exception:
             self.logger.info('No valid conversion config in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -127,7 +127,7 @@ class GiwaxsConversionProcessor(Processor):
         nxprocess = NXprocess()
         try:
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        except:
+        except Exception:
             # Local imports
             from CHAP.utils.general import nxcopy
 
@@ -210,8 +210,8 @@ class GiwaxsConversionProcessor(Processor):
                             q_perp_rect.min(), q_perp_rect.max()))
                 ax[1].set_aspect('equal')
                 ax[1].set_title('Transformed Image')
-                ax[1].set_xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
-                ax[1].set_ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
+                ax[1].set_xlabel(r'q$_\parallel$'+' [\u212b$^{-1}$]')
+                ax[1].set_ylabel(r'q$_\perp$'+' [\u212b$^{-1}$]')
                 im = ax[0].imshow(giwaxs_data[i], vmin=0, vmax=vmax)
                 ax[0].set_aspect('equal')
                 lhs = ax[0].get_position().extents
@@ -228,7 +228,7 @@ class GiwaxsConversionProcessor(Processor):
                     plt.show()
                 if save_figures:
                     if config.scan_step_indices is None:
-                        fig.savefig(os.path.join(outputdir, f'converted'))
+                        fig.savefig(os.path.join(outputdir, 'converted'))
                     else:
                         fig.savefig(os.path.join(
                             outputdir,
@@ -551,9 +551,7 @@ class GiwaxsConversionProcessor(Processor):
 
 class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images."""
-    def process(
-            self, data, config, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+    def process(self, data, config, inputdir='.'):
         """Process the input images & configuration and return a map of
         the azimuthally integrated images.
 
@@ -564,19 +562,10 @@ class PyfaiIntegrationProcessor(Processor):
         :param config: Initialization parameters for an instance of
             giwaxs.models.PyfaiIntegrationProcessorConfig.
         :type config: dict
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
         :return: Integrated images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -596,7 +585,8 @@ class PyfaiIntegrationProcessor(Processor):
                 nxroot[nxobject.nxname] = nxobject
                 nxobject.set_default()
             else:
-                raise
+                raise ValueError(
+                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
         except Exception as exc:
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
@@ -606,7 +596,7 @@ class PyfaiIntegrationProcessor(Processor):
             config = self.get_config(
                 data, 'giwaxs.models.PyfaiIntegrationProcessorConfig',
                 inputdir=inputdir)
-        except:
+        except Exception:
             self.logger.info('No valid integration config in input pipeline '
                              'data, using config parameter instead.')
             try:
@@ -666,7 +656,7 @@ class PyfaiIntegrationProcessor(Processor):
                     nxdata.converted.nxdata, axis=1)
             else:
                 self.logger.warning(
-                    f'No converted data found, use raw data for integration')
+                    'No converted data found, use raw data for integration')
                 nxentry = nxroot[nxroot.default]
                 detector_ids = [
                     str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
@@ -703,15 +693,13 @@ class PyfaiIntegrationProcessor(Processor):
 
         # Select the giwaxs images to integrate
         if False and config.scan_step_indices is not None:
-            raise RuntimeError('config.scan_step_indices not tested yet')
+            #FIX
             independent_dims = independent_dims[config.scan_step_indices]
             data = data[config.scan_step_indices]
         self.logger.debug(
             f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
 
         # Third party modules
-        if interactive or save_figures:
-            import matplotlib.pyplot as plt
         from nexusformat.nexus import (
             NXdata,
             NXfield,
@@ -729,7 +717,7 @@ class PyfaiIntegrationProcessor(Processor):
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except:
+            except Exception as exc:
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess

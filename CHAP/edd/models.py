@@ -712,30 +712,30 @@ class MCAScanDataConfig(BaseModel):
         :return: The validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        spec_file = data.get('spec_file')
-        par_file = data.get('par_file')
-        if spec_file is not None and par_file is not None:
-            raise ValueError('Use either spec_file or par_file, not both')
-        if spec_file is not None:
-            if inputdir is not None and not os.path.isabs(spec_file):
-                data['spec_file'] = os.path.join(inputdir, spec_file)
-        elif par_file is not None:
-            if inputdir is not None and not os.path.isabs(par_file):
-                data['par_file'] = os.path.join(inputdir, par_file)
-            if 'scan_column' not in data:
-                raise ValueError(
-                    'scan_column is required when par_file is used')
-            if isinstance(data['scan_column'], str):
-                parfile = ParFile(par_file)
-                if data['scan_column'] not in parfile.column_names:
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            spec_file = data.get('spec_file')
+            par_file = data.get('par_file')
+            if spec_file is not None and par_file is not None:
+                raise ValueError('Use either spec_file or par_file, not both')
+            if spec_file is not None:
+                if inputdir is not None and not os.path.isabs(spec_file):
+                    data['spec_file'] = os.path.join(inputdir, spec_file)
+            elif par_file is not None:
+                if inputdir is not None and not os.path.isabs(par_file):
+                    data['par_file'] = os.path.join(inputdir, par_file)
+                if 'scan_column' not in data:
                     raise ValueError(
-                        f'No column named {data["scan_column"]} in '
-                        + '{data["par_file"]}. Options: '
-                        + ', '.join(parfile.column_names))
-        else:
-            raise ValueError('Must use either spec_file or par_file')
-
+                        'scan_column is required when par_file is used')
+                if isinstance(data['scan_column'], str):
+                    parfile = ParFile(par_file)
+                    if data['scan_column'] not in parfile.column_names:
+                        raise ValueError(
+                            f'No column named {data["scan_column"]} in '
+                            '{data["par_file"]}. Options: '
+                            ', '.join(parfile.column_names))
+            else:
+                raise ValueError('Must use either spec_file or par_file')
         return data
 
     @model_validator(mode='after')
@@ -922,12 +922,12 @@ class MCAEnergyCalibrationConfig(FitConfig):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        if inputdir is not None:
-            flux_file = data.get('flux_file')
-            if flux_file is not None and not os.path.isabs(flux_file):
-                data['flux_file'] = os.path.join(inputdir, flux_file)
-
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            if inputdir is not None:
+                flux_file = data.get('flux_file')
+                if flux_file is not None and not os.path.isabs(flux_file):
+                    data['flux_file'] = os.path.join(inputdir, flux_file)
         return data
 
     @field_validator('scan_step_indices', mode='before')
@@ -1150,12 +1150,12 @@ class StrainAnalysisConfig(BaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        if inputdir is not None:
-            flux_file = data.get('flux_file')
-            if flux_file is not None and not os.path.isabs(flux_file):
-                data['flux_file'] = os.path.join(inputdir, flux_file)
-
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            if inputdir is not None:
+                flux_file = data.get('flux_file')
+                if flux_file is not None and not os.path.isabs(flux_file):
+                    data['flux_file'] = os.path.join(inputdir, flux_file)
         return data
 
     @field_validator('detectors', mode='before')

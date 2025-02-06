@@ -93,7 +93,7 @@ class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_root(cls, data):
-        if True: #RV FIX isinstance(data, dict):
+        if isinstance(data, dict):
             inputdir = data.get('inputdir')
             params = data.get('params')
             poni_file = data.get('poni_file')
@@ -164,21 +164,22 @@ class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        if inputdir is not None and 'azimuthal_integrators' in data:
-            ais = data.get('azimuthal_integrators')
-            for i, ai in enumerate(deepcopy(ais)):
-                if isinstance(ai, dict):
-                    poni_file = ai['poni_file']
-                    if not os.path.isabs(poni_file):
-                        ais[i]['poni_file'] = os.path.join(
-                            inputdir, poni_file)
-                else:
-                    poni_file = ai.poni_file
-                    if not os.path.isabs(poni_file):
-                        ais[i].poni_file = os.path.join(
-                            inputdir, poni_file)
-            data['azimuthal_integrators'] = ais
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            if inputdir is not None and 'azimuthal_integrators' in data:
+                ais = data.get('azimuthal_integrators')
+                for i, ai in enumerate(deepcopy(ais)):
+                    if isinstance(ai, dict):
+                        poni_file = ai['poni_file']
+                        if not os.path.isabs(poni_file):
+                            ais[i]['poni_file'] = os.path.join(
+                                inputdir, poni_file)
+                    else:
+                        poni_file = ai.poni_file
+                        if not os.path.isabs(poni_file):
+                            ais[i].poni_file = os.path.join(
+                                inputdir, poni_file)
+                data['azimuthal_integrators'] = ais
         return data
 
     @field_validator('scan_step_indices', mode='before')
@@ -200,7 +201,6 @@ class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
             from CHAP.utils.general import string_to_list
 
             scan_step_indices = string_to_list(scan_step_indices)
-
         return scan_step_indices
 
 
@@ -348,7 +348,7 @@ class PyfaiIntegrationConfig(GIWAXSBaseModel):
                 **self.multi_geometry.model_dump(exclude={'ais'}))
             integration_method = getattr(mg, self.integration_method)
             npts = [d.shape[0] for d in data.values()]
-            if not all([_npts == npts[0] for _npts in npts]):
+            if not all(_npts == npts[0] for _npts in npts):
                 raise RuntimeError('Different number of detector frames for '
                                    f'each azimuthal integrator ({npts})')
             npts = npts[0]
@@ -377,20 +377,20 @@ class PyfaiIntegrationProcessorConfig(GIWAXSBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        if inputdir is not None and 'azimuthal_integrators' in data:
-            ais = data.get('azimuthal_integrators')
-            for i, ai in enumerate(deepcopy(ais)):
-                if isinstance(ai, dict):
-                    poni_file = ai['poni_file']
-                    if not os.path.isabs(poni_file):
-                        ais[i]['poni_file'] = os.path.join(
-                            inputdir, poni_file)
-                else:
-                    poni_file = ai.poni_file
-                    if not os.path.isabs(poni_file):
-                        ais[i].poni_file = os.path.join(
-                            inputdir, poni_file)
-            data['azimuthal_integrators'] = ais
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            if inputdir is not None and 'azimuthal_integrators' in data:
+                ais = data.get('azimuthal_integrators')
+                for i, ai in enumerate(deepcopy(ais)):
+                    if isinstance(ai, dict):
+                        poni_file = ai['poni_file']
+                        if not os.path.isabs(poni_file):
+                            ais[i]['poni_file'] = os.path.join(
+                                inputdir, poni_file)
+                    else:
+                        poni_file = ai.poni_file
+                        if not os.path.isabs(poni_file):
+                            ais[i].poni_file = os.path.join(
+                                inputdir, poni_file)
+                data['azimuthal_integrators'] = ais
         return data
-
