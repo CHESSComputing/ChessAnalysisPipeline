@@ -2159,10 +2159,10 @@ class NexusToNumpyProcessor(Processor):
                 raise ValueError(
                     f'The structure of {data} contains no default data')
 
-        default_signal = default_data.attrs.get('signal')
-        if default_signal is None:
+        try:
+            default_signal = default_data.attrs['signal']
+        except:
             raise ValueError(f'The signal of {default_data} is unknown')
-        default_signal = default_signal.nxdata
 
         np_data = default_data[default_signal].nxdata
 
@@ -2201,11 +2201,10 @@ class NexusToXarrayProcessor(Processor):
                 raise ValueError(
                     f'The structure of {data} contains no default data')
 
-        default_signal = default_data.attrs.get('signal')
-        if default_signal is None:
+        try:
+            default_signal = default_data.attrs['signal']
+        except:
             raise ValueError(f'The signal of {default_data} is unknown')
-        default_signal = default_signal.nxdata
-
         signal_data = default_data[default_signal].nxdata
 
         axes = default_data.attrs['axes']
