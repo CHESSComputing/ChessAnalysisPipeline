@@ -37,6 +37,109 @@ class BinaryFileReader(Reader):
         return data
 
 
+class DetectorDataReader(Reader):
+    """Reader for detector data files. Glob filenames allowed. Mask
+    application and background correction available."""
+    def read(self, filename,
+             mask_file=None, mask_above=None, mask_below=None,
+             mask_value=np.nan,
+             data_scalar=None,
+             background_file=None, background_scalar=None,
+             ):
+        """Reads detector data, applies masking, scaling, and
+        background subtraction.
+
+        :param filename: Path to the primary data file.
+        :type filename: str
+        :param mask_file: Path to the mask file (optional).
+        :type mask_file: str, optional
+        :param mask_above: Mask values above this threshold (optional).
+        :type mask_above: float, optional
+        :param mask_below: Mask values below this threshold (optional).
+        :type mask_below: float, optional
+        :param data_scalar: Scalar to multiply the data (optional).
+        :type data_scalar: float, optional
+        :param background_file: Path to the background file (optional).
+        :type background_file: str, optional
+        :param background_scalar: Scalar to multiply the background
+            data (optional).
+        :type background_scalar: float, optional
+        :return: Processed detector data.
+        :rtype: numpy.ndarray
+        """
+        import glob
+        import os
+        import numpy as np
+
+        # Handle glob filenames
+        if not os.path.isfile(filename):
+            filenames = glob.glob(filename)
+            if len(filenames) == 0:
+                raise ValueError(
+                    f'{filename} is not a file or glob that matches any files')
+        else:
+            filenames = [filename]
+
+        # Read the raw data files
+        self.logger.info(f'Reading {len(filenames)} raw data files')
+        raw_data = [self.get_data_from_file(f) for f in filenames]
+
+        # Initialize mask arary
+        self.logger.info(f'Initializing mask array')
+        mask_array = np.zeros_like(raw_data[0], dtype=bool)
+        if mask_file:
+            mask_array |= self.get_data_from_file(mask_file) != 0
+
+        # Initialize background data
+        self.logger.info('Initializing background data')
+        if background_file:
+            background_data = self.get_data_from_file(background_file)
+            if background_scalar:
+                background_data *= background_scalar
+        else:
+            background_data = None
+
+        # Scale data, apply mask, subtract background
+        self.logger.info('Applying corrections to raw data')
+        corrected_data = [self.correct_data(
+            d, mask_array, mask_above, mask_below, mask_value,
+            data_scalar, background_data) for d in raw_data]
+
+        return corrected_data
+    def get_data_from_file(self, filename):
+        import fabio
+
+        self.logger.debug(f'Reading {filename}')
+        with fabio.open(filename) as datafile:
+            data = datafile.data
+        return data
+
+    def correct_data(self, raw_data,
+                     mask_array, mask_above, mask_below, mask_value,
+                     data_scalar,
+                     background_data):
+        import numpy as np
+
+        # Scale raw data
+        corrected_data = raw_data
+        if data_scalar:
+            corrected_data *= data_scalar
+
+        # Apply mask
+        mask = mask_array != 0
+        if mask_above is not None:
+            mask |= corrected_data > mask_above
+        if mask_below is not None:
+            mask |= corrected_data < mask_below
+        corrected_data = np.where(mask, mask_value, raw_data)
+
+        # Subtract background
+        if background_data:
+            corrected_data -= background_data
+
+        return corrected_data
+
+
 class FabioImageReader(Reader):
     """Reader for images using the python package
     [`fabio`](https://fabio.readthedocs.io/en/main/).

@@ -30,9 +30,11 @@ from CHAP.common.processor import (
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
     SumProcessor,
+    ZarrToNexusProcessor,
 )
 from CHAP.common.reader import (
     BinaryFileReader,
+    DetectorDataReader,
     FabioImageReader,
     H5Reader,
     MapReader,

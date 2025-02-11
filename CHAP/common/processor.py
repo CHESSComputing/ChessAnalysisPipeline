@@ -3097,6 +3097,49 @@ class SumProcessor(Processor):
         return sum_data
 
 
+class ZarrToNexusProcessor(Processor):
+    """Processor for converting .zarr data to .nxs format."""
+    def process(self, data, zarr_filename, nexus_filename):
+        import zarr
+        import h5py
+
+        # Open the Zarr file
+        zarr_file = zarr.open(zarr_filename, mode='r')
+
+        # Create the Nexus file
+        with h5py.File(nexus_filename, 'w') as nexus_file:
+            # Recursively copy all datasets and attributes
+            def copy_group(zarr_group, nexus_group):
+                self.logger.info(f'Copying {zarr_group.path}')
+                # Copy attributes
+                for attr_key, attr_value in zarr_group.attrs.items():
+                    nexus_group.attrs[attr_key] = attr_value
+
+                # Copy datasets and sub-groups
+                for key, item in zarr_group.members():
+                    if isinstance(item, zarr.Array):
+                        self.logger.info(f'Copying {zarr_group.path}/{key}')
+                        # Copy dataset
+                        nexus_dset = nexus_group.create_dataset(
+                            name=key,
+                            data=item.__array__(),
+                            chunks=item.chunks,
+                            compression='gzip',
+                            compression_opts=4  # GZIP compression level
+                        )
+                        # Copy dataset attributes
+                        for attr_key, attr_value in item.attrs.items():
+                            nexus_dset.attrs[attr_key] = attr_value
+                    elif isinstance(item, zarr.Group):
+                        # Recursively copy subgroup
+                        nexus_subgroup = nexus_group.create_group(key)
+                        copy_group(item, nexus_subgroup)
+
+            # Start copying from the root group
+            copy_group(zarr_file, nexus_file)
+        return None
+
+
 if __name__ == '__main__':
     # Local modules
     from CHAP.processor import main
