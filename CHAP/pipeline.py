@@ -221,7 +221,7 @@ class PipelineItem():
         self.logger.info(f'Finished "{method_name}" in '
                          + f'{time()-t0:.0f} seconds\n')
 
-        return [PipelineData(name=self.__name__,
+        return [PipelineData(name=kwargs.get('name', self.__name__),
                              data=data,
                              schema=schema)]
 
