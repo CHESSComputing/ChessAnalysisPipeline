@@ -221,20 +221,31 @@ class FitProcessor(Processor):
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
-                if model_config.centers_range is None:
-                    cen_min = None
-                    cen_max = None
+                if model_config.centers_range == 0:
+                    models.append(Gaussian(
+                        model='gaussian',
+                        prefix=prefix,
+                        parameters=[
+                             {'name': 'amplitude', 'min': FLOAT_MIN},
+                             {'name': 'center', 'value': cen, 'vary': False},
+                             {'name': 'sigma', 'min': sig_min, 'max': sig_max}
+                        ]))
                 else:
-                    cen_min = cen - model_config.centers_range
-                    cen_max = cen + model_config.centers_range
-                models.append(Gaussian(
-                    model='gaussian',
-                    prefix=prefix,
-                    parameters=[
-                         {'name': 'amplitude', 'min': FLOAT_MIN},
-                         {'name': 'center', 'value': cen, 'min': cen_min,
-                          'max': cen_max},
-                         {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
+                    if model_config.centers_range is None:
+                        cen_min = None
+                        cen_max = None
+                    else:
+                        cen_min = cen - model_config.centers_range
+                        cen_max = cen + model_config.centers_range
+                    models.append(Gaussian(
+                        model='gaussian',
+                        prefix=prefix,
+                        parameters=[
+                             {'name': 'amplitude', 'min': FLOAT_MIN},
+                             {'name': 'center', 'value': cen, 'min': cen_min,
+                              'max': cen_max},
+                             {'name': 'sigma', 'min': sig_min, 'max': sig_max}
+                        ]))
 
         return parameters, models
 
@@ -2424,6 +2435,7 @@ class FitMap(Fit):
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
+        logger.debug(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -2788,7 +2800,12 @@ class FitMap(Fit):
                 if par.vary:
                     current_best_values[par.name] = par.value
         else:
-            logger.warning(f'Fit for n = {n} failed: {result.lmdif_message}')
+            errortxt = f'Fit for n = {n} failed'
+            if hasattr(result, 'lmdif_message'):
+                errortxt += f'\n\t{result.lmdif_message}'
+            if hasattr(result, 'message'):
+                errortxt += f'\n\t{result.message}'
+            logger.warning(f'{errortxt}')
 
         # Renormalize the data and results
         self._renormalize(n, result)

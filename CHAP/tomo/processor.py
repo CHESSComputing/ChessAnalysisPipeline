@@ -38,13 +38,13 @@ NUM_CORE_TOMOPY_LIMIT = 24
 def get_nxroot(data, schema=None, remove=True):
     """Look through `data` for an item whose value for the `'schema'`
     key matches `schema` (if supplied) and whose value for the `'data'`
-    key matches a nexusformat.nexus.NXobject object and return this
+    key matches a `nexusformat.nexus.NXobject` object and return this
     object.
 
     :param data: Input list of `PipelineData` objects.
     :type data: list[PipelineData]
-    :param schema: Name associated with the nexusformat.nexus.NXobject
-        object to match in `data`.
+    :param schema: Name associated with the
+        `nexusformat.nexus.NXobject` object to match in `data`.
     :type schema: str, optional
     :param remove: Removes the matching entry in `data` when found,
         defaults to `True`.
@@ -59,6 +59,7 @@ def get_nxroot(data, schema=None, remove=True):
 
     # Local modules
     from nexusformat.nexus import NXobject
+
     nxobject = None
     if isinstance(data, list):
         for i, item in enumerate(deepcopy(data)):
@@ -83,26 +84,25 @@ def get_nxroot(data, schema=None, remove=True):
 class TomoCHESSMapConverter(Processor):
     """
     A processor to convert a CHESS style tomography map with dark and
-    bright field configurations to an nexusformat.nexus.NXtomo style
-    input format.
+    bright field configurations to an NeXus style input format.
     """
 
     def process(self, data):
         """
         Process the input map and configuration and return a
-        nexusformat.nexus.NXroot object based on the
-        nexusformat.nexus.NXtomo style format.
+        `nexusformat.nexus.NXroot` object based on the
+        `nexusformat.nexus.NXtomo` style format.
 
         :param data: Input map and configuration for tomographic image
             reduction/reconstruction.
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
-        :return: nexusformat.nexus.NXtomo style tomography input
-            configuration.
+        :return: NeXus style tomography input configuration.
         :rtype: nexusformat.nexus.NXroot
         """
         # System modules
         from copy import deepcopy
+        from json import dumps
 
         # Third party modules
         from json import loads
@@ -149,7 +149,10 @@ class TomoCHESSMapConverter(Processor):
         num_tomo_stack = len(map_config.spec_scans[0].scan_numbers)
 
         # Check available independent dimensions
-        independent_dimensions = tomofields.data.attrs['axes']
+        if 'axes' in tomofields.data.attrs:
+            independent_dimensions = tomofields.data.attrs['axes']
+        else:
+            independent_dimensions = tomofields.data.attrs['unstructured_axes']
         if isinstance(independent_dimensions, str):
             independent_dimensions = [independent_dimensions]
         matched_dimensions = deepcopy(independent_dimensions)
@@ -198,7 +201,7 @@ class TomoCHESSMapConverter(Processor):
 
         # Add configuration fields
         nxentry.definition = 'NXtomo'
-        nxentry.map_config = tomofields.map_config
+        nxentry.map_config = dumps(map_config.dict())
 
         # Add an NXinstrument to the NXentry
         nxinstrument = NXinstrument()
@@ -219,12 +222,7 @@ class TomoCHESSMapConverter(Processor):
 
         # Add an NXdetector to the NXinstrument
         # (do not fill in data fields yet)
-        detector_names = list(np.asarray(tomofields.detector_names, dtype=str))
         detector_prefix = detector_config.prefix
-        if detector_prefix not in detector_names:
-            raise ValueError(
-                f'Data for detector {detector_prefix} is unavailable '
-                f'(available detectors: {detector_names})')
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = detector_prefix
@@ -340,8 +338,7 @@ class TomoCHESSMapConverter(Processor):
                             num_image*[smb_pars[z_translation_name]]
 
         # Collect tomography fields data
-        tomo_stacks = tomofields.data.detector_data.nxdata[
-            detector_names.index(detector_prefix)]
+        tomo_stacks = tomofields.data[detector_prefix].nxdata
         tomo_stack_shape = tomo_stacks.shape
         assert len(tomo_stack_shape) == 3
         assert tomo_stack_shape[-2] == detector_config.rows
@@ -408,7 +405,7 @@ class TomoCHESSMapConverter(Processor):
 class TomoDataProcessor(Processor):
     """
     A processor to reconstruct a set of tomographic images returning
-    either a dictionary or a nexusformat.nexus.NXroot object
+    either a dictionary or a `nexusformat.nexus.NXroot` object
     containing the (meta) data after processing each individual step.
     """
 
@@ -419,7 +416,7 @@ class TomoDataProcessor(Processor):
         """
         Process the input map or configuration with the step specific
         instructions and return either a dictionary or a
-        nexusformat.nexus.NXroot object with the processed result.
+        `nexusformat.nexus.NXroot` object with the processed result.
 
         :param data: Input configuration and specific step instructions
             for tomographic image reduction.
@@ -808,7 +805,7 @@ class Tomo:
         reduced_data = self._gen_tomo(
             nxentry, reduced_data, image_key, calibrate_center_rows)
 
-        # Create a copy of the input Nexus object and remove raw and
+        # Create a copy of the input NeXus object and remove raw and
         # any existing reduced data
         exclude_items = [
             f'{nxentry.nxname}/reduced_data/data',
@@ -870,7 +867,7 @@ class Tomo:
 
         # Select the image stack to find the calibrated center axis
         # reduced data axes order: stack,theta,row,column
-        # Note: Nexus can't follow a link if the data it points to is
+        # Note: NeXus can't follow a link if the data it points to is
         # too big get the data from the actual place, not from
         # nxentry.data
         num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
@@ -1051,7 +1048,7 @@ class Tomo:
         # Reconstruct tomography data
         # - reduced data axes order: stack,theta,row,column
         # - reconstructed data axes order: row/-z,y,x
-        # Note: Nexus can't follow a link if the data it points to is
+        # Note: NeXus can't follow a link if the data it points to is
         # too big get the data from the actual place, not from
         # nxentry.data
         if 'zoom_perc' in nxentry.reduced_data:
@@ -1250,7 +1247,7 @@ class Tomo:
             nxprocess.data = NXdata(
                 NXfield(tomo_recon_stacks, 'reconstructed_data'))
 
-        # Create a copy of the input Nexus object and remove reduced
+        # Create a copy of the input NeXus object and remove reduced
         # data
         exclude_items = [
             f'{nxentry.nxname}/reduced_data/data',
@@ -1259,7 +1256,7 @@ class Tomo:
         ]
         nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
-        # Add the reconstructed data NXprocess to the new Nexus object
+        # Add the reconstructed data NXprocess to the new NeXus object
         nxentry = nxroot[nxroot.default]
         nxentry.reconstructed_data = nxprocess
         if 'data' not in nxentry:
@@ -1323,10 +1320,10 @@ class Tomo:
 
         # Get and combine the reconstructed stacks
         # - reconstructed axis data order: stack,row/-z,y,x
-        # Note: Nexus can't follow a link if the data it points to is
+        # Note: NeXus can't follow a link if the data it points to is
         # too big. So get the data from the actual place, not from
         # nxentry.data
-        # Also load one stack at a time to reduce risk of hitting Nexus
+        # Also load one stack at a time to reduce risk of hitting NeXus
         # data access limit
         t0 = time()
         tomo_recon_combined = \
@@ -1485,7 +1482,7 @@ class Tomo:
              NXfield(
                  x, 'x', attrs={'units': detector.column_pixel_size.units}),))
 
-        # Create a copy of the input Nexus object and remove
+        # Create a copy of the input NeXus object and remove
         # reconstructed data
         exclude_items = [
             f'{nxentry.nxname}/reconstructed_data/data',
@@ -1493,7 +1490,7 @@ class Tomo:
         ]
         nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
-        # Add the combined data NXprocess to the new Nexus object
+        # Add the combined data NXprocess to the new NeXus object
         nxentry = nxroot[nxroot.default]
         nxentry.combined_data = nxprocess
         if 'data' not in nxentry:
@@ -3116,7 +3113,7 @@ class TomoSimFieldProcessor(Processor):
         if num_tomo_stack == 1:
             tomo_fields_stack = tomo_fields_stack[0]
 
-        # Create Nexus object and write to file
+        # Create a NeXus object and write to file
         nxroot = NXroot()
         nxroot.entry = NXentry()
         nxroot.entry.sample = NXsample()
@@ -3247,7 +3244,7 @@ class TomoDarkFieldProcessor(Processor):
         dark_field = int(background_intensity) * np.ones(
             (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
 
-        # Create Nexus object and write to file
+        # Create a NeXus object and write to file
         nxdark = NXroot()
         nxdark.entry = NXentry()
         nxdark.entry.sample = nxroot.entry.sample
@@ -3336,7 +3333,7 @@ class TomoBrightFieldProcessor(Processor):
             outer_indices = np.where(abs(img_row_coords) > slit_size/2)[0]
             bright_field[:,outer_indices,:] = 0
 
-        # Create Nexus object and write to file
+        # Create a NeXus object and write to file
         nxbright = NXroot()
         nxbright.entry = NXentry()
         nxbright.entry.sample = nxroot.entry.sample
@@ -3440,7 +3437,7 @@ class TomoSpecProcessor(Processor):
                 f'Inconsistent number of scans ({num_scan}), '
                 f'len(scan_numbers) = {len(scan_numbers)})')
 
-        # Create the output data structure in Nexus format
+        # Create the output data structure in NeXus format
         nxentry = NXentry()
 
         # Create the SPEC file header

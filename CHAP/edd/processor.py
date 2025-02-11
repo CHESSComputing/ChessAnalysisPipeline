@@ -28,7 +28,7 @@ def get_axes(nxdata, skip_axes=None):
     if 'unstructured_axes' in nxdata.attrs:
         axes = nxdata.attrs['unstructured_axes']
     elif 'axes' in nxdata.attrs:
-        axes = nxdata.attrs.['axes']
+        axes = nxdata.attrs['axes']
     else:
         return []
     if isinstance(axes, str):
@@ -263,6 +263,18 @@ class DiffractionVolumeLengthProcessor(Processor):
 class LatticeParameterRefinementProcessor(Processor):
     """Processor to get a refined estimate for a sample's lattice
     parameters."""
+    def __init__(self):
+        super().__init__()
+        self._save_figures = False
+        self._outputdir = '.'
+        self._interactive = False
+
+        self._detectors = []
+        self._energies = []
+        self._masks = []
+        self._mean_data = []
+        self._nxdata_detectors = []
+
     def process(
             self, data, config=None, save_figures=False, inputdir='.',
             outputdir='.', interactive=False):
@@ -297,262 +309,195 @@ class LatticeParameterRefinementProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import (
             NXentry,
-            NXsubentry,
-            NXprocess,
             NXroot,
         )
 
         # Local modules
-        from CHAP.common import MapProcessor
+        from CHAP.edd.models import (
+            MCAElementStrainAnalysisConfig,
+            StrainAnalysisConfig,
+        )
 
+        self._save_figures = save_figures
+        self._outputdir = outputdir
+        self._interactive = interactive
+
+        # Load the pipeline input data
+        try:
+            nxobject = self.get_data(data)
+            if isinstance(nxobject, NXroot):
+                nxroot = nxobject
+            elif isinstance(nxobject, NXentry):
+                nxroot = NXroot()
+                nxroot[nxobject.nxname] = nxobject
+                nxobject.set_default()
+            else:
+                raise RuntimeError
+        except Exception as exc:
+            raise RuntimeError(
+                'No valid input in the pipeline data') from exc
+
+        # Load the validated calibration configuration
         calibration_config = self.get_config(
             data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
+
+        # Load the validated strain analysis configuration
         try:
             strain_analysis_config = self.get_config(
                 data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir)
         except:
-            # Local modules
-            from CHAP.edd.models import StrainAnalysisConfig
-
-            self.logger.info('No valid strain analysis config in input '
-                             'pipeline data, using config parameter instead')
+            self.logger.info(
+                'No valid strain analysis config in input '
+                'pipeline data, using config parameter instead')
             try:
                 strain_analysis_config = StrainAnalysisConfig(
                     **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
 
-        if len(strain_analysis_config.materials) > 1:
-            error_msg = 'Not implemented for multiple materials'
-            self.logger.error(error_msg)
-            raise NotImplementedError(error_msg)
-
-        # Collect the raw MCA data
-        raise RuntimeError(
-            'LatticeParameterRefinementProcessor not updated yet')
-        self.logger.debug('Reading data ...')
-        mca_data = strain_analysis_config.mca_data()
-        self.logger.debug('... done')
-        self.logger.debug(f'mca_data.shape: {mca_data.shape}')
-        if mca_data.ndim == 2:
-            mca_data_summed = mca_data
+        # add the calibration info to the detectors
+        if 'default' in nxroot.attrs:
+            nxentry = nxroot[nxroot.default]
         else:
-            mca_data_summed = np.mean(
-                mca_data, axis=tuple(np.arange(1, mca_data.ndim-1)))
-        self.logger.debug(f'mca_data_summed.shape: {mca_data_summed.shape}')
+            nxentry = [v for v in nxroot.values() if isinstance(v, NXentry)][0]
+        nxdata = nxentry[nxentry.default]
+        calibration_detector_ids = [d.id for d in calibration_config.detectors]
+        if strain_analysis_config.detectors is None:
+            strain_analysis_config.detectors = [
+                MCAElementStrainAnalysisConfig(**dict(d))
+                for d in calibration_config.detectors if d.id in nxdata]
+        for detector in deepcopy(strain_analysis_config.detectors):
+            if detector.id not in nxdata:
+                self.logger.warning(
+                    f'Skipping detector {detector.id} (no raw data)')
+                strain_analysis_config.detectors.remove(detector)
+            elif detector.id in calibration_detector_ids:
+                det_data = nxdata[detector.id].nxdata
+                if det_data.ndim != 2:
+                    self.logger.warning(
+                        f'Skipping detector {detector.id} (Illegal data shape '
+                        f'{det_data.shape})')
+                elif det_data.sum():
+                    for k, v in nxdata[detector.id].attrs.items():
+                        detector.attrs[k] = v
+                    self._detectors.append(detector)
+                    calibration = [
+                        d for d in calibration_config.detectors
+                        if d.id == detector.id][0]
+                    detector.add_calibration(calibration)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {detector.id} (zero intensity)')
+                self._energies.append(detector.energies)
+            else:
+                self.logger.warning(f'Skipping detector {detector.id} '
+                                    '(no energy/tth calibration data)')
+        if not self._detectors:
+            raise ValueError('No valid data or unable to match an available '
+                             'calibrated detector for the strain analysis')
 
-        # Create the NXroot object
-        nxroot = NXroot()
-        nxentry = NXentry()
-        nxroot.entry = nxentry
-        nxentry.set_default()
-        nxsubentry = NXsubentry()
-        nxentry.nexus_output = nxsubentry
-        nxsubentry.attrs['schema'] = 'h5'
-        nxsubentry.attrs['filename'] = 'lattice_parameter_map.nxs'
-        map_config = strain_analysis_config.map_config
-        nxsubentry[map_config.title] = MapProcessor.get_nxentry(map_config)
-        nxsubentry[f'{map_config.title}_lat_par_refinement'] = NXprocess()
-        nxprocess = nxsubentry[f'{map_config.title}_lat_par_refinement']
-        nxprocess.strain_analysis_config = dumps(
-            strain_analysis_config.dict())
-        nxprocess.calibration_config = dumps(calibration_config.dict())
+        # Load the raw MCA data and compute the mean spectra
+        self._setup_detector_data(
+            nxentry[nxentry.default], strain_analysis_config)
 
-        lattice_parameters = []
-        for i, detector in enumerate(strain_analysis_config.detectors):
-            lattice_parameters.append(self.refine_lattice_parameters(
-                strain_analysis_config, calibration_config, detector,
-                mca_data[i], mca_data_summed[i], nxsubentry, interactive,
-                save_figures, outputdir))
-        lattice_parameters_mean = np.asarray(lattice_parameters).mean(axis=0)
-        self.logger.debug(
-            'Lattice parameters refinement averaged over all detectors: '
-            f'{lattice_parameters_mean}')
-        strain_analysis_config.materials[0].lattice_parameters = [
-            float(v) for v in lattice_parameters_mean]
-        nxprocess.lattice_parameters = lattice_parameters_mean
+        # Apply the energy mask
+        self._apply_energy_mask()
 
-        nxentry.lat_par_output = NXsubentry()
-        nxentry.lat_par_output.attrs['schema'] = 'yaml'
-        nxentry.lat_par_output.attrs['filename'] = 'lattice_parameters.yaml'
-        nxentry.lat_par_output.data = dumps(
-            strain_analysis_config.dict())
+        # Get the mask and HKLs used in the strain analysis
+        self._get_mask_hkls(strain_analysis_config.materials)
 
-        return nxroot
+        # Apply the combined energy ranges mask
+        self._apply_combined_mask()
 
-    def refine_lattice_parameters(
-            self, strain_analysis_config, calibration_config, detector,
-            mca_data, mca_data_summed, nxsubentry, interactive, save_figures,
-            outputdir):
-        """Return refined values for the lattice parameters of the
-        materials indicated in `strain_analysis_config`. Method: given
-        a scan of a material, fit the peaks of each MCA spectrum for a
-        given detector. Based on those fitted peak locations,
-        calculate the lattice parameters that would produce them.
-        Return the averaged value of the calculated lattice parameters
-        across all spectra.
+        # Get and subtract the detector baselines
+        self._subtract_baselines()
 
-        :param strain_analysis_config: Strain analysis configuration.
-        :type strain_analysis_config:
-            CHAP.edd.models.StrainAnalysisConfig
-        :param calibration_config: Energy calibration configuration.
-        :type calibration_config: edd.models.MCATthCalibrationConfig
-        :param detector: A single MCA detector element configuration.
-        :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
-        :param mca_data: Raw specta for the current MCA detector.
-        :type mca_data: numpy.ndarray
-        :param mca_data_summed: Raw specta for the current MCA detector
-            summed over all data point.
-        :type mca_data_summed: numpy.ndarray
-        :param nxsubentry: NeXus subentry to store the detailed refined
-            lattice parameters for each detector.
-        :type nxsubentry: nexusformat.nexus.NXprocess
-        :param interactive: Boolean to indicate whether interactive
-            matplotlib figures should be presented.
-        :type interactive: bool
-        :param save_figures: Boolean to indicate whether figures
-            indicating the selection should be saved.
-        :type save_figures: bool
-        :param outputdir: Where to save figures (if `save_figures` is
-            `True`).
-        :type outputdir: str
-        :returns: List of refined lattice parameters for materials in
-            `strain_analysis_config`
-        :rtype: list[float]
+        # Return the lattice parameter refinement from visual inspection
+        return  self._refine_lattice_parameters(strain_analysis_config)
+
+    def _adjust_material_props(self, materials, index):
+        """Adjust the material properties."""
+        # Local modules
+        from CHAP.edd.utils import select_material_params
+
+        detector = self._detectors[index]
+        if self._save_figures:
+            filename = os.path.join(
+                self._outputdir,
+                f'{detector.id}_strainanalysis_material_config.png')
+        else:
+            filename = None
+        return select_material_params(
+            self._energies[index], self._mean_data[index],
+            detector.tth_calibrated, label='Sum of all spectra in the map',
+            preselected_materials=materials, interactive=self._interactive,
+            filename=filename)
+
+    def _apply_combined_mask(self):
+        """Apply the combined mask over the combined included energy
+        ranges.
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXcollection,
-            NXdata,
-            NXdetector,
-            NXfield,
-        )
+        for index, (energies, mean_data, nxdata, detector) in enumerate(
+                zip(self._energies, self._mean_data, self._nxdata_detectors,
+                    self._detectors)):
+            mask = detector.mca_mask()
+            low, upp = np.argmax(mask), mask.size - np.argmax(mask[::-1])
+            self._energies[index] = energies[low:upp]
+            self._masks.append(detector.mca_mask()[low:upp])
+            self._mean_data[index] = mean_data[low:upp]
+            self._nxdata_detectors[index].nxsignal = nxdata.nxsignal[:,low:upp]
 
+    def _apply_energy_mask(self, lower_cutoff=25, upper_cutoff=200):
+        """Apply an energy mask by blanking out data below and/or
+        above a certain threshold.
+        """
+        dtype = self._nxdata_detectors[0].nxsignal.dtype
+        for index, (energies, detector) in enumerate(
+                zip(self._energies, self._detectors)):
+            energy_mask = np.where(energies >= lower_cutoff, 1, 0)
+            energy_mask = np.where(energies <= upper_cutoff, energy_mask, 0)
+            # Also blank out the last channel, which has shown to be
+            # troublesome
+            energy_mask[-1] = 0
+            self._mean_data[index] *= energy_mask
+            self._nxdata_detectors[index].nxsignal.nxdata *= \
+                energy_mask.astype(dtype)
+
+    def _get_mask_hkls(self, materials):
+        """Get the mask and HKLs used in the strain analysis."""
         # Local modules
         from CHAP.edd.utils import (
-            get_peak_locations,
-            get_spectra_fits,
             get_unique_hkls_ds,
+            select_mask_and_hkls,
         )
 
-        def linkdims(nxgroup, field_dims=None):
-            """Link the dimensions for a `nexusformat.nexus.NXgroup`
-            object."""
-            if field_dims is None:
-                field_dims = []
-            if isinstance(field_dims, dict):
-                field_dims = [field_dims]
-            if map_config.map_type == 'structured':
-                axes = deepcopy(map_config.dims)
-                for dims in field_dims:
-                    axes.append(dims['axes'])
-            else:
-                axes = ['map_index']
-                for dims in field_dims:
-                    axes.append(dims['axes'])
-                nxgroup.attrs['map_index_indices'] = 0
-            for dim in map_config.dims:
-                nxgroup.makelink(nxsubentry[map_config.title].data[dim])
-                if f'{dim}_indices' in nxsubentry[map_config.title].data.attrs:
-                    nxgroup.attrs[f'{dim}_indices'] = \
-                        nxsubentry[map_config.title].data.attrs[
-                            f'{dim}_indices']
-            nxgroup.attrs['axes'] = axes
-            for dims in field_dims:
-                nxgroup.attrs[f'{dims["axes"]}_indices'] = dims['index']
+        for energies, mean_data, nxdata, detector in zip(
+                self._energies, self._mean_data, self._nxdata_detectors,
+                self._detectors):
 
-        # Get and add the calibration info to the detector
-        calibration = [
-            d for d in calibration_config.detectors \
-            if d.id == detector.id][0]
-        detector.add_calibration(calibration)
-
-        # Get the MCA bin energies
-        mca_bin_energies = detector.energies
-
-        # Blank out data below 25 keV as well as the last bin
-        energy_mask = np.where(mca_bin_energies >= 25.0, 1, 0)
-        energy_mask[-1] = 0
-
-        # Subtract the baseline
-        if detector.baseline:
-            # Local modules
-            from CHAP.edd.models import BaselineConfig
-            from CHAP.common.processor import ConstructBaseline
-
-            if isinstance(detector.baseline, bool):
-                detector.baseline = BaselineConfig()
-            if save_figures:
-                filename = os.path.join(
-                    outputdir,
-                    f'{detector.id}_lat_param_refinement_baseline.png')
-            else:
-                filename = None
-            baseline, baseline_config = \
-                ConstructBaseline.construct_baseline(
-                    mca_data_summed, mask=energy_mask,
-                    tol=detector.baseline.tol, lam=detector.baseline.lam,
-                    max_iter=detector.baseline.max_iter,
-                    title=f'Baseline for detector {detector.id}',
-                    xlabel='Energy (keV)', ylabel='Intensity (counts)',
-                    interactive=interactive, filename=filename)
-
-            mca_data_summed = np.maximum(mca_data_summed-baseline, 0)
-            detector.baseline.lam = baseline_config['lambda']
-            detector.baseline.attrs['num_iter'] = \
-                baseline_config['num_iter']
-            detector.baseline.attrs['error'] = baseline_config['error']
-
-        # Get the unique HKLs and lattice spacings for the strain
-        # analysis materials
-        hkls, ds = get_unique_hkls_ds(
-            strain_analysis_config.materials,
-            tth_tol=detector.hkl_tth_tol,
-            tth_max=detector.tth_max)
-
-        if interactive or save_figures:
-            # Local modules
-            from CHAP.edd.utils import (
-                select_material_params,
-                select_mask_and_hkls,
-            )
-
-            # Interactively adjust the initial material parameters
-            tth = detector.tth_calibrated
-            if save_figures:
-                filename = os.path.join(
-                    outputdir,
-                    f'{detector.id}_lat_param_refinement_'
-                    'initial_material_config.png')
-            else:
-                filename = None
-            strain_analysis_config.materials = select_material_params(
-                mca_bin_energies, mca_data_summed*energy_mask, tth,
-                preselected_materials=strain_analysis_config.materials,
-                label='Sum of all spectra in the map',
-                interactive=interactive, filename=filename)
-            self.logger.debug(
-                f'materials: {strain_analysis_config.materials}')
+            # Get the unique HKLs and lattice spacings for the strain
+            # analysis materials
+            hkls, ds = get_unique_hkls_ds(
+                materials, tth_tol=detector.hkl_tth_tol,
+                tth_max=detector.tth_max)
 
             # Interactively adjust the mask and HKLs used in the
-            # lattice parameter refinement
-            if save_figures:
+            # strain analysis
+            if self._save_figures:
                 filename = os.path.join(
-                    outputdir,
-                    f'{detector.id}_lat_param_refinement_fit_mask_hkls.png')
+                    self._outputdir,
+                    f'{detector.id}_strainanalysis_fit_mask_hkls.png')
             else:
                 filename = None
             include_bin_ranges, hkl_indices = \
                 select_mask_and_hkls(
-                    mca_bin_energies, mca_data_summed*energy_mask,
-                    hkls, ds, detector.tth_calibrated,
+                    energies, mean_data, hkls, ds, detector.tth_calibrated,
                     preselected_bin_ranges=detector.include_bin_ranges,
                     preselected_hkl_indices=detector.hkl_indices,
-                    detector_id=detector.id,
-                    ref_map=mca_data*energy_mask,
+                    detector_id=detector.id, ref_map=nxdata.nxsignal.nxdata,
                     calibration_bin_ranges=detector.calibration_bin_ranges,
                     label='Sum of all spectra in the map',
-                    interactive=interactive, filename=filename)
+                    interactive=self._interactive, filename=filename)
             detector.include_energy_ranges = \
                 detector.get_include_energy_ranges(include_bin_ranges)
             detector.hkl_indices = hkl_indices
@@ -573,148 +518,209 @@ class LatticeParameterRefinementProcessor(Processor):
                     'the detector\'s MCA Tth Calibration Configuration, or'
                     ' re-run the pipeline with the --interactive flag.')
 
-        effective_map_shape = mca_data.shape[:-1]
-        mask = detector.mca_mask()
-        energies = mca_bin_energies[mask]
-        intensities = np.empty(
-            (*effective_map_shape, len(energies)), dtype=np.float64)
-        for map_index in np.ndindex(effective_map_shape):
-            if detector.baseline:
-                intensities[map_index] = \
-                    np.maximum(mca_data[map_index]-baseline, 0).astype(
-                        np.float64)[mask]
+    def _refine_lattice_parameters(self, strain_analysis_config):
+        """Return a strain analysis configuration with the refined
+        values for the material properties.
+
+        :param strain_analysis_config: Strain analysis configuration.
+        :type strain_analysis_config:
+            CHAP.edd.models.StrainAnalysisConfig
+        :returns: Strain analysis configuration with the refined
+            values for the material properties.
+        :rtype: CHAP.edd.models.StrainAnalysisConfig
+        """
+        # Local modules
+        from CHAP.edd.models import MaterialConfig
+
+        names = []
+        sgnums = []
+        lattice_parameters = []
+        for i, detector in enumerate(self._detectors):
+            for m in self._adjust_material_props(
+                    strain_analysis_config.materials, i):
+                if m.material_name in names:
+                    lattice_parameters[names.index(m.material_name)].append(
+                        m.lattice_parameters)
+                else:
+                    names.append(m.material_name)
+                    sgnums.append(m.sgnum)
+                    lattice_parameters.append([m.lattice_parameters])
+        refined_materials = []
+        for name, sgnum, lat_params in zip(names, sgnums, lattice_parameters):
+            if len(lat_params):
+                refined_materials.append(MaterialConfig(
+                    material_name=name, sgnum=sgnum,
+                    lattice_parameters=np.asarray(lat_params).mean(axis=0)))
             else:
-                intensities[map_index] = \
-                    mca_data[map_index].astype(np.float64)[mask]
-        mean_intensity = np.mean(
-            intensities, axis=tuple(range(len(effective_map_shape))))
-        hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
-        ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
-        rs = np.sqrt(np.sum(hkls_fit**2, 1))
-        peak_locations = get_peak_locations(
-            ds_fit, detector.tth_calibrated)
+                refined_materials.append(MaterialConfig(
+                    material_name=name, sgnum=sgnum,
+                    lattice_parameters=lat_params))
+        strain_analysis_config.materials = refined_materials
+        return strain_analysis_config
 
-        map_config = strain_analysis_config.map_config
-        nxprocess = nxsubentry[f'{map_config.title}_lat_par_refinement']
-        nxprocess[detector.id] = NXdetector()
-        nxdetector = nxprocess[detector.id]
-        nxdetector.local_name = detector.id
-        nxdetector.detector_config = dumps(detector.dict())
-        nxdetector.data = NXdata()
-        det_nxdata = nxdetector.data
-        linkdims(
-            det_nxdata,
-            {'axes': 'energy', 'index': len(effective_map_shape)})
-        det_nxdata.energy = NXfield(value=energies, attrs={'units': 'keV'})
-        det_nxdata.intensity = NXfield(
-            value=intensities,
-            shape=(*effective_map_shape, len(energies)),
-            dtype=np.float64,
-            attrs={'units': 'counts'})
-        det_nxdata.mean_intensity = mean_intensity
+#        """
+#        Method: given
+#        a scan of a material, fit the peaks of each MCA spectrum for a
+#        given detector. Based on those fitted peak locations,
+#        calculate the lattice parameters that would produce them.
+#        Return the averaged value of the calculated lattice parameters
+#        across all spectra.
+#        """
+#        # Get the interplanar spacings measured for each fit HKL peak
+#        # at the spectrum averaged over every point in the map to get
+#        # the refined estimate for the material's lattice parameter
+#        uniform_fit_centers = uniform_results['centers']
+#        uniform_best_fit = uniform_results['best_fits']
+#        unconstrained_fit_centers = unconstrained_results['centers']
+#        unconstrained_best_fit = unconstrained_results['best_fits']
+#        d_uniform = get_peak_locations(
+#            np.asarray(uniform_fit_centers), detector.tth_calibrated)
+#        d_unconstrained = get_peak_locations(
+#            np.asarray(unconstrained_fit_centers), detector.tth_calibrated)
+#        a_uniform = float((rs * d_uniform).mean())
+#        a_unconstrained = rs * d_unconstrained
+#        self.logger.warning(
+#            'Lattice parameter refinement assumes cubic lattice')
+#        self.logger.info(
+#            'Refined lattice parameter from uniform fit over averaged '
+#            f'spectrum: {a_uniform}')
+#        self.logger.info(
+#            'Refined lattice parameter from unconstrained fit over averaged '
+#            f'spectrum: {a_unconstrained}')
+#
+#        if interactive or save_figures:
+#            # Third party modules
+#            import matplotlib.pyplot as plt
+#
+#            fig, ax = plt.subplots(figsize=(11, 8.5))
+#            ax.set_title(
+#                f'Detector {detector.id}: Lattice Parameter Refinement')
+#            ax.set_xlabel('Detector energy (keV)')
+#            ax.set_ylabel('Mean intensity (counts)')
+#            ax.plot(energies, mean_intensity, 'k.', label='MCA data')
+#            ax.plot(energies, uniform_best_fit, 'r', label='Best uniform fit')
+#            ax.plot(
+#                energies, unconstrained_best_fit, 'b',
+#                label='Best unconstrained fit')
+#            ax.legend()
+#            for i, loc in enumerate(peak_locations):
+#                ax.axvline(loc, c='k', ls='--')
+#                ax.text(loc, 1, str(hkls_fit[i])[1:-1],
+#                              ha='right', va='top', rotation=90,
+#                              transform=ax.get_xaxis_transform())
+#            if save_figures:
+#                fig.tight_layout()#rect=(0, 0, 1, 0.95))
+#                figfile = os.path.join(
+#                    outputdir, f'{detector.id}_lat_param_fits.png')
+#                plt.savefig(figfile)
+#                self.logger.info(f'Saved figure to {figfile}')
+#            if interactive:
+#                plt.show()
+#
+#        return [
+#            a_uniform, a_uniform, a_uniform, 90., 90., 90.]
 
-        # Get the interplanar spacings measured for each fit HKL peak
-        # at every point in the map to get the refined estimate
-        # for the material's lattice parameter
-        (uniform_fit_centers, _, _, _, _, _, uniform_best_fit, _, _, _,
-         unconstrained_fit_centers, _, _, _, _, _,
-         unconstrained_best_fit, _, _, _) = get_spectra_fits(
-            intensities, energies, peak_locations, detector)
-        rs_map = rs.repeat(np.prod(effective_map_shape))
-        d_uniform = get_peak_locations(
-            np.asarray(uniform_fit_centers), detector.tth_calibrated)
-        a_uniform = (rs_map * d_uniform.flatten()).reshape(d_uniform.shape)
-        a_uniform = a_uniform.mean(axis=0)
-        a_uniform_mean = float(a_uniform.mean())
-        d_unconstrained = get_peak_locations(
-            unconstrained_fit_centers, detector.tth_calibrated)
-        a_unconstrained = (
-            rs_map * d_unconstrained.flatten()).reshape(d_unconstrained.shape)
-        a_unconstrained = np.moveaxis(a_unconstrained, 0, -1)
-        a_unconstrained_mean = float(a_unconstrained.mean())
-        self.logger.warning(
-            'Lattice parameter refinement assumes cubic lattice')
-        self.logger.info(
-            f'Refined lattice parameter from uniform fit: {a_uniform_mean}')
-        self.logger.info(
-            'Refined lattice parameter from unconstrained fit: '
-            f'{a_unconstrained_mean}')
-        nxdetector.lat_pars = NXcollection()
-        nxdetector.lat_pars.uniform = NXdata()
-        nxdata = nxdetector.lat_pars.uniform
-        nxdata.nxsignal = NXfield(
-            value=a_uniform, name='a_uniform', attrs={'units': r'\AA'})
-        linkdims(nxdata)
-        nxdetector.lat_pars.a_uniform_mean = float(a_uniform.mean())
-        nxdetector.lat_pars.unconstrained = NXdata()
-        nxdata = nxdetector.lat_pars.unconstrained
-        nxdata.nxsignal = NXfield(
-            value=a_unconstrained, name='a_unconstrained',
-            attrs={'units': r'\AA'})
-        nxdata.hkl_index = detector.hkl_indices
-        linkdims(
-            nxdata,
-            {'axes': 'hkl_index', 'index': len(effective_map_shape)})
-        nxdetector.lat_pars.a_unconstrained_mean = a_unconstrained_mean
+    def _setup_detector_data(self, nxdata_raw, strain_analysis_config):
+        """Load the raw MCA data accounting for oversampling or axes
+        summation if requested, compute the mean spectrum, and select the
+        energy mask and the HKL to use in the strain analysis"""
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
-        # Get the interplanar spacings measured for each fit HKL peak
-        # at the spectrum averaged over every point in the map to get
-        # the refined estimate for the material's lattice parameter
-        (uniform_fit_centers, _, _, _, _, _,
-         uniform_best_fit, _, _, _, unconstrained_fit_centers, _, _, _,
-         _, _, unconstrained_best_fit, _, _, _) = get_spectra_fits(
-                mean_intensity, energies, peak_locations, detector)
-        d_uniform = get_peak_locations(
-            np.asarray(uniform_fit_centers), detector.tth_calibrated)
-        d_unconstrained = get_peak_locations(
-            np.asarray(unconstrained_fit_centers), detector.tth_calibrated)
-        a_uniform = float((rs * d_uniform).mean())
-        a_unconstrained = rs * d_unconstrained
-        self.logger.warning(
-            'Lattice parameter refinement assumes cubic lattice')
-        self.logger.info(
-            'Refined lattice parameter from uniform fit over averaged '
-            f'spectrum: {a_uniform}')
-        self.logger.info(
-            'Refined lattice parameter from unconstrained fit over averaged '
-            f'spectrum: {a_unconstrained}')
-        nxdetector.lat_pars_mean_intensity = NXcollection()
-        nxdetector.lat_pars_mean_intensity.a_uniform = a_uniform
-        nxdetector.lat_pars_mean_intensity.a_unconstrained = a_unconstrained
-        nxdetector.lat_pars_mean_intensity.a_unconstrained_mean = \
-            float(a_unconstrained.mean())
+        have_det_nxdata = False
+        oversampling_axis = {}
+        if strain_analysis_config.sum_axes:
+            scan_type = int(str(nxdata_raw.attrs.get('scan_type', 0)))
+            if scan_type == 4:
+                # Local modules
+                from CHAP.utils.general import rolling_average
 
-        if interactive or save_figures:
-            # Third party modules
-            import matplotlib.pyplot as plt
+                # Check for oversampling axis and create the binned
+                # coordinates
+                raise RuntimeError('oversampling needs testing')
+                fly_axis = nxdata_raw.attrs.get('fly_axis_labels').nxdata[0]
+                oversampling_axis[fly_axis] = rolling_average(
+                        nxdata_raw[fly_axis].nxdata,
+                        start=oversampling.get('start', 0),
+                        end=oversampling.get('end'),
+                        width=oversampling.get('width'),
+                        stride=oversampling.get('stride'),
+                        num=oversampling.get('num'),
+                        mode=oversampling.get('mode', 'valid'))
+            elif (scan_type > 2
+                    or isinstance(strain_analysis_config.sum_axes, list)):
+                # Collect the raw MCA data averaged over sum_axes
+                for detector in self._detectors:
+                    self._nxdata_detectors.append(
+                        self._get_sum_axes_data(
+                            nxdata_raw, detector.id,
+                            strain_analysis_config.sum_axes))
+                have_det_nxdata = True
+        if not have_det_nxdata:
+            # Collect the raw MCA data if not averaged over sum_axes
+            axes = get_axes(nxdata_raw)
+            for detector in self._detectors:
+                nxdata_det = NXdata(
+                    NXfield(nxdata_raw[detector.id].nxdata, 'detector_data'),
+                    tuple([
+                        NXfield(
+                            nxdata_raw[a].nxdata, a, attrs=nxdata_raw[a].attrs)
+                        for a in axes]))
+                if len(axes) > 1:
+                    nxdata_det.attrs['unstructured_axes'] = \
+                        nxdata_det.attrs.pop('axes')
+                self._nxdata_detectors.append(nxdata_det)
+        self._mean_data = [
+            np.mean(
+                nxdata.nxsignal.nxdata[
+                    [i for i in range(0, nxdata.nxsignal.shape[0])
+                     if nxdata[i].nxsignal.nxdata.sum()]],
+                axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
+            for nxdata in self._nxdata_detectors]
+        self.logger.debug(
+            f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
+        self.logger.debug(
+            f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
-            fig, ax = plt.subplots(figsize=(11, 8.5))
-            ax.set_title(
-                f'Detector {detector.id}: Lattice Parameter Refinement')
-            ax.set_xlabel('Detector energy (keV)')
-            ax.set_ylabel('Mean intensity (counts)')
-            ax.plot(energies, mean_intensity, 'k.', label='MCA data')
-            ax.plot(energies, uniform_best_fit, 'r', label='Best uniform fit')
-            ax.plot(
-                energies, unconstrained_best_fit, 'b',
-                label='Best unconstrained fit')
-            ax.legend()
-            for i, loc in enumerate(peak_locations):
-                ax.axvline(loc, c='k', ls='--')
-                ax.text(loc, 1, str(hkls_fit[i])[1:-1],
-                              ha='right', va='top', rotation=90,
-                              transform=ax.get_xaxis_transform())
-            if save_figures:
-                fig.tight_layout()#rect=(0, 0, 1, 0.95))
-                figfile = os.path.join(
-                    outputdir, f'{detector.id}_lat_param_fits.png')
-                plt.savefig(figfile)
-                self.logger.info(f'Saved figure to {figfile}')
-            if interactive:
-                plt.show()
+    def _subtract_baselines(self):
+        """Get and subtract the detector baselines."""
+        # Local modules
+        from CHAP.edd.models import BaselineConfig
+        from CHAP.common.processor import ConstructBaseline
 
-        return [
-            a_uniform, a_uniform, a_uniform, 90., 90., 90.]
+        baselines = []
+        for mean_data, nxdata, detector in zip(
+                self._mean_data, self._nxdata_detectors, self._detectors):
+            if detector.baseline:
+                if isinstance(detector.baseline, bool):
+                    detector.baseline = BaselineConfig()
+                if self._save_figures:
+                    filename = os.path.join(
+                        self._outputdir,
+                        f'{detector.id}_strainanalysis_baseline.png')
+                else:
+                    filename = None
+
+                baseline, baseline_config = \
+                    ConstructBaseline.construct_baseline(
+                        mean_data, tol=detector.baseline.tol,
+                        lam=detector.baseline.lam,
+                        max_iter=detector.baseline.max_iter,
+                        title=f'Baseline for detector {detector.id}',
+                        xlabel='Energy (keV)', ylabel='Intensity (counts)',
+                        interactive=self._interactive, filename=filename)
+
+                baselines.append(baseline)
+                detector.baseline.lam = baseline_config['lambda']
+                detector.baseline.attrs['num_iter'] = \
+                    baseline_config['num_iter']
+                detector.baseline.attrs['error'] = baseline_config['error']
+
+                nxdata.nxsignal -= baseline
+                mean_data -= baseline
 
 
 class MCAEnergyCalibrationProcessor(Processor):
@@ -727,10 +733,8 @@ class MCAEnergyCalibrationProcessor(Processor):
     diffraction peaks, as this Processor does not account for
     2&theta."""
     def process(
-            self, data, config=None, centers_range=20, fwhm_min=None,
-            fwhm_max=None, max_energy_kev=200.0, background=None,
-            baseline=False, save_figures=False, interactive=False,
-            inputdir='.', outputdir='.'):
+            self, data, config=None, max_energy_kev=200.0, save_figures=False,
+            interactive=False, inputdir='.', outputdir='.'):
         """For each detector in the `MCAEnergyCalibrationConfig`
         provided with `data`, fit the specified peaks in the MCA
         spectrum specified. Using the difference between the provided
@@ -746,25 +750,9 @@ class MCAEnergyCalibrationProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.MCAEnergyCalibrationConfig.
         :type config: dict, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
         :type max_energy_kev: float, optional
-        :param background: Background model for peak fitting.
-        :type background: str, list[str], optional
-        :param baseline: Automated baseline subtraction configuration,
-            defaults to `False`.
-        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -788,10 +776,7 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import (
-            BaselineConfig,
-            MCAElementCalibrationConfig,
-        )
+        from CHAP.edd.models import MCAElementCalibrationConfig
         from CHAP.utils.general import (
             is_int,
             is_num,
@@ -825,19 +810,44 @@ class MCAEnergyCalibrationProcessor(Processor):
 
         # Validate the detector configuration
         detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        available_detector_indices = [
-            int(d.id) for d in detector_config.detectors]
-        if calibration_config.detectors is None:
-            calibration_config.detectors = [
-                MCAElementCalibrationConfig(id=d)
-                for d in available_detector_indices]
-        else:
-            for detector in deepcopy(calibration_config.detectors):
-                index = int(detector.id)
-                if index not in available_detector_indices:
+        if detector_config.detectors[0].id == 'mca1':
+            if len(detector_config.detectors) != 1:
+                raise ValueError(
+                    'Multiple detectors not implemented for mca1 detector')
+            available_detector_indices = ['mca1']
+            if calibration_config.detectors is None:
+                calibration_config.detectors = [
+                    MCAElementCalibrationConfig(id='mca1')]
+            elif len(calibration_config.detectors) == 1:
+                id_ = calibration_config.detectors[0].id
+                if id_ != 'mca1':
                     self.logger.warning(
-                        f'Skipping detector {index} (no raw data)')
-                    calibration_config.detectors.remove(detector)
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors = []
+            else:
+                raise ValueError('Multiple detectors not implemented '
+                                 'for mca1 detector')
+        else:
+            available_detector_indices = [
+                int(d.id) for d in detector_config.detectors]
+            if calibration_config.detectors is None:
+                calibration_config.detectors = [
+                    MCAElementCalibrationConfig(id=i)
+                    for i in available_detector_indices]
+            else:
+                for detector in deepcopy(calibration_config.detectors):
+                    id_ = int(detector.id)
+                    if id_ not in available_detector_indices:
+                        self.logger.warning(
+                            f'Skipping detector {id_} (no raw data)')
+                        calibration_config.detectors.remove(detector)
+            for detector in calibration_config.detectors:
+                detector.id = int(detector.id)
+        if not calibration_config.detectors:
+            self.logger.warning(
+                f'No raw data for the requested calibration detectors)')
+            exit('Code terminated')
+        detectors = calibration_config.detectors
 
         # Validate the fit index range
         if calibration_config.fit_index_ranges is None and not interactive:
@@ -847,30 +857,9 @@ class MCAEnergyCalibrationProcessor(Processor):
                 '`interactive=True`.')
 
         # Validate the optional inputs
-        if not is_int(centers_range, gt=0, log=False):
-            raise RuntimeError(
-                f'Invalid centers_range parameter ({centers_range})')
-        if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
-        if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
         if not is_num(max_energy_kev, gt=0, log=False):
             raise RuntimeError(
                 f'Invalid max_energy_kev parameter ({max_energy_kev})')
-        if background is not None:
-            if isinstance(background, str):
-                background = [background]
-            elif not is_str_series(background, log=False):
-                raise RuntimeError(
-                    f'Invalid background parameter ({background})')
-        if isinstance(baseline, bool):
-            if baseline:
-                baseline = BaselineConfig()
-        else:
-            try:
-                baseline = BaselineConfig(**baseline)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
 
         # Collect and sum the detector data
         mca_data = []
@@ -880,9 +869,17 @@ class MCAEnergyCalibrationProcessor(Processor):
         summed_detector_data = np.asarray(mca_data).sum(axis=(0,1))
 
         # Get the detectors' num_bins parameter
-        for detector in calibration_config.detectors:
+        for detector in detectors:
             if detector.num_bins is None:
                 detector.num_bins = summed_detector_data.shape[-1]
+
+        # Copy any configurational parameters that supersede the
+        # individual input detector values
+        for detector in detectors:
+            if calibration_config.background is not None:
+                detector.background = calibration_config.background.copy()
+            if calibration_config.baseline:
+                detector.baseline = calibration_config.baseline.model_copy()
 
         # Check each detector's include_energy_ranges field against the
         # flux file, if available.
@@ -891,7 +888,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             flux_file_energies = flux[:,0]/1.e3
             flux_e_min = flux_file_energies.min()
             flux_e_max = flux_file_energies.max()
-            for detector in calibration_config.detectors:
+            for detector in detectors:
                 for i, (det_e_min, det_e_max) in enumerate(
                         deepcopy(detector.include_energy_ranges)):
                     if det_e_min < flux_e_min or det_e_max > flux_e_max:
@@ -904,23 +901,17 @@ class MCAEnergyCalibrationProcessor(Processor):
                         detector.include_energy_ranges[i] = energy_range
 
         # Calibrate detector channel energies based on fluorescence peaks
-        for detector in calibration_config.detectors:
-            index = available_detector_indices.index(int(detector.id))
-            if background is not None:
-                detector.background = background.copy()
-            if baseline:
-                detector.baseline = baseline.model_copy()
+        for detector in detectors:
+            index = available_detector_indices.index(detector.id)
             detector.energy_calibration_coeffs = self.calibrate(
                 calibration_config, detector, summed_detector_data[index],
-                centers_range, fwhm_min, fwhm_max, max_energy_kev,
-                save_figures, interactive, outputdir)
+                max_energy_kev, save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
     def calibrate(
-            self, calibration_config, detector, spectrum, centers_range,
-            fwhm_min, fwhm_max, max_energy_kev, save_figures, interactive,
-            outputdir):
+            self, calibration_config, detector, spectrum, max_energy_kev,
+            save_figures, interactive, outputdir):
         """Return energy_calibration_coeffs (a, b, and c) for
         quadratically converting the current detector's MCA channels
         to bin energies.
@@ -931,17 +922,6 @@ class MCAEnergyCalibrationProcessor(Processor):
         :type detector: MCAElementCalibrationConfig
         :param spectrum: Summed MCA spectrum for the current detector.
         :type spectrum: numpy.ndarray
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param max_energy_kev: Maximum channel energy of the MCA in
             keV, defaults to `200.0`.
         :type max_energy_kev: float
@@ -999,7 +979,7 @@ class MCAEnergyCalibrationProcessor(Processor):
                 xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum = np.maximum(spectrum-baseline, 0)
+            spectrum -= baseline
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -1041,16 +1021,19 @@ class MCAEnergyCalibrationProcessor(Processor):
         # Construct the fit model
         models = []
         if detector.background is not None:
-            if isinstance(detector.background, str):
+            if len(detector.background) == 1:
                 models.append(
-                    {'model': detector.background, 'prefix': 'bkgd_'})
+                    {'model': detector.background[0], 'prefix': 'bkgd_'})
             else:
                 for model in detector.background:
                     models.append({'model': model, 'prefix': f'{model}_'})
+        if calibration_config.centers_range is None:
+            calibration_config.centers_range = 20
         models.append(
             {'model': 'multipeak', 'centers': initial_peak_indices,
-             'centers_range': centers_range, 'fwhm_min': fwhm_min,
-             'fwhm_max': fwhm_max})
+             'centers_range': calibration_config.centers_range,
+             'fwhm_min': calibration_config.fwhm_min,
+             'fwhm_max': calibration_config.fwhm_max})
         self.logger.debug('Fitting spectrum')
         fit = FitProcessor()
         spectrum_fit = fit.process(
@@ -1095,6 +1078,8 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[0].plot(bins[mask], spectrum[mask], 'b.', label='MCA data')
             axs[0].plot(
                 bins[mask], spectrum_fit.best_fit, 'r', label='Best fit')
+            axs[0].plot(
+                bins[mask], spectrum_fit.residual, 'g', label='Residual')
             axs[0].legend()
             # Right plot: linear fit of theoretical peak energies vs
             # fit peak locations
@@ -1105,25 +1090,21 @@ class MCAEnergyCalibrationProcessor(Processor):
             axs[1].plot(fit_peak_indices, peak_energies,
                         c='b', marker='o', ms=6, mfc='none', ls='',
                         label='Initial peak positions')
-            axs[1].plot(fit_peak_indices, energy_fit.best_fit,
-                        c='k', marker='+', ms=6, ls='',
-                        label='Fitted peak positions')
             axs[1].plot(bins[mask], b*bins[mask] + c, 'r',
-                        label='Best linear fit')
+                        label=f'Best linear fit:\nm = {b:.5f} $keV$/channel\n'
+                              f'b = {c:.5f} $keV$')
+            axs[1].set_ylim(
+                (None, 1.2*axs[1].get_ylim()[1]-0.2*axs[1].get_ylim()[0]))
             axs[1].legend()
-            # Add text box showing computed values of linear E
-            # correction parameters
-            axs[1].text(
-                0.98, 0.02,
-                'Calibrated values:\n\n'
-                    f'Linear coefficient:\n    {b:.5f} $keV$/channel\n\n'
-                    f'Constant offset:\n    {c:.5f} $keV$',
-                ha='right', va='bottom', ma='left',
-                transform=axs[1].transAxes,
-                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
-                      'fc': (1., 0.8, 0.8, 0.8)},
-            )
-
+            ax2 = axs[1].twinx()
+            ax2.set_ylabel('Residual (keV)', color='g')
+            ax2.tick_params(axis='y', labelcolor='g')
+            ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax2.plot(
+                fit_peak_indices, peak_energies-energy_fit.best_fit,
+                c='g', marker='o', ms=6, ls='', label='Residual')
+            ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
+            ax2.legend()
             fig.tight_layout()
 
             if save_figures:
@@ -1191,7 +1172,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             peaks = find_peaks_scipy(y, height=min_height,
                 prominence=0.05*y.max(), width=min_width)
             available_peak_indices = list(peaks[0])
-            max_peak_index = np.asarray(peaks[1]).argmax()
+            max_peak_index = np.asarray(peaks[1]["peak_heights"]).argmax()
             ratio = (available_peak_indices[max_peak_index]
                      / input_indices[input_max_peak_index])
             peak_indices = [-1]*num_peak
@@ -1215,7 +1196,7 @@ class MCAEnergyCalibrationProcessor(Processor):
             while len(set(peak_indices)) < num_peak:
                 change_fig_title(f'Select {num_peak} peak positions')
                 peak_indices = [
-                    int(pt[0]) for pt in plt.ginput(num_peak, timeout=15)]
+                    int(pt[0]) for pt in plt.ginput(num_peak, timeout=30)]
                 if len(set(peak_indices)) < num_peak:
                     error_text = f'Choose {num_peak} unique position'
                     peak_indices.clear()
@@ -1254,9 +1235,6 @@ class MCAEnergyCalibrationProcessor(Processor):
         y = np.asarray(y)
         if detector_id is None:
             detector_id = ''
-        elif not isinstance(detector_id, str):
-            raise ValueError(
-                f'Invalid parameter `detector_id`: {detector_id}')
         elif not reset_flag:
             detector_id = f' on detector {detector_id}'
         num_peak = len(input_indices)
@@ -1354,13 +1332,8 @@ class MCATthCalibrationProcessor(Processor):
     energy calibration coefficients for an EDD experimental setup.
     """
     def process(
-            self, data, config=None, tth_initial_guess=None,
-            include_energy_ranges=None,
-            calibration_method='direct_fit_residual',
-            quadratic_energy_calibration=False, centers_range=20,
-            fwhm_min=None, fwhm_max=None, background='constant',
-            baseline=False, save_figures=False, inputdir='.', outputdir='.',
-            interactive=False):
+            self, data, config=None, save_figures=False, inputdir='.',
+            outputdir='.', interactive=False):
         """Return the calibrated 2&theta value and the fine tuned
         energy calibration coefficients to convert MCA channel
         indices to MCA channel energies.
@@ -1371,41 +1344,6 @@ class MCATthCalibrationProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.MCATthCalibrationConfig.
         :type config: dict, optional
-        :param tth_initial_guess: Initial guess for 2&theta to supercede
-            the values from the energy calibration detector cofiguration
-            on each of the detectors.
-        :type tth_initial_guess: float, optional
-        :param include_energy_ranges: List of MCA channel energy ranges
-            in keV whose data should be included after applying a mask
-            (bounds are inclusive). If specified, these supercede the
-            values from the energy calibration detector cofiguration on
-            each of the detectors.
-        :type include_energy_ranges: list[[float, float]], optional
-        :param calibration_method: Type of calibration method,
-            defaults to `'direct_fit_residual'`.
-        :type calibration_method:
-            Union['direct_fit_residual', 'direct_fit_peak_energies',
-                'direct_fit_combined', 'iterate_tth'], optional
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
-        :param background: Background model for peak fitting.
-        :type background: str, list[str], optional
-        :param baseline: Automated baseline subtraction configuration,
-            defaults to `False`.
-        :type baseline: bool, BaselineConfig, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -1430,7 +1368,7 @@ class MCATthCalibrationProcessor(Processor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import BaselineConfig
+        from CHAP.edd.models import MCATthCalibrationConfig
         from CHAP.utils.general import (
             is_int,
             is_str_series,
@@ -1444,22 +1382,26 @@ class MCATthCalibrationProcessor(Processor):
         if not isinstance(nxroot, NXroot):
             raise RuntimeError('No valid NXroot data in input pipeline data')
         nxentry = nxroot[nxroot.default]
+
         # Load the validated 2&theta calibration configuration
         try:
-            calibration_config = self.get_config(
-                data, 'edd.models.MCATthCalibrationConfig',
-                calibration_method=calibration_method,
-                inputdir=inputdir)
+            try:
+                calibration_config = self.get_config(
+                    data, 'edd.models.MCAEnergyCalibrationConfig',
+                    inputdir=inputdir).dict()
+            except:
+                calibration_config = self.get_config(
+                    data, 'edd.models.MCATthCalibrationConfig',
+                    inputdir=inputdir).dict()
+            if config is not None:
+                calibration_config.update(config)
+            calibration_config = MCATthCalibrationConfig(**calibration_config)
         except:
             self.logger.info('No valid calibration config in input pipeline '
                              'data, using config parameter instead.')
             try:
-                # Local modules
-                from CHAP.edd.models import MCATthCalibrationConfig
-
                 calibration_config = MCATthCalibrationConfig(
-                    **config, calibration_method=calibration_method,
-                    inputdir=inputdir)
+                    **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
 
@@ -1467,20 +1409,40 @@ class MCATthCalibrationProcessor(Processor):
         if calibration_config.detectors is None:
             raise RuntimeError('No available calibrated detectors')
         detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        available_detector_indices = [
-            int(d.id) for d in detector_config.detectors]
         calibration_detector_indices = []
-        for detector in deepcopy(calibration_config.detectors):
-            index = int(detector.id)
-            if index in available_detector_indices:
-                calibration_detector_indices.append(index)
+        if detector_config.detectors[0].id == 'mca1':
+            if len(detector_config.detectors) != 1:
+                raise ValueError(
+                    'Multiple detectors not implemented for mca1 detector')
+            available_detector_indices = ['mca1']
+            if len(calibration_config.detectors) == 1:
+                id_ = calibration_config.detectors[0].id
+                if id_ in available_detector_indices:
+                    calibration_detector_indices.append(id_)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors.remove(detector)
             else:
-                self.logger.warning(f'Skipping detector {index} (no raw data)')
-                calibration_config.detectors.remove(detector)
+                raise ValueError('Multiple detectors not implemented '
+                                 'for mca1 detector')
+        else:
+            available_detector_indices = [
+                int(d.id) for d in detector_config.detectors]
+            for detector in deepcopy(calibration_config.detectors):
+                id_ = int(detector.id)
+                if id_ in available_detector_indices:
+                    calibration_detector_indices.append(id_)
+                else:
+                    self.logger.warning(
+                        f'Skipping detector {id_} (no raw data)')
+                    calibration_config.detectors.remove(detector)
+            for detector in calibration_config.detectors:
+                detector.id = int(detector.id)
         detectors = calibration_config.detectors
         skipped_detector_indices = [
-            index for index in available_detector_indices
-            if index not in calibration_detector_indices]
+            id_ for id_ in available_detector_indices
+            if id_ not in calibration_detector_indices]
         if skipped_detector_indices:
             self.logger.warning('Skipping detector(s) '
                                 f'{list_to_string(skipped_detector_indices)} '
@@ -1493,29 +1455,6 @@ class MCATthCalibrationProcessor(Processor):
                 f'{self.__class__.__name__} must be run with '
                 '`interactive=True`.')
 
-        # Validate the optional inputs
-        if not is_int(centers_range, gt=0, log=False):
-            raise RuntimeError(
-                f'Invalid centers_range parameter ({centers_range})')
-        if fwhm_min is not None and not is_int(fwhm_min, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_min parameter ({fwhm_min})')
-        if fwhm_max is not None and not is_int(fwhm_max, gt=0, log=False):
-            raise RuntimeError(f'Invalid fwhm_max parameter ({fwhm_max})')
-        if background is not None:
-            if isinstance(background, str):
-                background = [background]
-            elif not is_str_series(background, log=False):
-                raise RuntimeError(
-                    f'Invalid background parameter ({background})')
-        if isinstance(baseline, bool):
-            if baseline:
-                baseline = BaselineConfig()
-        else:
-            try:
-                baseline = BaselineConfig(**baseline)
-            except Exception as dict_exc:
-                raise RuntimeError from dict_exc
-
         # Collect and sum the detector data
         mca_data = []
         for scan_name in nxentry.spec_scans:
@@ -1527,6 +1466,20 @@ class MCATthCalibrationProcessor(Processor):
         for detector in detectors:
             if detector.num_bins is None:
                 detector.num_bins = summed_detector_data.shape[-1]
+
+        # Copy any configurational parameters that supersede the
+        # detector values during the energy calibration
+        for detector in detectors:
+            if calibration_config.tth_initial_guess is not None:
+                detector.tth_initial_guess = \
+                    calibration_config.tth_initial_guess
+            if calibration_config.include_energy_ranges is not None:
+                detector.include_energy_ranges = \
+                    calibration_config.include_energy_ranges
+            if calibration_config.background is not None:
+                detector.background = calibration_config.background.copy()
+            if calibration_config.baseline:
+                detector.baseline = calibration_config.baseline.model_copy()
 
         # Check each detector's include_energy_ranges field against the
         # flux file, if available.
@@ -1549,26 +1502,15 @@ class MCATthCalibrationProcessor(Processor):
 
         # Calibrate detector channel energies
         for detector in detectors:
-            index = available_detector_indices.index(int(detector.id))
-            if tth_initial_guess is not None:
-                detector.tth_initial_guess = tth_initial_guess
-            if include_energy_ranges is not None:
-                detector.include_energy_ranges = include_energy_ranges
-            if background is not None:
-                detector.background = background.copy()
-            if baseline:
-                detector.baseline = baseline
+            index = available_detector_indices.index(detector.id)
             self.calibrate(
                 calibration_config, detector, summed_detector_data[index],
-                quadratic_energy_calibration, centers_range, fwhm_min,
-                fwhm_max, save_figures, interactive, outputdir)
+                save_figures, interactive, outputdir)
 
         return calibration_config.dict()
 
     def calibrate(
-            self, calibration_config, detector, spectrum,
-            quadratic_energy_calibration=False, centers_range=20,
-            fwhm_min=None, fwhm_max=None, save_figures=False,
+            self, calibration_config, detector, spectrum, save_figures=False,
             interactive=False, outputdir='.'):
         """Iteratively calibrate 2&theta by fitting selected peaks of
         an MCA spectrum until the computed strain is sufficiently
@@ -1583,21 +1525,6 @@ class MCATthCalibrationProcessor(Processor):
         :type detector: CHAP.edd.models.MCAElementCalibrationConfig
         :param spectrum: Summed MCA spectrum for the current detector.
         :type spectrum: numpy.ndarray
-        :param quadratic_energy_calibration: Adds a quadratic term to
-            the detector channel index to energy conversion, defaults
-            to `False` (linear only).
-        :type quadratic_energy_calibration: bool, optional
-        :param centers_range: Set boundaries on the peak centers in
-            MCA channels when performing the fit. The min/max
-            possible values for the peak centers will be the initial
-            values &pm; `centers_range`. Defaults to `20`.
-        :type centers_range: int, optional
-        :param fwhm_min: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_min: float, optional
-        :param fwhm_max: Lower bound on the peak FWHM in MCA channels
-            when performing the fit.
-        :type fwhm_max: float, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -1633,6 +1560,11 @@ class MCATthCalibrationProcessor(Processor):
         self.logger.info(f'Calibrating detector {detector.id}')
 
         calibration_method = calibration_config.calibration_method
+        centers_range = calibration_config.centers_range
+        if centers_range is None:
+            centers_range = 20
+        quadratic_energy_calibration = \
+            calibration_config.quadratic_energy_calibration
 
         # Get the unique HKLs and lattice spacings for the calibration
         # material
@@ -1664,7 +1596,7 @@ class MCATthCalibrationProcessor(Processor):
                 xlabel='Detector channel (-)', ylabel='Intensity (counts)',
                 interactive=interactive, filename=filename)
 
-            spectrum = np.maximum(spectrum-baseline, 0)
+            spectrum -= baseline
             detector.baseline.lam = baseline_config['lambda']
             detector.baseline.attrs['num_iter'] = baseline_config['num_iter']
             detector.baseline.attrs['error'] = baseline_config['error']
@@ -1685,7 +1617,7 @@ class MCATthCalibrationProcessor(Processor):
         if save_figures:
             filename = os.path.join(
                 outputdir, f'{detector.id}_tth_calibration_mask_hkls.png')
-        if calibration_method == 'iterate_tth':
+        if calibration_method in ('fix_tth_to_tth_init', 'iterate_tth'):
             num_hkl_min = 2
         else:
             num_hkl_min = 1
@@ -1698,7 +1630,7 @@ class MCATthCalibrationProcessor(Processor):
             label='MCA data', interactive=interactive, filename=filename)
 
         # Add the mask for the fluorescence peaks
-        if calibration_method != 'iterate_tth':
+        if calibration_method  not in ('fix_tth_to_tth_init', 'iterate_tth'):
             include_bin_ranges = (
                 calibration_config.fit_index_ranges + include_bin_ranges)
 
@@ -1744,7 +1676,84 @@ class MCATthCalibrationProcessor(Processor):
         num_bragg = len(e_bragg_init)
 
         # Perform the fit
-        if calibration_method == 'direct_fit_residual':
+        if calibration_method == 'fix_tth_to_tth_init':
+            # Third party modules
+            from scipy.signal import find_peaks as find_peaks_scipy
+
+            mca_bins_fit = np.arange(detector.num_bins)[mca_mask]
+
+            # Get initial peak centers
+            peaks = find_peaks_scipy(
+                spectrum_fit, width=5,
+                height=(0.005 * spectrum[mca_mask].max()))
+            centers = [mca_bins_fit[v] for v in peaks[0]]
+            centers = [centers[index_nearest(centers, c)]
+                       for c in [index_nearest(mca_bin_energies, e)
+                                 for e in e_bragg_init]]
+
+            # Perform an unconstrained fit in terms of MCA bin index
+            models = []
+            if detector.background is not None:
+                if len(detector.background) == 1:
+                    models.append(
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
+                else:
+                    for model in detector.background:
+                        models.append({'model': model, 'prefix': f'{model}_'})
+            models.append(
+                {'model': 'multipeak', 'centers': centers,
+                 'centers_range': centers_range,
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(NXfield(spectrum_fit, 'y'),
+                       NXfield(mca_bins_fit, 'x')),
+                {'models': models, 'method': 'trf'})
+            best_fit_unconstrained = result.best_fit
+            residual_unconstrained = result.residual
+
+            # Extract the Bragg peak indices from the fit
+            i_bragg_fit = np.asarray(
+                [result.best_values[f'peak{i+1}_center']
+                 for i in range(num_bragg)])
+
+            # Fit line through zero strain peak energies vs detector
+            # energy bins
+            if quadratic_energy_calibration:
+                model = 'quadratic'
+            else:
+                model = 'linear'
+            fit = FitProcessor()
+            result = fit.process(
+                NXdata(
+                    NXfield(e_bragg_init, 'y'),
+                    NXfield(i_bragg_fit, 'x')),
+                {'models': [{'model': model}]})
+
+            # Extract values of interest from the best values
+            best_fit_uniform = None
+            residual_uniform = None
+            strain_uniform = None
+            tth_fit = tth_init
+            if quadratic_energy_calibration:
+                a_fit = result.best_values['a']
+                b_fit = result.best_values['b']
+                c_fit = result.best_values['c']
+            else:
+                a_fit = 0.0
+                b_fit = result.best_values['slope']
+                c_fit = result.best_values['intercept']
+            e_bragg_unconstrained = (
+                (a_fit*i_bragg_fit + b_fit) * i_bragg_fit + c_fit)
+            strains_unconstrained = np.log(
+                (e_bragg_init / e_bragg_unconstrained))
+            strain_unconstrained = np.mean(strains_unconstrained)
+
+            e_bragg_fit = e_bragg_init
+            peak_energies_fit = e_bragg_unconstrained
+
+        elif calibration_method == 'direct_fit_residual':
 
             # Get the initial free fit parameters
             tth_init = np.radians(tth_init)
@@ -1765,12 +1774,12 @@ class MCATthCalibrationProcessor(Processor):
                 tth_max = 1.1*tth_init
                 b_min = 0.1*b_init
                 b_max = 10.0*b_init
-                if isinstance(fwhm_min, (int,float)):
-                    sig_min = fwhm_min/2.35482
+                if calibration_config.fwhm_min is not None:
+                    sig_min = calibration_config.fwhm_min/2.35482
                 else:
                     sig_min = None
-                if isinstance(fwhm_max, (int,float)):
-                    sig_max = fwhm_max/2.35482
+                if calibration_config.fwhm_max is not None:
+                    sig_max = calibration_config.fwhm_max/2.35482
                 else:
                     sig_max = None
 
@@ -1789,9 +1798,9 @@ class MCATthCalibrationProcessor(Processor):
 
             # Add the background
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
@@ -1841,6 +1850,7 @@ class MCATthCalibrationProcessor(Processor):
                 a_fit = 0.0
             b_fit = result.best_values['b']
             c_fit = result.best_values['c']
+            e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
             peak_indices_fit = np.asarray(
                 [result.best_values[f'xrf{i+1}_center']
                  for i in range(num_xrf)] +
@@ -1886,16 +1896,17 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             models = []
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': centers_range,
-                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(spectrum_fit, 'y'),
@@ -2001,16 +2012,17 @@ class MCATthCalibrationProcessor(Processor):
                        for e_peak in np.concatenate((e_xrf, e_bragg_init))]
             models = []
             if detector.background is not None:
-                if isinstance(detector.background, str):
+                if len(detector.background) == 1:
                     models.append(
-                        {'model': detector.background, 'prefix': 'bkgd_'})
+                        {'model': detector.background[0], 'prefix': 'bkgd_'})
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': centers_range,
-                 'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+                 'fwhm_min': calibration_config.fwhm_min,
+                 'fwhm_max': calibration_config.fwhm_max})
             fit = FitProcessor()
             result = fit.process(
                 NXdata(NXfield(spectrum_fit, 'y'),
@@ -2094,12 +2106,12 @@ class MCATthCalibrationProcessor(Processor):
             e_bragg_fit = e_bragg_init
             mca_bin_energies_fit = mca_bin_energies[mca_mask]
             a_init, b_init, c_init = detector.energy_calibration_coeffs
-            if isinstance(fwhm_min, (int, float)):
-                fwhm_min = fwhm_min*b_init
+            if calibration_config.fwhm_min is not None:
+                fwhm_min = calibration_config.fwhm_min*b_init
             else:
                 fwhm_min = None
-            if isinstance(fwhm_max, (int, float)):
-                fwhm_max = fwhm_max*b_init
+            if calibration_config.fwhm_max is not None:
+                fwhm_max = calibration_config.fwhm_max*b_init
             else:
                 fwhm_max = None
             for iter_i in range(calibration_config.max_iter):
@@ -2109,9 +2121,10 @@ class MCATthCalibrationProcessor(Processor):
                 # Construct the fit model
                 models = []
                 if detector.background is not None:
-                    if isinstance(detector.background, str):
+                    if len(detector.background) == 1:
                         models.append(
-                            {'model': detector.background, 'prefix': 'bkgd_'})
+                            {'model': detector.background[0],
+                             'prefix': 'bkgd_'})
                     else:
                         for model in detector.background:
                             models.append(
@@ -2221,25 +2234,26 @@ class MCATthCalibrationProcessor(Processor):
             # Third party modules
             import matplotlib.pyplot as plt
 
-            # Update the peak energies and the MCA channel energies
-            e_bragg_fit = get_peak_locations(ds_fit, tth_fit)
+            # Get the MCA channel energies
             mca_energies_fit = mca_bin_energies[mca_mask]
 
             # Get an unconstrained fit
-            if calibration_method != 'iterate_tth':
-                if isinstance(fwhm_min, (int, float)):
-                    fwhm_min = fwhm_min*b_fit
+            if (calibration_method
+                    not in ('fix_tth_to_tth_init', 'iterate_tth')):
+                if calibration_config.fwhm_min is not None:
+                    fwhm_min = calibration_config.fwhm_min*b_fit
                 else:
                     fwhm_min = None
-                if isinstance(fwhm_max, (int, float)):
-                    fwhm_max = fwhm_max*b_fit
+                if calibration_config.fwhm_max is not None:
+                    fwhm_max = calibration_config.fwhm_max*b_fit
                 else:
                     fwhm_max = None
                 models = []
                 if detector.background is not None:
-                    if isinstance(detector.background, str):
+                    if len(detector.background) == 1:
                         models.append(
-                            {'model': detector.background, 'prefix': 'bkgd_'})
+                            {'model': detector.background[0],
+                             'prefix': 'bkgd_'})
                     else:
                         for model in detector.background:
                             models.append(
@@ -2328,7 +2342,7 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,0].legend()
 
             # Upper right axes: E vs strain for each fit
-            axs[0,1].set_title('HKL Energy vs. Microstrain')
+            axs[0,1].set_title('Peak Energy vs. Microstrain')
             axs[0,1].set_xlabel('Energy (keV)')
             axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
             if strain_uniform is not None:
@@ -2337,7 +2351,7 @@ class MCATthCalibrationProcessor(Processor):
             axs[0,1].plot(e_bragg_fit, strains_unconstrained * 1e6,
                           marker='o', mfc='none', c='C1',
                           label='Unconstrained')
-            axs[0,1].axhline(strain_unconstrained* 1e6,
+            axs[0,1].axhline(strain_unconstrained * 1e6,
                              ls='--', c='C1',
                              label='Unconstrained: unweighted mean')
             axs[0,1].legend()
@@ -2346,55 +2360,150 @@ class MCATthCalibrationProcessor(Processor):
             axs[1,1].set_title('Theoretical vs. Fitted Peak Energies')
             axs[1,1].set_xlabel('Energy (keV)')
             axs[1,1].set_ylabel('Energy (keV)')
-            if calibration_method == 'iterate_tth':
+            if calibration_method in ('fix_tth_to_tth_init', 'iterate_tth'):
                 e_fit = e_bragg_fit
-                e_unconstrained = e_bragg_unconstrained
                 if quadratic_energy_calibration:
                     label = 'Unconstrained: quadratic fit'
                 else:
                     label = 'Unconstrained: linear fit'
             else:
                 e_fit = np.concatenate((e_xrf, e_bragg_fit))
-                e_unconstrained = np.concatenate(
-                    (e_xrf, e_bragg_unconstrained))
                 if quadratic_energy_calibration:
                     label = 'Quadratic fit'
                 else:
                     label = 'Linear fit'
-            axs[1,1].plot(
-                e_bragg_fit, e_bragg_uniform, marker='x', ls='',
-                label='Single strain')
-            axs[1,1].plot(
-                e_fit, e_unconstrained, marker='o', mfc='none', ls='',
-                label='Unconstrained')
-            axs[1,1].plot(
-                e_fit, peak_energies_fit, c='C1', label=label)
-            axs[1,1].legend()
-            txt = 'Calibrated values:' \
-                  f'\nTakeoff angle:\n    {tth_fit:.5f}'r'$^\circ$'
+            label += f'\nTakeoff angle: {tth_fit:.5f}'r'$^\circ$'
             if quadratic_energy_calibration:
-                txt += '\nQuadratic coefficient (a):' \
-                       f'\n    {a_fit:.5e} $keV$/channel$^2$'
-            txt += '\nLinear coefficient (b):' \
-                   f'\n    {b_fit:.5f} $keV$/channel' \
-                   f'\nConstant offset (c):\n    {c_fit:.5f}'
-            axs[1,1].text(
-                0.98, 0.02, txt,
-                ha='right', va='bottom', ma='left',
-                transform=axs[1,1].transAxes,
-                bbox={'boxstyle': 'round', 'ec': (1., 0.5, 0.5),
-                      'fc': (1., 0.8, 0.8, 0.8)},
-            )
-
+                label += f'\na = {a_fit:.5e} $keV$/channel$^2$'
+                label += \
+                    f'\nb = {b_fit:.5f} $keV$/channel\nc = {c_fit:.5f} $keV$'
+            else:
+                label += f'\nm = {b_fit:.5f} $keV$/channel' \
+                         f'\nb = {c_fit:.5f} $keV$'
+            if calibration_method != 'fix_tth_to_tth_init':
+                axs[1,1].plot(
+                    e_bragg_fit, e_bragg_uniform, marker='x', ls='',
+                    label='Single strain')
+            axs[1,1].plot(
+                e_fit, e_fit, marker='o', mfc='none', ls='',
+                label='Theoretical peak positions')
+            axs[1,1].plot(e_fit, peak_energies_fit, c='C1', label=label)
+            axs[1,1].set_ylim(
+                (None, 1.2*axs[1,1].get_ylim()[1]-0.2*axs[1,1].get_ylim()[0]))
+            axs[1,1].legend()
+            ax2 = axs[1,1].twinx()
+            ax2.set_ylabel('Residual (keV)', color='g')
+            ax2.tick_params(axis='y', labelcolor='g')
+            ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+            ax2.plot(
+                e_fit, e_fit-peak_energies_fit, c='g', marker='o', ms=6, ls='',
+                label='Residual')
+            ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
+            ax2.legend()
             fig.tight_layout()
 
             if save_figures:
                 figfile = os.path.join(
-                    outputdir, f'{detector.id}_tth_calibration_fits.png')
+                    outputdir, f'{detector.id}_tth_calibration_fit.png')
                 plt.savefig(figfile)
                 self.logger.info(f'Saved figure to {figfile}')
             if interactive:
                 plt.show()
+
+        if not num_xrf:
+            return
+
+        # Get the mask for the fluorescence peaks
+        ddetector = deepcopy(detector)
+        ddetector.include_energy_ranges = \
+            ddetector.get_include_energy_ranges(
+                calibration_config.fit_index_ranges)
+        ddetector.set_hkl_indices(hkl_indices)
+        self.logger.debug(
+            f'include_energy_ranges = {ddetector.include_energy_ranges}')
+        self.logger.debug(
+            f'hkl_indices = {ddetector.hkl_indices}')
+        if not ddetector.include_energy_ranges:
+            raise ValueError(
+                'No value provided for include_energy_ranges. '
+                'Provide them in the MCA Tth Calibration Configuration '
+                'or re-run the pipeline with the --interactive flag.')
+        if not ddetector.hkl_indices:
+            raise ValueError(
+                'Unable to get values for hkl_indices for the provided '
+                'value of include_energy_ranges. Change its value in '
+                'the detector\'s MCA Tth Calibration Configuration or '
+                're-run the pipeline with the --interactive flag.')
+        mca_mask = ddetector.mca_mask()
+        spectrum_fit = spectrum[mca_mask]
+        mca_energies_fit = ddetector.energies[mca_mask]
+
+        # Perform an unconstrained fit on the fluorescence peaks
+        models = []
+        if ddetector.background is not None:
+            if len(ddetector.background) == 1:
+                models.append(
+                    {'model': ddetector.background[0],
+                     'prefix': 'bkgd_'})
+            else:
+                for model in ddetector.background:
+                    models.append({'model': model, 'prefix': f'{model}_'})
+        if calibration_config.fwhm_min is not None:
+            fwhm_min = calibration_config.fwhm_min*b_fit
+        else:
+            fwhm_min = None
+        if calibration_config.fwhm_max is not None:
+            fwhm_max = calibration_config.fwhm_max*b_fit
+        else:
+            fwhm_max = None
+        models.append(
+            {'model': 'multipeak', 'centers': e_xrf,
+             'centers_range': centers_range*b_fit,
+             'fwhm_min': fwhm_min, 'fwhm_max': fwhm_max})
+        fit = FitProcessor()
+        result = fit.process(
+            NXdata(NXfield(spectrum_fit, 'y'),
+                   NXfield(mca_energies_fit, 'x')),
+            {'models': models, 'method': 'trf'})
+        e_xrf_fit = [result.best_values[f'peak{i+1}_center']
+                     for i in range(num_xrf)]
+        self.logger.info(
+            f'Theoretical fluorescence peak energies (keV): {e_xrf}')
+        self.logger.info(
+            'Fluorescence peak energies from unconstrained fit (keV): '
+            f'{[round(e, 4) for e in e_xrf_fit]}')
+
+        # Create the figure
+        fig, ax = plt.subplots(figsize=(11, 8.5))
+        ax.set_title(f'Detector {ddetector.id} '+r'2$\theta$ Calibration')
+        ax.set_xlabel('Calibrated MCA channel energy (keV)')
+        ax.set_ylabel('MCA intensity (counts)')
+        for e, e_fit in zip(e_xrf, e_xrf_fit):
+            ax.axvline(e_fit, c='k', ls='--')
+            ax.text(e_fit, 1, f'Theoretical: {e},  Fit: {round(e_fit, 4)}',
+                    ha='right', va='top', rotation=90,
+                    transform=ax.get_xaxis_transform())
+        if flux_correct is None:
+            ax.plot(mca_energies_fit, spectrum_fit, marker='.', c='C2', ms=5,
+                ls='', label='MCA data')
+        else:
+            ax.plot(mca_energies_fit, spectrum_fit, marker='.', c='C2', ms=5,
+                ls='', label='Flux-corrected MCA data')
+        ax.plot(
+            mca_energies_fit, result.best_fit, c='C1',
+            label='Unconstrained fit')
+        ax.plot(
+            mca_energies_fit, result.residual, c='r',
+            label='Residual')
+        ax.legend()
+        fig.tight_layout()
+        if save_figures:
+            figfile = os.path.join(
+                outputdir, f'{ddetector.id}_xrf_peaks_calibration_fit.png')
+            plt.savefig(figfile)
+            self.logger.info(f'Saved figure to {figfile}')
+        if interactive:
+            plt.show()
 
 
 class MCADataProcessor(Processor):
@@ -2579,8 +2688,6 @@ class StrainAnalysisProcessor(Processor):
     """
     def __init__(self):
         super().__init__()
-        self._find_peaks = False
-        self._skip_animation = False
         self._save_figures = False
         self._inputdir = '.'
         self._outputdir = '.'
@@ -2641,7 +2748,7 @@ class StrainAnalysisProcessor(Processor):
             slices = {k: np.asarray([p[k] for p in points]) for k in points[0]}
             for k, v in slices.items():
                 if k not in axes:
-                    logger.info(f'Updating field {k}')
+                    logger.debug(f'Updating field {k}')
                     nxprocess[k][i_0:i_f+1] = v
         else:
             for k, v in points[0].items():
@@ -2652,9 +2759,9 @@ class StrainAnalysisProcessor(Processor):
             nxdata.summed_intensity = nxdata.intensity.sum(axis=0)
 
     def process(
-            self, data, config=None, find_peaks=True, skip_animation=False,
-            setup=True, update=True, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config=None, setup=True, update=True,
+            save_figures=False, inputdir='.', outputdir='.',
+            interactive=False):
         """Setup the strain analysis and/or return the strain analysis
         results as a list of updated points or a
         `nexusformat.nexus.NXroot` object.
@@ -2666,14 +2773,6 @@ class StrainAnalysisProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.edd.models.StrainAnalysisConfig.
         :type config: dict, optional
-        :param find_peaks: Exclude peaks where the average spectrum
-            is below the `rel_height_cutoff` (in the detector
-            configuration) cutoff relative to the maximum value of the
-            average spectrum, defaults to `True`.
-        :type find_peaks: bool, optional
-        :param skip_animation: Skip the animation and plotting of
-            the strain analysis fits, defaults to `False`.
-        :type skip_animation: bool, optional
         :param setup: Setup the strain analysis
             `nexusformat.nexus.NXroot` object, defaults to `True`.
         :type setup: bool, optional
@@ -2722,8 +2821,6 @@ class StrainAnalysisProcessor(Processor):
                 self.logger.warning(
                     'Saving figures option disabled during setup')
                 save_figures = False
-        self._find_peaks = find_peaks
-        self._skip_animation = skip_animation
         self._save_figures = save_figures
         self._outputdir = outputdir
         self._interactive = interactive
@@ -2762,6 +2859,7 @@ class StrainAnalysisProcessor(Processor):
                 raise RuntimeError from exc
 
         # Validate the detector configuration and load, validate and
+        # Validate the detector configuration and load, validate and
         # add the calibration info to the detectors
         if 'default' in nxroot.attrs:
             nxentry = nxroot[nxroot.default]
@@ -2792,13 +2890,13 @@ class StrainAnalysisProcessor(Processor):
                         d for d in calibration_config.detectors
                         if d.id == detector.id][0]
                     detector.add_calibration(calibration)
+                    self._energies.append(detector.energies)
                 else:
                     self.logger.warning(
                         f'Skipping detector {detector.id} (zero intensity)')
             else:
                 self.logger.warning(f'Skipping detector {detector.id} '
                                     '(no energy/tth calibration data)')
-            self._energies.append(detector.energies)
         if not self._detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
@@ -2820,7 +2918,12 @@ class StrainAnalysisProcessor(Processor):
         if setup and update:
             nxroot = self._get_nxroot(nxentry, strain_analysis_config, update)
             points = self._strain_analysis(strain_analysis_config)
-            self.add_points(nxroot, points, logger=self.logger)
+            if points:
+                self.logger.info(f'Adding {len(points)} points')
+                self.add_points(nxroot, points, logger=self.logger)
+                self.logger.info(f'... done')
+            else:
+                self.logger.warning('Skip adding points')
             return nxroot
         elif setup:
             return self._get_nxroot(nxentry, strain_analysis_config, update)
@@ -2898,12 +3001,15 @@ class StrainAnalysisProcessor(Processor):
                 shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
 
-    def _adjust_material_props(self, materials):
+    def _adjust_material_props(self, materials, index=0):
         """Adjust the material properties."""
         # Local modules
-        from CHAP.edd.utils import select_material_params
+        if self._interactive:
+            from CHAP.edd.select_material_params_gui import select_material_params
+        else:
+            from CHAP.edd.utils import select_material_params
 
-        detector = self._detectors[0]
+        detector = self._detectors[index]
         if self._save_figures:
             filename = os.path.join(
                 self._outputdir,
@@ -2911,8 +3017,8 @@ class StrainAnalysisProcessor(Processor):
         else:
             filename = None
         return select_material_params(
-            self._energies[0], self._mean_data[0], detector.tth_calibrated,
-            label='Sum of all spectra in the map',
+            self._energies[index], self._mean_data[index],
+            detector.tth_calibrated, label='Sum of all spectra in the map',
             preselected_materials=materials, interactive=self._interactive,
             filename=filename)
 
@@ -2952,10 +3058,6 @@ class StrainAnalysisProcessor(Processor):
         # Third party modules
         from matplotlib import animation
         import matplotlib.pyplot as plt
-
-        if (self._skip_animation
-                or not (self._interactive or self._save_figures)):
-            return
 
         def animate(i):
             data = intensities[i]
@@ -3379,6 +3481,8 @@ class StrainAnalysisProcessor(Processor):
             self._mean_data = len(self._nxdata_detectors)*[
                 np.zeros((self._nxdata_detectors[0].nxsignal.shape[-1]))]
         self.logger.debug(
+            f'data shape: {nxdata_raw[self._detectors[0].id].nxdata.shape}')
+        self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
     def _strain_analysis(self, strain_analysis_config):
@@ -3433,10 +3537,12 @@ class StrainAnalysisProcessor(Processor):
             # fitting
             hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
             ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
-            peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
+            peak_locations = get_peak_locations(
+                ds_fit, detector.tth_calibrated)
 
             # Find initial peak estimates
-            if not self._find_peaks or detector.rel_height_cutoff is None:
+            if (not strain_analysis_config.find_peaks
+                    or detector.rel_height_cutoff is None):
                 use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
@@ -3558,9 +3664,11 @@ class StrainAnalysisProcessor(Processor):
                     })
 
             # Create an animation of the fit points
-            self._create_animation(
-                nxdata, energies[mask], intensities,
-                unconstrained_results['best_fits'], detector.id)
+            if (not strain_analysis_config.skip_animation
+                    and (self._interactive or self._save_figures)):
+                self._create_animation(
+                    nxdata, energies[mask], intensities,
+                    unconstrained_results['best_fits'], detector.id)
 
         return points
 
