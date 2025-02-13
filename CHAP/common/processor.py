@@ -1822,11 +1822,12 @@ class MapProcessor(Processor):
                             relative=False)[:num_dim]
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v[:num_dim]
-                    elif dim.data_type in ['smb_par', 'spec_motor']:
+                    elif dim.data_type in ['smb_par', 'spec_motor',
+                                           'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
                         #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
-                            relative=False)
+                            relative=False, scalar_data=map_config.scalar_data)
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v
                     else:
