@@ -158,15 +158,13 @@ def convert_structured_unstructured(data):
                 (*dataset_shape, *data[s].shape[1:])) for s in signals}
             npts = len(data[signals[0]].nxdata.tolist())
             print(f'converting {npts} data points')
-            for i in range(npts):
-                # print(i, end='...', flush=True)
-                idx = tuple(structured_axes[a].tolist().index(
-                    data[a].nxdata[i])
-                       for a in nxaxes)
-                for s, value in structured_signals.items():
-                    value[idx] = data[s][i]
+            indices = {
+                a: np.searchsorted(structured_axes[a], data[a].nxdata)
+                for a in nxaxes
+            }
+            for s, value in structured_signals.items():
+                value[tuple(indices[a] for a in nxaxes)] = data[s]
             structured_data = NXdata(
-                
                 **{s: NXfield(
                     value=structured_signals[s],
                     name=s,
