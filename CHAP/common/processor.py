@@ -827,6 +827,17 @@ class ConstructBaseline(Processor):
         return baseline, config
 
 
+class ConvertStructuredProcessor(Processor):
+    """Processor for converting map data between structured /
+    unstructued formats.
+    """
+    def process(self, data):
+        from CHAP.utils.converters import convert_structured_unstructured
+
+        data = self.unwrap_pipelinedata(data)[0]
+        return convert_structured_unstructured(data)
+
+
 class ImageProcessor(Processor):
     """A Processor to plot an image (slice) from a NeXus object."""
     def process(

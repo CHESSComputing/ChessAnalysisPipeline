@@ -178,7 +178,8 @@ def convert_structured_unstructured(data):
                     NXfield(
                         value=value,
                         name=a,
-                        attrs=data[a].attrs,
+                        attrs={k: v for k, v in data[a].attrs.items()
+                               if not k == 'target'},
                     )
                     for a, value in structured_axes.items()
                 )
@@ -187,6 +188,7 @@ def convert_structured_unstructured(data):
 
         elif 'axes' in data.attrs:
             # Convert structued to unstructured
-            pass
+            raise NotImplementedError(
+                'Conversion from structured to unstructured not implemented.')
     else:
          raise TypeError(f'Unsupported data type: {type(data)}')       
