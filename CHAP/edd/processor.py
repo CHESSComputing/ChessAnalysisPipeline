@@ -1335,6 +1335,12 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             b = float(energy_fit.best_values['slope'])
             c = float(energy_fit.best_values['intercept'])
             detector.energy_calibration_coeffs = [a, b, c]
+            delta_energy = calibration_config.max_energy_kev/detector.num_bins
+            if not 0.95*delta_energy*0.95 < b < 1.05*delta_energy:
+                self.logger.warning(
+                    f'Calibrated slope ({b}) is outside the 5% tolerance '
+                    'of the detector input value (max_energy_kev/num_bins '
+                    f'= {delta_energy}.)')
 
             # Reference plot to visualize the fit results:
             if self._interactive or self._save_figures:
@@ -1425,7 +1431,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 error_texts.pop()
             plt.close()
 
-        def find_peaks(min_height=0.05, min_width=5, tolerance=0.05):
+        def find_peaks(min_height=0.05, min_width=5, tolerance=10):
             """Find the peaks.
 
             :param min_height: Minimum peak height in search, defaults
@@ -1434,9 +1440,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             :param min_width: Minimum peak width in search, defaults
                 to `5`.
             :type min_width: float, optional
-            :param tolerance: Tolerance in peak index for finding
-                matching peaks, defaults to `0.05`.
-            :type tolerance: float, optional
+            :param tolerance: Tolerance in peak index in channels for
+                finding matching peaks, defaults to `10`.
+            :type tolerance: int, optional
             :return: The peak indices.
             :rtype: list[int]
             """
@@ -1458,12 +1464,18 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             for i, input_index in enumerate(input_indices):
                 if i != input_max_peak_index:
                     index_guess = int(input_index * ratio)
+                    min_error = np.inf
+                    best_index = -1
                     for index in available_peak_indices.copy():
-                        if abs(index_guess-index) < tolerance*index:
-                            index_guess = index
-                            available_peak_indices.remove(index)
-                            break
-                    peak_indices[i] = index_guess
+                        error = abs(index_guess-index)
+                        if error < tolerance and error < min_error:
+                            best_index = index
+                            min_error = error
+                    if best_index < 0:
+                        best_index = index_guess
+                    else:
+                        available_peak_indices.remove(best_index)
+                    peak_indices[i] = best_index
             return peak_indices
 
         def select_peaks():
