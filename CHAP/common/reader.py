@@ -227,7 +227,7 @@ class MapReader(Reader):
 
 class NexusReader(Reader):
     """Reader for NeXus files."""
-    def read(self, filename, nxpath='/'):
+    def read(self, filename, nxpath='/', nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
         :param filename: The name of the NeXus file to read from.
@@ -242,6 +242,8 @@ class NexusReader(Reader):
         """
         # Third party modules
         from nexusformat.nexus import nxload
+        from nexusformat.nexus.tree import NX_CONFIG
+        NX_CONFIG['memory'] = nxmemory
 
         return nxload(filename)[nxpath]
 
@@ -532,7 +534,7 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     nxdata.data = NXfield(
-                       value=scanparser.get_detector_data(detectors_ids)[0])
+                        value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata

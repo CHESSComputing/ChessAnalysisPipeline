@@ -11,6 +11,7 @@ from CHAP.common.processor import (
     AnimationProcessor,
     AsyncProcessor,
     BinarizeProcessor,
+    ConvertStructuredProcessor,
     ImageProcessor,
     IntegrationProcessor,
     IntegrateMapProcessor,

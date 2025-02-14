@@ -829,6 +829,17 @@ class ConstructBaseline(Processor):
         return baseline, config
 
 
+class ConvertStructuredProcessor(Processor):
+    """Processor for converting map data between structured /
+    unstructued formats.
+    """
+    def process(self, data):
+        from CHAP.utils.converters import convert_structured_unstructured
+
+        data = self.unwrap_pipelinedata(data)[0]
+        return convert_structured_unstructured(data)
+
+
 class ImageProcessor(Processor):
     """A Processor to plot an image (slice) from a NeXus object."""
     def process(
@@ -1826,11 +1837,12 @@ class MapProcessor(Processor):
                             relative=False)[:num_dim]
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v[:num_dim]
-                    elif dim.data_type in ['smb_par', 'spec_motor']:
+                    elif dim.data_type in ['smb_par', 'spec_motor',
+                                           'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
                         #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
-                            relative=False)
+                            relative=False, scalar_data=map_config.scalar_data)
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v
                     else:
