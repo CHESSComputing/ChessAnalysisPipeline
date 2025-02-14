@@ -532,7 +532,7 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     nxdata.data = NXfield(
-                       value=scanparser.get_detector_data(detectors_ids))
+                       value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
