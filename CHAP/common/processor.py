@@ -2230,6 +2230,122 @@ class NexusToXarrayProcessor(Processor):
                          attrs=attrs)
 
 
+class NormalizeNexusProcessor(Processor):
+    """Processor for scaling one or more NXfields in the input nexus
+    structure by the values of another NXfield in the same
+    structure."""
+    def process(self, data, normalize_nxfields, normalize_by_nxfield):
+        """Return copy of the original input nexus structure with
+        additional fields containing the normalized data of each field
+        in `normalize_nxfields`.
+
+        :param data: Input nexus structure containing all fields to be
+            normalized an the field by which to normalize them.
+        :type data: nexusformat.nexus.NXgroup
+        :param normalize_nxfields:
+        :type normalize_nxfields: list[str]
+        :param normalize_by_nxfield: Path in `data` to the `NXfield`
+            containing normalization data
+        :type normalize_by_nxfield: str
+        :returns: Copy of input data with additional normalized fields
+        :rtype: nexusformat.nexus.NXgroup
+        """
+        from nexusformat.nexus import NXgroup, NXfield
+        from CHAP.utils.general import nxcopy
+
+        # Check input data
+        data = self.unwrap_pipelinedata(data)[0]
+        data = nxcopy(data)
+        if not isinstance(data, NXgroup):
+            raise TypeError(f'Expected NXgroup, got (type{data})')
+
+        # Check normalize_by_nxfield
+        if normalize_by_nxfield not in data:
+            raise ValueError(
+                f'{normalize_by_nxfield} not present in input data')
+        if not isinstance(data[normalize_by_nxfield], NXfield):
+            raise TypeError(
+                f'{normalize_by_nxfield} is {type(data[normalize_by_nxfield])}'
+                + ', expected NXfield')
+        normalization_data = data[normalize_by_nxfield].nxdata
+
+        # Process normalize_nxfields
+        for nxfield in normalize_nxfields:
+            if nxfield not in data:
+                self.logger.error(f'{nxfield} not present in input data')
+            elif not isinstance(data[nxfield], NXfield):
+                self.logger.error(
+                    f'{nxfield} is {type(data[nxfield])}, expected NXfield')
+            else:
+                field_shape = data[nxfield].nxdata.shape
+                if not normalization_data.shape == \
+                    field_shape[:normalization_data.ndim]:
+                    self.logger.error(
+                        f'Incompatible dataset shapes: {normalize_by_nxfield} '
+                        + f'is {normalization_data.shape}, '
+                        + f'{nxfield} is {field_shape}'
+                    )
+                else:
+                    self.logger.info(f'Normalizing {nxfield}')
+                    # make shapes compatible
+                    _normalization_data = normalization_data.reshape(
+                        normalization_data.shape + (1,)
+                        * (data[nxfield].nxdata.ndim
+                           - normalization_data.ndim))
+                    data[f'{nxfield}_normalized'] = NXfield(
+                        value=data[nxfield].nxdata / _normalization_data,
+                        attrs={**data[nxfield].attrs,
+                               'normalized_by': normalize_by_nxfield}
+                    )
+        return data
+
+
+class NormalizeMapProcessor(Processor):
+    """Processor for calling `NormalizeNexusProcessor` for (usually
+    all) detector data in an `NXroot` resulting from
+    `MapProcessor`"""
+    def process(self, data, normalize_by_nxfield, detector_ids=None):
+        """Return copy of the original input map `NXroot` with
+        additional fields containing normalized detector data.
+
+        :param data: Input nexus structure containing all fields to be
+            normalized an the field by which to normalize them.
+        :type data: nexusformat.nexus.NXroot
+        :param normalize_by_nxfield: Path in `data` to the `NXfield`
+            containing normalization data
+        :type normalize_by_nxfield: str
+        :returns: Copy of input data with additional normalized fields
+        :rtype: nexusformat.nexus.NXroot
+        """
+        from nexusformat.nexus import NXentry
+
+        # Check input data
+        data = self.unwrap_pipelinedata(data)[0]
+        map_title = None
+        for k, v in data.items():
+            if isinstance(v, NXentry):
+                map_title = k
+                break
+        if map_title is None:
+            self.logger.error(f'Input data contains no NXentry')
+        else:
+            self.logger.info(f'Got map_title: {map_title}')
+
+        # Check detector_ids
+        normalize_nxfields = []
+        if detector_ids is None:
+            detector_ids = list(data[map_title].data.keys())
+            self.logger.info(f'Using detector_ids: {detector_ids}')
+        normalize_nxfields = [f'{map_title}/data/{_id}'
+                              for _id in detector_ids]
+
+        # Normalize
+        normalizer = NormalizeNexusProcessor()
+        normalizer.logger = self.logger
+        return normalizer.process(
+            data, normalize_nxfields, normalize_by_nxfield)
+
+
 class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.

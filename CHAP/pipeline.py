@@ -115,7 +115,16 @@ class PipelineItem():
         :return: The `'data'` values of the items in the input data.
         :rtype: list[object]
         """
-        return [d['data'] for d in data]
+        unwrapped_data = []
+        if isinstance(data, list):
+            for d in data:
+                if isinstance(d, PipelineData):
+                    unwrapped_data.append(d['data'])
+                else:
+                    unwrapped_data.append(d)
+        else:
+            unwrapped_data = [data]
+        return unwrapped_data
 
     def get_config(self, data, schema, remove=True, **kwargs):
         """Look through `data` for an item whose value for the first

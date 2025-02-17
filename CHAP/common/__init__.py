@@ -21,6 +21,8 @@ from CHAP.common.processor import (
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
+    NormalizeNexusProcessor,
+    NormalizeMapProcessor,
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
