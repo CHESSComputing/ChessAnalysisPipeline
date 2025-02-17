@@ -579,12 +579,14 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
             save_figures=False, outputdir='.', interactive=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
         :type data: list[PipelineData]
+        :param x: Independent dimension (only used when interactive is
+            `True` of when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
@@ -617,7 +619,7 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, mask, tol, lam, max_iter, save_figures, outputdir,
+            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
             interactive)
 
     @staticmethod
@@ -1233,9 +1235,9 @@ class MapProcessor(Processor):
             info in data, if present).
         :type detectors: list[dict], optional
         :param placeholder_data: For SMB EDD maps only. Value to use
-            for missing detecotr data frames, or `False` if missing
-            data should raise an error. Defaults to `False`.
-        :type placeholder_data: object
+            for missing detector data frames, or `False` if missing
+            data should raise an error, defaults to `False`.
+        :type placeholder_data: object, optional
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
@@ -1446,6 +1448,10 @@ class MapProcessor(Processor):
         :type independent_dimensions: numpy.ndarray
         :param all_scalar_data: The map's scalar data.
         :type all_scalar_data: numpy.ndarray
+        :param placeholder_data: For SMB EDD maps only. Value to use
+            for missing detector data frames, or `False` if missing
+            data should raise an error.
+        :type placeholder_data: object
         :return: The map's data and metadata contained in a NeXus
             structure.
         :rtype: nexusformat.nexus.NXroot
@@ -1536,18 +1542,16 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        self.logger.debug(f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
+        self.logger.debug(
+            f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         if (map_config.experiment_type == 'EDD'
-            and not placeholder_data is False):
+                and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
             scalar_data.append(NXfield(
                 value=all_scalar_data[-1],
-                attrs={'description': (
-                    'Indicates whether placeholder data may be present for the'
-                    + 'corresponding frames of detector data.'
-                )
-                       }
-            ))
+                attrs={'description':
+                    'Indicates whether placeholder data may be present for'
+                    'the corresponding frames of detector data.'}))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
@@ -1598,7 +1602,7 @@ class MapProcessor(Processor):
         :type num_scan: int
         :param offset: Offset scan number of current processor.
         :type offset: int
-        :param placeholder_data: Value to use for missing detecotr
+        :param placeholder_data: Value to use for missing detector
             data frames, or `False` if missing data should raise an
             error.
         :type placeholder_data: object
