@@ -231,17 +231,27 @@ class PipelineItem():
         if hasattr(self, 'read'):
             method_name = 'read'
             inputdir = kwargs.get('inputdir')
-            if inputdir is not None and 'filename' in kwargs:
-                kwargs['filename'] = os.path.realpath(
-                    os.path.join(inputdir, kwargs['filename']))
+            if 'filename' in kwargs:
+                filename = kwargs['filename']
+                newfilename = os.path.normpath(os.path.realpath(
+                    os.path.join(inputdir, filename)))
+                if (not os.path.isfile(newfilename)
+                        and not os.path.dirname(filename)):
+                    outputdir = kwargs.get('outputdir')
+                    self.logger.warning(
+                        f'Unable to find {filename} in {inputdir}, '
+                        f' looking in {outputdir}')
+                    newfilename = os.path.normpath(os.path.realpath(
+                        os.path.join(outputdir, filename)))
+                kwargs['filename'] = newfilename
         elif hasattr(self, 'process'):
             method_name = 'process'
         elif hasattr(self, 'write'):
             method_name = 'write'
             outputdir = kwargs.get('outputdir')
             if outputdir is not None and 'filename' in kwargs:
-                kwargs['filename'] = os.path.realpath(
-                    os.path.join(outputdir, kwargs['filename']))
+                kwargs['filename'] = os.path.normpath(os.path.realpath(
+                    os.path.join(outputdir, kwargs['filename'])))
         else:
             self.logger.error('No implementation of read, write, or process')
             return None
@@ -309,8 +319,8 @@ class MultiplePipelineItem(PipelineItem):
             # for "interactive" in the latter
             args = {**kwargs}
             if 'inputdir' in item_args:
-                inputdir = os.path.normpath(os.path.join(
-                    args['inputdir'], item_args.pop('inputdir')))
+                inputdir = os.path.normpath(os.path.realpath(os.path.join(
+                    args['inputdir'], item_args.pop('inputdir'))))
                 if not os.path.isdir(inputdir):
                     raise OSError(
                         f'input directory does not exist ({inputdir})')
@@ -321,8 +331,8 @@ class MultiplePipelineItem(PipelineItem):
             # FIX: Right now this can bomb if MultiplePipelineItem
             # is called simultaneously from multiple nodes in MPI
             if 'outputdir' in item_args:
-                outputdir = os.path.normpath(os.path.join(
-                    args['outputdir'], item_args.pop('outputdir')))
+                outputdir = os.path.normpath(os.path.realpath(os.path.join(
+                    args['outputdir'], item_args.pop('outputdir'))))
                 if not os.path.isdir(outputdir):
                     os.makedirs(outputdir)
                 try:
