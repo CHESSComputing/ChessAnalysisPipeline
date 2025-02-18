@@ -55,8 +55,8 @@ class RunConfig():
 
         # Check if inputdir exists and is readable
         if not os.path.isabs(self.inputdir):
-            self.inputdir = os.path.realpath(
-                os.path.join(self.root, self.inputdir))
+            self.inputdir = os.path.normpath(os.path.realpath(
+                os.path.join(self.root, self.inputdir)))
         if not os.path.isdir(self.inputdir):
             raise OSError(f'input directory does not exist ({self.inputdir})')
         if not os.access(self.inputdir, os.R_OK):
@@ -65,8 +65,8 @@ class RunConfig():
 
         # Check if outputdir exists (create it if not) and is writable
         if not os.path.isabs(self.outputdir):
-            self.outputdir = os.path.realpath(
-                os.path.join(self.root, self.outputdir))
+            self.outputdir = os.path.normpath(os.path.realpath(
+                os.path.join(self.root, self.outputdir)))
         if not rank:
             if not os.path.isdir(self.outputdir):
                 os.makedirs(self.outputdir)
@@ -255,8 +255,9 @@ def run(
             # for "interactive" in the latter
             if item_args is not None:
                 if 'inputdir' in item_args:
-                    newinputdir = os.path.normpath(os.path.join(
-                        kwargs['inputdir'], item_args.pop('inputdir')))
+                    newinputdir = os.path.normpath(os.path.realpath(
+                        os.path.join(
+                            kwargs['inputdir'], item_args.pop('inputdir'))))
                     if not os.path.isdir(newinputdir):
                         raise OSError(
                             f'input directory does not exist ({newinputdir})')
@@ -265,8 +266,9 @@ def run(
                                       f'reading ({newinputdir})')
                     kwargs['inputdir'] = newinputdir
                 if 'outputdir' in item_args:
-                    newoutputdir = os.path.normpath(os.path.join(
-                        kwargs['outputdir'], item_args.pop('outputdir')))
+                    newoutputdir = os.path.normpath(os.path.realpath(
+                        os.path.join(
+                           kwargs['outputdir'], item_args.pop('outputdir'))))
                     if not rank:
                         if not os.path.isdir(newoutputdir):
                             os.makedirs(newoutputdir)
