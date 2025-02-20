@@ -39,6 +39,7 @@ from CHAP.common.reader import (
     BinaryFileReader,
     FabioImageReader,
     H5Reader,
+    LinkamReader,
     MapReader,
     NexusReader,
     NXdataReader,
