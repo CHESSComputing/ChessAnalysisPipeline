@@ -14,7 +14,6 @@ from typing import (
 import numpy as np
 from hexrd.material import Material
 from pydantic import (
-    BaseModel,
     DirectoryPath,
     Field,
     FilePath,
@@ -30,60 +29,14 @@ from scipy.interpolate import interp1d
 from typing_extensions import Annotated
 
 # Local modules
+from CHAP.models import CHAPBaseModel
 from CHAP.common.models.map import Detector
 #from CHAP.utils.parfile import ParFile
-
-# EDD pydantic basemodel with serialization
-
-class EDDBaseModel(BaseModel):
-    """Baseline EDD configuration class implementing robust
-    serialization tools.
-    """
-    def dict(self, *args, **kwargs):
-        return self.model_dump(*args, **kwargs)
-
-    def model_dump(self, *args, **kwargs):
-        if hasattr(self, '_exclude'):
-            kwargs['exclude'] = self._merge_exclude(
-                None if kwargs is None else kwargs.get('exclude'))
-        return self._serialize(super().model_dump(*args, **kwargs))
-
-    def model_dump_json(self, *args, **kwargs):
-        # Third party modules
-        from json import dumps
-
-        return dumps(self.model_dump(*args, **kwargs))
-
-    def _merge_exclude(self, exclude):
-        if exclude is None:
-            exclude = self._exclude
-        elif isinstance(exclude, set):
-            if isinstance(self._exclude, set):
-                exclude |= self._exclude
-            elif isinstance(self._exclude, dict):
-                exclude = {**{v:True for v in exclude}, **self._exclude}
-        elif isinstance(exclude, dict):
-            if isinstance(self._exclude, set):
-                exclude = {**exclude, **{v:True for v in self._exclude}}
-            elif isinstance(self._exclude, dict):
-                exclude = {**exclude, **self._exclude}
-        return exclude
-
-    def _serialize(self, value):
-        if isinstance(value, dict):
-            value = {k:self._serialize(v) for k, v in value.items()}
-        elif isinstance(value, (tuple, list)):
-            value = [self._serialize(v) for v in value]
-        elif isinstance(value, np.ndarray):
-            value = value.tolist()
-        elif isinstance(value, PosixPath):
-            value = str(value)
-        return value
 
 
 # Baseline configuration class
 
-class BaselineConfig(EDDBaseModel):
+class BaselineConfig(CHAPBaseModel):
     """Baseline model configuration class.
 
     :ivar lam: The &lambda (smoothness) parameter (the balance
@@ -105,7 +58,7 @@ class BaselineConfig(EDDBaseModel):
 
 # Fit configuration class
 
-class FitConfig(EDDBaseModel):
+class FitConfig(CHAPBaseModel):
     """Fit parameters configuration class for peak fitting.
 
     :ivar background: Background model for peak fitting,
@@ -223,7 +176,7 @@ class FitConfig(EDDBaseModel):
 
 # Material configuration class
 
-class MaterialConfig(EDDBaseModel):
+class MaterialConfig(CHAPBaseModel):
     """Sample material parameters configuration class.
 
     :ivar material_name: Sample material name.

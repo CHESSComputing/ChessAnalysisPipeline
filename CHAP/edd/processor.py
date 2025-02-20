@@ -53,12 +53,12 @@ class BaseEddProcessor(Processor):
     def get_config(self, data, schema, remove=True, **kwargs):
         """Look through `data` for an item whose value for the first
         `'schema'` key matches `schema`. Convert the value for that
-        item's `'data'` key into the configuration `BaseModel`
+        item's `'data'` key into the configuration Pydantic model
         identified by `schema` and return it.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
-        :param schema: Name of the `BaseModel` class to match in
+        :param schema: Name of the Pydantic model class to match in
             `data` & return.
         :type schema: str
         :param remove: If there is a matching entry in `data`, remove

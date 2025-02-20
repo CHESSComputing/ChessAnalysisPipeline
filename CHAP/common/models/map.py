@@ -16,7 +16,6 @@ from typing import (
 # Third party modules
 import numpy as np
 from pydantic import (
-    BaseModel,
     Field,
     FilePath,
     PrivateAttr,
@@ -29,7 +28,11 @@ from pydantic import (
 from pyspec.file.spec import FileSpec
 from typing_extensions import Annotated
 
-class Detector(BaseModel):
+# Local modules
+from CHAP.models import CHAPBaseModel
+
+
+class Detector(CHAPBaseModel):
     """Class representing a single detector.
 
     :ivar id: The detector id (e.g. name or channel index).
@@ -76,7 +79,7 @@ class Detector(BaseModel):
         return attrs
 
 
-class DetectorConfig(BaseModel):
+class DetectorConfig(CHAPBaseModel):
     """Class representing a detector configuration.
 
     :ivar detectors: The detector list.
@@ -85,7 +88,7 @@ class DetectorConfig(BaseModel):
     detectors: conlist(item_type=Detector, min_length=1)
 
 
-class Sample(BaseModel):
+class Sample(CHAPBaseModel):
     """Class representing a sample metadata configuration.
 
     :ivar name: The name of the sample.
@@ -97,7 +100,7 @@ class Sample(BaseModel):
     description: Optional[str] = ''
 
 
-class SpecScans(BaseModel):
+class SpecScans(CHAPBaseModel):
     """Class representing a set of scans from a single SPEC file.
 
     :ivar spec_file: Path to the SPEC file.
@@ -297,7 +300,7 @@ def get_detector_data(
     return detector_data
 
 
-class PointByPointScanData(BaseModel):
+class PointByPointScanData(CHAPBaseModel):
     """Class representing a source of raw scalar-valued data for which
     a value was recorded at every point in a `MapConfig`.
 
@@ -753,7 +756,7 @@ class DwellTimeActual(CorrectionsData):
     units: Literal['s'] = 's'
 
 
-class SpecConfig(BaseModel):
+class SpecConfig(CHAPBaseModel):
     """Class representing the raw data for one or more SPEC scans.
 
     :ivar station: The name of the station at which the data was
@@ -831,7 +834,7 @@ class SpecConfig(BaseModel):
         return experiment_type
 
 
-class MapConfig(BaseModel):
+class MapConfig(CHAPBaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
 
