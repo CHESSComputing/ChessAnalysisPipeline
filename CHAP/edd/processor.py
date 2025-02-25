@@ -8,7 +8,7 @@ Description: Module for Processors used only by EDD experiments
 """
 
 # System modules
-#from copy import deepcopy
+from copy import deepcopy
 import os
 
 # Third party modules
@@ -1115,7 +1115,10 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import MCAElementConfig
+        from CHAP.edd.models import (
+            MCACalibrationConfig,
+            MCAElementConfig,
+        )
 
         self._save_figures = save_figures
         self._outputdir = outputdir
@@ -1131,7 +1134,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             data, 'edd.models.MCAEnergyCalibrationConfig', inputdir=inputdir,
             config=config)
 
-        # Validate the detector configuration
+        # Check for available detectors and validate the raw detector
+        # configuration
         raw_detectors = [
             MCAElementConfig(**d.model_dump()) for d in DetectorConfig(
                 **loads(str(nxentry.detectors))).detectors]
@@ -1657,6 +1661,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Local modules
         from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import (
+            MCACalibrationConfig,
             MCAElementConfig,
             MCATthCalibrationConfig,
         )
@@ -1679,10 +1684,10 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             calibration_config = MCATthCalibrationConfig(**calibration_config)
         except (TypeError, ValueError):
             calibration_config = self.get_config(
-                data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir,
-                config=config)
+                data, 'edd.models.MCATthCalibrationConfig', inputdir=inputdir)
 
-        # Validate the detector configuration
+        # Check for available detectors and validate the raw detector
+        # configuration
         if calibration_config.detectors is None:
             raise RuntimeError('No calibrated detectors')
         raw_detectors = [
@@ -1718,8 +1723,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         calibration_config.detectors = detectors
         calibration_detector_ids = [d.id for d in calibration_config.detectors]
 
-        # Update any processor configuration parameters not superseded by
-        # individual detector values
+        # Update any detector configuration parameters not superseded
+        # by individual detector values and check if energy calibration
+        # is available for each detector
         if config is not None:
             if 'detectors' in config:
                 have_detectors = True
@@ -1737,21 +1743,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 detectors = []
                 for detector in config.detectors:
                     if detector.id in calibration_detector_ids:
-                        calibration_detector = calibration_config.detectors[
-                            int(calibration_detector_ids.index(detector.id))]
-                        for k in vars(detector).keys():
-                            if k in ('mask_ranges', 'energy_mask_ranges'):
-                                continue
-                            v = getattr(detector, k)
-                            if v is None or not v:
-                                setattr(
-                                    detector, k,
-                                    getattr(calibration_detector, k))
-                        if detector.tth_calibrated is not None:
-                            self.logger.warning(
-                                'Ignoring tth_calibrated in calibration '
-                                'configuration')
-                            detector.tth_calibrated = None
+                        detector.add_calibration(
+                            calibration_config.detectors[int(
+                                calibration_detector_ids.index(detector.id))])
                         detectors.append(detector)
                     else:
                         sskipped_detectors.append(detector.id)
@@ -1822,9 +1816,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
-        #RV FIXcenters_range = calibration_config.centers_range
-        #if centers_range is None:
-        #    centers_range = 20
         quadratic_energy_calibration = \
             calibration_config.quadratic_energy_calibration
 
@@ -1869,6 +1860,22 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 else:
                     for model in detector.background:
                         models.append({'model': model, 'prefix': f'{model}_'})
+            if detector.backgroundpeaks is not None:
+                backgroundpeaks = deepcopy(detector.backgroundpeaks)
+                delta_energy = energies[1]-energies[0]
+                if backgroundpeaks.centers_range is not None:
+                    backgroundpeaks.centers_range /= delta_energy
+                if backgroundpeaks.fwhm_min is not None:
+                    backgroundpeaks.fwhm_min /= delta_energy
+                if backgroundpeaks.fwhm_max is not None:
+                    backgroundpeaks.fwhm_max /= delta_energy
+                backgroundpeaks.centers = [
+                    c/delta_energy for c in backgroundpeaks.centers]
+                _, backgroundpeaks = FitProcessor.create_multipeak_model(
+                    backgroundpeaks)
+                for peak in backgroundpeaks:
+                    peak.prefix = f'bkgd_{peak.prefix}'
+                models += backgroundpeaks
             models.append(
                 {'model': 'multipeak', 'centers': centers,
                  'centers_range': detector.centers_range,
@@ -2219,14 +2226,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
         # Validate the detector configuration and check against the raw
         # data (availability and shape) and the calibration data
-        # Update any processor configuration parameters not superseded
-        # by individual detector values
         nxdata = nxentry[nxentry.default]
         if strain_analysis_config.detectors is None:
+            exit('RV: Need to update with the config parameters???')
             strain_analysis_config.detectors = [
                 MCAElementStrainAnalysisConfig(id=d.id)
                 for d in calibration_config.detectors if d.id in nxdata]
-        strain_analysis_config.update_detectors()
         calibration_detector_ids = [d.id for d in calibration_config.detectors]
         skipped_detectors = []
         sskipped_detectors = []

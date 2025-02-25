@@ -1,6 +1,7 @@
 """EDD Pydantic model classes."""
 
 # System modules
+from copy import deepcopy
 import os
 from pathlib import PosixPath
 from typing import (
@@ -31,6 +32,7 @@ from typing_extensions import Annotated
 # Local modules
 from CHAP.models import CHAPBaseModel
 from CHAP.common.models.map import Detector
+from CHAP.utils.models import Multipeak
 #from CHAP.utils.parfile import ParFile
 
 
@@ -61,8 +63,8 @@ class BaselineConfig(CHAPBaseModel):
 class FitConfig(CHAPBaseModel):
     """Fit parameters configuration class for peak fitting.
 
-    :ivar background: Background model for peak fitting,
-        defaults to `constant`.
+    :ivar background: Background model for peak fitting, defaults
+        to `constant`.
     :type background: str, list[str], optional
     :ivar baseline: Automated baseline subtraction configuration,
         defaults to `False`.
@@ -91,9 +93,12 @@ class FitConfig(CHAPBaseModel):
         applying a mask (bounds are inclusive). Specify for
         energy calibration only.
     :type mask_ranges: list[[int, int]], optional
+    :ivar backgroundpeaks: Additional background peaks (their
+        associated fit parameters in units of keV).
+    :type backgroundpeaks: CHAP.utils.models.Multipeak, optional
     """
     background: Optional[conlist(item_type=constr(
-        strict=True, strip_whitespace=True, to_lower=True))] = None
+        strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
     centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     energy_mask_ranges: Optional[conlist(
@@ -110,6 +115,11 @@ class FitConfig(CHAPBaseModel):
             min_length=2,
             max_length=2,
             item_type=conint(ge=0)))] = None
+    backgroundpeaks: Optional[Multipeak] = None
+
+    _default_centers_range: bool = PrivateAttr(default=False)
+    _default_fwhm_min: bool = PrivateAttr(default=False)
+    _default_fwhm_max: bool = PrivateAttr(default=False)
 
     @field_validator('background', mode='before')
     @classmethod
@@ -173,6 +183,19 @@ class FitConfig(CHAPBaseModel):
             return sorted([sorted(v) for v in mask_ranges])
         return mask_ranges
 
+    def get_privateattr(self, field):
+        """Return the default value for a model field if it has an
+        associated default private attribute. 
+
+        :ivar field: Model field name.
+        :type field: str
+        :return: Associated default private attribute if defined,
+            otherwise `None`.
+        :rtype: Any
+        """
+        if hasattr(self, f'_default_{field}'):
+            return getattr(self, f'_default_{field}')
+        return None
 
 # Material configuration class
 
@@ -247,20 +270,38 @@ class MCAElementConfig(Detector, FitConfig):
     _hkl_indices: list = PrivateAttr()
 
     @model_validator(mode='after')
-    def validate_fit_config(self):
-        """Set default fit parameters for centers_range, fwhm_min,
-        and fwhm_max.
+    def validate_fitconfig(self):
+        """Set the defaults for `FitConfig` parameters `centers_range`,
+        `fwhm_min` and `fwhm_max`.
 
-        :return: Validated configuration class.
-        :rtype: FitConfig
+        :return: Updated `centers_range`, `fwhm_min` and `fwhm_max`
+            parameters.
+        :rtype: MCAEnergyCalibrationConfig
         """
         if self.centers_range is None:
             self.centers_range = 20
+            self._default_centers_range = True
         if self.fwhm_min is None:
             self.fwhm_min = 3
+            self._default_fwhm_min = True
         if self.fwhm_max is None:
             self.fwhm_max = 25
+            self._default_fwhm_max = True
         return self
+
+    def add_calibration(self, calibration):
+        """Finalize values for some fields using a calibration
+        MCAElementConfig corresponding to the same detector.
+
+        :param calibration: Existing calibration configuration.
+        :type calibration: MCAElementConfig
+        """
+        for field in ['energy_calibration_coeffs', 'num_bins']:
+            setattr(self, field, deepcopy(getattr(calibration, field)))
+        if self.tth_calibrated is not None:
+            self.logger.warning(
+                'Ignoring tth_calibrated in calibration configuration')
+            self.tth_calibrated = None
 
     @property
     def energies(self):
@@ -390,22 +431,6 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
             max_length=2,
             item_type=confloat(allow_inf_nan=False))) = PrivateAttr()
 
-    @model_validator(mode='after')
-    def validate_fit_config(self):
-        """Set default fit parameters for centers_range, fwhm_min,
-        and fwhm_max.
-
-        :return: Validated configuration class.
-        :rtype: MCAElementStrainAnalysisConfig
-        """
-        if self.centers_range is None:
-            self.centers_range = 0.25
-        if self.fwhm_min is None:
-            self.fwhm_min = 0.25
-        if self.fwhm_max is None:
-            self.fwhm_max = 2.0
-        return self
-
     def add_calibration(self, calibration):
         """Finalize values for some fields using a tth calibration
         MCAElementConfig corresponding to the same detector.
@@ -416,10 +441,11 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         """
         for field in ['energy_calibration_coeffs', 'num_bins',
                       'tth_calibrated']:
-            setattr(self, field, getattr(calibration, field))
+            setattr(self, field, deepcopy(getattr(calibration, field)))
         if self.energy_mask_ranges is None:
-            self.energy_mask_ranges = calibration.energy_mask_ranges
-        self._calibration_energy_mask_ranges = calibration.energy_mask_ranges
+            self.energy_mask_ranges = deepcopy(calibration.energy_mask_ranges)
+        self._calibration_energy_mask_ranges = deepcopy(
+            calibration.energy_mask_ranges)
 
     def get_calibration_mask_ranges(self):
         """Return the `_calibration_energy_mask_ranges` converted from
@@ -520,15 +546,15 @@ class DiffractionVolumeLengthConfig(FitConfig):
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
 
-    def update_detectors(self):
-        """Update any processor configuration parameters not superseded
-        by individual detector values.
-        """
-        if self.detectors is not None:
-            for detector in self.detectors:
-                for k in self.__dict__:
-                    if hasattr(detector, k) and getattr(detector, k) is None:
-                        setattr(detector, k, getattr(self, k))
+#    def update_detectors(self):
+#        """Update any detector configuration parameters not superseded
+#        by individual detector values.
+#        """
+#        if self.detectors is not None:
+#            for detector in self.detectors:
+#                for k in self.__dict__:
+#                    if hasattr(detector, k) and getattr(detector, k) is None:
+#                        setattr(detector, k, deepcopy(getattr(self, k)))
 
 
 class MCACalibrationConfig(FitConfig):
@@ -582,22 +608,6 @@ class MCACalibrationConfig(FitConfig):
 
         return data
 
-    @model_validator(mode='after')
-    def validate_fit_config(self):
-        """Set default fit parameters for centers_range, fwhm_min,
-        and fwhm_max.
-
-        :return: Validated configuration class.
-        :rtype: FitConfig
-        """
-        if self.centers_range is None:
-            self.centers_range = 20
-        if self.fwhm_min is None:
-            self.fwhm_min = 3
-        if self.fwhm_max is None:
-            self.fwhm_max = 25
-        return self
-
     @field_validator('scan_step_indices', mode='before')
     @classmethod
     def validate_scan_step_indices(cls, scan_step_indices):
@@ -648,13 +658,19 @@ class MCACalibrationConfig(FitConfig):
         return interpolation_function
 
     def update_detectors(self):
-        """Update any processor configuration parameters not superseded
+        """Update any detector configuration parameters not superseded
         by individual detector values.
         """
         for detector in self.detectors:
             for k in self.__dict__:
-                if hasattr(detector, k) and getattr(detector, k) is None:
-                    setattr(detector, k, getattr(self, k))
+                if hasattr(detector, k):
+                    v = getattr(self, k)
+                    have_default = detector.get_privateattr(k)
+                    if have_default is None and v is not None:
+                        setattr(detector, k, deepcopy(v))
+                    elif have_default and v is not None:
+                        setattr(detector, k, deepcopy(v))
+                        detector._default_centers_range = False
 
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
@@ -684,7 +700,9 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
 
     @model_validator(mode='after')
     def validate_detectors(self):
-        """Validate the detector (energy) mask ranges.
+        """Validate the detector (energy) mask ranges and update any
+        detector configuration parameters not superseded by their
+        individual values.
 
         :return: Updated energy calibration configuration class.
         :rtype: MCAEnergyCalibrationConfig
@@ -806,11 +824,27 @@ class StrainAnalysisConfig(MCACalibrationConfig):
 
     @model_validator(mode='after')
     def validate_detectors(self):
-        """Validate the detector (energy) mask ranges.
+        """Validate the detector (energy) mask ranges, set the defaults
+        for `FitConfig` parameters `centers_range`, `fwhm_min` and
+        `fwhm_max` and update any detector configuration parameters
+        not superseded by their individual values.
+
+
+        :return: Updated `centers_range`, `fwhm_min` and `fwhm_max`
+            parameters.
 
         :return: Updated strain analysis configuration class.
         :rtype: StrainAnalysisConfig
         """
+        if self.centers_range is None:
+            self.centers_range = 2.0
+            self._default_centers_range = True
+        if self.fwhm_min is None:
+            self.fwhm_min = 0.25
+            self._default_fwhm_min = True
+        if self.fwhm_max is None:
+            self.fwhm_max = 2.0
+            self._default_fwhm_max = True
         if self.detectors is None:
             return self
         warning = False
@@ -826,34 +860,6 @@ class StrainAnalysisConfig(MCACalibrationConfig):
             print('Ignoring mask_ranges parameter for strain analysis')
         self.update_detectors()
         return self
-
-    @model_validator(mode='after')
-    def validate_fit_config(self):
-        """Set default fit parameters for centers_range, fwhm_min,
-        and fwhm_max.
-
-        :return: Validated configuration class.
-        :rtype: StrainAnalysisConfig
-        """
-        if self.centers_range is None:
-            self.centers_range = 0.25
-        if self.fwhm_min is None:
-            self.fwhm_min = 0.25
-        if self.fwhm_max is None:
-            self.fwhm_max = 2.0
-        return self
-
-#    @field_validator('detectors', mode='before')
-#    @classmethod
-#    def validate_detectors(cls, detectors, info):
-#        """Finalize value for tth_file for each detector."""
-#        inputdir = info.data.get('inputdir')
-#        for detector in detectors:
-#            tth_file = detector.get('tth_file')
-#            if tth_file is not None:
-#                if not os.path.isabs(tth_file):
-#                    detector['tth_file'] = os.path.join(inputdir, tth_file)
-#        return detectors
 
 # FIX tth_file/tth_map not updated
 #    @field_validator('detectors')

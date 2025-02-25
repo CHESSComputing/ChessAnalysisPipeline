@@ -1312,6 +1312,12 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
         else:
             for model in detector.background:
                 models.append({'model': model, 'prefix': f'{model}_'})
+    if detector.backgroundpeaks is not None:
+        _, backgroundpeaks = FitProcessor.create_multipeak_model(
+            detector.backgroundpeaks)
+        for peak in backgroundpeaks:
+            peak.prefix = f'bkgd_{peak.prefix}'
+        models += backgroundpeaks
     models.append(
         {'model': 'multipeak', 'centers': list(peak_locations),
          'fit_type': 'uniform', 'peak_models': detector.peak_models,
