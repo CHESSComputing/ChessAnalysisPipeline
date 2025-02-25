@@ -741,6 +741,10 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     """Class representing metadata required to perform a 2&theta
     calibration of an MCA detector.
 
+    :ivar calibration_method: Type of calibration method,
+        defaults to `'direct_fit_residual'`.
+    :type calibration_method:
+        Literal['direct_fit_bragg'], optional
     :ivar detectors: List of individual MCA detector element
         calibration configurations.
     :type detectors: list[MCAElementConfig], optional
@@ -751,6 +755,10 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     :ivar tth_initial_guess: Initial guess for 2&theta.
     :type tth_initial_guess: float, optional
     """
+    calibration_method: Optional[Literal[
+#        'direct_fit_peak_energies',
+#        'direct_fit_combined',
+        'direct_fit_bragg']] = 'direct_fit_bragg'
     detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     quadratic_energy_calibration: Optional[bool] = False
     tth_initial_guess: Optional[

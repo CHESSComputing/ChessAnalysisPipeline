@@ -9,6 +9,7 @@ Description: Module for Processors used only by EDD experiments
 
 # System modules
 from copy import deepcopy
+from time import time
 import os
 
 # Third party modules
@@ -1801,20 +1802,11 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         :returns: 2&theta calibration configuration.
         :rtype: dict
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXdata,
-            NXfield,
-        )
-        from scipy.signal import find_peaks as find_peaks_scipy
-
         # Local modules
         from CHAP.edd.utils import (
             get_peak_locations,
             get_unique_hkls_ds,
         )
-        from CHAP.utils.fit import FitProcessor
-        from CHAP.utils.general import index_nearest
 
         quadratic_energy_calibration = \
             calibration_config.quadratic_energy_calibration
@@ -1842,83 +1834,25 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
             ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             e_bragg = get_peak_locations(ds, tth)
-            num_bragg = len(e_bragg)
 
-            # Get initial peak centers
-            peaks = find_peaks_scipy(
-                mean_data, width=5, height=0.005*mean_data.max())
-            centers = list(peaks[0])
-            centers = [low+centers[index_nearest(centers, c)]
-                       for c in [index_nearest(energies, e) for e in e_bragg]]
-
-            # Perform an unconstrained fit in terms of MCA bin index
-            models = []
-            if detector.background is not None:
-                if len(detector.background) == 1:
-                    models.append(
-                        {'model': detector.background[0], 'prefix': 'bkgd_'})
-                else:
-                    for model in detector.background:
-                        models.append({'model': model, 'prefix': f'{model}_'})
-            if detector.backgroundpeaks is not None:
-                backgroundpeaks = deepcopy(detector.backgroundpeaks)
-                delta_energy = energies[1]-energies[0]
-                if backgroundpeaks.centers_range is not None:
-                    backgroundpeaks.centers_range /= delta_energy
-                if backgroundpeaks.fwhm_min is not None:
-                    backgroundpeaks.fwhm_min /= delta_energy
-                if backgroundpeaks.fwhm_max is not None:
-                    backgroundpeaks.fwhm_max /= delta_energy
-                backgroundpeaks.centers = [
-                    c/delta_energy for c in backgroundpeaks.centers]
-                _, backgroundpeaks = FitProcessor.create_multipeak_model(
-                    backgroundpeaks)
-                for peak in backgroundpeaks:
-                    peak.prefix = f'bkgd_{peak.prefix}'
-                models += backgroundpeaks
-            models.append(
-                {'model': 'multipeak', 'centers': centers,
-                 'centers_range': detector.centers_range,
-                 'fwhm_min': detector.fwhm_min,
-                 'fwhm_max': detector.fwhm_max})
-            fit = FitProcessor()
-            result = fit.process(
-                NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins, 'x')),
-                {'models': models, 'method': 'trf'})
-            best_fit = result.best_fit
-            residual = result.residual
-
-            # Extract the Bragg peak indices from the fit
-            i_bragg_fit = np.asarray(
-                [result.best_values[f'peak{i+1}_center']
-                 for i in range(num_bragg)])
-
-            # Fit a line through zero strain peak energies vs detector
-            # energy bins
-            if quadratic_energy_calibration:
-                model = 'quadratic'
+            # Perform the fit
+            t0 = time()
+            if calibration_config.calibration_method == 'direct_fit_bragg':
+                results = self._direct_bragg_peak_fit(
+                    energies, mean_data, bins, mask, detector, hkls, ds,
+                    e_bragg, tth, quadratic_energy_calibration)
+#            elif calibration_method == 'direct_fit_combined':
+#                # Get the fluorescence peak info
+#                e_xrf = calibration_config.peak_energies
             else:
-                model = 'linear'
-            fit = FitProcessor()
-            result = fit.process(
-                NXdata(NXfield(e_bragg, 'y'), NXfield(i_bragg_fit, 'x')),
-                {'models': [{'model': model}]})
-            if quadratic_energy_calibration:
-                a_fit = result.best_values['a']
-                b_fit = result.best_values['b']
-                c_fit = result.best_values['c']
-            else:
-                a_fit = 0.0
-                b_fit = result.best_values['slope']
-                c_fit = result.best_values['intercept']
-            e_bragg_unconstrained = (
-                (a_fit*i_bragg_fit + b_fit) * i_bragg_fit + c_fit)
-            strains_unconstrained = np.log(
-                (e_bragg / e_bragg_unconstrained))
-            strain_unconstrained = np.mean(strains_unconstrained)
-            detector.tth_calibrated = float(tth)
-            detector.energy_calibration_coeffs = [
-                float(a_fit), float(b_fit), float(c_fit)]
+                exit('Not done yet')
+#            results = _direct_peak_fit_residual(
+#                energies, mean_data, hkls, ds, e_bragg, e_xrf)
+            self.logger.info(
+                f'Fitting detector {detector.id} took {time()-t0:.3f} seconds')
+            detector.tth_calibrated = results['tth']
+            detector.energy_calibration_coeffs = \
+                results['energy_calibration_coeffs']
 
             # Update the MCA channel energies with the newly calibrated
             # coefficients
@@ -1954,29 +1888,37 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                     label = 'Unconstrained fit using calibrated a, b, and c'
                 else:
                     label = 'Unconstrained fit using calibrated b and c'
-                axs[0,0].plot(energies[mask], best_fit, c='C1', label=label)
+                axs[0,0].plot(
+                    energies[mask], results['best_fit_unconstrained'], c='C1',
+                    label=label)
                 axs[0,0].legend()
 
                 # Lower left axes: fit residual
                 axs[1,0].set_title('Fit Residuals')
                 axs[1,0].set_xlabel('Energy (keV)')
                 axs[1,0].set_ylabel('Residual (counts)')
-                axs[1,0].plot(energies[mask], residual, c='C1', label=label)
+                axs[1,0].plot(
+                    energies[mask], results['residual_unconstrained'], c='C1',
+                    label=label)
                 axs[1,0].legend()
 
                 # Upper right axes: E vs strain for each fit
+                strains_unconstrained = 1.e6*results['strains_unconstrained']
+                strain_unconstrained = np.mean(strains_unconstrained)
                 axs[0,1].set_title('Peak Energy vs. Microstrain')
                 axs[0,1].set_xlabel('Energy (keV)')
                 axs[0,1].set_ylabel('Strain (\u03BC\u03B5)')
                 axs[0,1].plot(
-                    e_bragg, 1.e6*strains_unconstrained, marker='o',
-                    mfc='none', c='C1', label='Unconstrained')
+                    e_bragg, strains_unconstrained, marker='o', mfc='none',
+                    c='C1', label='Unconstrained')
                 axs[0,1].axhline(
-                    1.e6*strain_unconstrained, ls='--', c='C1',
+                    strain_unconstrained, ls='--', c='C1',
                     label='Unconstrained: unweighted mean')
                 axs[0,1].legend()
 
                 # Lower right axes: theoretical E vs fitted E for all peaks
+                (a_fit, b_fit, c_fit) = detector.energy_calibration_coeffs
+                e_bragg_unconstrained = results['e_bragg_unconstrained']
                 axs[1,1].set_title('Theoretical vs. Fitted Peak Energies')
                 axs[1,1].set_xlabel('Energy (keV)')
                 axs[1,1].set_ylabel('Energy (keV)')
@@ -2026,6 +1968,109 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # configuration
         calibration_config.detectors = self._detectors
         return calibration_config.model_dump()
+
+    def _direct_bragg_peak_fit(
+            self, energies, mean_data, bins, mask, detector, hkls, ds,
+            e_bragg, tth, quadratic_energy_calibration):
+#        """Perform a fit minimizing the residual on the Bragg peaks
+#        only or on both the Bragg peaks and the fluorescence peaks
+#        for a given 2&theta in terms of the energy calibration
+#        coefficients.
+        """Perform an unconstrained fit minimizing the residual on the
+        Bragg peaks only for a given 2&theta.
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+        from scipy.signal import find_peaks as find_peaks_scipy
+
+        # Local modules
+        from CHAP.utils.fit import FitProcessor
+        from CHAP.utils.general import index_nearest
+
+        # Get initial peak centers
+        peaks = find_peaks_scipy(
+            mean_data, width=5, height=0.005*mean_data.max())
+        centers = list(peaks[0])
+        centers = [bins[0] + centers[index_nearest(centers, c)]
+                   for c in [index_nearest(energies, e) for e in e_bragg]]
+
+        # Perform an unconstrained fit in terms of MCA bin index
+        models = []
+        if detector.background is not None:
+            if len(detector.background) == 1:
+                models.append(
+                    {'model': detector.background[0], 'prefix': 'bkgd_'})
+            else:
+                for model in detector.background:
+                    models.append({'model': model, 'prefix': f'{model}_'})
+        if detector.backgroundpeaks is not None:
+            backgroundpeaks = deepcopy(detector.backgroundpeaks)
+            delta_energy = energies[1]-energies[0]
+            if backgroundpeaks.centers_range is not None:
+                backgroundpeaks.centers_range /= delta_energy
+            if backgroundpeaks.fwhm_min is not None:
+                backgroundpeaks.fwhm_min /= delta_energy
+            if backgroundpeaks.fwhm_max is not None:
+                backgroundpeaks.fwhm_max /= delta_energy
+            backgroundpeaks.centers = [
+                c/delta_energy for c in backgroundpeaks.centers]
+            _, backgroundpeaks = FitProcessor.create_multipeak_model(
+                backgroundpeaks)
+            for peak in backgroundpeaks:
+                peak.prefix = f'bkgd_{peak.prefix}'
+            models += backgroundpeaks
+        models.append(
+            {'model': 'multipeak', 'centers': centers,
+             'centers_range': detector.centers_range,
+             'fwhm_min': detector.fwhm_min,
+             'fwhm_max': detector.fwhm_max})
+        fit = FitProcessor()
+        result = fit.process(
+            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins, 'x')),
+            {'models': models, 'method': 'trf'})
+        best_fit = result.best_fit
+        residual = result.residual
+
+        # Extract the Bragg peak indices from the fit
+        i_bragg_fit = np.asarray(
+            [result.best_values[f'peak{i+1}_center']
+             for i in range(len(e_bragg))])
+
+        # Fit a line through zero strain peak energies vs detector
+        # energy bins
+        if quadratic_energy_calibration:
+            model = 'quadratic'
+        else:
+            model = 'linear'
+        fit = FitProcessor()
+        result = fit.process(
+            NXdata(NXfield(e_bragg, 'y'), NXfield(i_bragg_fit, 'x')),
+            {'models': [{'model': model}]})
+        if quadratic_energy_calibration:
+            a_fit = result.best_values['a']
+            b_fit = result.best_values['b']
+            c_fit = result.best_values['c']
+        else:
+            a_fit = 0.0
+            b_fit = result.best_values['slope']
+            c_fit = result.best_values['intercept']
+        e_bragg_unconstrained = (
+            (a_fit*i_bragg_fit + b_fit) * i_bragg_fit + c_fit)
+        strains_unconstrained = np.log(
+            (e_bragg / e_bragg_unconstrained))
+
+        return {
+            'best_fit_unconstrained': best_fit,
+            'residual_unconstrained': residual,
+            'e_bragg_unconstrained': e_bragg_unconstrained,
+            'strains_unconstrained': np.log((e_bragg / e_bragg_unconstrained)),
+            'tth': float(tth),
+            'energy_calibration_coeffs': [
+                 float(a_fit), float(b_fit), float(c_fit)],
+        }
 
     def _select_tth_init(self, materials):
         """Select the initial 2&theta guess from the mean MCA
