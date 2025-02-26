@@ -132,8 +132,8 @@ class LinkamReader(Reader):
         nxdata = NXdata(
             axes=(NXfield(
                 name='Time',
-                value=data['Time'],
-                dtype='float32',
+                value=np.array(data['Time']) + start_time,
+                dtype='float64',
             ),),
             **{col: NXfield(
                 name=col,
