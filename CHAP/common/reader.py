@@ -104,7 +104,6 @@ class LinkamReader(Reader):
         :rtype: nexusformat.nexus.NXdata
         """
         from nexusformat.nexus import NXdata, NXfield
-        from CHAP.utils.linkam import LinkamData
 
         # Parse .txt file
         start_time, metadata, data = self.__class__.parse_file(
