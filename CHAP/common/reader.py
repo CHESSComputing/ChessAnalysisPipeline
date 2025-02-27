@@ -138,7 +138,7 @@ class LinkamReader(Reader):
                 name=col,
                 value=data[col_actual],
                 dtype='float32',
-            ) for col, col_actual in signal_names},
+            ) for col_actual, col in signal_names},
             attrs=metadata
         )
         return nxdata
@@ -185,7 +185,7 @@ class LinkamReader(Reader):
                         try:
                             val = float(val)
                         except:
-                            logger.error(
+                            logger.warning(
                                 f'Cannot convert {col} value to float: {val}')
                             continue
                         else:
