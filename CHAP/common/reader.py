@@ -73,7 +73,7 @@ class DetectorDataReader(Reader):
 
         # Handle glob filenames
         if not os.path.isfile(filename):
-            filenames = glob.glob(filename)
+            filenames = sorted(glob.glob(filename))
             if len(filenames) == 0:
                 raise ValueError(
                     f'{filename} is not a file or glob that matches any files')
