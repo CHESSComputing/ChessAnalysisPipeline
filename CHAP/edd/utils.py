@@ -12,7 +12,7 @@ def get_peak_locations(ds, tth):
 
     :param ds: A set of lattice spacings in angstroms.
     :type ds: list[float]
-    :param tth: Diffraction angle 2&theta.
+    :param tth: Diffraction angle 2&theta in degrees.
     :type tth: float
     :return: The peak locations in keV.
     :rtype: numpy.ndarray

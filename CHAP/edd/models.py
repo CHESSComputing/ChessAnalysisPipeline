@@ -209,6 +209,7 @@ class MaterialConfig(CHAPBaseModel):
     :ivar sgnum: Space group of the material.
     :type sgnum: int, optional
     """
+    #RV FIX create a getter for lattice_parameters that always returns a list?
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     lattice_parameters: Optional[Union[
         confloat(gt=0, allow_inf_nan=False),
@@ -267,6 +268,12 @@ class MCAElementConfig(Detector, FitConfig):
     tth_calibrated: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     tth_initial_guess: Optional[confloat(gt=0, allow_inf_nan=False)] = None
 
+    _energy_calibration_mask_ranges: conlist(
+        min_length=1,
+        item_type=conlist(
+            min_length=2,
+            max_length=2,
+            item_type=conint(ge=0))) = PrivateAttr()
     _hkl_indices: list = PrivateAttr()
 
     @model_validator(mode='after')
@@ -296,7 +303,8 @@ class MCAElementConfig(Detector, FitConfig):
         :param calibration: Existing calibration configuration.
         :type calibration: MCAElementConfig
         """
-        for field in ['energy_calibration_coeffs', 'num_bins']:
+        for field in ['energy_calibration_coeffs', 'num_bins',
+                      '_energy_calibration_mask_ranges']:
             setattr(self, field, deepcopy(getattr(calibration, field)))
         if self.tth_calibrated is not None:
             self.logger.warning(
@@ -334,7 +342,8 @@ class MCAElementConfig(Detector, FitConfig):
         """
         energies = self.energies
         self.energy_mask_ranges = [
-            [float(energies[i]) for i in range_] for range_ in mask_ranges]
+            [float(energies[i]) for i in range_]
+             for range_ in sorted([sorted(v) for v in mask_ranges])]
 
     def get_mask_ranges(self):
         """Return the value of `mask_ranges` if set or convert the
@@ -570,6 +579,9 @@ class MCACalibrationConfig(FitConfig):
     :ivar materials: Material configurations for the calibration,
         defaults to [`Ceria`].
     :type materials: list[MaterialConfig], optional
+    :ivar peak_energies: Theoretical locations of the fluorescence
+        peaks in keV to use for calibrating the MCA channel energies.
+    :type peak_energies: list[float], optional for energy calibration
     :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
@@ -582,6 +594,8 @@ class MCACalibrationConfig(FitConfig):
     flux_file: Optional[FilePath] = None
     materials: Optional[conlist(item_type=MaterialConfig)] = [MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)]
+    peak_energies: Optional[conlist(
+        min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))] = None
     scan_step_indices: Optional[Annotated[conlist(
         min_length=1, item_type=conint(ge=0)),
         Field(validate_default=True)]] = None
@@ -686,17 +700,10 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     :ivar max_peak_index: Index of the peak in `peak_energies`
         with the highest amplitude.
     :type max_peak_index: int
-    :ivar peak_energies: Theoretical locations of peaks in keV to use
-        for calibrating the MCA channel energies. It is _strongly_
-        recommended to use fluorescence peaks for the energy
-        calibration.
-    :type peak_energies: list[float]
     """
     detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
     max_peak_index: conint(ge=0)
-    peak_energies: conlist(
-        min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))
 
     @model_validator(mode='after')
     def validate_detectors(self):
@@ -732,6 +739,8 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         :return: Validated energy calibration configuration class.
         :rtype: MCAEnergyCalibrationConfig
         """
+        if self.peak_energies is None:
+            raise ValueError('peak_energies is required')
         if not 0 <= self.max_peak_index < len(self.peak_energies):
             raise ValueError('max_peak_index out of bounds')
         return self
@@ -742,9 +751,9 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     calibration of an MCA detector.
 
     :ivar calibration_method: Type of calibration method,
-        defaults to `'direct_fit_residual'`.
+        defaults to `'direct_fit_bragg'`.
     :type calibration_method:
-        Literal['direct_fit_bragg'], optional
+        Literal['direct_fit_bragg', 'direct_fit_tth_ecc'], optional
     :ivar detectors: List of individual MCA detector element
         calibration configurations.
     :type detectors: list[MCAElementConfig], optional
@@ -756,9 +765,7 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     :type tth_initial_guess: float, optional
     """
     calibration_method: Optional[Literal[
-#        'direct_fit_peak_energies',
-#        'direct_fit_combined',
-        'direct_fit_bragg']] = 'direct_fit_bragg'
+        'direct_fit_bragg', 'direct_fit_tth_ecc']] = 'direct_fit_bragg'
     detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     quadratic_energy_calibration: Optional[bool] = False
     tth_initial_guess: Optional[
@@ -780,6 +787,8 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
         if self.detectors is not None:
             for detector in self.detectors:
                 if detector.mask_ranges:
+                    detector._energy_calibration_mask_ranges = deepcopy(
+                        detector.mask_ranges)
                     detector.mask_ranges = None
                     warning = True
         if warning:

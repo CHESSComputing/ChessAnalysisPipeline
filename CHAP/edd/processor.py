@@ -11,12 +11,15 @@ Description: Module for Processors used only by EDD experiments
 from copy import deepcopy
 from time import time
 import os
+from sys import float_info
 
 # Third party modules
 import numpy as np
 
 # Local modules
 from CHAP.processor import Processor
+
+FLOAT_MIN = float_info.min
 
 # Current good detector channels for the 23 channel EDD detector:
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
@@ -88,13 +91,20 @@ class BaseEddProcessor(Processor):
                 raise RuntimeError from ee
         return model_config
 
-    def _apply_combined_mask(self):
+    def _apply_combined_mask(self, calibration_method=None):
         """Apply the combined mask over the combined included energy
         ranges.
         """
         for index, (energies, mean_data, nxdata, detector) in enumerate(
                 zip(self._energies, self._mean_data, self._nxdata_detectors,
                     self._detectors)):
+            # Add the mask for the fluorescence peaks from the
+            # energy calibration for certain tth calibrations
+            if calibration_method == 'direct_fit_tth_ecc':
+                detector.convert_mask_ranges(
+                    detector._energy_calibration_mask_ranges +
+                    detector.get_mask_ranges())
+
             mask = detector.mca_mask()
             low, upp = np.argmax(mask), mask.size - np.argmax(mask[::-1])
             self._energies[index] = energies[low:upp]
@@ -310,7 +320,7 @@ class BaseEddProcessor(Processor):
                     detector.baseline = BaselineConfig()
                 if self.__name__ in ('DiffractionVolumeLengthProcessor',
                                      'MCAEnergyCalibrationProcessor'):
-                    x = low+np.arange(mean_data.size)
+                    x = low + np.arange(mean_data.size)
                     xlabel = 'Detector Channel (-)'
                 else:
                     x = energies
@@ -1271,13 +1281,13 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         peak_energies = list(np.sort(calibration_config.peak_energies))
         max_peak_index = peak_energies.index(max_peak_energy)
 
-        for energies, mask, (low, _), mean_data, detector in zip(
-                self._energies, self._masks, self._mask_index_ranges,
-                self._mean_data, self._detectors):
+        for energies, mask, mean_data, (low, _), detector in zip(
+                self._energies, self._masks, self._mean_data,
+                self._mask_index_ranges, self._detectors):
 
             self.logger.info(f'Calibrating detector {detector.id}')
 
-            bins = low + np.arange(energies.size, dtype=np.int16)[mask]
+            bins = low + np.arange(energies.size, dtype=np.int16)
 
             # Get the intial peak positions for fitting
             if self._save_figures:
@@ -1287,7 +1297,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                         '_energy_calibration_initial_peak_positions.png')
             else:
                 filename = None
-            input_indices = [low+index_nearest(energies, energy)
+            input_indices = [low + index_nearest(energies, energy)
                              for energy in peak_energies]
             initial_peak_indices = self._get_initial_peak_positions(
                 mean_data*np.asarray(mask).astype(np.int32), low,
@@ -1312,7 +1322,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             fit = FitProcessor()
             mean_data_fit = fit.process(
                 NXdata(
-                    NXfield(mean_data[mask], 'y'), NXfield(bins, 'x')),
+                    NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
                 {'models': models, 'method': 'trf'})
 
             # Extract the fit results for the peaks
@@ -1352,17 +1362,19 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 # Third part modules
                 import matplotlib.pyplot as plt
 
+                bins_masked = bins[mask]
                 fig, axs = plt.subplots(1, 2, figsize=(11, 4.25))
                 fig.suptitle(f'Detector {detector.id} energy calibration')
                 # Left plot: raw MCA data & best fit of peaks
                 axs[0].set_title('MCA spectrum peak fit')
                 axs[0].set_xlabel('Detector Channel (-)')
                 axs[0].set_ylabel('Intensity (counts)')
-                axs[0].plot(bins, mean_data[mask], 'b.', label='MCA data')
                 axs[0].plot(
-                    bins, mean_data_fit.best_fit, 'r', label='Best fit')
+                    bins_masked, mean_data[mask], 'b.', label='MCA data')
                 axs[0].plot(
-                    bins, mean_data_fit.residual, 'g', label='Residual')
+                    bins_masked, mean_data_fit.best_fit, 'r', label='Best fit')
+                axs[0].plot(
+                    bins_masked, mean_data_fit.residual, 'g', label='Residual')
                 axs[0].legend()
                 # Right plot: linear fit of theoretical peak energies vs
                 # fit peak locations
@@ -1374,7 +1386,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     fit_peak_indices, peak_energies, c='b', marker='o',
                     ms=6, mfc='none', ls='', label='Initial peak positions')
                 axs[1].plot(
-                    bins, b*bins + c, 'r',
+                    bins_masked, b*bins_masked + c, 'r',
                     label=f'Best linear fit:\nm = {b:.5f} $keV$/channel\n'
                           f'b = {c:.5f} $keV$')
                 axs[1].set_ylim(
@@ -1458,7 +1470,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             peaks = find_peaks_scipy(y, height=min_height,
                 prominence=0.05*y.max(), width=min_width)
             #available_peak_indices = list(peaks[0])
-            available_peak_indices = [low+i for i in peaks[0]]
+            available_peak_indices = [low + i for i in peaks[0]]
             max_peak_index = np.asarray(peaks[1]["peak_heights"]).argmax()
             ratio = (available_peak_indices[max_peak_index]
                      / input_indices[input_max_peak_index])
@@ -1496,8 +1508,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     peak_indices.clear()
                 outside_indices = []
                 for index in peak_indices:
-                    if not any(
-                            low <= index <= upp for low, upp in index_ranges):
+                    if not any(l <= index <= u for l, u in index_ranges):
                         outside_indices.append(index)
                 if len(outside_indices) == 1:
                     error_text = \
@@ -1516,7 +1527,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     ax.set_ylabel('Intensity (counts)', fontsize='x-large')
                     ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
                     fig.subplots_adjust(bottom=0.0, top=0.85)
-                    ax.plot(low+np.arange(y.size), y, color='k')
+                    ax.plot(low + np.arange(y.size), y, color='k')
                     fig.subplots_adjust(bottom=0.2)
                     change_error_text(error_text)
                 plt.draw()
@@ -1545,7 +1556,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
 
         fig, ax = plt.subplots(figsize=(11, 8.5))
-        ax.plot(low+np.arange(y.size), y, color='k')
+        ax.plot(low + np.arange(y.size), y, color='k')
         ax.set_xlabel('Detector Channel (-)', fontsize='x-large')
         ax.set_ylabel('Intensity (counts)', fontsize='x-large')
         ax.set_xlim(index_ranges[0][0], index_ranges[-1][1])
@@ -1571,8 +1582,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                                  f'routine{detector_id}')
             if peak_indices:
                 for index in peak_indices:
-                    if not any(
-                            low <= index <= upp for low, upp in index_ranges):
+                    if not any(l <= index <= u for l, u in index_ranges):
                         peak_indices.clear()
                         break
             if not peak_indices:
@@ -1739,6 +1749,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 self.logger.info('Invalid config parameter for '
                                  f'{self.__name__}\n({config})')
                 raise RuntimeError from e
+            calibration_config.calibration_method = config.calibration_method
             if have_detectors:
                 sskipped_detectors = []
                 detectors = []
@@ -1783,7 +1794,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         self._get_mask_hkls(calibration_config.materials)
 
         # Apply the combined energy ranges mask
-        self._apply_combined_mask()
+        self._apply_combined_mask(calibration_config.calibration_method)
 
         # Get and subtract the detector baselines
         self._subtract_baselines()
@@ -1810,15 +1821,16 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
         quadratic_energy_calibration = \
             calibration_config.quadratic_energy_calibration
+        calibration_method = calibration_config.calibration_method
 
-        for energies, mask, (low, upp), mean_data, detector in zip(
-                self._energies, self._masks, self._mask_index_ranges,
-                self._mean_data, self._detectors):
+        for energies, mask, mean_data, (low, upp), detector in zip(
+                self._energies, self._masks, self._mean_data,
+                self._mask_index_ranges, self._detectors):
 
             self.logger.info(f'Calibrating detector {detector.id}')
 
             tth = detector.tth_initial_guess
-            bins = low + np.arange(energies.size, dtype=np.int16)[mask]
+            bins = low + np.arange(energies.size, dtype=np.int16)
 
             # Correct raw MCA data for variable flux at different energies
             flux_correct = \
@@ -1837,26 +1849,29 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
             # Perform the fit
             t0 = time()
-            if calibration_config.calibration_method == 'direct_fit_bragg':
+            if calibration_method == 'direct_fit_bragg':
                 results = self._direct_bragg_peak_fit(
                     energies, mean_data, bins, mask, detector, hkls, ds,
                     e_bragg, tth, quadratic_energy_calibration)
-#            elif calibration_method == 'direct_fit_combined':
-#                # Get the fluorescence peak info
-#                e_xrf = calibration_config.peak_energies
+            elif calibration_method == 'direct_fit_tth_ecc':
+                results = self._direct_fit_tth_ecc(
+                    energies, mean_data, bins, mask, detector, hkls, ds,
+                    e_bragg, calibration_config.peak_energies, tth,
+                    quadratic_energy_calibration)
             else:
-                exit('Not done yet')
-#            results = _direct_peak_fit_residual(
-#                energies, mean_data, hkls, ds, e_bragg, e_xrf)
+                raise ValueError(
+                    f'calibration_method {calibration_method} not implemented')
             self.logger.info(
                 f'Fitting detector {detector.id} took {time()-t0:.3f} seconds')
             detector.tth_calibrated = results['tth']
             detector.energy_calibration_coeffs = \
                 results['energy_calibration_coeffs']
 
-            # Update the MCA channel energies with the newly calibrated
-            # coefficients
+            # Update the peak energies and the MCA channel energies
+            # with the newly calibrated coefficients
             energies = detector.energies[low:upp]
+            if calibration_method == 'direct_fit_tth_ecc':
+                e_bragg = get_peak_locations(ds, detector.tth_calibrated)
 
             if self._interactive or self._save_figures:
                 # Third party modules
@@ -1903,7 +1918,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 axs[1,0].legend()
 
                 # Upper right axes: E vs strain for each fit
-                strains_unconstrained = 1.e6*results['strains_unconstrained']
+                strains_unconstrained = 1.e6 * results['strains_unconstrained']
                 strain_unconstrained = np.mean(strains_unconstrained)
                 axs[0,1].set_title('Peak Energy vs. Microstrain')
                 axs[0,1].set_xlabel('Energy (keV)')
@@ -1917,11 +1932,20 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 axs[0,1].legend()
 
                 # Lower right axes: theoretical E vs fitted E for all peaks
-                (a_fit, b_fit, c_fit) = detector.energy_calibration_coeffs
+                a_fit, b_fit, c_fit = detector.energy_calibration_coeffs
                 e_bragg_unconstrained = results['e_bragg_unconstrained']
                 axs[1,1].set_title('Theoretical vs. Fitted Peak Energies')
                 axs[1,1].set_xlabel('Energy (keV)')
                 axs[1,1].set_ylabel('Energy (keV)')
+                if calibration_method == 'direct_fit_tth_ecc':
+                    e_fit = np.concatenate(
+                        (calibration_config.peak_energies, e_bragg))
+                    e_fit_unconstrained = np.concatenate(
+                        (results['e_xrf_unconstrained'],
+                         e_bragg_unconstrained))
+                else:
+                    e_fit = e_bragg
+                    e_fit_unconstrained = e_bragg_unconstrained
                 if quadratic_energy_calibration:
                     label = 'Unconstrained: quadratic fit'
                 else:
@@ -1935,10 +1959,10 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                     label += f'\nm = {b_fit:.5f} $keV$/channel'
                     label += f'\nb = {c_fit:.5f} $keV$'
                 axs[1,1].plot(
-                    e_bragg, e_bragg, marker='o', mfc='none', ls='',
+                    e_fit, e_fit, marker='o', mfc='none', ls='',
                     label='Theoretical peak positions')
                 axs[1,1].plot(
-                    e_bragg, e_bragg_unconstrained, c='C1', label=label)
+                    e_fit, e_fit_unconstrained, c='C1', label=label)
                 axs[1,1].set_ylim(
                     (None,
                      1.2*axs[1,1].get_ylim()[1]-0.2*axs[1,1].get_ylim()[0]))
@@ -1948,7 +1972,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 ax2.tick_params(axis='y', labelcolor='g')
                 ax2.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
                 ax2.plot(
-                    e_bragg, e_bragg-e_bragg_unconstrained, c='g', marker='o',
+                    e_fit, abs(e_fit-e_fit_unconstrained), c='g', marker='o',
                     ms=6, ls='', label='Residual')
                 ax2.set_ylim((None, 2*ax2.get_ylim()[1]-ax2.get_ylim()[0]))
                 ax2.legend()
@@ -1972,10 +1996,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
     def _direct_bragg_peak_fit(
             self, energies, mean_data, bins, mask, detector, hkls, ds,
             e_bragg, tth, quadratic_energy_calibration):
-#        """Perform a fit minimizing the residual on the Bragg peaks
-#        only or on both the Bragg peaks and the fluorescence peaks
-#        for a given 2&theta in terms of the energy calibration
-#        coefficients.
         """Perform an unconstrained fit minimizing the residual on the
         Bragg peaks only for a given 2&theta.
         """
@@ -1987,6 +2007,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from scipy.signal import find_peaks as find_peaks_scipy
 
         # Local modules
+        from CHAP.edd.utils import get_peak_locations
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
@@ -1997,7 +2018,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         centers = [bins[0] + centers[index_nearest(centers, c)]
                    for c in [index_nearest(energies, e) for e in e_bragg]]
 
-        # Perform an unconstrained fit in terms of MCA bin index
+        # Construct the fit model
         models = []
         if detector.background is not None:
             if len(detector.background) == 1:
@@ -2027,9 +2048,11 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
              'centers_range': detector.centers_range,
              'fwhm_min': detector.fwhm_min,
              'fwhm_max': detector.fwhm_max})
+
+        # Perform an unconstrained fit in terms of MCA bin index
         fit = FitProcessor()
         result = fit.process(
-            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins, 'x')),
+            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
             {'models': models, 'method': 'trf'})
         best_fit = result.best_fit
         residual = result.residual
@@ -2059,15 +2082,170 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             c_fit = result.best_values['intercept']
         e_bragg_unconstrained = (
             (a_fit*i_bragg_fit + b_fit) * i_bragg_fit + c_fit)
-        strains_unconstrained = np.log(
-            (e_bragg / e_bragg_unconstrained))
 
         return {
             'best_fit_unconstrained': best_fit,
             'residual_unconstrained': residual,
             'e_bragg_unconstrained': e_bragg_unconstrained,
-            'strains_unconstrained': np.log((e_bragg / e_bragg_unconstrained)),
+            'strains_unconstrained': np.log(e_bragg / e_bragg_unconstrained),
             'tth': float(tth),
+            'energy_calibration_coeffs': [
+                 float(a_fit), float(b_fit), float(c_fit)],
+        }
+
+    def _direct_fit_tth_ecc(
+            self, energies, mean_data, bins, mask, detector, hkls, ds, e_bragg,
+            e_xrf, tth, quadratic_energy_calibration):
+        """Perform a fit minimizing the residual on the Bragg peaks
+        only or on both the Bragg peaks and the fluorescence peaks
+        for a given 2&theta in terms of the energy calibration
+        coefficients.
+        """
+        #RV FIX Right now only implemented for a cubic lattice
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+        from scipy.constants import physical_constants
+
+        # Local modules
+        from CHAP.edd.utils import get_peak_locations
+        from CHAP.utils.fit import FitProcessor
+
+        # Collect the free fit parameters
+        # RV FIX Confine b to a limited range about its expect value?
+        a, b, c = detector.energy_calibration_coeffs
+        parameters = [{'name': 'tth', 'value': np.radians(tth)}]
+        if quadratic_energy_calibration:
+            parameters.append({'name': 'a', 'value': a})
+        parameters.append({'name': 'b', 'value': b})
+        parameters.append({'name': 'c', 'value': c})
+
+        # Construct the fit model
+        num_bragg = len(e_bragg)
+        num_xrf = len(e_xrf)
+
+        # Get the background
+        bkgd_models = []
+        if detector.background is not None:
+            if isinstance(detector.background, str):
+                bkgd_models.append(
+                    {'model': detector.background, 'prefix': 'bkgd_'})
+            else:
+                for model in detector.background:
+                    bkgd_models.append({'model': model, 'prefix': f'{model}_'})
+
+        # Add the background peaks in MCA channels
+        models = deepcopy(bkgd_models)
+        if detector.backgroundpeaks is not None:
+            backgroundpeaks = deepcopy(detector.backgroundpeaks)
+            delta_energy = energies[1]-energies[0]
+            if backgroundpeaks.centers_range is not None:
+                backgroundpeaks.centers_range /= delta_energy
+            if backgroundpeaks.fwhm_min is not None:
+                backgroundpeaks.fwhm_min /= delta_energy
+            if backgroundpeaks.fwhm_max is not None:
+                backgroundpeaks.fwhm_max /= delta_energy
+            backgroundpeaks.centers = [
+                c/delta_energy for c in backgroundpeaks.centers]
+            _, backgroundpeaks = FitProcessor.create_multipeak_model(
+                backgroundpeaks)
+            for peak in backgroundpeaks:
+                peak.prefix = f'bkgd_{peak.prefix}'
+            models += backgroundpeaks
+
+        # Add the fluorescent peaks
+        sig_min, sig_max = ((detector.fwhm_min, detector.fwhm_max) /
+            (2.0*np.sqrt(2.0*np.log(2.0))))
+        for i, e_peak in enumerate(e_xrf):
+            expr = f'({e_peak}-c)/b'
+            if quadratic_energy_calibration:
+                expr = '(' + expr + f')*(1.0-a*(({e_peak}-c)/(b*b)))'
+            models.append(
+                {'model': 'gaussian', 'prefix': f'xrf{i+1}_',
+                 'parameters': [
+                    {'name': 'amplitude', 'min': FLOAT_MIN},
+                    {'name': 'center', 'expr': expr},
+                    {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
+
+        # Add the Bragg peaks
+        hc = 1.e7 * physical_constants['Planck constant in eV/Hz'][0] \
+             * physical_constants['speed of light in vacuum'][0]
+        for i, d in enumerate(ds):
+            norm = 0.5*hc/d
+            cen = norm/np.sin(0.5*np.radians(tth))
+            expr = f'(({norm}/sin(0.5*tth))-c)/b'
+            if quadratic_energy_calibration:
+                expr = '(' + expr \
+                       + f')*(1.0-a*((({norm}/sin(0.5*tth))-c)/(b*b)))'
+            models.append(
+                {'model': 'gaussian', 'prefix': f'peak{i+1}_',
+                 'parameters': [
+                    {'name': 'amplitude', 'min': FLOAT_MIN},
+                    {'name': 'center', 'expr': expr},
+                    {'name': 'sigma', 'min': sig_min, 'max': sig_max}]})
+
+        # Perform the fit
+        fit = FitProcessor()
+        result = fit.process(
+            NXdata(NXfield(mean_data[mask], 'y'), NXfield(bins[mask], 'x')),
+            {'parameters': parameters, 'models': models, 'method': 'trf'})
+
+        # Extract values of interest from the best values
+        best_fit = result.best_fit
+        residual = result.residual
+        tth_fit = np.degrees(result.best_values['tth'])
+        if quadratic_energy_calibration:
+            a_fit = result.best_values['a']
+        else:
+            a_fit = 0.0
+        b_fit = result.best_values['b']
+        c_fit = result.best_values['c']
+        i_peak_fit = np.asarray(
+            [result.best_values[f'xrf{i+1}_center'] for i in range(num_xrf)]
+            + [result.best_values[f'peak{i+1}_center']
+               for i in range(num_bragg)])
+        e_peak_fit = (a_fit*i_peak_fit + b_fit) * i_peak_fit+ c_fit
+
+        # Add the background peaks in keV
+        models = deepcopy(bkgd_models)
+        if detector.backgroundpeaks is not None:
+            _, backgroundpeaks = FitProcessor.create_multipeak_model(
+                detector.backgroundpeaks)
+            for peak in backgroundpeaks:
+                peak.prefix = f'bkgd_{peak.prefix}'
+            bkgd_models += backgroundpeaks
+
+        # Get an unconstrained fit for the fitted energy calibration
+        # coefficients
+        models = bkgd_models + [{
+            'model': 'multipeak', 'centers': list(e_peak_fit),
+            'centers_range': b_fit * detector.centers_range,
+            'fwhm_min': b_fit * detector.fwhm_min,
+            'fwhm_max': b_fit * detector.fwhm_max}]
+        fit = FitProcessor()
+        result = fit.process(
+            NXdata(NXfield(mean_data[mask], 'y'),
+            NXfield(energies[mask], 'x')),
+            {'models': models, 'method': 'trf'})
+        e_xrf_unconstrained = np.sort(
+            [result.best_values[f'peak{i+1}_center']
+             for i in range(num_xrf)])
+        e_bragg_unconstrained = np.sort(
+            [result.best_values[f'peak{i+1}_center']
+             for i in range(num_xrf, num_xrf+num_bragg)])
+
+        # Update the peak energies with the newly calibrated tth
+        e_bragg = get_peak_locations(ds, tth_fit)
+
+        return {
+            'best_fit_unconstrained': result.best_fit,
+            'residual_unconstrained': result.residual,
+            'e_xrf_unconstrained': e_xrf_unconstrained,
+            'e_bragg_unconstrained': e_bragg_unconstrained,
+            'strains_unconstrained': np.log(e_bragg / e_bragg_unconstrained),
+            'tth': tth_fit,
             'energy_calibration_coeffs': [
                  float(a_fit), float(b_fit), float(c_fit)],
         }
