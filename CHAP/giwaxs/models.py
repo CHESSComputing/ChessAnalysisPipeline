@@ -10,7 +10,6 @@ from typing import (
 # Third party modules
 import numpy as np
 from pydantic import (
-    BaseModel,
     FilePath,
     confloat,
     conint,
@@ -19,8 +18,11 @@ from pydantic import (
     field_validator,
 )
 
+# Local modules
+from CHAP.models import CHAPBaseModel
 
-class Detector(BaseModel):
+
+class Detector(CHAPBaseModel):
     """Detector class to represent a single detector used in the
     experiment.
 
@@ -55,7 +57,7 @@ class Detector(BaseModel):
         return poni_file
 
 
-class GiwaxsConversionConfig(BaseModel):
+class GiwaxsConversionConfig(CHAPBaseModel):
     """Class representing metadata required to locate GIWAXS image
     files for a single scan to convert to q_par/q_perp coordinates.
 
@@ -95,7 +97,8 @@ class GiwaxsConversionConfig(BaseModel):
 
         return scan_step_indices
 
-class IntegrationConfig(BaseModel):
+
+class IntegrationConfig(CHAPBaseModel):
     """Class representing the configuration for a raw detector data
     integration.
 

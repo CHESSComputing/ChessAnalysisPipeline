@@ -9,7 +9,6 @@ from typing import (
 
 # Third party imports
 from pydantic import (
-    BaseModel,
     Field,
     PrivateAttr,
     StrictBool,
@@ -23,6 +22,7 @@ from typing_extensions import Annotated
 import numpy as np
 
 # Local modules
+from CHAP.models import CHAPBaseModel
 from CHAP.utils.general import not_zero, tiny
 
 tiny = np.finfo(np.float64).resolution
@@ -168,7 +168,7 @@ def validate_parameters(parameters, info):
     return output_parameters
 
 
-class FitParameter(BaseModel):
+class FitParameter(CHAPBaseModel):
     """Class representing a specific fit parameter for the fit
     processor.
     """
@@ -291,7 +291,7 @@ class FitParameter(BaseModel):
                 self.value = self.min
             self.expr = None
 
-class Constant(BaseModel):
+class Constant(CHAPBaseModel):
     """Class representing a Constant model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -314,7 +314,7 @@ class Constant(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Linear(BaseModel):
+class Linear(CHAPBaseModel):
     """Class representing a Linear model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -337,7 +337,7 @@ class Linear(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Quadratic(BaseModel):
+class Quadratic(CHAPBaseModel):
     """Class representing a Quadratic model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -360,7 +360,7 @@ class Quadratic(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Exponential(BaseModel):
+class Exponential(CHAPBaseModel):
     """Class representing an Exponential model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -383,7 +383,7 @@ class Exponential(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Gaussian(BaseModel):
+class Gaussian(CHAPBaseModel):
     """Class representing a Gaussian model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -406,7 +406,7 @@ class Gaussian(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Lorentzian(BaseModel):
+class Lorentzian(CHAPBaseModel):
     """Class representing a Lorentzian model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -429,7 +429,7 @@ class Lorentzian(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Rectangle(BaseModel):
+class Rectangle(CHAPBaseModel):
     """Class representing a Rectangle model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -452,7 +452,7 @@ class Rectangle(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Expression(BaseModel):
+class Expression(CHAPBaseModel):
     """Class representing an Expression model component.
 
     :ivar model: The model component base name (a prefix will be added
@@ -479,7 +479,7 @@ class Expression(BaseModel):
         'parameters')(validate_parameters)
 
 
-class Multipeak(BaseModel):
+class Multipeak(CHAPBaseModel):
     """Class representing a multipeak model.
 
     :ivar model: The model component base name (a prefix will be added
@@ -528,7 +528,7 @@ model_classes = (
 )
 
 
-class FitConfig(BaseModel):
+class FitConfig(CHAPBaseModel):
     """Class representing the configuration for the fit processor.
 
     :ivar code: Specifies is lmfit is used to perform the fit or if

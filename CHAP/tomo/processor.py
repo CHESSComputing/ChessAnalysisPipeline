@@ -102,7 +102,6 @@ class TomoCHESSMapConverter(Processor):
         """
         # System modules
         from copy import deepcopy
-        from json import dumps
 
         # Third party modules
         from json import loads
@@ -201,7 +200,7 @@ class TomoCHESSMapConverter(Processor):
 
         # Add configuration fields
         nxentry.definition = 'NXtomo'
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
 
         # Add an NXinstrument to the NXentry
         nxinstrument = NXinstrument()

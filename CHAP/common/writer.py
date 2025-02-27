@@ -581,9 +581,14 @@ class YAMLWriter(Writer):
         """
         data = self.unwrap_pipelinedata(data)[-1]
         try:
+            # Third party modules
             from pydantic import BaseModel
-            if isinstance(data, BaseModel):
-                data = data.dict()
+
+            # Local modules
+            from CHAP.models import CHAPBaseModel
+
+            if isinstance(data, (BaseModel, CHAPBaseModel)):
+                data = data.model_dump()
         except:
             pass
         write_yaml(data, filename, force_overwrite)

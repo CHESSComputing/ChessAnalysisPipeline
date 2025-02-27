@@ -9,7 +9,6 @@ from typing import Literal, Optional
 # Third party modules
 import numpy as np
 from pydantic import (
-    BaseModel,
     FilePath,
     confloat,
     conint,
@@ -21,8 +20,10 @@ from pyFAI import load as pyfai_load
 from pyFAI.multi_geometry import MultiGeometry
 from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
 
+# Local modules
+from CHAP.models import CHAPBaseModel
 
-class Detector(BaseModel):
+class Detector(CHAPBaseModel):
     """Detector class to represent a single detector used in the
     experiment.
 
@@ -141,7 +142,7 @@ def get_mask_array(mask_file, poni_file):
     return mask_array
 
 
-class IntegrationConfig(BaseModel):
+class IntegrationConfig(CHAPBaseModel):
     """Class representing the configuration for a raw detector data
     integration.
 
