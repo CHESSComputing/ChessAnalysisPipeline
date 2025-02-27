@@ -261,6 +261,7 @@ class MultiplePipelineItem(PipelineItem):
             mod_name, cls_name = item_name.rsplit('.', 1)
             module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
             item = getattr(module, cls_name)()
+            item.logger = self.logger
             # Combine the command line arguments "inputdir",
             # "outputdir" and "interactive" with the item's arguments
             # joining "inputdir" and "outputdir" and giving precedence
