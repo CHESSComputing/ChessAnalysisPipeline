@@ -61,23 +61,29 @@ class ZarrSetupWriter(Writer):
 
 class ZarrResultsWriter(Writer):
     def write(self, data, filename):
+        import zarr
+
+        # Open file in append mode to allow modifications
+        zarrfile = zarr.open(filename, mode='a')
+
         # Get list of PyfaiIntegrationProcessor results to write
         data = self.unwrap_pipelinedata(data)[0]
         for d in data:
-            self.zarr_writer(filename=filename, **d)
+            self.zarr_writer(zarrfile=zarrfile, **d)
+
         return data
-    def zarr_writer(self, filename, path, idx, data):
+
+    def zarr_writer(self, zarrfile, path, idx, data):
         """Write data to a specific Zarr dataset.
 
         This method writes `data` to a specified dataset within a Zarr
-        file at the given index (`idx`). The Zarr file is opened in
-        append mode to allow modifications.  If the dataset does not
+        file at the given index (`idx`). If the dataset does not
         exist, an error is raised. The method ensures that the shape
         of `data` matches the shape of the target slice before
         writing.
 
-        :param filename: Path to the Zarr file.
-        :type filename: str
+        :param zarrfile: Zarr file root object
+        :type zarrfile: zarr.core.group.Group
         :param path: Path to the dataset inside the Zarr file.
         :type path: str
         :param idx: Index or slice where the data should be written.
@@ -90,19 +96,15 @@ class ZarrResultsWriter(Writer):
         :raises ValueError: If the specified dataset does not exist or
             if the shape of `data` does not match the target slice.
         """
-        import zarr
         self.logger.info(f'Writing to {path} at {idx}')
 
-        # Open the Zarr file in append mode to allow modifications
-        root = zarr.open(filename, mode='a')
-
         # Check if the dataset exists
-        if path not in root:
+        if path not in zarrfile:
             raise ValueError(
                 f'Dataset "{path}" does not exist in the Zarr file.')
 
         # Access the specified dataset
-        dataset = root[path]
+        dataset = zarrfile[path]
 
         # Check that the slice shape matches the data shape
         if dataset[idx].shape != data.shape:
@@ -114,8 +116,6 @@ class ZarrResultsWriter(Writer):
         dataset[idx] = data
         self.logger.info(
             f'Data written to "{path}" at slice {idx}.')
-        return data
-
 
 
 if __name__ == '__main__':
