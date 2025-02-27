@@ -101,11 +101,13 @@ class DetectorDataReader(Reader):
 
         # Scale data, apply mask, subtract background
         self.logger.info('Applying corrections to raw data')
-        corrected_data = [self.correct_data(
-            d, mask_array, mask_above, mask_below, mask_value,
-            data_scalar, background_data) for d in raw_data]
+        corrected_data = self.correct_data(
+            np.array(raw_data),
+            mask_array, mask_above, mask_below, mask_value,
+            data_scalar, background_data)
 
         return corrected_data
+
     def get_data_from_file(self, filename):
         import fabio
 
