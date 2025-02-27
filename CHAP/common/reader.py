@@ -117,7 +117,11 @@ class LinkamReader(Reader):
         else:
             for col in columns:
                 col_actual = col
-                if not col in data:
+                if col == 'Distance':
+                    col_actual = 'Force V Distance_X'
+                elif col == 'Force':
+                    col_actual = 'Force V Distance_Y'
+                elif not col in data:
                     if f'{col}_Y' in data:
                         # Always use the *_Y column if the user-supplied
                         # column name has both _X and _Y components
@@ -204,8 +208,7 @@ class LinkamReader(Reader):
                     # line and the next are column labels.
                     data_cols = []
                     # Get base quantity column names
-                    base_cols = line.replace(
-                        'Force V Distance', 'Force\t\tDistance').split('\t\t')
+                    base_cols = line.split('\t\t')
                     # Get Index, X and Y component columns
                     line = next(inf)
                     comp_cols = line.split('\t')
