@@ -164,7 +164,7 @@ class LinkamReader(Reader):
         match = re.search(pattern, basename)
         if match:
             datetime_str = match.group(1)
-            dt = datetime.strptime(datetime_str, '%y-%m-%d_%H-%M-%S-%f')
+            dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
             start_time = dt.timestamp()
         else:
             logger.warning('Datetime not found in filename')
