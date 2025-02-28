@@ -1830,7 +1830,8 @@ class MapProcessor(Processor):
                             detector_config.detectors[i].id)
                     data[i][offset] = ddata
                 for i, dim in enumerate(map_config.independent_dimensions):
-                    if dim.data_type == 'scan_column':
+                    if dim.data_type in ['scan_column',
+                                         'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
                         #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,

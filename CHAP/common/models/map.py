@@ -316,7 +316,7 @@ class PointByPointScanData(BaseModel):
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
-                       'smb_par', 'expression']
+                       'smb_par', 'expression', 'detector_log_timestamps']
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -355,6 +355,11 @@ class PointByPointScanData(BaseModel):
             raise TypeError(
                 f'{self.__class__.__name__}.data_type may not be "smb_par" '
                 f'when station is "{station}"')
+        if (not station.lower() == 'id3b'
+            and self.data_type == 'detector_log_timestamps'):
+            raise TypeError(
+                f'{self.__class__.__name__}.data_type may not be'
+                + f' "detector_log_timestamps" when station is "{station}"')
 
     def validate_for_spec_scans(
             self, spec_scans, scan_step_index='all'):
@@ -476,6 +481,13 @@ class PointByPointScanData(BaseModel):
             return get_expression_value(
                 spec_scans, scan_number, scan_step_index, self.name,
                 scalar_data)
+        if self.data_type == 'detector_log_timestamps':
+            timestamps = get_detector_log_timestamps(
+                spec_scans.spec_file, scan_number, self.name)
+            if scan_step_index >= 0:
+                return timestamps[scan_step_index]
+            else:
+                return timestamps
         return None
 
 
@@ -617,6 +629,25 @@ def get_expression_value(
                     spec_scans, scan_number, scan_step_index, scalar_data)
     aeval = Interpreter(symtable=symtable)
     return aeval(expression)
+
+@cache
+def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
+    """Return the list of detector timestamps for the given scan &
+    detector prefix.
+
+    :param spec_file: Location of a SPEC file in which the requested
+        scan occurs.
+    :type spec_scans: str
+    :param scan_number: The number of the scan for which to return
+        detector log timestamps.
+    :type scan_number: int
+    :param detector_prefix: The prefix of the detecotr whose log file
+        should be used.
+    :return: All detector log timestamps for the given scan.
+    :rtype: list[float]
+    """
+    sp = get_scanparser(spec_file, scan_number)
+    return sp.get_detector_log_timestamps(detector_prefix)
 
 def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of PointByPointScanData is valid for
