@@ -259,7 +259,6 @@ class MapReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         # Third party modules
-        from json import dumps
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -298,7 +297,7 @@ class MapReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
@@ -307,7 +306,7 @@ class MapReader(Reader):
 
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.dict())
+            **map_config.sample.model_dump())
 
         # Set up default data group
         nxentry.data = NXdata()
@@ -620,7 +619,7 @@ class SpecReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the
         # detector info and raw detector data
-        nxentry.config = dumps(config.dict())
+        nxentry.config = config.model_dump_json()
         nxentry.attrs['station'] = config.station
         if config.experiment_type == 'EDD':
             if detectors is None:
@@ -696,7 +695,7 @@ class SpecReader(Reader):
                 detectors = DetectorConfig(
                     detectors=[
                         Detector(id=i) for i in range(nxdata.data.shape[1])])
-        nxentry.detectors = dumps(detectors.dict())
+        nxentry.detectors = detectors.model_dump_json()
 
         #return nxroot, nxpaths
         return nxroot

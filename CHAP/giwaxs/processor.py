@@ -8,7 +8,6 @@ Description: Module for Processors used only by GIWAXS experiments
 """
 # System modules
 from copy import deepcopy
-from json import dumps
 import os
 
 # Third party modules
@@ -128,7 +127,7 @@ class GiwaxsConversionProcessor(Processor):
             # Copy nxroot if nxroot is read as read-only
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        nxprocess.conversion_config = dumps(config.dict())
+        nxprocess.conversion_config = config.model_dump_json()
 
         # Validate the detector and independent dimensions
         nxentry = nxroot[nxroot.default]
@@ -653,7 +652,7 @@ class IntegrationProcessor(Processor):
             # Copy nxroot if nxroot is read as read-only
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_{config.integration_type}'] = nxprocess
-        nxprocess.integration_config = dumps(config.dict())
+        nxprocess.integration_config = config.model_dump_json()
 
         # Validate the detector and independent dimensions
         try:
@@ -673,8 +672,8 @@ class IntegrationProcessor(Processor):
             thetas = nxdata[nxdata.attrs['axes'][0]]
             data = np.flip(nxdata.converted, axis=1)
             config = deepcopy(config)
-            config.detectors = [
-                Detector(**dict(detector)) for detector in config.detectors]
+            config.detectors = [Detector(**detector.model_dump())
+                                for detector in config.detectors]
             nxprocess.attrs['data_source'] = nxdata.converted.nxpath
         except Exception as exc:
             self.logger.warning(f'{exc}, use raw data for integration')

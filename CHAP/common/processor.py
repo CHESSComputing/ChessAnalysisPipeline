@@ -1081,7 +1081,6 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
         # System modules
-        from json import dumps
         from time import time
 
         # Third party modules
@@ -1098,13 +1097,13 @@ class IntegrateMapProcessor(Processor):
 
         nxprocess = NXprocess(name=integration_config.title)
 
-        nxprocess.map_config = dumps(map_config.dict())
-        nxprocess.integration_config = dumps(integration_config.dict())
+        nxprocess.map_config = map_config.model_dump_json()
+        nxprocess.integration_config = integration_config.model_dump_json()
 
         nxprocess.program = 'pyFAI'
         nxprocess.version = pyFAI.version
 
-        for k, v in integration_config.dict().items():
+        for k, v in integration_config.model_dump().items():
             if k == 'detectors':
                 continue
             nxprocess.attrs[k] = v
@@ -1250,7 +1249,6 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
-        from copy import deepcopy
         import logging
         from tempfile import NamedTemporaryFile
 
@@ -1343,14 +1341,15 @@ class MapProcessor(Processor):
                 num = scans_per_proc
                 if n_proc < num_scan - scans_per_proc*num_proc:
                     num += 1
-                config = deepcopy(map_config.dict())
+                config = map_config.model_dump()
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
                     [{'common.MapProcessor': {
                         'config': config,
                         'detectors': [
-                            dict(d) for d in detector_config.detectors]}}])
+                            d.model_dump() for d in detector_config.detectors],
+                     }}])
                 offsets.append(n_scan)
                 n_scan += num
 
@@ -1458,7 +1457,6 @@ class MapProcessor(Processor):
         """
         # System modules
         from copy import deepcopy
-        from json import dumps
 
         # Third party modules
         from nexusformat.nexus import (
@@ -1499,7 +1497,7 @@ class MapProcessor(Processor):
         nxentry = NXentry(name=map_config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump()
         nxentry.attrs['station'] = map_config.station
         for k, v in map_config.attrs.items():
             nxentry.attrs[k] = v
@@ -1511,7 +1509,8 @@ class MapProcessor(Processor):
                         attrs={'spec_file': str(scans.spec_file)})
 
         # Add sample metadata
-        nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.model_dump())
 
         # Set up independent dimensions NeXus NXdata group
         # (squeeze out constant dimensions)
@@ -1562,7 +1561,7 @@ class MapProcessor(Processor):
                            'data_type': dim.data_type,
                            'local_name': dim.name}))
                 map_config.all_scalar_data.append(
-                    PointByPointScanData(**dict(dim)))
+                    PointByPointScanData(**dim.model_dump()))
                 map_config.independent_dimensions.remove(dim)
         if scalar_signals:
             nxentry.scalar_data = NXdata()
