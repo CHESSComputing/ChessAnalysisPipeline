@@ -88,6 +88,149 @@ class H5Reader(Reader):
         return data
 
 
+class LinkamReader(Reader):
+    """Reader for loading Linkam load frame .txt files as an
+    `NXdata`.
+    """
+    def read(self, filename, columns=None, inputdir=None):
+        """Read specified columns from the given Linkam file.
+
+        :param filename: Name of Linkam .txt file
+        :type filename: str
+        :param columns: Column names to read in, defaults to None
+            (read in all columns)
+        :type columns: list[str], optional
+        :returns: Linkam data represented in an `NXdata` object
+        :rtype: nexusformat.nexus.NXdata
+        """
+        from nexusformat.nexus import NXdata, NXfield
+
+        # Parse .txt file
+        start_time, metadata, data = self.__class__.parse_file(
+            filename, self.logger)
+
+        # Get list of actual data column names and corresponding
+        # signal nxnames (same as user-supplied column names)
+        signal_names = []
+        if columns is None:
+            signal_names = [(col, col) for col in data.keys() if col != 'Time']
+        else:
+            for col in columns:
+                col_actual = col
+                if col == 'Distance':
+                    col_actual = 'Force V Distance_X'
+                elif col == 'Force':
+                    col_actual = 'Force V Distance_Y'
+                elif not col in data:
+                    if f'{col}_Y' in data:
+                        # Always use the *_Y column if the user-supplied
+                        # column name has both _X and _Y components
+                        col_actual = f'{col}_Y'
+                    else:
+                        self.logger.warning(f'{col} not present in {filename}')
+                        continue
+                signal_names.append((col_actual, col))
+        self.logger.info(f'Using (column name, signal name): {signal_names}')
+
+        nxdata = NXdata(
+            axes=(NXfield(
+                name='Time',
+                value=np.array(data['Time']) + start_time,
+                dtype='float64',
+            ),),
+            **{col: NXfield(
+                name=col,
+                value=data[col_actual],
+                dtype='float32',
+            ) for col_actual, col in signal_names},
+            attrs=metadata
+        )
+        return nxdata
+
+    @classmethod
+    def parse_file(cls, filename, logger):
+        """Return start time, metadata, and data stored in the
+        provided Linkam .txt file.
+
+        :param filename: Name of Linkam .txt file
+        :type filename: str
+        :returns:
+        :rtype: tuple(float, dict[str, str], dict[str, list[float]])
+        """
+        from datetime import datetime
+        import os
+        import re
+
+        # Get t=0 from filename
+        start_time = None
+        basename = os.path.basename(filename)
+        pattern = r'(\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{2})'
+        match = re.search(pattern, basename)
+        if match:
+            datetime_str = match.group(1)
+            dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
+            start_time = dt.timestamp()
+        else:
+            logger.warning('Datetime not found in filename')
+
+        # Get data add metadata from file contents
+        metadata = {}
+        data = False
+        with open(filename, 'r', encoding='utf-8') as inf:
+            for line in inf:
+                line = line.strip()
+                if not line:
+                    continue
+                if data:
+                    # If data dict has been initialized, remaining
+                    # lines are all data values
+                    values = line.split('\t')
+                    for val, col in zip(values, list(data.keys())):
+                        try:
+                            val = float(val)
+                        except:
+                            logger.warning(
+                                f'Cannot convert {col} value to float: {val}')
+                            continue
+                        else:
+                            data[col].append(val)
+                if ':' in line:
+                    # Metadata key: value pair kept on this line
+                    _metadata = line.split(':', 1)
+                    if len(_metadata) == 2:
+                        key, val = _metadata
+                    else:
+                        continue
+                        key, val = _metadata[0], None
+                    metadata[key] = val
+                if re.match(r'^Temperature', line):
+                    # Match found for start of data section -- this
+                    # line and the next are column labels.
+                    data_cols = []
+                    # Get base quantity column names
+                    base_cols = line.split('\t\t')
+                    # Get Index, X and Y component columns
+                    line = next(inf)
+                    comp_cols = line.split('\t')
+                    # Assemble actual column names
+                    data_cols.append('Index')
+                    comp_cols_count = int((len(comp_cols) - 1) / 2)
+                    for i in range(comp_cols_count):
+                        data_cols.extend(
+                            [f'{base_cols[i]}_{comp}' for comp in ('X', 'Y')]
+                        )
+                    if len(base_cols) > comp_cols_count:
+                        data_cols.extend(base_cols[comp_cols_count - 1:])
+                    # Temperature_X is actually Time (?)
+                    data_cols[data_cols.index('Temperature_X')] = 'Time'
+                    # Start of data lines
+                    data = {col: [] for col in data_cols}
+                    logger.info(f'Found data columns: {data_cols}')
+
+        return start_time, metadata, data
+
+
+
 class MapReader(Reader):
     """Reader for CHESS sample maps."""
     def read(
