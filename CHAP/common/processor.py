@@ -2317,7 +2317,7 @@ class NormalizeMapProcessor(Processor):
         :returns: Copy of input data with additional normalized fields
         :rtype: nexusformat.nexus.NXroot
         """
-        from nexusformat.nexus import NXentry
+        from nexusformat.nexus import NXentry, NXlink
 
         # Check input data
         data = self.unwrap_pipelinedata(data)[0]
@@ -2334,7 +2334,8 @@ class NormalizeMapProcessor(Processor):
         # Check detector_ids
         normalize_nxfields = []
         if detector_ids is None:
-            detector_ids = list(data[map_title].data.keys())
+            detector_ids = [k for k in data[map_title].data.keys()
+                            if not isinstance(data[map_title].data[k], NXlink)]
             self.logger.info(f'Using detector_ids: {detector_ids}')
         normalize_nxfields = [f'{map_title}/data/{_id}'
                               for _id in detector_ids]
