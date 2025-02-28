@@ -435,10 +435,13 @@ class NexusWriter(Writer):
             nxfile = NXFile(filename, 'rw')
             root = nxfile.readfile()
             if nxfile.get(nxpath) is None:
-                nxpath = root.NXentry[0].nxpath
-                self.logger.warning(
-                    f'Path "{nxpath}" not present in {filename}. '
-                    f'Using {nxpath} instead.')
+                if nxfile.get(os.path.dirname(nxpath)) is not None:
+                    nxpath, nxname = os.path.split(nxpath)
+                else:
+                    nxpath = root.NXentry[0].nxpath
+                    self.logger.warning(
+                        f'Path "{nxpath}" not present in {filename}. '
+                        f'Using {nxpath} instead.')
             full_nxpath = os.path.join(nxpath, nxname)
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
