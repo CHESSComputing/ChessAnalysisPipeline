@@ -184,7 +184,7 @@ class LinkamReader(Reader):
                 if data:
                     # If data dict has been initialized, remaining
                     # lines are all data values
-                    values = line.split('\t')
+                    values = line.replace(',', '').split('\t')
                     for val, col in zip(values, list(data.keys())):
                         try:
                             val = float(val)
@@ -203,7 +203,7 @@ class LinkamReader(Reader):
                         continue
                         key, val = _metadata[0], None
                     metadata[key] = val
-                if re.match(r'^Temperature', line):
+                if re.match(r'^([\w\s\w]+)(\t\t[\w\s\w]+)*$', line):
                     # Match found for start of data section -- this
                     # line and the next are column labels.
                     data_cols = []
@@ -221,8 +221,8 @@ class LinkamReader(Reader):
                         )
                     if len(base_cols) > comp_cols_count:
                         data_cols.extend(base_cols[comp_cols_count - 1:])
-                    # Temperature_X is actually Time (?)
-                    data_cols[data_cols.index('Temperature_X')] = 'Time'
+                    # First column (after 0th) is actually Time
+                    data_cols[1] = 'Time'
                     # Start of data lines
                     data = {col: [] for col in data_cols}
                     logger.info(f'Found data columns: {data_cols}')
