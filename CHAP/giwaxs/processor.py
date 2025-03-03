@@ -570,10 +570,18 @@ class PyfaiIntegrationProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        import fabio
         from nexusformat.nexus import (
+            NXdata,
             NXentry,
+            NXfield,
+            NXprocess,
             NXroot,
+            nxsetconfig,
         )
+
+        # Local imports
+        from CHAP.utils.general import nxcopy
 
         # Load the detector data
         try:
@@ -614,82 +622,90 @@ class PyfaiIntegrationProcessor(Processor):
             str(nxroot[nxroot.default].map_config))['experiment_type']
         data = {}
         independent_dims = {}
-        if experiment_type == 'GIWAXS':
-            if f'{nxroot.default}_converted' in nxroot:
-                nxprocess_converted = nxroot[f'{nxroot.default}_converted']
-                conversion_config = loads(
-                    str(nxprocess_converted.conversion_config))
-                converted_ais = conversion_config['azimuthal_integrators']
-                if len(converted_ais) > 1:
-                    raise RuntimeError(
-                        'More than one detector not yet implemented')
-                if config.azimuthal_integrators is None:
-                    # Local modules
-                    from CHAP.giwaxs.models import AzimuthalIntegratorConfig
+        if (experiment_type == 'GIWAXS'
+                and f'{nxroot.default}_converted' in nxroot):
+            nxprocess_converted = nxroot[f'{nxroot.default}_converted']
+            conversion_config = loads(
+                str(nxprocess_converted.conversion_config))
+            converted_ais = conversion_config['azimuthal_integrators']
+            if len(converted_ais) > 1:
+                raise RuntimeError(
+                    'More than one detector not yet implemented')
+            if config.azimuthal_integrators is None:
+                # Local modules
+                from CHAP.giwaxs.models import AzimuthalIntegratorConfig
 
-                    config.azimuthal_integrators = [AzimuthalIntegratorConfig(
-                        **converted_ais[0])]
-                else:
-                    converted_ids = [ai['id'] for ai in converted_ais]
-                    skipped_detectors = []
-                    ais = []
-                    for ai in config.azimuthal_integrators:
-                        if ai.id in converted_ids:
-                            ais.append(ai)
-                        else:
-                            skipped_detectors.append(ai.id)
-                    if skipped_detectors:
-                        self.logger.warning(
-                            f'Skipping detector(s) {skipped_detectors} '
-                            '(no converted data)')
-                    if not ais:
-                        raise RuntimeError(
-                            'No matching azimuthal integrators found')
-                    config.azimuthal_integrators = ais
-                nxdata = nxprocess_converted.data
-                if len(nxdata.attrs['axes']) != 3:
-                    raise RuntimeError('More than one independent dimension '
-                                       'not yet implemented')
-                independent_dims[config.azimuthal_integrators[0].id] = \
-                    nxdata[nxdata.attrs['axes'][0]]
-                data[config.azimuthal_integrators[0].id] = np.flip(
-                    nxdata.converted.nxdata, axis=1)
+                config.azimuthal_integrators = [AzimuthalIntegratorConfig(
+                    **converted_ais[0])]
             else:
-                self.logger.warning(
-                    'No converted data found, use raw data for integration')
-                nxentry = nxroot[nxroot.default]
-                detector_ids = [
-                    str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
-                if len(detector_ids) > 1:
-                    raise RuntimeError(
-                        'More than one detector not yet implemented')
-                if config.azimuthal_integrators is None:
-                    raise ValueError(
-                        'Missing azimuthal_integrators parameter in '
-                        f'PyfaiIntegrationProcessor.config ({config})')
-                nxdata = nxentry[nxentry.default]
-                if not isinstance(nxdata.attrs['axes'], str):
-                    raise RuntimeError('More than one independent dimension '
-                                       'not yet implemented')
+                converted_ids = [ai['id'] for ai in converted_ais]
                 skipped_detectors = []
                 ais = []
                 for ai in config.azimuthal_integrators:
-                    if ai.id in nxdata:
-                        if nxdata[ai.id].ndim != 3:
-                            raise RuntimeError(
-                                'Inconsistent raw data dimension '
-                                f'{nxdata[ai.id].ndim}')
+                    if ai.id in converted_ids:
                         ais.append(ai)
                     else:
                         skipped_detectors.append(ai.id)
                 if skipped_detectors:
-                    self.logger.warning('Skipping detector(s) '
-                                        f'{skipped_detectors} (no raw data)')
+                    self.logger.warning(
+                        f'Skipping detector(s) {skipped_detectors} '
+                        '(no converted data)')
                 if not ais:
-                    raise RuntimeError('No matching raw detector data found')
+                    raise RuntimeError(
+                        'No matching azimuthal integrators found')
                 config.azimuthal_integrators = ais
-                independent_dims[ais[0].id] = nxdata[nxdata.attrs['axes']]
-                data[ais[0].id] = nxdata[ais[0].id]
+            nxdata = nxprocess_converted.data
+            axes = nxdata.attrs['axes']
+            if len(nxdata.attrs['axes']) != 3:
+                raise RuntimeError('More than one independent dimension '
+                                   'not yet implemented')
+            axes = axes[0]
+            independent_dims[config.azimuthal_integrators[0].id] = \
+                nxcopy(nxdata[axes])
+            data[config.azimuthal_integrators[0].id] = np.flip(
+                nxdata.converted.nxdata, axis=1)
+        else:
+            if experiment_type == 'GIWAXS':
+                self.logger.warning(
+                    'No converted data found, use raw data for integration')
+            nxentry = nxroot[nxroot.default]
+            detector_ids = [
+                #str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
+                str(id) for id in nxentry.detector_ids.nxdata]
+            if len(detector_ids) > 1:
+                raise RuntimeError(
+                    'More than one detector not yet implemented')
+            if config.azimuthal_integrators is None:
+                raise ValueError(
+                    'Missing azimuthal_integrators parameter in '
+                    f'PyfaiIntegrationProcessor.config ({config})')
+            nxdata = nxentry[nxentry.default]
+            skipped_detectors = []
+            ais = []
+            for ai in config.azimuthal_integrators:
+                if ai.id in nxdata:
+                    if nxdata[ai.id].ndim != 3:
+                        raise RuntimeError(
+                            'Inconsistent raw data dimension '
+                            f'{nxdata[ai.id].ndim}')
+                    ais.append(ai)
+                else:
+                    skipped_detectors.append(ai.id)
+            if skipped_detectors:
+                self.logger.warning('Skipping detector(s) '
+                                    f'{skipped_detectors} (no raw data)')
+            if not ais:
+                raise RuntimeError('No matching raw detector data found')
+            config.azimuthal_integrators = ais
+            if 'unstructured_axes' in nxdata.attrs:
+                axes = nxdata.attrs['unstructured_axes']
+                independent_dims[ais[0].id] = [nxcopy(nxdata[a]) for a in axes]
+            elif 'axes' in nxdata.attrs:
+                axes = nxdata.attrs['axes']
+                independent_dims[ais[0].id] = nxcopy(nxdata[axes])
+            else:
+                self.logger.warning('Unable to find independent_dimensions')
+            data[ais[0].id] = nxdata[ais[0].id]
 
         # Select the giwaxs images to integrate
         if False and config.scan_step_indices is not None:
@@ -699,15 +715,17 @@ class PyfaiIntegrationProcessor(Processor):
         self.logger.debug(
             f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
 
-        # Third party modules
-        from nexusformat.nexus import (
-            NXdata,
-            NXfield,
-            NXprocess,
-        )
+        nxsetconfig(memory=100000)
 
-        # Local imports
-        from CHAP.utils.general import nxcopy
+        # Apply the mask(s)
+        for ai in config.azimuthal_integrators:
+            self.logger.debug(f'Reading {ai.mask_file}')
+            try:
+                with fabio.open(ai.mask_file) as f:
+                    mask = np.broadcast_to(f.data, data[ai.id].shape)
+                    data[ai.id] = np.where(mask, 0, data[ai.id])
+            except:
+                self.logger.debug('No mask file found, skipping masking step')
 
         # Perform integration(s)
         ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
@@ -728,14 +746,22 @@ class PyfaiIntegrationProcessor(Processor):
 
             # Create the NXdata object with the integrated data
             intensities = [v.intensity for v in results]
-            coords = [v for k, v in independent_dims.items() if k in ais]
-            if hasattr(results[0], 'azimuthal'):
-                coords.append(NXfield(
-                    results[0].azimuthal, 'chi', attrs={'units': 'degrees'}))
-            coords.append(NXfield(
-                results[0].radial, 'r', attrs={'units': '\u212b'}))
-            nxprocess.data = NXdata(
+            if isinstance(axes, str):
+                coords = [v for k, v in independent_dims.items() if k in ais]
+            else:
+                coords = [i for k, v in independent_dims.items()
+                          for i in v if k in ais]
+            coords.append(
+                NXfield(results[0].radial, 'r', attrs={'units': '\u212b'}))
+            nxdata = NXdata(
                 NXfield(np.asarray(intensities), 'integrated'), tuple(coords))
+            if not isinstance(axes, str):
+                nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
+                del nxdata.attrs['axes']
+            if hasattr(results[0], 'azimuthal'):
+                nxdata['chi'] = NXfield(
+                    results[0].azimuthal, 'chi', attrs={'units': 'degrees'})
+            nxprocess.data = nxdata
             nxprocess.default = 'data'
 
         return nxroot

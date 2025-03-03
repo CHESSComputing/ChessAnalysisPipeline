@@ -7,6 +7,7 @@ from pathlib import PosixPath
 from typing import (
     Literal,
     Optional,
+    Union,
 )
 
 # Third party modules
@@ -22,7 +23,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
+from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
 # Local modules
 from CHAP.common.models.map import Detector
@@ -78,6 +79,8 @@ class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
     """Azimuthal integrator configuration class to represent a single
     detector used in the experiment.
 
+    :param mask_file: Path to the mask file.
+    :type mask_file: FilePath, optional
     :param poni_file: Path to the PONI file, specify either `poni_file`
         or `params`, not both.
     :type poni_file: FilePath, optional
@@ -85,6 +88,7 @@ class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
         specify either `poni_file` or `params`, not both.
     :type params: dict, optional
     """
+    mask_file: Optional[FilePath] = None
     params: Optional[dict] = None
     poni_file: Optional[FilePath] = None
 
@@ -95,14 +99,17 @@ class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
     def validate_root(cls, data):
         if isinstance(data, dict):
             inputdir = data.get('inputdir')
+            mask_file = data.get('mask_file')
             params = data.get('params')
             poni_file = data.get('poni_file')
+            if mask_file is not None:
+                if inputdir is not None and not os.path.isabs(mask_file):
+                    data['mask_file'] = mask_file
             if params is not None:
                 if poni_file is not None:
                     raise ValueError(
                         'Specify either poni_file or params, not both')
             elif poni_file is not None:
-                inputdir = data.get('inputdir')
                 if inputdir is not None and not os.path.isabs(poni_file):
                     data['poni_file'] = poni_file
             else:
@@ -299,32 +306,68 @@ class MultiGeometryConfig(GIWAXSBaseModel):
 #                ', '.join(AZIMUTHAL_UNITS.keys()))
 
 
+class Integrate1dConfig(GIWAXSBaseModel):
+    """Class with the input parameters to performs 1D azimuthal
+    integration with `pyFAI`.
+
+    :ivar error_model: When the variance is unknown, an error model
+        can be given:
+        `poisson` (variance = I) or `azimuthal` (variance = (I-<I>)^2).
+    :type error_model: str, optionalw
+    :ivar method:  IntegrationMethod instance or 3-tuple with
+        (splitting, algorithm, implementation)
+    :type method: IntegrationMethod, optional
+    :ivar npt: Number of integration points, defaults to 1800.
+    :type npt: int, optional
+    """
+    # correctSolidAngle: true
+    # dark: None
+    error_model: Optional[constr(strip_whitespace=True, min_length=1)] = None
+    # filename: None
+    # flat: None
+    # mask: None
+    # metadata: None
+    method: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'csr'
+    # normalization_factor: None
+    npt: Optional[conint(gt=0)] = 1800
+    # polarization_factor: None
+    # variance: None
+
+
 class Integrate2dConfig(GIWAXSBaseModel):
     """Class with the input parameters to performs 2D azimuthal
     integration with `pyFAI`.
 
+    :ivar error_model: When the variance is unknown, an error model
+        can be given:
+        `poisson` (variance = I) or `azimuthal` (variance = (I-<I>)^2).
+    :type error_model: str, optional
+    :ivar method:  IntegrationMethod instance or 3-tuple with
+        (splitting, algorithm, implementation)
+    :type method: IntegrationMethod, optional
     :ivar npt_azim: Number of points for the integration in the
         azimuthal direction, defaults to 3600.
     :type npt_azim: int, optional
     :ivar npt_rad: Number of points for the integration in the
         radial direction, defaults to 1800.
     :type npt_rad: int, optional
-    :ivar error_model: When the variance is unknown, an error model
-        can be given:
-        `poisson` (variance = I) or `azimuthal` (variance = (I-<I>)^2).
-    :type error_model: str, optional
     """
+    # correctSolidAngle: true
+    # dark: None
+    # filename: None
+    # flat: None
+    error_model: Optional[constr(strip_whitespace=True, min_length=1)] = None
+    # mask: None
+    # metadata: None
+    method: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'bbox'
+    # normalization_factor: None
     npt_azim: Optional[conint(gt=0)] = 3600
     npt_rad: Optional[conint(gt=0)] = 1800
-    error_model: Optional[constr(strip_whitespace=True, min_length=1)] = None
-    # correctSolidAngle: true
-    # lst_flat=None
-    # lst_mask=None
-    # lst_variance: null
-    method: Optional[
-        constr(strip_whitespace=True, min_length=1)] = 'splitpixel'
-    # normalization_factor=None
-    # polarization_factor=None
+    # polarization_factor: None
+    # safe: None
+    # variance: None
 
 
 class PyfaiIntegrationConfig(GIWAXSBaseModel):
@@ -336,9 +379,40 @@ class PyfaiIntegrationConfig(GIWAXSBaseModel):
     integration_method: Literal[
         'integrate1d', 'integrate2d', 'integrate_radial']
     multi_geometry: MultiGeometryConfig
-    integration_params: Optional[Integrate2dConfig] = None
+    integration_params: Optional[
+        Union[Integrate1dConfig, Integrate2dConfig]] = None
+
+#    @model_validator('integration_params', mode='before')
+#    @classmethod
+    @model_validator(mode='after')
+#    def validate_integration_params(cls, data):
+    def validate_integration_params(self):
+        """Choose the integration_params type depending on the
+        `integration_method` value.
+
+        :param data: Pydantic validator data object.
+        :type data: pydantic_core._pydantic_core.ValidationInfo
+        :raises ValueError: Invalid `integration_method`.
+        :return: The validated list of class properties.
+        :rtype: dict
+        """
+        if self.integration_method == 'integrate1d':
+            self.integration_params = Integrate1dConfig(
+                **self.integration_params.model_dump())
+        elif self.integration_method == 'integrate2d':
+            self.integration_params = Integrate2dConfig(
+                **self.integration_params.model_dump())
+        else:
+            raise ValueError('Invalid parameter integration_params '
+                             f'({self.integration_params})')
+        return self
 
     def integrate(self, ais, data):
+        #print(f'\nais {type(ais)}:\n{ais}\n')
+        #print(f'\ndata {type(data)}:\n{data}\n')
+        #print(f'\nmulti_geometry {type(self.multi_geometry)}:\n{self.multi_geometry}\n')
+        #print(f'\n\nintegration_params {type(self.integration_params)}:\n{self.integration_params}\n')
+        #print(f'\nintegration_method {type(self.integration_method)}:\n{self.integration_method}\n')
         if self.integration_method == 'integrate_radial':
             raise NotImplementedError
         else:
@@ -346,18 +420,33 @@ class PyfaiIntegrationConfig(GIWAXSBaseModel):
             mg = MultiGeometry(
                 ais=[ais[ai] for ai in self.multi_geometry.ais],
                 **self.multi_geometry.model_dump(exclude={'ais'}))
+            #print(f'\nmg {type(mg)}:\n{mg}\n')
             integration_method = getattr(mg, self.integration_method)
+            #print(f'\n\nintegration_params:\n{self.integration_params}')
+            #print(f'\nintegration_method = {integration_method}')
             npts = [d.shape[0] for d in data.values()]
             if not all(_npts == npts[0] for _npts in npts):
                 raise RuntimeError('Different number of detector frames for '
                                    f'each azimuthal integrator ({npts})')
             npts = npts[0]
-            return [
+            #print(f'\nnpts = {npts}')
+            #print(f'\nlst_data:')
+            #for i in range(npts):
+            #    lst_data = [data[ai][i] for ai in self.multi_geometry.ais][0]
+            #    print(f'\t{lst_data.shape} {lst_data.sum()}')
+            #print(f'\n')
+            #return [
+            results = [
                 integration_method(
                     lst_data=[data[ai][i] for ai in self.multi_geometry.ais],
                     **self.integration_params.model_dump())
                 for i in range(npts)
             ]
+            #print(f'\nresults {type(results[0])} {results[0][0].shape}:\n{results[0][0].sum()} {results[0][0]}')
+            #print(f'\nresults[0].intensity {results[0].intensity.shape} {results[0].intensity.sum()}')
+#            print(f'\nresults[0].radial {results[0].radial.shape}\n{np.array(results[0].radial).tolist()}')
+            #print(f'azimutal? {hasattr(results[0], "azimuthal")} sigma? {hasattr(results[0], "sigma")}')
+            return results
 
 
 class PyfaiIntegrationProcessorConfig(GIWAXSBaseModel):
