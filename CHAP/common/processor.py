@@ -9,6 +9,7 @@ Description: Module for Processors used in multiple experiment-specific
 """
 
 # System modules
+from copy import deepcopy
 import os
 
 # Third party modules
@@ -834,6 +835,7 @@ class ConvertStructuredProcessor(Processor):
     unstructued formats.
     """
     def process(self, data):
+        # Local modules
         from CHAP.utils.converters import convert_structured_unstructured
 
         data = self.unwrap_pipelinedata(data)[0]
@@ -1455,9 +1457,6 @@ class MapProcessor(Processor):
             structure.
         :rtype: nexusformat.nexus.NXroot
         """
-        # System modules
-        from copy import deepcopy
-
         # Third party modules
         from nexusformat.nexus import (
             NXcollection,
@@ -1921,9 +1920,6 @@ class MPIMapProcessor(Processor):
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
-        # System modules
-        from copy import deepcopy
-
         # Third party modules
         from mpi4py import MPI
 
@@ -2010,7 +2006,6 @@ class MPISpawnMapProcessor(Processor):
            list of sub-pipeline items.
         """
         # System modules
-        from copy import deepcopy
         from tempfile import NamedTemporaryFile
 
         # Third party modules
@@ -2250,7 +2245,13 @@ class NormalizeNexusProcessor(Processor):
         :returns: Copy of input data with additional normalized fields
         :rtype: nexusformat.nexus.NXgroup
         """
-        from nexusformat.nexus import NXgroup, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXgroup,
+            NXfield,
+        )
+
+        # Local modules
         from CHAP.utils.general import nxcopy
 
         # Check input data
@@ -2317,7 +2318,11 @@ class NormalizeMapProcessor(Processor):
         :returns: Copy of input data with additional normalized fields
         :rtype: nexusformat.nexus.NXroot
         """
-        from nexusformat.nexus import NXentry, NXlink
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXlink,
+        )
 
         # Check input data
         data = self.unwrap_pipelinedata(data)[0]
@@ -2420,6 +2425,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         else:
             # Third party modules
             import fabio
+
             if not os.path.isabs(mask_file):
                 mask_file = os.path.join(inputdir, mask_file)
             mask = fabio.open(mask_file).data
@@ -2858,6 +2864,7 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to "structured" representation."""
     def process(self, data):
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         data = self.unwrap_pipelinedata(data)[0]
@@ -2870,9 +2877,11 @@ class UnstructuredToStructuredProcessor(Processor):
                 f'Not implemented for input data with type{(type(nxdata))}')
 
     def convert_nxdata(self, nxdata):
-        from copy import deepcopy
-        from nexusformat.nexus import NXdata, NXfield
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         # Extract axes from the NXdata attributes
         axes = []
@@ -3291,8 +3300,6 @@ class SumProcessor(Processor):
         :return: The summed data.
         :rtype: numpy.ndarray
         """
-        from copy import deepcopy
-
         nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
         if len(nxpaths) == 1:
             return nxentry[nxpaths[0]]
