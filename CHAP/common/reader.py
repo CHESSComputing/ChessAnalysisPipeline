@@ -227,7 +227,7 @@ class MapReader(Reader):
 
 class NexusReader(Reader):
     """Reader for NeXus files."""
-    def read(self, filename, nxpath='/'):
+    def read(self, filename, nxpath='/', nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
         :param filename: The name of the NeXus file to read from.
@@ -242,6 +242,8 @@ class NexusReader(Reader):
         """
         # Third party modules
         from nexusformat.nexus import nxload
+        from nexusformat.nexus.tree import NX_CONFIG
+        NX_CONFIG['memory'] = nxmemory
 
         return nxload(filename)[nxpath]
 
@@ -487,7 +489,8 @@ class SpecReader(Reader):
                     detectors_ids = [d.id for d in detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
-        detector_data_format = None
+        if config.experiment_type == 'EDD':
+            detector_data_format = None
         for scans in config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
@@ -495,10 +498,12 @@ class SpecReader(Reader):
             nxscans.attrs['scan_numbers'] = scans.scan_numbers
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                if detector_data_format is None:
-                    detector_data_format = scanparser.detector_data_format
-                elif scanparser.detector_data_format != detector_data_format:
-                    raise ValueError(
+                if config.experiment_type == 'EDD':
+                    if detector_data_format is None:
+                        detector_data_format = scanparser.detector_data_format
+                    elif (scanparser.detector_data_format !=
+                            detector_data_format):
+                        raise ValueError(
                         'Mixing `spec` and `h5` data formats not implemented')
                 nxscans[scan_number] = NXcollection()
                 try:
@@ -518,13 +523,18 @@ class SpecReader(Reader):
                         {k:v for k,v in scanparser.pars.items()})
                 except:
                     pass
+                try:
+                    nxscans[scan_number].spec_scan_motor_mnes = dumps(
+                        scanparser.spec_scan_motor_mnes)
+                except:
+                    pass
                 if config.experiment_type == 'EDD':
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     nxdata.data = NXfield(
-                       value=scanparser.get_detector_data(detectors_ids))
+                        value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
