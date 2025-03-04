@@ -835,6 +835,7 @@ class ConvertStructuredProcessor(Processor):
     unstructued formats.
     """
     def process(self, data):
+        # Local modules
         from CHAP.utils.converters import convert_structured_unstructured
 
         data = self.unwrap_pipelinedata(data)[0]
@@ -1342,7 +1343,7 @@ class MapProcessor(Processor):
                 num = scans_per_proc
                 if n_proc < num_scan - scans_per_proc*num_proc:
                     num += 1
-                config = map_config.model_dump()
+                config = map_config.model_dump_json()
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
@@ -1495,7 +1496,7 @@ class MapProcessor(Processor):
         nxentry = NXentry(name=map_config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
-        nxentry.map_config = map_config.model_dump()
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.attrs['station'] = map_config.station
         for k, v in map_config.attrs.items():
             nxentry.attrs[k] = v
@@ -1529,6 +1530,9 @@ class MapProcessor(Processor):
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
+        if all_scalar_data is not None:
+            self.logger.debug(
+                f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         scalar_signals = []
         scalar_data = []
         for i, dim in enumerate(map_config.all_scalar_data):
@@ -1539,8 +1543,6 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        self.logger.debug(
-            f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         if (map_config.experiment_type == 'EDD'
                 and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
@@ -1576,11 +1578,14 @@ class MapProcessor(Processor):
         nxdata = NXdata()
         nxentry.data = nxdata
         nxentry.data.set_default()
+        detector_ids = []
         for k, v in map_config.attrs.items():
             nxdata.attrs[k] = v
         for i, detector in enumerate(detector_config.detectors):
             nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
+            detector_ids.append(detector.id)
         linkdims(nxdata, nxentry.independent_dimensions)
+        nxentry.detector_ids = detector_ids
 
         return nxroot
 
@@ -2244,7 +2249,13 @@ class NormalizeNexusProcessor(Processor):
         :returns: Copy of input data with additional normalized fields
         :rtype: nexusformat.nexus.NXgroup
         """
-        from nexusformat.nexus import NXgroup, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXgroup,
+            NXfield,
+        )
+
+        # Local modules
         from CHAP.utils.general import nxcopy
 
         # Check input data
@@ -2311,7 +2322,11 @@ class NormalizeMapProcessor(Processor):
         :returns: Copy of input data with additional normalized fields
         :rtype: nexusformat.nexus.NXroot
         """
-        from nexusformat.nexus import NXentry, NXlink
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXlink,
+        )
 
         # Check input data
         data = self.unwrap_pipelinedata(data)[0]
@@ -2414,6 +2429,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         else:
             # Third party modules
             import fabio
+
             if not os.path.isabs(mask_file):
                 mask_file = os.path.join(inputdir, mask_file)
             mask = fabio.open(mask_file).data
@@ -2852,6 +2868,7 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to "structured" representation."""
     def process(self, data):
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         data = self.unwrap_pipelinedata(data)[0]
@@ -2879,6 +2896,7 @@ class UnstructuredToStructuredProcessor(Processor):
                 else:
                     axes = v.nxdata
         # Identify unique coordinate points for each axis
+
         unique_coords = {}
         coords = {}
         axes_attrs = {}

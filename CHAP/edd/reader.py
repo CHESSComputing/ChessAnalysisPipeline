@@ -234,7 +234,6 @@ class EddMPIMapReader(Reader):
         :rtype: PipelineData
         """
         # Third party modules
-        from json import dumps
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -404,7 +403,7 @@ class EddMPIMapReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = NXfield(
@@ -413,7 +412,7 @@ class EddMPIMapReader(Reader):
 
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.dict())
+            **map_config.sample.model_dump())
 
         # Set up default data group
         nxentry.data = NXdata()

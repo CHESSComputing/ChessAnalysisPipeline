@@ -18,6 +18,7 @@ broad selection of utilities to assist in some common tasks that
 appear in specific `Processor` implementations.
 """
 
+from CHAP.models import CHAPBaseModel
 from CHAP.reader import Reader
 from CHAP.processor import Processor
 from CHAP.writer import Writer

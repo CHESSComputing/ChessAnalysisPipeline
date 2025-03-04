@@ -1367,7 +1367,7 @@ class Fit:
 
         # Add the free fit parameters
         for par in parameters:
-            self.add_parameter(par.dict())
+            self.add_parameter(par.model_dump())
 
         # Add the model functions
         for prefix, model in zip(prefixes, models):

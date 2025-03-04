@@ -16,7 +16,6 @@ from typing import (
 # Third party modules
 import numpy as np
 from pydantic import (
-    BaseModel,
     Field,
     FilePath,
     PrivateAttr,
@@ -29,7 +28,11 @@ from pydantic import (
 from pyspec.file.spec import FileSpec
 from typing_extensions import Annotated
 
-class Detector(BaseModel):
+# Local modules
+from CHAP.models import CHAPBaseModel
+
+
+class Detector(CHAPBaseModel):
     """Class representing a single detector.
 
     :ivar id: The detector id (e.g. name or channel index).
@@ -76,7 +79,7 @@ class Detector(BaseModel):
         return attrs
 
 
-class DetectorConfig(BaseModel):
+class DetectorConfig(CHAPBaseModel):
     """Class representing a detector configuration.
 
     :ivar detectors: The detector list.
@@ -85,7 +88,7 @@ class DetectorConfig(BaseModel):
     detectors: conlist(item_type=Detector, min_length=1)
 
 
-class Sample(BaseModel):
+class Sample(CHAPBaseModel):
     """Class representing a sample metadata configuration.
 
     :ivar name: The name of the sample.
@@ -97,7 +100,7 @@ class Sample(BaseModel):
     description: Optional[str] = ''
 
 
-class SpecScans(BaseModel):
+class SpecScans(CHAPBaseModel):
     """Class representing a set of scans from a single SPEC file.
 
     :ivar spec_file: Path to the SPEC file.
@@ -297,7 +300,7 @@ def get_detector_data(
     return detector_data
 
 
-class PointByPointScanData(BaseModel):
+class PointByPointScanData(CHAPBaseModel):
     """Class representing a source of raw scalar-valued data for which
     a value was recorded at every point in a `MapConfig`.
 
@@ -316,7 +319,7 @@ class PointByPointScanData(BaseModel):
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
-                       'smb_par', 'expression']
+                       'smb_par', 'expression', 'detector_log_timestamps']
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -355,6 +358,11 @@ class PointByPointScanData(BaseModel):
             raise TypeError(
                 f'{self.__class__.__name__}.data_type may not be "smb_par" '
                 f'when station is "{station}"')
+        if (not station.lower() == 'id3b'
+            and self.data_type == 'detector_log_timestamps'):
+            raise TypeError(
+                f'{self.__class__.__name__}.data_type may not be'
+                + f' "detector_log_timestamps" when station is "{station}"')
 
     def validate_for_spec_scans(
             self, spec_scans, scan_step_index='all'):
@@ -476,6 +484,13 @@ class PointByPointScanData(BaseModel):
             return get_expression_value(
                 spec_scans, scan_number, scan_step_index, self.name,
                 scalar_data)
+        if self.data_type == 'detector_log_timestamps':
+            timestamps = get_detector_log_timestamps(
+                spec_scans.spec_file, scan_number, self.name)
+            if scan_step_index >= 0:
+                return timestamps[scan_step_index]
+            else:
+                return timestamps
         return None
 
 
@@ -618,6 +633,25 @@ def get_expression_value(
     aeval = Interpreter(symtable=symtable)
     return aeval(expression)
 
+@cache
+def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
+    """Return the list of detector timestamps for the given scan &
+    detector prefix.
+
+    :param spec_file: Location of a SPEC file in which the requested
+        scan occurs.
+    :type spec_scans: str
+    :param scan_number: The number of the scan for which to return
+        detector log timestamps.
+    :type scan_number: int
+    :param detector_prefix: The prefix of the detecotr whose log file
+        should be used.
+    :return: All detector log timestamps for the given scan.
+    :rtype: list[float]
+    """
+    sp = get_scanparser(spec_file, scan_number)
+    return sp.get_detector_log_timestamps(detector_prefix)
+
 def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of PointByPointScanData is valid for
     the station and scans provided by a map configuration dictionary.
@@ -753,7 +787,7 @@ class DwellTimeActual(CorrectionsData):
     units: Literal['s'] = 's'
 
 
-class SpecConfig(BaseModel):
+class SpecConfig(CHAPBaseModel):
     """Class representing the raw data for one or more SPEC scans.
 
     :ivar station: The name of the station at which the data was
@@ -831,7 +865,7 @@ class SpecConfig(BaseModel):
         return experiment_type
 
 
-class MapConfig(BaseModel):
+class MapConfig(CHAPBaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
 

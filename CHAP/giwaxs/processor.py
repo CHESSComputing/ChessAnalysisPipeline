@@ -615,15 +615,17 @@ class PyfaiIntegrationProcessor(Processor):
                     **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
+        print(f'\n\nnxroot:\n{nxroot.tree}')
+        print(f'\n\nconfig {type(config)}:\n{config}\n\n')
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
-        experiment_type = loads(
-            str(nxroot[nxroot.default].map_config))['experiment_type']
         data = {}
         independent_dims = {}
-        if (experiment_type == 'GIWAXS'
-                and f'{nxroot.default}_converted' in nxroot):
+        try:
+            # Local imports
+            from CHAP.giwaxs.models import Detector
+
             nxprocess_converted = nxroot[f'{nxroot.default}_converted']
             conversion_config = loads(
                 str(nxprocess_converted.conversion_config))
@@ -664,7 +666,9 @@ class PyfaiIntegrationProcessor(Processor):
                 nxcopy(nxdata[axes])
             data[config.azimuthal_integrators[0].id] = np.flip(
                 nxdata.converted.nxdata, axis=1)
-        else:
+        except:
+            experiment_type = loads(
+                str(nxroot[nxroot.default].map_config))['experiment_type']
             if experiment_type == 'GIWAXS':
                 self.logger.warning(
                     'No converted data found, use raw data for integration')

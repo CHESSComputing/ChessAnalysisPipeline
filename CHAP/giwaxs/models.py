@@ -26,56 +26,11 @@ from pydantic import (
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
 # Local modules
+from CHAP import CHAPBaseModel
 from CHAP.common.models.map import Detector
 
 
-class GIWAXSBaseModel(BaseModel):
-    """Baseline GIWAXS configuration class implementing robust
-    serialization tools.
-    """
-    def dict(self, *args, **kwargs):
-        return self.model_dump(*args, **kwargs)
-
-    def model_dump(self, *args, **kwargs):
-        if hasattr(self, '_exclude'):
-            kwargs['exclude'] = self._merge_exclude(
-                None if kwargs is None else kwargs.get('exclude'))
-        return self._serialize(super().model_dump(*args, **kwargs))
-
-    def model_dump_json(self, *args, **kwargs):
-        # Third party modules
-        from json import dumps
-
-        return dumps(self.model_dump(*args, **kwargs))
-
-    def _merge_exclude(self, exclude):
-        if exclude is None:
-            exclude = self._exclude
-        elif isinstance(exclude, set):
-            if isinstance(self._exclude, set):
-                exclude |= self._exclude
-            elif isinstance(self._exclude, dict):
-                exclude = {**{v:True for v in exclude}, **self._exclude}
-        elif isinstance(exclude, dict):
-            if isinstance(self._exclude, set):
-                exclude = {**exclude, **{v:True for v in self._exclude}}
-            elif isinstance(self._exclude, dict):
-                exclude = {**exclude, **self._exclude}
-        return exclude
-
-    def _serialize(self, value):
-        if isinstance(value, dict):
-            value = {k:self._serialize(v) for k, v in value.items()}
-        elif isinstance(value, (tuple, list)):
-            value = [self._serialize(v) for v in value]
-        elif isinstance(value, np.ndarray):
-            value = value.tolist()
-        elif isinstance(value, PosixPath):
-            value = str(value)
-        return value
-
-
-class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
+class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     """Azimuthal integrator configuration class to represent a single
     detector used in the experiment.
 
@@ -137,8 +92,7 @@ class AzimuthalIntegratorConfig(Detector, GIWAXSBaseModel):
         """Return the azimuthal integrator."""
         return self._ai
 
-
-class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
+class GiwaxsConversionProcessorConfig(CHAPBaseModel):
     """Class representing metadata required to locate GIWAXS image
     files for a single scan to convert to q_par/q_perp coordinates.
 
@@ -159,9 +113,9 @@ class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
         conlist(min_length=1, item_type=conint(ge=0))] = None
     save_raw_data: Optional[bool] = False
 
-    @model_validator(mode='before')
+    @field_validator('scan_step_indices', mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_scan_step_indices(cls, scan_step_indices):
         """Ensure that a valid configuration was provided and finalize
         PONI filepaths.
 
@@ -171,36 +125,6 @@ class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        if isinstance(data, dict):
-            inputdir = data.get('inputdir')
-            if inputdir is not None and 'azimuthal_integrators' in data:
-                ais = data.get('azimuthal_integrators')
-                for i, ai in enumerate(deepcopy(ais)):
-                    if isinstance(ai, dict):
-                        poni_file = ai['poni_file']
-                        if not os.path.isabs(poni_file):
-                            ais[i]['poni_file'] = os.path.join(
-                                inputdir, poni_file)
-                    else:
-                        poni_file = ai.poni_file
-                        if not os.path.isabs(poni_file):
-                            ais[i].poni_file = os.path.join(
-                                inputdir, poni_file)
-                data['azimuthal_integrators'] = ais
-        return data
-
-    @field_validator('scan_step_indices', mode='before')
-    @classmethod
-    def validate_scan_step_indices(cls, scan_step_indices):
-        """Validate the specified list of scan step indices.
-
-        :param scan_step_indices: List of scan numbers.
-        :type scan_step_indices: list of int
-        :raises ValueError: If a specified scan number is not found in
-            the SPEC file.
-        :return: List of scan numbers.
-        :rtype: list[int]
-        """
         if isinstance(scan_step_indices, int):
             scan_step_indices = [scan_step_indices]
         if isinstance(scan_step_indices, str):
@@ -208,10 +132,11 @@ class GiwaxsConversionProcessorConfig(GIWAXSBaseModel):
             from CHAP.utils.general import string_to_list
 
             scan_step_indices = string_to_list(scan_step_indices)
+
         return scan_step_indices
 
 
-class MultiGeometryConfig(GIWAXSBaseModel):
+class MultiGeometryConfig(CHAPBaseModel):
     """Class representing the configuration for treating simultaneously
     multiple detector configuration within a single integration
 
@@ -306,7 +231,7 @@ class MultiGeometryConfig(GIWAXSBaseModel):
 #                ', '.join(AZIMUTHAL_UNITS.keys()))
 
 
-class Integrate1dConfig(GIWAXSBaseModel):
+class Integrate1dConfig(CHAPBaseModel):
     """Class with the input parameters to performs 1D azimuthal
     integration with `pyFAI`.
 
@@ -335,7 +260,7 @@ class Integrate1dConfig(GIWAXSBaseModel):
     # variance: None
 
 
-class Integrate2dConfig(GIWAXSBaseModel):
+class Integrate2dConfig(CHAPBaseModel):
     """Class with the input parameters to performs 2D azimuthal
     integration with `pyFAI`.
 
@@ -370,7 +295,7 @@ class Integrate2dConfig(GIWAXSBaseModel):
     # variance: None
 
 
-class PyfaiIntegrationConfig(GIWAXSBaseModel):
+class PyfaiIntegrationConfig(CHAPBaseModel):
     """Class representing the configuration for detector data
     integration with `pyFAI`.
 
@@ -449,7 +374,7 @@ class PyfaiIntegrationConfig(GIWAXSBaseModel):
             return results
 
 
-class PyfaiIntegrationProcessorConfig(GIWAXSBaseModel):
+class PyfaiIntegrationProcessorConfig(CHAPBaseModel):
     azimuthal_integrators: Optional[conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)] = None
     integrations: conlist(min_length=1, item_type=PyfaiIntegrationConfig)
