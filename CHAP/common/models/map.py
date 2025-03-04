@@ -45,7 +45,7 @@ class Detector(CHAPBaseModel):
 
     @field_validator('id', mode='before')
     @classmethod
-    def validate_scan_numbers(cls, id):
+    def validate_id(cls, id):
         """Validate the detector id.
 
         :param id: The detector id (e.g. name or channel index).
