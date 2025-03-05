@@ -20,17 +20,17 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 
 Log in to the CHESS Compute Farm and activate the `CHAP_tomo` environment:
 ```bash
-source /nfs/chess/sw/miniconda3_msnc/bin/activate
+source /nfs/chess/sw/miniforge3_chap/bin/activate
 conda activate CHAP_tomo
 ```
 
 ### From a local CHAP clone
 
-1. Create and activate a base conda environent, e.g. with [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/).
+1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
 1. Install a local version of the CHAP package according to the [instructions](/docs/installation.md)
 1. Create the tomography conda environment:
    ```bash
-   conda env create -f <path_to_CHAP_clone_dir>/CHAP/tomo/environment.yml
+   mamba env create -f <path_to_CHAP_clone_dir>/CHAP/tomo/environment.yml
    ```
 1. Activate the `CHAP_tomo` environment:
    ```bash
