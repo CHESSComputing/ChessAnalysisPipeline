@@ -615,8 +615,6 @@ class PyfaiIntegrationProcessor(Processor):
                     **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
-        print(f'\n\nnxroot:\n{nxroot.tree}')
-        print(f'\n\nconfig {type(config)}:\n{config}\n\n')
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
