@@ -2866,16 +2866,18 @@ class SetupNXdataProcessor(Processor):
 
 class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
-    to "structured" representation."""
+    to a "structured" representation.
+    """
     def process(self, data):
         # Third party modules
         from nexusformat.nexus import NXdata
 
         data = self.unwrap_pipelinedata(data)[0]
 
+        from CHAP.utils.general import nxcopy
         if isinstance(data, NXdata):
-            return self.convert_nxdata(data)
-
+            return self.convert_nxdata(nxcopy(data))
+            #return self.convert_nxdata(data)
         else:
             raise NotImplementedError(
                 f'Not implemented for input data with type{(type(nxdata))}')
@@ -2887,16 +2889,48 @@ class UnstructuredToStructuredProcessor(Processor):
             NXfield,
         )
 
-        # Extract axes from the NXdata attributes
-        axes = []
-        for k, v in nxdata.attrs.items():
-            if 'axes' in k:
-                if isinstance(v, str):
-                    axes = [v]
-                else:
-                    axes = v.nxdata
-        # Identify unique coordinate points for each axis
+        # Local modules
+        from CHAP.edd.processor import get_axes
 
+        # Extract axes from the NXdata attributes
+        axes = get_axes(nxdata)
+        for a in axes:
+            if a not in nxdata:
+                raise ValueError(f'Missing coordinates for {a}')
+
+        # Check the independent dimensions and axes
+        unstructured_axes = []
+        unstructured_dim = None
+        for a in axes:
+            if not isinstance(nxdata[a], NXfield):
+                raise ValueError(
+                    f'Invalid axis field type ({type(nxdata[a])})')
+            if len(nxdata[a].shape) == 1:
+                if not unstructured_axes:
+                    unstructured_axes.append(a)
+                    unstructured_dim = nxdata[a].size
+                else:
+                    if nxdata[a].size == unstructured_dim:
+                        unstructured_axes.append(a)
+                    elif 'unstructured_axes' in nxdata.attrs:
+                        raise ValueError(f'Inconsistent axes dimensions')
+            elif 'unstructured_axes' in nxdata.attrs:
+                raise ValueError(
+                    f'Invalid unstructered axis shape ({nxdata[a].shape})')
+        if not axes and hasattr(nxdata, 'signal'):
+            if len(nxdata[nxdata.signal].shape) < 2:
+                raise ValueError(
+                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
+            unstructured_dim = nxdata[nxdata.signal].shape[0]
+            for k, v in nxdata.items():
+                if (isinstance(v, NXfield) and len(v.shape) == 1
+                        and v.shape[0] == unstructured_dim):
+                    unstructured_axes.append(k)
+        if unstructured_dim is None:
+            raise ValueError(f'Unable to determine the unstructered axes')
+        axes = unstructured_axes
+
+        # Identify unique coordinate points for each axis
         unique_coords = {}
         coords = {}
         axes_attrs = {}
@@ -2909,26 +2943,43 @@ class UnstructuredToStructuredProcessor(Processor):
 
         # Calculate the total number of unique coordinate points
         unique_npts = np.prod([len(v) for k, v in unique_coords.items()])
+        if unique_npts != unstructured_dim:
+            self.logger.warning('The unstructered grid does not fully map to '
+                                'a structered one (there are missing points)')
 
-        # Identify signals in the NXdata
+        # Identify the signals and the data point axes
         signals = []
+        data_point_axes = []
+        data_point_shape = []
         if hasattr(nxdata, 'signal'):
+            if (len(nxdata[nxdata.signal].shape) < 2
+                    or nxdata[nxdata.signal].shape[0] != unstructured_dim):
+                raise ValueError(
+                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
             signals = [nxdata.signal]
+            data_point_shape = [nxdata[nxdata.signal].shape[1:]]
         for k, v in nxdata.items():
-            if (isinstance(v, NXfield) and k not in axes
-                and k not in signals):
+            if (isinstance(v, NXfield) and k not in axes and k not in signals
+                    and v.shape[0] == unstructured_dim):
                 signals.append(k)
-        signal_npts = len(nxdata[signals[0]])
-
-        # Ensure the number of signal points matches the unique
-        # coordinate points
-        if unique_npts != signal_npts:
-            raise(RuntimeError(
-                f'Number of unique coordinate points ({unique_npts}) is not '
-                + f'equal to the number of signal points ({signal_npts})'))
+                if not data_point_shape:
+                    data_point_shape.append(v.shape[1:])
+        if len(data_point_shape) == 1:
+            data_point_shape = data_point_shape[0]
+        else:
+            data_point_shape = []
+        for dim in data_point_shape:
+            for k, v in nxdata.items():
+                if (isinstance(v, NXfield) and k not in axes
+                        and v.shape == data_point_shape):
+                    data_point_axes.append(k)
 
         # Create the structured NXdata object
         structured_shape = tuple(len(unique_coords[a]) for a in axes)
+        attrs = deepcopy(nxdata.attrs)
+        if 'unstructured_axes' in attrs:
+            attrs.pop('unstructured_axes')
+        attrs['axes'] = axes
         nxdata_structured = NXdata(
             name=f'{nxdata.nxname}_structured',
             **{a: NXfield(
@@ -2936,22 +2987,27 @@ class UnstructuredToStructuredProcessor(Processor):
                 attrs=axes_attrs[a])
                for a in axes},
             **{s: NXfield(
-                value=np.reshape( # FIX not always a sound way to reshape.
-                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
-                # dtype=nxdata[s].dtype,
-                # shape=(*structured_shape, *nxdata[s].shape[1:]),
+#                value=np.reshape( # FIX not always a sound way to reshape.
+#                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
+                 dtype=nxdata[s].dtype,
+                 shape=(*structured_shape, *nxdata[s].shape[1:]),
                 attrs=nxdata[s].attrs)
                for s in signals},
-            attrs=nxdata.attrs)
+            attrs=attrs)
+        if len(data_point_axes) == 1:
+            nxdata_structured.attrs['axes'] += data_point_axes
+        for a in data_point_axes:
+            nxdata_structured[a] = NXfield(
+                value=nxdata[a], attrs=nxdata[a].attrs)
 
         # Populate the structured NXdata object with values
-        # for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
-        #     structured_index = tuple(
-        #         np.asarray(
-        #             coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
-        #         for ii in range(len(axes)))
-        #     for s in signals:
-        #         nxdata_structured[s][structured_index] = nxdata[s][i]
+        for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
+            structured_index = tuple(
+                np.asarray(
+                    coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
+                for ii in range(len(axes)))
+            for s in signals:
+                nxdata_structured[s][structured_index] = nxdata[s][i]
 
         return nxdata_structured
 
