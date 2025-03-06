@@ -118,7 +118,7 @@ pipeline:
         tth_initial_guess: 6.0
       save_figures: true
 
-  # Create a CHAP style map
+  # Create a CHESS style map
   - edd.EddMapReader:
       filename: <your_raw_data_directory>/id1a3-wbmapscan-s23-map-1.par
       dataset_id: 1
@@ -172,18 +172,35 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `profile`: Runs the pipeline in a [Python profiler](https://docs.python.org/3/library/profile.html).
 
-The "pipeline" block creates the actual workflow pipeline, it this example it consists of four toplevel processes that get executed successively:
+The "pipeline" block creates the actual workflow pipeline, it this example it consists of nine toplevel processes that get executed successively:
 
-- `common.MapProcessor`: A processor that creates a CHESS style map.
+- The EDD/XRF energy calibration consists of two processes:
 
-- `pipeline.MultiplePipelineItem`: A processor that executes (in this case reads) three items and passes the inputs on to the next item in the pipeline.
+    - `common.SpecReader`: A processor that reads the raw detector data.
 
-- `tomo.TomoCHESSMapConverter`: A processor that converts the inputs to a CHESS style map.
+    - `edd.MCAEnergyCalibrationProcessor`: A processor that performs the detector channel energy calibration.
 
-- `tomo.TomoDataProcessor`: The actual tomographic reconstruction processor that creates a single NeXus object with the reconstructed data as well as all metadata pertaining to the reconstruction and passes it on to the next item in the pipeline.
+- The EDD $`2\theta`$ calibration consists of two processes:
 
-- `common.NexusWriter`: A processor that writes the reconstructed data to a NeXus file.
+    - `common.SpecReader` under `pipeline.MultiplePipelineItem`: A processor that reads the raw detector data and adds it to the energy calibration info that gets passed along directly from the previous processor in the pipeline.
 
+    - `edd.MCATthCalibrationProcessor`: A processor that performs the $`2\theta`$ calibration.
+
+- The following two processors read the strain analysis sample's raw detector data and create a CHESS style map:
+
+    - `edd.EddMapReader`: A processor that reads the sample's raw detector data using a CHESS style experiment par-file.
+
+    - `common.MapProcessor`: A processor that creates a CHESS style map for the raw detector data.
+
+- The last three processors perform the actual strain analysis and write the output to a Nexus file:
+
+    - `common.YAMLReader` under `pipeline.MultiplePipelineItem`: A processor that reads the energy/$`2\theta`$ calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.
+
+    - `edd.StrainAnalysisProcessor`: A processor that perfroms the actual strain analysis and creates a single Nexus object with the starin analysis results as well as all metadata pertaining to the workflow.
+
+    - `common.NexusWriter`: A processor that writes the starin analysis results to a NeXus file.
+
+Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first four processes in the pipeline and read the detector channel energy calibration info in what is now the third item in the pipeline.
 
 ## Additional notes on energy calibration
 
@@ -193,7 +210,7 @@ As mentioned above a standard EDD experiment needs calibration of the detector c
 
 1. With a diffraction experiment by fitting a set of Bragg peak centers corresponding to known lattice spacings $`d_{hkl}`$. Given Bragg's law, $`\lambda = 2d\sin(\theta)`$, with $`E = hc/\lambda`$, the Bragg peaks appear at channels with energies $`E_{hkl} = hc / (2d_{hkl}\sin(\theta)`$. Rearranging this with the detector channel energy calibration relation gives:
 ```math
-    \frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j+b'
+\frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j_{hkl}+b'
 ```
 which says that given a set of known Bragg peaks corresponding to lattice spacings $`d_{hkl}`$ occuring at channel indices $`j_{hkl}`$, a linear fit will uniquely determine $`m'`$ and $`b'`$. For a known takeoff angle $`2\theta`$, this uniquely determines $`m`$ and $`b`$ as well. Note that this also implies that without an accurately known value of $2`theta`$, one *cannot* uniquely determine $`m`$ and $`b`$ from Bragg diffraction alone!
 
