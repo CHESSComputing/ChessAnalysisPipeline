@@ -1304,7 +1304,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 detector.mask_ranges, input_indices, max_peak_index,
                 filename, detector.id)
 
-            # Construct the fit model and preform the fit
+            # Construct the fit model and perform the fit
             models = []
             if detector.background is not None:
                 if len(detector.background) == 1:
