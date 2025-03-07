@@ -753,6 +753,12 @@ class PyfaiIntegrationProcessor(Processor):
             else:
                 coords = [i for k, v in independent_dims.items()
                           for i in v if k in ais]
+            if hasattr(results[0], 'azimuthal'):
+                chi = results[0].azimuthal
+                if integration.right_handed:
+                    chi = -np.flip(chi)
+                    intensities = np.flip(intensities, (len(coords)))
+                coords.append(NXfield(chi, 'chi', attrs={'units': 'degrees'}))
             coords.append(
                 NXfield(results[0].radial, 'r', attrs={'units': '\u212b'}))
             nxdata = NXdata(
@@ -760,9 +766,6 @@ class PyfaiIntegrationProcessor(Processor):
             if not isinstance(axes, str):
                 nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
                 del nxdata.attrs['axes']
-            if hasattr(results[0], 'azimuthal'):
-                nxdata['chi'] = NXfield(
-                    results[0].azimuthal, 'chi', attrs={'units': 'degrees'})
             nxprocess.data = nxdata
             nxprocess.default = 'data'
 
