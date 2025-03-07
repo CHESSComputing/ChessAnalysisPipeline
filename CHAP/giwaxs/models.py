@@ -299,6 +299,10 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
     """Class representing the configuration for detector data
     integration with `pyFAI`.
 
+    :ivar right_handed: For radial and cake integration, reverse the
+        direction of the azimuthal coordinate from pyFAI's convention,
+        defaults to True.
+    :type right_handed: bool, optional
     """
     name: constr(strip_whitespace=True, min_length=1)
     integration_method: Literal[
@@ -306,6 +310,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
     multi_geometry: MultiGeometryConfig
     integration_params: Optional[
         Union[Integrate1dConfig, Integrate2dConfig]] = None
+    right_handed: bool = True
 
 #    @model_validator('integration_params', mode='before')
 #    @classmethod
