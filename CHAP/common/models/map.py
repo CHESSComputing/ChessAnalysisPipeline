@@ -311,15 +311,17 @@ class PointByPointScanData(CHAPBaseModel):
     :type units: str
     :ivar data_type: Represents how these data were recorded at time
         of data collection.
-    :type data_type: Literal['spec_motor', 'scan_column', 'smb_par']
+    :type data_type: Literal['spec_motor', 'spec_motor_absolute',
+        'scan_column', 'smb_par', 'expression', 'detector_log_timestamps']
     :ivar name: Represents the name with which these raw data were
         recorded at time of data collection.
     :type name: str
     """
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
-    data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
-                       'smb_par', 'expression', 'detector_log_timestamps']
+    data_type: Literal[
+        'spec_motor', 'spec_motor_absolute', 'scan_column', 'smb_par',
+        'expression', 'detector_log_timestamps']
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -359,7 +361,7 @@ class PointByPointScanData(CHAPBaseModel):
                 f'{self.__class__.__name__}.data_type may not be "smb_par" '
                 f'when station is "{station}"')
         if (not station.lower() == 'id3b'
-            and self.data_type == 'detector_log_timestamps'):
+                and self.data_type == 'detector_log_timestamps'):
             raise TypeError(
                 f'{self.__class__.__name__}.data_type may not be'
                 + f' "detector_log_timestamps" when station is "{station}"')
@@ -493,7 +495,6 @@ class PointByPointScanData(CHAPBaseModel):
                 return timestamps
         return None
 
-
 @cache
 def get_spec_motor_value(
         spec_file, scan_number, scan_step_index, spec_mnemonic,
@@ -548,7 +549,6 @@ def get_spec_motor_value(
         motor_value = np.round(motor_value, ndigits)
     return motor_value
 
-
 @cache
 def get_spec_counter_value(
         spec_file, scan_number, scan_step_index, spec_column_label):
@@ -573,7 +573,6 @@ def get_spec_counter_value(
         return scanparser.spec_scan_data[spec_column_label][scan_step_index]
     return scanparser.spec_scan_data[spec_column_label]
 
-
 @cache
 def get_smb_par_value(spec_file, scan_number, par_name):
     """Return the value recorded for a specific scan in SMB-tyle .par
@@ -592,7 +591,6 @@ def get_smb_par_value(spec_file, scan_number, par_name):
     """
     scanparser = get_scanparser(spec_file, scan_number)
     return scanparser.pars[par_name]
-
 
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
@@ -797,10 +795,11 @@ class SpecConfig(CHAPBaseModel):
     :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
-        'XRF']
+        'XRF', 'HDRM']
     """
-    station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+    station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
+    experiment_type: Literal[
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     spec_scans: conlist(item_type=SpecScans, min_length=1)
 
     @model_validator(mode='before')
@@ -854,6 +853,8 @@ class SpecConfig(CHAPBaseModel):
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        elif station == 'id4b':
+            allowed_experiment_types = ['HDRM']
         else:
             allowed_experiment_types = []
         if experiment_type not in allowed_experiment_types:
@@ -873,10 +874,10 @@ class MapConfig(CHAPBaseModel):
     :type title: str
     :ivar station: The name of the station at which the map was
         collected.
-    :type station: Literal['id1a3', 'id3a', 'id3b']
+    :type station: Literal['id1a3', 'id3a', 'id3b', id4b]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
-        'XRF']
+        'XRF', 'HDRM']
     :ivar sample: The sample metadata configuration.
     :type sample: CHAP.commom.models.map.Sample
     :ivar spec_scans: A list of the SPEC scans that compose the map.
@@ -907,8 +908,9 @@ class MapConfig(CHAPBaseModel):
     :type attrs: dict, optional
     """
     title: constr(strip_whitespace=True, min_length=1)
-    station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+    station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
+    experiment_type: Literal[
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_length=1)
     scalar_data: Optional[conlist(item_type=PointByPointScanData)] = []
@@ -980,6 +982,8 @@ class MapConfig(CHAPBaseModel):
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        elif station == 'id4b':
+            allowed_experiment_types = ['HDRM']
         else:
             allowed_experiment_types = []
         if experiment_type not in allowed_experiment_types:
@@ -1252,7 +1256,7 @@ def import_scanparser(station, experiment):
     :type station: str
     :param experiment: The experiment type.
     :type experiment: Literal[
-        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     """
     # Third party modules
     from chess_scanparsers import choose_scanparser
