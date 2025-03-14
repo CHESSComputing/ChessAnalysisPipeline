@@ -45,3 +45,25 @@ to install.
    install/bin/CHAP --help
    ```
    to confirm the package was installed correctly.
+1. If you need to install it in your local installation area via pip please
+   follow the following steps:
+```
+# install wheel package
+pip install wheel
+
+# build your local package
+python setup.py clean sdist bdist_wheel
+
+# look-up your local package in dist area
+ls -1 dist
+ChessAnalysisPipeline-0.0.16-py3-none-any.whl
+ChessAnalysisPipeline-0.0.16-py3.11.egg
+ChessAnalysisPipeline-0.0.16.tar.gz
+
+# install your package from local dist area
+pip install --no-index --find-links=dist/ ChessAnalysisPipeline
+
+# verify that you package is installed
+pip list | grep Chess
+ChessAnalysisPipeline 0.0.16
+```
