@@ -11,20 +11,22 @@ def readFoxdenToken(scope):
     """
     """
     token = ''
-    rfile = os.path.join(os.getenv('HOME'), '.foxden.read.yaml')
-    wfile = os.path.join(os.getenv('HOME'), '.foxden.write.yaml')
+    rfile = os.path.join(os.getenv('HOME'), '.foxden.read.token')
+    wfile = os.path.join(os.getenv('HOME'), '.foxden.write.token')
     tfile = None
+    rtoken = os.getenv('FOXDEN_READ_TOKEN')
+    wtoken = os.getenv('FOXDEN_WRITE_TOKEN')
     if scope == 'read':
-        if os.getenv('FOXDEN_READ_TOKEN'):
-            token = os.getenv('FOXDEN_READ_TOKEN')
+        if rtoken != "":
+            token = rtoken
         elif os.path.exists(rfile):
             tfile = rfile
     elif scope == 'write':
-        if os.getenv('FOXDEN_WRITE_TOKEN'):
-            token = os.getenv('FOXDEN_WRITE_TOKEN')
-        elif os.path.exists(rfile):
+        if wtoken != "":
+            token = wtoken
+        elif os.path.exists(wfile):
             tfile = wfile
-    if not token and os.path.exists(tfile):
+    if not token and tfile and os.path.exists(tfile):
         with open(tfile, 'r') as istream:
             token = istream.read()
     return token
