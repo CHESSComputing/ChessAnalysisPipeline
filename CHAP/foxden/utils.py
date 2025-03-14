@@ -13,7 +13,7 @@ def readFoxdenToken(scope):
     token = ''
     rfile = os.path.join(os.getenv('HOME'), '.foxden.read.yaml')
     wfile = os.path.join(os.getenv('HOME'), '.foxden.write.yaml')
-    tfile = none
+    tfile = None
     if scope == 'read':
         if os.getenv('FOXDEN_READ_TOKEN'):
             token = os.getenv('FOXDEN_READ_TOKEN')
