@@ -12,25 +12,62 @@ from time import time
 
 # Local modules
 from CHAP.processor import Processor
+from CHAP.foxden.writer import FoxdenWriter
+
+class FoxdenMetaDataProcessor(Processor):
+    """A Processor to communicate with FOXDEN MetaData server."""
+
+    def process(self, data, url, did, dryRun=False, verbose=False):
+        """FOXDEN MetaData processor
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param url: URL of service.
+        :type url: str
+        :param did: FOXDEN dataset identifier (did)
+        :type did: string
+        :param dryRun: `dryRun` option to verify HTTP workflow,
+            defaults to `False`.
+        :type dryRun: bool, optional
+        :param verbose: verbose output
+        :type verbose: bool, optional
+        :return: data from FOXDEN MetaData service
+        """
+        t0 = time()
+        self.logger.info(
+            f'Executing "process" with url={url} data={data} did={did}')
+#         reader = FoxdenReader()
+#         data = reader.read(data, url, dryRun=dryRun)
+        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
+
+        return data
 
 class FoxdenProvenanceProcessor(Processor):
     """A Processor to communicate with FOXDEN provenance server."""
 #    def __init__(self):
 #        self.writer = FoxdenWriter()
 
-    def process(self, data, url, dryRun=False, verbose=False):
-        """Process the data API."""
-        # Local modules
-        from CHAP.foxden.writer import FoxdenWriter
+    def process(self, data, url, did, dryRun=False, verbose=False):
+        """FOXDEN Provenance processor
 
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param url: URL of service.
+        :type url: str
+        :param did: FOXDEN dataset identifier (did)
+        :type did: string
+        :param dryRun: `dryRun` option to verify HTTP workflow,
+            defaults to `False`.
+        :type dryRun: bool, optional
+        :param verbose: verbose output
+        :type verbose: bool, optional
+        :return: data from FOXDEN provenance service
+        """
         t0 = time()
         self.logger.info(
-            f'Executing "process" with url {url} data {data} dryrun {dryRun}')
-        writer = FoxdenWriter()
-
-#        data = self.writer.write(data, url, dryRun)
-        data = writer.write(data, url, dryRun=dryRun)
-
+            f'Executing "process" with url={url} data={data} did={did}')
+#         writer = FoxdenWriter()
+#         data = writer.write(data, url, dryRun=dryRun)
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
 
         return data
