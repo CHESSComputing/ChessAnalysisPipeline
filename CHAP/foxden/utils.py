@@ -31,8 +31,7 @@ def readFoxdenToken(scope):
             token = istream.read()
     return token
 
-def HttpRequest(
-        data, url, method='GET', headers=None,
+def HttpRequest(url, data, method='GET', headers=None,
         scope='read', timeout=10, dryRun=False):
     """Read data from FOXDEN service
 
@@ -72,7 +71,7 @@ def HttpRequest(
         return []
 
     # Make actual HTTP request to FOXDEN service
-    if method.lower() == 'post':
+    if method.lower() == 'get':
         resp = requests.get(
             url, headers=headers, timeout=timeout)
     elif method.lower() == 'post':
@@ -86,5 +85,4 @@ def HttpRequest(
             url, headers=headers, timeout=timeout, data=data)
     else:
         raise Exception(f'unsupported method {method}')
-    data = resp.content
-    return data
+    return resp

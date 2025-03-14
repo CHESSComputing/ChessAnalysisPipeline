@@ -9,6 +9,7 @@ Description: Processor module for FOXDEN services
 
 # System modules
 from time import time
+import json
 
 # Local modules
 from CHAP.processor import Processor
@@ -38,18 +39,22 @@ class FoxdenMetaDataProcessor(Processor):
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
         rurl = f'{url}/search'
-        payload = {"did": did}
-        response = HttpRequest(data, url, method='POST')
-        print("http response", rurl, payload, response)
+        request = {"client": "CHAP",
+                   "service_query": {"query": "", "spec": {"did":did},
+                                     "sql": "", "idx": 0, "limit": 0}}
+        payload = json.dumps(request)
+        response = HttpRequest(rurl, payload, method='POST')
+        print("responpse", response, type(response))
+        if response.status_code == 200:
+            data = json.loads(response.text)
+        else:
+            data = []
+        print("record\n", data, type(data))
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
-
         return data
 
 class FoxdenProvenanceProcessor(Processor):
     """A Processor to communicate with FOXDEN provenance server."""
-#    def __init__(self):
-#        self.writer = FoxdenWriter()
-
     def process(self, data, url, did, dryRun=False, verbose=False):
         """FOXDEN Provenance processor
 
@@ -69,10 +74,20 @@ class FoxdenProvenanceProcessor(Processor):
         t0 = time()
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
-#         writer = FoxdenWriter()
-#         data = writer.write(data, url, dryRun=dryRun)
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
-
+        rurl = f'{url}/files?did={did}'
+        payload = None
+        response = HttpRequest(rurl, payload, method='GET')
+        print("responpse", response, type(response))
+        if response.status_code == 200:
+            data = []
+            # here we received FOXDEN provenance records
+            # we will extract from them only file names
+            # and return to upstream caller
+            for rec in json.loads(response.text):
+                data.append(rec["name"])
+        else:
+            data = []
+        print("record\n", data, type(data))
         return data
 
 

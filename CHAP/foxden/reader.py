@@ -6,8 +6,8 @@ from CHAP.foxden.utils import HttpRequest
 class FoxdenReader():
     """FOXDEN reader reads data from specific FOXDEN service."""
     def read(
-            self, data, url, method='GET', headers=None, timeout=10,
-            dryRun=False):
+            self, url, data, method='GET', headers=None,
+            scope='read', timeout=10, dryRun=False):
         """Read data from FOXDEN service
 
         :param data: Input data.
@@ -19,8 +19,8 @@ class FoxdenReader():
         :type method: str, optional
         :param headers: HTTP headers to use.
         :type headers: dictionary, optional
-        :param tokenEnv: environment token variable
-        :type tokenEnv: string
+        :param scope: FOXDEN scope to use, e.g. read or write
+        :type scope: string
         :param timeout: Timeout of HTTP request, defaults to `10`.
         :type timeout: str, optional
         :param dryRun: `dryRun` option to verify HTTP workflow,
@@ -29,7 +29,7 @@ class FoxdenReader():
         :return: Contents of the input data.
         :rtype: object
         """
-        return HttpRequest(data, url, method, headers, 'CHESS_READER_TOKEN', timeout, dryrun)
+        return HttpRequest(url, data, method, headers, scope, timeout, dryrun)
 
 
 if __name__ == '__main__':

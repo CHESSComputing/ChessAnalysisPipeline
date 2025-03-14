@@ -6,8 +6,8 @@ from CHAP.foxden.utils import HttpRequest
 class FoxdenWriter():
     """FOXDEN writer writes data to specific FOXDEN service."""
     def write(
-            self, data, url, method='POST', headers=None,
-            tokenEnv='CHESS_WRITER_TOKEN', timeout=10, dryRun=False):
+            self, url, data, method='POST', headers=None,
+            scope='write', timeout=10, dryRun=False):
         """Write data to FOXDEN
 
         :param data: Input data.
@@ -18,8 +18,8 @@ class FoxdenWriter():
             `"PUT"` for update, defaults to `"POST"`.
         :type method: str, optional
         :param headers: HTTP headers to use.
-        :param tokenEnv: environment token variable
-        :type tokenEnv: string
+        :param scope: FOXDEN scope to use, e.g. read or write
+        :type scope: string
         :type headers: dictionary, optional
         :param timeout: Timeout of HTTP request, defaults to `10`.
         :type timeout: str, optional
@@ -29,7 +29,7 @@ class FoxdenWriter():
         :return: Contents of the input data.
         :rtype: object
         """
-        return HttpRequest(data, url, method, headers, 'CHESS_READER_TOKEN', timeout, dryrun)
+        return HttpRequest(url, data, method, headers, scope, timeout, dryrun)
 
 
 if __name__ == '__main__':
