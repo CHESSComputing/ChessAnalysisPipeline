@@ -17,12 +17,12 @@ def readFoxdenToken(scope):
     rtoken = os.getenv('FOXDEN_READ_TOKEN')
     wtoken = os.getenv('FOXDEN_WRITE_TOKEN')
     if scope == 'read':
-        if rtoken != "":
+        if rtoken:
             token = rtoken
         elif os.path.exists(rfile):
             tfile = rfile
     elif scope == 'write':
-        if wtoken != "":
+        if wtoken:
             token = wtoken
         elif os.path.exists(wfile):
             tfile = wfile
