@@ -13,6 +13,7 @@ from time import time
 # Local modules
 from CHAP.processor import Processor
 from CHAP.foxden.writer import FoxdenWriter
+from CHAP.foxden.utils import HttpRequest
 
 class FoxdenMetaDataProcessor(Processor):
     """A Processor to communicate with FOXDEN MetaData server."""
@@ -36,8 +37,10 @@ class FoxdenMetaDataProcessor(Processor):
         t0 = time()
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
-#         reader = FoxdenReader()
-#         data = reader.read(data, url, dryRun=dryRun)
+        rurl = f'{url}/search'
+        payload = {"did": did}
+        response = HttpRequest(data, url, method='POST')
+        print("http response", rurl, payload, response)
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
 
         return data

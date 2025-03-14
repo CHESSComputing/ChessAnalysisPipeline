@@ -7,9 +7,30 @@ import os
 import requests
 
 
+def readFoxdenToken(scope):
+    """
+    """
+    token = ''
+    rfile = os.path.join(os.getenv('HOME'), '.foxden.read.yaml')
+    wfile = os.path.join(os.getenv('HOME'), '.foxden.write.yaml')
+    if scope == 'read':
+        if os.getenv('FOXDEN_READ_TOKEN'):
+            token = os.getenv('FOXDEN_READ_TOKEN')
+        elif os.path.exists(rfile):
+            tfile = rfile
+    elif scope == 'write':
+        if os.getenv('FOXDEN_WRITE_TOKEN'):
+            token = os.getenv('FOXDEN_WRITE_TOKEN')
+        elif os.path.exists(rfile):
+            tfile = wfile
+    if not token and os.path.exists(tfile):
+        with open(tfile, 'r') as istream:
+            token = istream.read()
+    return token
+
 def HttpRequest(
-        self, data, url, method='GET', headers=None,
-        tokenEnv='CHESS_READER_TOKEN', timeout=10, dryRun=False):
+        data, url, method='GET', headers=None,
+        scope='read', timeout=10, dryRun=False):
     """Read data from FOXDEN service
 
     :param data: Input data.
@@ -21,8 +42,8 @@ def HttpRequest(
     :type method: str, optional
     :param headers: HTTP headers to use.
     :type headers: dictionary, optional
-    :param tokenEnv: environment token variable
-    :type tokenEnv: string
+    :param scope: FOXDEN scope to use, e.g. read or write
+    :type scope: string
     :param timeout: Timeout of HTTP request, defaults to `10`.
     :type timeout: str, optional
     :param dryRun: `dryRun` option to verify HTTP workflow,
@@ -37,20 +58,15 @@ def HttpRequest(
         headers['Content-type'] = 'application/json'
     if 'Accept' not in headers:
         headers['Accept'] = 'application/json'
-    if dryRun:
-        print('### HTTP reader call', url, headers, data)
-        return []
-    token = ''
-    fname = os.getenv(tokenEnv)
-    if not fname:
-        raise Exception(f'{tokenEnv} env variable is not set')
-    with open(fname, 'r') as istream:
-        token = istream.read()
+    token = readFoxdenToken(scope)
     if token:
         headers['Authorization'] = f'Bearer {token}'
     else:
         raise Exception(
-                f'Valid write token missing in {tokenEnv} env variable')
+                f'Unable to obtain token with scope {scope}')
+    if dryRun:
+        print('### HTTP reader call', url, headers, data)
+        return []
 
     # Make actual HTTP request to FOXDEN service
     if method.lower() == 'post':
