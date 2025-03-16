@@ -24,7 +24,7 @@ class FoxdenMetaDataReader(PipelineItem):
     def read(
             self, url, data, did='', query='', spec=None,
             method='GET', headers=None,
-            scope='read', timeout=10, dryRun=False, verbose=False):
+            scope='read', dryRun=False, verbose=False):
         """Read data from FOXDEN service
 
         :param url: URL of service.
@@ -44,8 +44,6 @@ class FoxdenMetaDataReader(PipelineItem):
         :type headers: dictionary, optional
         :param scope: FOXDEN scope to use, e.g. read or write
         :type scope: string
-        :param timeout: Timeout of HTTP request, defaults to `10`.
-        :type timeout: str, optional
         :param dryRun: `dryRun` option to verify HTTP workflow,
             defaults to `False`.
         :type dryRun: bool, optional
@@ -82,7 +80,7 @@ class FoxdenProvenanceReader(PipelineItem):
     """FOXDEN Provenance reader reads data from specific FOXDEN Provenance service."""
     def read(
             self, url, data, did='', method='GET', headers=None,
-            scope='read', timeout=10, dryRun=False, verbose=False):
+            scope='read', dryRun=False, verbose=False):
         """FOXDEN Provenance processor
 
         :param url: URL of service.
@@ -128,7 +126,7 @@ class FoxdenSpecScansReader(PipelineItem):
     def read(
             self, url, data, did='', query='', spec=None,
             method='GET', headers=None,
-            scope='read', timeout=10, dryRun=False, verbose=False):
+            scope='read', dryRun=False, verbose=False):
         """Read data from FOXDEN service
 
         :param url: URL of service.
@@ -148,8 +146,6 @@ class FoxdenSpecScansReader(PipelineItem):
         :type headers: dictionary, optional
         :param scope: FOXDEN scope to use, e.g. read or write
         :type scope: string
-        :param timeout: Timeout of HTTP request, defaults to `10`.
-        :type timeout: str, optional
         :param dryRun: `dryRun` option to verify HTTP workflow,
             defaults to `False`.
         :type dryRun: bool, optional
