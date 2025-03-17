@@ -36,13 +36,13 @@ class PyfaiIntegrationProcessor(Processor):
                      idx_slice.get('step')) for idx_slice in idx_slices)
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
-        nframes = len(input_data[list(ais.keys())[0]])
+        nframes = len(input_data[list(input_data.keys())[0]])
         for i, integration in enumerate(config.integrations):
             t0 = time.time()
-            self.logger.debug(f'Integrating {integration.name}...')
+            self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
             tf = time.time()
-            self.logger.debug(f'Integrated {integration.name} ({nframes/(tf-t0)} frames/sec)')
+            self.logger.info(f'Integrated {integration.name} ({nframes/(tf-t0)} frames/sec)')
             results.extend(
                 [
                     {
