@@ -15,6 +15,7 @@ from typing_extensions import Annotated
 
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
+
 class MyBaseModel(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -55,7 +56,6 @@ class PyfaiIntegrationConfig(MyBaseModel):
     _placeholder_result: PrivateAttr = None
 
     def integrate(self, ais, input_data):
-        from copy import deepcopy
         import numpy as np
         # Adjust azimuthal angles used (since pyfai has some odd conventions)
         chi_min, chi_max = self.multi_geometry.get('azimuth_range',
@@ -132,21 +132,18 @@ class PyfaiIntegrationConfig(MyBaseModel):
         self._placeholder_result = placeholder_result
 
     def get_multi_geometry(self, azimuthal_integrators):
-        from copy import deepcopy
         from pyFAI.multi_geometry import MultiGeometry
 
         ais = [azimuthal_integrators[name]
                for name in self.multi_geometry['ais']]
-        kwargs = deepcopy(self.multi_geometry)
-        del kwargs['ais']
+        kwargs = {k: v for k, v in self.multi_geometry.items() if k != 'ais'}
         return MultiGeometry(ais, **kwargs)
 
     def get_placeholder_data(self, azimuthal_integrators):
         import numpy as np
 
-        data = []
-        for ai in azimuthal_integrators.values():
-            data.append(np.full(ai.detector.shape, 0))
+        data = [np.full(azimuthal_integrators[name].detector.shape, 0)
+                for name in self.integration_params.get('lst_data', [])]
         return data
 
     def result_axes(self):
