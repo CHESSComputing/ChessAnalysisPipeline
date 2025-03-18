@@ -53,29 +53,11 @@ class PyfaiIntegrationConfig(MyBaseModel):
     integration_method: Literal[
         'integrate1d', 'integrate2d', 'integrate_radial']
     integration_params: dict
+    right_handed: bool = True
     _placeholder_result: PrivateAttr = None
 
     def integrate(self, ais, input_data):
         import numpy as np
-        # Adjust azimuthal angles used (since pyfai has some odd conventions)
-        chi_min, chi_max = self.multi_geometry.get('azimuth_range',
-                                                   (-180.0, 180.0))
-        # Force a right-handed coordinate system 
-        chi_min, chi_max = 360 - chi_max, 360 - chi_min
-
-        # If the discontinuity is crossed, artificially rotate the
-        # detectors to achieve a continuous azimuthal integration range 
-        chi_disc = self.multi_geometry.get('chi_disc', 180)
-        if chi_min < chi_disc and chi_max > chi_disc:
-            chi_offset = chi_max - chi_disc
-        else:
-            chi_offset = 0
-        chi_min -= chi_offset
-        chi_max -= chi_offset
-        for ai in ais.values():
-            ai.rot3 += chi_offset * np.pi/180.0
-        # Use adjusted azimuthal integration range
-        self.multi_geometry['azimuth_range'] = (chi_min, chi_max)
 
         if self.integration_method == 'integrate_radial':
             raise NotImplementedError
@@ -98,22 +80,17 @@ class PyfaiIntegrationConfig(MyBaseModel):
                     **integration_params)
                 for i in range(npts)
             ]
-            return results
-            # Integrate first frame, extract objects to perform
-            # integrations quicker from the result.
-            results = [None] * npts
-            results[0] = integration_method(
-                lst_data=[input_data[name][0]
-                          for name in self.integration_params['lst_data']],
-                **integration_params)
-            engine = mg.engines[results[0].method].engine
-            omega = mg.solidAngleArray()
-            for i in range(1, npts):
-                results[i] = engine.integrate_ng(
-                    lst_data=[input_data[name][i]
-                              for name in self.integration_params['lst_data']],
-                    **integration+params, solidangle=omega
-                )
+            if self.integration_method == 'integrate2d' and self.right_handed:
+                # Flip results along azimuthal axis
+                from pyFAI.containers import Integrate2dResult
+                results = [
+                    Integrate2dResult(
+                        np.flip(result.intensity, axis=0),
+                        result.radial, result.azimuthal
+                    )
+                    for result in results
+                ]
+
             return results
 
     def init_placeholder_results(self, azimuthal_integrators):
@@ -129,15 +106,45 @@ class PyfaiIntegrationConfig(MyBaseModel):
                                   if k != 'lst_data'}
             placeholder_result = integration_method(
                 lst_data=placeholder_data, **integration_params)
+            if self.integration_method == 'integrate2d' and self.right_handed:
+                # Flip results along azimuthal axis for a right-handed
+                # coordinate system
+                from pyFAI.containers import Integrate2dResult
+                placeholer_result = Integrate2dResult(
+                    np.flip(placeholder_result.intensity, axis=0),
+                    placeholer_result.radial, placeholer_result.azimuthal
+                )
+
         self._placeholder_result = placeholder_result
 
     def get_multi_geometry(self, azimuthal_integrators):
+        import numpy as np
         from pyFAI.multi_geometry import MultiGeometry
 
+        # Setup individual azimuthal integrators
         ais = [azimuthal_integrators[name]
                for name in self.multi_geometry['ais']]
-        kwargs = {k: v for k, v in self.multi_geometry.items() if k != 'ais'}
-        return MultiGeometry(ais, **kwargs)
+        # Adjust azimuthal angles used (since pyfai has some odd conventions)
+        chi_min, chi_max = self.multi_geometry.get('azimuth_range',
+                                                   (-180.0, 180.0))
+        # Force a right-handed coordinate system
+        chi_min, chi_max = 360 - chi_max, 360 - chi_min
+
+        # If the discontinuity is crossed, artificially rotate the
+        # detectors to achieve a continuous azimuthal integration range
+        chi_disc = self.multi_geometry.get('chi_disc', 180)
+        if chi_min < chi_disc and chi_max > chi_disc:
+            chi_offset = chi_max - chi_disc
+        else:
+            chi_offset = 0
+        chi_min -= chi_offset
+        chi_max -= chi_offset
+        for ai in ais:
+            ai.rot3 += chi_offset * np.pi/180.0
+
+        kwargs = {k: v for k, v in self.multi_geometry.items()
+                  if k not in ('ais', 'azimuth_range')}
+        return MultiGeometry(ais, azimuth_range=(chi_min, chi_max), **kwargs)
 
     def get_placeholder_data(self, azimuthal_integrators):
         import numpy as np
