@@ -487,9 +487,6 @@ class GiwaxsConversionProcessor(Processor):
             to the detector surface.
         :rtype: numpy.ndarray, numpy.ndarray
         """
-        # Third party modules
-        from pyFAI import load
-
         # Load the PONI file info:
         # PONI coordinates relative to the left bottom detector corner
         # viewed along the beam with the "1" and "2" directions along
@@ -583,6 +580,8 @@ class PyfaiIntegrationProcessor(Processor):
 
         # Local imports
         from CHAP.utils.general import nxcopy
+
+        nxsetconfig(memory=100000)
 
         # Load the detector data
         try:
@@ -722,9 +721,7 @@ class PyfaiIntegrationProcessor(Processor):
             self.logger.debug('data shape(s) after summing: '
                               f'{[(k, v.shape) for k, v in data.items()]}')
 
-        nxsetconfig(memory=100000)
-
-        # Apply the mask(s)
+        # Read the mask(s)
         masks = {}
         for ai in config.azimuthal_integrators:
             self.logger.debug(f'Reading {ai.mask_file}')
@@ -751,6 +748,8 @@ class PyfaiIntegrationProcessor(Processor):
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
             nxprocess.integration_config = integration.model_dump_json()
+            nxprocess.azimuthal_integrators = [
+                ai.model_dump_json() for ai in config.azimuthal_integrators]
 
             # Integrate the data
             results = integration.integrate(ais, data, masks)

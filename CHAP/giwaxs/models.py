@@ -60,8 +60,10 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
                     data['mask_file'] = mask_file
             if params is not None:
                 if poni_file is not None:
-                    raise ValueError(
-                        'Specify either poni_file or params, not both')
+                    print(
+                        'Specify either poni_file or params, not both, '
+                        'ignoring poni_file')
+                    poni_file = None
             elif poni_file is not None:
                 if inputdir is not None and not os.path.isabs(poni_file):
                     data['poni_file'] = poni_file
@@ -77,12 +79,22 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         :rtype: AzimuthalIntegratorConfig
         """
         if self.params is not None:
-            self.ai = AzimuthalIntegrator(**self.params)
+            self._ai = AzimuthalIntegrator(**self.params)
         elif self.poni_file is not None:
             # Third party modules
             from pyFAI import load
 
             self._ai = load(str(self.poni_file))
+            self.params = {
+                'detector': self._ai.detector.name,
+                'dist': self._ai.dist,
+                'poni1': self._ai.poni1,
+                'poni2': self._ai.poni2,
+                'rot1': self._ai.rot1,
+                'rot2': self._ai.rot2,
+                'rot3': self._ai.rot3,
+                'wavelength': self._ai.wavelength,
+            }
         return self
 
     @property

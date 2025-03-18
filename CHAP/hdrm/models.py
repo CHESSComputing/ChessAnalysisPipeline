@@ -4,10 +4,23 @@
 from typing import Optional
 
 # Third party modules
-from pydantic import confloat
+from pydantic import (
+    confloat,
+    conlist,
+)
 
 # Local modules
 from CHAP import CHAPBaseModel
+from CHAP.edd.models import MaterialConfig
+
+
+class HdrmOrmfinderConfig(CHAPBaseModel):
+    """Orm finder configuration class.
+
+    :ivar materials: Material parameters configurations.
+    :type material: list[CHAP.edd.models.MaterialConfig]
+    """
+    materials: conlist(item_type=MaterialConfig)
 
 
 class HdrmPeakfinderConfig(CHAPBaseModel):

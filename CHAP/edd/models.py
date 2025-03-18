@@ -232,6 +232,9 @@ class MaterialConfig(CHAPBaseModel):
 
         self._material = make_material(
             self.material_name, self.sgnum, self.lattice_parameters)
+        self.lattice_parameters = list([
+            x.getVal('angstrom') if x.isLength() else x.getVal('radians')
+            for x in self._material._lparms])
         return self
 
 
