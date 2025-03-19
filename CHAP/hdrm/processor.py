@@ -8,6 +8,7 @@ Description: Module for Processors used only by HDRM experiments
 """
 # System modules
 import os
+from time import time
 
 # Third party modules
 import numpy as np
@@ -116,6 +117,15 @@ class HdrmOrmfinderProcessor(Processor):
         self._mu = nxdata.mu.nxdata
         self._chi = nxdata.chi.nxdata
 
+        # Validate the azimuthal integrators and independent dimensions
+        ais = config.azimuthal_integrators
+        if len(ais) > 1:
+            raise RuntimeError(
+                'More than one azimuthal integrator not yet implemented')
+        if f'{ais[0].id}_peaks' not in nxdata:
+            raise RuntimeError('Unable to find detector data for '
+                               f'{ais[0].id} in {nxentry.tree}')
+
         # Create the NXdata object to store the ORM data
         nxprocess.data = NXdata()
         if 'axes' in nxdata.attrs:
@@ -127,20 +137,19 @@ class HdrmOrmfinderProcessor(Processor):
             nxprocess.data[k] = NXlink(os.path.join(nxdata.nxpath, k))
 
         # Find ORM and add the data to the NXprocess object
-        #FIX serialization only works for a single detector at this point
-        nxprocess.results = NXcollection()
-        azimuthal_integrators = loads(str(
-            nxroot[nxroot.default+'_hdrm_azimuthal'].azimuthal_integrators))
         nxentry = nxroot[nxroot.default]
-        detector_ids = [d.decode() for d in nxentry.detector_ids.nxdata]
+        nxprocess.results = NXcollection()
+        ais = {ai.id: ai.ai for ai in ais}
+        detector_ids = [d if isinstance(d, str) else d.decode()
+                        for d in nxentry.detector_ids.nxdata]
         for detector_id in detector_ids:
-            if detector_id != azimuthal_integrators['id']:
+            if detector_id not in ais:
                 raise ValueError(
                     f'Unable to match the detector ID {detector_id} to an '
                     'azimuthal integrator')
             nxpar = NXparameters()
             nxprocess.results[detector_id] = nxpar
-            ai = AzimuthalIntegratorConfig(**azimuthal_integrators).ai
+            ai = ais[detector_id]
             self._wavelenth = ai.wavelength*1.e10
             self._pol = ai.twoThetaArray()*np.cos(ai.chiArray()+(np.pi*0.5))
             self._az = -ai.twoThetaArray()*np.sin(ai.chiArray()+(np.pi*0.5))
@@ -148,18 +157,30 @@ class HdrmOrmfinderProcessor(Processor):
             num_peak = len(peaks)
             self.logger.info(f'Loaded {num_peak} peak points from file')
 
-            prelimflag = 0
+            prelim_flag = 0
             if num_peak > 75:
-                short_peak_list = peaks[30:]
-                short_num_peak = len(short_peak_list)
-                prelimflag = 1
+                peaks_prelim = peaks[30:]
+                prelim_flag = 1
             if num_peak > 600:
                 peaks = peaks[600:]
-                num_peak=len(peaklist)
+                num_peak = len(peaks)
 
             self._calcB(config.materials[0].lattice_parameters)
 
-            euler, chisq, UB = self._fit_peaks(peaks, T=0.002)
+            if (prelim_flag):
+                euler1, chisq1, _ = self._fit_peaks(
+                    peaks_prelim, x0=[0.2, 0.2, 0.2], T=0.002)
+                self.logger.info(f'Euler angles: {euler1}, chisq: {chisq1}')
+
+                euler2, chisq2, _ = self._fit_peaks(
+                    peaks_prelim, x0=[0.7, 0.8, 1.05], T=0.002)
+                self.logger.info(f'Euler angles: {euler2}, chisq: {chisq2}')
+
+                euler = euler1 if chisq1 < chisq2 else euler2
+            else:
+                euler = [0, 0, 0]
+
+            euler, chisq, UB = self._fit_peaks(peaks, x0=euler, T=0.002)
             self.logger.info(f'Euler angles: {euler}, chisq: {chisq}')
 
             euler, chisq, UB = self._fit_peaks(
@@ -262,6 +283,7 @@ class HdrmPeakfinderProcessor(Processor):
             NXroot,
             nxsetconfig,
         )
+        from skimage.feature import peak_local_max
 
         # Local modules
         from CHAP.edd.processor import get_axes
@@ -301,22 +323,27 @@ class HdrmPeakfinderProcessor(Processor):
                 raise RuntimeError from exc
 
         # Add the NXprocess object to the NXroot
+        nxentry = nxroot[nxroot.default]
+        nxdata = nxentry[nxentry.default]
+        detector_ids = [d if isinstance(d, str) else d.decode()
+                        for d in nxentry.detector_ids.nxdata]
         nxprocess = NXprocess()
         try:
             nxroot[f'{nxroot.default}_peaks'] = nxprocess
+            exclude_raw_data = False
         except Exception:
             # Local imports
             from CHAP.utils.general import nxcopy
 
             # Copy nxroot if nxroot is read as read-only
-            nxroot = nxcopy(nxroot)
+            for detector_id in detector_ids:
+                exclude_nxpaths = \
+                    f'{nxroot.default}/{nxentry.default}/{detector_id}'
+            nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_nxpaths)
             nxroot[f'{nxroot.default}_peaks'] = nxprocess
+            nxentry = nxroot[nxroot.default]
+            exclude_raw_data = True
         nxprocess.peakfinder_config = config.model_dump_json()
-
-        # Load the detector ids, images and scalar data
-        nxentry = nxroot[nxroot.default]
-        nxdata = nxentry[nxentry.default]
-        nxscalardata = nxentry.scalar_data
 
         # Create the NXdata object to store the peaks data
         axes = get_axes(nxdata)
@@ -327,18 +354,38 @@ class HdrmPeakfinderProcessor(Processor):
             nxprocess.data.attrs['unstructured_axes'] = \
                 nxdata.attrs['unstructured_axes']
         for k in nxdata:
-            nxprocess.data[k] = NXlink(os.path.join(nxdata.nxpath, k))
+            if not (exclude_raw_data and k in detector_ids):
+                nxprocess.data[k] = NXlink(os.path.join(nxdata.nxpath, k))
+        nxscalardata = nxentry.scalar_data
         for k in nxscalardata:
             nxprocess.data[k] = NXlink(os.path.join(nxscalardata.nxpath, k))
 
         # Find peaks and add the data to the NXprocess object
-        detector_ids = [d.decode() for d in nxentry.detector_ids.nxdata]
         for detector_id in detector_ids:
-            intensity = nxdata[detector_id]
-            peak_max = intensity.max()
-            peaks = np.asarray(
-                np.where(intensity > config.peak_cutoff * peak_max)).T
-            nxprocess.data[f'{detector_id}_peaks'] = peaks
+            intensity = nxdata[detector_id].nxdata
+            detector_attrs = nxdata[detector_id].attrs
+            if 'max' in nxdata[detector_id].attrs:
+                peak_cutoff = \
+                    config.peak_cutoff * nxdata[detector_id].attrs['max']
+            else:
+                peak_cutoff = config.peak_cutoff * intensity.max()
+            self.logger.debug(f'Starting peak finding...')
+            t0 = time()
+            peaks = np.asarray(np.where(intensity > peak_cutoff)).T
+            self.logger.debug(
+                f'Found {len(peaks)} peaks in {time()-t0:.2f} seconds')
+
+            self.logger.debug(f'Starting peak finding...')
+            t0 = time()
+            peaks = []
+            for i, plane in enumerate(intensity):
+                peaks_plane = peak_local_max(
+                    plane, min_distance=1, threshold_abs=peak_cutoff)
+                for peak in peaks_plane:
+                    peaks.append([i]+peak.tolist())
+            self.logger.debug(
+                f'Found {len(peaks)} peaks in {time()-t0:.2f} seconds')
+            nxprocess.data[f'{detector_id}_peaks'] = np.asarray(peaks)
         nxprocess.detector_ids = detector_ids
 
         return nxroot

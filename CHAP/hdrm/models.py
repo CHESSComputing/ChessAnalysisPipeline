@@ -12,14 +12,21 @@ from pydantic import (
 # Local modules
 from CHAP import CHAPBaseModel
 from CHAP.edd.models import MaterialConfig
+from CHAP.giwaxs.models import AzimuthalIntegratorConfig
 
 
 class HdrmOrmfinderConfig(CHAPBaseModel):
     """Orm finder configuration class.
 
+    :ivar azimuthal_integrators: List of azimuthal integrator
+        configurations.
+    :type azimuthal_integrators: list[
+        CHAP.giwaxs.models.AzimuthalIntegratorConfig]
     :ivar materials: Material parameters configurations.
     :type material: list[CHAP.edd.models.MaterialConfig]
     """
+    azimuthal_integrators: conlist(
+        min_length=1, item_type=AzimuthalIntegratorConfig)
     materials: conlist(item_type=MaterialConfig)
 
 
