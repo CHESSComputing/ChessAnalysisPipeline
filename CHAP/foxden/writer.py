@@ -1,11 +1,26 @@
-"""FOXDEN command line writer."""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+#pylint: disable=
+"""
+File       : writer.py
+Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
+Description: FOXDEN writers
+"""
 
-class FoxdenWriter():
-    """FOXDEN writer writes data to specific FOXDEN service."""
+# system modules
+from time import time
+import json
+
+# CHAP modules
+from CHAP.foxden.utils import HttpRequest
+from CHAP.pipeline import PipelineItem
+
+
+class FoxdenMetaDataWriter(PipelineItem):
+    """FOXDEN writer writes data to MetaData FOXDEN service."""
     def write(
-            self, data, url, method='POST', headers=None, timeout=10,
-            dryRun=False):
-        """Write the input data as text to a file.
+            self, url, data, method='POST', headers=None, verbose=False):
+        """Write data to FOXDEN Provenance service
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -16,51 +31,67 @@ class FoxdenWriter():
         :type method: str, optional
         :param headers: HTTP headers to use.
         :type headers: dictionary, optional
-        :param timeout: Timeout of HTTP request, defaults to `10`.
-        :type timeout: str, optional
-        :param dryRun: `dryRun` option to verify HTTP workflow,
-            defaults to `False`.
-        :type dryRun: bool, optional
-        :return: Contents of the input data.
-        :rtype: object
+        :param verbose: verbose output
+        :type verbose: bool, optional
+        :return: HTTP response from FOXDEN provenance service
+        :rtype: list with dictionary entry
         """
-        # System modules
-        import os
+        t0 = time()
+        self.logger.info(
+            f'Executing "process" with url={url} data={data}')
+        # TODO: it would be useful to perform validation of data
+        if isinstance(data, list) and len(data) == 1:
+            data = data[0]['data'][0]
+        if not isinstance(data, dict):
+            raise Exception(f'Passed data={data} is not dictionary')
+        mrec = {"Schema": "Analysis", "Record": data}
+        payload = json.dumps(mrec)
+        if verbose:
+            self.logger.info(f"method=POST url={url} payload={payload}")
+        response = HttpRequest(url, payload, method='POST', scope='write')
+        if verbose:
+            self.logger.info(f"code={response.status_code} data={response.text}")
+        data = [{'code': response.status_code, 'data': response.text}]
+        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
+        return data
 
-        # Third party modules
-        import requests
+class FoxdenProvenanceWriter(PipelineItem):
+    """FOXDEN writer writes data to provenance FOXDEN service."""
+    def write(
+            self, url, data, method='POST', headers=None, verbose=False):
+        """Write data to FOXDEN Provenance service
 
-        if headers is None:
-            headers = {}
-        if 'Content-Type' not in headers:
-            headers['Content-type'] = 'application/json'
-        if 'Accept' not in headers:
-            headers['Accept'] = 'application/json'
-        if dryRun:
-            print('### HTTP writer call', url, headers, data)
-            return []
-        token = ''
-        fname = os.getenv('CHESS_WRITE_TOKEN')
-        if not fname:
-            raise Exception('CHESS_WRITE_TOKEN env variable is not set')
-        with open(fname, 'r') as istream:
-            token = istream.read()
-        if token:
-            headers['Authorization'] = f'Bearer {token}'
-        else:
-            raise Exception(
-                'Valid write token missing in CHESS_WRITE_TOKEN env variable')
-
-        # Make actual HTTP request to FOXDEN service
-        if method.lower() == 'post':
-            resp = requests.post(
-                url, headers=headers, timeout=timeout, data=data)
-        elif method.lower() == 'put':
-            resp = requests.put(
-                url, headers=headers, timeout=timeout, data=data)
-        else:
-            raise Exception(f'unsupporteed method {method}')
-        data = resp.content
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param url: URL of service.
+        :type url: str
+        :param method: HTTP method to use, `"POST"` for creation and
+            `"PUT"` for update, defaults to `"POST"`.
+        :type method: str, optional
+        :param headers: HTTP headers to use.
+        :type headers: dictionary, optional
+        :param verbose: verbose output
+        :type verbose: bool, optional
+        :return: HTTP response from FOXDEN provenance service
+        :rtype: list with dictionary entry
+        """
+        t0 = time()
+        self.logger.info(
+            f'Executing "process" with url={url} data={data}')
+        rurl = f'{url}/dataset'
+        # TODO: it would be useful to perform validation of data
+        if isinstance(data, list) and len(data) == 1:
+            data = data[0]['data'][0]
+        if not isinstance(data, dict):
+            raise Exception(f'Passed data={data} is not dictionary')
+        payload = json.dumps(data)
+        if verbose:
+            self.logger.info(f"method=POST url={rurl} payload={payload}")
+        response = HttpRequest(rurl, payload, method='POST', scope='write')
+        if verbose:
+            self.logger.info(f"code={response.status_code} data={response.text}")
+        data = [{'code': response.status_code, 'data': response.text}]
+        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
 
 
