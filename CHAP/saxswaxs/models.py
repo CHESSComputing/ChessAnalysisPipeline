@@ -310,7 +310,8 @@ class PyfaiIntegrationProcessorConfig(MyBaseModel):
                         }
                     },
                     **{integration.name: integration.zarr_tree(
-                        dataset_shape, dataset_chunks)},
+                        dataset_shape, dataset_chunks)
+                       for integration in self.integrations},
                 }
             }
         }
