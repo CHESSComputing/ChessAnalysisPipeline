@@ -1581,10 +1581,16 @@ class MapProcessor(Processor):
         detector_ids = []
         for k, v in map_config.attrs.items():
             nxdata.attrs[k] = v
+        min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+        max_ = np.max(data, axis=tuple(range(1, data.ndim)))
         for i, detector in enumerate(detector_config.detectors):
-            nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
+            nxdata[detector.id] = NXfield(
+                value=data[i],
+                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
             detector_ids.append(detector.id)
         linkdims(nxdata, nxentry.independent_dimensions)
+        if len(detector_config.detectors) == 1:
+            nxdata.attrs['signal'] = detector_config.detectors[0].id
         nxentry.detector_ids = detector_ids
 
         return nxroot

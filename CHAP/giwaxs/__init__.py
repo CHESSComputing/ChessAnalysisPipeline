@@ -2,7 +2,7 @@
 processing workflows.
 """
 
-#from CHAP.giwaxs.models import GiwaxsConversionProcessorConfig
+#from CHAP.giwaxs.models import PyfaiIntegrationConfig
 from CHAP.giwaxs.processor import (
     GiwaxsConversionProcessor,
     PyfaiIntegrationProcessor,

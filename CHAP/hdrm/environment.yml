@@ -1,0 +1,17 @@
+name: CHAP_hdrm
+channels:
+  - conda-forge
+  - hexrd
+  - nodefaults
+dependencies:
+  - python>=3.9,<3.11
+#  - chessanalysispipeline
+  - hexrd==0.9.4
+  - nexpy==1.0.9
+  - nexusformat==1.0.6
+#  - pip==24.2
+  - pyfai==2025.1.0
+  - pydantic==2.7.3
+#  - pip:
+    - certif-pyspec==1.5.3
+#    - chess-scanparsers
