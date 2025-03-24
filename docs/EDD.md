@@ -33,11 +33,11 @@ conda activate CHAP_edd
    conda activate CHAP_edd
    ```
 
-## Running an EDD reconstruction
+## Running an EDD workflow
 
 1. Navigate to your work directory.
 1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. 
-1. Run the reconstruction:
+1. Run the workflow:
    ```bash
    CHAP <pipelinefilename>
    ```
@@ -74,7 +74,7 @@ pipeline:
       config:
         station: id3a
         experiment_type: EDD
-        spec_scans: # Edit: spec.log path and tomography scan numbers
+        spec_scans: # Edit: spec.log path and scan numbers
                     # Path can be relative to inputdir (line 2) or absolute
           - spec_file: <your_raw_ceria_data_directory>/spec.log
             scan_numbers: 1
@@ -102,7 +102,7 @@ pipeline:
             config:
               station: id3a
               experiment_type: EDD
-              spec_scans: # Edit: spec.log path and tomography scan numbers
+              spec_scans: # Edit: spec.log path and scan numbers
                           # Path can be relative to inputdir (line 2) or absolute
                 - spec_file: <your_raw_ceria_data_directory>/spec.log
                   scan_numbers: 1
@@ -172,7 +172,7 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `profile`: Runs the pipeline in a [Python profiler](https://docs.python.org/3/library/profile.html).
 
-The "pipeline" block creates the actual workflow pipeline, it this example it consists of nine toplevel processes that get executed successively:
+The "pipeline" block creates the actual workflow pipeline, in this example it consists of nine toplevel processes that get executed successively:
 
 - The EDD/XRF energy calibration consists of two processes:
 
@@ -196,9 +196,9 @@ The "pipeline" block creates the actual workflow pipeline, it this example it co
 
     - `common.YAMLReader` under `pipeline.MultiplePipelineItem`: A processor that reads the energy/$`2\theta`$ calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.
 
-    - `edd.StrainAnalysisProcessor`: A processor that perfroms the actual strain analysis and creates a single Nexus object with the starin analysis results as well as all metadata pertaining to the workflow.
+    - `edd.StrainAnalysisProcessor`: A processor that perfroms the actual strain analysis and creates a single Nexus object with the strain analysis results as well as all metadata pertaining to the workflow.
 
-    - `common.NexusWriter`: A processor that writes the starin analysis results to a NeXus file.
+    - `common.NexusWriter`: A processor that writes the strain analysis results to a NeXus file.
 
 Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first four processes in the pipeline and read the detector channel energy calibration info in what is now the third item in the pipeline.
 

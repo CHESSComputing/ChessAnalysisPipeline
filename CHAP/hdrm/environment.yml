@@ -7,11 +7,13 @@ dependencies:
   - python>=3.9,<3.11
 #  - chessanalysispipeline
   - hexrd==0.9.4
+  - mpi4py==4.0.3
   - nexpy==1.0.9
   - nexusformat==1.0.6
-#  - pip==24.2
-  - pyfai==2025.1.0
+  - pip==24.2
   - pydantic==2.7.3
-#  - pip:
+  - pyfai==2025.1.0
+  - scikit-image==0.25.2
+  - pip:
     - certif-pyspec==1.5.3
 #    - chess-scanparsers
