@@ -16,8 +16,8 @@ from CHAP.foxden.utils import HttpRequest
 from CHAP.pipeline import PipelineItem
 
 
-class FoxdenMetaDataWriter(PipelineItem):
-    """FOXDEN writer writes data to MetaData FOXDEN service."""
+class FoxdenMetadataWriter(PipelineItem):
+    """FOXDEN writer writes data to Metadata FOXDEN service."""
     def write(
             self, url, data, method='POST', headers=None, verbose=False):
         """Write data to FOXDEN Provenance service

@@ -14,11 +14,11 @@ from time import time
 from CHAP.processor import Processor
 from CHAP.common import osinfo, environments
 
-class FoxdenMetaDataProcessor(Processor):
-    """A Processor to communicate with FOXDEN MetaData server."""
+class FoxdenMetadataProcessor(Processor):
+    """A Processor to communicate with FOXDEN Metadata server."""
 
     def process(self, data, suffix='analysis=CHAP', verbose=False):
-        """FOXDEN MetaData processor
+        """FOXDEN Metadata processor
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -26,7 +26,7 @@ class FoxdenMetaDataProcessor(Processor):
         :type suffix: string, optional
         :param verbose: verbose output
         :type verbose: bool, optional
-        :return: data from FOXDEN MetaData service
+        :return: data from FOXDEN Metadata service
         """
         t0 = time()
         self.logger.info(
