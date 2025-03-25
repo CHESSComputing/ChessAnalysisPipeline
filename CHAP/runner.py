@@ -120,11 +120,11 @@ def main():
         if run_config.spawn > 0:
             with open(f'{configfile}_{common_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config'), common_comm)
+                run_config = RunConfig(config.pop('config'), common_comm)
         else:
             with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config'), comm)
+                run_config = RunConfig(config.pop('config'), comm)
     else:
         common_comm = comm
 
@@ -174,7 +174,7 @@ def runner(run_config, pipeline_config, comm=None):
     # System modules
     from time import time
 
-    # logging setup
+    # Logging setup
     logger, log_handler = set_logger(run_config.log_level)
     logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
@@ -184,6 +184,7 @@ def runner(run_config, pipeline_config, comm=None):
         run_config.inputdir, run_config.outputdir, run_config.interactive,
         logger, run_config.log_level, log_handler, comm)
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
+
     return data
 
 def set_logger(log_level='INFO'):
