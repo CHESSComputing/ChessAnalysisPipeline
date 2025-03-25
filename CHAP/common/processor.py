@@ -1315,6 +1315,7 @@ class MapProcessor(Processor):
             except:
                 self.logger.warning('Unable to load mpi4py, running serially')
                 num_proc = 1
+        self.logger.debug(f'Number of processors: {num_proc}')
 
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1343,7 +1344,7 @@ class MapProcessor(Processor):
                 num = scans_per_proc
                 if n_proc < num_scan - scans_per_proc*num_proc:
                     num += 1
-                config = map_config.model_dump_json()
+                config = map_config.model_dump()
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
@@ -1427,11 +1428,9 @@ class MapProcessor(Processor):
                 os.remove(tmp_name)
 
         # Construct the NeXus NXroot object
-        nxroot = self._get_nxroot(
+        return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
             all_scalar_data, placeholder_data)
-
-        return nxroot
 
     def _get_nxroot(
             self, map_config, detector_config, data, independent_dimensions,
@@ -1913,6 +1912,7 @@ class MPICollectProcessor(Processor):
                         data = [comm.recv(source=n_worker)]
                     else:
                         data.append(comm.recv(source=n_worker))
+        #FIX RV TODO Merge the list of data items in some generic fashion
         return data
 
 
@@ -1920,13 +1920,24 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, sub_pipeline=None):
+    def process(self, data, sub_pipeline=None, inputdir='.', outputdir='.',
+            interactive=False, log_level='INFO'):
         """Run a parallel generic sub-pipeline.
 
         :param data: Input data.
         :type data: list[PipelineData]
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
@@ -1946,7 +1957,7 @@ class MPIMapProcessor(Processor):
 
         # Get the map configuration from data
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data, 'common.models.map.MapConfig', inputdir=inputdir)
 
         # Create the spec reader configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -1970,7 +1981,10 @@ class MPIMapProcessor(Processor):
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = RunConfig(sub_pipeline.get('config'), comm)
+        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
+            'interactive': interactive, 'log_level': log_level}
+        run_config.update(sub_pipeline.get('config'))
+        run_config = RunConfig(run_config, comm)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -1987,8 +2001,8 @@ class MPIMapProcessor(Processor):
         # Run the sub-pipeline on each processor
         return run(
             pipeline_config, inputdir=run_config.inputdir,
-            outputdir=run_config.outputdir,
-            interactive=run_config.interactive, comm=comm)
+            outputdir=run_config.outputdir, interactive=run_config.interactive,
+            logger=self.logger, comm=comm)
 
 
 class MPISpawnMapProcessor(Processor):
@@ -1997,7 +2011,8 @@ class MPISpawnMapProcessor(Processor):
     """
     def process(
             self, data, num_proc=1, root_as_worker=True, collect_on_root=True,
-            sub_pipeline=None):
+            sub_pipeline=None, inputdir='.', outputdir='.', interactive=False,
+            log_level='INFO'):
         """Spawn workers running a parallel generic sub-pipeline.
 
         :param data: Input data.
@@ -2012,6 +2027,16 @@ class MPISpawnMapProcessor(Processor):
         :type collect_on_root: bool, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
@@ -2034,12 +2059,15 @@ class MPISpawnMapProcessor(Processor):
 
         # Get the map configuration from data
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data, 'common.models.map.MapConfig', inputdir=inputdir)
 
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = RunConfig(config=sub_pipeline.get('config'))
+        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
+            'interactive': interactive, 'log_level': log_level}
+        run_config.update(sub_pipeline.get('config'))
+        run_config = RunConfig(run_config)
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -3355,28 +3383,28 @@ class XarrayToNumpyProcessor(Processor):
         return self.unwrap_pipelinedata(data)[-1].data
 
 
-class SumProcessor(Processor):
-    """A Processor to sum the data in a NeXus NXobject, given a set of
-    nxpaths.
-    """
-    def process(self, data):
-        """Return the summed data array
-
-        :param data:
-        :type data:
-        :return: The summed data.
-        :rtype: numpy.ndarray
-        """
-        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
-        if len(nxpaths) == 1:
-            return nxentry[nxpaths[0]]
-        sum_data = deepcopy(nxentry[nxpaths[0]])
-        for nxpath in nxpaths[1:]:
-            nxdata = nxentry[nxpath]
-            for entry in nxdata.entries:
-                sum_data[entry] += nxdata[entry]
-
-        return sum_data
+#class SumProcessor(Processor):
+#    """A Processor to sum the data in a NeXus NXobject, given a set of
+#    nxpaths.
+#    """
+#    def process(self, data):
+#        """Return the summed data array
+#
+#        :param data:
+#        :type data:
+#        :return: The summed data.
+#        :rtype: numpy.ndarray
+#        """
+#        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
+#        if len(nxpaths) == 1:
+#            return nxentry[nxpaths[0]]
+#        sum_data = deepcopy(nxentry[nxpaths[0]])
+#        for nxpath in nxpaths[1:]:
+#            nxdata = nxentry[nxpath]
+#            for entry in nxdata.entries:
+#                sum_data[entry] += nxdata[entry]
+#
+#        return sum_data
 
 
 if __name__ == '__main__':

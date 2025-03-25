@@ -77,8 +77,6 @@ def main(opt_parser=OptionParser):
     processor.logger.addHandler(log_handler)
     data = processor.process(opts.data)
 
-    print(f'Processor {processor} operates on data {data}')
-
 
 if __name__ == '__main__':
     main()
