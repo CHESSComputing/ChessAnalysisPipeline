@@ -2,7 +2,8 @@
 """
 
 from CHAP.foxden.processor import \
-        FoxdenProvenanceProcessor, FoxdenMetaDataProcessor
+        FoxdenProvenanceProcessor, FoxdenMetadataProcessor
 from CHAP.foxden.reader import \
-        FoxdenMetaDataReader, FoxdenProvenanceReader, FoxdenSpecScansReader
-from CHAP.foxden.writer import FoxdenProvenanceWriter, FoxdenMetaDataWriter
+        FoxdenMetadataReader, FoxdenProvenanceReader, FoxdenSpecScansReader
+from CHAP.foxden.writer import FoxdenProvenanceWriter, FoxdenMetadataWriter \
+        FoxdenDoiWriter

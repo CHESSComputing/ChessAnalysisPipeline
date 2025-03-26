@@ -9,21 +9,16 @@ Description: Processor module for FOXDEN services
 
 # System modules
 from time import time
-import os
-import sys
-import platform
-import pkg_resources
-import subprocess
-import json
 
 # Local modules
 from CHAP.processor import Processor
+from CHAP.common import osinfo, environments
 
-class FoxdenMetaDataProcessor(Processor):
-    """A Processor to communicate with FOXDEN MetaData server."""
+class FoxdenMetadataProcessor(Processor):
+    """A Processor to communicate with FOXDEN Metadata server."""
 
     def process(self, data, suffix='analysis=CHAP', verbose=False):
-        """FOXDEN MetaData processor
+        """FOXDEN Metadata processor
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -31,7 +26,7 @@ class FoxdenMetaDataProcessor(Processor):
         :type suffix: string, optional
         :param verbose: verbose output
         :type verbose: bool, optional
-        :return: data from FOXDEN MetaData service
+        :return: data from FOXDEN Metadata service
         """
         t0 = time()
         self.logger.info(
@@ -42,7 +37,13 @@ class FoxdenMetaDataProcessor(Processor):
             for rec in item['data']:  # get data part of processing item
                 if 'did' not in rec:
                     raise Exception('No did found in input data record')
-                did = rec['did'] + '/' + suffix
+                if '/analysis=' in rec['did']:
+                    # we should strip it off if it is last part of did
+                    arr = rec['did'].split('/')
+                    if '/analysis=' in arr[-1]:
+                        did = '/'.join(arr[:-1]) + '/' + suffix
+                else:
+                    did = rec['did'] + '/' + suffix
                 # construct analysis record
                 rec = {'did': did, 'application': 'CHAP'}
                 output.append(rec)
@@ -83,82 +84,6 @@ class FoxdenProvenanceProcessor(Processor):
                 output.append(rec)
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return output
-
-def osinfo():
-    """
-    Helper function to provide osinfo
-    """
-    os_info = {
-        "name": platform.system().lower() + "-" + platform.release(),
-        "kernel": platform.version(),
-        "version": platform.platform()
-    }
-    return os_info
-
-def environments():
-    """
-    Detects the current Python environment (system, virtualenv, or Conda) and
-    collects package information. Returns a list of detected environments with
-    installed packages.
-    """
-    environments = []
-    os_name = platform.system().lower() + "-" + platform.release()
-
-    # Check for Conda environment
-    conda_env = os.getenv("CONDA_PREFIX")
-    if conda_env:
-        conda_env_name = os.getenv("CONDA_DEFAULT_ENV", "unknown-conda-env")
-        try:
-            # Fetch Conda packages
-            conda_packages = subprocess.check_output(["conda", "list", "--json"], text=True)
-            conda_packages = json.loads(conda_packages)
-            packages = [{"name": pkg["name"], "version": pkg["version"]} for pkg in conda_packages]
-        except Exception:
-            packages = []
-
-        environments.append({
-            "name": conda_env_name,
-            "version": sys.version.split()[0],
-            "details": "Conda environment",
-            "parent_environment": None,
-            "os_name": os_name,
-            "packages": packages
-        })
-
-    # Check for Virtualenv (excluding Conda)
-    elif hasattr(sys, 'real_prefix') or os.getenv("VIRTUAL_ENV"):
-        venv_name = os.path.basename(os.getenv("VIRTUAL_ENV", "unknown-venv"))
-        packages = [
-            {"name": pkg.key, "version": pkg.version}
-            for pkg in pkg_resources.working_set
-        ]
-
-        environments.append({
-            "name": venv_name,
-            "version": sys.version.split()[0],
-            "details": "Virtualenv environment",
-            "parent_environment": None,
-            "os_name": os_name,
-            "packages": packages
-        })
-
-    # System Python (not inside Conda or Virtualenv)
-    else:
-        packages = [
-            {"name": pkg.key, "version": pkg.version}
-            for pkg in pkg_resources.working_set
-        ]
-
-        environments.append({
-            "name": "system-python",
-            "version": sys.version.split()[0],
-            "details": "System-wide Python",
-            "parent_environment": None,
-            "os_name": os_name,
-            "packages": packages
-        })
-
-    return environments
 
 def inputFiles():
     """

@@ -19,8 +19,8 @@ from CHAP.foxden.utils import HttpRequest
 from CHAP.pipeline import PipelineItem
 
 
-class FoxdenMetaDataReader(PipelineItem):
-    """FOXDEN MetaData reader reads data from specific FOXDEN MetaData service."""
+class FoxdenMetadataReader(PipelineItem):
+    """FOXDEN Metadata reader reads data from specific FOXDEN Metadata service."""
     def read(
             self, url, data, did='', query='', spec=None,
             method='GET', headers=None,
@@ -56,7 +56,7 @@ class FoxdenMetaDataReader(PipelineItem):
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
         rurl = f'{url}/search'
-        request = {"client": "CHAP-FoxdenMetaDataReader", "service_query": {}}
+        request = {"client": "CHAP-FoxdenMetadataReader", "service_query": {}}
         if did and did != "":
             request["service_query"].update({"spec": {"did": did}})
         if query and query != "":

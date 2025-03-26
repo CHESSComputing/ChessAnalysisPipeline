@@ -16,8 +16,8 @@ from CHAP.foxden.utils import HttpRequest
 from CHAP.pipeline import PipelineItem
 
 
-class FoxdenMetaDataWriter(PipelineItem):
-    """FOXDEN writer writes data to MetaData FOXDEN service."""
+class FoxdenMetadataWriter(PipelineItem):
+    """FOXDEN writer writes data to Metadata FOXDEN service."""
     def write(
             self, url, data, method='POST', headers=None, verbose=False):
         """Write data to FOXDEN Provenance service
@@ -93,6 +93,57 @@ class FoxdenProvenanceWriter(PipelineItem):
         data = [{'code': response.status_code, 'data': response.text}]
         self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
+
+class FoxdenDoiWriter(PipelineItem):
+    """FOXDEN writer writes data to DOI FOXDEN service."""
+    def write(
+            self, url, data, provider="Datacite", description="", draft=True, publishMetadata=True, verbose=False):
+        """Write data to FOXDEN DOI service
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param url: URL of service.
+        :type url: str
+        :param provider: DOI provider name, e.g. Zenodo, Datacite, Materialcommons
+        :type provider: str
+        :param description: description of dataset
+        :type description: str
+        :param draft: draft DOI
+        :type draft: bool, optional (default True)
+        :param publishMetadata: publish metadata with DOI
+        :type publishMetadata: bool, optional (default True)
+        :param verbose: verbose output
+        :type verbose: bool, optional
+        :return: HTTP response from FOXDEN provenance service
+        :rtype: list with dictionary entry
+        """
+        t0 = time()
+        self.logger.info(
+            f'Executing "process" with url={url} data={data}')
+        rurl = f'{url}/publish'
+        # TODO: it would be useful to perform validation of data
+        if isinstance(data, list) and len(data) == 1:
+            data = data[0]['data'][0]
+        if not isinstance(data, dict):
+            raise Exception(f'Passed data={data} is not dictionary')
+        draft_str = "on" if draft else ""
+        publish_meta = "on" if publishMetadata else ""
+        form_data = {
+            "did": did,
+            "provider": provider.lower(),
+            "draft": draft_str,
+            "metadata": publish_meta,
+            "description": description
+        }
+        if verbose:
+            self.logger.info(f"method=POST url={rurl} payload={payload}")
+        response = HttpRequest(rurl, form_data, method='POST', scope='write')
+        if verbose:
+            self.logger.info(f"code={response.status_code} data={response.text}")
+        data = [{'code': response.status_code, 'data': response.text}]
+        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
+        return data
+
 
 
 if __name__ == '__main__':
