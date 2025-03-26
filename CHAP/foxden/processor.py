@@ -37,7 +37,13 @@ class FoxdenMetadataProcessor(Processor):
             for rec in item['data']:  # get data part of processing item
                 if 'did' not in rec:
                     raise Exception('No did found in input data record')
-                did = rec['did'] + '/' + suffix
+                if '/analysis=' in rec['did']:
+                    # we should strip it off if it is last part of did
+                    arr = rec['did'].split('/')
+                    if '/analysis=' in arr[-1]:
+                        did = '/'.join(arr[:-1]) + '/' + suffix
+                else:
+                    did = rec['did'] + '/' + suffix
                 # construct analysis record
                 rec = {'did': did, 'application': 'CHAP'}
                 output.append(rec)
