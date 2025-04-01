@@ -1921,24 +1921,28 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, sub_pipeline=None, inputdir='.', outputdir='.',
-            interactive=False, log_level='INFO'):
+    def process(self, data, config=None, sub_pipeline=None, inputdir=None,
+            outputdir=None, interactive=None, log_level=None):
         """Run a parallel generic sub-pipeline.
 
         :param data: Input data.
         :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            common.models.map.MapConfig.
+        :type config: dict, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
         :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
+            input configuration are not absolute paths.
         :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
+            be saved.
         :type outputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
+        :param interactive: Allows for user interactions.
         :type interactive: bool, optional
+        :ivar log_level: Logger level (not case sesitive).
+        :type log_level: Literal[
+            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
@@ -1956,11 +1960,24 @@ class MPIMapProcessor(Processor):
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
 
-        # Get the map configuration from data
-        map_config = self.get_config(
-            data, 'common.models.map.MapConfig', inputdir=inputdir)
+        # Get the validated map configuration
+        try:
+            map_config = self.get_config(
+                data, 'common.models.map.MapConfig', inputdir=inputdir)
+        except:
+            self.logger.info('No valid Map configuration in input pipeline '
+                             'data, using config parameter instead.')
+            try:
+                # Local modules
+                from CHAP.common.models.map import MapConfig
+
+                map_config = MapConfig(**config, inputdir=inputdir)
+            except Exception as exc:
+                raise RuntimeError from exc
 
         # Create the spec reader configuration for each processor
+        # FIX: catered to EDD with one spec scan
+        assert len(map_config.spec_scans) == 1
         spec_scans = map_config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
@@ -1985,7 +2002,7 @@ class MPIMapProcessor(Processor):
         run_config = {'inputdir': inputdir, 'outputdir': outputdir,
             'interactive': interactive, 'log_level': log_level}
         run_config.update(sub_pipeline.get('config'))
-        run_config = RunConfig(**run_config, comm=comm, logger=self.logger)
+        run_config = RunConfig(**run_config, comm=comm)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -2000,10 +2017,7 @@ class MPIMapProcessor(Processor):
             pipeline_config.append(item)
 
         # Run the sub-pipeline on each processor
-        return run(
-            pipeline_config, inputdir=run_config.inputdir,
-            outputdir=run_config.outputdir, interactive=run_config.interactive,
-            logger=self.logger, comm=comm)
+        return run(run_config, pipeline_config, logger=self.logger, comm=comm)
 
 
 class MPISpawnMapProcessor(Processor):
@@ -2011,9 +2025,9 @@ class MPISpawnMapProcessor(Processor):
     a map configuration by spawning workers processes.
     """
     def process(
-            self, data, num_proc=1, root_as_worker=True, collect_on_root=True,
-            sub_pipeline=None, inputdir='.', outputdir='.', interactive=False,
-            log_level='INFO'):
+            self, data, num_proc=1, root_as_worker=True, collect_on_root=False,
+            sub_pipeline=None, inputdir=None, outputdir=None, interactive=None,
+            log_level=None):
         """Spawn workers running a parallel generic sub-pipeline.
 
         :param data: Input data.
@@ -2024,7 +2038,7 @@ class MPISpawnMapProcessor(Processor):
             defaults to `True`.
         :type root_as_worker: bool, optional
         :param collect_on_root: Collect the result of the spawned
-            workers on the root node, defaults to `True`.
+            workers on the root node, defaults to `False`.
         :type collect_on_root: bool, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
@@ -2038,6 +2052,9 @@ class MPISpawnMapProcessor(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
+        :ivar log_level: Logger level (not case sesitive).
+        :type log_level: Literal[
+            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
@@ -2144,7 +2161,7 @@ class MPISpawnMapProcessor(Processor):
 
         # Run the sub-pipeline on the root node
         if root_as_worker:
-            data = runner(run_config, pipeline_config[0], common_comm)
+            data = runner(run_config, pipeline_config[0], comm=common_comm)
         elif collect_on_root:
             run_config.spawn = 0
             pipeline_config = [{'common.MPICollectProcessor': {
@@ -2158,7 +2175,10 @@ class MPISpawnMapProcessor(Processor):
 
         # Disconnect spawned workers and cleanup temporary files
         if num_proc > first_proc:
+            # Align with the barrier in main() on common_comm
+            # when disconnecting the spawned worker
             common_comm.barrier()
+            # Disconnect spawned workers and cleanup temporary files
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
