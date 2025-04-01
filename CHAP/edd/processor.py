@@ -535,7 +535,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
-       :type outputdir: str, optional
+        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional

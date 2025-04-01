@@ -1358,8 +1358,7 @@ class MapProcessor(Processor):
 
             # Spawn the workers to run the sub-pipeline
             run_config = RunConfig(
-                config={'log_level': logging.getLevelName(self.logger.level),
-                        'spawn': 1})
+                log_level=logging.getLevelName(self.logger.level), spawn=1)
             tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
                 fp_name = fp.name
@@ -1371,14 +1370,14 @@ class MapProcessor(Processor):
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
-                            {'config': run_config.__dict__,
+                            {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc-1]},
                             f, sort_keys=False)
                 sub_comm = MPI.COMM_SELF.Spawn(
                     'CHAP', args=[fp_name], maxprocs=num_proc-1)
                 common_comm = sub_comm.Merge(False)
                 # Align with the barrier in RunConfig() on common_comm
-                # called from the spawned main()
+                # called from the spawned main() in common_comm
                 common_comm.barrier()
                 # Align with the barrier in run() on common_comm
                 # called from the spawned main()
@@ -1421,13 +1420,15 @@ class MapProcessor(Processor):
         if num_proc > 1:
             # Reset the scan_numbers to the original full set
             spec_scans.scan_numbers = scan_numbers
-            # Disconnect spawned workers and cleanup temporary files
+            # Align with the barrier in main() on common_comm
+            # when disconnecting the spawned worker
             common_comm.barrier()
+            # Disconnect spawned workers and cleanup temporary files
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
 
-        # Construct the NeXus NXroot object
+        # Construct and return the NeXus NXroot object
         return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
             all_scalar_data, placeholder_data)
@@ -1984,7 +1985,7 @@ class MPIMapProcessor(Processor):
         run_config = {'inputdir': inputdir, 'outputdir': outputdir,
             'interactive': interactive, 'log_level': log_level}
         run_config.update(sub_pipeline.get('config'))
-        run_config = RunConfig(run_config, comm)
+        run_config = RunConfig(**run_config, comm=comm, logger=self.logger)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -2067,7 +2068,7 @@ class MPISpawnMapProcessor(Processor):
         run_config = {'inputdir': inputdir, 'outputdir': outputdir,
             'interactive': interactive, 'log_level': log_level}
         run_config.update(sub_pipeline.get('config'))
-        run_config = RunConfig(run_config)
+        run_config = RunConfig(**run_config, logger=self.logger)
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -2128,7 +2129,7 @@ class MPISpawnMapProcessor(Processor):
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
-                            {'config': run_config.__dict__,
+                            {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc]},
                             f, sort_keys=False)
                 sub_comm = MPI.COMM_SELF.Spawn(

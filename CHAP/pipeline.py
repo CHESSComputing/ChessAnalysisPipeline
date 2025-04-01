@@ -19,8 +19,11 @@ class Pipeline():
     def __init__(self, items=None, kwds=None):
         """Pipeline class constructor.
 
-        :param items: List of objects.
-        :param kwds: List of method args for individual objects.
+        :param items: List of objects, optional.
+        :type items: list
+        :param kwds: List of method keyword argugents for the objects,
+            optional.
+        :type kwds: list
         """
         self.__name__ = self.__class__.__name__
 
@@ -262,7 +265,7 @@ class PipelineItem():
                 kwargs['filename'] = os.path.normpath(os.path.realpath(
                     os.path.join(outputdir, kwargs['filename'])))
         else:
-            self.logger.error('No implementation of read, write, or process')
+            self.logger.error('No implementation of read, process, or write')
             return None
 
         method = getattr(self, method_name)
@@ -274,11 +277,12 @@ class PipelineItem():
                 args[k] = v
 
         t0 = time()
-        self.logger.debug(f'Executing "{method_name}" with {args}')
+        self.logger.debug(
+            f'Executing "{method_name}" with schema "{schema}" and {args}')
         self.logger.info(f'Executing "{method_name}"')
         data = method(**args)
-        self.logger.info(f'Finished "{method_name}" in '
-                         + f'{time()-t0:.0f} seconds\n')
+        self.logger.info(
+            f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
         return [PipelineData(name=self.__name__,
                              data=data,
