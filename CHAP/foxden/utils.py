@@ -1,59 +1,56 @@
 """FOXDEN utils module."""
 
-# system modules
-import os
-
-# 3rd party modules
-import requests
-
 
 def readFoxdenToken(scope):
+    """Obtain a FOXDEN token.
+
+    :param scope: FOXDEN scope: `'read'` or `'write'`.
+    :type scope: string
     """
-    """
-    token = ''
-    rfile = os.path.join(os.getenv('HOME'), '.foxden.read.token')
-    wfile = os.path.join(os.getenv('HOME'), '.foxden.write.token')
-    tfile = None
-    rtoken = os.getenv('FOXDEN_READ_TOKEN')
-    wtoken = os.getenv('FOXDEN_WRITE_TOKEN')
-    if scope == 'read':
-        if rtoken:
-            token = rtoken
-        elif os.path.exists(rfile):
-            tfile = rfile
-    elif scope == 'write':
-        if wtoken:
-            token = wtoken
-        elif os.path.exists(wfile):
-            tfile = wfile
-    if not token and tfile and os.path.exists(tfile):
-        with open(tfile, 'r') as istream:
-            token = istream.read()
+    # System modules
+    import os
+
+    token = os.getenv(f'FOXDEN_{scope.upper()}_TOKEN')
+    if not token:
+        token_file = os.path.join(
+            os.getenv('HOME'), f'.foxden.{scope.lower()}.token')
+        if os.path.exists(token_file):
+            with open(token_file, 'r') as f:
+                token = f.read()
     return token
 
-def HttpRequest(url, data, method='GET', headers=None,
-        scope='read', timeout=10, dryRun=False):
-    """Read data from FOXDEN service
+def HttpRequest(
+        url, payload, method='POST', headers=None, scope='read', timeout=10,
+        dry_run=False):
+    """Submit a HTTP request to a FOXDEN service
 
-    :param data: Input data.
-    :type data: list[PipelineData]
     :param url: URL of service.
     :type url: str
-    :param method: HTTP method to use, `"POST"` for creation and
-        `"PUT"` for update, defaults to `"POST"`.
+    :param payload: HTTP request payload.
+    :type payload: str
+    :param method: HTTP method to use, defaults to `'POST'`.
     :type method: str, optional
     :param headers: HTTP headers to use.
     :type headers: dictionary, optional
-    :param scope: FOXDEN scope to use, e.g. read or write
-    :type scope: string
+    :param scope: FOXDEN scope: `'read'` or `'write'`,
+        defaults to `'read'`.
+    :type scope: string, optional
     :param timeout: Timeout of HTTP request, defaults to `10`.
     :type timeout: str, optional
-    :param dryRun: `dryRun` option to verify HTTP workflow,
+    :param dry_run: `dry_run` option to verify HTTP workflow,
         defaults to `False`.
-    :type dryRun: bool, optional
-    :return: Contents of the input data.
-    :rtype: object
+    :type dry_run: bool, optional
+    :return: HTTP response.
+    :rtype: requests.models.Response
     """
+    # Third party modules
+    from requests import (
+        get,
+        post,
+        put,
+        delete,
+    )
+
     if headers is None:
         headers = {}
     if 'Content-Type' not in headers:
@@ -64,25 +61,20 @@ def HttpRequest(url, data, method='GET', headers=None,
     if token:
         headers['Authorization'] = f'Bearer {token}'
     else:
-        raise Exception(
-                f'Unable to obtain token with scope {scope}')
-    if dryRun:
-        print('### HTTP reader call', url, headers, data)
+        raise RuntimeError(f'Unable to obtain token with scope {scope}')
+    if dry_run:
+        print('### HTTP reader call', url, headers, payload)
         return []
 
     # Make actual HTTP request to FOXDEN service
     if method.lower() == 'get':
-        resp = requests.get(
-            url, headers=headers, timeout=timeout)
+        response = get(url, headers=headers, timeout=timeout)
     elif method.lower() == 'post':
-        resp = requests.post(
-            url, headers=headers, timeout=timeout, data=data)
+        response = post(url, headers=headers, timeout=timeout, data=payload)
     elif method.lower() == 'put':
-        resp = requests.put(
-            url, headers=headers, timeout=timeout, data=data)
+        response = put(url, headers=headers, timeout=timeout, data=payload)
     elif method.lower() == 'delete':
-        resp = requests.delete(
-            url, headers=headers, timeout=timeout, data=data)
+        response = delete(url, headers=headers, timeout=timeout, data=payload)
     else:
-        raise Exception(f'unsupported method {method}')
-    return resp
+        raise Exception(f'Unsupported method {method}')
+    return response
