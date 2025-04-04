@@ -21,61 +21,53 @@ from CHAP.reader import Reader
 
 class FoxdenDataDiscoveryReader(Reader):
     """Reader for the FOXDEN Data Discovery service."""
-    def read(
-            self, url, did='', query='', idx=0, limit=10, verbose=False):
+    def read(self, config):
         """Read records from the FOXDEN Data Discovery service based on
         did or an arbitrary query.
 
-        :param url: URL of service.
-        :type url: str
-        :param did: FOXDEN dataset identifier (did).
-        :type did: string, optional
-        :param query: FOXDEN query.
-        :type query: string, optional
-        :param idx: Ask Valentin
-        :type idx: int, optional
-        :param limit: Maximum number of returned records,
-            defaults to `10`.
-        :type limit: int, optional
-        :param verbose: Verbose output flag, defaults to `False`.
-        :type verbose: bool, optional
+        :param config: FOXDEN HTTP request configuration.
+        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: Contents of the input data.
         :rtype: object
         """
-        self.logger.info(f'url: {url}')
-        self.logger.info(f'did: {did}')
+        # Load and validate the FoxdenRequestConfig configuration
+        config = self.get_config(
+            config=config, schema='foxden.models.FoxdenRequestConfig')
+        self.logger.debug(f'config: {config}')
 
-        self.logger.info(f'query: {query}')
-        rurl = f'{url}/search'
-        request = {'client': 'CHAP-FoxdenDataDiscoveryReader',
-                   'service_query': {'idx': idx, 'limit': limit}}
-        if did:
-            request['service_query'].update({'did': did})
-        if query:
-            request['service_query'].update({'query': query})
+        # Submit HTTP request and return response
+        rurl = f'{config.url}/search'
+        request = {'client': 'CHAP-FoxdenDataDiscoveryReader'}
+        if config.did is None:
+            if config.query is None:
+                query = '{}'
+            else:
+                query = config.query
+            request['service_query'] = {'query': query, 'limit': config.limit}
+        else:
+            if config.limit is not None:
+                self.logger.warning(
+                    f'Ignoring parameter "limit" ({config.limit}), '
+                    'when "did" is specified')
+            if config.query is not None:
+                self.logger.warning(
+                    f'Ignoring parameter "query" ({config.query}), '
+                    'when "did" is specified')
+            request['service_query'] = {'query': f'did:{config.did}'}
         payload = json.dumps(request)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
-        if verbose:
+        if config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            data = json.loads(response.text)
-#            for k, v in data.items():
-#                print(f'\t{k}: {type(v)}')
-#            nrecords = data['results']['nrecords']
-#            records = data['results']['records']
-#            print(f'\n\nnrecords: {nrecords}')
-#            print(f'\nrecords[0] {type(records[0])}: {records[0]}\n\n')
-            self.logger.debug(
-                f'Found a total of {data["results"]["nrecords"]} records')
-            data = data['results']['records']
+            result = json.loads(response.text)['results']['records']
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
-            data = []
+            result = []
         self.logger.debug(
-            f'Returning {len(data)} records')
-        return data
+            f'Returning {len(result)} records')
+        return result
 
 
 class FoxdenMetadataReader(Reader):
@@ -96,7 +88,7 @@ class FoxdenMetadataReader(Reader):
         :type did: string, optional
         :param query: FOXDEN query.
         :type query: string, optional
-        :param spec: FOXDEN spec.
+        :param spec: FOXDEN spec. ASK Valentin
         :type spec: dictionary, optional
         :param method: HTTP method to use, `'POST'` for creation or
             `'PUT'` for update, defaults to `'POST'`.
