@@ -123,7 +123,8 @@ class TomoCHESSMapConverter(Processor):
         darkfield = get_nxroot(data, 'darkfield')
         brightfield = get_nxroot(data, 'brightfield')
         tomofields = get_nxroot(data, 'tomofields')
-        detector_config = self.get_config(data, 'tomo.models.Detector')
+        detector_config = self.get_config(
+            data=data, schema='tomo.models.Detector')
 
         if darkfield is not None:
             if isinstance(darkfield, NXroot):
@@ -475,22 +476,22 @@ class TomoDataProcessor(Processor):
 
         try:
             reduce_data_config = self.get_config(
-                data, 'tomo.models.TomoReduceConfig')
+                data=data, schema='tomo.models.TomoReduceConfig')
         except ValueError:
             reduce_data_config = None
         try:
             find_center_config = self.get_config(
-                data, 'tomo.models.TomoFindCenterConfig')
+                data=data, schema='tomo.models.TomoFindCenterConfig')
         except ValueError:
             find_center_config = None
         try:
             reconstruct_data_config = self.get_config(
-                data, 'tomo.models.TomoReconstructConfig')
+                data=data, schema='tomo.models.TomoReconstructConfig')
         except ValueError:
             reconstruct_data_config = None
         try:
             combine_data_config = self.get_config(
-                data, 'tomo.models.TomoCombineConfig')
+                data=data, schema='tomo.models.TomoCombineConfig')
         except ValueError:
             combine_data_config = None
         nxroot = get_nxroot(data)
@@ -1680,9 +1681,10 @@ class Tomo:
                              {'name': 'sigma2', 'value': num/7.0,
                               'min': float_info.min}]}
                 bounds_fit = fit.process(
-                    NXdata(NXfield(row_sum, 'y'),
-                    NXfield(np.array(range(num)), 'x')),
-                    {'models': [model], 'method': 'trf'})
+                    data=NXdata(
+                        NXfield(row_sum, 'y'),
+                        NXfield(np.array(range(num)), 'x')),
+                    config={'models': [model], 'method': 'trf'})
                 parameters = bounds_fit.best_values
                 row_low_fit = parameters.get('center1', None)
                 row_upp_fit = parameters.get('center2', None)
@@ -2922,7 +2924,7 @@ class TomoSimFieldProcessor(Processor):
         )
 
         # Get and validate the relevant configuration object in data
-        config = self.get_config(data, 'tomo.models.TomoSimConfig')
+        config = self.get_config(data=data, schema='tomo.models.TomoSimConfig')
 
         station = config.station
         sample_type = config.sample_type

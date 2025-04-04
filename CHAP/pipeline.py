@@ -129,17 +129,25 @@ class PipelineItem():
             unwrapped_data = [data]
         return unwrapped_data
 
-    def get_config(self, data, schema, remove=True, **kwargs):
+    def get_config(
+            self, data=None, config=None, schema='', remove=True, **kwargs):
         """Look through `data` for an item whose value for the first
         `'schema'` key matches `schema`. Convert the value for that
-        item's `'data'` key into the configuration `BaseModel`
-        identified by `schema` and return it.
+        item's `'data'` key into the configuration's Pydantic model
+        identified by `schema` and return it. If no item is found and
+        config is specified, validate it against the configuration's
+        Pydantic model identified by `schema` and return it.
 
         :param data: Input data from a previous `PipelineItem`.
-        :type data: list[PipelineData].
+        :type data: list[PipelineData], optional
         :param schema: Name of the `BaseModel` class to match in
             `data` & return.
         :type schema: str
+        :param config: Initialization parameters for an instance of
+            the Pydantic model identified by `schema`, required if
+            data is unspecified, invalid or does not contain an item
+            that matches the schema.
+        :type config: dict, optional
         :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -151,16 +159,23 @@ class PipelineItem():
         t0 = time()
 
         matching_config = False
-        for i, d in enumerate(data):
-            if d.get('schema') == schema:
-                matching_config = d.get('data')
-                if remove:
-                    data.pop(i)
-                break
+        if data is not None:
+            try:
+                for i, d in enumerate(data):
+                    if d.get('schema') == schema:
+                        matching_config = d.get('data')
+                        if remove:
+                            data.pop(i)
+                        break
+            except:
+                pass
 
         if not matching_config:
-            raise ValueError(
-                f'Unable to find a configuration for schema `{schema}`')
+            if isinstance(config, dict):
+                matching_config = config
+            else:
+                raise ValueError(
+                    f'Unable to find a configuration for schema `{schema}`')
 
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)

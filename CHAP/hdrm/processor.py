@@ -82,20 +82,8 @@ class HdrmOrmfinderProcessor(Processor):
                 'No valid detector data in input pipeline data') from exc
 
         # Load the validated HDRM image stacking configuration
-        try:
-            config = self.get_config(data, 'hdrm.models.HdrmOrmfinderConfig')
-        except Exception:
-            self.logger.info('No valid conversion config in input pipeline '
-                             'data, using config parameter instead.')
-            if config is None:
-                config = {}
-            try:
-                # Local modules
-                from CHAP.hdrm.models import HdrmOrmfinderConfig
-
-                config = HdrmOrmfinderConfig(**config)
-            except Exception as exc:
-                raise RuntimeError from exc
+        config = self.get_config(data=data, config=config,
+            schema='hdrm.models.HdrmOrmfinderConfig')
 
         # Add the NXprocess object to the NXroot
         nxprocess = NXprocess()
@@ -307,20 +295,8 @@ class HdrmPeakfinderProcessor(Processor):
                 'No valid detector data in input pipeline data') from exc
 
         # Load the validated HDRM image stacking configuration
-        try:
-            config = self.get_config(data, 'hdrm.models.HdrmPeakfinderConfig')
-        except Exception:
-            self.logger.info('No valid conversion config in input pipeline '
-                             'data, using config parameter instead.')
-            if config is None:
-                config = {}
-            try:
-                # Local modules
-                from CHAP.hdrm.models import HdrmPeakfinderConfig
-
-                config = HdrmPeakfinderConfig(**config)
-            except Exception as exc:
-                raise RuntimeError from exc
+        config = self.get_config(data=data, config=config,
+            schema='hdrm.models.HdrmPeakfinderConfig')
 
         # Add the NXprocess object to the NXroot
         nxentry = nxroot[nxroot.default]

@@ -78,7 +78,7 @@ class BaseEddProcessor(Processor):
             config = kwargs.pop('config')
         try:
             model_config = super().get_config(
-                data, schema, remove=remove, **kwargs)
+                data=data, schema=schema, remove=remove, **kwargs)
         except (TypeError, ValueError) as e:
             self.logger.info(f'{e}')
             try:
@@ -562,7 +562,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Load the validated DVL configuration
         dvl_config = self.get_config(
             data, 'edd.models.DiffractionVolumeLengthConfig',
-            inputdir=inputdir, config=config)
+            config=config, inputdir=inputdir)
 
         # Validate the detector configuration
         raw_detectors = [
@@ -889,8 +889,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 
         # Load the validated strain analysis configuration
         strain_analysis_config = self.get_config(
-            data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir,
-            config=config)
+            data, 'edd.models.StrainAnalysisConfig', config=config,
+            inputdir=inputdir)
 
         # Validate the detector configuration and check against the raw
         # data (availability and shape) and the calibration data
@@ -1142,8 +1142,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
         # Load the validated energy calibration configuration
         calibration_config = self.get_config(
-            data, 'edd.models.MCAEnergyCalibrationConfig', inputdir=inputdir,
-            config=config)
+            data, 'edd.models.MCAEnergyCalibrationConfig', config=config,
+            inputdir=inputdir)
 
         # Check for available detectors and validate the raw detector
         # configuration
@@ -2444,8 +2444,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
         # Load the validated strain analysis configuration
         strain_analysis_config = self.get_config(
-            data, 'edd.models.StrainAnalysisConfig', inputdir=inputdir,
-            config=config)
+            data, 'edd.models.StrainAnalysisConfig', config=config,
+            inputdir=inputdir)
 
         # Validate the detector configuration and check against the raw
         # data (availability and shape) and the calibration data
