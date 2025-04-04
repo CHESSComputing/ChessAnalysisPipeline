@@ -126,16 +126,9 @@ class FitProcessor(Processor):
                         'Invalid default pathway to an NXdata '
                         f'object in ({data})') from exc
 
-            # Get the fit configuration
-            try:
-                fit_config = self.get_config(data, 'utils.models.FitConfig')
-            except Exception:
-                logger.info('No valid fit config in input pipeline '
-                            'data, using config parameter instead.')
-                try:
-                    fit_config = FitConfig(**config)
-                except Exception as exc:
-                    raise RuntimeError from exc
+            # Get the validated fit configuration
+            fit_config = self.get_config(
+                data=data, config=config, schema='utils.models.FitConfig')
 
             # Expand multipeak model if present
             found_multipeak = False

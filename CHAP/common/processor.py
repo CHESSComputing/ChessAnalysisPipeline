@@ -1063,9 +1063,9 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data=data, schema='common.models.map.MapConfig')
         integration_config = self.get_config(
-            data, 'common.models.integration.IntegrationConfig')
+            data=data, schema='common.models.integration.IntegrationConfig')
         nxprocess = self.get_nxprocess(map_config, integration_config)
 
         return nxprocess
@@ -1265,19 +1265,9 @@ class MapProcessor(Processor):
         )
 
         # Get the validated map configuration
-        try:
-            map_config = self.get_config(
-                data, 'common.models.map.MapConfig', inputdir=inputdir)
-        except:
-            self.logger.info('No valid Map configuration in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.common.models.map import MapConfig
-
-                map_config = MapConfig(**config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        map_config = self.get_config(
+            data=data, config=config, schema='common.models.map.MapConfig',
+            inputdir=inputdir)
 
         # Validate the detectors
         try:
@@ -1288,7 +1278,7 @@ class MapProcessor(Processor):
         except:
             try:
                 detector_config = self.get_config(
-                    data, 'common.models.map.DetectorConfig',
+                    data=data, schema='common.models.map.DetectorConfig',
                     inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
@@ -1940,7 +1930,7 @@ class MPIMapProcessor(Processor):
         :type outputdir: str, optional
         :param interactive: Allows for user interactions.
         :type interactive: bool, optional
-        :ivar log_level: Logger level (not case sesitive).
+        :ivar log_level: Logger level (not case sensitive).
         :type log_level: Literal[
             'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
@@ -1961,19 +1951,9 @@ class MPIMapProcessor(Processor):
         rank = comm.Get_rank()
 
         # Get the validated map configuration
-        try:
-            map_config = self.get_config(
-                data, 'common.models.map.MapConfig', inputdir=inputdir)
-        except:
-            self.logger.info('No valid Map configuration in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.common.models.map import MapConfig
-
-                map_config = MapConfig(**config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        map_config = self.get_config(
+            data=data, config=config, schema='common.models.map.MapConfig',
+            inputdir=inputdir)
 
         # Create the spec reader configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -2052,7 +2032,7 @@ class MPISpawnMapProcessor(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :ivar log_level: Logger level (not case sesitive).
+        :ivar log_level: Logger level (not case sensitive).
         :type log_level: Literal[
             'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
@@ -2077,7 +2057,7 @@ class MPISpawnMapProcessor(Processor):
 
         # Get the map configuration from data
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig', inputdir=inputdir)
+            data=data, schema='common.models.map.MapConfig', inputdir=inputdir)
 
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
@@ -2519,7 +2499,7 @@ class RawDetectorDataMapProcessor(Processor):
         :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        map_config = self.get_config(data)
+        map_config = self.get_config()
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
         return nxroot

@@ -73,21 +73,9 @@ class GiwaxsConversionProcessor(Processor):
                 'No valid detector data in input pipeline data') from exc
 
         # Load the validated GIWAXS conversion configuration
-        try:
-            giwaxs_config = self.get_config(
-                data, 'giwaxs.models.GiwaxsConversionConfig',
-                inputdir=inputdir)
-        except Exception:
-            self.logger.info('No valid conversion config in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.giwaxs.models import GiwaxsConversionConfig
-
-                giwaxs_config = GiwaxsConversionConfig(
-                    **config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        giwaxs_config = self.get_config(
+            data=data, config=config, inputdir=inputdir,
+            schema='giwaxs.models.GiwaxsConversionConfig')
 
         return self.convert_q_rect(
             nxroot, giwaxs_config, save_figures=save_figures,
@@ -600,20 +588,9 @@ class PyfaiIntegrationProcessor(Processor):
                 'No valid detector data in input pipeline data') from exc
 
         # Load the validated integration configuration
-        try:
-            config = self.get_config(
-                data, 'giwaxs.models.PyfaiIntegrationConfig',
-                inputdir=inputdir)
-        except Exception:
-            self.logger.info('No valid integration config in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.giwaxs.models import PyfaiIntegrationConfig
-
-                config = PyfaiIntegrationConfig(**config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        config = self.get_config(
+            data=data, config=config, inputdir=inputdir,
+            schema='giwaxs.models.PyfaiIntegrationConfig')
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)

@@ -42,7 +42,7 @@ class RunConfig(CHAPBaseModel):
     :ivar interactive: Allows for user interactions,
         defaults to `False`.
     :type interactive: bool, optional
-    :ivar log_level: Logger level (not case sesitive),
+    :ivar log_level: Logger level (not case sensitive),
         defaults to `'INFO'`.
     :type log_level: Literal[
         'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
