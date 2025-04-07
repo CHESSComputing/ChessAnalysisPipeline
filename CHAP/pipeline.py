@@ -192,7 +192,7 @@ class PipelineItem():
         nexusformat.nexus.NXroot or a nexusformat.nexus.NXentry
         object. Pick the item for which the `'name'` key matches
         `name` if set, pick the first match otherwise.
-        Return the default nexusformat.nexus.NXentry object.
+        Return the NeXus object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].

@@ -14,6 +14,7 @@ dependencies:
   - nexusformat==1.0.6
   - pip==24.2
   - pydantic==2.7.3
+  - requests==2.32.3
   - sympy==1.12
   - tomopy==1.12.2
   - pip:

@@ -11,6 +11,7 @@ import numpy as np
 # Local modules
 from CHAP.reader import Reader
 
+
 class EddMapReader(Reader):
     """Reader for taking an EDD-style .par file and returning a
     `MapConfig` representing one of the datasets in the

@@ -81,15 +81,75 @@ def get_nxroot(data, schema=None, remove=True):
     return nxobject
 
 
-class TomoCHESSMapConverter(Processor):
+class TomoMetadataProcessor(Processor):
+    """A processor that takes data from the FOXDEN Data Discovery or
+    Metadata service and extracts what's available to create
+    a `CHAP.common.models.map.MapConfig` object for a tomography
+    experiment.
     """
-    A processor to convert a CHESS style tomography map with dark and
-    bright field configurations to an NeXus style input format.
-    """
+    def process(self, data, config):
+        """Process the meta data and return a dictionary with
+        extracted data to create a `MapConfig` for the tomography
+        experiment.
 
-    def process(self, data):
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param config: Any additional input data required to create a
+            `MapConfig` that is unavailable from the Metadata service.
+        :type config: dict
+        :return: Metadata from the tomography experiment.
+        :rtype: CHAP.common.models.map.MapConfig
         """
-        Process the input map and configuration and return a
+        # Local modules
+        from CHAP.common.models.map import MapConfig
+
+        try:
+            data = self.unwrap_pipelinedata(data)[0]
+            if isinstance(data, list) and len(data) != 1:
+                raise ValueError(f'Invalid PipelineData input data ({data})')
+            data = data[0]
+            if not isinstance(data, dict):
+                raise ValueError(f'Invalid PipelineData input data ({data})')
+        except Exception as exc:
+            raise
+
+        # Extracted any available MapConfig info
+        map_config = {}
+        map_config['title'] = data.get('sample_name')
+        station = data.get('beamline')[0]
+        if station == '3A':
+            station = 'id3a'
+        else:
+            raise ValueError(f'Invalid beamline parameter ({beamline})')
+        map_config['station'] = station
+        experiment_type = data.get('technique')
+        assert 'tomography' in experiment_type
+        map_config['experiment_type'] = 'TOMO'
+        map_config['sample'] = {'name': map_config['title'],
+                                'description': data.get('description')}
+        if station == 'id3a':
+            scan_numbers = config['scan_numbers']
+            if isinstance(scan_numbers, list):
+                if isinstance(scan_numbers[0], list):
+                    scan_numbers = scan_numbers[0]
+            map_config['spec_scans'] = [{
+                'spec_file': os_path.join(
+                    data.get('data_location_raw'), 'spec.log'),
+                'scan_numbers': scan_numbers}]
+        map_config['independent_dimensions'] = config['independent_dimensions']
+
+        # Validate the MapConfig info
+        MapConfig(**map_config)
+
+        return map_config
+
+
+class TomoCHESSMapConverter(Processor):
+    """A processor to convert a CHESS style tomography map with dark
+    and bright field configurations to an NeXus style input format.
+    """
+    def process(self, data):
+        """Process the input map and configuration and return a
         `nexusformat.nexus.NXroot` object based on the
         `nexusformat.nexus.NXtomo` style format.
 
@@ -120,33 +180,67 @@ class TomoCHESSMapConverter(Processor):
         from CHAP.common.models.map import MapConfig
         from CHAP.utils.general import index_nearest
 
-        darkfield = get_nxroot(data, 'darkfield')
-        brightfield = get_nxroot(data, 'brightfield')
+        # Load and validate the tomography fields
         tomofields = get_nxroot(data, 'tomofields')
-        detector_config = self.get_config(
-            data=data, schema='tomo.models.Detector')
-
-        if darkfield is not None:
-            if isinstance(darkfield, NXroot):
-                darkfield = darkfield[darkfield.default]
-            if not isinstance(darkfield, NXentry):
-                raise ValueError(f'Invalid parameter darkfield ({darkfield})')
-        if isinstance(brightfield, NXroot):
-            brightfield = brightfield[brightfield.default]
-        if not isinstance(brightfield, NXentry):
-            raise ValueError(f'Invalid parameter brightfield ({brightfield})')
         if isinstance(tomofields, NXroot):
             tomofields = tomofields[tomofields.default]
         if not isinstance(tomofields, NXentry):
             raise ValueError(f'Invalid parameter tomofields {tomofields})')
-
-        # Construct NXroot
-        nxroot = NXroot()
+        detector_prefix = str(tomofields.detector_ids)
+        tomo_stacks = tomofields.data[detector_prefix].nxdata
+        tomo_stack_shape = tomo_stacks.shape
+        assert len(tomo_stack_shape) == 3
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
         assert len(map_config.spec_scans) == 1
-        num_tomo_stack = len(map_config.spec_scans[0].scan_numbers)
+        spec_scan = map_config.spec_scans[0]
+        scan_numbers = spec_scan.scan_numbers
+
+        # Load and validate dark field
+        darkfield = get_nxroot(data, 'darkfield')
+        if darkfield is None:
+            for scan_number in range(min(scan_numbers), 0, -1):
+                scanparser = spec_scan.get_scanparser(scan_number)
+                scan_type = scanparser.get_scan_type()
+                if scan_type == 'df1':
+                    darkfield = scanparser
+                    break
+            else:
+                self.logger.warning(f'Unable to load dark field')
+        else:
+            if isinstance(darkfield, NXroot):
+                darkfield = darkfield[darkfield.default]
+            if not isinstance(darkfield, NXentry):
+                raise ValueError(f'Invalid parameter darkfield ({darkfield})')
+
+        # Load and validate bright field
+        brightfield = get_nxroot(data, 'brightfield')
+        if brightfield is None:
+            for scan_number in range(min(scan_numbers), 0, -1):
+                scanparser = spec_scan.get_scanparser(scan_number)
+                scan_type = scanparser.get_scan_type()
+                if scan_type == 'bf1':
+                    brightfield = scanparser
+                    break
+            else:
+                raise ValueError(f'Unable to load bright field')
+        else:
+            if isinstance(brightfield, NXroot):
+                brightfield = brightfield[brightfield.default]
+            if not isinstance(brightfield, NXentry):
+                raise ValueError(
+                    f'Invalid parameter brightfield ({brightfield})')
+
+        # Load and validate detector config if supplied
+        try:
+            detector_config = self.get_config(
+                data=data, schema='tomo.models.Detector')
+        except:
+            detector_config = None
+
+        # Construct NXroot
+        nxroot = NXroot()
 
         # Check available independent dimensions
         if 'axes' in tomofields.data.attrs:
@@ -222,25 +316,32 @@ class TomoCHESSMapConverter(Processor):
 
         # Add an NXdetector to the NXinstrument
         # (do not fill in data fields yet)
-        detector_prefix = detector_config.prefix
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
         nxdetector.local_name = detector_prefix
-        pixel_size = detector_config.pixel_size
+        if detector_config is None:
+            detector_attrs = tomofields.data[detector_prefix].attrs
+        else:
+            detector_attrs = {
+                'pixel_size': detector_config.pixel_size,
+                'lens_magnification': detector_config.lens_magnification}
+        pixel_size = detector_attrs['pixel_size']
+        if isinstance(pixel_size, (int, float)):
+            pixel_size = [pixel_size]
         if len(pixel_size) == 1:
             nxdetector.row_pixel_size = \
-                pixel_size[0]/detector_config.lens_magnification
+                pixel_size[0]/detector_attrs['lens_magnification']
             nxdetector.column_pixel_size = \
-                pixel_size[0]/detector_config.lens_magnification
+                pixel_size[0]/detector_attrs['lens_magnification']
         else:
             nxdetector.row_pixel_size = \
-                pixel_size[0]/detector_config.lens_magnification
+                pixel_size[0]/detector_attrs['lens_magnification']
             nxdetector.column_pixel_size = \
-                pixel_size[1]/detector_config.lens_magnification
+                pixel_size[1]/detector_attrs['lens_magnification']
         nxdetector.row_pixel_size.units = 'mm'
         nxdetector.column_pixel_size.units = 'mm'
-        nxdetector.rows = detector_config.rows
-        nxdetector.columns = detector_config.columns
+        nxdetector.rows = tomo_stack_shape[1]
+        nxdetector.columns = tomo_stack_shape[2]
         nxdetector.rows.units = 'pixels'
         nxdetector.columns.units = 'pixels'
 
@@ -259,14 +360,14 @@ class TomoCHESSMapConverter(Processor):
         rotation_angles = []
         x_translations = []
         z_translations = []
-        if darkfield is not None:
+        if isinstance(darkfield, NXentry):
             nxentry.dark_field_config = darkfield.config
             for scan in darkfield.spec_scans.values():
                 for nxcollection in scan.values():
                     data_shape = nxcollection.data[detector_prefix].shape
                     assert len(data_shape) == 3
-                    assert data_shape[1] == detector_config.rows
-                    assert data_shape[2] == detector_config.columns
+                    assert data_shape[1] == nxdetector.rows
+                    assert data_shape[2] == nxdetector.columns
                     num_image = data_shape[0]
                     image_keys += num_image*[2]
                     sequence_numbers += list(range(num_image))
@@ -297,52 +398,125 @@ class TomoCHESSMapConverter(Processor):
                         else:
                             z_translations += \
                                 num_image*[smb_pars[z_translation_name]]
+        elif darkfield is not None:
+            data = darkfield.get_detector_data(detector_prefix)
+            data_shape = data.shape
+            assert len(data_shape) == 3
+            assert data_shape[1] == nxdetector.rows
+            assert data_shape[2] == nxdetector.columns
+            num_image = data_shape[0]
+            image_keys += num_image*[2]
+            sequence_numbers += list(range(num_image))
+            image_stacks.append(data)
+            rotation_angles += num_image*[0.0]
+            if (x_translation_data_type == 'spec_motor' or
+                    z_translation_data_type == 'spec_motor'):
+                spec_motors = darkfield.spec_positioner_values
+#                    {k:float(v)
+#                    for k, v in darkfield.spec_positioner_values.items()}
+            if (x_translation_data_type == 'smb_par' or
+                    z_translation_data_type == 'smb_par'):
+                smb_pars = scanparser.pars
+#                    {k:v for k,v in scanparser.pars.items()}
+            if x_translation_data_type is None:
+                x_translations += num_image*[0.0]
+            else:
+                if x_translation_data_type == 'spec_motor':
+                    x_translations += \
+                        num_image*[spec_motors[x_translation_name]]
+                else:
+                    x_translations += \
+                        num_image*[smb_pars[x_translation_name]]
+            if z_translation_data_type is None:
+                z_translations += num_image*[0.0]
+            else:
+                if z_translation_data_type == 'spec_motor':
+                    z_translations += \
+                        num_image*[spec_motors[z_translation_name]]
+                else:
+                    z_translations += \
+                        num_image*[smb_pars[z_translation_name]]
 
         # Collect bright field data
-        nxentry.bright_field_config = brightfield.config
-        for scan in brightfield.spec_scans.values():
-            for nxcollection in scan.values():
-                data_shape = nxcollection.data[detector_prefix].shape
-                assert len(data_shape) == 3
-                assert data_shape[1] == detector_config.rows
-                assert data_shape[2] == detector_config.columns
-                num_image = data_shape[0]
-                image_keys += num_image*[1]
-                sequence_numbers += list(range(num_image))
-                image_stacks.append(
-                    nxcollection.data[detector_prefix].nxdata)
-                rotation_angles += num_image*[0.0]
-                if (x_translation_data_type == 'spec_motor' or
-                        z_translation_data_type == 'spec_motor'):
-                    spec_motors = loads(str(nxcollection.spec_motors))
-                if (x_translation_data_type == 'smb_par' or
-                        z_translation_data_type == 'smb_par'):
-                    smb_pars = loads(str(nxcollection.smb_pars))
-                if x_translation_data_type is None:
-                    x_translations += num_image*[0.0]
+        if isinstance(brightfield, NXentry):
+            nxentry.bright_field_config = brightfield.config
+            for scan in brightfield.spec_scans.values():
+                for nxcollection in scan.values():
+                    data_shape = nxcollection.data[detector_prefix].shape
+                    assert len(data_shape) == 3
+                    assert data_shape[1] == nxdetector.rows
+                    assert data_shape[2] == nxdetector.columns
+                    num_image = data_shape[0]
+                    image_keys += num_image*[1]
+                    sequence_numbers += list(range(num_image))
+                    image_stacks.append(
+                        nxcollection.data[detector_prefix].nxdata)
+                    rotation_angles += num_image*[0.0]
+                    if (x_translation_data_type == 'spec_motor' or
+                            z_translation_data_type == 'spec_motor'):
+                        spec_motors = loads(str(nxcollection.spec_motors))
+                    if (x_translation_data_type == 'smb_par' or
+                            z_translation_data_type == 'smb_par'):
+                        smb_pars = loads(str(nxcollection.smb_pars))
+                    if x_translation_data_type is None:
+                        x_translations += num_image*[0.0]
+                    else:
+                        if x_translation_data_type == 'spec_motor':
+                            x_translations += \
+                                num_image*[spec_motors[x_translation_name]]
+                        else:
+                            x_translations += \
+                                num_image*[smb_pars[x_translation_name]]
+                    if z_translation_data_type is None:
+                        z_translations += num_image*[0.0]
+                    if z_translation_data_type is not None:
+                        if z_translation_data_type == 'spec_motor':
+                            z_translations += \
+                                num_image*[spec_motors[z_translation_name]]
+                        else:
+                            z_translations += \
+                                num_image*[smb_pars[z_translation_name]]
+        else:
+            data = brightfield.get_detector_data(detector_prefix)
+            data_shape = data.shape
+            assert len(data_shape) == 3
+            assert data_shape[1] == nxdetector.rows
+            assert data_shape[2] == nxdetector.columns
+            num_image = data_shape[0]
+            image_keys += num_image*[1]
+            sequence_numbers += list(range(num_image))
+            image_stacks.append(data)
+            rotation_angles += num_image*[0.0]
+            if (x_translation_data_type == 'spec_motor' or
+                    z_translation_data_type == 'spec_motor'):
+                spec_motors = brightfield.spec_positioner_values
+#                    {k:float(v)
+#                    for k, v in brightfield.spec_positioner_values.items()}
+            if (x_translation_data_type == 'smb_par' or
+                    z_translation_data_type == 'smb_par'):
+                smb_pars = scanparser.pars
+#                    {k:v for k,v in scanparser.pars.items()}
+            if x_translation_data_type is None:
+                x_translations += num_image*[0.0]
+            else:
+                if x_translation_data_type == 'spec_motor':
+                    x_translations += \
+                        num_image*[spec_motors[x_translation_name]]
                 else:
-                    if x_translation_data_type == 'spec_motor':
-                        x_translations += \
-                            num_image*[spec_motors[x_translation_name]]
-                    else:
-                        x_translations += \
-                            num_image*[smb_pars[x_translation_name]]
-                if z_translation_data_type is None:
-                    z_translations += num_image*[0.0]
-                if z_translation_data_type is not None:
-                    if z_translation_data_type == 'spec_motor':
-                        z_translations += \
-                            num_image*[spec_motors[z_translation_name]]
-                    else:
-                        z_translations += \
-                            num_image*[smb_pars[z_translation_name]]
+                    x_translations += \
+                        num_image*[smb_pars[x_translation_name]]
+            if z_translation_data_type is None:
+                z_translations += num_image*[0.0]
+            else:
+                if z_translation_data_type == 'spec_motor':
+                    z_translations += \
+                        num_image*[spec_motors[z_translation_name]]
+                else:
+                    z_translations += \
+                        num_image*[smb_pars[z_translation_name]]
 
         # Collect tomography fields data
-        tomo_stacks = tomofields.data[detector_prefix].nxdata
-        tomo_stack_shape = tomo_stacks.shape
-        assert len(tomo_stack_shape) == 3
-        assert tomo_stack_shape[-2] == detector_config.rows
-        assert tomo_stack_shape[-1] == detector_config.columns
+        num_tomo_stack = len(scan_numbers)
         assert not tomo_stack_shape[0] % num_tomo_stack
         # Restrict to 180 degrees set of data for now to match old code
         thetas_stacks = tomofields.data.rotation_angles.nxdata
@@ -403,19 +577,16 @@ class TomoCHESSMapConverter(Processor):
 
 
 class TomoDataProcessor(Processor):
-    """
-    A processor to reconstruct a set of tomographic images returning
+    """A processor to reconstruct a set of tomographic images returning
     either a dictionary or a `nexusformat.nexus.NXroot` object
     containing the (meta) data after processing each individual step.
     """
-
     def process(
             self, data, outputdir='.', interactive=False, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
             combine_data=False, save_figs='no'):
-        """
-        Process the input map or configuration with the step specific
-        instructions and return either a dictionary or a
+        """Process the input map or configuration with the step
+        specific instructions and return either a dictionary or a
         `nexusformat.nexus.NXroot` object with the processed result.
 
         :param data: Input configuration and specific step instructions
@@ -576,14 +747,11 @@ class TomoDataProcessor(Processor):
 
 
 class SetNumexprThreads:
+    """Class that sets and keeps track of the number of processors used
+    by the code in general and by the num_expr package specifically.
     """
-    Class that sets and keeps track of the number of processors used by
-    the code in general and by the num_expr package specifically.
-    """
-
     def __init__(self, num_core):
-        """
-        Initialize SetNumexprThreads.
+        """Initialize SetNumexprThreads.
 
         :param num_core: Number of processors used by the num_expr
             package.
@@ -617,12 +785,10 @@ class SetNumexprThreads:
 
 class Tomo:
     """Reconstruct a set of tomographic images."""
-
     def __init__(
             self, logger=None, outputdir='.', interactive=False, num_core=-1,
             save_figs='no'):
-        """
-        Initialize Tomo.
+        """Initialize Tomo.
 
         :param interactive: Allows for user interactions,
             defaults to `False`.
@@ -688,8 +854,7 @@ class Tomo:
 
     def reduce_data(
             self, nxroot, tool_config=None, calibrate_center_rows=False):
-        """
-        Reduced the tomography images.
+        """Reduced the tomography images.
 
         :param nxroot: Data object containing the raw data info and
             metadata required for a tomography data reduction.
@@ -838,8 +1003,7 @@ class Tomo:
         return nxroot, calibrate_center_rows
 
     def find_centers(self, nxroot, tool_config, calibrate_center_rows=False):
-        """
-        Find the calibrated center axis info
+        """Find the calibrated center axis info
 
         :param nxroot: Data object containing the reduced data and
             metadata required to find the calibrated center axis info.
@@ -993,8 +1157,7 @@ class Tomo:
         return center_config
 
     def reconstruct_data(self, nxroot, center_info, tool_config):
-        """
-        Reconstruct the tomography data.
+        """Reconstruct the tomography data.
 
         :param nxroot: Data object containing the reduced data and
             metadata required for a tomography data reconstruction.
@@ -1611,9 +1774,8 @@ class Tomo:
     def _set_detector_bounds(
             self, nxentry, reduced_data, image_key, theta, img_row_bounds,
             calibrate_center_rows):
-        """
-        Set vertical detector bounds for each image stack.Right now the
-        range is the same for each set in the image stack.
+        """Set vertical detector bounds for each image stack. Right
+        now the range is the same for each set in the image stack.
         """
         # Third party modules
         import matplotlib.pyplot as plt
@@ -1817,8 +1979,7 @@ class Tomo:
         return np.asarray(thetas)
 
     def _set_zoom_or_delta_theta(self, thetas, delta_theta=None):
-        """
-        Set zoom and/or delta theta to reduce memory the requirement
+        """Set zoom and/or delta theta to reduce memory the requirement
         for the analysis.
         """
         # Local modules
@@ -2084,8 +2245,7 @@ class Tomo:
             num_core=1, center_offset_min=-50, center_offset_max=50,
             center_search_range=None, gaussian_sigma=None, ring_width=None,
             prev_center_offset=None):
-        """
-        Find center for a single tomography plane.
+        """Find center for a single tomography plane.
 
         tomo_stacks data axes order: stack,theta,row,column
         thetas in radians
@@ -2475,8 +2635,7 @@ class Tomo:
         return np.squeeze(recon_planes)
 
 #    def _get_edges_one_plane(self, recon_plane):
-#        """
-#        Create an "edges plot" image for a single reconstructed
+#        """Create an "edges plot" image for a single reconstructed
 #        tomography data plane.
 #        """
 #        # Third party modules
@@ -2895,15 +3054,12 @@ class Tomo:
 
 
 class TomoSimFieldProcessor(Processor):
-    """
-    A processor to create a simulated tomography data set returning a
-    `nexusformat.nexus.NXroot` object containing the simulated
+    """A processor to create a simulated tomography data set returning
+    a `nexusformat.nexus.NXroot` object containing the simulated
     tomography detector images.
     """
-
     def process(self, data):
-        """
-        Process the input configuration and return a
+        """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
         tomography detector images.
 
@@ -3150,8 +3306,7 @@ class TomoSimFieldProcessor(Processor):
 
     def _create_pathlength_solid_square(self, dim, thetas, pixel_size,
             detector_size):
-        """
-        Create the x-ray path length through a solid square
+        """Create the x-ray path length through a solid square
         crosssection for a set of rotation angles.
         """
         # Get the column coordinates
@@ -3193,14 +3348,11 @@ class TomoSimFieldProcessor(Processor):
 
 
 class TomoDarkFieldProcessor(Processor):
-    """
-    A processor to create the dark field associated with a simulated
+    """A processor to create the dark field associated with a simulated
     tomography data set created by TomoSimProcessor.
     """
-
     def process(self, data, num_image=5):
-        """
-        Process the input configuration and return a
+        """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
         dark field detector images.
 
@@ -3266,14 +3418,11 @@ class TomoDarkFieldProcessor(Processor):
 
 
 class TomoBrightFieldProcessor(Processor):
+    """A processor to create the bright field associated with a
+    simulated tomography data set created by TomoSimProcessor.
     """
-    A processor to create the bright field associated with a simulated
-    tomography data set created by TomoSimProcessor.
-    """
-
     def process(self, data, num_image=5):
-        """
-        Process the input configuration and return a
+        """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
         bright field detector images.
 
@@ -3355,14 +3504,11 @@ class TomoBrightFieldProcessor(Processor):
 
 
 class TomoSpecProcessor(Processor):
-    """
-    A processor to create a tomography SPEC file associated with a
+    """A processor to create a tomography SPEC file associated with a
     simulated tomography data set created by TomoSimProcessor.
     """
-
     def process(self, data, scan_numbers=None):
-        """
-        Process the input configuration and return a list of strings
+        """Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
         :param data: Input configuration for the simulation.

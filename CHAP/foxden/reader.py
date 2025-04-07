@@ -105,7 +105,6 @@ class FoxdenMetadataReader(Reader):
         :return: Contents of the input data.
         :rtype: object
         """
-        t0 = time()
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
         rurl = f'{url}/search'
@@ -127,7 +126,6 @@ class FoxdenMetadataReader(Reader):
             data = json.loads(response.text)
         else:
             data = []
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
 
 class FoxdenProvenanceReader(Reader):
