@@ -1264,10 +1264,28 @@ class MapProcessor(Processor):
             string_to_list,
         )
 
+        # Check for available metadata
+        metadata = {}
+        if data:
+            try:
+                for i, d in enumerate(data):
+                    if d.get('schema') == 'metadata':
+                        metadata = d.get('data')
+                        if remove:
+                            data.pop(i)
+                        break
+            except:
+                pass
+            if len(metadata) > 1:
+                raise ValueError(
+                    f'Unable to find unique data for schema "metadata"')
+            if metadata:
+                metadata = self._get_metadata_config(metadata[0])
+
         # Get the validated map configuration
         map_config = self.get_config(
             data=data, config=config, schema='common.models.map.MapConfig',
-            inputdir=inputdir)
+            **metadata, inputdir=inputdir)
 
         # Validate the detectors
         try:
@@ -1422,6 +1440,36 @@ class MapProcessor(Processor):
         return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
             all_scalar_data, placeholder_data)
+
+    def _get_metadata_config(self, metadata):
+        """Get experiment specific configurational data from the
+        FOXDEN metadata record
+
+        :param metadata: FOXDEN metadata record.
+        :type metadata: dict
+        :return: Experiment specific configurational data.
+        :rtype: dict
+        """
+        config = {}
+        experiment_type = metadata.get('technique')
+        if 'tomography' in experiment_type:
+            config['title'] = metadata.get('sample_name')
+            station = metadata.get('beamline')[0]
+            if station == '3A':
+                station = 'id3a'
+            else:
+                raise ValueError(f'Invalid beamline parameter ({beamline})')
+            config['station'] = station
+            config['experiment_type'] = 'TOMO'
+            config['sample'] = {'name': config['title'],
+                                    'description': metadata.get('description')}
+            if station == 'id3a':
+                config['spec_file'] = os.path.join(
+                    metadata.get('data_location_raw'), 'spec.log')
+        else:
+            raise ValueError(
+                f'Experiment type {experiment_type} not implemented yet')
+        return config
 
     def _get_nxroot(
             self, map_config, detector_config, data, independent_dimensions,
