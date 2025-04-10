@@ -106,7 +106,7 @@ class FoxdenMetadataReader(Reader):
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            result = json.loads(response.text)['results']['records']
+            result = json.loads(response.text)
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
             result = []
