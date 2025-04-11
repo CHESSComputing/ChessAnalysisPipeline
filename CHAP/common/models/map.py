@@ -870,6 +870,8 @@ class MapConfig(CHAPBaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
 
+    :param: did: FOXDEN data identifier.
+    :type did: str, optional
     :ivar title: The title for the map configuration.
     :type title: str
     :ivar station: The name of the station at which the map was
@@ -907,6 +909,7 @@ class MapConfig(CHAPBaseModel):
     :ivar attrs: Additional Map configuration attributes.
     :type attrs: dict, optional
     """
+    did: Optional[constr(strip_whitespace=True)] = None
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     experiment_type: Literal[

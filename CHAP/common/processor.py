@@ -1450,7 +1450,7 @@ class MapProcessor(Processor):
         :return: Experiment specific configurational data.
         :rtype: dict
         """
-        config = {}
+        config = {'did': metadata.get('did')}
         experiment_type = metadata.get('technique')
         if 'tomography' in experiment_type:
             config['title'] = metadata.get('sample_name')
