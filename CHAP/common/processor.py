@@ -3037,7 +3037,11 @@ class UnstructuredToStructuredProcessor(Processor):
                for s in signals},
             attrs=attrs)
         if len(data_point_axes) == 1:
-            nxdata_structured.attrs['axes'] += data_point_axes
+            axes = nxdata_structured.attrs['axes']
+            if isinstance(axes, str):
+                print(f'before axes {type(axes)}: {axes}')
+                axes = [axes]
+            nxdata_structured.attrs['axes'] = axes + data_point_axes
         for a in data_point_axes:
             nxdata_structured[a] = NXfield(
                 value=nxdata[a], attrs=nxdata[a].attrs)
