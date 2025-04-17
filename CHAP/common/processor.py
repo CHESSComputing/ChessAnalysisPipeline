@@ -2903,19 +2903,26 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to a "structured" representation.
     """
-    def process(self, data):
+    def process(self, data, nxpath=None):
         # Third party modules
         from nexusformat.nexus import NXdata
 
-        data = self.unwrap_pipelinedata(data)[0]
-
-        from CHAP.utils.general import nxcopy
-        if isinstance(data, NXdata):
-            return self.convert_nxdata(nxcopy(data))
-            #return self.convert_nxdata(data)
+        try:
+            nxobject = self.get_data(data)
+        except:
+            nxobject = self.unwrap_pipelinedata(data)[0]
+        if isinstance(nxobject, NXdata):
+            return self.convert_nxdata(nxobject)
+        elif nxpath is not None:
+            # Local modules
+#            from CHAP.utils.general import nxcopy
+            try:
+                nxobject = nxobject[nxpath]
+            except:
+                raise ValueError(f'Invalid parameter nxpath ({nxpath})')
         else:
-            raise NotImplementedError(
-                f'Not implemented for input data with type{(type(nxdata))}')
+            raise ValueError(f'Invalid input data ({data})')
+        return self.convert_nxdata(nxobject)
 
     def convert_nxdata(self, nxdata):
         # Third party modules
