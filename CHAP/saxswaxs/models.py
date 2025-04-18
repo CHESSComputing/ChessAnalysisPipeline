@@ -49,7 +49,7 @@ class AzimuthalIntegratorConfig(MyBaseModel):
 class PyfaiIntegrationConfig(MyBaseModel):
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
-    multi_geometry: dict
+    multi_geometry: dict = {}
     integration_method: Literal[
         'integrate1d', 'integrate2d', 'integrate_radial']
     integration_params: dict
@@ -59,20 +59,55 @@ class PyfaiIntegrationConfig(MyBaseModel):
     def integrate(self, ais, input_data):
         import numpy as np
 
+        npts = [len(input_data[name])
+                for name in self.integration_params['lst_data']]
+        if not all([_npts == npts[0] for _npts in npts]):
+            raise RuntimeError(
+                'Different number of frames of detector data provided')
+        npts = npts[0]
+        integration_params = {k: v
+                              for k, v in self.integration_params.items()
+                              if k != 'lst_data'}
         if self.integration_method == 'integrate_radial':
-            raise NotImplementedError
+            from pyFAI.containers import Integrate1dResult
+            ais, _, chi_offset = self.adjust_azimuthal_integrators(ais)
+            results = None
+            for name in self.integration_params.get('lst_data', []):
+                ai = ais[name]
+                _results = [
+                    ai.integrate_radial(
+                        data=input_data[name][i], **integration_params)
+                    for i in range(npts)
+                ]
+                if results is None:
+                    results = _results
+                else:
+                    results = [
+                        Integrate1dResult(
+                            radial=_results[i].radial,
+                            intensity=(_results[i].intensity
+                                       + results[i].intensity))
+                        for i in range(npts)
+                    ]
+            if self.right_handed:
+                results = [
+                    Integrate1dResult(
+                        radial=r.radial,
+                        intensity=np.flip(r.intensity)
+                    )
+                    for r in results
+                ]
+            results = [
+                Integrate1dResult(
+                    radial=r.radial + chi_offset,
+                    intensity=np.where(r.intensity==0, np.nan, r.intensity)
+                )
+                for r in results
+            ]
+            return results
         else:
             mg = self.get_multi_geometry(ais)
             integration_method = getattr(mg, self.integration_method)
-            integration_params = {k: v
-                                  for k, v in self.integration_params.items()
-                                  if k != 'lst_data'}
-            npts = [len(input_data[name])
-                        for name in self.integration_params['lst_data']]
-            if not all([_npts == npts[0] for _npts in npts]):
-                raise RuntimeError(
-                    'Different number of frames of detector data provided')
-            npts = npts[0]
             results = [
                 integration_method(
                     lst_data=[input_data[name][i]
@@ -97,7 +132,18 @@ class PyfaiIntegrationConfig(MyBaseModel):
         placeholder_result = None
         placeholder_data = self.get_placeholder_data(azimuthal_integrators)
         if self.integration_method == 'integrate_radial':
-            raise NotImplementedError
+            # Radial integration happens detector-by-detector with the
+            # same aprameters for integration range and number of
+            # points. So, for getting radially integrated placeholder
+            # results, only need to perform integration for at most
+            # one detector since it's all 0s anyways.
+            det_name = self.integration_params.get('lst_data', [])[0]
+            ai = azimuthal_integrators[det_name]
+            integration_params = {k: v
+                                  for k, v in self.integration_params.items()
+                                  if k != 'lst_data'}
+            placeholder_result = ai.integrate_radial(
+                data=placeholder_data[0], **integration_params)
         else:
             mg = self.get_multi_geometry(azimuthal_integrators)
             integration_method = getattr(mg, self.integration_method)
@@ -106,24 +152,17 @@ class PyfaiIntegrationConfig(MyBaseModel):
                                   if k != 'lst_data'}
             placeholder_result = integration_method(
                 lst_data=placeholder_data, **integration_params)
-            if self.integration_method == 'integrate2d' and self.right_handed:
-                # Flip results along azimuthal axis for a right-handed
-                # coordinate system
-                from pyFAI.containers import Integrate2dResult
-                placeholer_result = Integrate2dResult(
-                    np.flip(placeholder_result.intensity, axis=0),
-                    placeholer_result.radial, placeholer_result.azimuthal
-                )
+            # right handed coorinate system acieved by flipping
+            # intensity results, not the coordinate axes, so no need
+            # to do this with placeholder results since they're all 0s
+            # anyways.
 
         self._placeholder_result = placeholder_result
 
-    def get_multi_geometry(self, azimuthal_integrators):
+    def adjust_azimuthal_integrators(self, azimuthal_integrators):
         import numpy as np
         from pyFAI.multi_geometry import MultiGeometry
 
-        # Setup individual azimuthal integrators
-        ais = [azimuthal_integrators[name]
-               for name in self.multi_geometry['ais']]
         # Adjust azimuthal angles used (since pyfai has some odd conventions)
         chi_min, chi_max = self.multi_geometry.get('azimuth_range',
                                                    (-180.0, 180.0))
@@ -139,12 +178,21 @@ class PyfaiIntegrationConfig(MyBaseModel):
             chi_offset = 0
         chi_min -= chi_offset
         chi_max -= chi_offset
-        for ai in ais:
+        for name, ai in azimuthal_integrators.items():
             ai.rot3 += chi_offset * np.pi/180.0
+        return azimuthal_integrators, (chi_min, chi_max), chi_offset
 
+    def get_multi_geometry(self, azimuthal_integrators):
+        import numpy as np
+        from pyFAI.multi_geometry import MultiGeometry
+
+        azimuthal_integrators, azimuth_range, _ = \
+            self.adjust_azimuthal_integrators(azimuthal_integrators)
+        ais = [azimuthal_integrators[name]
+               for name in self.multi_geometry['ais']]
         kwargs = {k: v for k, v in self.multi_geometry.items()
                   if k not in ('ais', 'azimuth_range')}
-        return MultiGeometry(ais, azimuth_range=(chi_min, chi_max), **kwargs)
+        return MultiGeometry(ais, azimuth_range=azimuth_range, **kwargs)
 
     def get_placeholder_data(self, azimuthal_integrators):
         import numpy as np
@@ -205,8 +253,22 @@ class PyfaiIntegrationConfig(MyBaseModel):
             }
         elif isinstance(self._placeholder_result,
                         pyFAI.containers.Integrate1dResult):
+            # Integrate1dResult's "radial" property is misleadingly
+            # named here. When using integrate_radial, the property
+            # actually contains azimuthal coordinate values.
             if self.integration_method == 'integrate_radial':
-                raise NotImplementedError
+                azimuthal_unit = pyFAI.units.to_unit(
+                    self._placeholder_result.unit,
+                    type_=pyFAI.units.AZIMUTHAL_UNITS)
+                coords[azimuthal_unit.name] = {
+                    'attributes': {
+                        'units': azimuthal_unit.name.split('_')[-1],
+                        'long_name': azimuthal_unit.label,
+                    },
+                    'data': self._placeholder_result.radial.tolist(),
+                    'shape': self._placeholder_result.radial.shape,
+                    'dtype': 'float32',
+                }
             elif self.integration_method == 'integrate1d':
                 radial_unit = pyFAI.units.to_unit(
                     self.multi_geometry.get('unit', '2th_deg'),
@@ -252,7 +314,7 @@ class PyfaiIntegrationConfig(MyBaseModel):
                                 'long_name': 'Intensity (a.u)',
                                 'units': 'a.u'
                             },
-                            'dtype': 'int64',
+                            'dtype': 'float64',
                             'shape': (*dataset_shape, *self.result_shape),
                             'chunks': (*dataset_chunks, *self.result_shape),
                             'compressors': None,
