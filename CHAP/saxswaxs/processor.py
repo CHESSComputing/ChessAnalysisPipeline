@@ -42,7 +42,10 @@ class PyfaiIntegrationProcessor(Processor):
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
             tf = time.time()
-            self.logger.info(f'Integrated {integration.name} ({nframes/(tf-t0)} frames/sec)')
+            self.logger.info(
+                f'Integrated {integration.name} '
+                + f'({nframes/(tf-t0):.3f} frames/sec)')
+
             results.extend(
                 [
                     {
