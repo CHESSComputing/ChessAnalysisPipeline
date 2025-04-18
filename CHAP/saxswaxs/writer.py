@@ -118,6 +118,66 @@ class ZarrResultsWriter(Writer):
             f'Data written to "{path}" at slice {idx}.')
 
 
+class NexusResultsWriter(Writer):
+    def write(self, data, filename):
+        from nexusformat.nexus import NXFile
+
+        # Open file in append mode to allow modifications
+        #nxroot = nxload(filename)
+
+        # Get list of PyfaiIntegrationProcessor results to write
+        data = self.unwrap_pipelinedata(data)[0]
+        for d in data:
+            with NXFile(filename, 'a') as nxroot:
+                self.nxs_writer(nxroot=nxroot, **d)
+
+        return data
+
+    def nxs_writer(self, nxroot, path, idx, data):
+        """Write data to a specific Zarr dataset.
+
+        This method writes `data` to a specified dataset within a Zarr
+        file at the given index (`idx`). If the dataset does not
+        exist, an error is raised. The method ensures that the shape
+        of `data` matches the shape of the target slice before
+        writing.
+
+        :param zarrfile: Zarr file root object
+        :type zarrfile: zarr.core.group.Group
+        :param path: Path to the dataset inside the Zarr file.
+        :type path: str
+        :param idx: Index or slice where the data should be written.
+        :type idx: tuple or int
+        :param data: Data to be written to the specified slice in the
+            dataset.
+        :type data: numpy.ndarray or compatible array-like object
+        :return: The written data.
+        :rtype: numpy.ndarray or compatible array-like object
+        :raises ValueError: If the specified dataset does not exist or
+            if the shape of `data` does not match the target slice.
+        """
+        self.logger.info(f'Writing to {path} at {idx}')
+
+        # Check if the dataset exists
+        if path not in nxroot:
+            raise ValueError(
+                f'Dataset "{path}" does not exist in the Zarr file.')
+
+        # Access the specified dataset
+        dataset = nxroot[path]
+
+        # Check that the slice shape matches the data shape
+        if dataset[idx].shape != data.shape:
+            raise ValueError(
+                f'Data shape {data.shape} does not match the target slice '
+                + f'shape {dataset[idx].shape}.')
+
+        # Write the data to the specified slice
+        dataset[idx] = data
+        self.logger.info(
+            f'Data written to "{path}" at slice {idx}.')
+
+
 if __name__ == '__main__':
     # Local modules
     from CHAP.writer import main
