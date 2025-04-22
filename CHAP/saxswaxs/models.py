@@ -1,4 +1,4 @@
-'''Definition and utilities for integration tools'''
+"""Definition and utilities for integration tools"""
 
 from pydantic import (
     ConfigDict,
@@ -23,6 +23,7 @@ class AzimuthalIntegratorConfig(MyBaseModel):
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
     poni_file: Optional[FilePath] = None
+#    mask_file: Optional[FilePath] = None #RV
     params: Optional[dict] = None
     ai: AzimuthalIntegrator
 
@@ -58,6 +59,25 @@ class PyfaiIntegrationConfig(MyBaseModel):
 
     def integrate(self, ais, input_data):
         import numpy as np
+#        # Adjust azimuthal angles used (since pyfai has some odd conventions)
+#        chi_min, chi_max = self.multi_geometry.get('azimuth_range',
+#                                                   (-180.0, 180.0))
+#        # Force a right-handed coordinate system 
+#        chi_min, chi_max = 360 - chi_max, 360 - chi_min
+#
+#        # If the discontinuity is crossed, artificially rotate the
+#        # detectors to achieve a continuous azimuthal integration range 
+#        chi_disc = self.multi_geometry.get('chi_disc', 180)
+#        if chi_min < chi_disc and chi_max > chi_disc:
+#            chi_offset = chi_max - chi_disc
+#        else:
+#            chi_offset = 0
+#        chi_min -= chi_offset
+#        chi_max -= chi_offset
+#        for ai in ais.values():
+#            ai.rot3 += chi_offset * np.pi/180.0
+#        # Use adjusted azimuthal integration range
+#        self.multi_geometry['azimuth_range'] = (chi_min, chi_max)
 
         npts = [len(input_data[name])
                 for name in self.integration_params['lst_data']]
@@ -104,28 +124,64 @@ class PyfaiIntegrationConfig(MyBaseModel):
                 )
                 for r in results
             ]
-            return results
-        else:
-            mg = self.get_multi_geometry(ais)
+            mg = MultiGeometry(**self.multi_geometry)
+            print(f'\nmg {type(mg)}:\n{mg}')
             integration_method = getattr(mg, self.integration_method)
+            integration_params = {k: v
+                                  for k, v in self.integration_params.items()
+                                  if k != 'lst_data'}
+            print(f'\n\nintegration_params after:\n{integration_params}')
+            print(f'\nintegration_method = {integration_method}')
+            npts = [len(input_data[name])
+                        for name in self.integration_params['lst_data']]
+            if not all([_npts == npts[0] for _npts in npts]):
+                raise RuntimeError(
+                    'Different number of frames of detector data provided')
+            npts = npts[0]
+            print(f'\nlst_data:')
+            for i in range(npts):
+                lst_data = [input_data[name][i] for name in self.integration_params['lst_data']][0]
+                lst_data = lst_data.astype(np.int64)
+                print(f'\t{lst_data.shape} {lst_data.sum()}')
+            print(f'\n')
             results = [
                 integration_method(
-                    lst_data=[input_data[name][i]
+                    lst_data=[input_data[name][i].astype(np.int64)
                               for name in self.integration_params['lst_data']],
                     **integration_params)
                 for i in range(npts)
             ]
-            if self.integration_method == 'integrate2d' and self.right_handed:
-                # Flip results along azimuthal axis
-                from pyFAI.containers import Integrate2dResult
-                results = [
-                    Integrate2dResult(
-                        np.flip(result.intensity, axis=0),
-                        result.radial, result.azimuthal
-                    )
-                    for result in results
-                ]
+#            if self.integration_method == 'integrate2d' and self.right_handed:
+#                # Flip results along azimuthal axis
+#                from pyFAI.containers import Integrate2dResult
+#                results = [
+#                    Integrate2dResult(
+#                        np.flip(result.intensity, axis=0),
+#                        result.radial, result.azimuthal
+#                    )
+#                    for result in results
+#                ]
 
+            print(f'\nresults {type(results[0])} {results[0][0].shape}:\n{results[0][0].sum()} {results[0][0]}')
+            print(f'\nresults[0].intensity {results[0].intensity.shape} {results[0].intensity.sum()}')
+#            print(f'\nresults[0].radial {results[0].radial.shape}\n{np.array(results[0].radial).tolist()}')
+            print(f'azimutal? {hasattr(results[0], "azimuthal")} sigma? {hasattr(results[0], "sigma")}')
+            return results
+            # Integrate first frame, extract objects to perform
+            # integrations quicker from the result.
+            results = [None] * npts
+            results[0] = integration_method(
+                lst_data=[input_data[name][0]
+                          for name in self.integration_params['lst_data']],
+                **integration_params)
+            engine = mg.engines[results[0].method].engine
+            omega = mg.solidAngleArray()
+            for i in range(1, npts):
+                results[i] = engine.integrate_ng(
+                    lst_data=[input_data[name][i]
+                              for name in self.integration_params['lst_data']],
+                    **integration+params, solidangle=omega
+                )
             return results
 
     def init_placeholder_results(self, azimuthal_integrators):

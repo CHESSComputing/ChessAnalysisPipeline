@@ -42,7 +42,8 @@ class DetectorDataReader(Reader):
     application and background correction available."""
     def read(self, filename,
              mask_file=None, mask_above=None, mask_below=None,
-             mask_value=np.nan,
+#             mask_value=np.nan,
+             mask_value=0,
              data_scalar=None,
              background_file=None, background_scalar=None,
              ):
@@ -74,7 +75,7 @@ class DetectorDataReader(Reader):
         # Handle glob filenames
         if not os.path.isfile(filename):
             filenames = sorted(glob.glob(filename))
-            if len(filenames) == 0:
+            if not filenames:
                 raise ValueError(
                     f'{filename} is not a file or glob that matches any files')
         else:

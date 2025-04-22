@@ -1525,7 +1525,9 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        self.logger.debug(f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
+        if scalar_data:
+            self.logger.debug(
+                f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         if (map_config.experiment_type == 'EDD'
             and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
@@ -3191,7 +3193,7 @@ class ZarrToNexusProcessor(Processor):
                     nexus_group.attrs[attr_key] = attr_value
 
                 # Copy datasets and sub-groups
-                for key, item in zarr_group.members():
+                for key, item in zarr_group.items():
                     if isinstance(item, zarr.Array):
                         self.logger.info(f'Copying {zarr_group.path}/{key}')
                         # Copy dataset

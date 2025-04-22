@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 """SAXSWAXS command line writer."""
+
+# Local modules
 from CHAP import Writer
 
+
 class ZarrSetupWriter(Writer):
+
     def process(self, data, filename, dataset_shape, dataset_chunks):
         # Get config for PyfaiIntegrationProcessor from data
         # Using config & experiment_shape, setup tree dict to pass to
         # common.ZarrSetupWriter
         # call common.ZarrSetupWriter
-        import json
         try:
             config = self.get_config(
-                data, f'saxswaxs.models.PyfaiIntegrationProcessorConfig')
+                data=data,
+                schema=f'saxswaxs.models.PyfaiIntegrationProcessorConfig')
         except:
             self.logger.info(
                 f'No valid PyfaiIntegrationProcessorConfig in input '
@@ -24,12 +28,11 @@ class ZarrSetupWriter(Writer):
             except Exception as exc:
                 raise RuntimeError from exc
         tree = config.zarr_tree(dataset_shape, dataset_chunks)
-        self.logger.debug(f'zarr tree:\n{json.dumps(tree, indent=2)}')
         return self.zarr_setup_writer(tree, filename)
 
     def zarr_setup_writer(self, tree, filename):
+        # Third party modules
         import zarr
-        import numpy as np
 
         def create_group_or_dataset(node, zarr_parent, indent=0):
             # Set attributes if present
@@ -60,7 +63,9 @@ class ZarrSetupWriter(Writer):
 
 
 class ZarrResultsWriter(Writer):
+
     def write(self, data, filename):
+        # Third party modules
         import zarr
 
         # Open file in append mode to allow modifications
@@ -82,7 +87,7 @@ class ZarrResultsWriter(Writer):
         of `data` matches the shape of the target slice before
         writing.
 
-        :param zarrfile: Zarr file root object
+        :param zarrfile: Path to the Zarr file.
         :type zarrfile: zarr.core.group.Group
         :param path: Path to the dataset inside the Zarr file.
         :type path: str
@@ -110,12 +115,11 @@ class ZarrResultsWriter(Writer):
         if dataset[idx].shape != data.shape:
             raise ValueError(
                 f'Data shape {data.shape} does not match the target slice '
-                + f'shape {dataset[idx].shape}.')
+                f'shape {dataset[idx].shape}.')
 
         # Write the data to the specified slice
         dataset[idx] = data
-        self.logger.info(
-            f'Data written to "{path}" at slice {idx}.')
+        self.logger.info(f'Data written to "{path}" at slice {idx}.')
 
 
 class NexusResultsWriter(Writer):
@@ -134,17 +138,17 @@ class NexusResultsWriter(Writer):
         return data
 
     def nxs_writer(self, nxroot, path, idx, data):
-        """Write data to a specific Zarr dataset.
+        """Write data to a specific NeXus file.
 
-        This method writes `data` to a specified dataset within a Zarr
+        This method writes `data` to a specified dataset within a NeXus
         file at the given index (`idx`). If the dataset does not
         exist, an error is raised. The method ensures that the shape
         of `data` matches the shape of the target slice before
         writing.
 
-        :param zarrfile: Zarr file root object
-        :type zarrfile: zarr.core.group.Group
-        :param path: Path to the dataset inside the Zarr file.
+        :param nxroot: NeXus root object.
+        :type zarrfile: nexusformat.nexus.NXroot
+        :param path: Path to the dataset inside the NeXus file.
         :type path: str
         :param idx: Index or slice where the data should be written.
         :type idx: tuple or int
@@ -161,7 +165,7 @@ class NexusResultsWriter(Writer):
         # Check if the dataset exists
         if path not in nxroot:
             raise ValueError(
-                f'Dataset "{path}" does not exist in the Zarr file.')
+                f'Dataset "{path}" does not exist in the NeXus file.')
 
         # Access the specified dataset
         dataset = nxroot[path]
@@ -170,12 +174,11 @@ class NexusResultsWriter(Writer):
         if dataset[idx].shape != data.shape:
             raise ValueError(
                 f'Data shape {data.shape} does not match the target slice '
-                + f'shape {dataset[idx].shape}.')
+                f'shape {dataset[idx].shape}.')
 
         # Write the data to the specified slice
         dataset[idx] = data
-        self.logger.info(
-            f'Data written to "{path}" at slice {idx}.')
+        self.logger.info(f'Data written to "{path}" at slice {idx}.')
 
 
 if __name__ == '__main__':

@@ -13,7 +13,8 @@ class PyfaiIntegrationProcessor(Processor):
         # Get config for PyfaiIntegrationProcessor from data or config
         try:
             config = self.get_config(
-                data, f'saxswaxs.models.{self.__class__.__name__}Config')
+                data=data,
+                schema=f'saxswaxs.models.{self.__class__.__name__}Config')
         except:
             self.logger.info(
                 f'No valid {self.__class__.__name__} config in input '
@@ -42,10 +43,9 @@ class PyfaiIntegrationProcessor(Processor):
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
             tf = time.time()
-            self.logger.info(
+            self.logger.debug(
                 f'Integrated {integration.name} '
-                + f'({nframes/(tf-t0):.3f} frames/sec)')
-
+                f'({nframes/(tf-t0):.3f} frames/sec)')
             results.extend(
                 [
                     {
