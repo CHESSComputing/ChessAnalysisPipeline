@@ -9,6 +9,7 @@ Description: Module for Processors used in multiple experiment-specific
 """
 
 # System modules
+from copy import deepcopy
 import os
 
 # Third party modules
@@ -579,12 +580,14 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
             save_figures=False, outputdir='.', interactive=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
         :type data: list[PipelineData]
+        :param x: Independent dimension (only used when interactive is
+            `True` of when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
@@ -617,7 +620,7 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, mask, tol, lam, max_iter, save_figures, outputdir,
+            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
             interactive)
 
     @staticmethod
@@ -825,6 +828,18 @@ class ConstructBaseline(Processor):
             'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
             'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
         return baseline, config
+
+
+class ConvertStructuredProcessor(Processor):
+    """Processor for converting map data between structured /
+    unstructued formats.
+    """
+    def process(self, data):
+        # Local modules
+        from CHAP.utils.converters import convert_structured_unstructured
+
+        data = self.unwrap_pipelinedata(data)[0]
+        return convert_structured_unstructured(data)
 
 
 class ImageProcessor(Processor):
@@ -1048,9 +1063,9 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data=data, schema='common.models.map.MapConfig')
         integration_config = self.get_config(
-            data, 'common.models.integration.IntegrationConfig')
+            data=data, schema='common.models.integration.IntegrationConfig')
         nxprocess = self.get_nxprocess(map_config, integration_config)
 
         return nxprocess
@@ -1068,7 +1083,6 @@ class IntegrateMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXprocess
         """
         # System modules
-        from json import dumps
         from time import time
 
         # Third party modules
@@ -1085,13 +1099,13 @@ class IntegrateMapProcessor(Processor):
 
         nxprocess = NXprocess(name=integration_config.title)
 
-        nxprocess.map_config = dumps(map_config.dict())
-        nxprocess.integration_config = dumps(integration_config.dict())
+        nxprocess.map_config = map_config.model_dump_json()
+        nxprocess.integration_config = integration_config.model_dump_json()
 
         nxprocess.program = 'pyFAI'
         nxprocess.version = pyFAI.version
 
-        for k, v in integration_config.dict().items():
+        for k, v in integration_config.model_dump().items():
             if k == 'detectors':
                 continue
             nxprocess.attrs[k] = v
@@ -1222,9 +1236,9 @@ class MapProcessor(Processor):
             info in data, if present).
         :type detectors: list[dict], optional
         :param placeholder_data: For SMB EDD maps only. Value to use
-            for missing detecotr data frames, or `False` if missing
-            data should raise an error. Defaults to `False`.
-        :type placeholder_data: object
+            for missing detector data frames, or `False` if missing
+            data should raise an error, defaults to `False`.
+        :type placeholder_data: object, optional
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
@@ -1237,7 +1251,6 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
-        from copy import deepcopy
         import logging
         from tempfile import NamedTemporaryFile
 
@@ -1252,19 +1265,9 @@ class MapProcessor(Processor):
         )
 
         # Get the validated map configuration
-        try:
-            map_config = self.get_config(
-                data, 'common.models.map.MapConfig', inputdir=inputdir)
-        except:
-            self.logger.info('No valid Map configuration in input pipeline '
-                             'data, using config parameter instead.')
-            try:
-                # Local modules
-                from CHAP.common.models.map import MapConfig
-
-                map_config = MapConfig(**config, inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
+        map_config = self.get_config(
+            data=data, config=config, schema='common.models.map.MapConfig',
+            inputdir=inputdir)
 
         # Validate the detectors
         try:
@@ -1275,7 +1278,7 @@ class MapProcessor(Processor):
         except:
             try:
                 detector_config = self.get_config(
-                    data, 'common.models.map.DetectorConfig',
+                    data=data, schema='common.models.map.DetectorConfig',
                     inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
@@ -1302,6 +1305,7 @@ class MapProcessor(Processor):
             except:
                 self.logger.warning('Unable to load mpi4py, running serially')
                 num_proc = 1
+        self.logger.debug(f'Number of processors: {num_proc}')
 
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1330,21 +1334,21 @@ class MapProcessor(Processor):
                 num = scans_per_proc
                 if n_proc < num_scan - scans_per_proc*num_proc:
                     num += 1
-                config = deepcopy(map_config.dict())
+                config = map_config.model_dump()
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
                     [{'common.MapProcessor': {
                         'config': config,
                         'detectors': [
-                            dict(d) for d in detector_config.detectors]}}])
+                            d.model_dump() for d in detector_config.detectors],
+                     }}])
                 offsets.append(n_scan)
                 n_scan += num
 
             # Spawn the workers to run the sub-pipeline
             run_config = RunConfig(
-                config={'log_level': logging.getLevelName(self.logger.level),
-                        'spawn': 1})
+                log_level=logging.getLevelName(self.logger.level), spawn=1)
             tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
                 fp_name = fp.name
@@ -1356,14 +1360,14 @@ class MapProcessor(Processor):
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
-                            {'config': run_config.__dict__,
+                            {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc-1]},
                             f, sort_keys=False)
                 sub_comm = MPI.COMM_SELF.Spawn(
                     'CHAP', args=[fp_name], maxprocs=num_proc-1)
                 common_comm = sub_comm.Merge(False)
                 # Align with the barrier in RunConfig() on common_comm
-                # called from the spawned main()
+                # called from the spawned main() in common_comm
                 common_comm.barrier()
                 # Align with the barrier in run() on common_comm
                 # called from the spawned main()
@@ -1406,18 +1410,18 @@ class MapProcessor(Processor):
         if num_proc > 1:
             # Reset the scan_numbers to the original full set
             spec_scans.scan_numbers = scan_numbers
-            # Disconnect spawned workers and cleanup temporary files
+            # Align with the barrier in main() on common_comm
+            # when disconnecting the spawned worker
             common_comm.barrier()
+            # Disconnect spawned workers and cleanup temporary files
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
 
-        # Construct the NeXus NXroot object
-        nxroot = self._get_nxroot(
+        # Construct and return the NeXus NXroot object
+        return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
             all_scalar_data, placeholder_data)
-
-        return nxroot
 
     def _get_nxroot(
             self, map_config, detector_config, data, independent_dimensions,
@@ -1435,14 +1439,14 @@ class MapProcessor(Processor):
         :type independent_dimensions: numpy.ndarray
         :param all_scalar_data: The map's scalar data.
         :type all_scalar_data: numpy.ndarray
+        :param placeholder_data: For SMB EDD maps only. Value to use
+            for missing detector data frames, or `False` if missing
+            data should raise an error.
+        :type placeholder_data: object
         :return: The map's data and metadata contained in a NeXus
             structure.
         :rtype: nexusformat.nexus.NXroot
         """
-        # System modules
-        from copy import deepcopy
-        from json import dumps
-
         # Third party modules
         from nexusformat.nexus import (
             NXcollection,
@@ -1482,7 +1486,7 @@ class MapProcessor(Processor):
         nxentry = NXentry(name=map_config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.attrs['station'] = map_config.station
         for k, v in map_config.attrs.items():
             nxentry.attrs[k] = v
@@ -1494,7 +1498,8 @@ class MapProcessor(Processor):
                         attrs={'spec_file': str(scans.spec_file)})
 
         # Add sample metadata
-        nxentry[map_config.sample.name] = NXsample(**map_config.sample.dict())
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.model_dump())
 
         # Set up independent dimensions NeXus NXdata group
         # (squeeze out constant dimensions)
@@ -1515,6 +1520,9 @@ class MapProcessor(Processor):
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
+        if all_scalar_data is not None:
+            self.logger.debug(
+                f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         scalar_signals = []
         scalar_data = []
         for i, dim in enumerate(map_config.all_scalar_data):
@@ -1525,20 +1533,14 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        if scalar_data:
-            self.logger.debug(
-                f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         if (map_config.experiment_type == 'EDD'
-            and not placeholder_data is False):
+                and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
             scalar_data.append(NXfield(
                 value=all_scalar_data[-1],
-                attrs={'description': (
-                    'Indicates whether placeholder data may be present for the'
-                    + 'corresponding frames of detector data.'
-                )
-                       }
-            ))
+                attrs={'description':
+                    'Indicates whether placeholder data may be present for'
+                    'the corresponding frames of detector data.'}))
         for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
@@ -1549,7 +1551,7 @@ class MapProcessor(Processor):
                            'data_type': dim.data_type,
                            'local_name': dim.name}))
                 map_config.all_scalar_data.append(
-                    PointByPointScanData(**dict(dim)))
+                    PointByPointScanData(**dim.model_dump()))
                 map_config.independent_dimensions.remove(dim)
         if scalar_signals:
             nxentry.scalar_data = NXdata()
@@ -1566,11 +1568,20 @@ class MapProcessor(Processor):
         nxdata = NXdata()
         nxentry.data = nxdata
         nxentry.data.set_default()
+        detector_ids = []
         for k, v in map_config.attrs.items():
             nxdata.attrs[k] = v
+        min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+        max_ = np.max(data, axis=tuple(range(1, data.ndim)))
         for i, detector in enumerate(detector_config.detectors):
-            nxdata[detector.id] = NXfield(value=data[i], attrs=detector.attrs)
+            nxdata[detector.id] = NXfield(
+                value=data[i],
+                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
+            detector_ids.append(detector.id)
         linkdims(nxdata, nxentry.independent_dimensions)
+        if len(detector_config.detectors) == 1:
+            nxdata.attrs['signal'] = detector_config.detectors[0].id
+        nxentry.detector_ids = detector_ids
 
         return nxroot
 
@@ -1589,7 +1600,7 @@ class MapProcessor(Processor):
         :type num_scan: int
         :param offset: Offset scan number of current processor.
         :type offset: int
-        :param placeholder_data: Value to use for missing detecotr
+        :param placeholder_data: Value to use for missing detector
             data frames, or `False` if missing data should raise an
             error.
         :type placeholder_data: object
@@ -1817,18 +1828,20 @@ class MapProcessor(Processor):
                             detector_config.detectors[i].id)
                     data[i][offset] = ddata
                 for i, dim in enumerate(map_config.independent_dimensions):
-                    if dim.data_type == 'scan_column':
+                    if dim.data_type in ['scan_column',
+                                         'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
                         #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)[:num_dim]
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v[:num_dim]
-                    elif dim.data_type in ['smb_par', 'spec_motor']:
+                    elif dim.data_type in ['smb_par', 'spec_motor',
+                                           'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
                         #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
-                            relative=False)
+                            relative=False, scalar_data=map_config.scalar_data)
                         #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
                         #independent_dimensions[offset,i] = v
                     else:
@@ -1890,6 +1903,7 @@ class MPICollectProcessor(Processor):
                         data = [comm.recv(source=n_worker)]
                     else:
                         data.append(comm.recv(source=n_worker))
+        #FIX RV TODO Merge the list of data items in some generic fashion
         return data
 
 
@@ -1897,19 +1911,31 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, sub_pipeline=None):
+    def process(self, data, config=None, sub_pipeline=None, inputdir=None,
+            outputdir=None, interactive=None, log_level=None):
         """Run a parallel generic sub-pipeline.
 
         :param data: Input data.
         :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            common.models.map.MapConfig.
+        :type config: dict, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions.
+        :type interactive: bool, optional
+        :ivar log_level: Logger level (not case sensitive).
+        :type log_level: Literal[
+            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
-        # System modules
-        from copy import deepcopy
-
         # Third party modules
         from mpi4py import MPI
 
@@ -1924,11 +1950,14 @@ class MPIMapProcessor(Processor):
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
 
-        # Get the map configuration from data
+        # Get the validated map configuration
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data=data, config=config, schema='common.models.map.MapConfig',
+            inputdir=inputdir)
 
         # Create the spec reader configuration for each processor
+        # FIX: catered to EDD with one spec scan
+        assert len(map_config.spec_scans) == 1
         spec_scans = map_config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
@@ -1950,7 +1979,10 @@ class MPIMapProcessor(Processor):
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = RunConfig(sub_pipeline.get('config'), comm)
+        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
+            'interactive': interactive, 'log_level': log_level}
+        run_config.update(sub_pipeline.get('config'))
+        run_config = RunConfig(**run_config, comm=comm)
         pipeline_config = []
         for item in sub_pipeline['pipeline']:
             if isinstance(item, dict):
@@ -1965,10 +1997,7 @@ class MPIMapProcessor(Processor):
             pipeline_config.append(item)
 
         # Run the sub-pipeline on each processor
-        return run(
-            pipeline_config, inputdir=run_config.inputdir,
-            outputdir=run_config.outputdir,
-            interactive=run_config.interactive, comm=comm)
+        return run(run_config, pipeline_config, logger=self.logger, comm=comm)
 
 
 class MPISpawnMapProcessor(Processor):
@@ -1976,8 +2005,9 @@ class MPISpawnMapProcessor(Processor):
     a map configuration by spawning workers processes.
     """
     def process(
-            self, data, num_proc=1, root_as_worker=True, collect_on_root=True,
-            sub_pipeline=None):
+            self, data, num_proc=1, root_as_worker=True, collect_on_root=False,
+            sub_pipeline=None, inputdir=None, outputdir=None, interactive=None,
+            log_level=None):
         """Spawn workers running a parallel generic sub-pipeline.
 
         :param data: Input data.
@@ -1988,15 +2018,27 @@ class MPISpawnMapProcessor(Processor):
             defaults to `True`.
         :type root_as_worker: bool, optional
         :param collect_on_root: Collect the result of the spawned
-            workers on the root node, defaults to `True`.
+            workers on the root node, defaults to `False`.
         :type collect_on_root: bool, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :ivar log_level: Logger level (not case sensitive).
+        :type log_level: Literal[
+            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
         # System modules
-        from copy import deepcopy
         from tempfile import NamedTemporaryFile
 
         # Third party modules
@@ -2015,12 +2057,15 @@ class MPISpawnMapProcessor(Processor):
 
         # Get the map configuration from data
         map_config = self.get_config(
-            data, 'common.models.map.MapConfig')
+            data=data, schema='common.models.map.MapConfig', inputdir=inputdir)
 
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = RunConfig(config=sub_pipeline.get('config'))
+        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
+            'interactive': interactive, 'log_level': log_level}
+        run_config.update(sub_pipeline.get('config'))
+        run_config = RunConfig(**run_config, logger=self.logger)
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -2081,7 +2126,7 @@ class MPISpawnMapProcessor(Processor):
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
-                            {'config': run_config.__dict__,
+                            {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc]},
                             f, sort_keys=False)
                 sub_comm = MPI.COMM_SELF.Spawn(
@@ -2096,7 +2141,7 @@ class MPISpawnMapProcessor(Processor):
 
         # Run the sub-pipeline on the root node
         if root_as_worker:
-            data = runner(run_config, pipeline_config[0], common_comm)
+            data = runner(run_config, pipeline_config[0], comm=common_comm)
         elif collect_on_root:
             run_config.spawn = 0
             pipeline_config = [{'common.MPICollectProcessor': {
@@ -2110,7 +2155,10 @@ class MPISpawnMapProcessor(Processor):
 
         # Disconnect spawned workers and cleanup temporary files
         if num_proc > first_proc:
+            # Align with the barrier in main() on common_comm
+            # when disconnecting the spawned worker
             common_comm.barrier()
+            # Disconnect spawned workers and cleanup temporary files
             sub_comm.Disconnect()
             for tmp_name in tmp_names:
                 os.remove(tmp_name)
@@ -2216,6 +2264,133 @@ class NexusToXarrayProcessor(Processor):
                          attrs=attrs)
 
 
+class NormalizeNexusProcessor(Processor):
+    """Processor for scaling one or more NXfields in the input nexus
+    structure by the values of another NXfield in the same
+    structure."""
+    def process(self, data, normalize_nxfields, normalize_by_nxfield):
+        """Return copy of the original input nexus structure with
+        additional fields containing the normalized data of each field
+        in `normalize_nxfields`.
+
+        :param data: Input nexus structure containing all fields to be
+            normalized an the field by which to normalize them.
+        :type data: nexusformat.nexus.NXgroup
+        :param normalize_nxfields:
+        :type normalize_nxfields: list[str]
+        :param normalize_by_nxfield: Path in `data` to the `NXfield`
+            containing normalization data
+        :type normalize_by_nxfield: str
+        :returns: Copy of input data with additional normalized fields
+        :rtype: nexusformat.nexus.NXgroup
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXgroup,
+            NXfield,
+        )
+
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
+        # Check input data
+        data = self.unwrap_pipelinedata(data)[0]
+        data = nxcopy(data)
+        if not isinstance(data, NXgroup):
+            raise TypeError(f'Expected NXgroup, got (type{data})')
+
+        # Check normalize_by_nxfield
+        if normalize_by_nxfield not in data:
+            raise ValueError(
+                f'{normalize_by_nxfield} not present in input data')
+        if not isinstance(data[normalize_by_nxfield], NXfield):
+            raise TypeError(
+                f'{normalize_by_nxfield} is {type(data[normalize_by_nxfield])}'
+                + ', expected NXfield')
+        normalization_data = data[normalize_by_nxfield].nxdata
+
+        # Process normalize_nxfields
+        for nxfield in normalize_nxfields:
+            if nxfield not in data:
+                self.logger.error(f'{nxfield} not present in input data')
+            elif not isinstance(data[nxfield], NXfield):
+                self.logger.error(
+                    f'{nxfield} is {type(data[nxfield])}, expected NXfield')
+            else:
+                field_shape = data[nxfield].nxdata.shape
+                if not normalization_data.shape == \
+                    field_shape[:normalization_data.ndim]:
+                    self.logger.error(
+                        f'Incompatible dataset shapes: {normalize_by_nxfield} '
+                        + f'is {normalization_data.shape}, '
+                        + f'{nxfield} is {field_shape}'
+                    )
+                else:
+                    self.logger.info(f'Normalizing {nxfield}')
+                    # make shapes compatible
+                    _normalization_data = normalization_data.reshape(
+                        normalization_data.shape + (1,)
+                        * (data[nxfield].nxdata.ndim
+                           - normalization_data.ndim))
+                    data[f'{nxfield}_normalized'] = NXfield(
+                        value=data[nxfield].nxdata / _normalization_data,
+                        attrs={**data[nxfield].attrs,
+                               'normalized_by': normalize_by_nxfield}
+                    )
+        return data
+
+
+class NormalizeMapProcessor(Processor):
+    """Processor for calling `NormalizeNexusProcessor` for (usually
+    all) detector data in an `NXroot` resulting from
+    `MapProcessor`"""
+    def process(self, data, normalize_by_nxfield, detector_ids=None):
+        """Return copy of the original input map `NXroot` with
+        additional fields containing normalized detector data.
+
+        :param data: Input nexus structure containing all fields to be
+            normalized an the field by which to normalize them.
+        :type data: nexusformat.nexus.NXroot
+        :param normalize_by_nxfield: Path in `data` to the `NXfield`
+            containing normalization data
+        :type normalize_by_nxfield: str
+        :returns: Copy of input data with additional normalized fields
+        :rtype: nexusformat.nexus.NXroot
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXlink,
+        )
+
+        # Check input data
+        data = self.unwrap_pipelinedata(data)[0]
+        map_title = None
+        for k, v in data.items():
+            if isinstance(v, NXentry):
+                map_title = k
+                break
+        if map_title is None:
+            self.logger.error(f'Input data contains no NXentry')
+        else:
+            self.logger.info(f'Got map_title: {map_title}')
+
+        # Check detector_ids
+        normalize_nxfields = []
+        if detector_ids is None:
+            detector_ids = [k for k in data[map_title].data.keys()
+                            if not isinstance(data[map_title].data[k], NXlink)]
+            self.logger.info(f'Using detector_ids: {detector_ids}')
+        normalize_nxfields = [f'{map_title}/data/{_id}'
+                              for _id in detector_ids]
+
+        # Normalize
+        normalizer = NormalizeNexusProcessor()
+        normalizer.logger = self.logger
+        return normalizer.process(
+            data, normalize_nxfields, normalize_by_nxfield)
+
+
 class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.
@@ -2289,6 +2464,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         else:
             # Third party modules
             import fabio
+
             if not os.path.isabs(mask_file):
                 mask_file = os.path.join(inputdir, mask_file)
             mask = fabio.open(mask_file).data
@@ -2323,7 +2499,7 @@ class RawDetectorDataMapProcessor(Processor):
         :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        map_config = self.get_config(data)
+        map_config = self.get_config()
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
         return nxroot
@@ -2725,32 +2901,77 @@ class SetupNXdataProcessor(Processor):
 
 class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
-    to "structured" representation."""
-    def process(self, data):
+    to a "structured" representation.
+    """
+    def process(self, data, nxpath=None):
+        # Third party modules
         from nexusformat.nexus import NXdata
 
-        data = self.unwrap_pipelinedata(data)[0]
-
-        if isinstance(data, NXdata):
-            return self.convert_nxdata(data)
-
+        try:
+            nxobject = self.get_data(data)
+        except:
+            nxobject = self.unwrap_pipelinedata(data)[0]
+        if isinstance(nxobject, NXdata):
+            return self.convert_nxdata(nxobject)
+        elif nxpath is not None:
+            # Local modules
+#            from CHAP.utils.general import nxcopy
+            try:
+                nxobject = nxobject[nxpath]
+            except:
+                raise ValueError(f'Invalid parameter nxpath ({nxpath})')
         else:
-            raise NotImplementedError(
-                f'Not implemented for input data with type{(type(nxdata))}')
+            raise ValueError(f'Invalid input data ({data})')
+        return self.convert_nxdata(nxobject)
 
     def convert_nxdata(self, nxdata):
-        from copy import deepcopy
-        from nexusformat.nexus import NXdata, NXfield
-        import numpy as np
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
+        # Local modules
+        from CHAP.edd.processor import get_axes
 
         # Extract axes from the NXdata attributes
-        axes = []
-        for k, v in nxdata.attrs.items():
-            if 'axes' in k:
-                if isinstance(v, str):
-                    axes = [v]
+        axes = get_axes(nxdata)
+        for a in axes:
+            if a not in nxdata:
+                raise ValueError(f'Missing coordinates for {a}')
+
+        # Check the independent dimensions and axes
+        unstructured_axes = []
+        unstructured_dim = None
+        for a in axes:
+            if not isinstance(nxdata[a], NXfield):
+                raise ValueError(
+                    f'Invalid axis field type ({type(nxdata[a])})')
+            if len(nxdata[a].shape) == 1:
+                if not unstructured_axes:
+                    unstructured_axes.append(a)
+                    unstructured_dim = nxdata[a].size
                 else:
-                    axes = v.nxdata
+                    if nxdata[a].size == unstructured_dim:
+                        unstructured_axes.append(a)
+                    elif 'unstructured_axes' in nxdata.attrs:
+                        raise ValueError(f'Inconsistent axes dimensions')
+            elif 'unstructured_axes' in nxdata.attrs:
+                raise ValueError(
+                    f'Invalid unstructered axis shape ({nxdata[a].shape})')
+        if not axes and hasattr(nxdata, 'signal'):
+            if len(nxdata[nxdata.signal].shape) < 2:
+                raise ValueError(
+                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
+            unstructured_dim = nxdata[nxdata.signal].shape[0]
+            for k, v in nxdata.items():
+                if (isinstance(v, NXfield) and len(v.shape) == 1
+                        and v.shape[0] == unstructured_dim):
+                    unstructured_axes.append(k)
+        if unstructured_dim is None:
+            raise ValueError(f'Unable to determine the unstructered axes')
+        axes = unstructured_axes
+
         # Identify unique coordinate points for each axis
         unique_coords = {}
         coords = {}
@@ -2764,26 +2985,43 @@ class UnstructuredToStructuredProcessor(Processor):
 
         # Calculate the total number of unique coordinate points
         unique_npts = np.prod([len(v) for k, v in unique_coords.items()])
+        if unique_npts != unstructured_dim:
+            self.logger.warning('The unstructered grid does not fully map to '
+                                'a structered one (there are missing points)')
 
-        # Identify signals in the NXdata
+        # Identify the signals and the data point axes
         signals = []
+        data_point_axes = []
+        data_point_shape = []
         if hasattr(nxdata, 'signal'):
+            if (len(nxdata[nxdata.signal].shape) < 2
+                    or nxdata[nxdata.signal].shape[0] != unstructured_dim):
+                raise ValueError(
+                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
             signals = [nxdata.signal]
+            data_point_shape = [nxdata[nxdata.signal].shape[1:]]
         for k, v in nxdata.items():
-            if (isinstance(v, NXfield) and k not in axes
-                and k not in signals):
+            if (isinstance(v, NXfield) and k not in axes and k not in signals
+                    and v.shape[0] == unstructured_dim):
                 signals.append(k)
-        signal_npts = len(nxdata[signals[0]])
-
-        # Ensure the number of signal points matches the unique
-        # coordinate points
-        if unique_npts != signal_npts:
-            raise(RuntimeError(
-                f'Number of unique coordinate points ({unique_npts}) is not '
-                + f'equal to the number of signal points ({signal_npts})'))
+                if not data_point_shape:
+                    data_point_shape.append(v.shape[1:])
+        if len(data_point_shape) == 1:
+            data_point_shape = data_point_shape[0]
+        else:
+            data_point_shape = []
+        for dim in data_point_shape:
+            for k, v in nxdata.items():
+                if (isinstance(v, NXfield) and k not in axes
+                        and v.shape == data_point_shape):
+                    data_point_axes.append(k)
 
         # Create the structured NXdata object
         structured_shape = tuple(len(unique_coords[a]) for a in axes)
+        attrs = deepcopy(nxdata.attrs)
+        if 'unstructured_axes' in attrs:
+            attrs.pop('unstructured_axes')
+        attrs['axes'] = axes
         nxdata_structured = NXdata(
             name=f'{nxdata.nxname}_structured',
             **{a: NXfield(
@@ -2791,22 +3029,31 @@ class UnstructuredToStructuredProcessor(Processor):
                 attrs=axes_attrs[a])
                for a in axes},
             **{s: NXfield(
-                value=np.reshape( # FIX not always a sound way to reshape.
-                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
-                # dtype=nxdata[s].dtype,
-                # shape=(*structured_shape, *nxdata[s].shape[1:]),
+#                value=np.reshape( # FIX not always a sound way to reshape.
+#                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
+                 dtype=nxdata[s].dtype,
+                 shape=(*structured_shape, *nxdata[s].shape[1:]),
                 attrs=nxdata[s].attrs)
                for s in signals},
-            attrs=nxdata.attrs)
+            attrs=attrs)
+        if len(data_point_axes) == 1:
+            axes = nxdata_structured.attrs['axes']
+            if isinstance(axes, str):
+                print(f'before axes {type(axes)}: {axes}')
+                axes = [axes]
+            nxdata_structured.attrs['axes'] = axes + data_point_axes
+        for a in data_point_axes:
+            nxdata_structured[a] = NXfield(
+                value=nxdata[a], attrs=nxdata[a].attrs)
 
         # Populate the structured NXdata object with values
-        # for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
-        #     structured_index = tuple(
-        #         np.asarray(
-        #             coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
-        #         for ii in range(len(axes)))
-        #     for s in signals:
-        #         nxdata_structured[s][structured_index] = nxdata[s][i]
+        for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
+            structured_index = tuple(
+                np.asarray(
+                    coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
+                for ii in range(len(axes)))
+            for s in signals:
+                nxdata_structured[s][structured_index] = nxdata[s][i]
 
         return nxdata_structured
 
@@ -3148,30 +3395,28 @@ class XarrayToNumpyProcessor(Processor):
         return self.unwrap_pipelinedata(data)[-1].data
 
 
-class SumProcessor(Processor):
-    """A Processor to sum the data in a NeXus NXobject, given a set of
-    nxpaths.
-    """
-    def process(self, data):
-        """Return the summed data array
-
-        :param data:
-        :type data:
-        :return: The summed data.
-        :rtype: numpy.ndarray
-        """
-        from copy import deepcopy
-
-        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
-        if len(nxpaths) == 1:
-            return nxentry[nxpaths[0]]
-        sum_data = deepcopy(nxentry[nxpaths[0]])
-        for nxpath in nxpaths[1:]:
-            nxdata = nxentry[nxpath]
-            for entry in nxdata.entries:
-                sum_data[entry] += nxdata[entry]
-
-        return sum_data
+#class SumProcessor(Processor):
+#    """A Processor to sum the data in a NeXus NXobject, given a set of
+#    nxpaths.
+#    """
+#    def process(self, data):
+#        """Return the summed data array
+#
+#        :param data:
+#        :type data:
+#        :return: The summed data.
+#        :rtype: numpy.ndarray
+#        """
+#        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
+#        if len(nxpaths) == 1:
+#            return nxentry[nxpaths[0]]
+#        sum_data = deepcopy(nxentry[nxpaths[0]])
+#        for nxpath in nxpaths[1:]:
+#            nxdata = nxentry[nxpath]
+#            for entry in nxdata.entries:
+#                sum_data[entry] += nxdata[entry]
+#
+#        return sum_data
 
 
 class ZarrToNexusProcessor(Processor):

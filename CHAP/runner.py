@@ -4,89 +4,145 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description:
 """
 
-# system modules
-import argparse
+# System modules
+from argparse import ArgumentParser
 import logging
 import os
+from typing import (
+    Literal,
+    Optional,
+)
 from yaml import safe_load
 
-# local modules
+# Third party modules
+from pydantic import (
+    DirectoryPath,
+    conint,
+    field_validator,
+    model_validator,
+)
+
+# Local modules
+from CHAP.models import CHAPBaseModel
 from CHAP.pipeline import Pipeline
 
 
-class RunConfig():
-    """Representation of Pipeline run configuration."""
-    opts = {'root': os.getcwd(),
-            'inputdir': '.',
-            'outputdir': '.',
-            'interactive': False,
-            'log_level': 'INFO',
-            'profile': False,
-            'spawn': 0}
+class RunConfig(CHAPBaseModel):
+    """Pipeline run configuration class.
 
-    def __init__(self, config=None, comm=None):
-        """RunConfig constructor.
+    :ivar root: Default work directory, defaults to the current run
+        directory.
+    :type root: str, optional
+    :ivar inputdir: Input directory, used only if any input file in the
+        pipeline is not an absolute path, defaults to `'root'`.
+    :type inputdir: str, optional
+    :ivar outputdir: Output directory, used only if any output file in
+        the pipeline is not an absolute path, defaults to `'root'`.
+    :type outputdir: str, optional
+    :ivar interactive: Allows for user interactions,
+        defaults to `False`.
+    :type interactive: bool, optional
+    :ivar log_level: Logger level (not case sensitive),
+        defaults to `'INFO'`.
+    :type log_level: Literal[
+        'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
+    :ivar profile: Allows for code profiling, defaults to `False`.
+    :type profile: bool, optional
+    :ivar spawn: Internal use only, flag to check if the pipeline is
+        executed as a worker spawned by another Processor.
+    :type spawn: int, optional
+    """
+    root: Optional[DirectoryPath] = None
+    inputdir: Optional[DirectoryPath] = None
+    outputdir: Optional[DirectoryPath] = None
+    interactive: Optional[bool] = False
+    log_level: Optional[Literal[
+        'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']] = 'INFO'
+    profile: Optional[bool] = False
+    spawn: Optional[int] = 0
 
-        :param config: Pipeline configuration options.
-        :type config: dict, optional
-        :param comm: MPI communicator.
-        :type comm: mpi4py.MPI.Comm, optional
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
+        """Ensure that valid directory paths are provided.
+
+        :param data: Pydantic validator data object.
+        :type data: RunConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
+        :rtype: dict
         """
-        # System modules
-        from tempfile import NamedTemporaryFile
+        if isinstance(data, dict):
+            # System modules
+            from tempfile import NamedTemporaryFile
 
-        # Make sure os.makedirs is only called from the root node
-        if comm is None:
-            rank = 0
-        else:
-            rank = comm.Get_rank()
-        if config is None:
-            config = {}
-        for opt in self.opts:
-            setattr(self, opt, config.get(opt, self.opts[opt]))
+            # Make sure os.makedirs is only called from the root node
+            comm = data.get('comm')
+            if comm is None:
+                rank = 0
+            else:
+                rank = comm.Get_rank()
 
-        # Check if root exists (create it if not) and is readable
-        if not rank:
-            if not os.path.isdir(self.root):
-                os.makedirs(self.root)
-            if not os.access(self.root, os.R_OK):
-                raise OSError('root directory is not accessible for reading '
-                              f'({self.root})')
+            # Check if root exists (create it if not) and is readable
+            root = data.get('root', os.getcwd())
+            if not rank:
+                if not os.path.isdir(root):
+                    os.makedirs(root)
+                if not os.access(root, os.R_OK):
+                    raise OSError('root directory is not accessible for '
+                                  f'reading ({root})')
+            data['root'] = root
 
-        # Check if inputdir exists and is readable
-        if not os.path.isabs(self.inputdir):
-            self.inputdir = os.path.realpath(
-                os.path.join(self.root, self.inputdir))
-        if not os.path.isdir(self.inputdir):
-            raise OSError(f'input directory does not exist ({self.inputdir})')
-        if not os.access(self.inputdir, os.R_OK):
-            raise OSError('input directory is not accessible for reading '
-                          f'({self.inputdir})')
+            # Check if inputdir exists and is readable
+            inputdir = data.get('inputdir', '.')
+            if not os.path.isabs(inputdir):
+                inputdir = os.path.normpath(os.path.realpath(
+                    os.path.join(root, inputdir)))
+            if not rank:
+                if not os.path.isdir(inputdir):
+                    raise OSError(
+                        f'input directory does not exist ({inputdir})')
+                if not os.access(inputdir, os.R_OK):
+                    raise OSError(
+                        'input directory is not accessible for reading '
+                        f'({inputdir})')
+            data['inputdir'] = inputdir
 
-        # Check if outputdir exists (create it if not) and is writable
-        if not os.path.isabs(self.outputdir):
-            self.outputdir = os.path.realpath(
-                os.path.join(self.root, self.outputdir))
-        if not rank:
-            if not os.path.isdir(self.outputdir):
-                os.makedirs(self.outputdir)
-            try:
-                NamedTemporaryFile(dir=self.outputdir)
-            except:
-                raise OSError('output directory is not accessible for writing '
-                              f'({self.outputdir})')
+            # Check if outputdir exists (create it if not) and is writable
+            outputdir = data.get('outputdir', '.')
+            if not os.path.isabs(outputdir):
+                outputdir = os.path.normpath(os.path.realpath(
+                    os.path.join(root, outputdir)))
+            if not rank:
+                if not os.path.isdir(outputdir):
+                    os.makedirs(outputdir)
+                try:
+                    NamedTemporaryFile(dir=outputdir)
+                except:
+                    raise OSError('output directory is not accessible for '
+                                  f'writing ({self.outputdir})')
+            data['outputdir'] = outputdir
 
-        self.log_level = self.log_level.upper()
+            # Make sure os.makedirs completes before continuing
+            # Make sure barrier() is also called on the main node if
+            # this is called from a spawned slave node
+            if comm is not None:
+                comm.barrier()
 
-        # Make sure os.makedirs completes before continuing all nodes
-        if comm is not None:
-            comm.barrier()
+        return data
+
+    @field_validator('log_level', mode='before')
+    @classmethod
+    def validate_log_level(cls, log_level):
+        """Capitalize log_level."""
+        return log_level.upper()
+
 
 def parser():
     """Return an argument parser for the `CHAP` CLI. This parser has
     one argument: the input CHAP configuration file.
     """
-    pparser = argparse.ArgumentParser(prog='PROG')
+    pparser = ArgumentParser(prog='PROG')
     pparser.add_argument(
         'config', action='store', default='', help='Input configuration file')
     pparser.add_argument(
@@ -95,9 +151,10 @@ def parser():
 
 def main():
     """Main function."""
-    # Third party modules
     try:
+        # Third party modules
         from mpi4py import MPI
+
         have_mpi = True
         comm = MPI.COMM_WORLD
     except ImportError:
@@ -111,8 +168,8 @@ def main():
     with open(configfile) as file:
         config = safe_load(file)
 
-    # Check if run was a worker spawned by another Processor
-    run_config = RunConfig(config.pop('config'), comm)
+    # Check if executed as a worker spawned by another Processor
+    run_config = RunConfig(**config.pop('config'), comm=comm)
     if have_mpi and run_config.spawn:
         sub_comm = MPI.Comm.Get_parent()
         common_comm = sub_comm.Merge(True)
@@ -120,22 +177,23 @@ def main():
         if run_config.spawn > 0:
             with open(f'{configfile}_{common_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config'), common_comm)
+                run_config = RunConfig(
+                    **config.pop('config'), comm=common_comm)
         else:
             with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
                 config = safe_load(file)
-                run_config = RunConfig(config.get('config'), comm)
+                run_config = RunConfig(**config.pop('config'), comm=comm)
     else:
         common_comm = comm
 
     # Get the pipeline configurations
-    pipeline = args.pipeline
+    sub_pipelines = args.pipeline
     pipeline_config = []
-    if pipeline is None:
+    if sub_pipelines is None:
         for sub_pipeline in config.values():
             pipeline_config += sub_pipeline
     else:
-        for sub_pipeline in pipeline:
+        for sub_pipeline in sub_pipelines:
             if sub_pipeline in config:
                 pipeline_config += config.get(sub_pipeline)
             else:
@@ -143,10 +201,12 @@ def main():
                     f'Invalid pipeline option: \'{sub_pipeline}\' missing in '
                     f'the pipeline configuration ({list(config.keys())})')
 
-    # Profiling setup
+    # Run the pipeline with or without profiling
     if run_config.profile:
+        # System modules
         from cProfile import runctx  # python profiler
         from pstats import Stats     # profiler statistics
+
         cmd = 'runner(run_config, pipeline_config, common_comm)'
         runctx(cmd, globals(), locals(), 'profile.dat')
         info = Stats('profile.dat')
@@ -174,16 +234,15 @@ def runner(run_config, pipeline_config, comm=None):
     # System modules
     from time import time
 
-    # logging setup
+    # Logging setup
     logger, log_handler = set_logger(run_config.log_level)
     logger.info(f'Input pipeline configuration: {pipeline_config}\n')
 
     # Run the pipeline
     t0 = time()
-    data = run(pipeline_config,
-        run_config.inputdir, run_config.outputdir, run_config.interactive,
-        logger, run_config.log_level, log_handler, comm)
+    data = run(run_config, pipeline_config, logger, log_handler, comm)
     logger.info(f'Executed "run" in {time()-t0:.3f} seconds')
+
     return data
 
 def set_logger(log_level='INFO'):
@@ -205,23 +264,15 @@ def set_logger(log_level='INFO'):
     return logger, log_handler
 
 def run(
-        pipeline_config, inputdir=None, outputdir=None, interactive=False,
-        logger=None, log_level=None, log_handler=None, comm=None):
+        run_config, pipeline_config, logger=None, log_handler=None, comm=None):
     """Run a given pipeline_config.
 
+    :param run_config: CHAP run configuration.
+    :type run_config: CHAP.runner.RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
-    :param inputdir: Input directory.
-    :type inputdir: str, optional
-    :param outputdir: Output directory.
-    :type outputdir: str, optional
-    :param interactive: Allows for user interactions,
-        defaults to `False`.
-    :type interactive: bool, optional
     :param logger: CHAP logger.
     :type logger: logging.Logger, optional
-    :param log_level: Logger level.
-    :type log_level: str, optional
     :param log_handler: Logging handler.
     :type log_handler: logging.StreamHandler, optional
     :param comm: MPI communicator.
@@ -242,42 +293,41 @@ def run(
     kwds = []
     for item in pipeline_config:
         # Load individual object with given name from its module
-        kwargs = {'inputdir': inputdir,
-                  'outputdir': outputdir,
-                  'interactive': interactive,
-                  'comm': comm}
+        kwargs = run_config.model_dump(exclude={'root', 'profile', 'spawn'})
         if isinstance(item, dict):
             name = list(item.keys())[0]
-            item_args = item[name]
-            # Combine the function's input arguments "inputdir",
-            # "outputdir" and "interactive" with the item's arguments
-            # joining "inputdir" and "outputdir" and giving precedence
-            # for "interactive" in the latter
-            if item_args is not None:
-                if 'inputdir' in item_args:
-                    newinputdir = os.path.normpath(os.path.join(
-                        kwargs['inputdir'], item_args.pop('inputdir')))
-                    if not os.path.isdir(newinputdir):
+            item_args = item.get(name)
+            # Picking "inputdir" and "outputdir" from the item or from
+            # the default run configuration, giving precedence to the
+            # former
+            if 'inputdir' in item_args:
+                inputdir = item_args.pop('inputdir')
+                if not os.path.isabs(inputdir):
+                    inputdir = os.path.normpath(os.path.realpath(
+                        os.path.join(run_config.inputdir, inputdir)))
+                if not os.path.isdir(inputdir):
+                    raise OSError(
+                        f'input directory does not exist ({inputdir})')
+                if not os.access(inputdir, os.R_OK):
+                    raise OSError('input directory is not accessible for '
+                                  f'reading ({inputdir})')
+                item_args['inputdir'] = inputdir
+            if 'outputdir' in item_args:
+                outputdir = item_args.pop('outputdir')
+                if not os.path.isabs(outputdir):
+                    outputdir = os.path.normpath(os.path.realpath(
+                        os.path.join(run_config.outputdir, outputdir)))
+                if not rank:
+                    if not os.path.isdir(outputdir):
+                        os.makedirs(outputdir)
+                    try:
+                        NamedTemporaryFile(dir=outputdir)
+                    except Exceptions as exc:
                         raise OSError(
-                            f'input directory does not exist ({newinputdir})')
-                    if not os.access(newinputdir, os.R_OK):
-                        raise OSError('input directory is not accessible for '
-                                      f'reading ({newinputdir})')
-                    kwargs['inputdir'] = newinputdir
-                if 'outputdir' in item_args:
-                    newoutputdir = os.path.normpath(os.path.join(
-                        kwargs['outputdir'], item_args.pop('outputdir')))
-                    if not rank:
-                        if not os.path.isdir(newoutputdir):
-                            os.makedirs(newoutputdir)
-                        try:
-                            NamedTemporaryFile(dir=newoutputdir)
-                        except Exceptions as exc:
-                            raise OSError(
-                                'output directory is not accessible for '
-                                f'writing ({newoutputdir})') from exc
-                    kwargs['outputdir'] = newoutputdir
-                kwargs = {**kwargs, **item_args}
+                            'output directory is not accessible for '
+                            f'writing ({outputdir})') from exc
+                item_args['outputdir'] = outputdir
+            kwargs.update(item_args)
         else:
             name = item
         if 'users' in name:
@@ -286,6 +336,7 @@ def run(
             # required to have invidual user's PYTHONPATHs to load user
             # processors.
             try:
+                # Third party modules
                 import users
             except ImportError:
                 if logger is not None:
@@ -299,17 +350,16 @@ def run(
             mod_name, cls_name = name.split('.')
             module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
             obj = getattr(module, cls_name)()
-        if log_level is not None:
-            obj.logger.setLevel(log_level)
+        obj.logger.setLevel(kwargs.pop('log_level'))
         if log_handler is not None:
             obj.logger.addHandler(log_handler)
         if logger is not None:
             logger.info(f'Loaded {obj}')
         objects.append(obj)
+        kwargs['comm'] = comm
         kwds.append(kwargs)
     pipeline = Pipeline(objects, kwds)
-    if log_level is not None:
-        pipeline.logger.setLevel(log_level)
+    pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)
     if logger is not None:

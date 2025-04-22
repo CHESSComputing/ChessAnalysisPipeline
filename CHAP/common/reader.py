@@ -194,6 +194,149 @@ class H5Reader(Reader):
         return data
 
 
+class LinkamReader(Reader):
+    """Reader for loading Linkam load frame .txt files as an
+    `NXdata`.
+    """
+    def read(self, filename, columns=None, inputdir=None):
+        """Read specified columns from the given Linkam file.
+
+        :param filename: Name of Linkam .txt file
+        :type filename: str
+        :param columns: Column names to read in, defaults to None
+            (read in all columns)
+        :type columns: list[str], optional
+        :returns: Linkam data represented in an `NXdata` object
+        :rtype: nexusformat.nexus.NXdata
+        """
+        from nexusformat.nexus import NXdata, NXfield
+
+        # Parse .txt file
+        start_time, metadata, data = self.__class__.parse_file(
+            filename, self.logger)
+
+        # Get list of actual data column names and corresponding
+        # signal nxnames (same as user-supplied column names)
+        signal_names = []
+        if columns is None:
+            signal_names = [(col, col) for col in data.keys() if col != 'Time']
+        else:
+            for col in columns:
+                col_actual = col
+                if col == 'Distance':
+                    col_actual = 'Force V Distance_X'
+                elif col == 'Force':
+                    col_actual = 'Force V Distance_Y'
+                elif not col in data:
+                    if f'{col}_Y' in data:
+                        # Always use the *_Y column if the user-supplied
+                        # column name has both _X and _Y components
+                        col_actual = f'{col}_Y'
+                    else:
+                        self.logger.warning(f'{col} not present in {filename}')
+                        continue
+                signal_names.append((col_actual, col))
+        self.logger.info(f'Using (column name, signal name): {signal_names}')
+
+        nxdata = NXdata(
+            axes=(NXfield(
+                name='Time',
+                value=np.array(data['Time']) + start_time,
+                dtype='float64',
+            ),),
+            **{col: NXfield(
+                name=col,
+                value=data[col_actual],
+                dtype='float32',
+            ) for col_actual, col in signal_names},
+            attrs=metadata
+        )
+        return nxdata
+
+    @classmethod
+    def parse_file(cls, filename, logger):
+        """Return start time, metadata, and data stored in the
+        provided Linkam .txt file.
+
+        :param filename: Name of Linkam .txt file
+        :type filename: str
+        :returns:
+        :rtype: tuple(float, dict[str, str], dict[str, list[float]])
+        """
+        from datetime import datetime
+        import os
+        import re
+
+        # Get t=0 from filename
+        start_time = None
+        basename = os.path.basename(filename)
+        pattern = r'(\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{2})'
+        match = re.search(pattern, basename)
+        if match:
+            datetime_str = match.group(1)
+            dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
+            start_time = dt.timestamp()
+        else:
+            logger.warning('Datetime not found in filename')
+
+        # Get data add metadata from file contents
+        metadata = {}
+        data = False
+        with open(filename, 'r', encoding='utf-8') as inf:
+            for line in inf:
+                line = line.strip()
+                if not line:
+                    continue
+                if data:
+                    # If data dict has been initialized, remaining
+                    # lines are all data values
+                    values = line.replace(',', '').split('\t')
+                    for val, col in zip(values, list(data.keys())):
+                        try:
+                            val = float(val)
+                        except:
+                            logger.warning(
+                                f'Cannot convert {col} value to float: {val}')
+                            continue
+                        else:
+                            data[col].append(val)
+                if ':' in line:
+                    # Metadata key: value pair kept on this line
+                    _metadata = line.split(':', 1)
+                    if len(_metadata) == 2:
+                        key, val = _metadata
+                    else:
+                        continue
+                        key, val = _metadata[0], None
+                    metadata[key] = val
+                if re.match(r'^([\w\s\w]+)(\t\t[\w\s\w]+)*$', line):
+                    # Match found for start of data section -- this
+                    # line and the next are column labels.
+                    data_cols = []
+                    # Get base quantity column names
+                    base_cols = line.split('\t\t')
+                    # Get Index, X and Y component columns
+                    line = next(inf)
+                    comp_cols = line.split('\t')
+                    # Assemble actual column names
+                    data_cols.append('Index')
+                    comp_cols_count = int((len(comp_cols) - 1) / 2)
+                    for i in range(comp_cols_count):
+                        data_cols.extend(
+                            [f'{base_cols[i]}_{comp}' for comp in ('X', 'Y')]
+                        )
+                    if len(base_cols) > comp_cols_count:
+                        data_cols.extend(base_cols[comp_cols_count - 1:])
+                    # First column (after 0th) is actually Time
+                    data_cols[1] = 'Time'
+                    # Start of data lines
+                    data = {col: [] for col in data_cols}
+                    logger.info(f'Found data columns: {data_cols}')
+
+        return start_time, metadata, data
+
+
+
 class MapReader(Reader):
     """Reader for CHESS sample maps."""
     def read(
@@ -222,7 +365,6 @@ class MapReader(Reader):
         :rtype: nexusformat.nexus.NXentry
         """
         # Third party modules
-        from json import dumps
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -261,7 +403,7 @@ class MapReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
@@ -270,7 +412,7 @@ class MapReader(Reader):
 
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.dict())
+            **map_config.sample.model_dump())
 
         # Set up default data group
         nxentry.data = NXdata()
@@ -333,7 +475,7 @@ class MapReader(Reader):
 
 class NexusReader(Reader):
     """Reader for NeXus files."""
-    def read(self, filename, nxpath='/'):
+    def read(self, filename, nxpath='/', nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
         :param filename: The name of the NeXus file to read from.
@@ -348,6 +490,8 @@ class NexusReader(Reader):
         """
         # Third party modules
         from nexusformat.nexus import nxload
+        from nexusformat.nexus.tree import NX_CONFIG
+        NX_CONFIG['memory'] = nxmemory
 
         return nxload(filename)[nxpath]
 
@@ -581,7 +725,7 @@ class SpecReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the
         # detector info and raw detector data
-        nxentry.config = dumps(config.dict())
+        nxentry.config = config.model_dump_json()
         nxentry.attrs['station'] = config.station
         if config.experiment_type == 'EDD':
             if detectors is None:
@@ -593,7 +737,8 @@ class SpecReader(Reader):
                     detectors_ids = [d.id for d in detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
-        detector_data_format = None
+        if config.experiment_type == 'EDD':
+            detector_data_format = None
         for scans in config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
@@ -601,10 +746,12 @@ class SpecReader(Reader):
             nxscans.attrs['scan_numbers'] = scans.scan_numbers
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                if detector_data_format is None:
-                    detector_data_format = scanparser.detector_data_format
-                elif scanparser.detector_data_format != detector_data_format:
-                    raise ValueError(
+                if config.experiment_type == 'EDD':
+                    if detector_data_format is None:
+                        detector_data_format = scanparser.detector_data_format
+                    elif (scanparser.detector_data_format !=
+                            detector_data_format):
+                        raise ValueError(
                         'Mixing `spec` and `h5` data formats not implemented')
                 nxscans[scan_number] = NXcollection()
                 try:
@@ -622,6 +769,11 @@ class SpecReader(Reader):
                 try:
                     nxscans[scan_number].smb_pars = dumps(
                         {k:v for k,v in scanparser.pars.items()})
+                except:
+                    pass
+                try:
+                    nxscans[scan_number].spec_scan_motor_mnes = dumps(
+                        scanparser.spec_scan_motor_mnes)
                 except:
                     pass
                 if config.experiment_type == 'EDD':
@@ -649,7 +801,7 @@ class SpecReader(Reader):
                 detectors = DetectorConfig(
                     detectors=[
                         Detector(id=i) for i in range(nxdata.data.shape[1])])
-        nxentry.detectors = dumps(detectors.dict())
+        nxentry.detectors = detectors.model_dump_json()
 
         #return nxroot, nxpaths
         return nxroot

@@ -6,14 +6,17 @@ from typing import (
     Optional,
 )
 from pydantic import (
-    BaseModel,
     conint,
     conlist,
     confloat,
     constr,
 )
 
-class Detector(BaseModel):
+# Local modules
+from CHAP.models import CHAPBaseModel
+
+
+class Detector(CHAPBaseModel):
     """
     Detector class to represent the detector used in the experiment.
     The image origin is assumed to be in the top-left corner, with
@@ -40,7 +43,7 @@ class Detector(BaseModel):
     lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
 
 
-class TomoReduceConfig(BaseModel):
+class TomoReduceConfig(CHAPBaseModel):
     """
     Class representing the configuration for the tomography image
     reduction processor.
@@ -57,7 +60,7 @@ class TomoReduceConfig(BaseModel):
     delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)] = None
 
 
-class TomoFindCenterConfig(BaseModel):
+class TomoFindCenterConfig(CHAPBaseModel):
     """
     Class representing the configuration for the tomography center axis
     finding processor.
@@ -99,7 +102,7 @@ class TomoFindCenterConfig(BaseModel):
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
 
-class TomoReconstructConfig(BaseModel):
+class TomoReconstructConfig(CHAPBaseModel):
     """
     Class representing the configuration for the tomography image
     reconstruction processor.
@@ -137,7 +140,7 @@ class TomoReconstructConfig(BaseModel):
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
 
-class TomoCombineConfig(BaseModel):
+class TomoCombineConfig(CHAPBaseModel):
     """
     Class representing the configuration for the combined tomography
     stacks processor.
@@ -157,7 +160,7 @@ class TomoCombineConfig(BaseModel):
         conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
 
 
-class TomoSimConfig(BaseModel):
+class TomoSimConfig(CHAPBaseModel):
     """
     Class representing the configuration for the tomography simulator.
 
