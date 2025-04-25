@@ -3438,7 +3438,7 @@ class ZarrToNexusProcessor(Processor):
                     nexus_group.attrs[attr_key] = attr_value
 
                 # Copy datasets and sub-groups
-                for key, item in zarr_group.items():
+                for key, item in zarr_group.members():
                     if isinstance(item, zarr.Array):
                         self.logger.info(f'Copying {zarr_group.path}/{key}')
                         # Copy dataset

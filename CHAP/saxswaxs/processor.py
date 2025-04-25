@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 """Processors used only by SAXSWAXS experiments."""
 
+import numpy as np
+
 from CHAP import Processor
 
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
     def process(self, data, config=None,
                 idx_slices=[{'start':0, 'end': -1, 'step': 1}]):
-        import numpy as np
         import time
 
         # Get config for PyfaiIntegrationProcessor from data or config
@@ -55,6 +56,11 @@ class PyfaiIntegrationProcessor(Processor):
                     },
                 ]
             )
+#RV
+#            from nexusformat.nexus import NXdata, NXfield
+#            return NXdata(
+#                NXfield(np.asarray([r.intensity for r in result]), 'I'),
+#                NXfield(np.asarray(result[0].radial), 'q'))
         return results
 
 

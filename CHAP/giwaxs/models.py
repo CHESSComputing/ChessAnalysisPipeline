@@ -384,12 +384,20 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         if self.integration_method == 'integrate_radial':
             raise NotImplementedError
         else:
+#            dummy = data['PIL9']
+#            print(f'\n\ndata {type(dummy)}: {dummy.shape} {dummy.sum()}')
+#            for d in dummy:
+#                print(f'\t{d.shape} {d.sum()}')
+#            print('\n\n')
             npts = [d.shape[0] for d in data.values()]
             if not all(_npts == npts[0] for _npts in npts):
                 raise RuntimeError('Different number of detector frames for '
                                    f'each azimuthal integrator ({npts})')
             npts = npts[0]
             if self.multi_geometry is None:
+                if len(data) != 1:
+                    raise RuntimeError(
+                        'Multiple detector not tested without multi_geometry')
                 id = list(ais.keys())[0]
                 ai = list(ais.values())[0]
                 integration_method = getattr(ai, self.integration_method)
@@ -414,14 +422,23 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                     [ais[ai] for ai in self.multi_geometry.ais],
                     **self.multi_geometry.model_dump(exclude={'ais'}))
                 integration_method = getattr(mg, self.integration_method)
-                if masks is None:
-                    lst_mask = None
-                else:
-                    lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
+#                if masks is None:
+#                    lst_mask = None
+#                else:
+#                    lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
+#                mask = np.asarray(lst_mask[0])
+#                print(f'\tmask:{type(mask)} {mask.dtype} {mask.shape} {mask.sum()}')
+#                dummy = data['PIL9']
+#                print(f'\n\nmasked data {type(dummy)}: {len(dummy)}')
+#                for d in dummy:
+#                    dd = np.where(mask, 0, d.astype(np.float64))
+#                    print(f'\t{dd.shape} {dd.sum()}')
                 results = [
                     integration_method(
-                        [data[ai][i] for ai in self.multi_geometry.ais],
-                        lst_mask=lst_mask,
+                        [np.where(masks[ai], 0, data[ai][i].astype(np.float64))
+                         for ai in self.multi_geometry.ais],
+#                        [data[ai][i] for ai in self.multi_geometry.ais],
+#                        lst_mask=lst_mask,
                         **self.integration_params.model_dump(exclude='attrs'))
 #                        normalization_factor=[8177142.28771039],
 #                        method=('bbox', 'csr', 'cython'),
@@ -432,6 +449,11 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 intensities = results[0].intensity
             else:
                 intensities = [v.intensity for v in results]
+#            dummy = intensities
+#            print(f'\n\nintensities {type(dummy)}: {len(dummy)}')
+#            for d in dummy:
+#                print(f'\t{d.shape} {d.sum()}')
+#            print('\n\n')
             if isinstance(self.integration_params, Integrate1dConfig):
                 if self.multi_geometry is None:
                     unit = integration_params['unit']

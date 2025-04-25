@@ -33,9 +33,7 @@ from CHAP.common.processor import (
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
-    SumProcessor,
     ZarrToNexusProcessor,
-#    SumProcessor,
 )
 from CHAP.common.reader import (
     BinaryFileReader,

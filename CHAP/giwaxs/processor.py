@@ -647,12 +647,6 @@ class PyfaiIntegrationProcessor(Processor):
                 self.logger.warning(
                     'No converted data found, use raw data for integration')
             nxentry = nxroot[nxroot.default]
-            detector_ids = [
-                #str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
-                str(id) for id in nxentry.detector_ids.nxdata]
-            if len(detector_ids) > 1:
-                raise RuntimeError(
-                    'More than one detector not yet implemented')
             if config.azimuthal_integrators is None:
                 raise ValueError(
                     'Missing azimuthal_integrators parameter in '
@@ -667,6 +661,7 @@ class PyfaiIntegrationProcessor(Processor):
                             'Inconsistent raw data dimension '
                             f'{nxdata[ai.id].ndim}')
                     ais.append(ai)
+                    data[ai.id] = nxdata[ai.id]
                 else:
                     skipped_detectors.append(ai.id)
             if skipped_detectors:
@@ -683,7 +678,6 @@ class PyfaiIntegrationProcessor(Processor):
                 independent_dims[ais[0].id] = nxcopy(nxdata[axes])
             else:
                 self.logger.warning('Unable to find independent_dimensions')
-            data[ais[0].id] = nxdata[ais[0].id]
 
         # Select the images to integrate
         if False and config.scan_step_indices is not None:
@@ -760,7 +754,7 @@ class PyfaiIntegrationProcessor(Processor):
 #                        attrs={'units': '\u212b'}))
                 self.logger.warning(
                     f'Unknown radial unit: {results["radial"]["unit"]}')
-            nxdata = NXdata(NXfield(intensities, 'integrated'), tuple(coords))
+            nxdata = NXdata(NXfield(intensities, 'I'), tuple(coords))
             if not isinstance(axes, str):
                 nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
                 del nxdata.attrs['axes']
