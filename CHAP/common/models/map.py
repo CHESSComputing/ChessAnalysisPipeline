@@ -16,7 +16,6 @@ from typing import (
 # Third party modules
 import numpy as np
 from pydantic import (
-    BaseModel,
     Field,
     FilePath,
     PrivateAttr,
@@ -29,7 +28,11 @@ from pydantic import (
 from pyspec.file.spec import FileSpec
 from typing_extensions import Annotated
 
-class Detector(BaseModel):
+# Local modules
+from CHAP.models import CHAPBaseModel
+
+
+class Detector(CHAPBaseModel):
     """Class representing a single detector.
 
     :ivar id: The detector id (e.g. name or channel index).
@@ -42,7 +45,7 @@ class Detector(BaseModel):
 
     @field_validator('id', mode='before')
     @classmethod
-    def validate_scan_numbers(cls, id):
+    def validate_id(cls, id):
         """Validate the detector id.
 
         :param id: The detector id (e.g. name or channel index).
@@ -76,7 +79,7 @@ class Detector(BaseModel):
         return attrs
 
 
-class DetectorConfig(BaseModel):
+class DetectorConfig(CHAPBaseModel):
     """Class representing a detector configuration.
 
     :ivar detectors: The detector list.
@@ -85,7 +88,7 @@ class DetectorConfig(BaseModel):
     detectors: conlist(item_type=Detector, min_length=1)
 
 
-class Sample(BaseModel):
+class Sample(CHAPBaseModel):
     """Class representing a sample metadata configuration.
 
     :ivar name: The name of the sample.
@@ -97,7 +100,7 @@ class Sample(BaseModel):
     description: Optional[str] = ''
 
 
-class SpecScans(BaseModel):
+class SpecScans(CHAPBaseModel):
     """Class representing a set of scans from a single SPEC file.
 
     :ivar spec_file: Path to the SPEC file.
@@ -297,7 +300,7 @@ def get_detector_data(
     return detector_data
 
 
-class PointByPointScanData(BaseModel):
+class PointByPointScanData(CHAPBaseModel):
     """Class representing a source of raw scalar-valued data for which
     a value was recorded at every point in a `MapConfig`.
 
@@ -308,15 +311,17 @@ class PointByPointScanData(BaseModel):
     :type units: str
     :ivar data_type: Represents how these data were recorded at time
         of data collection.
-    :type data_type: Literal['spec_motor', 'scan_column', 'smb_par']
+    :type data_type: Literal['spec_motor', 'spec_motor_absolute',
+        'scan_column', 'smb_par', 'expression', 'detector_log_timestamps']
     :ivar name: Represents the name with which these raw data were
         recorded at time of data collection.
     :type name: str
     """
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
-    data_type: Literal['spec_motor', 'spec_motor_absolute', 'scan_column',
-                       'smb_par', 'expression']
+    data_type: Literal[
+        'spec_motor', 'spec_motor_absolute', 'scan_column', 'smb_par',
+        'expression', 'detector_log_timestamps']
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -355,6 +360,11 @@ class PointByPointScanData(BaseModel):
             raise TypeError(
                 f'{self.__class__.__name__}.data_type may not be "smb_par" '
                 f'when station is "{station}"')
+        if (not station.lower() == 'id3b'
+                and self.data_type == 'detector_log_timestamps'):
+            raise TypeError(
+                f'{self.__class__.__name__}.data_type may not be'
+                + f' "detector_log_timestamps" when station is "{station}"')
 
     def validate_for_spec_scans(
             self, spec_scans, scan_step_index='all'):
@@ -476,8 +486,14 @@ class PointByPointScanData(BaseModel):
             return get_expression_value(
                 spec_scans, scan_number, scan_step_index, self.name,
                 scalar_data)
+        if self.data_type == 'detector_log_timestamps':
+            timestamps = get_detector_log_timestamps(
+                spec_scans.spec_file, scan_number, self.name)
+            if scan_step_index >= 0:
+                return timestamps[scan_step_index]
+            else:
+                return timestamps
         return None
-
 
 @cache
 def get_spec_motor_value(
@@ -533,7 +549,6 @@ def get_spec_motor_value(
         motor_value = np.round(motor_value, ndigits)
     return motor_value
 
-
 @cache
 def get_spec_counter_value(
         spec_file, scan_number, scan_step_index, spec_column_label):
@@ -558,7 +573,6 @@ def get_spec_counter_value(
         return scanparser.spec_scan_data[spec_column_label][scan_step_index]
     return scanparser.spec_scan_data[spec_column_label]
 
-
 @cache
 def get_smb_par_value(spec_file, scan_number, par_name):
     """Return the value recorded for a specific scan in SMB-tyle .par
@@ -577,7 +591,6 @@ def get_smb_par_value(spec_file, scan_number, par_name):
     """
     scanparser = get_scanparser(spec_file, scan_number)
     return scanparser.pars[par_name]
-
 
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
@@ -617,6 +630,25 @@ def get_expression_value(
                     spec_scans, scan_number, scan_step_index, scalar_data)
     aeval = Interpreter(symtable=symtable)
     return aeval(expression)
+
+@cache
+def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
+    """Return the list of detector timestamps for the given scan &
+    detector prefix.
+
+    :param spec_file: Location of a SPEC file in which the requested
+        scan occurs.
+    :type spec_scans: str
+    :param scan_number: The number of the scan for which to return
+        detector log timestamps.
+    :type scan_number: int
+    :param detector_prefix: The prefix of the detecotr whose log file
+        should be used.
+    :return: All detector log timestamps for the given scan.
+    :rtype: list[float]
+    """
+    sp = get_scanparser(spec_file, scan_number)
+    return sp.get_detector_log_timestamps(detector_prefix)
 
 def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of PointByPointScanData is valid for
@@ -753,7 +785,7 @@ class DwellTimeActual(CorrectionsData):
     units: Literal['s'] = 's'
 
 
-class SpecConfig(BaseModel):
+class SpecConfig(CHAPBaseModel):
     """Class representing the raw data for one or more SPEC scans.
 
     :ivar station: The name of the station at which the data was
@@ -763,10 +795,11 @@ class SpecConfig(BaseModel):
     :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
-        'XRF']
+        'XRF', 'HDRM']
     """
-    station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+    station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
+    experiment_type: Literal[
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     spec_scans: conlist(item_type=SpecScans, min_length=1)
 
     @model_validator(mode='before')
@@ -820,6 +853,8 @@ class SpecConfig(BaseModel):
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        elif station == 'id4b':
+            allowed_experiment_types = ['HDRM']
         else:
             allowed_experiment_types = []
         if experiment_type not in allowed_experiment_types:
@@ -831,7 +866,7 @@ class SpecConfig(BaseModel):
         return experiment_type
 
 
-class MapConfig(BaseModel):
+class MapConfig(CHAPBaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
 
@@ -839,10 +874,10 @@ class MapConfig(BaseModel):
     :type title: str
     :ivar station: The name of the station at which the map was
         collected.
-    :type station: Literal['id1a3', 'id3a', 'id3b']
+    :type station: Literal['id1a3', 'id3a', 'id3b', id4b]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
-        'XRF']
+        'XRF', 'HDRM']
     :ivar sample: The sample metadata configuration.
     :type sample: CHAP.commom.models.map.Sample
     :ivar spec_scans: A list of the SPEC scans that compose the map.
@@ -873,8 +908,9 @@ class MapConfig(BaseModel):
     :type attrs: dict, optional
     """
     title: constr(strip_whitespace=True, min_length=1)
-    station: Literal['id1a3', 'id3a', 'id3b']
-    experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+    station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
+    experiment_type: Literal[
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     sample: Sample
     spec_scans: conlist(item_type=SpecScans, min_length=1)
     scalar_data: Optional[conlist(item_type=PointByPointScanData)] = []
@@ -946,6 +982,8 @@ class MapConfig(BaseModel):
             allowed_experiment_types = ['EDD', 'TOMO']
         elif station == 'id3b':
             allowed_experiment_types = ['GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        elif station == 'id4b':
+            allowed_experiment_types = ['HDRM']
         else:
             allowed_experiment_types = []
         if experiment_type not in allowed_experiment_types:
@@ -1218,7 +1256,7 @@ def import_scanparser(station, experiment):
     :type station: str
     :param experiment: The experiment type.
     :type experiment: Literal[
-        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
+        'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     """
     # Third party modules
     from chess_scanparsers import choose_scanparser

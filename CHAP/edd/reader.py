@@ -18,19 +18,19 @@ class EddMapReader(Reader):
     specific set of items to use for extra scalar datasets to include
     are hard-coded in. The raw data is read if detector_names are
     specified."""
-    def read(self, parfile, scan_numbers=None, dataset_id=1, inputdir='.'):
+    def read(self, filename, scan_numbers=None, dataset_id=1, inputdir='.'):
         """Return a validated `MapConfig` object representing an EDD
         dataset.
 
-        :param parfile: Name of the EDD-style .par file containing the
+        :param filename: Name of the EDD-style .par file containing the
             dataset.
-        :type parfile: str
+        :type filename: str
         :param scan_numbers: List of scan numbers to use.
         :type scan_numbers: Union(int, list[int], str), optional
         :param dataset_id: Number of the dataset in the .par file
             to return as a map, defaults to `1`.
         :type dataset_id: int, optional
-        :param inputdir: Input directory, used only if parfile is not
+        :param inputdir: Input directory, used only if filename is not
             an absolute path, defaults to `'.'`.
         :type inputdir: str, optional
         :returns: Map configuration packaged with the appropriate
@@ -44,9 +44,9 @@ class EddMapReader(Reader):
         )
         from CHAP.utils.parfile import ParFile
 
-        if not os.path.isabs(parfile):
-            parfile = os.path.join(inputdir, parfile)
-        parfile = ParFile(parfile, scan_numbers=scan_numbers)
+        if not os.path.isabs(filename):
+            filename = os.path.join(inputdir, filename)
+        parfile = ParFile(filename, scan_numbers=scan_numbers)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
 
         attrs = {}
@@ -57,7 +57,7 @@ class EddMapReader(Reader):
             dataset_rows_i = np.argwhere(
                 np.where(
                     np.asarray(dataset_ids) == dataset_id, 1, 0)).flatten()
-        except:
+        except (TypeError, ValueError):
             dataset_rows_i = np.arange(len(parfile.scan_numbers))
             attrs['dataset_id'] = 1
         scan_nos = [parfile.data[i][parfile.scann_i] for i in dataset_rows_i
@@ -77,8 +77,8 @@ class EddMapReader(Reader):
                 raise RuntimeError(
                     'Only one scan type per dataset is suported.')
             scan_type = scan_types[0]
-        except:
-            # Third party modeuls
+        except ValueError as e:
+            # Third party modules
             from chess_scanparsers import SMBScanParser
 
             scanparser = SMBScanParser(parfile.spec_file, scan_nos[0])
@@ -86,7 +86,7 @@ class EddMapReader(Reader):
                 scan_type = 0
             else:
                 raise RuntimeError('Old style par files not supported for '
-                                   'spec_macro != tseries')
+                                   'spec_macro != tseries') from e
             attrs['scan_type'] = scan_type
         self.logger.debug(f'Scan type: {scan_type}')
 
@@ -217,13 +217,13 @@ class EddMPIMapReader(Reader):
     object. Independent dimensions are determined automatically, and a
     specific set of items to use for extra scalar datasets to include
     are hard-coded in."""
-    def read(self, parfile, dataset_id, detector_names):
+    def read(self, filename, dataset_id, detector_names):
         """Return a NeXus NXentry object after validating the
         `MapConfig` object representing an EDD dataset.
 
-        :param parfile: Name of the EDD-style .par file containing the
+        :param filename: Name of the EDD-style .par file containing the
             dataset.
-        :type parfile: str
+        :type filename: str
         :param dataset_id: Number of the dataset in the .par file
             to return as a map.
         :type dataset_id: int
@@ -234,7 +234,6 @@ class EddMPIMapReader(Reader):
         :rtype: PipelineData
         """
         # Third party modules
-        from json import dumps
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -245,12 +244,20 @@ class EddMPIMapReader(Reader):
 
         # Local modules
         from CHAP.common.models.map import MapConfig
-        from CHAP.utils.general import is_str_series
+        from CHAP.utils.general import (
+            is_int,
+            is_str_series,
+        )
         from CHAP.utils.parfile import ParFile
 
-        assert is_str_series(detector_names, raise_error=True)
+        if not is_int(dataset_id, ge=0, log=False):
+            raise ValueError(
+                f'Invalid parameter dataset_id ({dataset_id})')
+        if not is_str_series(detector_names, raise_error=True):
+            raise ValueError(
+                f'Invalid parameter detector_names ({detector_names })')
 
-        parfile = ParFile(parfile)
+        parfile = ParFile(filename)
         self.logger.debug(f'spec_file: {parfile.spec_file}')
 
         # Get list of scan numbers for the dataset
@@ -270,7 +277,7 @@ class EddMPIMapReader(Reader):
         if any([st != scan_types[0] for st in scan_types]):
             msg = 'Only one scan type per dataset is suported.'
             self.logger.error(msg)
-            raise Exception(msg)
+            raise ValueError(msg)
         scan_type = scan_types[0]
         self.logger.debug(f'Scan type: {scan_type}')
 
@@ -396,7 +403,7 @@ class EddMPIMapReader(Reader):
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
         nxentry.attrs['station'] = map_config.station
-        nxentry.map_config = dumps(map_config.dict())
+        nxentry.map_config = map_config.model_dump_json()
         nxentry.spec_scans = NXcollection()
         for scans in map_config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = NXfield(
@@ -405,7 +412,7 @@ class EddMPIMapReader(Reader):
 
         # Add sample metadata
         nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.dict())
+            **map_config.sample.model_dump())
 
         # Set up default data group
         nxentry.data = NXdata()
@@ -437,18 +444,18 @@ class EddMPIMapReader(Reader):
 
 class ScanToMapReader(Reader):
     """Reader for turning a single SPEC scan into a MapConfig."""
-    def read(self, spec_file, scan_number):
+    def read(self, filename, scan_number):
         """Return a dictionary representing a valid map configuration
         consisting of the single SPEC scan specified.
 
-        :param spec_file: Name of the SPEC file.
-        :type spec_file: str
+        :param filename: Name of the SPEC file.
+        :type filename: str
         :param scan_number: Number of the SPEC scan.
         :type scan_number: int
         :returns: Map configuration dictionary.
         :rtype: dict
         """
-        scanparser = ScanParser(spec_file, scan_number)
+        scanparser = ScanParser(filename, scan_number)
 
         if (scanparser.spec_macro in ('tseries', 'loopscan') or
                (scanparser.spec_macro == 'flyscan' and
@@ -469,7 +476,7 @@ class ScanToMapReader(Reader):
             'experiment_type': 'EDD',
             'sample': {'name': scanparser.scan_name},
             'spec_scans': [{
-                'spec_file': spec_file,
+                'spec_file': filename,
                 'scan_numbers': [scan_number]}],
             'independent_dimensions': independent_dimensions,
             'presample_intensity': {
@@ -506,7 +513,7 @@ class SetupNXdataReader(Reader):
           filename: data.nxs
     ```
     """
-    def read(self, filename, dataset_id, detectors=None):
+    def read(self, filename, dataset_id, detectors):
         """Return a dictionary containing the `coords`, `signals`, and
         `attrs` arguments appropriate for use with
         `CHAP.common.SetupNXdataProcessor.process` to set up an
@@ -520,11 +527,19 @@ class SetupNXdataReader(Reader):
             return `CHAP.common.SetupNXdataProcessor.process`
             arguments for.
         :type dataset_id: int
+        :param detectors: The detector list.
+        :type detectors: list[CHAP.common.models.map.Detector]
         :returns: The dataset's coordinate names, values, attributes,
             and signal names, shapes, and attributes.
         :rtype: dict
         """
+        # Local modules
         from CHAP.common.models.map import DetectorConfig
+        from CHAP.utils.general import is_int
+
+        if not is_int(dataset_id, ge=0):
+            raise ValueError(
+                f'Invalid parameter dataset_id ({dataset_id})')
 
         # Columns in input .txt file:
         # 0: scan number
@@ -554,18 +569,18 @@ class SetupNXdataReader(Reader):
         # 21: bin axis
 
         # Parse dataset from the input .txt file.
-        with open(filename) as inf:
-            file_lines = inf.readlines()
+        with open(filename, 'r') as f:
+            file_lines = f.readlines()
         dataset_lines = []
         for l in file_lines:
             vals = l.split()
             for i, v in enumerate(vals):
                 try:
                     vals[i] = int(v)
-                except:
+                except ValueError:
                     try:
                         vals[i] = float(v)
-                    except:
+                    except ValueError:
                         pass
             if vals[1] == dataset_id:
                 dataset_lines.append(vals)
@@ -712,7 +727,7 @@ class SliceNXdataReader(Reader):
     from an NXdata group and slices all fields according to the
     provided slicing parameters.
     """
-    def read(self, filename, scan_number, inputdir=None):
+    def read(self, filename, scan_number, inputdir='.'):
         """Reads an NXdata group from a NeXus file and slices the
         fields within it based on the provided scan number.
 
@@ -731,12 +746,19 @@ class SliceNXdataReader(Reader):
 
         :raises ValueError: If no NXdata group is found in the file.
         """
-        import os
-        import numpy as np
+        # Third party modules
         from nexusformat.nexus import NXentry, NXfield
 
+        # Local modules
         from CHAP.common import NexusReader
-        from CHAP.utils.general import nxcopy
+        from CHAP.utils.general import (
+            is_int,
+            nxcopy,
+        )
+
+        if not is_int(scan_number, ge=0, log=False):
+            raise ValueError(
+                f'Invalid parameter scan_number ({scan_number})')
 
         reader = NexusReader()
         nxroot = nxcopy(reader.read(os.path.join(inputdir, filename)))
@@ -781,31 +803,37 @@ class UpdateNXdataReader(Reader):
           nxdata_path: /entry/samplename_dataset_1
     ```
     """
-    def read(self, spec_file, scan_number, detector_ids=None, inputdir='.'):
+    def read(
+            self, filename, scan_number, detector_ids, inputdir='.'):
         """Return a list of data points containing raw data values for
         a single EDD spec scan. The returned values can be passed
         along to `common.UpdateNXdataProcessor` to fill in an existing
         `NXdata` set up with `common.SetupNXdataProcessor`.
 
-        :param spec_file: Name of the spec file containing the spec
+        :param filename: Name of the spec file containing the spec
            scan (a relative or absolute path).
-        :type spec_file: str
+        :type filename: str
         :param scan_number: Number of the spec scan.
         :type scan_number: int
-        :param inputdir: Parent directory of `spec_file`, used only if
-            `spec_file` is a relative path. Will be ignored if
-            `spec_file` is an absolute path. Defaults to `'.'`.
+        :param inputdir: Parent directory of `filename`, used only if
+            `filename` is a relative path. Will be ignored if
+            `filename` is an absolute path. Defaults to `'.'`.
         :type inputdir: str
         :returs: List of data points appropriate for input to
             `common.UpdateNXdataProcessor`.
         :rtype: list[dict[str, object]]
         """
         # Local modules
+        from CHAP.utils.general import is_int
         from CHAP.utils.parfile import ParFile
 
-        if not os.path.isabs(spec_file):
-            spec_file = os.path.join(inputdir, spec_file)
-        scanparser = ScanParser(spec_file, scan_number)
+        if not is_int(scan_number, ge=0, log=False):
+            raise ValueError(
+                f'Invalid parameter scan_number ({scan_number})')
+
+        if not os.path.isabs(filename):
+            filename = os.path.join(inputdir, filename)
+        scanparser = ScanParser(filename, scan_number)
         self.logger.debug('Parsed scan')
 
         # A label / counter mne dict for convenience
@@ -836,7 +864,7 @@ class UpdateNXdataReader(Reader):
         # Get offset for the starting index of this scan's points in
         # the entire dataset.
         dataset_id = scanparser.pars['dataset_id']
-        parfile = ParFile(scanparser._par_file)
+        parfile = ParFile(scanparser.par_file)
         good_scans = parfile.good_scan_numbers()
         n_prior_dataset_scans = sum(
             [1 if did == dataset_id and scan_n < scan_number else 0
@@ -851,7 +879,7 @@ class UpdateNXdataReader(Reader):
 
         # Get full data point for every point in the scan
         if detector_ids is None:
-            detector_ids = [i for i in range(23)]
+            detector_ids = list(range(23))
         detector_data = scanparser.get_detector_data(detector_ids)
         detector_data = {id_: detector_data[:,i,:]
                          for i, id_ in enumerate(detector_ids)}
@@ -900,7 +928,8 @@ class NXdataSliceReader(Reader):
           filename: scan_1.nxs
     ```
     """
-    def read(self, filename, nxpath, spec_file, scan_number, inputdir='.'):
+    def read(
+            self, filename, nxpath, spec_file, scan_number, inputdir='.'):
         """Return a "slice" of an EDD dataset's NXdata that represents
         just the data from one scan in the dataset.
 
@@ -958,7 +987,7 @@ class NXdataSliceReader(Reader):
             # Get offset for the starting index of this scan's points in
             # the entire dataset.
             dataset_id = scanparser.pars['dataset_id']
-            parfile = ParFile(scanparser._par_file)
+            parfile = ParFile(scanparser.par_file)
             good_scans = parfile.good_scan_numbers()
             n_prior_dataset_scans = sum(
                 [1 if did == dataset_id and scan_n < scan_number else 0
@@ -987,7 +1016,7 @@ class NXdataSliceReader(Reader):
                     value = scanparser.pars[a.nxname]
                     try:
                         index = np.where(a.nxdata == value)[0][0]
-                    except:
+                    except Exception:
                         index = np.argmin(np.abs(a.nxdata - value))
                         self.logger.warning(
                             f'Nearest match for coordinate value {a.nxname}: '

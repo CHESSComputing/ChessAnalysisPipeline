@@ -1,19 +1,21 @@
 #!/usr/bin/env python
 """Processors used only by SAXSWAXS experiments."""
 
+import numpy as np
+
 from CHAP import Processor
 
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
     def process(self, data, config=None,
                 idx_slices=[{'start':0, 'end': -1, 'step': 1}]):
-        import numpy as np
         import time
 
         # Get config for PyfaiIntegrationProcessor from data or config
         try:
             config = self.get_config(
-                data, f'saxswaxs.models.{self.__class__.__name__}Config')
+                data=data,
+                schema=f'saxswaxs.models.{self.__class__.__name__}Config')
         except:
             self.logger.info(
                 f'No valid {self.__class__.__name__} config in input '
@@ -42,10 +44,9 @@ class PyfaiIntegrationProcessor(Processor):
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
             tf = time.time()
-            self.logger.info(
+            self.logger.debug(
                 f'Integrated {integration.name} '
-                + f'({nframes/(tf-t0):.3f} frames/sec)')
-
+                f'({nframes/(tf-t0):.3f} frames/sec)')
             results.extend(
                 [
                     {
@@ -55,6 +56,11 @@ class PyfaiIntegrationProcessor(Processor):
                     },
                 ]
             )
+#RV
+#            from nexusformat.nexus import NXdata, NXfield
+#            return NXdata(
+#                NXfield(np.asarray([r.intensity for r in result]), 'I'),
+#                NXfield(np.asarray(result[0].radial), 'q'))
         return results
 
 

@@ -11,6 +11,7 @@ from CHAP.common.processor import (
     AnimationProcessor,
     AsyncProcessor,
     BinarizeProcessor,
+    ConvertStructuredProcessor,
     ImageProcessor,
     IntegrationProcessor,
     IntegrateMapProcessor,
@@ -20,6 +21,8 @@ from CHAP.common.processor import (
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
+    NormalizeNexusProcessor,
+    NormalizeMapProcessor,
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
@@ -30,7 +33,6 @@ from CHAP.common.processor import (
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
-    SumProcessor,
     ZarrToNexusProcessor,
 )
 from CHAP.common.reader import (
@@ -38,6 +40,7 @@ from CHAP.common.reader import (
     DetectorDataReader,
     FabioImageReader,
     H5Reader,
+    LinkamReader,
     MapReader,
     NexusReader,
     NXdataReader,

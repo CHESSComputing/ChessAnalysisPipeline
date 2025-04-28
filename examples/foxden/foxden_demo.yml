@@ -1,0 +1,32 @@
+config:
+  inputdir: .
+  outputdir: output # Change as desired
+  interactive: true # Change as desired
+  log_level: INFO
+  profile: false
+
+pipeline:
+  - foxden.FoxdenMetaDataReader:
+      spec:
+        did: "/beamline=3a/btr=test-987-b/cycle=2024-3/sample_name=lup-20kev-1/test=child"
+        beam_energy: 312.462
+      url: "http://localhost:8300"
+  - foxden.FoxdenMetaDataProcessor:
+      url: "http://localhost:8300"
+      verbose: True
+  - foxden.FoxdenMetaDataWriter:
+      url: "http://localhost:8300"
+      verbose: True
+  - common.PrintProcessor: {}
+  - foxden.FoxdenMetaDataReader:
+      spec:
+        did: "/beamline=3a/btr=test-987-b/cycle=2024-3/sample_name=lup-20kev-1/test=child"
+        beam_energy: 312.462
+      url: "http://localhost:8300"
+  - foxden.FoxdenProvenanceProcessor:
+      url: "http://localhost:8310"
+      verbose: True
+  - foxden.FoxdenProvenanceWriter:
+      url: "http://localhost:8310"
+      verbose: True
+  - common.PrintProcessor: {}
