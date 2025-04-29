@@ -1,12 +1,7 @@
 """Definition and utilities for integration tools"""
 
 # System modules
-from copy import deepcopy
-import os
-from typing import (
-    Literal,
-    Optional,
-)
+from typing import Literal, Optional
 
 # Third party modules
 from pydantic import (
@@ -26,6 +21,7 @@ from typing_extensions import Annotated
 # Local modules
 from CHAP import CHAPBaseModel
 
+
 class MyBaseModel(CHAPBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -33,7 +29,6 @@ class AzimuthalIntegratorConfig(MyBaseModel):
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
     poni_file: Optional[FilePath] = None
-#    mask_file: Optional[FilePath] = None #RV
     params: Optional[dict] = None
     ai: AzimuthalIntegrator
 
@@ -67,36 +62,9 @@ class PyfaiIntegrationConfig(MyBaseModel):
     right_handed: bool = True
     _placeholder_result: PrivateAttr = None
 
-    _use_CDC: PrivateAttr = False #RV
-
     def integrate(self, ais, input_data):
         import numpy as np
-        if self._use_CDC:
-            # Adjust azimuthal angles used (since pyfai has some odd conventions)
-            chi_min, chi_max = self.multi_geometry.get('azimuth_range',
-                                                       (-180.0, 180.0))
-            # Force a right-handed coordinate system 
-            chi_min, chi_max = 360 - chi_max, 360 - chi_min
-    
-            # If the discontinuity is crossed, artificially rotate the
-            # detectors to achieve a continuous azimuthal integration range 
-            chi_disc = self.multi_geometry.get('chi_disc', 180)
-            if chi_min < chi_disc and chi_max > chi_disc:
-                chi_offset = chi_max - chi_disc
-            else:
-                chi_offset = 0
-            chi_min -= chi_offset
-            chi_max -= chi_offset
-            for ai in ais.values():
-                ai.rot3 += chi_offset * np.pi/180.0
-            # Use adjusted azimuthal integration range
-            self.multi_geometry['azimuth_range'] = (chi_min, chi_max)
 
-#        dummy = input_data['PIL9']
-#        print(f'\n\ninput_data {type(dummy)}: {dummy.shape} {dummy.sum()}')
-#        for d in dummy:
-#            print(f'\t{d.shape} {d.sum()}')
-#        print('\n\n')
         npts = [len(input_data[name])
                 for name in self.integration_params['lst_data']]
         if not all([_npts == npts[0] for _npts in npts]):
@@ -127,82 +95,43 @@ class PyfaiIntegrationConfig(MyBaseModel):
                                        + results[i].intensity))
                         for i in range(npts)
                     ]
-            if self._use_CDC:
-                if self.right_handed:
-                    results = [
-                        Integrate1dResult(
-                            radial=r.radial,
-                            intensity=np.flip(r.intensity)
-                        )
-                        for r in results
-                    ]
+            if self.right_handed:
                 results = [
                     Integrate1dResult(
-                        radial=r.radial + chi_offset,
-                        intensity=np.where(r.intensity==0, np.nan, r.intensity)
+                        radial=r.radial,
+                        intensity=np.flip(r.intensity)
                     )
                     for r in results
                 ]
+            results = [
+                Integrate1dResult(
+                    radial=r.radial + chi_offset,
+                    intensity=np.where(r.intensity==0, np.nan, r.intensity)
+                )
+                for r in results
+            ]
             return results
         else:
-            from pyFAI.multi_geometry import MultiGeometry
-            ais = [ais[ai] for ai in self.multi_geometry['ais']]
-            multi_geometry = deepcopy(self.multi_geometry)
-            del multi_geometry['ais']
-            mg = MultiGeometry(ais, **multi_geometry)
+            mg = self.get_multi_geometry(ais)
             integration_method = getattr(mg, self.integration_method)
-            integration_params = {k: v
-                                  for k, v in self.integration_params.items()
-                                  if k != 'lst_data'}
-            npts = [len(input_data[name])
-                        for name in self.integration_params['lst_data']]
-            if not all([_npts == npts[0] for _npts in npts]):
-                raise RuntimeError(
-                    'Different number of frames of detector data provided')
-            npts = npts[0]
-            lst_data = [[np.nan_to_num(input_data[name][i]).astype(np.float64)
-                         for name in self.integration_params['lst_data']]
-                        for i in range(npts)]
-#            print(f'lst_data {type(lst_data)}: {len(lst_data)}')
-#            for d in lst_data:
-#                for dd in d:
-#                    print(f'\t{dd.shape} {dd.sum()}')
             results = [
-                integration_method(lst_data=lst_data[i], **integration_params)
-                for i in range(npts)
-            ]
-            if self._use_CDC:
-                if self.integration_method == 'integrate2d' and self.right_handed:
-                    # Flip results along azimuthal axis
-                    from pyFAI.containers import Integrate2dResult
-                    results = [
-                        Integrate2dResult(
-                            np.flip(result.intensity, axis=0),
-                            result.radial, result.azimuthal
-                        )
-                        for result in results
-                    ]
-#            dummy = [v.intensity for v in results]
-#            print(f'\n\nintensities {type(dummy)}: {len(dummy)}')
-#            for d in dummy:
-#                print(f'\t{d.shape} {d.sum()}')
-#            print('\n\n')
-            return results
-            # Integrate first frame, extract objects to perform
-            # integrations quicker from the result.
-            results = [None] * npts
-            results[0] = integration_method(
-                lst_data=[input_data[name][0]
-                          for name in self.integration_params['lst_data']],
-                **integration_params)
-            engine = mg.engines[results[0].method].engine
-            omega = mg.solidAngleArray()
-            for i in range(1, npts):
-                results[i] = engine.integrate_ng(
+                integration_method(
                     lst_data=[input_data[name][i]
                               for name in self.integration_params['lst_data']],
-                    **integration+params, solidangle=omega
-                )
+                    **integration_params)
+                for i in range(npts)
+            ]
+            if self.integration_method == 'integrate2d' and self.right_handed:
+                # Flip results along azimuthal axis
+                from pyFAI.containers import Integrate2dResult
+                results = [
+                    Integrate2dResult(
+                        np.flip(result.intensity, axis=0),
+                        result.radial, result.azimuthal
+                    )
+                    for result in results
+                ]
+
             return results
 
     def init_placeholder_results(self, azimuthal_integrators):
@@ -243,8 +172,6 @@ class PyfaiIntegrationConfig(MyBaseModel):
         # Adjust azimuthal angles used (since pyfai has some odd conventions)
         chi_min, chi_max = self.multi_geometry.get('azimuth_range',
                                                    (-180.0, 180.0))
-        if not self._use_CDC:
-            return azimuthal_integrators, (chi_min, chi_max), 0
         # Force a right-handed coordinate system
         chi_min, chi_max = 360 - chi_max, 360 - chi_min
 
