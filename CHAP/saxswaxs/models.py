@@ -29,6 +29,7 @@ class AzimuthalIntegratorConfig(MyBaseModel):
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
     poni_file: Optional[FilePath] = None
+    mask_file: Optional[FilePath] = None
     params: Optional[dict] = None
     ai: AzimuthalIntegrator
 
@@ -51,6 +52,17 @@ class AzimuthalIntegratorConfig(MyBaseModel):
                     'Must specify at exactly one of: poni_file, params')
         return data
 
+    @property
+    def mask_data(self):
+        if self.mask_file is None:
+            return None
+
+        import fabio
+        _mask_file = fabio.open(self.mask_file)
+        mask_data = _mask_file.data
+        _mask_file.close()
+        return mask_data
+
     
 class PyfaiIntegrationConfig(MyBaseModel):
     name: Annotated[str, StringConstraints(
@@ -62,27 +74,37 @@ class PyfaiIntegrationConfig(MyBaseModel):
     right_handed: bool = True
     _placeholder_result: PrivateAttr = None
 
-    def integrate(self, ais, input_data):
+    def integrate(self, azimuthal_integrators, input_data):
         import numpy as np
 
+        # Confirm same no. of frames for all detectors
         npts = [len(input_data[name])
                 for name in self.integration_params['lst_data']]
         if not all([_npts == npts[0] for _npts in npts]):
             raise RuntimeError(
                 'Different number of frames of detector data provided')
         npts = npts[0]
+
+        # Get rest of kwargs for the integration method
         integration_params = {k: v
                               for k, v in self.integration_params.items()
                               if k != 'lst_data'}
+
+        # Get dict with values of JUST pyfai azim. int. objects
+        ais = {name: ai.ai for name, ai in azimuthal_integrators.items()}
+
         if self.integration_method == 'integrate_radial':
             from pyFAI.containers import Integrate1dResult
             ais, _, chi_offset = self.adjust_azimuthal_integrators(ais)
             results = None
             for name in self.integration_params.get('lst_data', []):
                 ai = ais[name]
+                mask = azimuthal_integrators[name].mask_data
                 _results = [
                     ai.integrate_radial(
-                        data=input_data[name][i], **integration_params)
+                        data=input_data[name][i],
+                        mask=mask,
+                        **integration_params)
                     for i in range(npts)
                 ]
                 if results is None:
@@ -114,10 +136,14 @@ class PyfaiIntegrationConfig(MyBaseModel):
         else:
             mg = self.get_multi_geometry(ais)
             integration_method = getattr(mg, self.integration_method)
+            lst_mask = []
+            for name in self.integration_params['lst_data']:
+                lst_mask.append(azimuthal_integrators[name].mask_data)
             results = [
                 integration_method(
                     lst_data=[input_data[name][i]
                               for name in self.integration_params['lst_data']],
+                    lst_mask=lst_mask,
                     **integration_params)
                 for i in range(npts)
             ]
@@ -134,9 +160,9 @@ class PyfaiIntegrationConfig(MyBaseModel):
 
             return results
 
-    def init_placeholder_results(self, azimuthal_integrators):
+    def init_placeholder_results(self, ais):
         placeholder_result = None
-        placeholder_data = self.get_placeholder_data(azimuthal_integrators)
+        placeholder_data = self.get_placeholder_data(ais)
         if self.integration_method == 'integrate_radial':
             # Radial integration happens detector-by-detector with the
             # same aprameters for integration range and number of
@@ -144,14 +170,14 @@ class PyfaiIntegrationConfig(MyBaseModel):
             # results, only need to perform integration for at most
             # one detector since it's all 0s anyways.
             det_name = self.integration_params.get('lst_data', [])[0]
-            ai = azimuthal_integrators[det_name]
+            ai = ais[det_name]
             integration_params = {k: v
                                   for k, v in self.integration_params.items()
                                   if k != 'lst_data'}
             placeholder_result = ai.integrate_radial(
                 data=placeholder_data[0], **integration_params)
         else:
-            mg = self.get_multi_geometry(azimuthal_integrators)
+            mg = self.get_multi_geometry(ais)
             integration_method = getattr(mg, self.integration_method)
             integration_params = {k: v
                                   for k, v in self.integration_params.items()
@@ -165,7 +191,7 @@ class PyfaiIntegrationConfig(MyBaseModel):
 
         self._placeholder_result = placeholder_result
 
-    def adjust_azimuthal_integrators(self, azimuthal_integrators):
+    def adjust_azimuthal_integrators(self, ais):
         import numpy as np
         from pyFAI.multi_geometry import MultiGeometry
 
@@ -184,26 +210,26 @@ class PyfaiIntegrationConfig(MyBaseModel):
             chi_offset = 0
         chi_min -= chi_offset
         chi_max -= chi_offset
-        for name, ai in azimuthal_integrators.items():
+        for name, ai in ais.items():
             ai.rot3 += chi_offset * np.pi/180.0
-        return azimuthal_integrators, (chi_min, chi_max), chi_offset
+        return ais, (chi_min, chi_max), chi_offset
 
-    def get_multi_geometry(self, azimuthal_integrators):
+    def get_multi_geometry(self, ais):
         import numpy as np
         from pyFAI.multi_geometry import MultiGeometry
 
-        azimuthal_integrators, azimuth_range, _ = \
-            self.adjust_azimuthal_integrators(azimuthal_integrators)
-        ais = [azimuthal_integrators[name]
+        ais, azimuth_range, _ = \
+            self.adjust_azimuthal_integrators(ais)
+        ais = [ais[name]
                for name in self.multi_geometry['ais']]
         kwargs = {k: v for k, v in self.multi_geometry.items()
                   if k not in ('ais', 'azimuth_range')}
         return MultiGeometry(ais, azimuth_range=azimuth_range, **kwargs)
 
-    def get_placeholder_data(self, azimuthal_integrators):
+    def get_placeholder_data(self, ais):
         import numpy as np
 
-        data = [np.full(azimuthal_integrators[name].detector.shape, 0)
+        data = [np.full(ais[name].detector.shape, 0)
                 for name in self.integration_params.get('lst_data', [])]
         return data
 
