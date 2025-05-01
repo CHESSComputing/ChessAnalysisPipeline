@@ -42,16 +42,15 @@ class ZarrSetupWriter(Writer):
         try:
             config = self.get_config(
                 data=data,
-                schema=f'saxswaxs.models.PyfaiIntegrationProcessorConfig')
+                schema='saxswaxs.models.PyfaiIntegrationProcessorConfig')
         except:
             self.logger.info(
-                f'No valid PyfaiIntegrationProcessorConfig in input '
+                'No valid PyfaiIntegrationProcessorConfig in input '
                 'pipeline data, using config parameter instead')
             try:
                 from CHAP.saxswaxs.models import (
                     PyfaiIntegrationProcessorConfig)
-                config = PyfaiIntegrationProcessorConfig(
-                    **config, inputdir=inputdir)
+                config = PyfaiIntegrationProcessorConfig(**config)
             except Exception as exc:
                 raise RuntimeError from exc
         # Get zarr tree as dict from the

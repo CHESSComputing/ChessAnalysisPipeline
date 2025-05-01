@@ -45,7 +45,7 @@ class PyfaiIntegrationProcessor(Processor):
                 config = PyfaiIntegrationProcessorConfig(**config)
             except Exception as exc:
                 self.logger.error(exc)
-                raise RuntimeError(exc)
+                raise RuntimeError(exc) from exc
 
         # Organize input for integrations
         input_data = {d['name']: d['data'] for d in data}
@@ -58,7 +58,7 @@ class PyfaiIntegrationProcessor(Processor):
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
         nframes = len(input_data[list(input_data.keys())[0]])
-        for i, integration in enumerate(config.integrations):
+        for integration in config.integrations:
             t0 = time.time()
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)

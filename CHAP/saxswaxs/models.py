@@ -6,14 +6,11 @@ from typing import Literal, Optional
 # Third party modules
 from pydantic import (
     ConfigDict,
-    Field,
     FilePath,
     PrivateAttr,
     StringConstraints,
     conlist,
-    field_validator,
     model_validator,
-    validator,
 )
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 from typing_extensions import Annotated
@@ -23,9 +20,16 @@ from CHAP import CHAPBaseModel
 
 
 class MyBaseModel(CHAPBaseModel):
+    """Subclass `CHAPBaseModel` to allow arbitrary `dicts` in models
+    that have fields meant to directly hold some kwargs to `pyFAI`
+    methods.
+    """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 class AzimuthalIntegratorConfig(MyBaseModel):
+    """Configuration for a single detector used in processing
+    SAXS/WAXS data.
+    """
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
     poni_file: Optional[FilePath] = None
@@ -36,6 +40,10 @@ class AzimuthalIntegratorConfig(MyBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_root(cls, data):
+        """Make sure `data` contains either `poni_file` _or_ `params`,
+        not both, and that the field that is used defines a valid
+        `pyFAI.azimuthalIntegrator.AzimuthalIntegrator object`.
+        """
         if isinstance(data, dict):
             params = data.get('params')
             poni_file = data.get('poni_file')
@@ -45,7 +53,6 @@ class AzimuthalIntegratorConfig(MyBaseModel):
                     from pyFAI import load
                     data['ai'] = load(poni_file)
                 else:
-                    from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
                     data['ai'] = AzimuthalIntegrator(**params)
             else:
                 raise ValueError(
@@ -54,6 +61,10 @@ class AzimuthalIntegratorConfig(MyBaseModel):
 
     @property
     def mask_data(self):
+        """Return the mask array to use for this detector from the
+        data in the file specified with the `mask_file` field. Return
+        `None` if `mask_file` is `None`.
+        """
         if self.mask_file is None:
             return None
 
@@ -63,8 +74,11 @@ class AzimuthalIntegratorConfig(MyBaseModel):
         _mask_file.close()
         return mask_data
 
-    
+
 class PyfaiIntegrationConfig(MyBaseModel):
+    """Class for configuring and performing a single type of
+    integration on a specific set of detector data.
+    """
     name: Annotated[str, StringConstraints(
         strip_whitespace=True, min_length=1)]
     multi_geometry: dict = {}
@@ -75,6 +89,18 @@ class PyfaiIntegrationConfig(MyBaseModel):
     _placeholder_result: PrivateAttr = None
 
     def integrate(self, azimuthal_integrators, input_data):
+        """Perform the integration and return the results.
+
+        :param azimuthal_integrators: List of single-detector
+            integrator configurations.
+        :type azimuthal_integrators: list[AzimuthalIntegratorConfig]
+        :param input_data: Dictionary of 2D detector frames to be
+            integrated.
+        :type input_data: dict[str, np.ndarray]
+        :return: Integrated resulte for every frame (or set of frames)
+            in `input_data`.
+        :rtype: list[pyFAI.containers.IntegrateResult]
+        """
         import numpy as np
 
         # Confirm same no. of frames for all detectors
@@ -133,34 +159,39 @@ class PyfaiIntegrationConfig(MyBaseModel):
                 for r in results
             ]
             return results
-        else:
-            mg = self.get_multi_geometry(ais)
-            integration_method = getattr(mg, self.integration_method)
-            lst_mask = []
-            for name in self.integration_params['lst_data']:
-                lst_mask.append(azimuthal_integrators[name].mask_data)
+        # Deal with cake / azimuthal integration
+        mg = self.get_multi_geometry(ais)
+        integration_method = getattr(mg, self.integration_method)
+        lst_mask = []
+        for name in self.integration_params['lst_data']:
+            lst_mask.append(azimuthal_integrators[name].mask_data)
+        results = [
+            integration_method(
+                lst_data=[input_data[name][i]
+                          for name in self.integration_params['lst_data']],
+                lst_mask=lst_mask,
+                **integration_params)
+            for i in range(npts)
+        ]
+        if self.integration_method == 'integrate2d' and self.right_handed:
+            # Flip results along azimuthal axis
+            from pyFAI.containers import Integrate2dResult
             results = [
-                integration_method(
-                    lst_data=[input_data[name][i]
-                              for name in self.integration_params['lst_data']],
-                    lst_mask=lst_mask,
-                    **integration_params)
-                for i in range(npts)
+                Integrate2dResult(
+                    np.flip(result.intensity, axis=0),
+                    result.radial, result.azimuthal
+                )
+                for result in results
             ]
-            if self.integration_method == 'integrate2d' and self.right_handed:
-                # Flip results along azimuthal axis
-                from pyFAI.containers import Integrate2dResult
-                results = [
-                    Integrate2dResult(
-                        np.flip(result.intensity, axis=0),
-                        result.radial, result.azimuthal
-                    )
-                    for result in results
-                ]
 
-            return results
+        return results
 
     def init_placeholder_results(self, ais):
+        """Get placeholder results for this integration so we can fill
+        in the datasets for results of coordinates when setting up a
+        zarr tree for holding results of
+        `saxswaxs.PyfaiIntegrationProcessor`.
+        """
         placeholder_result = None
         placeholder_data = self.get_placeholder_data(ais)
         if self.integration_method == 'integrate_radial':
@@ -192,8 +223,11 @@ class PyfaiIntegrationConfig(MyBaseModel):
         self._placeholder_result = placeholder_result
 
     def adjust_azimuthal_integrators(self, ais):
+        """Artificially rotate the integrators in the azimuthal
+        direction so none of the input data crosses a discontinuity
+        when performing the integration.
+        """
         import numpy as np
-        from pyFAI.multi_geometry import MultiGeometry
 
         # Adjust azimuthal angles used (since pyfai has some odd conventions)
         chi_min, chi_max = self.multi_geometry.get('azimuth_range',
@@ -210,12 +244,14 @@ class PyfaiIntegrationConfig(MyBaseModel):
             chi_offset = 0
         chi_min -= chi_offset
         chi_max -= chi_offset
-        for name, ai in ais.items():
+        for ai in ais.values():
             ai.rot3 += chi_offset * np.pi/180.0
         return ais, (chi_min, chi_max), chi_offset
 
     def get_multi_geometry(self, ais):
-        import numpy as np
+        """Return a `pyFAI.multi_geometry.MultiGeometry` object for
+        use with azimuthal or cake integrations.
+        """
         from pyFAI.multi_geometry import MultiGeometry
 
         ais, azimuth_range, _ = \
@@ -227,30 +263,37 @@ class PyfaiIntegrationConfig(MyBaseModel):
         return MultiGeometry(ais, azimuth_range=azimuth_range, **kwargs)
 
     def get_placeholder_data(self, ais):
+        """Return empty input data of the correct shape for use in
+        `init_placeholder_data`.
+        """
         import numpy as np
 
         data = [np.full(ais[name].detector.shape, 0)
                 for name in self.integration_params.get('lst_data', [])]
         return data
 
-    def result_axes(self):
-        return []
+    # def result_axes(self):
+    #     return []
 
     @property
     def result_shape(self):
+        """Return shape of one frame of results from this integration."""
         if self.integration_method == 'integrate_radial':
             return (self.integration_params['npt'], )
-        elif self.integration_method == 'integrate1d':
+        if self.integration_method == 'integrate1d':
             return (self.integration_params['npt'], )
-        elif self.integration_method == 'integrate2d':
+        if self.integration_method == 'integrate2d':
             return (self.integration_params['npt_azim'],
                     self.integration_params['npt_rad'])
-        else:
-            raise NotImplementedError(
-                f'Unimplemented integration_method: {self.integration_method}')
+        raise NotImplementedError(
+            f'Unimplemented integration_method: {self.integration_method}')
 
     @property
     def result_coords(self):
+        """Return a dictionary representing the `zarr.array` objects
+        for the coordinates of a single frame of results from this
+        integration.
+        """
         import pyFAI.containers
         import pyFAI.units
 
@@ -321,11 +364,17 @@ class PyfaiIntegrationConfig(MyBaseModel):
         return coords
 
     def get_axes_indices(self, dataset_ndims):
+        """Return the index of each coordinate orienting a single
+        frame of results from this integration.
+        """
         return {k: dataset_ndims + i
                 for i, k in enumerate(self.result_coords.keys())}
 
     def zarr_tree(self, dataset_shape, dataset_chunks):
-        import json
+        """Return a dictionary representing a `zarr.group` that can be
+        used to contain results from this integration.
+        """
+        # import json
         tree = {
             # NXprocess
             'attributes': {
@@ -352,7 +401,7 @@ class PyfaiIntegrationConfig(MyBaseModel):
                             'compressors': None,
                         },
                         **self.result_coords,
-                    }   
+                    }
                 }
             }
         }
@@ -360,11 +409,18 @@ class PyfaiIntegrationConfig(MyBaseModel):
 
 
 class PyfaiIntegrationProcessorConfig(MyBaseModel):
+    """Class defining components needed for performing one or more
+    integrations on the same set of 2D input data with
+    `saxswaxs.PyfaiIntegrationProcessor`.
+    """
     azimuthal_integrators: conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)
     integrations: conlist(min_length=1, item_type=PyfaiIntegrationConfig)
 
     def zarr_tree(self, dataset_shape, dataset_chunks):
+        """Return a dictionary representing a `zarr.group` that can be
+        used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
+        """
         ais = {ai.name: ai.ai for ai in self.azimuthal_integrators}
         for integration in self.integrations:
             integration.init_placeholder_results(ais)
