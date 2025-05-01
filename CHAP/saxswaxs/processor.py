@@ -9,6 +9,25 @@ class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
     def process(self, data, config=None,
                 idx_slices=[{'start':0, 'end': -1, 'step': 1}]):
+        """Perform a set of integrations on 2D detector data.
+
+        :param data: input 2D detector data
+        :type data: list[PipelineData]
+        :param config: Configuration parameters for a
+            `saxswaxs.models.PyfaiIntegrationProcessorConfig` object
+            (_or_ the configuration may be supplied as an item in the
+            input `data` list), optional
+        :type config: dict, defaults to `None`.
+        :param idx_slices: List of dicionaries identifying the sliced
+            index at which the output data should be written in a
+            dataset. Optional.
+        :type idx_slices: list[dict[str, int]], defaults to
+        `[{'start':0, 'end': -1, 'step': 1}]`
+        :return: List of dictionaries ready for use with
+            `saxswaxs.ZarrResultsWriter` or
+            `saxswaxs.NexusResultsWriter`.
+        :rtype: list[dict[str, object]]
+        """
         import time
 
         # Get config for PyfaiIntegrationProcessor from data or config
@@ -56,11 +75,6 @@ class PyfaiIntegrationProcessor(Processor):
                     },
                 ]
             )
-#RV
-#            from nexusformat.nexus import NXdata, NXfield
-#            return NXdata(
-#                NXfield(np.asarray([r.intensity for r in result]), 'I'),
-#                NXfield(np.asarray(result[0].radial), 'q'))
         return results
 
 

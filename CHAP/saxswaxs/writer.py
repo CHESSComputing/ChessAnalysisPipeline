@@ -6,12 +6,39 @@ from CHAP import Writer
 
 
 class ZarrSetupWriter(Writer):
-
+    """Writer for creating an intital zarr file with empty datasets
+    for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
+    `saxswaxs.ZarrResultsWriter`.
+    """
     def process(self, data, filename, dataset_shape, dataset_chunks):
-        # Get config for PyfaiIntegrationProcessor from data
-        # Using config & experiment_shape, setup tree dict to pass to
-        # common.ZarrSetupWriter
-        # call common.ZarrSetupWriter
+        """Create, write, and return a `zarr.group` to hold processed
+        SAXS/WAXS data processed by
+        `saxswaxs.PyfaiIntegrationProcessor`.
+
+        :param data:
+        `'saxswaxs.models.PyfaiIntegrationProcessorConfig`
+        configuration which will be used to process the data later on.
+        :type data: list[PipelineData]
+        :param filename: Location of zarr file to be written.
+        :type filename: str
+        :param dataset_shape: Shape of the completed dataset that will
+            be processed later on (shape of the measurement itself,
+            _not_ including the dimensions of any signals collected at
+            each point in that measurement).
+        :type dataset_shape: list[int]
+        :param dataset_chunks: Extent of chunks along each dimension
+            of the completed dataset / measurement. Choose this
+            according to how you will process your data -- for
+            example, if your `dataset_shape` is `[m, n]`, and you are
+            planning to process each of the `m` rows as chunks,
+            `dataset_chunks` should be `[1, n]`. But if you plan to
+            process each of the `n` columns as chunks,
+            `dataset_chunks` should be `[m, 1]`.
+        :type dataset_chunks: list[int]
+        :return: Empty structure for filling in SAXS/WAXS data
+        :rtype: zarr.group
+        """
+        # Get PyfaiIntegrationProcessorConfig
         try:
             config = self.get_config(
                 data=data,
@@ -27,10 +54,24 @@ class ZarrSetupWriter(Writer):
                     **config, inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
+        # Get zarr tree as dict from the
+        # PyfaiIntegrationProcessorConfig
         tree = config.zarr_tree(dataset_shape, dataset_chunks)
+        # Write & return the root zarr.group
         return self.zarr_setup_writer(tree, filename)
 
     def zarr_setup_writer(self, tree, filename):
+        """Create, write, and return a `zarr.group` based on a
+        dictionary representing a zarr tree of groups and arrays.
+
+        :param tree: Nested dictionary representing a zarr tree of
+            groups and arrays.
+        :type tree: dict[str, object]
+        :param filename: Location of zarr file to be written.
+        :type filename: str
+        :return: Zarr group corresponding to the contents of `tree`.
+        :rtype: zarr.group
+        """
         # Third party modules
         import zarr
 
@@ -63,8 +104,21 @@ class ZarrSetupWriter(Writer):
 
 
 class ZarrResultsWriter(Writer):
-
+    """Writer for placing results of
+    `saxswaxs.PyfaiIntegrationProcessor` into a zarr file (usually one
+    created by `saxswaxs.ZarrSetupWriter`)."""
     def write(self, data, filename):
+        """Write `data` (from `saxswaxs.PyfaiIntegrationProcessor`) to
+        the Zarr file `filename`.
+
+        :param data: Results from `saxswaxs.PyfaiIntegrationProcessor`.
+        :type data: list[PipelineData]
+        :param filename: Name of Zarr file to which to write.
+        :type filename: str
+        :returns: Original results from
+            `saxswaxs.PyfaiIntegrationProcessor`.
+        :rtype: list[dict[str, object]]
+        """
         # Third party modules
         import zarr
 
@@ -123,11 +177,22 @@ class ZarrResultsWriter(Writer):
 
 
 class NexusResultsWriter(Writer):
+    """Writer for placing results of
+    `saxswaxs.PyfaiIntegrationProcessor` into a NeXus file.
+    """
     def write(self, data, filename):
-        from nexusformat.nexus import NXFile
+        """Write `data` (from `saxswaxs.PyfaiIntegrationProcessor`) to
+        the NeXus file `filename`.
 
-        # Open file in append mode to allow modifications
-        #nxroot = nxload(filename)
+        :param data: Results from `saxswaxs.PyfaiIntegrationProcessor`.
+        :type data: list[PipelineData]
+        :param filename: Name of NeXus file to which to write.
+        :type filename: str
+        :returns: Original results from
+            `saxswaxs.PyfaiIntegrationProcessor`.
+        :rtype: list[dict[str, object]]
+        """
+        from nexusformat.nexus import NXFile
 
         # Get list of PyfaiIntegrationProcessor results to write
         data = self.unwrap_pipelinedata(data)[0]
@@ -147,7 +212,7 @@ class NexusResultsWriter(Writer):
         writing.
 
         :param nxroot: NeXus root object.
-        :type zarrfile: nexusformat.nexus.NXroot
+        :type nxroot: nexusformat.nexus.NXroot
         :param path: Path to the dataset inside the NeXus file.
         :type path: str
         :param idx: Index or slice where the data should be written.
