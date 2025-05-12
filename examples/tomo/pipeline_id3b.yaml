@@ -74,4 +74,3 @@ pipeline:
   - common.NexusWriter:
       filename: reconstructed_data.nxs
       force_overwrite: true
-

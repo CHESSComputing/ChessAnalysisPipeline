@@ -678,13 +678,18 @@ class SpecReader(Reader):
                     nxdata.data = NXfield(
                         value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
+                    if config.experiment_type == 'TOMO':
+                        dtype = np.float32
+                    else:
+                        dtype = None
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in detectors.detectors:
                         nxdata[detector.id] = NXfield(
-                           value=scanparser.get_detector_data(detector.id))
+                           value=scanparser.get_detector_data(
+                               detector.id, dtype=dtype))
 
         if detectors is None and config.experiment_type == 'EDD':
             if detector_data_format == 'spec':

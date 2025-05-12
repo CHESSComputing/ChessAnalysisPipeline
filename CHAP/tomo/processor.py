@@ -35,7 +35,8 @@ from CHAP.processor import Processor
 NUM_CORE_TOMOPY_LIMIT = 24
 
 
-def get_nxroot(data, schema=None, remove=True):
+#@profile
+def get_nxroot(data, schema=None, remove=True, logger=None):
     """Look through `data` for an item whose value for the `'schema'`
     key matches `schema` (if supplied) and whose value for the `'data'`
     key matches a `nexusformat.nexus.NXobject` object and return this
@@ -62,7 +63,8 @@ def get_nxroot(data, schema=None, remove=True):
 
     nxobject = None
     if isinstance(data, list):
-        for i, item in enumerate(deepcopy(data)):
+        item_index = None
+        for i, item in enumerate(data):
             if isinstance(item, dict):
                 if schema is None or item.get('schema') == schema:
                     item_data = item.get('data')
@@ -71,13 +73,24 @@ def get_nxroot(data, schema=None, remove=True):
                             raise ValueError(
                                 'Multiple NXobject objects found in input'
                                 f' data matching schema = {schema}')
-                        nxobject = item_data
-                        if remove:
-                            data.pop(i)
+                        item_index = i
                     elif schema is not None:
                         raise ValueError(
                             'Invalid NXobject object found in input data')
+        if item_index is not None:
+            if remove:
+                item = data.pop(item_index)
+                nxobject = item.get('data')
+            else:
+                nxobject = data[item_index].get('data')
 
+    if nxobject is None:
+        if logger is None:
+            print('Unable to find a NXobject object in input data that '
+                  f'matches schema = {schema}')
+        else:
+            logger.warning('Unable to find a NXobject object in input data '
+                           f'that matches schema = {schema}')
     return nxobject
 
 
@@ -88,6 +101,10 @@ class TomoCHESSMapConverter(Processor):
     """
 
     def process(self, data):
+        return self._process(data)
+
+    #@profile
+    def _process(self, data):
         """
         Process the input map and configuration and return a
         `nexusformat.nexus.NXroot` object based on the
@@ -120,9 +137,9 @@ class TomoCHESSMapConverter(Processor):
         from CHAP.common.models.map import MapConfig
         from CHAP.utils.general import index_nearest
 
-        darkfield = get_nxroot(data, 'darkfield')
-        brightfield = get_nxroot(data, 'brightfield')
-        tomofields = get_nxroot(data, 'tomofields')
+        darkfield = get_nxroot(data, schema='darkfield', logger=self.logger)
+        brightfield = get_nxroot(data, schema='brightfield', logger=self.logger)
+        tomofields = get_nxroot(data, schema='tomofields', logger=self.logger)
         detector_config = self.get_config(
             data=data, schema='tomo.models.Detector')
 
@@ -382,6 +399,7 @@ class TomoCHESSMapConverter(Processor):
         nxinstrument.detector.image_key = image_keys
         nxinstrument.detector.sequence_number = sequence_numbers
         nxinstrument.detector.data = np.concatenate(image_stacks)
+        del image_stacks
 
         # Add image data to NXsample
         nxsample.rotation_angle = rotation_angles
@@ -410,6 +428,17 @@ class TomoDataProcessor(Processor):
     """
 
     def process(
+            self, data, outputdir='.', interactive=False, reduce_data=False,
+            find_center=False, calibrate_center=False, reconstruct_data=False,
+            combine_data=False, save_figs='no'):
+        return self._process(
+            data, outputdir=outputdir, interactive=interactive, reduce_data=reduce_data,
+            find_center=find_center, calibrate_center=calibrate_center,
+            reconstruct_data=reconstruct_data, combine_data=combine_data,
+            save_figs=save_figs)
+
+    #@profile
+    def _process(
             self, data, outputdir='.', interactive=False, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
             combine_data=False, save_figs='no'):
@@ -494,7 +523,7 @@ class TomoDataProcessor(Processor):
                 data=data, schema='tomo.models.TomoCombineConfig')
         except ValueError:
             combine_data_config = None
-        nxroot = get_nxroot(data)
+        nxroot = get_nxroot(data, logger=self.logger)
 
         tomo = Tomo(
             logger=self.logger, interactive=interactive,
@@ -686,6 +715,7 @@ class Tomo:
                 f'of processors suitable to Tomopy and reduced to 64')
             self._num_core = 64
 
+    #@profile
     def reduce_data(
             self, nxroot, tool_config=None, calibrate_center_rows=False):
         """
@@ -837,6 +867,7 @@ class Tomo:
 
         return nxroot, calibrate_center_rows
 
+    #@profile
     def find_centers(self, nxroot, tool_config, calibrate_center_rows=False):
         """
         Find the calibrated center axis info
@@ -992,6 +1023,7 @@ class Tomo:
 
         return center_config
 
+    #@profile
     def reconstruct_data(self, nxroot, center_info, tool_config):
         """
         Reconstruct the tomography data.
@@ -1111,11 +1143,8 @@ class Tomo:
             z_range = (min(z_bounds), max(z_bounds))
             z_slice = (z_bounds[0]+z_bounds[1])//2
         z_dim_org = tomo_recon_shape[0]
-        for i, stack in enumerate(tomo_recon_stacks):
-            tomo_recon_stacks[i] = stack[
-                z_range[0]:z_range[1],y_range[0]:y_range[1],
-                x_range[0]:x_range[1]]
-        tomo_recon_stacks = np.asarray(tomo_recon_stacks)
+        tomo_recon_stacks = np.asarray(tomo_recon_stacks)[:,
+            z_range[0]:z_range[1],y_range[0]:y_range[1],x_range[0]:x_range[1]]
 
         detector = nxentry.instrument.detector
         row_pixel_size = float(detector.row_pixel_size)
@@ -1272,6 +1301,7 @@ class Tomo:
 
         return nxroot
 
+    #@profile
     def combine_data(self, nxroot, tool_config):
         """Combine the reconstructed tomography stacks.
 
@@ -1505,6 +1535,7 @@ class Tomo:
 
         return nxroot
 
+    #@profile
     def _gen_dark(self, nxentry, reduced_data, image_key):
         """Generate dark field."""
         # Third party modules
@@ -1521,7 +1552,7 @@ class Tomo:
 
         # Take median
         if tdf_stack.ndim == 2:
-            tdf = tdf_stack
+            tdf = np.asarray(tdf_stack)
         elif tdf_stack.ndim == 3:
             tdf = np.median(tdf_stack, axis=0)
             del tdf_stack
@@ -1557,6 +1588,7 @@ class Tomo:
 
         return reduced_data
 
+    #@profile
     def _gen_bright(self, nxentry, reduced_data, image_key):
         """Generate bright field."""
         # Third party modules
@@ -1584,7 +1616,7 @@ class Tomo:
         # frame to frame fluctuations from the incoming beam. We don’t
         # typically account for them but potentially could.
         if tbf_stack.ndim == 2:
-            tbf = tbf_stack
+            tbf = np.asarray(tbf_stack)
         elif tbf_stack.ndim == 3:
             tbf = np.median(tbf_stack, axis=0)
             del tbf_stack
@@ -1608,6 +1640,7 @@ class Tomo:
 
         return reduced_data
 
+    #@profile
     def _set_detector_bounds(
             self, nxentry, reduced_data, image_key, theta, img_row_bounds,
             calibrate_center_rows):
@@ -1788,6 +1821,7 @@ class Tomo:
 
         return img_row_bounds
 
+    #@profile
     def _gen_thetas(self, nxentry, image_key):
         """Get the rotation angles for the image stacks."""
         # Get the rotation angles (in degrees)
@@ -1816,6 +1850,7 @@ class Tomo:
 
         return np.asarray(thetas)
 
+    #@profile
     def _set_zoom_or_delta_theta(self, thetas, delta_theta=None):
         """
         Set zoom and/or delta theta to reduce memory the requirement
@@ -1856,6 +1891,7 @@ class Tomo:
 
         return zoom_perc, delta_theta
 
+    #@profile
     def _gen_tomo(
             self, nxentry, reduced_data, image_key, calibrate_center_rows):
         """Generate tomography fields."""
@@ -1928,7 +1964,7 @@ class Tomo:
         num_tomo_stacks = len(z_translation_levels)
         if calibrate_center_rows:
             center_stack_index = num_tomo_stacks//2
-        tomo_stacks = num_tomo_stacks*[np.array([])]
+        tomo_stacks = num_tomo_stacks*[None]
         horizontal_shifts = []
         vertical_shifts = []
         for i, z_translation in enumerate(z_translation_levels):
@@ -1953,37 +1989,32 @@ class Tomo:
                     nxentry.instrument.detector.sequence_number[field_indices]
                 assert (list(sequence_numbers)
                         == list(range((len(sequence_numbers)))))
-                tomo_stack = nxentry.instrument.detector.data[
+                tomo_stacks[i] = nxentry.instrument.detector.data.nxdata[
                     field_indices_masked]
             except Exception as exc:
                 raise RuntimeError('Unable to load the tomography images '
                                    f'for stack {i}') from exc
-            tomo_stacks[i] = tomo_stack
             if not calibrate_center_rows:
                 if not i:
-                    tomo_stack_shape = tomo_stack.shape
+                    tomo_stack_shape = tomo_stacks[0].shape
                 else:
-                    assert tomo_stack_shape == tomo_stack.shape
+                    assert tomo_stacks[i].shape == tomo_stack_shape
 
-        reduced_tomo_stacks = num_tomo_stacks*[np.array([])]
         tomo_stack_shape = None
-        for i, tomo_stack in enumerate(tomo_stacks):
-            if not tomo_stack.size:
+        for i in range(num_tomo_stacks):
+            tomo_stack = tomo_stacks[i]
+            if tomo_stack is None:
                 continue
             # Resize the tomography images
             # Right now the range is the same for each set in the stack
             if calibrate_center_rows:
-                tomo_stack = tomo_stack[:,calibrate_center_rows,:].astype(
-                        'float64', copy=False)
+                tomo_stack = tomo_stack[:,calibrate_center_rows,:]
             else:
                 if (img_row_bounds != (0, tomo_stack.shape[1])
                         or img_column_bounds != (0, tomo_stack.shape[2])):
-                    tomo_stack = tomo_stack[
-                        :,img_row_bounds[0]:img_row_bounds[1],
-                        img_column_bounds[0]:img_column_bounds[1]].astype(
-                            'float64', copy=False)
-                else:
-                    tomo_stack = tomo_stack.astype('float64', copy=False)
+                    tomo_stack = tomo_stack[:,
+                        img_row_bounds[0]:img_row_bounds[1],
+                        img_column_bounds[0]:img_column_bounds[1]]
 
             # Subtract dark field
             if tdf is not None:
@@ -2013,17 +2044,17 @@ class Tomo:
             # Remove non-positive values and linearize data
             # RV make input argument? cutoff = 1.e-6
             with SetNumexprThreads(self._num_core):
+                cutoff = np.float32(1.e-6)
                 evaluate(
-                    'where(tomo_stack < 1.e-6, 1.e-6, tomo_stack)',
+                    'where(tomo_stack < cutoff, cutoff, tomo_stack)',
                     out=tomo_stack)
             with SetNumexprThreads(self._num_core):
                 evaluate('-log(tomo_stack)', out=tomo_stack)
 
             # Get rid of nans/infs that may be introduced by normalization
-            tomo_stack = np.where(np.isfinite(tomo_stack), tomo_stack, 0.)
+            tomo_stack[~np.isfinite(tomo_stack)] = 0
 
             # Downsize tomography stack to smaller size
-            tomo_stack = tomo_stack.astype('float32', copy=False)
             if self._save_figs or self._save_only:
                 theta = round(thetas[0], 2)
                 if len(tomo_stacks) == 1:
@@ -2033,7 +2064,7 @@ class Tomo:
                     title = f'Reduced data stack {i}, 'r'$\theta$ = 'f'{theta}'
                     name = f'reduced_data_stack_{i}_theta_{theta}'
                 quick_imshow(
-                    tomo_stack[0,:,:], title=title, name=name,
+                    tomo_stack[0,:,:], title=title, name=name, #RV
                     path=self._outputdir, save_fig=self._save_figs,
                     save_only=self._save_only, block=self._block)
             zoom_perc = 100
@@ -2049,36 +2080,38 @@ class Tomo:
                 title = f'red stack {zoom_perc}p theta ' \
                     f'{round(thetas[0], 2)+0}'
                 quick_imshow(
-                    tomo_stack[0,:,:], title=title,
+                    tomo_stack[0,:,:], title=title, #RV
                     path=self._outputdir, save_fig=self._save_figs,
                     save_only=self._save_only, block=self._block)
                 del tomo_zoom_list
 
             # Combine resized stacks
-            reduced_tomo_stacks[i] = tomo_stack
+            tomo_stacks[i] = tomo_stack
             if tomo_stack_shape is None:
                 tomo_stack_shape = tomo_stack.shape
             else:
                 assert tomo_stack_shape == tomo_stack.shape
 
-        for i, stack in enumerate(reduced_tomo_stacks):
-            if not stack.size:
-                reduced_tomo_stacks[i] = np.zeros(tomo_stack_shape)
+        for i in range(num_tomo_stacks):
+            if tomo_stacks[i] is None:
+                tomo_stacks[i] = np.zeros(tomo_stack_shape)
 
         # Add tomo field info to reduced data NXprocess
         reduced_data.x_translation = horizontal_shifts
         reduced_data.x_translation.units = 'mm'
         reduced_data.z_translation = vertical_shifts
         reduced_data.z_translation.units = 'mm'
-        reduced_data.data.tomo_fields = reduced_tomo_stacks
+        reduced_data.data.tomo_fields = tomo_stacks
         reduced_data.data.attrs['signal'] = 'tomo_fields'
 
         if tdf is not None:
             del tdf
         del tbf
+        del tomo_stacks
 
         return reduced_data
 
+    #@profile
     def _find_center_one_plane(
             self, tomo_stacks, stack_index, row, offset_row, thetas,
             num_core=1, center_offset_min=-50, center_offset_max=50,
@@ -2433,6 +2466,7 @@ class Tomo:
             return float(selected_center_offset)
         return float(center_offset_vo)
 
+    #@profile
     def _reconstruct_planes(
             self, tomo_planes, center_offset, thetas, num_core=1,
             gaussian_sigma=None, ring_width=None):
@@ -2470,7 +2504,7 @@ class Tomo:
                 recon_planes, rwidth=ring_width, ncore=num_core)
 
         # Apply a circular mask
-        recon_planes = misc.corr.circ_mask(recon_planes, axis=0)
+        recon_planes = misc.corr.circ_mask(recon_planes, axis=0) #RV
 
         return np.squeeze(recon_planes)
 
@@ -2494,6 +2528,7 @@ class Tomo:
 #                weight = 0.1
 #        return denoise_tv_chambolle(recon_plane, weight=weight)
 
+    #@profile
     def _select_center_offset(
             self, recon_planes, row, preselected_offsets,
             default_offset_index=0, fig_titles=None, search_button=True,
@@ -2675,6 +2710,7 @@ class Tomo:
 
         return fig, *selected_offset[0]
 
+    #@profile
     def _reconstruct_one_tomo_stack(
             self, tomo_stack, thetas, center_offsets=None, num_core=1,
             algorithm='gridrec', secondary_iters=0, gaussian_sigma=None,
@@ -2779,6 +2815,7 @@ class Tomo:
 
         return tomo_recon_stack
 
+    #@profile
     def _resize_reconstructed_data(
             self, data, x_bounds=None, y_bounds=None, z_bounds=None,
             combine_data=False):
@@ -2788,11 +2825,11 @@ class Tomo:
 
         # Data order: row/-z,y,x or stack,row/-z,y,x
         if isinstance(data, list):
-            for i, stack in enumerate(data):
-                assert stack.ndim == 3
-                if i:
-                    assert stack.shape[1:] == data[0].shape[1:]
             num_tomo_stacks = len(data)
+            for i in range(num_tomo_stacks):
+                assert data[i].ndim == 3
+                if i:
+                    assert data[i].shape[1:] == data[0].shape[1:]
             tomo_recon_stacks = data
         else:
             assert data.ndim == 3
@@ -3222,7 +3259,7 @@ class TomoDarkFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
+        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -3296,7 +3333,7 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField', remove=False)
+        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -3386,13 +3423,13 @@ class TomoSpecProcessor(Processor):
         # Get and validate the TomoSimField, TomoDarkField, or
         # TomoBrightField configuration object in data
         configs = {}
-        nxroot = get_nxroot(data, 'tomo.models.TomoDarkField')
+        nxroot = get_nxroot(data, schema='tomo.models.TomoDarkField')
         if nxroot is not None:
             configs['tomo.models.TomoDarkField'] = nxroot
-        nxroot = get_nxroot(data, 'tomo.models.TomoBrightField')
+        nxroot = get_nxroot(data, schema='tomo.models.TomoBrightField')
         if nxroot is not None:
             configs['tomo.models.TomoBrightField'] = nxroot
-        nxroot = get_nxroot(data, 'tomo.models.TomoSimField')
+        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField')
         if nxroot is not None:
             configs['tomo.models.TomoSimField'] = nxroot
         if scan_numbers is None:

@@ -8,6 +8,7 @@ dependencies:
   - astra-toolbox==2.1.0
   - chessanalysispipeline
   - lmfit==1.1.0
+  - fabio==2024.9.0
   - matplotlib==3.9.2
   - mpi4py==4.0.0
   - nexpy==1.0.9

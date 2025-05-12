@@ -45,7 +45,7 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
 #        - common.NexusReader:
-#            filename: ../hollow_pyramid/map_hollow_pyramid.nxs
+#            filename: map_hollow_pyramid.nxs
 #            schema: tomofields
         - common.SpecReader:
             config:
@@ -97,4 +97,3 @@ pipeline:
   - common.NexusWriter:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
-

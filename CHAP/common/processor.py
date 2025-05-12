@@ -1220,6 +1220,16 @@ class MapProcessor(Processor):
     def process(
             self, data, config=None, detectors=None, placeholder_data=False,
             num_proc=1, comm=None, inputdir=None):
+
+        return self._process(
+            data, config=config, detectors=detectors,
+            placeholder_data=placeholder_data, num_proc=num_proc,
+            comm=comm, inputdir=inputdir)
+
+#    @profile
+    def _process(
+            self, data, config=None, detectors=None, placeholder_data=False,
+            num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -1723,6 +1733,7 @@ class MapProcessor(Processor):
                 0, 1),
             independent_dimensions, all_scalar_data)
 
+#    @profile
     def _read_raw_data(
             self, map_config, detector_config, comm, num_scan, offset):
         """Read the raw data for a given map configuration.
@@ -1766,17 +1777,24 @@ class MapProcessor(Processor):
         scans = map_config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
-        ddata = scanparser.get_detector_data(detector_config.detectors[0].id)
+        #RV only correct for multiple detectors if the same image sizes
+        if len(detector_config.detectors) != 1:
+            raise ValueError('Multiple detectors not tested yet')
+        if map_config.experiment_type == 'TOMO':
+            dtype = np.float32
+        else:
+            dtype = None
+        ddata = scanparser.get_detector_data(
+            detector_config.detectors[0].id, dtype=dtype)
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
-            data = np.empty(
-                (num_det, num_scan, *ddata.shape), dtype=ddata.dtype)
+            data = num_det*[num_scan*[None]]
             independent_dimensions = np.empty(
-                (num_scan, num_id, num_dim), dtype=np.float64)
+               (num_scan, num_id, num_dim), dtype=np.float64)
             if num_sd:
                 all_scalar_data = np.empty(
                     (num_scan, num_sd, num_dim), dtype=np.float64)
@@ -1784,7 +1802,7 @@ class MapProcessor(Processor):
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
             self.logger.debug(f'Scan numbers on processor {rank}: '
                               f'{list_to_string(scan_numbers)}')
-            datatype = dtlib.from_numpy_dtype(ddata.dtype)
+            datatype = dtlib.from_numpy_dtype(dtype)
             itemsize = datatype.Get_size()
             if not rank:
                 nbytes = num_scan * np.prod(ddata.shape) * itemsize
@@ -1792,8 +1810,9 @@ class MapProcessor(Processor):
                 nbytes = 0
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf, _ = win.Shared_query(0)
+            #RV improve memory requirements ala single processor case?
             data = np.ndarray(
-                buffer=buf, dtype=ddata.dtype,
+                buffer=buf, dtype=dtype,
                 shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
@@ -1822,28 +1841,23 @@ class MapProcessor(Processor):
                 for i, detector in enumerate(detector_config.detectors):
                     if init:
                         init = False
+                        data[i][offset] = ddata
+                        del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        ddata = scanparser.get_detector_data(
-                            detector_config.detectors[i].id)
-                    data[i][offset] = ddata
+                        data[i][offset] = scanparser.get_detector_data(
+                            detector_config.detectors[i].id, dtype=dtype)
                 for i, dim in enumerate(map_config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)[:num_dim]
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v[:num_dim]
                     elif dim.data_type in ['smb_par', 'spec_motor',
                                            'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False, scalar_data=map_config.scalar_data)
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v
                     else:
                         raise RuntimeError(
                             f'{dim.data_type} in data_type not tested')
@@ -1852,7 +1866,8 @@ class MapProcessor(Processor):
                         scans, scan_number, scan_step_index=-1,
                         relative=False)
                 offset += 1
-
+        if num_proc == 1:
+            data = np.asarray(data)
         if num_sd:
             return (
                 data.reshape(
@@ -3039,7 +3054,6 @@ class UnstructuredToStructuredProcessor(Processor):
         if len(data_point_axes) == 1:
             axes = nxdata_structured.attrs['axes']
             if isinstance(axes, str):
-                print(f'before axes {type(axes)}: {axes}')
                 axes = [axes]
             nxdata_structured.attrs['axes'] = axes + data_point_axes
         for a in data_point_axes:
