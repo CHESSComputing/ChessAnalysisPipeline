@@ -20,6 +20,7 @@ from CHAP.common.processor import (
     MPIMapProcessor,
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
+    NexusToTiffsprocessor,
     NexusToXarrayProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
