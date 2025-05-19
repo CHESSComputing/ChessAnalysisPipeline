@@ -1437,15 +1437,20 @@ class MapProcessor(Processor):
                     scanparser = scans.get_scanparser(scan_number)
                     map_len += scanparser.spec_scan_npts
                     for dim in map_config.independent_dimensions:
-                        _independent_dimensions[dim.label].extend(
-                            dim.get_value(
-                                scans, scan_number, -1,
-                                map_config.scalar_data))
+                        val = dim.get_value(
+                            scans, scan_number, -1,
+                            map_config.scalar_data)
+                        if not isinstance(val, list):
+                            val = [val]
+                        _independent_dimensions[dim.label].extend(val)
                     if not det_shapes:
                         det_shapes = {}
                         for detector in detector_config.detectors:
-                            det_shapes[detector.id] = \
-                            scanparser.get_detector_data(detector.id, 0).shape
+                            ddata_init = scanparser.get_detector_data(
+                                detector.id, 0)
+                            if isinstance(ddata_init, tuple):
+                                ddata_init = ddata_init[0].squeeze()
+                            det_shapes[detector.id] = ddata_init.shape
             all_scalar_data = np.empty(
                 (len(map_config.all_scalar_data), map_len))
             data = np.empty(
