@@ -1220,6 +1220,16 @@ class MapProcessor(Processor):
     def process(
             self, data, config=None, detectors=None, placeholder_data=False,
             num_proc=1, comm=None, inputdir=None):
+
+        return self._process(
+            data, config=config, detectors=detectors,
+            placeholder_data=placeholder_data, num_proc=num_proc,
+            comm=comm, inputdir=inputdir)
+
+#    @profile
+    def _process(
+            self, data, config=None, detectors=None, placeholder_data=False,
+            num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -1723,6 +1733,7 @@ class MapProcessor(Processor):
                 0, 1),
             independent_dimensions, all_scalar_data)
 
+#    @profile
     def _read_raw_data(
             self, map_config, detector_config, comm, num_scan, offset):
         """Read the raw data for a given map configuration.
@@ -1766,17 +1777,24 @@ class MapProcessor(Processor):
         scans = map_config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
-        ddata = scanparser.get_detector_data(detector_config.detectors[0].id)
+        #RV only correct for multiple detectors if the same image sizes
+        if len(detector_config.detectors) != 1:
+            raise ValueError('Multiple detectors not tested yet')
+        if map_config.experiment_type == 'TOMO':
+            dtype = np.float32
+        else:
+            dtype = None
+        ddata = scanparser.get_detector_data(
+            detector_config.detectors[0].id, dtype=dtype)
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
-            data = np.empty(
-                (num_det, num_scan, *ddata.shape), dtype=ddata.dtype)
+            data = num_det*[num_scan*[None]]
             independent_dimensions = np.empty(
-                (num_scan, num_id, num_dim), dtype=np.float64)
+               (num_scan, num_id, num_dim), dtype=np.float64)
             if num_sd:
                 all_scalar_data = np.empty(
                     (num_scan, num_sd, num_dim), dtype=np.float64)
@@ -1784,7 +1802,7 @@ class MapProcessor(Processor):
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
             self.logger.debug(f'Scan numbers on processor {rank}: '
                               f'{list_to_string(scan_numbers)}')
-            datatype = dtlib.from_numpy_dtype(ddata.dtype)
+            datatype = dtlib.from_numpy_dtype(dtype)
             itemsize = datatype.Get_size()
             if not rank:
                 nbytes = num_scan * np.prod(ddata.shape) * itemsize
@@ -1792,8 +1810,9 @@ class MapProcessor(Processor):
                 nbytes = 0
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf, _ = win.Shared_query(0)
+            #RV improve memory requirements ala single processor case?
             data = np.ndarray(
-                buffer=buf, dtype=ddata.dtype,
+                buffer=buf, dtype=dtype,
                 shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
@@ -1822,28 +1841,23 @@ class MapProcessor(Processor):
                 for i, detector in enumerate(detector_config.detectors):
                     if init:
                         init = False
+                        data[i][offset] = ddata
+                        del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        ddata = scanparser.get_detector_data(
-                            detector_config.detectors[i].id)
-                    data[i][offset] = ddata
+                        data[i][offset] = scanparser.get_detector_data(
+                            detector_config.detectors[i].id, dtype=dtype)
                 for i, dim in enumerate(map_config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)[:num_dim]
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v[:num_dim]
                     elif dim.data_type in ['smb_par', 'spec_motor',
                                            'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False, scalar_data=map_config.scalar_data)
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v
                     else:
                         raise RuntimeError(
                             f'{dim.data_type} in data_type not tested')
@@ -1852,7 +1866,8 @@ class MapProcessor(Processor):
                         scans, scan_number, scan_step_index=-1,
                         relative=False)
                 offset += 1
-
+        if num_proc == 1:
+            data = np.asarray(data)
         if num_sd:
             return (
                 data.reshape(
@@ -2205,6 +2220,249 @@ class NexusToNumpyProcessor(Processor):
         np_data = default_data[default_signal].nxdata
 
         return np_data
+
+
+class NexusToTiffsprocessor(Processor):
+    """A Processor to convert the default plottable data in a NeXus
+    object into a set of tiff slices.
+    """
+    def process(
+            self, data, config=None, save_figures=True, interactive=False,
+            inputdir='.', outputdir='.'):
+        """Plot and/or save a set of image(s) (slices) from a NeXus
+        NXdata object or a NXobject object reachable via a default data
+        path in `data` and return (a set) of tiffs.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.common.models.ImageProcessorConfig
+        :type config: dict, optional
+        :param save_figures: Save .tifs of plots, defaults to `True`.
+        :type save_figures: bool, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :param outputdir: Directory to which any output figures will
+            be saved, defaults to `'.'`.
+        :type outputdir: str, optional
+        :return: The set of tiffs.
+        :rtype: nexusformat.nexus.NXdata
+        """
+        # Third party modules
+        import matplotlib.pyplot as plt
+        from nexusformat.nexus import (
+            NXdata,
+            NXentry,
+            NXroot,
+            nxsetconfig,
+        )
+
+#        self._save_figures = save_figures
+#        self._outputdir = outputdir
+#        self._interactive = interactive
+
+        nxsetconfig(memory=100000)
+
+        # Load the default data
+        try:
+            nxobject = self.get_data(data)
+            if isinstance(nxobject, NXdata):
+                nxdata = nxobject
+            else:
+                if isinstance(nxobject, NXroot):
+                    nxroot = nxobject
+                    nxentry = nxroot[nxroot.default]
+                elif not isinstance(nxobject, NXentry):
+                    raise ValueError(
+                        f'Invalid nxobject in data pipeline ({type(nxobject)}')
+                nxdata = nxentry[nxentry.default]
+        except Exception as exc:
+            raise RuntimeError(
+                'Unable the load the default NXdata object from the input '
+                f'pipeline ({data})') from exc
+
+        # Load the validated image processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import ImageProcessorConfig
+
+            config = ImageProcessorConfig()
+        else:
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.ImageProcessorConfig',
+                outputdir=outputdir)
+
+        # Get the image slice(s)
+        try:
+            data = nxdata[nxdata.signal]
+        except Exception:
+            raise ValueError(
+                f'Unable the find the default signal in:\n({nxdata.tree})')
+        axis = config.axis
+        axes = nxdata.attrs.get('axes', None)
+        if axes is not None:
+            axes = list(axes.nxdata)
+        if nxdata.nxsignal.ndim == 2:
+            exit('NexusToTiffsprocessor not yet implemented for a 2D dataset')
+            if axis is not None:
+                axis = None
+                self.logger.warning('Ignoring parameter axis')
+        elif nxdata.nxsignal.ndim == 3:
+            if isinstance(axis, int):
+                if not 0 <= axis < nxdata.nxsignal.ndim:
+                    raise ValueError(f'axis index out of range ({axis} not in '
+                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+            elif isinstance(axis, str):
+                if axes is None or axis not in axes:
+                    raise ValueError(
+                        f'Unable to match axis = {axis} in {nxdata.tree}')
+                axis = axes.index(axis)
+            else:
+                raise ValueError(f'Invalid parameter axis ({axis})')
+            if axis:
+                data = np.moveaxis(data, axis, 0)
+            if axes is not None and hasattr(nxdata, axes[axis]):
+                if axis == 1:
+                    axes = [axes[1], axes[0], axes[2]]
+                elif axis:
+                    axes = [axes[2], axes[0], axes[1]]
+                axis_name = axes[0]
+                if 'units' in nxdata[axis_name].attrs:
+                    axis_unit = f' ({nxdata[axis_name].units})'
+                else:
+                    axis_unit = ''
+#                row_label = axes[2]
+#                row_coords = nxdata[row_label].nxdata
+#                column_label = axes[1]
+#                column_coords = nxdata[column_label].nxdata
+#                if 'units' in nxdata[row_label].attrs:
+#                    row_label += f' ({nxdata[row_label].units})'
+#                if 'units' in nxdata[column_label].attrs:
+#                    column_label += f' ({nxdata[column_label].units})'
+            else:
+                exit('No axes attribute not tested yet')
+                axes = [0, 1, 2]
+                axes.pop(axis)
+                axis_name = f'axis {axis}'
+                axis_unit = ''
+#                row_label = f'axis {axis[1]}'
+#                row_coords = None
+#                column_label = f'axis {axis[0]}'
+#                column_coords = None
+            axis_coords = nxdata[axis_name].nxdata
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+        index_range = config.index_range
+        if config.coord_range is not None:
+            # Local modules
+            from CHAP.utils.general import (
+                index_nearest_down,
+                index_nearest_up,
+            )
+
+            if isinstance(config.coord_range, (int, float)):
+                index_range = index_nearest_up(
+                    axis_coords, config.coord_range)
+            elif len(config.coord_range) == 2:
+                index_range = [
+                    index_nearest_up(axis_coords, config.coord_range[0]),
+                    index_nearest_down(axis_coords, config.coord_range[1])]
+            else:
+                index_range = [
+                    index_nearest_up(axis_coords, config.coord_range[0]),
+                    index_nearest_down(axis_coords, config.coord_range[1]),
+                    int(max(1, config.coord_range[2]/
+                        ((axis_coords[-1]-axis_coords[0])/data.shape[0])))]
+        if isinstance(index_range, int):
+            data = data[index_range]
+            axis_coords = [axis_coords[index_range]]
+        elif index_range is not None:
+            slice_ = slice(*tuple(index_range))
+            data = data[slice_]
+            axis_coords = axis_coords[slice_]
+
+        # Write the image slice(s) as a tiff (stack)
+        if not config.animation:
+            min_ = data.min()
+            return ((data*255.0 - min_)/(data.max() - min_)).astype(np.uint8)
+
+        # Create an animation of the fit points
+#        if vmin is None:
+#            vmin = data.min()
+#        if vmax is None:
+#            vmax = data.max()
+#        if row_coords is None or column_coords is None:
+#            extent = None
+#            # MUST STILL FLIP to account for origin='lower'
+#        else:
+#            extent = (row_coords[0], row_coords[-1],
+#                      column_coords[0], column_coords[-1])
+#        if self._interactive or self._save_figures:
+#            fig, ax = plt.subplots()
+#            print(f'\t\t... plotting image {0}')
+#            img = plt.imshow(
+#                data[0], extent=extent, origin='lower', vmin=vmin,
+#                vmax=vmax, cmap='gray')
+#            title = ax.set_title(f'{axis_name} = {axis_coords[0]}{axis_unit}',
+#                fontsize='xx-large')#, pad=20)
+#            ax.set_xlabel(row_label, fontsize='x-large')
+#            ax.set_ylabel(column_label, fontsize='x-large')
+#            if save_figure:
+#                fig.savefig(filename)
+#            for i in range(1, 5):#data.shape[0]):
+#                if self._interactive:
+#                    plt.pause(2)
+#                img.set_data(data[20*i])
+#                title.set_text(f'{axis_name} = {axis_coords[20*i]}{axis_unit}')
+#                print(f'\t\t... plotting image {20*i}')
+#                if self._interactive:
+#                    fig.canvas.draw()
+#                if save_figure:
+#                    fig.savefig(filename)
+#            if self._interactive:
+#                plt.pause(1)
+#            plt.close()
+
+#            self._create_animation(
+#                nxdata, data, axis_name, axis_coords, axis_unit, column_label,
+#                row_label, extent, vmin, vmax)
+
+        return nxdata
+
+    def _create_animation(
+            self, nxdata, data, axis_name, axis_coords, axis_unit, row_label,
+            column_label, extent, vmin, vmax):
+        """Create an animation of the fit results."""
+        # Third party modules
+        from matplotlib import animation
+        import matplotlib.pyplot as plt
+
+        def animate(i):
+            im.set_array(data[30+i])
+            return im,
+
+        fig, ax = plt.subplots()
+        im = plt.imshow(#data[30], animated=True)
+            data[30], extent=extent, origin='lower', vmin=vmin, vmax=vmax,
+            cmap='gray', animated=True)
+#        ax.set_title(slice_label, fontsize='xx-large')#, pad=20)
+        ax.set_xlabel(row_label, fontsize='x-large')
+        ax.set_ylabel(column_label, fontsize='x-large')
+
+        ani = animation.FuncAnimation(
+            fig, animate, frames=20, interval=50, blit=True)
+
+#        if self._save_figures:
+#            ani.save(os.path.join(self._outputdir, 'movie.gif'))
+        ani.save(os.path.join(self._outputdir, 'movie.gif'))
+        if self._interactive:
+            plt.show()
+        plt.close()
 
 
 class NexusToXarrayProcessor(Processor):
@@ -3037,7 +3295,10 @@ class UnstructuredToStructuredProcessor(Processor):
                for s in signals},
             attrs=attrs)
         if len(data_point_axes) == 1:
-            nxdata_structured.attrs['axes'] += data_point_axes
+            axes = nxdata_structured.attrs['axes']
+            if isinstance(axes, str):
+                axes = [axes]
+            nxdata_structured.attrs['axes'] = axes + data_point_axes
         for a in data_point_axes:
             nxdata_structured[a] = NXfield(
                 value=nxdata[a], attrs=nxdata[a].attrs)
