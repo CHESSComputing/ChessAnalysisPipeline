@@ -12,6 +12,34 @@ from os import path as os_path
 # Local modules
 from CHAP import Writer
 
+def write_image(data, filename, force_overwrite=False):
+    """Write an image to file.
+
+    :param data: The image(stack) to write to file
+    :type data: numpy.ndarray
+    :param filename: File name.
+    :type filename: str
+    :param force_overwrite: Flag to allow data to be overwritten if it
+        already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    """
+    if data.ndim == 2:
+        # Third party modules
+        from imageio import imwrite
+    elif data.ndim == 3:
+        # Third party modules
+        from imageio import mimwrite as imwrite
+
+        _, ext = os_path.splitext(filename)
+        if ext not in ('.tif',  '.tiff'):
+            raise TypeError(
+                f'3D image stacks of type {ext} not yet implemented')
+
+    if not force_overwrite:
+        raise FileExistsError(f'{filename} already exists')
+
+    imwrite(filename, data)
+
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
     """Write a Matplotlib figure to file.
 
@@ -298,6 +326,7 @@ class H5Writer(Writer):
         :param data: The data to write to file.
         :type data: CHAP.pipeline.PipelineData
         :param filename: The name of the file to write to.
+        :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
@@ -324,6 +353,29 @@ class H5Writer(Writer):
                     if 'units' in data[axes].attrs else axes
                 f[axes].make_scale(axes)
                 f[data.signal].dims[i].attach_scale(f[axes])
+
+        return data
+
+
+class ImageWriter(Writer):
+    """Writer for saving image files."""
+    def write(self, data, filename, force_overwrite=False):
+        """Write the image contained in `data` to file.
+
+        :param data: The image(stack).
+        :type data: list[PipelineData]
+        :param filename: The name of the file to write to.
+        :type filename: str
+        :param force_overwrite: Flag to allow data in `filename` to be
+            overwritten if it already exists, defaults to `False`.
+        :type force_overwrite: bool, optional
+        :raises RuntimeError: If `filename` already exists and
+            `force_overwrite` is `False`.
+        :return: The original image(stack).
+        :rtype: numpy.ndarray
+        """
+        data = self.unwrap_pipelinedata(data)[-1]
+        write_image(data, filename, force_overwrite)
 
         return data
 
@@ -391,6 +443,7 @@ class NexusWriter(Writer):
         :param data: The data to write to file.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
+        :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
