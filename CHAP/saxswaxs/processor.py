@@ -8,7 +8,7 @@ from CHAP import Processor
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
     def process(self, data, config=None,
-                idx_slices=[{'start':0, 'end': -1, 'step': 1}]):
+                idx_slices=[{'start':0, 'stop': -1, 'step': 1}]):
         """Perform a set of integrations on 2D detector data.
 
         :param data: input 2D detector data
@@ -22,7 +22,7 @@ class PyfaiIntegrationProcessor(Processor):
             index at which the output data should be written in a
             dataset. Optional.
         :type idx_slices: list[dict[str, int]], defaults to
-        `[{'start':0, 'end': -1, 'step': 1}]`
+        `[{'start':0, 'stop': -1, 'step': 1}]`
         :return: List of dictionaries ready for use with
             `saxswaxs.ZarrResultsWriter` or
             `saxswaxs.NexusResultsWriter`.
@@ -53,7 +53,7 @@ class PyfaiIntegrationProcessor(Processor):
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
-                     idx_slice.get('end'),
+                     idx_slice.get('stop'),
                      idx_slice.get('step')) for idx_slice in idx_slices)
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
