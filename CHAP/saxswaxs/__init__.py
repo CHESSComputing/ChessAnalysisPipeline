@@ -8,6 +8,4 @@ from CHAP.saxswaxs.processor import (
 # from CHAP.saxswaxs.reader import ()
 from CHAP.saxswaxs.writer import (
     ZarrSetupWriter,
-    ZarrResultsWriter,
-    NexusResultsWriter,
 )
