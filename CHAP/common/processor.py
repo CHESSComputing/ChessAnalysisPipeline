@@ -2306,6 +2306,64 @@ class NexusToXarrayProcessor(Processor):
                          attrs=attrs)
 
 
+class NexusToZarrProcessor(Processor):
+    """Converter for NeXus to Zarr format."""
+    def process(self, data, chunks='auto'):
+        from nexusformat.nexus import (NXfield, NXgroup)
+        import zarr
+        from zarr.storage import MemoryStore
+
+        nexus_group = self.unwrap_pipelinedata(data)[0]
+        zarr_group = zarr.create_group(store=MemoryStore({}))
+
+        def copy_group(nexus_group, zarr_group):
+            self.logger.info(f'Copying {nexus_group.nxpath}')
+            # Copy attributes
+            for attr_key, attr_value in nexus_group.attrs.items():
+                zarr_group.attrs[attr_key] = attr_value.nxvalue
+
+            # Copy datasets and sub-groups
+            for key, item in nexus_group.items():
+                if isinstance(item, NXfield):
+                    if isinstance(item.nxdata, np.ndarray):
+                        try:
+                            # Determine chunks
+                            if isinstance(chunks, list):
+                                if len(chunks) < len(item.nxdata.shape):
+                                    _chunks = (
+                                        *chunks,
+                                        *item.nxdata.shape[len(chunks):]
+                                    )
+                                elif len(chunks) > len(item.nxdata.shape):
+                                    _chunks = 'auto'
+                                else:
+                                    _chunks = chunks
+                            else:
+                                _chunks = chunks
+                            # Copy dataset
+                            zarr_dset = zarr_group.create_array(
+                                name=key,
+                                shape=item.nxdata.shape,
+                                dtype=item.nxdata.dtype,
+                                attributes={k: v.nxvalue
+                                            for k, v in item.attrs.items()},
+                                chunks=_chunks,
+                            )
+                            self.logger.info(f'Copying {item.nxpath}')
+                            zarr_dset[:] = item.nxdata
+                        except Exception as e:
+                            self.logger.error(f'{item.nxpath}: {e}')
+                    else:
+                        self.logger.warning(f'Ignoring {item.nxpath}')
+                elif isinstance(item, NXgroup):
+                    # Recursively copy subgroup
+                    zarr_subgroup = zarr_group.create_group(key)
+                    copy_group(item, zarr_subgroup)
+
+        copy_group(nexus_group, zarr_group)
+        return zarr_group
+
+
 class NormalizeNexusProcessor(Processor):
     """Processor for scaling one or more NXfields in the input nexus
     structure by the values of another NXfield in the same
@@ -3487,7 +3545,7 @@ class ZarrToNexusProcessor(Processor):
                         nexus_dset = nexus_group.create_dataset(
                             name=key,
                             data=item.__array__(),
-                            chunks=item.chunks,
+                            # chunks=item.chunks, # FIXME
                             compression='gzip',
                             compression_opts=4  # GZIP compression level
                         )
