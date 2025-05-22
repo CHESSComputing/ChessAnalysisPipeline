@@ -4,8 +4,7 @@ processing workflows.
 
 from CHAP.saxswaxs.processor import (
     PyfaiIntegrationProcessor,
+    SetupResultsProcessor,
 )
 # from CHAP.saxswaxs.reader import ()
-from CHAP.saxswaxs.writer import (
-    ZarrSetupWriter,
-)
+# from CHAP.saxswaxs.writer import ()
