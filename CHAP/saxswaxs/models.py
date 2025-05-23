@@ -430,38 +430,9 @@ class PyfaiIntegrationProcessorConfig(MyBaseModel):
                     'description': 'Container for processed SAXS/WAXS data'
                 },
                 'children': {
-                    'entry': {
-                        # NXentry
-                        'attributes': {},
-                        'children': {
-                            'data': {
-                                # NXdata
-                                'attributes': {
-                                    'axes': []
-                                },
-                                'children': {
-                                    'spec_file': {
-                                        'shape': dataset_shape,
-                                        'dtype': 'b',
-                                        'chunks': dataset_chunks,
-                                    },
-                                    'scan_number': {
-                                        'shape': dataset_shape,
-                                        'dtype': 'uint8',
-                                        'chunks': dataset_chunks,
-                                    },
-                                    'scan_step_index': {
-                                        'shape': dataset_shape,
-                                        'dtype': 'uint64',
-                                        'chunks': dataset_chunks,
-                                    },
-                                }
-                            }
-                        }
-                    },
-                    **{integration.name: integration.zarr_tree(
+                    integration.name: integration.zarr_tree(
                         dataset_shape, dataset_chunks)
-                       for integration in self.integrations},
+                    for integration in self.integrations
                 }
             }
         }
