@@ -5,6 +5,8 @@ processing workflows.
 from CHAP.saxswaxs.processor import (
     PyfaiIntegrationProcessor,
     SetupResultsProcessor,
+    SetupProcessor,
+    UpdateValuesProcessor,
 )
 # from CHAP.saxswaxs.reader import ()
 # from CHAP.saxswaxs.writer import ()

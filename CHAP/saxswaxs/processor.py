@@ -170,6 +170,108 @@ class SetupResultsProcessor(Processor):
         return results
 
 
+class SetupProcessor(Processor):
+    """Convenience Processor for setting up a container for SAXS/WAXS
+    experiments.
+    """
+    def process(self, data, dataset_shape, dataset_chunks, detectors):
+        import asyncio
+        import logging
+        import zarr
+        from zarr.core.buffer import default_buffer_prototype
+        from zarr.storage import MemoryStore
+
+        from CHAP.common import MapProcessor, NexusToZarrProcessor
+        from CHAP.saxswaxs import SetupResultsProcessor
+
+        def set_logger(pipeline_item):
+            pipeline_item.logger = self.logger
+            pipeline_item.logger.name = pipeline_item.__class__.__name__
+            pipeline_item.logger.handlers[0].setFormatter(logging.Formatter(
+                '{asctime}: {name:20}: from ' + self.__class__.__name__
+                + ': {levelname}: {message}',
+                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            return pipeline_item
+
+        # Get NXroot container for raw data map
+        setup_map_processor = set_logger(MapProcessor())
+        nxmap = setup_map_processor.execute(
+            data=data, detectors=detectors, fill_data=False)
+
+        # Convert raw data map container to zarr format
+        nxmap_converter = set_logger(NexusToZarrProcessor())
+        zarr_map = nxmap_converter.process(nxmap, chunks=dataset_chunks)
+
+        # Get zarr container for integration results
+        setup_results_processor = set_logger(SetupResultsProcessor())
+        zarr_results = setup_results_processor.process(
+            data, dataset_shape, dataset_chunks)
+
+        # Assemble containers for raw & processed data
+        zarr_root = zarr.create_group(store=MemoryStore({}))
+        async def copy_zarr_store(source_store, dest_store):
+            async for k in source_store.list():
+                self.logger.info(f'Copying {k}')
+                buf = await source_store.get(
+                    k, prototype=default_buffer_prototype())
+                await dest_store.set(k, buf)
+        asyncio.run(copy_zarr_store(zarr_map.store, zarr_root.store))
+        asyncio.run(copy_zarr_store(zarr_results.store, zarr_root.store))
+        return zarr_root
+
+
+class UpdateValuesProcessor(Processor):
+    """Processes a slice of data for updating values in an existing
+    container for a SAXS/WAXS experiment.
+    """
+    def process(self, data, spec_file, scan_number,
+                idx_slice={'start': 0, 'stop': -1, 'step': 1},
+                detectors=None, config=None, inputdir='.'):
+        # Get updates with MapSliceProcessor
+        # Pass detector data to PyfaiIntegration processor
+        # Concatenate & return results
+        import logging
+        import os
+
+        from CHAP.common import MapSliceProcessor
+        from CHAP.pipeline import PipelineData
+        from CHAP.saxswaxs import PyfaiIntegrationProcessor
+
+        def set_logger(pipeline_item):
+            pipeline_item.logger = self.logger
+            pipeline_item.logger.name = pipeline_item.__class__.__name__
+            pipeline_item.logger.handlers[0].setFormatter(logging.Formatter(
+                '{asctime}: {name:20}: from '+ self.__class__.__name__
+                + ': {levelname}: {message}',
+                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            return pipeline_item
+
+        # Read in slice of raw data
+        raw_values = set_logger(MapSliceProcessor()).process(
+            data, spec_file, scan_number, idx_slice=idx_slice,
+            detectors=detectors, config=config, inputdir=inputdir)
+
+        def get_detector_data(values, name):
+            for v in values:
+                if os.path.basename(v['path']) == name:
+                    return v['data']
+            return None
+
+        # Use raw detector data as input to integration
+        for d in detectors:
+            data.append(
+                PipelineData(
+                    name=d['id'],
+                    data=get_detector_data(raw_values, d['id']),
+                )
+            )
+        # Get integrated data
+        processed_values = set_logger(PyfaiIntegrationProcessor()).process(
+            data, idx_slices=[idx_slice])
+
+        return raw_values + processed_values
+
+
 if __name__ == '__main__':
     # Local modules
     from CHAP.processor import main
