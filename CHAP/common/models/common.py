@@ -3,6 +3,7 @@
 # System modules
 import os
 from typing import (
+    Literal,
     Optional,
     Union,
 )
@@ -28,30 +29,33 @@ class ImageProcessorConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.
 
-    :param animation: Create an animation, defaults to `False`.
+    :param animation: Create an additional animation (only used
+        for an image stack), defaults to `False`.
     :type animation: bool, optional
     :param axis: Axis direction or name of the image slice(s),
         defaults to `0`.
     :type axis: Union[int, str], optional
     :param coord_range: Coordinate value range of the selected image
         slice(s), up to three floats (start, end, step),
-        defaults to `None`, which will include all slices. Include
-        only `coord_range` or `index_range`, not both.
+        defaults to `None`, which enables index_range to select the
+        image slice(s). Hence, include only `coord_range` or
+        `index_range`, not both.
     :type coord_range: Union[float, list[float]], optional
     :param index_range: Array index range of the selected image
-        slice(s), up to three integers (start, end, step),
-        defaults to `None`, which will include all slices.
+        slice(s), up to three integers (start, end, step).
+        Set index_range to -1 to select the center image of an
+        image stack. Only used when coord_range = `None`.i
+        Defaults to `None`, which will include all slices.
     :type index_range: Union[int, list[int]], optional
-    :ivar filename: Image (stack) output filename, defaults to
-        `imagestack.tif`.
-    :type filename: str, optional
+    :ivar filetype: Image (stack) return file type, defaults to
+        'matplotlib' for a single image or 'tif' for an image stack.
+    :type filetype: Literal['matplotlib', 'tif'], optional
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
     :type vrange: list[float, float]
     :type vmax: float
 
     """
-    outputdir: Optional[DirectoryPath] = Field(None, exclude=True)
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
     coord_range: Optional[Union[
@@ -62,33 +66,10 @@ class ImageProcessorConfig(CHAPBaseModel):
         int,
         conlist(
             min_length=2, max_length=3, item_type=Union[None, int])]] = None
-    filename: Optional[str]
+    filetype: Optional[Literal['matplotlib', 'tif']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
                 item_type=confloat(allow_inf_nan=False))] = None
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_config(cls, data):
-        """Ensure that a valid configuration was provided and finalize
-        filename path.
-
-        :param data: Pydantic validator data object.
-        :type data: ImageProcessorConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
-        :rtype: dict
-        """
-        if isinstance(data, dict):
-            outputdir = data.get('outputdir')
-            if outputdir is not None:
-                filename = data.get('filename')
-                if filename is None:
-                    data['filename'] = os.path.join(
-                        outputdir, 'imagestack.tif')
-                elif not os.path.isabs(filename):
-                    data['filename'] = os.path.join(outputdir, filename)
-        return data
 
     @field_validator('index_range', mode='before')
     @classmethod

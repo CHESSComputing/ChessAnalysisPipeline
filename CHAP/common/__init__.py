@@ -13,8 +13,6 @@ from CHAP.common.processor import (
     BinarizeProcessor,
     ConvertStructuredProcessor,
     ImageProcessor,
-    IntegrationProcessor,
-    IntegrateMapProcessor,
     MapProcessor,
     MPICollectProcessor,
     MPIMapProcessor,

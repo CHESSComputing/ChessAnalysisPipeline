@@ -15,30 +15,36 @@ from CHAP import Writer
 def write_image(data, filename, force_overwrite=False):
     """Write an image to file.
 
-    :param data: The image(stack) to write to file
-    :type data: numpy.ndarray
+    :param data: The image (stack) to write to file
+    :type data: bytes, numpy.ndarray
     :param filename: File name.
     :type filename: str
     :param force_overwrite: Flag to allow data to be overwritten if it
         already exists, defaults to `False`.
     :type force_overwrite: bool, optional
     """
-    if data.ndim == 2:
-        # Third party modules
-        from imageio import imwrite
-    elif data.ndim == 3:
-        # Third party modules
-        from imageio import mimwrite as imwrite
-
-        _, ext = os_path.splitext(filename)
-        if ext not in ('.tif',  '.tiff'):
-            raise TypeError(
-                f'3D image stacks of type {ext} not yet implemented')
-
-    if not force_overwrite:
+    if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
-    imwrite(filename, data)
+    if isinstance(data, bytes):
+        with open(filename, "wb") as f:
+            f.write(data)
+    elif isinstance(data, np.ndarray):
+        if data.ndim == 2:
+            # Third party modules
+            from imageio import imwrite
+        elif data.ndim == 3:
+            # Third party modules
+            from imageio import mimwrite as imwrite
+
+            _, ext = os_path.splitext(filename)
+            if ext not in ('.tif',  '.tiff'):
+                raise TypeError(
+                    f'3D image stacks of type {ext} not yet implemented')
+        imwrite(filename, data)
+    else:
+        raise ValueError(f'Invalid image input type {type(data)}')
+
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
     """Write a Matplotlib figure to file.
