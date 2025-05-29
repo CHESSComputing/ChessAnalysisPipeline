@@ -29,8 +29,8 @@ class ImageProcessorConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.
 
-    :param animation: Create an additional animation (only used
-        for an image stack), defaults to `False`.
+    :param animation: Create an animation for an image stack
+        (ignored for a single image), defaults to `False`.
     :type animation: bool, optional
     :param axis: Axis direction or name of the image slice(s),
         defaults to `0`.
@@ -38,18 +38,19 @@ class ImageProcessorConfig(CHAPBaseModel):
     :param coord_range: Coordinate value range of the selected image
         slice(s), up to three floats (start, end, step),
         defaults to `None`, which enables index_range to select the
-        image slice(s). Hence, include only `coord_range` or
+        image slice(s). Include only `coord_range` or
         `index_range`, not both.
     :type coord_range: Union[float, list[float]], optional
     :param index_range: Array index range of the selected image
         slice(s), up to three integers (start, end, step).
         Set index_range to -1 to select the center image of an
-        image stack. Only used when coord_range = `None`.i
+        image stack. Only used when coord_range = `None`.
         Defaults to `None`, which will include all slices.
     :type index_range: Union[int, list[int]], optional
-    :ivar filetype: Image (stack) return file type, defaults to
-        'matplotlib' for a single image or 'tif' for an image stack.
-    :type filetype: Literal['matplotlib', 'tif'], optional
+    :ivar fileformat: Image (stack) return file type, defaults to
+        'png' for a single image, 'tif' for an image stack, or
+        'gif' for an animation.
+    :type fileformat: Literal['gif', 'jpeg', 'png', 'tif'], optional
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
     :type vrange: list[float, float]
@@ -66,7 +67,7 @@ class ImageProcessorConfig(CHAPBaseModel):
         int,
         conlist(
             min_length=2, max_length=3, item_type=Union[None, int])]] = None
-    filetype: Optional[Literal['matplotlib', 'tif']] = None
+    fileformat: Optional[Literal['gif', 'jpeg', 'png', 'tif']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
                 item_type=confloat(allow_inf_nan=False))] = None

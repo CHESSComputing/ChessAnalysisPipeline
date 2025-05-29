@@ -8,7 +8,7 @@ validating input data in some `Processor`s.
 """
 
 from CHAP.common.processor import (
-    AnimationProcessor,
+#    AnimationProcessor,
     AsyncProcessor,
     BinarizeProcessor,
     ConvertStructuredProcessor,
@@ -18,7 +18,7 @@ from CHAP.common.processor import (
     MPIMapProcessor,
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
-    NexusToTiffsprocessor,
+#    NexusToTiffsprocessor,
     NexusToXarrayProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
