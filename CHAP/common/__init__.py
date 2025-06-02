@@ -8,18 +8,17 @@ validating input data in some `Processor`s.
 """
 
 from CHAP.common.processor import (
-    AnimationProcessor,
+#    AnimationProcessor,
     AsyncProcessor,
     BinarizeProcessor,
     ConvertStructuredProcessor,
     ImageProcessor,
-    IntegrationProcessor,
-    IntegrateMapProcessor,
     MapProcessor,
     MPICollectProcessor,
     MPIMapProcessor,
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
+#    NexusToTiffsprocessor,
     NexusToXarrayProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
@@ -52,6 +51,7 @@ from CHAP.common.writer import (
     ExtractArchiveWriter,
     FileTreeWriter,
     H5Writer,
+    ImageWriter,
     MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,

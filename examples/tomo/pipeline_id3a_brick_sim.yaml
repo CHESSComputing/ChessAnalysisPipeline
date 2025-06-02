@@ -28,4 +28,3 @@ pipeline:
             scan_numbers: [1, 2, 3, 4, 5]
         - common.FileTreeWriter:
             force_overwrite: true
-
