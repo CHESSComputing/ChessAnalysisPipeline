@@ -9,36 +9,56 @@ Description: Module for Writers used in multiple experiment-specific
 # System modules
 from os import path as os_path
 
+# Third party modules
+import numpy as np
+
 # Local modules
 from CHAP import Writer
 
-def write_image(data, filename, force_overwrite=False):
+def write_image(data, filename, logger, force_overwrite=False):
     """Write an image to file.
 
-    :param data: The image(stack) to write to file
-    :type data: numpy.ndarray
+    :param data: The image (stack) to write to file
+    :type data: bytes, dict, matplotlib.animation.FuncAnimation,
+        numpy.ndarray
     :param filename: File name.
     :type filename: str
     :param force_overwrite: Flag to allow data to be overwritten if it
         already exists, defaults to `False`.
     :type force_overwrite: bool, optional
     """
-    if data.ndim == 2:
-        # Third party modules
-        from imageio import imwrite
-    elif data.ndim == 3:
-        # Third party modules
-        from imageio import mimwrite as imwrite
+    # Third party modules
+    from matplotlib import animation
 
-        _, ext = os_path.splitext(filename)
-        if ext not in ('.tif',  '.tiff'):
-            raise TypeError(
-                f'3D image stacks of type {ext} not yet implemented')
-
-    if not force_overwrite:
+    if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
-    imwrite(filename, data)
+    if isinstance(data, dict):
+        fileformat = data['fileformat']
+        image_data = data['image_data']
+    else:
+        image_data = data
+    basename, ext = os_path.splitext(filename)
+    if ext and ext != f'.{fileformat}':
+        logger.warning('Ignoring inconsistent file extension')
+    filename = f'{basename}.{fileformat}'
+    if isinstance(image_data, bytes):
+        with open(filename, "wb") as f:
+            f.write(image_data)
+    elif isinstance(image_data, np.ndarray):
+        if image_data.ndim == 2:
+            # Third party modules
+            from imageio import imwrite
+        elif image_data.ndim == 3:
+            # Third party modules
+            from imageio import mimwrite as imwrite
+
+        imwrite(filename, image_data)
+    elif isinstance(image_data, animation.FuncAnimation):
+        image_data.save(filename)
+    else:
+        raise ValueError(f'Invalid image input type {type(image_data)}')
+
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
     """Write a Matplotlib figure to file.
@@ -103,7 +123,6 @@ def write_tif(data, filename, force_overwrite=False):
     """
     # Third party modules
     from imageio import imwrite
-    import numpy as np
 
     data = np.asarray(data)
     if data.ndim != 2:
@@ -375,7 +394,7 @@ class ImageWriter(Writer):
         :rtype: numpy.ndarray
         """
         data = self.unwrap_pipelinedata(data)[-1]
-        write_image(data, filename, force_overwrite)
+        write_image(data, filename, self.logger, force_overwrite)
 
         return data
 
@@ -568,7 +587,6 @@ class PyfaiResultsWriter(Writer):
 
     def write_npz(self, results, filename):
         """Save `results` to the .npz file, `filename`."""
-        import numpy as np
 
         data = {'radial': results[0].radial,
                 'intensity': [r.intensity for r in results]}
