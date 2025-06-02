@@ -35,65 +35,6 @@ from CHAP.processor import Processor
 NUM_CORE_TOMOPY_LIMIT = 24
 
 
-#@profile
-def get_nxroot(data, schema=None, remove=True, logger=None):
-    """Look through `data` for an item whose value for the `'schema'`
-    key matches `schema` (if supplied) and whose value for the `'data'`
-    key matches a `nexusformat.nexus.NXobject` object and return this
-    object.
-
-    :param data: Input list of `PipelineData` objects.
-    :type data: list[PipelineData]
-    :param schema: Name associated with the
-        `nexusformat.nexus.NXobject` object to match in `data`.
-    :type schema: str, optional
-    :param remove: Removes the matching entry in `data` when found,
-        defaults to `True`.
-    :type remove: bool, optional
-    :raises ValueError: Found an invalid matching object or multiple
-        matching objects.
-    :return: Object matching with `schema` or None when not found.
-    :rtype: None, nexusformat.nexus.NXroot
-    """
-    # System modules
-    from copy import deepcopy
-
-    # Local modules
-    from nexusformat.nexus import NXobject
-
-    nxobject = None
-    if isinstance(data, list):
-        item_index = None
-        for i, item in enumerate(data):
-            if isinstance(item, dict):
-                if schema is None or item.get('schema') == schema:
-                    item_data = item.get('data')
-                    if isinstance(item_data, NXobject):
-                        if nxobject is not None:
-                            raise ValueError(
-                                'Multiple NXobject objects found in input'
-                                f' data matching schema = {schema}')
-                        item_index = i
-                    elif schema is not None:
-                        raise ValueError(
-                            'Invalid NXobject object found in input data')
-        if item_index is not None:
-            if remove:
-                item = data.pop(item_index)
-                nxobject = item.get('data')
-            else:
-                nxobject = data[item_index].get('data')
-
-    if nxobject is None:
-        if logger is None:
-            print('Unable to find a NXobject object in input data that '
-                  f'matches schema = {schema}')
-        else:
-            logger.warning('Unable to find a NXobject object in input data '
-                           f'that matches schema = {schema}')
-    return nxobject
-
-
 class TomoMetadataProcessor(Processor):
     """A processor that takes data from the FOXDEN Data Discovery or
     Metadata service and extracts what's available to create
@@ -113,12 +54,10 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
-
-    def process(self, data):
-        return self._process(data)
+        return self._process(data, config)
 
     #@profile
-    def _process(self, data):
+    def _process(self, data, config):
         # Local modules
         from CHAP.common.models.map import MapConfig
 
@@ -204,21 +143,7 @@ class TomoCHESSMapConverter(Processor):
         from CHAP.utils.general import index_nearest
 
         # Load and validate the tomography fields
-        darkfield = get_nxroot(data, schema='darkfield', logger=self.logger)
-        brightfield = get_nxroot(data, schema='brightfield', logger=self.logger)
-        tomofields = get_nxroot(data, schema='tomofields', logger=self.logger)
-        detector_config = self.get_config(
-            data=data, schema='tomo.models.Detector')
-
-        if darkfield is not None:
-            if isinstance(darkfield, NXroot):
-                darkfield = darkfield[darkfield.default]
-            if not isinstance(darkfield, NXentry):
-                raise ValueError(f'Invalid parameter darkfield ({darkfield})')
-        if isinstance(brightfield, NXroot):
-            brightfield = brightfield[brightfield.default]
-        if not isinstance(brightfield, NXentry):
-            raise ValueError(f'Invalid parameter brightfield ({brightfield})')
+        tomofields = self.get_data(data, schema='tomofields')
         if isinstance(tomofields, NXroot):
             tomofields = tomofields[tomofields.default]
         if not isinstance(tomofields, NXentry):
@@ -235,7 +160,11 @@ class TomoCHESSMapConverter(Processor):
         scan_numbers = spec_scan.scan_numbers
 
         # Load and validate dark field
-        darkfield = get_nxroot(data, 'darkfield')
+        try:
+            darkfield = self.get_data(data, schema='darkfield')
+        except:
+            self.logger.warning(f'Unable to load dark field from pipeline')
+            darkfield = None
         if darkfield is None:
             for scan_number in range(min(scan_numbers), 0, -1):
                 scanparser = spec_scan.get_scanparser(scan_number)
@@ -252,7 +181,11 @@ class TomoCHESSMapConverter(Processor):
                 raise ValueError(f'Invalid parameter darkfield ({darkfield})')
 
         # Load and validate bright field
-        brightfield = get_nxroot(data, 'brightfield')
+        try:
+            brightfield = self.get_data(data, schema='brightfield')
+        except:
+            self.logger.warning(f'Unable to load bright field from pipeline')
+            brightfield = None
         if brightfield is None:
             for scan_number in range(min(scan_numbers), 0, -1):
                 scanparser = spec_scan.get_scanparser(scan_number)
@@ -620,11 +553,11 @@ class TomoDataProcessor(Processor):
     containing the (meta) data after processing each individual step.
     """
     def process(
-            self, data, outputdir='.', interactive=False, reduce_data=False,
-            find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figs='no'):
+            self, data, config=None, outputdir='.', interactive=False,
+            reduce_data=False, find_center=False, calibrate_center=False,
+            reconstruct_data=False, combine_data=False, save_figs='no'):
         return self._process(
-            data, outputdir=outputdir, interactive=interactive,
+            data, config=config, outputdir=outputdir, interactive=interactive,
             reduce_data=reduce_data, find_center=find_center,
             calibrate_center=calibrate_center,
             reconstruct_data=reconstruct_data, combine_data=combine_data,
@@ -632,9 +565,9 @@ class TomoDataProcessor(Processor):
 
     #@profile
     def _process(
-            self, data, outputdir='.', interactive=False, reduce_data=False,
-            find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figs='no'):
+            self, data, config=None, outputdir='.', interactive=False,
+            reduce_data=False, find_center=False, calibrate_center=False,
+            reconstruct_data=False, combine_data=False, save_figs='no'):
         """Process the input map or configuration with the step
         specific instructions and return either a dictionary or a
         Process the input map or configuration with the step specific
@@ -644,6 +577,9 @@ class TomoDataProcessor(Processor):
         :param data: Input configuration and specific step instructions
             for tomographic image reduction.
         :type data: list[PipelineData]
+        :param config: Initialization parameters for a single
+            tomography workflow step.
+        :type config: dict, optional
         :param outputdir: Output folder name, defaults to `'.'`.
         :type outputdir: str, optional
         :param interactive: Allows for user interactions,
@@ -683,6 +619,7 @@ class TomoDataProcessor(Processor):
             TomoCombineConfig,
         )
 
+        # Validate the input parameters
         if not isinstance(reduce_data, bool):
             raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
         if not isinstance(find_center, bool):
@@ -696,28 +633,60 @@ class TomoDataProcessor(Processor):
         if not isinstance(combine_data, bool):
             raise ValueError(
                 f'Invalid parameter combine_data ({combine_data})')
+        num_part = (reduce_data, find_center, calibrate_center,
+                    reconstruct_data, combine_data).count(True)
+        if config is not None:
+            if not num_part:
+                raise ValueError(
+                    'Invalid parameter combination, specify a single '
+                    'tomography workflow step when "config" is supplied')
+            if num_part > 1:
+                raise ValueError(
+                    'Invalid parameter combination, only supply "config" for '
+                    'a single tomography workflow step')
 
+        # Validate the workflow step configurations
         try:
-            reduce_data_config = self.get_config(
-                data=data, schema='tomo.models.TomoReduceConfig')
+            if reduce_data:
+                reduce_data_config = self.get_config(
+                    data=data, config=config,
+                    schema='tomo.models.TomoReduceConfig')
+            else:
+                reduce_data_config = self.get_config(
+                    data=data, schema='tomo.models.TomoReduceConfig')
         except ValueError:
             reduce_data_config = None
         try:
-            find_center_config = self.get_config(
-                data=data, schema='tomo.models.TomoFindCenterConfig')
+            if find_center:
+                find_center_config = self.get_config(
+                    data=data, config=config,
+                    schema='tomo.models.TomoFindCenterConfig')
+            else:
+                find_center_config = self.get_config(
+                    data=data, schema='tomo.models.TomoFindCenterConfig')
         except ValueError:
             find_center_config = None
         try:
-            reconstruct_data_config = self.get_config(
-                data=data, schema='tomo.models.TomoReconstructConfig')
+            if reconstruct_data:
+                reconstruct_data_config = self.get_config(
+                    data=data, config=config,
+                    schema='tomo.models.TomoReconstructConfig')
+            else:
+                reconstruct_data_config = self.get_config(
+                    data=data, schema='tomo.models.TomoReconstructConfig')
         except ValueError:
             reconstruct_data_config = None
         try:
-            combine_data_config = self.get_config(
-                data=data, schema='tomo.models.TomoCombineConfig')
+            if combine_data:
+                combine_data_config = self.get_config(
+                    data=data, config=config,
+                    schema='tomo.models.TomoCombineConfig')
+            else:
+                combine_data_config = self.get_config(
+                    data=data, schema='tomo.models.TomoCombineConfig')
         except ValueError:
             combine_data_config = None
-        nxroot = get_nxroot(data, logger=self.logger)
+        nxroot = self.get_data(data)
 
         tomo = Tomo(
             logger=self.logger, interactive=interactive,
@@ -727,9 +696,9 @@ class TomoDataProcessor(Processor):
 
         # Calibrate the rotation axis
         if calibrate_center:
-            if (reduce_data or find_center
-                    or reconstruct_data or reconstruct_data_config is not None
-                    or combine_data or combine_data_config is not None):
+            if any((reduce_data, find_center, reconstruct_data,
+                    reconstruct_data_config, combine_data,
+                    combine_data_config)):
                 self.logger.warning('Ignoring any step specific instructions '
                                     'during center calibration')
             if nxroot is None:
@@ -3434,7 +3403,8 @@ class TomoDarkFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField', remove=False)
+        nxroot = self.get_data(
+            data, schema='tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -3505,7 +3475,8 @@ class TomoBrightFieldProcessor(Processor):
         )
 
         # Get and validate the TomoSimField configuration object in data
-        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField', remove=False)
+        nxroot = self.get_data(
+            data, schema='tomo.models.TomoSimField', remove=False)
         if nxroot is None:
             raise ValueError('No valid TomoSimField configuration found in '
                              'input data')
@@ -3592,13 +3563,13 @@ class TomoSpecProcessor(Processor):
         # Get and validate the TomoSimField, TomoDarkField, or
         # TomoBrightField configuration object in data
         configs = {}
-        nxroot = get_nxroot(data, schema='tomo.models.TomoDarkField')
+        nxroot = self.get_data(data, schema='tomo.models.TomoDarkField')
         if nxroot is not None:
             configs['tomo.models.TomoDarkField'] = nxroot
-        nxroot = get_nxroot(data, schema='tomo.models.TomoBrightField')
+        nxroot = self.get_data(data, schema='tomo.models.TomoBrightField')
         if nxroot is not None:
             configs['tomo.models.TomoBrightField'] = nxroot
-        nxroot = get_nxroot(data, schema='tomo.models.TomoSimField')
+        nxroot = self.get_data(data, schema='tomo.models.TomoSimField')
         if nxroot is not None:
             configs['tomo.models.TomoSimField'] = nxroot
         if scan_numbers is None:

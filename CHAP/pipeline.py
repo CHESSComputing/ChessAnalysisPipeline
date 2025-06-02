@@ -187,17 +187,20 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name=None, remove=True):
-        """Look through `data` for an item which is either a
-        nexusformat.nexus.NXroot or a nexusformat.nexus.NXentry
+    def get_data(self, data, name=None, schema=None, remove=True):
+        """Look through `data` for an item whose `'data'` value is
+        either a nexusformat.nexus.NXroot or nexusformat.nexus.NXentry
         object. Pick the item for which the `'name'` key matches
-        `name` if set, pick the first match otherwise.
-        Return the NeXus object.
+        `name` if set or the `'schema'` key matches `schema` if set,
+        pick the first match otherwise. Return the NeXus object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
         :param name: Name of the data item to match in `data` & return.
         :type name: str
+        :param schema: Name of the `BaseModel` class to match in
+            `data` & return.
+        :type schema: str
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -216,18 +219,17 @@ class PipelineItem():
 
         nxobject = None
         t0 = time()
-        if name is None:
+        if name is None and schema is None:
             for i, d in enumerate(data):
                 if isinstance(d.get('data'), (NXroot, NXentry)):
                     nxobject = d.get('data')
-                    name = d.get('name')
                     if remove:
                         data.pop(i)
                     break
             else:
                 raise ValueError(f'No NXroot or NXentry data item found')
-        else:
-            self.logger.debug(f'Getting {name} data item')
+        elif name is not None:
+            self.logger.debug(f'Getting data item named "{name}"')
             for i, d in enumerate(data):
                 if (d.get('name') == name
                         and isinstance(d.get('data'), (NXroot, NXentry))):
@@ -236,9 +238,21 @@ class PipelineItem():
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No match for {name} data item found')
+                raise ValueError(f'No match for data item named "{name}"')
+        elif schema is not None:
+            self.logger.debug(f'Getting data item with schema "{schema}"')
+            for i, d in enumerate(data):
+                if (d.get('schema') == schema
+                        and isinstance(d.get('data'), (NXroot, NXentry))):
+                    nxobject = d.get('data')
+                    if remove:
+                        data.pop(i)
+                    break
+            else:
+                raise ValueError(
+                    f'No match for data item with schema "{schema}"')
         self.logger.debug(
-           f'Got {name} data in {time()-t0:.3f} seconds')
+           f'Obtained pipeline data in {time()-t0:.3f} seconds')
 
         return nxobject
 
