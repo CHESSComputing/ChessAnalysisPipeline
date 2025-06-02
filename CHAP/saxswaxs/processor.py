@@ -187,10 +187,13 @@ class SetupProcessor(Processor):
         def set_logger(pipeline_item):
             pipeline_item.logger = self.logger
             pipeline_item.logger.name = pipeline_item.__class__.__name__
-            pipeline_item.logger.handlers[0].setFormatter(logging.Formatter(
-                '{asctime}: {name:20}: from ' + self.__class__.__name__
-                + ': {levelname}: {message}',
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '{asctime}: {name:20} (from '+ self.__class__.__name__
+                + '): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
         # Get NXroot container for raw data map
@@ -240,10 +243,13 @@ class UpdateValuesProcessor(Processor):
         def set_logger(pipeline_item):
             pipeline_item.logger = self.logger
             pipeline_item.logger.name = pipeline_item.__class__.__name__
-            pipeline_item.logger.handlers[0].setFormatter(logging.Formatter(
-                '{asctime}: {name:20}: from '+ self.__class__.__name__
-                + ': {levelname}: {message}',
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '{asctime}: {name:20} (from '+ self.__class__.__name__
+                + '): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
         # Read in slice of raw data
