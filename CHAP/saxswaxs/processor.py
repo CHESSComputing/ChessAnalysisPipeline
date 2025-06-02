@@ -71,7 +71,7 @@ class PyfaiIntegrationProcessor(Processor):
                     {
                         'path': f'{integration.name}/data/I',
                         'idx': idx,
-                        'data': np.asarray([[r.intensity for r in result]]),
+                        'data': np.asarray([r.intensity for r in result]),
                     },
                 ]
             )
