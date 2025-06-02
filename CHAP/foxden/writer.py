@@ -9,14 +9,13 @@ Description: FOXDEN writers
 
 # System modules
 import json
-from time import time
 
 # Local modules
 from CHAP.foxden.utils import HttpRequest
-from CHAP.pipeline import PipelineItem
+from CHAP.writer import Writer
 
 
-class FoxdenDoiWriter(PipelineItem):
+class FoxdenDoiWriter(Writer):
     """Writer for saving info to the FOXDEN DOI service."""
     def write(
             self, url, data, provider='Datacite', description='', draft=True,
@@ -42,7 +41,6 @@ class FoxdenDoiWriter(PipelineItem):
         :return: HTTP response from FOXDEN DOI service.
         :rtype: list with dictionary entry
         """
-        t0 = time()
         self.logger.info(
             f'Executing "process" with url={url} data={data}')
         rurl = f'{url}/publish'
@@ -67,11 +65,10 @@ class FoxdenDoiWriter(PipelineItem):
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         data = [{'code': response.status_code, 'data': response.text}]
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
 
 
-class FoxdenMetadataWriter(PipelineItem):
+class FoxdenMetadataWriter(Writer):
     """Writer for saving data to the FOXDEN Metadata service."""
     def write(self, url, data, method='POST', verbose=False):
         """Write data to the FOXDEN Metadata service.
@@ -88,7 +85,6 @@ class FoxdenMetadataWriter(PipelineItem):
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
-        t0 = time()
         self.logger.info(
             f'Executing "process" with url={url} data={data}')
         # FIX it would be useful to perform validation of data
@@ -105,43 +101,42 @@ class FoxdenMetadataWriter(PipelineItem):
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         data = [{'code': response.status_code, 'data': response.text}]
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
 
-class FoxdenProvenanceWriter(PipelineItem):
+
+class FoxdenProvenanceWriter(Writer):
     """Writer for saving data to the FOXDEN Provenance service."""
-    def write(self, url, data, method='POST', verbose=False):
+    def write(self, data, url, verbose=False):
         """Write data to the FOXDEN Provenance service.
 
-        :param data: Input data.
+        :param data: Provenance data.
         :type data: list[PipelineData]
         :param url: URL of service.
         :type url: str
-        :param method: HTTP method to use, `'POST'` for creation or
-            `'PUT'` for update, defaults to `'POST'`.
-        :type method: str, optional
+        :param verbose: Verbose output flag, defaults to `False`.
         :type verbose: bool, optional
         :return: HTTP response from FOXDEN Provenance service.
-        :rtype: list with dictionary entry
+        :rtype: list[dict]
         """
-        t0 = time()
-        self.logger.info(
-            f'Executing "process" with url={url} data={data}')
+        self.logger.debug(f'url: {url}')
+        self.logger.debug(f'data={data}')
         rurl = f'{url}/dataset'
         # FIX it would be useful to perform validation of data
+#        print(f'\n\ndata {type(data)}:\n{data}\n\n')
+#        ddata = self.unwrap_pipelinedata(data)[-1]
+#        exit(f'\n\nddata {type(ddata)}:\n{ddata}\n\n')
         if isinstance(data, list) and len(data) == 1:
             data = data[0]['data'][0]
         if not isinstance(data, dict):
             raise ValueError(f'Invalid "data" parameter ({data})')
         payload = json.dumps(data)
         if verbose:
-            self.logger.info(f'method={method} url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method=method, scope='write')
+            self.logger.info(f'method=POST url={rurl} payload={payload}')
+        response = HttpRequest(rurl, payload, method='POST', scope='write')
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         data = [{'code': response.status_code, 'data': response.text}]
-        self.logger.info(f'Finished "process" in {time()-t0:.3f} seconds\n')
         return data
 
 

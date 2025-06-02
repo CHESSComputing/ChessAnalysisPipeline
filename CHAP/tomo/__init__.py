@@ -3,6 +3,7 @@ processing workflows.
 """
 
 from CHAP.tomo.processor import (
+    TomoMetadataProcessor,
     TomoCHESSMapConverter,
     TomoDataProcessor,
     TomoSimFieldProcessor,
