@@ -843,15 +843,16 @@ class ConvertStructuredProcessor(Processor):
 
 
 class ImageProcessor(Processor):
-    """A Processor to plot an image (slice) from a NeXus object."""
+    """A Processor to perform various visualization operations on
+    images (slices) selected from a NeXus object."""
     def __init__(self):
         super().__init__()
         self._figinfo = None
 
     def process(
             self, data, config=None, save_figures=True, interactive=False):
-        """Plot and/or return image slices from a NeXus NXobject
-        object with a default plottable data path.
+        """Plot and/or return image slices or anmimations from a
+        NeXus NXobject object with a default plottable data path.
 
         :param data: Input data.
         :type data: list[PipelineData]

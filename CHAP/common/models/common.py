@@ -32,20 +32,21 @@ class ImageProcessorConfig(CHAPBaseModel):
     :param animation: Create an animation for an image stack
         (ignored for a single image), defaults to `False`.
     :type animation: bool, optional
-    :param axis: Axis direction or name of the image slice(s),
+    :param axis: Axis direction or name for the image slice(s),
         defaults to `0`.
     :type axis: Union[int, str], optional
     :param coord_range: Coordinate value range of the selected image
-        slice(s), up to three floats (start, end, step),
-        defaults to `None`, which enables index_range to select the
-        image slice(s). Include only `coord_range` or
+        slice(s), up to three floating point numbers (start, end,
+        step), defaults to `None`, which enables index_range to select
+        the image slice(s). Include only `coord_range` or
         `index_range`, not both.
     :type coord_range: Union[float, list[float]], optional
     :param index_range: Array index range of the selected image
         slice(s), up to three integers (start, end, step).
-        Set index_range to -1 to select the center image of an
-        image stack. Only used when coord_range = `None`.
-        Defaults to `None`, which will include all slices.
+        Set index_range to -1 to select the center image slice
+        of an image stack in the `axis` direction. Only used when
+        coord_range = `None`. Defaults to `None`, which will include
+        all slices.
     :type index_range: Union[int, list[int]], optional
     :ivar fileformat: Image (stack) return file type, defaults to
         'png' for a single image, 'tif' for an image stack, or
@@ -54,8 +55,6 @@ class ImageProcessorConfig(CHAPBaseModel):
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
     :type vrange: list[float, float]
-    :type vmax: float
-
     """
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
