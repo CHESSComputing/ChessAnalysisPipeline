@@ -873,6 +873,11 @@ class ImageProcessor(Processor):
         if not save_figures and not interactive:
             return
 
+        # Third party modules
+        from nexusformat.nexus import nxsetconfig
+
+        nxsetconfig(memory=100000)
+
         # Load the default data
         try:
             nxdata = self.get_data(data).get_default()
@@ -1008,6 +1013,7 @@ class ImageProcessor(Processor):
                        column_coords[-1], column_coords[0]),
             'vrange': vrange,
         }
+        self.logger.debug(f'figure configuration:\n{self._figconfig}')
 
         if len(axis_coords) == 1:
             # Create a figure for a single image slice
@@ -1056,8 +1062,9 @@ class ImageProcessor(Processor):
                         self.logger.warning(
                             'Ignoring inconsistent file extension')
                     fileformat = 'tif'
-                    image_data = ((data*255.0 - vrange[0])/ 
-                                  (vrange[1] - vrange[0])).astype(np.uint8)
+                    data = 255.0*((data - vrange[0])/ 
+                                  (vrange[1] - vrange[0]))
+                    image_data = data.astype(np.uint8)
 
         if save_figures:
             return {'image_data': image_data, 'fileformat': fileformat}
