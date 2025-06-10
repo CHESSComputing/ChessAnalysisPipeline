@@ -49,11 +49,15 @@ def write_image(data, filename, logger, force_overwrite=False):
         if image_data.ndim == 2:
             # Third party modules
             from imageio import imwrite
+
+            imwrite(filename, image_data)
         elif image_data.ndim == 3:
             # Third party modules
-            from imageio import mimwrite as imwrite
+#            from imageio import mimwrite as imwrite
+            from tifffile import imwrite
 
-        imwrite(filename, image_data)
+            kwargs = {'bigtiff': True}
+            imwrite(filename, image_data, **kwargs)
     elif isinstance(image_data, animation.FuncAnimation):
         image_data.save(filename)
     else:
