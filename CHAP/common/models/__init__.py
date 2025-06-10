@@ -3,5 +3,6 @@ processing workflows.
 """
 
 from CHAP.common.models.common import (
+    BinarizeProcessorConfig,
     ImageProcessorConfig,
 )
