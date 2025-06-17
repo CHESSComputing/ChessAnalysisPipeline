@@ -1460,6 +1460,7 @@ class MapProcessor(Processor):
             independent_dimensions = np.asarray(
                 [_independent_dimensions[dim.label]
                  for dim in map_config.independent_dimensions])
+
         # Construct and return the NeXus NXroot object
         return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
@@ -2320,7 +2321,10 @@ class NexusToZarrProcessor(Processor):
             self.logger.info(f'Copying {nexus_group.nxpath}')
             # Copy attributes
             for attr_key, attr_value in nexus_group.attrs.items():
-                zarr_group.attrs[attr_key] = attr_value.nxvalue
+                if isinstance(attr_value.nxvalue, np.ndarray):
+                    zarr_group.attrs[attr_key] = attr_value.nxvalue.tolist()
+                else:
+                    zarr_group.attrs[attr_key] = attr_value.nxvalue
 
             # Copy datasets and sub-groups
             for key, item in nexus_group.items():
@@ -3139,7 +3143,6 @@ class UnstructuredToStructuredProcessor(Processor):
         if len(data_point_axes) == 1:
             axes = nxdata_structured.attrs['axes']
             if isinstance(axes, str):
-                print(f'before axes {type(axes)}: {axes}')
                 axes = [axes]
             nxdata_structured.attrs['axes'] = axes + data_point_axes
         for a in data_point_axes:
