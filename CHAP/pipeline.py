@@ -187,7 +187,7 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name=None, remove=True):
+    def get_data(self, data, name=None, remove=True, nxobject=True):
         """Look through `data` for an item which is either a
         nexusformat.nexus.NXroot or a nexusformat.nexus.NXentry
         object. Pick the item for which the `'name'` key matches
@@ -214,24 +214,28 @@ class PipelineItem():
             NXroot,
         )
 
-        nxobject = None
+        _data = None
         t0 = time()
         if name is None:
             for i, d in enumerate(data):
-                if isinstance(d.get('data'), (NXroot, NXentry)):
-                    nxobject = d.get('data')
+                if ((not nxobject)
+                    or (nxobject and isinstance(
+                        d.get('data'), (NXroot, NXentry)))):
+                    _data = d.get('data')
                     name = d.get('name')
                     if remove:
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No NXroot or NXentry data item found')
+                raise ValueError(f'No matching data item found')
         else:
             self.logger.debug(f'Getting {name} data item')
             for i, d in enumerate(data):
-                if (d.get('name') == name
-                        and isinstance(d.get('data'), (NXroot, NXentry))):
-                    nxobject = d.get('data')
+                if (d.get('name') == name and (
+                        (not nxobject) or
+                        (nxobject and isinstance(
+                            d.get('data'), (NXroot, NXentry))))):
+                    _data = d.get('data')
                     if remove:
                         data.pop(i)
                     break
@@ -240,7 +244,7 @@ class PipelineItem():
         self.logger.debug(
            f'Got {name} data in {time()-t0:.3f} seconds')
 
-        return nxobject
+        return _data
 
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the
