@@ -4,6 +4,7 @@ processing workflows.
 
 from CHAP.saxswaxs.processor import (
     FluxCorrectionProcessor,
+    FluxAbsorptionCorrectionProcessor,
     PyfaiIntegrationProcessor,
     SetupResultsProcessor,
     SetupProcessor,
