@@ -43,6 +43,7 @@ from CHAP.common.reader import (
     H5Reader,
     LinkamReader,
     MapReader,
+    PandasReader,
     NexusReader,
     NXdataReader,
     NXfieldReader,
