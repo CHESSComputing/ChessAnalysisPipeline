@@ -12,6 +12,7 @@ from CHAP.common.processor import (
     AsyncProcessor,
     BinarizeProcessor,
     ConvertStructuredProcessor,
+    ExpressionProcessor,
     ImageProcessor,
     MapProcessor,
     MPICollectProcessor,

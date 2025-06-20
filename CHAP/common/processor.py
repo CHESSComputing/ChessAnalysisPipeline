@@ -1026,6 +1026,78 @@ class ImageProcessor(Processor):
         return nxdata
 
 
+class ExpressionProcessor(Processor):
+    """Processor to perform an arbitrary expression on input
+    data."""
+    def process(self, data, expression, symtable=None, nxprocess=False):
+        """Return result of plugging input data into the given
+        mathematical expression.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param expression: Mathemetical expression. May use the
+            built-in function `round` and / or numpy functions with
+            `np.<function_name>` or `numpy.<function_name>.`
+        :type expression: str
+        :param symtable: Values to use for names in `expression` that
+            should not be obtained from input data. Defaults to `None`.
+        :type symtable: dict[str, (float, int)], optional.
+        :param nxprocess: Flag to indicate the results should be
+            retunred as an `NXprocess`. Defaults to `False`.
+        :type nxprocess: bool, optional
+        :returns: Result of evaluating the expression.
+        :rtype: object
+        """
+        return self._process(
+            data, expression, symtable=symtable, nxprocess=nxprocess)
+
+    def _process(self, data, expression, symtable=None, nxprocess=False):
+        from ast import parse
+        from asteval import get_ast_names, Interpreter
+
+        names = get_ast_names(parse(expression))
+        if symtable is None:
+            symtable = {}
+        for name in names:
+            if name in symtable:
+                continue
+            elif name == 'round':
+                symtable[name] = round
+            elif name in ('np', 'numpy'):
+                symtable[name] = np
+            else:
+                symtable[name] = self.get_data(
+                    data, name=name, remove=False, nxobject=False)
+        aeval = Interpreter(symtable=symtable)
+        new_data = aeval(expression)
+
+        if not nxprocess:
+            return new_data
+
+        from nexusformat.nexus import (
+            NXdata, NXfield, NXprocess
+        )
+        return NXprocess(
+            name='expression',
+            entries={
+                'data': NXdata(
+                    signal=NXfield(
+                        name='result',
+                        value=new_data,
+                        attrs={'expression': expression}
+                    ),
+                    **{
+                        name: NXfield(
+                            value=symtable[name]
+                        )
+                        for name in names
+                    },
+                    attrs={'expression': expression}
+                ),
+            }
+        )
+
+
 class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
     NXentry object representing that map's metadata and any
