@@ -4,6 +4,60 @@
 import numpy as np
 
 from CHAP import Processor
+from CHAP.common import ExpressionProcessor
+
+
+class FluxCorrectionProcessor(ExpressionProcessor):
+    """Processor for flux correction."""
+    def process(self, data, presample_intensity_reference_rate=None, nxprocess=False):
+        """Given input data for `'intensity'`,
+        `'presample_intensity'`, and `'dwell_time_actual'`, return
+        flux corrected intensity signal.
+
+        :param data: Input data list containing items with names
+            `'intensity'`, `'presample_intensity'`, and (if
+            `presample_intensity_reference_rate` is not specified)
+            `'dwell_time_actual'`.
+        :type data: list[PipelineData]
+        :param presample_intensity_reference_rate: Reference counting
+            rate for the `'presample_intensity'` signal. If not
+            specified, it will be calculated with
+            `'np.nanmean(presample_intensity /
+            dwell_time_actual)'`. Defaults to `None`.
+        :type presample_intensity_reference_rate: float, optional
+        :param nxprocess: Flag to indicate the flux corrected data
+            should be returned as an `NXprocess`. Defaults to `False`.
+        :returns: Flux corrected version of input `'intensity'` data.
+        :rtype: object
+        """
+        if presample_intensity_reference_rate is None:
+            presample_intensity_reference_rate = self._process(
+                data,
+                'np.nanmean(presample_intensity / dwell_time_actual)'
+            )
+        presample_intensity = self.get_data(
+            data, name='presample_intensity', nxobject=False
+        )
+        intensity = self.get_data(
+            data, name='intensity', nxobject=False
+        )
+        # Extend presample_intensity along last dim to have same shape
+        # as intensity
+        for dim in intensity.shape[presample_intensity.ndim:]:
+            presample_intensity = np.repeat(
+                np.expand_dims(presample_intensity, axis=-1), dim, axis=-1
+            )
+        symtable = {
+            'presample_intensity_reference_rate': presample_intensity_reference_rate,
+            'intensity': intensity,
+            'presample_intensity': presample_intensity
+        }
+        expression = (
+            'intensity *'
+            '(presample_intensity_reference_rate / presample_intensity)'
+        )
+        return self._process(data, expression, symtable=symtable, nxprocess=nxprocess)
+
 
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
