@@ -2381,6 +2381,21 @@ class NormalizeMapProcessor(Processor):
             data, normalize_nxfields, normalize_by_nxfield)
 
 
+class PandasToXarrayProcessor(Processor):
+    """Converter for `pandas.DataFrame` to `xarray.DataArray` or
+    `xarray.Dataset`"""
+    def process(self, data):
+        """Return input dataframe converted to xarray.
+
+        :param data: Input `pandas.DataFrame`
+        :type data: list[PipelineData]
+        :returns: Input dataframe as xarray.
+        :rtype: Union[`xarray.DataArray`, `xarray.Dataset`]
+        """
+        dataframe = self.get_data(data, nxobject=False)
+        return dataframe.to_xarray()
+
+
 class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.
