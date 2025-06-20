@@ -432,33 +432,33 @@ class NexusWriter(Writer):
                 data.entry.set_default()
             write_nexus(data, filename, force_overwrite)
         else:
-            nxfile = NXFile(filename, 'rw')
-            root = nxfile.readfile()
-            if nxfile.get(nxpath) is None:
-                if nxfile.get(os.path.dirname(nxpath)) is not None:
-                    nxpath, nxname = os.path.split(nxpath)
-                else:
-                    nxpath = root.NXentry[0].nxpath
-                    self.logger.warning(
-                        f'Path "{nxpath}" not present in {filename}. '
-                        f'Using {nxpath} instead.')
-            full_nxpath = os.path.join(nxpath, nxname)
-            self.logger.debug(f'Full path for object to write: {full_nxpath}')
-            if nxfile.get(full_nxpath) is not None:
+            with NXFile(filename, 'rw') as nxfile:
+                root = nxfile.readfile()
+                if nxfile.get(nxpath) is None:
+                    if nxfile.get(os.path.dirname(nxpath)) is not None:
+                        nxpath, nxname = os.path.split(nxpath)
+                    else:
+                        self.logger.debug(f'root.NXentry = {root.NXentry}')
+                        nxpath = root.NXentry[0].nxpath
+                        self.logger.warning(
+                            f'Path "{nxpath}" not present in {filename}. '
+                            f'Using {nxpath} instead.')
+                full_nxpath = os.path.join(nxpath, nxname)
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in '
-                    f'{filename}')
-                if force_overwrite:
-                    self.logger.warning(
-                        'Deleting existing NXobject at '
-                        f'{os.path.join(nxpath, nxname)} in {filename}')
-                    del root[full_nxpath]
-            try:
-                root[full_nxpath] = data
-            except Exception as exc:
-                nxfile.close()
-                raise exc
-            nxfile.close()
+                    f'Full path for object to write: {full_nxpath}')
+                if nxfile.get(full_nxpath) is not None:
+                    self.logger.debug(
+                        f'{os.path.join(nxpath, nxname)} already exists in '
+                        f'{filename}')
+                    if force_overwrite:
+                        self.logger.warning(
+                            'Deleting existing NXobject at '
+                            f'{os.path.join(nxpath, nxname)} in {filename}')
+                        del root[full_nxpath]
+                try:
+                    root[full_nxpath] = data
+                except Exception as exc:
+                    raise exc
         return data
 
 
