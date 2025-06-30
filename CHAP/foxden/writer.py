@@ -70,74 +70,92 @@ class FoxdenDoiWriter(Writer):
 
 class FoxdenMetadataWriter(Writer):
     """Writer for saving data to the FOXDEN Metadata service."""
-    def write(self, url, data, method='POST', verbose=False):
+    def write(self, data, url):#config=None):
         """Write data to the FOXDEN Metadata service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param url: URL of service.
-        :type url: str
-        :param method: HTTP method to use, `'POST'` for creation or
-            `'PUT'` for update, defaults to `'POST'`.
-        :type method: str, optional
-        :param verbose: Verbose output flag, defaults to `False`.
-        :type verbose: bool, optional
+        :param config: FOXDEN HTTP request configuration.
+        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
-        self.logger.info(
-            f'Executing "process" with url={url} data={data}')
-        # FIX it would be useful to perform validation of data
-        if isinstance(data, list) and len(data) == 1:
-            data = data[0]['data'][0]
+        data = self.unwrap_pipelinedata(data)[-1]
         if not isinstance(data, dict):
-            raise ValueError(f'Invalid "data" parameter ({data})')
+            raise ValueError('Invalid data parameter {(data)}')
+
+        # FIX it would be useful to perform validation of data
+
+        # Load and validate the FoxdenRequestConfig configuration
+        config = self.get_config(
+            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
+#            config=config, schema='foxden.models.FoxdenRequestConfig')
+        self.logger.debug(f'config: {config}')
+
+        # For now cut out anything but the did and application fields
+        # from the CHAP workflow metadata record
+        metadata = data.pop('metadata')
+        data = {'did': data['did'],
+                'application': data.get('application', 'CHAP')}
+
+        # Submit HTTP request and return response
+        rurl = f'{config.url}'
         mrec = {'Schema': 'Analysis', 'Record': data}
         payload = json.dumps(mrec)
-        if verbose:
-            self.logger.info(f'method={method} url={url} payload={payload}')
-        response = HttpRequest(url, payload, method=method, scope='write')
-        if verbose:
+        self.logger.info(f'method=POST url={rurl} payload={payload}')
+        response = HttpRequest(rurl, payload, method='POST', scope='write')
+        if config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
-        data = [{'code': response.status_code, 'data': response.text}]
-        return data
+        if response.status_code == 200:
+            result = [{'code': response.status_code, 'data': response.text}]
+        else:
+            self.logger.warning(f'HTTP error code {response.status_code}')
+            result = []
+        # For now, return the did
+        return data['did']
+        return result
 
 
 class FoxdenProvenanceWriter(Writer):
     """Writer for saving data to the FOXDEN Provenance service."""
-    def write(self, data, url, verbose=False):
+    def write(self, data, url):#config=None):
         """Write data to the FOXDEN Provenance service.
 
-        :param data: Provenance data.
+        :param data: Input data.
         :type data: list[PipelineData]
-        :param url: URL of service.
-        :type url: str
-        :param verbose: Verbose output flag, defaults to `False`.
-        :type verbose: bool, optional
+        :param config: FOXDEN HTTP request configuration.
+        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: HTTP response from FOXDEN Provenance service.
         :rtype: list[dict]
         """
-        self.logger.debug(f'url: {url}')
-        self.logger.debug(f'data={data}')
-        rurl = f'{url}/dataset'
+        data = self.unwrap_pipelinedata(data)[-1]
+        if not isinstance(data, list) or len(data) != 1:
+            raise ValueError('Invalid data parameter {(data)}')
+        data = data[0]
+
         # FIX it would be useful to perform validation of data
-#        print(f'\n\ndata {type(data)}:\n{data}\n\n')
-#        ddata = self.unwrap_pipelinedata(data)[-1]
-#        exit(f'\n\nddata {type(ddata)}:\n{ddata}\n\n')
-        if isinstance(data, list) and len(data) == 1:
-            data = data[0]['data'][0]
-        if not isinstance(data, dict):
-            raise ValueError(f'Invalid "data" parameter ({data})')
+
+        # Load and validate the FoxdenRequestConfig configuration
+        config = self.get_config(
+            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
+#            config=config, schema='foxden.models.FoxdenRequestConfig')
+        self.logger.debug(f'config: {config}')
+
+        # Submit HTTP request and return response
+        rurl = f'{url}/dataset'
         payload = json.dumps(data)
-        if verbose:
-            self.logger.info(f'method=POST url={rurl} payload={payload}')
+        self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='write')
-        if verbose:
+        if config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
-        data = [{'code': response.status_code, 'data': response.text}]
-        return data
+        if response.status_code == 200:
+            result = [{'code': response.status_code, 'data': response.text}]
+        else:
+            self.logger.warning(f'HTTP error code {response.status_code}')
+            result = []
+        return result
 
 
 if __name__ == '__main__':

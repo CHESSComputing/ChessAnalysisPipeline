@@ -73,6 +73,7 @@ class TomoMetadataProcessor(Processor):
 
         # Extracted any available MapConfig info
         map_config = {}
+        map_config['did'] = data.get('did')
         map_config['title'] = data.get('sample_name')
         station = data.get('beamline')[0]
         if station == '3A':
