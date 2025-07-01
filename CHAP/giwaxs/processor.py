@@ -545,7 +545,7 @@ class PyfaiIntegrationProcessor(Processor):
             input images.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            giwaxs.models.PyfaiIntegrationConfig.
+            common.models.integration.PyfaiIntegrationConfig.
         :type config: dict
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
@@ -590,16 +590,13 @@ class PyfaiIntegrationProcessor(Processor):
         # Load the validated integration configuration
         config = self.get_config(
             data=data, config=config, inputdir=inputdir,
-            schema='giwaxs.models.PyfaiIntegrationConfig')
+            schema='common.models.integration.PyfaiIntegrationConfig')
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
         data = {}
         independent_dims = {}
         try:
-            # Local imports
-            from CHAP.giwaxs.models import Detector
-
             nxprocess_converted = nxroot[f'{nxroot.default}_converted']
             conversion_config = loads(
                 str(nxprocess_converted.conversion_config))
@@ -609,7 +606,9 @@ class PyfaiIntegrationProcessor(Processor):
                     'More than one detector not yet implemented')
             if config.azimuthal_integrators is None:
                 # Local modules
-                from CHAP.giwaxs.models import AzimuthalIntegratorConfig
+                from CHAP.common.models.integration import (
+                    AzimuthalIntegratorConfig,
+                )
 
                 config.azimuthal_integrators = [AzimuthalIntegratorConfig(
                     **converted_ais[0])]
@@ -702,7 +701,7 @@ class PyfaiIntegrationProcessor(Processor):
                     self.logger.debug(f'mask shape for {ai.id}: {mask.shape}')
                     masks[ai.id] = mask
             except:
-                self.logger.debug('No mask file found for {ai.id}')
+                self.logger.debug(f'No mask file found for {ai.id}')
         if not masks:
             masks = None
 
@@ -728,32 +727,15 @@ class PyfaiIntegrationProcessor(Processor):
             # Create the NXdata object with the integrated data
             intensities = results['intensities']
             if config.sum_axes:
-                coords = []
-            elif isinstance(axes, str):
-                coords = [v for k, v in independent_dims.items() if k in ais]
-            else:
-                coords = [i for k, v in independent_dims.items()
-                          for i in v if k in ais]
-            if ('azimuthal' in results
-                    and results['azimuthal']['unit'] == 'chi_deg'):
-                chi = results['azimuthal']['coords']
-                if integration.right_handed:
-                    chi = -np.flip(chi)
+                raise NotImplementedError('sum_axes needs testing')
+            coords = []
+            for k, v in results['coords'].items():
+                if k.startswith('chi') and integration.right_handed:
+                    values = -np.flip(v['data'])
                     intensities = np.flip(intensities, (len(coords)))
-                coords.append(NXfield(chi, 'chi', attrs={'units': 'deg'}))
-            if results['radial']['unit'] == 'q_A^-1':
-                unit = Unit.INV_ANGSTROM.symbol
-                coords.append(
-                    NXfield(
-                        results['radial']['coords'], 'q',
-                        attrs={'units': unit}))
-            else:
-                coords.append(
-                    NXfield(
-                        results['radial']['coords'], 'r'))#,
-#                        attrs={'units': '\u212b'}))
-                self.logger.warning(
-                    f'Unknown radial unit: {results["radial"]["unit"]}')
+                else:
+                    values = v['data']
+                coords.append(NXfield(values, k, attrs=v['attributes']))
             nxdata = NXdata(NXfield(intensities, 'I'), tuple(coords))
             if not isinstance(axes, str):
                 nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
