@@ -42,8 +42,7 @@ class DetectorDataReader(Reader):
     application and background correction available."""
     def read(self, filename,
              mask_file=None, mask_above=None, mask_below=None,
-#             mask_value=np.nan,
-             mask_value=0,
+             mask_value=np.nan,
              data_scalar=None,
              background_file=None, background_scalar=None,
              ):
