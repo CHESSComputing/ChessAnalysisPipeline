@@ -7,7 +7,7 @@ from CHAP import Processor
 
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
-    def process(self, data, config=None,
+    def process(self, data, config=None, inputdir='.',
                 idx_slices=[{'start':0, 'step': 1}]):
         """Perform a set of integrations on 2D detector data.
 
@@ -31,21 +31,12 @@ class PyfaiIntegrationProcessor(Processor):
         import time
 
         # Get config for PyfaiIntegrationProcessor from data or config
-        try:
-            config = self.get_config(
-                data=data,
-                schema=f'common.models.integration.PyfaiIntegrationConfig')
-        except:
-            self.logger.info(
-                'No valid common.models.integration.PyfaiIntegrationConfig'
-                'in input pipeline data, using config parameter instead')
-            try:
-                from CHAP.common.models.integration import (
-                    PyfaiIntegrationConfig)
-                config = PyfaiIntegrationConfig(**config)
-            except Exception as exc:
-                self.logger.error(exc)
-                raise RuntimeError(exc) from exc
+        config = self.get_config(
+            data=data,
+            config=config,
+            inputdir=inputdir,
+            schema='common.models.integration.PyfaiIntegrationConfig'
+        )
 
         # Organize input for integrations
         input_data = {d['name']: d['data'] for d in data}
@@ -84,7 +75,8 @@ class SetupResultsProcessor(Processor):
     for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
     `common.ZarrValuesWriter`.
     """
-    def process(self, data, dataset_shape, dataset_chunks, config=None):
+    def process(self, data, dataset_shape, dataset_chunks,
+                config=None, inputdir='.'):
         """Return a `zarr.group` to hold processed SAXS/WAXS data
         processed by `saxswaxs.PyfaiIntegrationProcessor`.
 
@@ -110,22 +102,13 @@ class SetupResultsProcessor(Processor):
         :rtype: zarr.group
         """
         # Get PyfaiIntegrationProcessorConfig
-        try:
-            config = self.get_config(
-                data=data,
-                schema='common.models.integration.PyfaiIntegrationConfig')
-        except:
-            self.logger.info(
-                'No valid common.models.integration.PyfaiIntegrationConfig '
-                'in input pipeline data, using config parameter instead')
-            if config is None:
-                config = {}
-            try:
-                from CHAP.common.models.integration import (
-                    PyfaiIntegrationConfig)
-                config = PyfaiIntegrationConfig(**config)
-            except Exception as exc:
-                raise RuntimeError from exc
+        config = self.get_config(
+            data=data,
+            config=config,
+            inputdir=inputdir,
+            schema='common.models.integration.PyfaiIntegrationConfig'
+        )
+
         # Get zarr tree as dict from the
         # PyfaiIntegrationProcessorConfig
         tree = config.zarr_tree(dataset_shape, dataset_chunks)
@@ -177,7 +160,8 @@ class SetupProcessor(Processor):
     """Convenience Processor for setting up a container for SAXS/WAXS
     experiments.
     """
-    def process(self, data, dataset_shape, dataset_chunks, detectors):
+    def process(self, data, dataset_shape, dataset_chunks, detectors,
+                inputdir='.'):
         import asyncio
         import logging
         import zarr
@@ -202,7 +186,7 @@ class SetupProcessor(Processor):
         # Get NXroot container for raw data map
         setup_map_processor = set_logger(MapProcessor())
         nxmap = setup_map_processor.execute(
-            data=data, detectors=detectors, fill_data=False)
+            data=data, detectors=detectors, fill_data=False, inputdir=inputdir)
 
         # Convert raw data map container to zarr format
         nxmap_converter = set_logger(NexusToZarrProcessor())
@@ -211,7 +195,7 @@ class SetupProcessor(Processor):
         # Get zarr container for integration results
         setup_results_processor = set_logger(SetupResultsProcessor())
         zarr_results = setup_results_processor.process(
-            data, dataset_shape, dataset_chunks)
+            data, dataset_shape, dataset_chunks, inputdir=inputdir)
 
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
