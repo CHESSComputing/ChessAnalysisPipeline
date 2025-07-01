@@ -34,22 +34,22 @@ class PyfaiIntegrationProcessor(Processor):
         try:
             config = self.get_config(
                 data=data,
-                schema=f'saxswaxs.models.{self.__class__.__name__}Config')
+                schema=f'common.models.integration.PyfaiIntegrationConfig')
         except:
             self.logger.info(
-                f'No valid {self.__class__.__name__} config in input '
-                'pipeline data, using config parameter instead')
+                'No valid common.models.integration.PyfaiIntegrationConfig'
+                'in input pipeline data, using config parameter instead')
             try:
-                from CHAP.saxswaxs.models import (
-                    PyfaiIntegrationProcessorConfig)
-                config = PyfaiIntegrationProcessorConfig(**config)
+                from CHAP.common.models.integration import (
+                    PyfaiIntegrationConfig)
+                config = PyfaiIntegrationConfig(**config)
             except Exception as exc:
                 self.logger.error(exc)
                 raise RuntimeError(exc) from exc
 
         # Organize input for integrations
         input_data = {d['name']: d['data'] for d in data}
-        ais = {ai.name: ai for ai in config.azimuthal_integrators}
+        ais = {ai.id: ai for ai in config.azimuthal_integrators}
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
@@ -62,6 +62,7 @@ class PyfaiIntegrationProcessor(Processor):
             t0 = time.time()
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
+#            self.logger.debug(f'result = {result}')
             tf = time.time()
             self.logger.debug(
                 f'Integrated {integration.name} '
@@ -71,7 +72,7 @@ class PyfaiIntegrationProcessor(Processor):
                     {
                         'path': f'{integration.name}/data/I',
                         'idx': idx,
-                        'data': np.asarray([r.intensity for r in result]),
+                        'data': np.asarray(result['intensities']),
                     },
                 ]
             )
@@ -112,17 +113,17 @@ class SetupResultsProcessor(Processor):
         try:
             config = self.get_config(
                 data=data,
-                schema='saxswaxs.models.PyfaiIntegrationProcessorConfig')
+                schema='common.models.integration.PyfaiIntegrationConfig')
         except:
             self.logger.info(
-                'No valid PyfaiIntegrationProcessorConfig in input '
-                'pipeline data, using config parameter instead')
+                'No valid common.models.integration.PyfaiIntegrationConfig '
+                'in input pipeline data, using config parameter instead')
             if config is None:
                 config = {}
             try:
-                from CHAP.saxswaxs.models import (
-                    PyfaiIntegrationProcessorConfig)
-                config = PyfaiIntegrationProcessorConfig(**config)
+                from CHAP.common.models.integration import (
+                    PyfaiIntegrationConfig)
+                config = PyfaiIntegrationConfig(**config)
             except Exception as exc:
                 raise RuntimeError from exc
         # Get zarr tree as dict from the
