@@ -49,7 +49,7 @@ class PyfaiIntegrationProcessor(Processor):
 
         # Organize input for integrations
         input_data = {d['name']: d['data'] for d in data}
-        ais = {ai.id: ai for ai in config.azimuthal_integrators}
+        ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
