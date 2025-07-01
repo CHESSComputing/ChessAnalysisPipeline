@@ -746,6 +746,8 @@ class ZarrValuesWriter(Writer):
         dataset = zarrfile[path]
 
         # Check that the slice shape matches the data shape
+        if dataset[idx].shape != data.shape and data.shape[0] == 1:
+            data = np.squeeze(data, axis=0)
         if dataset[idx].shape != data.shape:
             raise ValueError(
                 f'Data shape {data.shape} does not match the target slice '
