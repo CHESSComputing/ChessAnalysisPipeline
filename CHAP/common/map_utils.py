@@ -10,7 +10,7 @@ class MapSliceProcessor(Processor):
     `common.ZarrValuesWriter`.
     """
     def process(self, data, spec_file, scan_number,
-                idx_slice={'start': 0, 'stop': -1, 'step': 1},
+                idx_slice={'start': 0, 'step': 1},
                 detectors=None,
                 config=None,
                 inputdir='.'):
@@ -31,8 +31,7 @@ class MapSliceProcessor(Processor):
         :type idx_slice: Parameters for the slice of the scan to
             process (slice parameters are the usual for the python
             `slice` object: `'start'`, `'stop'`, and
-            `'step'`). Defaults to `{'start': 0, 'stop': -1, 'step':
-            '1'}`.
+            `'step'`). Defaults to `{'start': 0, 'step': '1'}`.
         :type idx_slice: dict[str, int], optional
         :param detectors: Detectors to include raw data for in the
             returned NeXus NXentry object (overruling the detector
