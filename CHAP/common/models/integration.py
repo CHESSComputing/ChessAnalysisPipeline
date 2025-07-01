@@ -50,6 +50,10 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_root(cls, data):
+        """Make sure `data` contains either `poni_file` _or_ `params`,
+        not both, and that the field that is used defines a valid
+        `pyFAI.azimuthalIntegrator.AzimuthalIntegrator object`.
+        """
         if isinstance(data, dict):
             inputdir = data.get('inputdir')
             mask_file = data.get('mask_file')
@@ -367,6 +371,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
     @property
     def result_shape(self):
+        """Return shape of one frame of results from this integration."""
         if self.integration_method == 'integrate_radial':
             return (self.integration_params.npt, )
         elif self.integration_method == 'integrate1d':
@@ -380,6 +385,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
     @property
     def result_coords(self):
+        """Return a dictionary representing the `zarr.array` objects
+        for the coordinates of a single frame of results from this
+        integration.
+        """
         # Third party modules
 #        from nexusformat.nexus import NXfield
 #        from pyFAI.gui.utils.units import Unit
@@ -407,6 +416,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 #        return coords
 
     def get_axes_indices(self, dataset_ndims):
+        """Return the index of each coordinate orienting a single
+        frame of results from this integration.
+        """
         return {k: dataset_ndims + i
                 for i, k in enumerate(self.result_coords.keys())}
 
@@ -736,6 +748,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         return results
 
     def zarr_tree(self, dataset_shape, dataset_chunks):
+        """Return a dictionary representing a `zarr.group` that can be
+        used to contain results from this integration.
+        """
         # Third party modules
         import json
 
@@ -773,6 +788,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
 
 class PyfaiIntegrationConfig(CHAPBaseModel):
+    """Class defining components needed for performing one or more
+    integrations on the same set of 2D input data with
+    `saxswaxs.PyfaiIntegrationProcessor`.
+    """
     azimuthal_integrators: Optional[conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)] = None
     integrations: conlist(min_length=1, item_type=PyfaiIntegratorConfig)
