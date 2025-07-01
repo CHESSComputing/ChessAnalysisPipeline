@@ -170,53 +170,6 @@ class MultiGeometryConfig(CHAPBaseModel):
             return [ais]
         return ais
 
-#    @field_validator('radial_units')
-#    @classmethod
-#    def validate_radial_units(cls, radial_units):
-#        """Validate the radial units for the integration.
-#
-#        :param radial_units: Unvalidated radial units for the
-#            integration.
-#        :type radial_units: str
-#        :raises ValueError: If radial units are not one of the
-#            recognized radial units.
-#        :return: Validated radial units.
-#        :rtype: str
-#        """
-#        # Third party modules
-#        from pyFAI.units import RADIAL_UNITS
-#
-#        if radial_units in RADIAL_UNITS.keys():
-#            return radial_units
-#        else:
-#            raise ValueError(
-#                f'Invalid radial units: {radial_units}. Must be one of '
-#                ', '.join(RADIAL_UNITS.keys()))
-
-#    @field_validator('azimuthal_units')
-#    def validate_azimuthal_units(cls, azimuthal_units):
-#        """Validate that `azimuthal_units` is one of the keys in the
-#        `pyFAI.units.AZIMUTHAL_UNITS` dictionary.
-#
-#        :param azimuthal_units: The string representing the unit to be
-#            validated.
-#        :type azimuthal_units: str
-#        :raises ValueError: If `azimuthal_units` is not one of the
-#            keys in `pyFAI.units.AZIMUTHAL_UNITS`.
-#        :return: The original supplied value, if is one of the keys in
-#            `pyFAI.units.AZIMUTHAL_UNITS`.
-#        :rtype: str
-#        """
-#        # Third party modules
-#        from pyFAI.units import AZIMUTHAL_UNITS
-#
-#        if azimuthal_units in AZIMUTHAL_UNITS.keys():
-#            return azimuthal_units
-#        else:
-#            raise ValueError(
-#                f'Invalid azimuthal units: {azimuthal_units}. Must be one of '
-#                ', '.join(AZIMUTHAL_UNITS.keys()))
-
 
 class IntegrateConfig(CHAPBaseModel):
     """Class with the input parameters to perform various integrations
@@ -389,31 +342,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         for the coordinates of a single frame of results from this
         integration.
         """
-        # Third party modules
-#        from nexusformat.nexus import NXfield
-#        from pyFAI.gui.utils.units import Unit
-
-#        print(f'\n\nself {type(self)}:\n{self}')
-#        exit(f"\n\ncoords {type(self._placeholder_result['coords'])}: {self._placeholder_result['coords']}\n\n")
         if self._placeholder_result is None:
             raise RuntimeError('Missing placeholder results')
         return self._placeholder_result['coords']
-#        if ('azimuthal' in results
-#                and results['azimuthal']['unit'] == 'chi_deg'):
-#            chi = results['azimuthal']['coords']
-#            if self.right_handed:
-#                chi = -np.flip(chi)
-#                results['intensities'] = np.flip(
-#                    results['intensities'], (len(coords)))
-#            coords['chi'] = NXfield(chi, 'chi', attrs={'units': 'deg'})
-#        if results['radial']['unit'] == 'q_A^-1':
-#            unit = Unit.INV_ANGSTROM.symbol
-#            coords['q'] = NXfield(results['radial']['coords'], 'q',
-#                                  attrs={'units': unit})
-#        else:
-#            coords['r'] = NXfield(results['radial']['coords'], 'r',
-#                                  attrs={'units': '\u212b'})
-#        return coords
 
     def get_axes_indices(self, dataset_ndims):
         """Return the index of each coordinate orienting a single
@@ -467,13 +398,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             # Third party modules
             from pyFAI.containers import Integrate1dResult
 
-#            print(f'\n\nais {type(ais)}:\n{ais}\n\n')
-#            print(f'\nself.multi_geometry: {self.multi_geometry}\n\n')
-#            print(f'\nself.integration_params: {self.integration_params}\n\n')
             results = None
             npts = []
             for k, v in data.items():
-#                print(f'\t{v.shape} {v.sum()}')
                 if v.ndim == 2:
                     data[k] = np.expand_dims(v, 0)
                 elif v.ndim != 3:
@@ -487,17 +414,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             integration_params = self.integration_params.model_dump(
                 exclude={'ais', 'attrs', 'error_model', 'chi_disc', 'empty',
                          'wavelength'})
-#            print(f'\nintegration_params: {integration_params}\n\n')
             for name in self.integration_params.ais:
                 ai = ais[name]
                 mask = azimuthal_integrators[name].mask_data
-                # if masks is None:
-                #     lst_mask = None
-                # else:
-                #     lst_mask = masks[name]
-#                print(f'\n\nai {type(ai)}:\n{ai}\n')
-#                print(f'name: {name}\n')
-#                print(f'npts: {npts}\n')
                 _results = [
                     ai.integrate_radial(
                         data=data[name][i],
@@ -505,8 +424,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                         **integration_params)
                     for i in range(npts)
                 ]
-#                print(f'\n\n_results {type(_results)}:\n{_results}\n\n')
-#                print(f'_results[0] {type(_results[0])}:\n{_results[0]}\n\n')
                 if results is None:
                     results = _results
                 else:
@@ -517,8 +434,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                                 _results[i].intensity + results[i].intensity)
                         for i in range(npts)
                     ]
-#                print(f'\n\nresults {type(results)}:\n{results}\n\n')
-#                print(f'results[0] {type(results[0])}:\n{results[0]}\n\n')
             if self.right_handed:
                 results = [
                     Integrate1dResult(
@@ -534,12 +449,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 )
                 for r in results
             ]
-#            print(f'\n\nresults {type(results)}:\n{results}\n\n')
-#            print(f'results[0] {type(results[0])}:\n{results[0]}\n\n')
-#            for i, v in enumerate(results):
-#                dummy = np.nan_to_num(v[1])
-#                print(f'\t{i} {dummy.shape} {dummy.sum()}')
-#            print('\n\n')
             # Integrate1dResult's "radial" property is misleadingly
             # named here. When using integrate_radial, the property
             # actually contains azimuthal coordinate values.
@@ -561,14 +470,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             }
             results = {'intensities': [v.intensity for v in results],
                        'coords': coords}
-#            print(f'\n\ncoords {type(coords)}:\n{coords}\n\n')
-#            print(f'results {type(results)}:\n{results}\n\n')
         else:
-#            print(f'\n\nais {type(ais)}:\n{ais}\n\n')
-#            print(f'data {type(data)}:\n{data}\n\n')
             npts = []
             for k, v in data.items():
-#                print(f'\t{v.shape} {v.sum()}')
                 if v.ndim == 2:
                     data[k] = np.expand_dims(v, 0)
                 elif v.ndim != 3:
@@ -579,10 +483,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 raise RuntimeError('Different number of detector frames for '
                                    f'each azimuthal integrator ({npts})')
             npts = npts[0]
-#            print(f'\n\ndata {type(data)}:\n{data}\n\n')
-#            print(f'\nself.multi_geometry: {self.multi_geometry}\n\n')
-#            print(f'\nnpts: {npts}\n\n')
-#            exit('Done')
             if self.multi_geometry is None:
                 raise RuntimeError('self.multi_geometry is None')
                 if len(data) != 1:
@@ -616,36 +516,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 mg = MultiGeometry(
                     [ais[ai] for ai in self.multi_geometry.ais],
                     **self.multi_geometry.model_dump(exclude={'ais'}))
-#                print(f'\nmg: {mg}\n\n')
                 integration_method = getattr(mg, self.integration_method)
                 lst_mask = []
                 for name in self.multi_geometry.ais:
                     lst_mask.append(azimuthal_integrators[name].mask_data)
-                # if masks is None:
-                #     lst_mask = None
-                # else:
-                #     lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
-#                print(f'\nlst_mask: {lst_mask}')
-#                print(f'\nself.integration_params {type(self.integration_params)}:\n{self.integration_params.model_dump(exclude="attrs")}')
-#                mask = np.asarray(lst_mask[0])
-#                print(f'\tmask:{type(mask)} {mask.dtype} {mask.shape} {mask.sum()}')
-#                dummy = data['PIL5']
-#                print(f'\n\nmasked data {type(dummy)}: {len(dummy)}')
-#                for d in dummy:
-#                    print(f'\t{d.shape} {d.sum()}')
-#                    dd = np.where(masks['PIL5'], 0, d.astype(np.float64))
-#                    print(f'\t{dd.shape} {dd.sum()}')
-#                print('\n\n')
-#                exit('Done')
-#                dummy = masks['PIL5']
-#                print(f'\n\nmask:\n{dummy}\n\n')
-#                masks = None
-#                print(f'\n\nmasks: {masks}\n\n')
-#                dummy = lst_mask
-#                exit(f'\n\ndummy:\n{dummy}')
-#                dummy = [data[ai][i].astype(np.float64)
-#                          for ai in self.multi_geometry.ais]
-#                exit(f'\n\ndummy:\n{dummy}')
                 results = [
                     integration_method(
                         [data[ai][i].astype(np.float64)
@@ -655,44 +529,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                             exclude='attrs'))
                     for i in range(npts)
                 ]
-#                if masks is None:
-#                    results = [
-#                        integration_method(
-#                            [data[ai][i].astype(np.float64)
-#                             for ai in self.multi_geometry.ais],
-#                            lst_mask=lst_mask,
-#                            **self.integration_params.model_dump(
-#                                exclude='attrs'))
-#                        for i in range(npts)
-#                    ]
-#                else:
-#                    results = [
-#                        integration_method(
-#                            [np.where(
-#                                 masks[ai], np.nan, data[ai][i].astype(np.float64))
-#                                 masks[ai], 0, data[ai][i].astype(np.float64))
-#                             for ai in self.multi_geometry.ais],
-#                            [data[ai][i] for ai in self.multi_geometry.ais],
-#                            lst_mask=lst_mask,
-#                            **self.integration_params.model_dump(
-#                                exclude='attrs'))
-#                            normalization_factor=[8177142.28771039],
-#                            method=('bbox', 'csr', 'cython'),
-#                            **self.integration_params.model_dump(exclude={'normalization_factor', 'method'}))
-#                        for i in range(npts)
-#                    ]
-#                dummy = [[np.where(
-#                    masks[ai], np.nan, data[ai][i].astype(np.float64))
-#                    masks[ai], 0, data[ai][i].astype(np.float64))
-#                    for ai in self.multi_geometry.ais] for i in range(npts)]
-#                print(f'nan in data? {np.isnan(np.min(dummy))}')
-#            print(f'\n\nresults {type(results)}: {results}\n\n')
-#            dummy = [v.intensity for v in results]
-#            print(f'intensities {type(dummy)}: {len(dummy)}')
-#            for d in dummy:
-#                print(f'\t{d.shape} {d.sum()}')
-#            print('\n\n')
-#            exit('Done')
             if isinstance(self.integration_params, Integrate1dConfig):
                 if self.multi_geometry is None:
                     unit = integration_params['unit']
@@ -743,7 +579,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 else:
                     intensities = [v.intensity for v in results]
                 results = {'intensities': intensities, 'coords': coords}
-#            print(f'coords {type(coords)}:\n{coords}\n\n')
 
         return results
 
