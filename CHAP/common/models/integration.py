@@ -457,7 +457,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 #                print(f'name: {name}\n')
 #                print(f'npts: {npts}\n')
                 _results = [
-                    ai.integrate_radial(
+                    ai.ai.integrate_radial(
                         data=data[name][i],
                         mask=lst_mask,
                         **integration_params)
@@ -572,7 +572,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 from pyFAI.multi_geometry import MultiGeometry
 
                 mg = MultiGeometry(
-                    [ais[ai] for ai in self.multi_geometry.ais],
+                    [ais[ai].ai for ai in self.multi_geometry.ais],
                     **self.multi_geometry.model_dump(exclude={'ais'}))
 #                print(f'\nmg: {mg}\n\n')
                 integration_method = getattr(mg, self.integration_method)
