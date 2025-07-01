@@ -83,7 +83,7 @@ class SetupResultsProcessor(Processor):
     for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
     `common.ZarrValuesWriter`.
     """
-    def process(self, data, dataset_shape, dataset_chunks):
+    def process(self, data, dataset_shape, dataset_chunks, config=None):
         """Return a `zarr.group` to hold processed SAXS/WAXS data
         processed by `saxswaxs.PyfaiIntegrationProcessor`.
 
@@ -117,6 +117,8 @@ class SetupResultsProcessor(Processor):
             self.logger.info(
                 'No valid PyfaiIntegrationProcessorConfig in input '
                 'pipeline data, using config parameter instead')
+            if config is None:
+                config = {}
             try:
                 from CHAP.saxswaxs.models import (
                     PyfaiIntegrationProcessorConfig)
