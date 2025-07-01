@@ -1,659 +1,799 @@
-"""Map integration related Pydantic model classes."""
+"""pyFAI integration related Pydantic model classes."""
 
 # System modules
-import copy
-from functools import cache
+from copy import deepcopy
 import os
-from typing import Literal, Optional
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
 from pydantic import (
     FilePath,
+    PrivateAttr,
     confloat,
     conint,
     conlist,
     constr,
     field_validator,
+    model_validator,
 )
-from pyFAI import load as pyfai_load
-from pyFAI.multi_geometry import MultiGeometry
-from pyFAI.units import AZIMUTHAL_UNITS, RADIAL_UNITS
+from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
 # Local modules
-from CHAP.models import CHAPBaseModel
+from CHAP import CHAPBaseModel
+from CHAP.common.models.map import Detector
 
-class Detector(CHAPBaseModel):
-    """Detector class to represent a single detector used in the
-    experiment.
 
-    :param prefix: Prefix of the detector in the SPEC file.
-    :type prefix: str
-    :param poni_file: Path to the poni file.
-    :type poni_file: str
-    :param mask_file: Optional path to the mask file.
-    :type mask_file: str, optional
+class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
+    """Azimuthal integrator configuration class to represent a single
+    detector used in the experiment.
+
+    :param mask_file: Path to the mask file.
+    :type mask_file: FilePath, optional
+    :param poni_file: Path to the PONI file, specify either `poni_file`
+        or `params`, not both.
+    :type poni_file: FilePath, optional
+    :param params: Azimuthal integrator configuration parameters,
+        specify either `poni_file` or `params`, not both.
+    :type params: dict, optional
     """
-    prefix: constr(strip_whitespace=True, min_length=1)
-    poni_file: FilePath
     mask_file: Optional[FilePath] = None
+    params: Optional[dict] = None
+    poni_file: Optional[FilePath] = None
 
-    @field_validator('poni_file')
+    _ai: AzimuthalIntegrator = PrivateAttr()
+
+    @model_validator(mode='before')
     @classmethod
-    def validate_poni_file(cls, poni_file):
-        """Validate the poni file by checking if it's a valid PONI
-        file.
+    def validate_root(cls, data):
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            mask_file = data.get('mask_file')
+            params = data.get('params')
+            poni_file = data.get('poni_file')
+            if mask_file is not None:
+                if inputdir is not None and not os.path.isabs(mask_file):
+                    data['mask_file'] = mask_file
+            if params is not None:
+                if poni_file is not None:
+                    print('Specify either poni_file or params, not both, '
+                          'ignoring poni_file')
+                    poni_file = None
+            elif poni_file is not None:
+                if inputdir is not None and not os.path.isabs(poni_file):
+                    data['poni_file'] = poni_file
+            else:
+                raise ValueError('Specify either poni_file or params')
+        return data
 
-        :param poni_file: Path to the poni file.
-        :type poni_file: str
-        :raises ValueError: If poni_file is not a valid PONI file.
-        :returns: Absolute path to the poni file.
-        :rtype: str
+    @model_validator(mode='after')
+    def validate_ai(self):
+        """Set the default azimuthal integrator.
+
+        :return: Validated configuration class.
+        :rtype: AzimuthalIntegratorConfig
         """
-        poni_file = os.path.abspath(poni_file)
-        try:
-            azimuthal_integrator(poni_file)
-        except Exception as exc:
-            raise ValueError(f'{poni_file} is not a valid PONI file') from exc
-        return poni_file
+        if self.params is not None:
+            self._ai = AzimuthalIntegrator(**self.params)
+        elif self.poni_file is not None:
+            # Third party modules
+            from pyFAI import load
 
-    @field_validator('mask_file')
-    @classmethod
-    def validate_mask_file(cls, mask_file, values):
-        """Validate the mask file. If a mask file is provided, it
-        checks if it's a valid TIFF file.
-
-        :param mask_file: Path to the mask file.
-        :type mask_file: str or None
-        :param values: A dictionary of the Detector fields.
-        :type values: dict
-        :raises ValueError: If mask_file is provided and it's not a
-            valid TIFF file.
-        :raises ValueError: If `'poni_file'` is not provided in
-            `values`.
-        :returns: Absolute path to the mask file or None.
-        :rtype: Union[str, None]
-        """
-        if mask_file is None:
-            return mask_file
-
-        mask_file = os.path.abspath(mask_file)
-        poni_file = values.get('poni_file')
-        if poni_file is None:
-            raise ValueError(
-                'Cannot validate mask file without a PONI file.')
-        try:
-            get_mask_array(mask_file, poni_file)
-        except BaseException as exc:
-            raise ValueError(
-                f'Unable to open {mask_file} as a TIFF file') from exc
-        return mask_file
+            self._ai = load(str(self.poni_file))
+            self.params = {
+                'detector': self._ai.detector.name,
+                'dist': self._ai.dist,
+                'poni1': self._ai.poni1,
+                'poni2': self._ai.poni2,
+                'rot1': self._ai.rot1,
+                'rot2': self._ai.rot2,
+                'rot3': self._ai.rot3,
+                'wavelength': self._ai.wavelength,
+            }
+        return self
 
     @property
-    def azimuthal_integrator(self):
-        """Return the azimuthal integrator associated with this
-        detector.
+    def ai(self):
+        """Return the azimuthal integrator."""
+        return self._ai
+
+
+class MultiGeometryConfig(CHAPBaseModel):
+    """Class representing the configuration for treating simultaneously
+    multiple detector configuration within a single integration
+
+    :ivar ais: List of detector IDs of azimuthal integrators.
+    :type ais: Union[str, list[str]]
+    :ivar azimuth_range: Common azimuthal range for integration,
+        defaults to `[-180.0, 180.0]`.
+    :type azimuth_range: Union(
+        list[float, float], tuple[float, float]), optional
+    :ivar radial_range: Common range for integration,
+        defaults to `[0.0, 180.0]`.
+    :type radial_range: Union(list[float, float],
+                              tuple[float, float]), optional
+    :ivar unit: Output unit, defaults to `'q_A^-1'`.
+    :type unit: str, optional
+    """
+    ais: conlist(
+        min_length=1, item_type=constr(min_length=1, strip_whitespace=True))
+    azimuth_range: Optional[
+        conlist(
+            min_length=2, max_length=2,
+            item_type=confloat(ge=-180, le=360, allow_inf_nan=False))
+        ] = [-180.0, 180.0]
+    radial_range: Optional[
+        conlist(
+            min_length=2, max_length=2,
+            item_type=confloat(ge=0, le=180, allow_inf_nan=False))
+        ] = [0.0, 180.0]
+    unit: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'q_A^-1'
+    chi_disc: Optional[int] = 180
+    empty: Optional[confloat(allow_inf_nan=False)] = 0.0
+    wavelength: Optional[confloat(allow_inf_nan=False)] = None
+
+    @field_validator('ais', mode='before')
+    @classmethod
+    def validate_ais(cls, ais):
+        """Validate the detector IDs of the azimuthal integrators.
+
+        :param ais: The detector IDs.
+        :type ais: str, list[str]
+        :return: The detector ais.
+        :rtype: list[str]
         """
-        return azimuthal_integrator(self.poni_file)
+        if isinstance(ais, str):
+            return [ais]
+        return ais
+
+#    @field_validator('radial_units')
+#    @classmethod
+#    def validate_radial_units(cls, radial_units):
+#        """Validate the radial units for the integration.
+#
+#        :param radial_units: Unvalidated radial units for the
+#            integration.
+#        :type radial_units: str
+#        :raises ValueError: If radial units are not one of the
+#            recognized radial units.
+#        :return: Validated radial units.
+#        :rtype: str
+#        """
+#        # Third party modules
+#        from pyFAI.units import RADIAL_UNITS
+#
+#        if radial_units in RADIAL_UNITS.keys():
+#            return radial_units
+#        else:
+#            raise ValueError(
+#                f'Invalid radial units: {radial_units}. Must be one of '
+#                ', '.join(RADIAL_UNITS.keys()))
+
+#    @field_validator('azimuthal_units')
+#    def validate_azimuthal_units(cls, azimuthal_units):
+#        """Validate that `azimuthal_units` is one of the keys in the
+#        `pyFAI.units.AZIMUTHAL_UNITS` dictionary.
+#
+#        :param azimuthal_units: The string representing the unit to be
+#            validated.
+#        :type azimuthal_units: str
+#        :raises ValueError: If `azimuthal_units` is not one of the
+#            keys in `pyFAI.units.AZIMUTHAL_UNITS`.
+#        :return: The original supplied value, if is one of the keys in
+#            `pyFAI.units.AZIMUTHAL_UNITS`.
+#        :rtype: str
+#        """
+#        # Third party modules
+#        from pyFAI.units import AZIMUTHAL_UNITS
+#
+#        if azimuthal_units in AZIMUTHAL_UNITS.keys():
+#            return azimuthal_units
+#        else:
+#            raise ValueError(
+#                f'Invalid azimuthal units: {azimuthal_units}. Must be one of '
+#                ', '.join(AZIMUTHAL_UNITS.keys()))
+
+
+class IntegrateConfig(CHAPBaseModel):
+    """Class with the input parameters to perform various integrations
+    with `pyFAI`.
+
+    :ivar error_model: When the variance is unknown, an error model
+        can be given (ignored for radial integration):
+        `poisson` (variance = I) or `azimuthal` (variance = (I-<I>)^2).
+    :type error_model: str, optional
+    """
+    # correctSolidAngle: true
+    # dark: None
+    error_model: Optional[constr(strip_whitespace=True, min_length=1)] = None
+    # filename: None
+    # flat: None
+    # mask: None
+    # metadata: None
+    # normalization_factor: Optional[confloat(allow_inf_nan=False)] = 1.0
+    # polarization_factor: None
+    # variance: None
+    attrs: Optional[dict] = {}
+
+
+class Integrate1dConfig(IntegrateConfig):
+    """Class with the input parameters to perform 1D azimuthal
+    integration with `pyFAI`.
+
+    :ivar method: For pyFAI.azimuthalIntegrator.AzimuthalIntegrator
+        a registered integration method or a 3-tuple (splitting,
+        algorithm, implementation), defaults to `csr`.
+        For pyFAI.multi_geometry.MultiGeometry a registered integration
+        method, defaults to `splitpixel`.
+    :type method: Union[str, tuple], optional
+    :ivar npt: Number of integration points, defaults to 1800.
+    :type npt: int, optional
+    """
+    method: Optional[Union[
+        str,
+        conlist(
+            min_length=3, max_length=3,
+            item_type=constr(strip_whitespace=True, min_length=1))]] = None
+    npt: Optional[conint(gt=0)] = 1800
+
+
+class Integrate2dConfig(IntegrateConfig):
+    """Class with the input parameters to perform 2D azimuthal (cake)
+    integration with `pyFAI`.
+
+    :ivar method: Registered integration method, defaults to `bbox`
+        for pyFAI.azimuthalIntegrator.AzimuthalIntegrator or
+        `splitpixel` for pyFAI.multi_geometry.MultiGeometry.
+    :type method: str, optional
+    :ivar npt_azim: Number of points for the integration in the
+        azimuthal direction, defaults to 3600.
+    :type npt_azim: int, optional
+    :ivar npt_rad: Number of points for the integration in the
+        radial direction, defaults to 1800.
+    :type npt_rad: int, optional
+    """
+    method: Optional[str] = None
+    npt_azim: Optional[conint(gt=0)] = 3600
+    npt_rad: Optional[conint(gt=0)] = 1800
+
+
+class IntegrateRadialConfig(IntegrateConfig, MultiGeometryConfig):
+    """Class with the input parameters to perform radial integration
+    with `pyFAI`.
+
+    :ivar method: Registered integration method, defaults to `csr`.
+    :type method: str, optional
+    :ivar radial_unit: Unit used for radial representation,
+        defaults to `'q_A^-1'`.
+    :type radial_unit: str, optional
+    :ivar npt: Number of integration points, defaults to 1800.
+    :type npt: int, optional
+    """
+    radial_unit: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'q_A^-1'
+    method: Optional[str] = 'csr'
+    npt: Optional[conint(gt=0)] = 1800
+
+
+class PyfaiIntegratorConfig(CHAPBaseModel):
+    """Class representing the configuration for detector data
+    integrator for `pyFAI`.
+
+    :ivar right_handed: For radial and cake integration, reverse the
+        direction of the azimuthal coordinate from pyFAI's convention,
+        defaults to True.
+    :type right_handed: bool, optional
+    """
+    name: constr(strip_whitespace=True, min_length=1)
+    integration_method: Literal[
+        'integrate1d', 'integrate2d', 'integrate_radial']
+    multi_geometry: Optional[MultiGeometryConfig] = None
+    integration_params: Optional[
+            Union[Integrate1dConfig, Integrate2dConfig, IntegrateRadialConfig]
+        ] = None
+    right_handed: bool = True
+
+    _placeholder_result: PrivateAttr = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_config(cls, data):
+        """Validate the input integration configuration.
+
+        :param data: Pydantic validator data object.
+        :type data: PyfaiIntegratorConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
+        :rtype: dict
+        """
+        integration_method = data.get('integration_method')
+        integration_params = data.get('integration_params')
+        multi_geometry = data.get('multi_geometry')
+        if integration_method == 'integrate1d':
+            if multi_geometry is None:
+                method = 'csr'
+            else:
+                method = 'splitpixel'
+            if integration_params is None:
+                data['integration_params'] = Integrate1dConfig(method=method)
+            else:
+                if integration_params.get('method') is None:
+                    integration_params['method'] = method
+                data['integration_params'] = Integrate1dConfig(
+                    **integration_params)
+        elif integration_method == 'integrate2d':
+            if multi_geometry is None:
+                method = 'bbox'
+            else:
+                method = 'splitpixel'
+            if integration_params is None:
+                data['integration_params'] = Integrate2dConfig(method=method)
+            else:
+                if integration_params.get('method') is None:
+                    integration_params['method'] = method
+                data['integration_params'] = Integrate2dConfig(
+                    **integration_params)
+        elif integration_method == 'integrate_radial':
+            data['integration_params'] = IntegrateRadialConfig(
+                    **integration_params)
+        if (integration_method != 'integrate_radial'
+                and 'multi_geometry' not in data):
+            mg = MultiGeometryConfig(**integration_params)
+            data['multi_geometry'] = mg
+            data['integration_params'].attrs.update(mg.model_dump(
+                include={'azimuth_range', 'radial_range',  'unit'}))
+
+        return data
 
     @property
-    def mask_array(self):
-        """Return the mask array assocated with this detector."""
-        return get_mask_array(self.mask_file, self.poni_file)
+    def result_shape(self):
+        if self.integration_method == 'integrate_radial':
+            return (self.integration_params.npt, )
+        elif self.integration_method == 'integrate1d':
+            return (self.integration_params.npt, )
+        elif self.integration_method == 'integrate2d':
+            return (self.integration_params.npt_azim,
+                    self.integration_params.npt_rad)
+        else:
+            raise NotImplementedError(
+                f'Unimplemented integration_method: {self.integration_method}')
 
-
-@cache
-def azimuthal_integrator(poni_file):
-    """Return the azimuthal integrator from a PONI file.
-
-    :param poni_file: Path to a PONI file.
-    :type poni_file: str
-    :return: Azimuthal integrator.
-    :rtype: pyFAI.azimuthal_integrator.AzimuthalIntegrator
-    """
-    if not isinstance(poni_file, str):
-        poni_file = str(poni_file)
-    return pyfai_load(poni_file)
-
-
-@cache
-def get_mask_array(mask_file, poni_file):
-    """Return a mask array associated with a detector loaded from a
-    tiff file.
-
-    :param mask_file: Path to a .tiff file.
-    :type mask_file: str
-    :param poni_file: Path to a PONI file.
-    :type poni_file: str
-    :return: The mask array loaded from `mask_file`.
-    :rtype: numpy.ndarray
-    """
-    if mask_file is not None:
+    @property
+    def result_coords(self):
         # Third party modules
-        from pyspec.file.tiff import TiffFile
+#        from nexusformat.nexus import NXfield
+#        from pyFAI.gui.utils.units import Unit
 
-        if not isinstance(mask_file, str):
-            mask_file = str(mask_file)
+#        print(f'\n\nself {type(self)}:\n{self}')
+#        exit(f"\n\ncoords {type(self._placeholder_result['coords'])}: {self._placeholder_result['coords']}\n\n")
+        if self._placeholder_result is None:
+            raise RuntimeError('Missing placeholder results')
+        return self._placeholder_result['coords']
+#        if ('azimuthal' in results
+#                and results['azimuthal']['unit'] == 'chi_deg'):
+#            chi = results['azimuthal']['coords']
+#            if self.right_handed:
+#                chi = -np.flip(chi)
+#                results['intensities'] = np.flip(
+#                    results['intensities'], (len(coords)))
+#            coords['chi'] = NXfield(chi, 'chi', attrs={'units': 'deg'})
+#        if results['radial']['unit'] == 'q_A^-1':
+#            unit = Unit.INV_ANGSTROM.symbol
+#            coords['q'] = NXfield(results['radial']['coords'], 'q',
+#                                  attrs={'units': unit})
+#        else:
+#            coords['r'] = NXfield(results['radial']['coords'], 'r',
+#                                  attrs={'units': '\u212b'})
+#        return coords
 
-        with TiffFile(mask_file) as tiff:
-            mask_array = tiff.asarray()
-    else:
-        mask_array = np.zeros(azimuthal_integrator(poni_file).detector.shape)
-    return mask_array
+    def get_axes_indices(self, dataset_ndims):
+        return {k: dataset_ndims + i
+                for i, k in enumerate(self.result_coords.keys())}
+
+    def get_placeholder_data(self, ais):
+        """Return empty input data of the correct shape for use in
+        `init_placeholder_data`.
+        """
+        if self.integration_method == 'integrate_radial':
+            return {ai:np.full(ais[ai].detector.shape, 0)
+                   for ai in self.integration_params.ais}
+        return {ai:np.full(ais[ai].detector.shape, 0)
+               for ai in self.multi_geometry.ais}
+
+    def init_placeholder_results(self, ais, masks=None):
+        """Get placeholder results for this integration so we can fill
+        in the datasets for results of coordinates when setting up a
+        zarr tree for holding results of
+        `saxswaxs.PyfaiIntegrationProcessor`.
+        """
+        self._placeholder_result = self.integrate(
+            ais, self.get_placeholder_data(ais), masks)
+
+    def integrate(self, ais, data, masks=None):
+        # Third party modules
+        from pyFAI.units import (
+            AZIMUTHAL_UNITS,
+            RADIAL_UNITS,
+            to_unit,
+        )
+
+        if self.integration_method == 'integrate_radial':
+            # Third party modules
+            from pyFAI.containers import Integrate1dResult
+
+#            print(f'\n\nais {type(ais)}:\n{ais}\n\n')
+#            print(f'\nself.multi_geometry: {self.multi_geometry}\n\n')
+#            print(f'\nself.integration_params: {self.integration_params}\n\n')
+            results = None
+            npts = []
+            for k, v in data.items():
+#                print(f'\t{v.shape} {v.sum()}')
+                if v.ndim == 2:
+                    data[k] = np.expand_dims(v, 0)
+                elif v.ndim != 3:
+                    raise ValueError(
+                        f'Illegal dimension for {k} data ({v.ndim})')
+                npts.append(data[k].shape[0])
+            if not all(n == npts[0] for n in npts):
+                raise RuntimeError('Different number of detector frames for '
+                                   f'each azimuthal integrator ({npts})')
+            npts = npts[0]
+            integration_params = self.integration_params.model_dump(
+                exclude={'ais', 'attrs', 'error_model', 'chi_disc', 'empty',
+                         'wavelength'})
+#            print(f'\nintegration_params: {integration_params}\n\n')
+            for name in self.integration_params.ais:
+                ai = ais[name]
+                if masks is None:
+                    lst_mask = None
+                else:
+                    lst_mask = masks[name]
+#                print(f'\n\nai {type(ai)}:\n{ai}\n')
+#                print(f'name: {name}\n')
+#                print(f'npts: {npts}\n')
+                _results = [
+                    ai.integrate_radial(
+                        data=data[name][i],
+                        mask=lst_mask,
+                        **integration_params)
+                    for i in range(npts)
+                ]
+#                print(f'\n\n_results {type(_results)}:\n{_results}\n\n')
+#                print(f'_results[0] {type(_results[0])}:\n{_results[0]}\n\n')
+                if results is None:
+                    results = _results
+                else:
+                    results = [
+                        Integrate1dResult(
+                            radial=_results[i].radial,
+                            intensity=
+                                _results[i].intensity + results[i].intensity)
+                        for i in range(npts)
+                    ]
+#                print(f'\n\nresults {type(results)}:\n{results}\n\n')
+#                print(f'results[0] {type(results[0])}:\n{results[0]}\n\n')
+            if self.right_handed:
+                results = [
+                    Integrate1dResult(
+                        radial=r.radial,
+                        intensity=np.flip(r.intensity)
+                    )
+                    for r in results
+                ]
+            results = [
+                Integrate1dResult(
+                    radial=r.radial,
+                    intensity=np.where(r.intensity==0, np.nan, r.intensity)
+                )
+                for r in results
+            ]
+#            print(f'\n\nresults {type(results)}:\n{results}\n\n')
+#            print(f'results[0] {type(results[0])}:\n{results[0]}\n\n')
+#            for i, v in enumerate(results):
+#                dummy = np.nan_to_num(v[1])
+#                print(f'\t{i} {dummy.shape} {dummy.sum()}')
+#            print('\n\n')
+            # Integrate1dResult's "radial" property is misleadingly
+            # named here. When using integrate_radial, the property
+            # actually contains azimuthal coordinate values.
+            azimuthal_unit = to_unit(
+                integration_params['unit'], type_=AZIMUTHAL_UNITS)
+            # pyFAI doesn't add the correct unit for chi_deg
+            if azimuthal_unit.name[-3:] == 'deg':
+                azimuthal_unit.unit_symbol = '$^{o}$'
+            coords = {
+                azimuthal_unit.name: {
+                    'attributes': {
+                        'units': azimuthal_unit.unit_symbol,
+                        'long_name': azimuthal_unit.label,
+                    },
+                    'data': results[0].radial,
+                    'shape': results[0].radial.shape,
+                    'dtype': 'float32',
+                },
+            }
+            results = {'intensities': [v.intensity for v in results],
+                       'coords': coords}
+#            print(f'\n\ncoords {type(coords)}:\n{coords}\n\n')
+#            print(f'results {type(results)}:\n{results}\n\n')
+        else:
+#            print(f'\n\nais {type(ais)}:\n{ais}\n\n')
+#            print(f'data {type(data)}:\n{data}\n\n')
+            npts = []
+            for k, v in data.items():
+#                print(f'\t{v.shape} {v.sum()}')
+                if v.ndim == 2:
+                    data[k] = np.expand_dims(v, 0)
+                elif v.ndim != 3:
+                    raise ValueError(
+                        f'Illegal dimension for {k} data ({v.ndim})')
+                npts.append(data[k].shape[0])
+            if not all(n == npts[0] for n in npts):
+                raise RuntimeError('Different number of detector frames for '
+                                   f'each azimuthal integrator ({npts})')
+            npts = npts[0]
+#            print(f'\n\ndata {type(data)}:\n{data}\n\n')
+#            print(f'\nself.multi_geometry: {self.multi_geometry}\n\n')
+#            print(f'\nnpts: {npts}\n\n')
+#            exit('Done')
+            if self.multi_geometry is None:
+                raise RuntimeError('self.multi_geometry is None')
+                if len(data) != 1:
+                    raise RuntimeError(
+                        'Multiple detector not tested without multi_geometry')
+                id = list(ais.keys())[0]
+                ai = list(ais.values())[0]
+                integration_method = getattr(ai, self.integration_method)
+                integration_params = self.integration_params.model_dump()
+                integration_params = {
+                    **integration_params, **integration_params['attrs']}
+                del integration_params['attrs']
+                raise RuntimeError(f'Check use of mask in integration_method')
+                if masks is None:
+                    results = [
+                        integration_method(data[id][i], **integration_params)
+                        for i in range(npts)
+                    ]
+                else:
+                    results = [
+                        integration_method(
+                            np.where(
+                                 masks[ai], 0, data[id][i].astype(np.float64),
+                            **integration_params))
+                        for i in range(npts)
+                    ]
+            else:
+                # Third party modules
+                from pyFAI.multi_geometry import MultiGeometry
+
+                mg = MultiGeometry(
+                    [ais[ai] for ai in self.multi_geometry.ais],
+                    **self.multi_geometry.model_dump(exclude={'ais'}))
+#                print(f'\nmg: {mg}\n\n')
+                integration_method = getattr(mg, self.integration_method)
+                if masks is None:
+                    lst_mask = None
+                else:
+                    lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
+#                print(f'\nlst_mask: {lst_mask}')
+#                print(f'\nself.integration_params {type(self.integration_params)}:\n{self.integration_params.model_dump(exclude="attrs")}')
+#                mask = np.asarray(lst_mask[0])
+#                print(f'\tmask:{type(mask)} {mask.dtype} {mask.shape} {mask.sum()}')
+#                dummy = data['PIL5']
+#                print(f'\n\nmasked data {type(dummy)}: {len(dummy)}')
+#                for d in dummy:
+#                    print(f'\t{d.shape} {d.sum()}')
+#                    dd = np.where(masks['PIL5'], 0, d.astype(np.float64))
+#                    print(f'\t{dd.shape} {dd.sum()}')
+#                print('\n\n')
+#                exit('Done')
+#                dummy = masks['PIL5']
+#                print(f'\n\nmask:\n{dummy}\n\n')
+#                masks = None
+#                print(f'\n\nmasks: {masks}\n\n')
+#                dummy = lst_mask
+#                exit(f'\n\ndummy:\n{dummy}')
+#                dummy = [data[ai][i].astype(np.float64)
+#                          for ai in self.multi_geometry.ais]
+#                exit(f'\n\ndummy:\n{dummy}')
+                results = [
+                    integration_method(
+                        [data[ai][i].astype(np.float64)
+                         for ai in self.multi_geometry.ais],
+                        lst_mask=lst_mask,
+                        **self.integration_params.model_dump(
+                            exclude='attrs'))
+                    for i in range(npts)
+                ]
+#                if masks is None:
+#                    results = [
+#                        integration_method(
+#                            [data[ai][i].astype(np.float64)
+#                             for ai in self.multi_geometry.ais],
+#                            lst_mask=lst_mask,
+#                            **self.integration_params.model_dump(
+#                                exclude='attrs'))
+#                        for i in range(npts)
+#                    ]
+#                else:
+#                    results = [
+#                        integration_method(
+#                            [np.where(
+#                                 masks[ai], np.nan, data[ai][i].astype(np.float64))
+#                                 masks[ai], 0, data[ai][i].astype(np.float64))
+#                             for ai in self.multi_geometry.ais],
+#                            [data[ai][i] for ai in self.multi_geometry.ais],
+#                            lst_mask=lst_mask,
+#                            **self.integration_params.model_dump(
+#                                exclude='attrs'))
+#                            normalization_factor=[8177142.28771039],
+#                            method=('bbox', 'csr', 'cython'),
+#                            **self.integration_params.model_dump(exclude={'normalization_factor', 'method'}))
+#                        for i in range(npts)
+#                    ]
+#                dummy = [[np.where(
+#                    masks[ai], np.nan, data[ai][i].astype(np.float64))
+#                    masks[ai], 0, data[ai][i].astype(np.float64))
+#                    for ai in self.multi_geometry.ais] for i in range(npts)]
+#                print(f'nan in data? {np.isnan(np.min(dummy))}')
+#            print(f'\n\nresults {type(results)}: {results}\n\n')
+#            dummy = [v.intensity for v in results]
+#            print(f'intensities {type(dummy)}: {len(dummy)}')
+#            for d in dummy:
+#                print(f'\t{d.shape} {d.sum()}')
+#            print('\n\n')
+#            exit('Done')
+            if isinstance(self.integration_params, Integrate1dConfig):
+                if self.multi_geometry is None:
+                    unit = integration_params['unit']
+                else:
+                    unit = self.multi_geometry.unit
+                radial_unit = to_unit(unit, type_=RADIAL_UNITS)
+                coords = {
+                    radial_unit.name: {
+                        'attributes': {
+                            'units': radial_unit.unit_symbol,
+                            'long_name': radial_unit.label,
+                        },
+                        'data': results[0].radial,
+                        'shape': results[0].radial.shape,
+                        'dtype': 'float32',
+                    },
+                }
+                results = {'intensities': [v.intensity for v in results],
+                           'coords': coords}
+            else:
+                # pyFAI doesn't add the correct unit for chi_deg
+                azimuthal_unit = deepcopy(results[0].azimuthal_unit)
+                if azimuthal_unit.name[-3:] == 'deg':
+                    azimuthal_unit.unit_symbol = '$^{o}$'
+                coords = {
+                    azimuthal_unit.name: {
+                        'attributes': {
+                            'units': azimuthal_unit.unit_symbol,
+                            'long_name': azimuthal_unit.label,
+                        },
+                        'data': results[0].azimuthal,
+                        'shape': results[0].azimuthal.shape,
+                        'dtype': 'float32',
+                    },
+                    results[0].radial_unit.name: {
+                        'attributes': {
+                            'units': results[0].radial_unit.unit_symbol,
+                            'long_name': results[0].radial_unit.label,
+                        },
+                        'data': results[0].radial,
+                        'shape': results[0].radial.shape,
+                        'dtype': 'float32',
+                    },
+                }
+                if self.right_handed:
+                    intensities = [
+                        np.flip(v.intensity, axis=0) for v in results]
+                else:
+                    intensities = [v.intensity for v in results]
+                results = {'intensities': intensities, 'coords': coords}
+#            print(f'coords {type(coords)}:\n{coords}\n\n')
+
+        return results
+
+    def zarr_tree(self, dataset_shape, dataset_chunks):
+        # Third party modules
+        import json
+
+        tree = {
+            # NXprocess
+            'attributes': {
+                'default': 'data',
+                # 'config': json.dumps(self.dict())
+            },
+            'children': {
+                'data': {
+                    # NXdata
+                    'attributes': {
+                        # 'axes': self.result_axes(),
+                        **self.get_axes_indices(len(dataset_shape))
+                    },
+                    'children': {
+                        'I': {
+                            # NXfield
+                            'attributes': {
+                                'long_name': 'Intensity (a.u)',
+                                'units': 'a.u'
+                            },
+                            'dtype': 'float64',
+                            'shape': (*dataset_shape, *self.result_shape),
+                            'chunks': (*dataset_chunks, *self.result_shape),
+                            'compressors': None,
+                        },
+                        **self.result_coords,
+                    }
+                }
+            }
+        }
+        return tree
 
 
-class IntegrationConfig(CHAPBaseModel):
-    """Class representing the configuration for a raw detector data
-    integration.
+class PyfaiIntegrationConfig(CHAPBaseModel):
+    azimuthal_integrators: Optional[conlist(
+        min_length=1, item_type=AzimuthalIntegratorConfig)] = None
+    integrations: conlist(min_length=1, item_type=PyfaiIntegratorConfig)
+    sum_axes: Optional[bool] = False
+    #sum_axes: Optional[
+    #    Union[bool, conlist(min_length=1, item_type=str)]] = False
 
-    :ivar tool_type: Integration tool type; always set to
-        `"integration"`.
-    :type tool_type: str, optional
-    :ivar title: Integration title.
-    :type title: str
-    :ivar integration_type: Integration type.
-    :type integration_type: Literal['azimuthal', 'radial', 'cake']
-    :ivar detectors: List of detectors used in the integration.
-    :type detectors: List[Detector]
-    :ivar radial_units: Radial units for the integration, defaults to
-        `'q_A^-1'`.
-    :type radial_units: str, optional
-    :ivar radial_min: Minimum radial value for the integration range.
-    :type radial_min: float, optional
-    :ivar radial_max: Maximum radial value for the integration range.
-    :type radial_max: float, optional
-    :ivar radial_npt: Number of points in the radial range for the
-        integration, defaults to `1800`.
-    :type radial_npt: int, optional
-    :ivar azimuthal_units: Azimuthal units for the integration,
-        defaults to `chi_deg`.
-    :type azimuthal_units: str, optional
-    :ivar azimuthal_min: Minimum azimuthal value for the integration
-        range, defaults to `-180`.
-    :type azimuthal_min: float, optional
-    :ivar azimuthal_max: Maximum azimuthal value for the integration
-        range, defaults to `180`.
-    :type azimuthal_max: float, optional
-    :ivar azimuthal_npt: Number of points in the azimuthal range for
-        the integration, defaults to `3600`.
-    :type azimuthal_npt: int, optional
-    :ivar error_model: Integration error model.
-    :type error_model: Literal['poisson', 'azimuthal'], optional
-    :ivar sequence_index: Sequence index for the correction NXprocess
-        object in the Nexus file.
-    :type sequence_index: int, optional
-    """
-    tool_type: Literal['integration'] = 'integration'
-    title: constr(strip_whitespace=True, min_length=1)
-    integration_type: Literal['azimuthal', 'radial', 'cake']
-    detectors: conlist(item_type=Detector, min_length=1)
-    radial_units: str = 'q_A^-1'
-    radial_min: confloat(ge=0)
-    radial_max: confloat(gt=0)
-    radial_npt: conint(gt=0) = 1800
-    azimuthal_units: str = 'chi_deg'
-    azimuthal_min: confloat(ge=-180) = -180
-    azimuthal_max: confloat(le=360) = 180
-    azimuthal_npt: conint(gt=0) = 3600
-    error_model: Optional[Literal['poisson', 'azimuthal']] = None
-    sequence_index: Optional[conint(gt=0)] = None
-
-    @field_validator('radial_units')
+    @model_validator(mode='before')
     @classmethod
-    def validate_radial_units(cls, radial_units):
-        """Validate the radial units for the integration.
+    def validate_config(cls, data):
+        """Ensure that a valid configuration was provided and finalize
+        PONI filepaths.
 
-        :param radial_units: Unvalidated radial units for the
-            integration.
-        :type radial_units: str
-        :raises ValueError: If radial units are not one of the
-            recognized radial units.
-        :return: Validated radial units.
-        :rtype: str
+        :param data: Pydantic validator data object.
+        :type data: GiwaxsConversionConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
+        :rtype: dict
         """
-        if radial_units in RADIAL_UNITS.keys():
-            return radial_units
-        raise ValueError(
-            f'Invalid radial units: {radial_units}. '
-            f'Must be one of {", ".join(RADIAL_UNITS.keys())}')
+        if isinstance(data, dict):
+            inputdir = data.get('inputdir')
+            if inputdir is not None and 'azimuthal_integrators' in data:
+                ais = data.get('azimuthal_integrators')
+                for i, ai in enumerate(deepcopy(ais)):
+                    if isinstance(ai, dict):
+                        poni_file = ai['poni_file']
+                        if not os.path.isabs(poni_file):
+                            ais[i]['poni_file'] = os.path.join(
+                                inputdir, poni_file)
+                    else:
+                        poni_file = ai.poni_file
+                        if not os.path.isabs(poni_file):
+                            ais[i].poni_file = os.path.join(
+                                inputdir, poni_file)
+                data['azimuthal_integrators'] = ais
+        return data
 
-    @field_validator('azimuthal_units')
-    @classmethod
-    def validate_azimuthal_units(cls, azimuthal_units):
-        """Validate that `azimuthal_units` is one of the keys in the
-        `pyFAI.units.AZIMUTHAL_UNITS` dictionary.
-
-        :param azimuthal_units: The string representing the unit to be
-            validated.
-        :type azimuthal_units: str
-        :raises ValueError: If `azimuthal_units` is not one of the
-            keys in `pyFAI.units.AZIMUTHAL_UNITS`.
-        :return: The original supplied value, if is one of the keys in
-            `pyFAI.units.AZIMUTHAL_UNITS`.
-        :rtype: str
+    def zarr_tree(self, dataset_shape, dataset_chunks):
+        """Return a dictionary representing a `zarr.group` that can be
+        used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
         """
-        if azimuthal_units in AZIMUTHAL_UNITS.keys():
-            return azimuthal_units
-        raise ValueError(
-            f'Invalid azimuthal units: {azimuthal_units}. '
-            f'Must be one of {", ".join(AZIMUTHAL_UNITS.keys())}')
-
-    def validate_range_max(range_name):
-        """Validate the maximum value of an integration range.
-
-        :param range_name: The name of the integration range
-            (e.g. radial, azimuthal).
-        :type range_name: str
-        :return: The callable that performs the validation.
-        :rtype: callable
-        """
-        def _validate_range_max(cls, range_max, info):
-            """Check if the maximum value of the integration range is
-            greater than its minimum value.
-
-            :param range_max: The maximum value of the integration
-                range.
-            :type range_max: float
-            :param info: Pydantic validator info object.
-            :type info: pydantic_core._pydantic_core.ValidationInfo
-            :raises ValueError: If the maximum value of the
-                integration range is not greater than its minimum
-                value.
-            :return: The validated maximum range value.
-            :rtype: float
-            """
-            range_min = info.data.get(f'{range_name}_min')
-            if range_min < range_max:
-                return range_max
-            raise ValueError(
-                'Maximum value of integration range must be '
-                'greater than minimum value of integration range '
-                f'({range_name}_min={range_min}).')
-        return _validate_range_max
-
-    _validate_radial_max = field_validator(
-        'radial_max')(validate_range_max('radial'))
-    _validate_azimuthal_max = field_validator(
-        'azimuthal_max')(validate_range_max('azimuthal'))
-
-    def validate_for_map_config(self, map_config):
-        """Validate the existence of the detector data file for all
-        scan points in `map_config`.
-
-        :param map_config: The `MapConfig` instance to validate
-            against.
-        :type map_config: MapConfig
-        :raises RuntimeError: If a detector data file could not be
-            found for a scan point occurring in `map_config`.
-        """
-        for detector in self.detectors:
-            for scans in map_config.spec_scans:
-                for scan_number in scans.scan_numbers:
-                    scanparser = scans.get_scanparser(scan_number)
-                    for scan_step_index in range(scanparser.spec_scan_npts):
-                        # Make sure the detector data file exists for
-                        # all scan points
-                        try:
-                            scanparser.get_detector_data_file(
-                                detector.prefix, scan_step_index)
-                        except Exception as exc:
-                            raise RuntimeError(
-                                'Could not find data file for detector prefix '
-                                f'{detector.prefix} '
-                                f'on scan number {scan_number} '
-                                f'in spec file {scans.spec_file}') from exc
-
-    def get_azimuthal_adjustments(self):
-        """To enable a continuous range of integration in the
-        azimuthal direction for radial and cake integration, obtain
-        adjusted values for this `IntegrationConfig`'s `azimuthal_min`
-        and `azimuthal_max` values, the angle amount by which those
-        values were adjusted, and the proper location of the
-        discontinuity in the azimuthal direction.
-
-        :return: Adjusted chi_min, adjusted chi_max, chi_offset,
-            chi_discontinuity.
-        :rtype: tuple[float, float, float, float]
-        """
-        return get_azimuthal_adjustments(
-            self.azimuthal_min, self.azimuthal_max)
-
-    def get_azimuthal_integrators(self):
-        """Get a list of `AzimuthalIntegrator`s that correspond to the
-        detector configurations in this instance of
-        `IntegrationConfig`.
-
-        The returned `AzimuthalIntegrator`s are (if need be)
-        artificially rotated in the azimuthal direction to achieve a
-        continuous range of integration in the azimuthal direction.
-
-        :returns: A list of `AzimuthalIntegrator`s appropriate for use
-            by this `IntegrationConfig` tool.
-        :rtype: list[pyFAI.azimuthalIntegrator.AzimuthalIntegrator]
-        """
-        chi_offset = self.get_azimuthal_adjustments()[2]
-        return get_azimuthal_integrators(
-            tuple([detector.poni_file for detector in self.detectors]),
-            chi_offset=chi_offset)
-
-    def get_multi_geometry_integrator(self):
-        """Get a `MultiGeometry` integrator suitable for use by this
-        instance of `IntegrationConfig`.
-
-        :return: A `MultiGeometry` integrator.
-        :rtype: pyFAI.multi_geometry.MultiGeometry
-        """
-        poni_files = tuple([detector.poni_file for detector in self.detectors])
-        radial_range = (self.radial_min, self.radial_max)
-        azimuthal_range = (self.azimuthal_min, self.azimuthal_max)
-        return get_multi_geometry_integrator(poni_files, self.radial_units,
-                                             radial_range, azimuthal_range)
-
-    def get_azimuthally_integrated_data(
-            self, spec_scans, scan_number, scan_step_index):
-        """Return azimuthally-integrated data for the scan step
-        specified.
-
-        :param spec_scans: An instance of `SpecScans` containing the
-            scan step requested.
-        :type spec_scans: SpecScans
-        :param scan_number: The number of the scan containing the scan
-            step requested.
-        :type scan_number: int
-        :param scan_step_index: The index of the scan step requested.
-        :type scan_step_index: int
-        :return: A 1D array of azimuthally-integrated raw detector
-            intensities.
-        :rtype: np.ndarray
-        """
-        detector_data = spec_scans.get_detector_data(self.detectors,
-                                                     scan_number,
-                                                     scan_step_index)
-        integrator = self.get_multi_geometry_integrator()
-        lst_mask = [detector.mask_array for detector in self.detectors]
-        result = integrator.integrate1d(detector_data,
-                                        lst_mask=lst_mask,
-                                        npt=self.radial_npt,
-                                        error_model=self.error_model)
-        if result.sigma is None:
-            return result.intensity
-        return result.intensity, result.sigma
-
-    def get_radially_integrated_data(
-            self, spec_scans, scan_number, scan_step_index):
-        """Return radially-integrated data for the scan step
-        specified.
-
-        :param spec_scans: An instance of `SpecScans` containing the
-            scan step requested.
-        :type spec_scans: SpecScans
-        :param scan_number: The number of the scan containing the scan
-            step requested.
-        :type scan_number: int
-        :param scan_step_index: The index of the scan step requested.
-        :type scan_step_index: int
-        :return: A 1D array of radially-integrated raw detector
-            intensities.
-        :rtype: np.ndarray
-        """
-        # Handle idiosyncracies of azimuthal ranges in pyFAI Adjust
-        # chi ranges to get a continuous range of iintegrated data
-        chi_min, chi_max, *adjust = self.get_azimuthal_adjustments()
-        # Perform radial integration on a detector-by-detector basis.
-        intensity_each_detector = []
-        variance_each_detector = []
-        integrators = self.get_azimuthal_integrators()
-        for integrator, detector in zip(integrators, self.detectors):
-            detector_data = spec_scans.get_detector_data(
-                [detector], scan_number, scan_step_index)[0]
-            result = integrator.integrate_radial(
-                detector_data,
-                self.azimuthal_npt,
-                unit=self.azimuthal_units,
-                azimuth_range=(chi_min, chi_max),
-                radial_unit=self.radial_units,
-                radial_range=(self.radial_min, self.radial_max),
-                mask=detector.mask_array)  # , error_model=self.error_model)
-            intensity_each_detector.append(result.intensity)
-            if result.sigma is not None:
-                variance_each_detector.append(result.sigma**2)
-        # Add the individual detectors' integrated intensities
-        # together
-        intensity = np.nansum(intensity_each_detector, axis=0)
-        # Ignore data at values of chi for which there was no data
-        intensity = np.where(intensity == 0, np.nan, intensity)
-        if len(intensity_each_detector) != len(variance_each_detector):
-            return intensity
-
-        # Get the standard deviation of the summed detectors'
-        # intensities
-        sigma = np.sqrt(np.nansum(variance_each_detector, axis=0))
-        return intensity, sigma
-
-    def get_cake_integrated_data(
-            self, spec_scans, scan_number, scan_step_index):
-        """Return cake-integrated data for the scan step specified.
-
-        :param spec_scans: An instance of `SpecScans` containing the
-            scan step requested.
-        :type spec_scans: SpecScans
-        :param scan_number: The number of the scan containing the scan
-            step requested.
-        :type scan_number: int
-        :param scan_step_index: The index of the scan step requested.
-        :type scan_step_index: int
-        :return: A 2D array of cake-integrated raw detector
-            intensities.
-        :rtype: np.ndarray
-        """
-        detector_data = spec_scans.get_detector_data(
-            self.detectors, scan_number, scan_step_index)
-        integrator = self.get_multi_geometry_integrator()
-        lst_mask = [detector.mask_array for detector in self.detectors]
-        result = integrator.integrate2d(
-            detector_data,
-            lst_mask=lst_mask,
-            npt_rad=self.radial_npt,
-            npt_azim=self.azimuthal_npt,
-            method='bbox',
-            error_model=self.error_model)
-        if result.sigma is None:
-            return result.intensity
-        return result.intensity, result.sigma
-
-    def get_integrated_data(
-            self, spec_scans, scan_number, scan_step_index):
-        """Return integrated data for the scan step specified.
-
-        :param spec_scans: An instance of `SpecScans` containing the
-            scan step requested.
-        :type spec_scans: SpecScans
-        :param scan_number: The number of the scan containing the scan
-            step requested.
-        :type scan_number: int
-        :param scan_step_index: The index of the scan step requested.
-        :type scan_step_index: int
-        :return: An array of integrated raw detector intensities.
-        :rtype: np.ndarray
-        """
-        if self.integration_type == 'azimuthal':
-            return self.get_azimuthally_integrated_data(spec_scans,
-                                                        scan_number,
-                                                        scan_step_index)
-        if self.integration_type == 'radial':
-            return self.get_radially_integrated_data(spec_scans,
-                                                     scan_number,
-                                                     scan_step_index)
-        if self.integration_type == 'cake':
-            return self.get_cake_integrated_data(spec_scans,
-                                                 scan_number,
-                                                 scan_step_index)
-        return None
-
-    @property
-    def integrated_data_coordinates(self):
-        """Return a dictionary of coordinate arrays for navigating the
-        dimension(s) of the integrated data produced by this instance
-        of `IntegrationConfig`.
-
-        :return: A dictionary with either one or two keys: 'azimuthal'
-            and/or 'radial', each of which points to a 1-D `numpy`
-            array of coordinate values.
-        :rtype: dict[str, np.ndarray]
-        """
-        if self.integration_type == 'azimuthal':
-            return get_integrated_data_coordinates(
-                radial_range=(self.radial_min, self.radial_max),
-                radial_npt=self.radial_npt)
-        if self.integration_type == 'radial':
-            return get_integrated_data_coordinates(
-                azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
-                azimuthal_npt=self.azimuthal_npt)
-        if self.integration_type == 'cake':
-            return get_integrated_data_coordinates(
-                radial_range=(self.radial_min, self.radial_max),
-                radial_npt=self.radial_npt,
-                azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
-                azimuthal_npt=self.azimuthal_npt)
-
-    @property
-    def integrated_data_dims(self):
-        """Return a tuple of the coordinate labels for the integrated
-        data produced by this instance of `IntegrationConfig`.
-        """
-        directions = list(self.integrated_data_coordinates.keys())
-        dim_names = [getattr(self, f'{direction}_units')
-                     for direction in directions]
-        return dim_names
-
-    @property
-    def integrated_data_shape(self):
-        """Return a tuple representing the shape of the integrated
-        data produced by this instance of `IntegrationConfig` for a
-        single scan step.
-        """
-        return tuple([len(coordinate_values)
-                      for coordinate_name, coordinate_values
-                      in self.integrated_data_coordinates.items()])
-
-
-@cache
-def get_azimuthal_adjustments(chi_min, chi_max):
-    """Fix chi discontinuity at 180 degrees and return the adjusted
-    chi range, offset, and discontinuity.
-
-    If the discontinuity is crossed, obtain the offset to artificially
-    rotate detectors to achieve a continuous azimuthal integration
-    range.
-
-    :param chi_min: The minimum value of the azimuthal range.
-    :type chi_min: float
-    :param chi_max: The maximum value of the azimuthal range.
-    :type chi_max: float
-    :return: The following four values: the adjusted minimum value of
-        the azimuthal range, the adjusted maximum value of the
-        azimuthal range, the value by which the chi angle was
-        adjusted, the position of the chi discontinuity.
-    :rtype: tuple[float, float, float, float]
-    """
-    # Fix chi discontinuity at 180 degrees for now.
-    chi_disc = 180
-    # If the discontinuity is crossed, artificially rotate the
-    # detectors to achieve a continuous azimuthal integration range
-    if chi_min < chi_disc < chi_max:
-        chi_offset = chi_max - chi_disc
-    else:
-        chi_offset = 0
-    return chi_min-chi_offset, chi_max-chi_offset, chi_offset, chi_disc
-
-
-@cache
-def get_azimuthal_integrators(poni_files, chi_offset=0):
-    """Return a list of `AzimuthalIntegrator` objects generated from
-    PONI files.
-
-    :param poni_files: Tuple of strings, each string being a path to a
-        PONI file.
-    :type poni_files: tuple
-    :param chi_offset: The angle in degrees by which the
-        `AzimuthalIntegrator` objects will be rotated, defaults to `0`.
-    :type chi_offset: float, optional
-    :return: List of `AzimuthalIntegrator` objects.
-    :rtype: list[pyFAI.azimuthalIntegrator.AzimuthalIntegrator]
-    """
-    ais = []
-    for poni_file in poni_files:
-        ai = copy.deepcopy(azimuthal_integrator(poni_file))
-        ai.rot3 += chi_offset * np.pi/180
-        ais.append(ai)
-    return ais
-
-
-@cache
-def get_multi_geometry_integrator(
-        poni_files, radial_unit, radial_range, azimuthal_range):
-    """Return a `MultiGeometry` instance that can be used for
-    azimuthal or cake integration.
-
-    :param poni_files: Tuple of PONI files that describe the detectors
-        to be integrated.
-    :type poni_files: tuple
-    :param radial_unit: Unit to use for radial integration range.
-    :type radial_unit: str
-    :param radial_range: Tuple describing the range for radial
-        integration.
-    :type radial_range: tuple[float, float]
-    :param azimuthal_range:Tuple describing the range for azimuthal
-        integration.
-    :type azimuthal_range: tuple[float, float]
-    :return: `MultiGeometry` instance that can be used for azimuthal
-        or cake integration.
-    :rtype: pyFAI.multi_geometry.MultiGeometry
-    """
-    chi_min, chi_max, chi_offset, chi_disc = \
-        get_azimuthal_adjustments(*azimuthal_range)
-    ais = copy.deepcopy(get_azimuthal_integrators(poni_files,
-                                                  chi_offset=chi_offset))
-    multi_geometry = MultiGeometry(
-        ais,
-        unit=radial_unit,
-        radial_range=radial_range,
-        azimuth_range=(chi_min, chi_max),
-        wavelength=sum([ai.wavelength for ai in ais])/len(ais),
-        chi_disc=chi_disc)
-    return multi_geometry
-
-
-@cache
-def get_integrated_data_coordinates(
-        azimuthal_range=None, azimuthal_npt=None, radial_range=None,
-        radial_npt=None):
-    """Return a dictionary of coordinate arrays for the specified
-    radial and/or azimuthal integration ranges.
-
-    :param azimuthal_range: Tuple specifying the range of azimuthal
-        angles over which to generate coordinates, in the format (min,
-        max).
-    :type azimuthal_range: tuple[float, float], optional
-    :param azimuthal_npt: Number of azimuthal coordinate points to
-        generate.
-    :type azimuthal_npt: int, optional
-    :param radial_range: Tuple specifying the range of radial
-        distances over which to generate coordinates, in the format
-        (min, max).
-    :type radial_range: tuple[float, float], optional
-    :param radial_npt: Number of radial coordinate points to generate.
-    :type radial_npt: int, optional
-    :return: A dictionary with either one or two keys: 'azimuthal'
-        and/or 'radial', each of which points to a 1-D `numpy` array
-        of coordinate values.
-    :rtype: dict[str, np.ndarray]
-    """
-    integrated_data_coordinates = {}
-    if azimuthal_range is not None and azimuthal_npt is not None:
-        integrated_data_coordinates['azimuthal'] = np.linspace(
-            *azimuthal_range, azimuthal_npt)
-    if radial_range is not None and radial_npt is not None:
-        integrated_data_coordinates['radial'] = np.linspace(
-            *radial_range, radial_npt)
-    return integrated_data_coordinates
+        ais = {ai.id: ai.ai for ai in self.azimuthal_integrators}
+        for integration in self.integrations:
+            integration.init_placeholder_results(ais)
+        tree = {
+            'root': {
+                'attributes': {
+                    'description': 'Container for processed SAXS/WAXS data'
+                },
+                'children': {
+                    integration.name: integration.zarr_tree(
+                        dataset_shape, dataset_chunks)
+                    for integration in self.integrations
+                }
+            }
+        }
+        return tree
