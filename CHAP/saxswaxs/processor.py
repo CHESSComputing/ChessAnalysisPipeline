@@ -8,7 +8,26 @@ from CHAP import Processor
 class PyfaiIntegrationProcessor(Processor):
     """Processor for performing pyFAI integrations."""
     def process(self, data, config=None,
-                idx_slices=[{'start':0, 'end': -1, 'step': 1}]):
+                idx_slices=[{'start':0, 'stop': -1, 'step': 1}]):
+        """Perform a set of integrations on 2D detector data.
+
+        :param data: input 2D detector data
+        :type data: list[PipelineData]
+        :param config: Configuration parameters for a
+            `saxswaxs.models.PyfaiIntegrationProcessorConfig` object
+            (_or_ the configuration may be supplied as an item in the
+            input `data` list), optional
+        :type config: dict, defaults to `None`.
+        :param idx_slices: List of dicionaries identifying the sliced
+            index at which the output data should be written in a
+            dataset. Optional.
+        :type idx_slices: list[dict[str, int]], defaults to
+        `[{'start':0, 'stop': -1, 'step': 1}]`
+        :return: List of dictionaries ready for use with
+            `saxswaxs.ZarrResultsWriter` or
+            `saxswaxs.NexusResultsWriter`.
+        :rtype: list[dict[str, object]]
+        """
         import time
 
         # Get config for PyfaiIntegrationProcessor from data or config
@@ -26,20 +45,20 @@ class PyfaiIntegrationProcessor(Processor):
                 config = PyfaiIntegrationProcessorConfig(**config)
             except Exception as exc:
                 self.logger.error(exc)
-                raise RuntimeError(exc)
+                raise RuntimeError(exc) from exc
 
         # Organize input for integrations
         input_data = {d['name']: d['data'] for d in data}
-        ais = {ai.name: ai.ai for ai in config.azimuthal_integrators}
+        ais = {ai.name: ai for ai in config.azimuthal_integrators}
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
-                     idx_slice.get('end'),
+                     idx_slice.get('stop'),
                      idx_slice.get('step')) for idx_slice in idx_slices)
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
         nframes = len(input_data[list(input_data.keys())[0]])
-        for i, integration in enumerate(config.integrations):
+        for integration in config.integrations:
             t0 = time.time()
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
@@ -52,16 +71,211 @@ class PyfaiIntegrationProcessor(Processor):
                     {
                         'path': f'{integration.name}/data/I',
                         'idx': idx,
-                        'data': np.asarray([[r.intensity for r in result]]),
+                        'data': np.asarray([r.intensity for r in result]),
                     },
                 ]
             )
-#RV
-#            from nexusformat.nexus import NXdata, NXfield
-#            return NXdata(
-#                NXfield(np.asarray([r.intensity for r in result]), 'I'),
-#                NXfield(np.asarray(result[0].radial), 'q'))
         return results
+
+
+class SetupResultsProcessor(Processor):
+    """Processor for creating an intital zarr structure with empty datasets
+    for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
+    `common.ZarrValuesWriter`.
+    """
+    def process(self, data, dataset_shape, dataset_chunks):
+        """Return a `zarr.group` to hold processed SAXS/WAXS data
+        processed by `saxswaxs.PyfaiIntegrationProcessor`.
+
+        :param data:
+        `'saxswaxs.models.PyfaiIntegrationProcessorConfig`
+        configuration which will be used to process the data later on.
+        :type data: list[PipelineData]
+        :param dataset_shape: Shape of the completed dataset that will
+            be processed later on (shape of the measurement itself,
+            _not_ including the dimensions of any signals collected at
+            each point in that measurement).
+        :type dataset_shape: list[int]
+        :param dataset_chunks: Extent of chunks along each dimension
+            of the completed dataset / measurement. Choose this
+            according to how you will process your data -- for
+            example, if your `dataset_shape` is `[m, n]`, and you are
+            planning to process each of the `m` rows as chunks,
+            `dataset_chunks` should be `[1, n]`. But if you plan to
+            process each of the `n` columns as chunks,
+            `dataset_chunks` should be `[m, 1]`.
+        :type dataset_chunks: list[int]
+        :return: Empty structure for filling in SAXS/WAXS data
+        :rtype: zarr.group
+        """
+        # Get PyfaiIntegrationProcessorConfig
+        try:
+            config = self.get_config(
+                data=data,
+                schema='saxswaxs.models.PyfaiIntegrationProcessorConfig')
+        except:
+            self.logger.info(
+                'No valid PyfaiIntegrationProcessorConfig in input '
+                'pipeline data, using config parameter instead')
+            try:
+                from CHAP.saxswaxs.models import (
+                    PyfaiIntegrationProcessorConfig)
+                config = PyfaiIntegrationProcessorConfig(**config)
+            except Exception as exc:
+                raise RuntimeError from exc
+        # Get zarr tree as dict from the
+        # PyfaiIntegrationProcessorConfig
+        tree = config.zarr_tree(dataset_shape, dataset_chunks)
+        # Construct & return the root zarr.group
+        return self.zarr_setup(tree)
+
+    def zarr_setup(self, tree):
+        """Return a `zarr.group` based on a
+        dictionary representing a zarr tree of groups and arrays.
+
+        :param tree: Nested dictionary representing a zarr tree of
+            groups and arrays.
+        :type tree: dict[str, object]
+        :return: Zarr group corresponding to the contents of `tree`.
+        :rtype: zarr.group
+        """
+        import zarr
+        from zarr.storage import MemoryStore
+
+        def create_group_or_dataset(node, zarr_parent, indent=0):
+            # Set attributes if present
+            if 'attributes' in node:
+                for key, value in node['attributes'].items():
+                    zarr_parent.attrs[key] = value
+            # Create children (groups or datasets)
+            if 'children' in node:
+                for name, child in node['children'].items():
+                    if 'shape' in child or 'data' in child:
+                        # It's a dataset
+                        self.logger.debug(f'Adding dset: {name}')
+                        zarr_parent.create_dataset(
+                            name,
+                            **child,
+                        )
+                        # Set dataset attributes
+                        if 'attributes' in child:
+                            for key, value in child['attributes'].items():
+                                zarr_parent[name].attrs[key] = value
+                    else:
+                        # It's a group
+                        group = zarr_parent.create_group(name)
+                        create_group_or_dataset(child, group, indent=indent+2)
+        results = zarr.create_group(store=MemoryStore({}))
+        create_group_or_dataset(tree['root'], results)
+        return results
+
+
+class SetupProcessor(Processor):
+    """Convenience Processor for setting up a container for SAXS/WAXS
+    experiments.
+    """
+    def process(self, data, dataset_shape, dataset_chunks, detectors):
+        import asyncio
+        import logging
+        import zarr
+        from zarr.core.buffer import default_buffer_prototype
+        from zarr.storage import MemoryStore
+
+        from CHAP.common import MapProcessor, NexusToZarrProcessor
+        from CHAP.saxswaxs import SetupResultsProcessor
+
+        def set_logger(pipeline_item):
+            pipeline_item.logger = self.logger
+            pipeline_item.logger.name = pipeline_item.__class__.__name__
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '{asctime}: {name:20} (from '+ self.__class__.__name__
+                + '): {levelname}: {message}',
+                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.addHandler(handler)
+            return pipeline_item
+
+        # Get NXroot container for raw data map
+        setup_map_processor = set_logger(MapProcessor())
+        nxmap = setup_map_processor.execute(
+            data=data, detectors=detectors, fill_data=False)
+
+        # Convert raw data map container to zarr format
+        nxmap_converter = set_logger(NexusToZarrProcessor())
+        zarr_map = nxmap_converter.process(nxmap, chunks=dataset_chunks)
+
+        # Get zarr container for integration results
+        setup_results_processor = set_logger(SetupResultsProcessor())
+        zarr_results = setup_results_processor.process(
+            data, dataset_shape, dataset_chunks)
+
+        # Assemble containers for raw & processed data
+        zarr_root = zarr.create_group(store=MemoryStore({}))
+        async def copy_zarr_store(source_store, dest_store):
+            async for k in source_store.list():
+                self.logger.info(f'Copying {k}')
+                buf = await source_store.get(
+                    k, prototype=default_buffer_prototype())
+                await dest_store.set(k, buf)
+        asyncio.run(copy_zarr_store(zarr_map.store, zarr_root.store))
+        asyncio.run(copy_zarr_store(zarr_results.store, zarr_root.store))
+        return zarr_root
+
+
+class UpdateValuesProcessor(Processor):
+    """Processes a slice of data for updating values in an existing
+    container for a SAXS/WAXS experiment.
+    """
+    def process(self, data, spec_file, scan_number,
+                idx_slice={'start': 0, 'stop': -1, 'step': 1},
+                detectors=None, config=None, inputdir='.'):
+        # Get updates with MapSliceProcessor
+        # Pass detector data to PyfaiIntegration processor
+        # Concatenate & return results
+        import logging
+        import os
+
+        from CHAP.common import MapSliceProcessor
+        from CHAP.pipeline import PipelineData
+        from CHAP.saxswaxs import PyfaiIntegrationProcessor
+
+        def set_logger(pipeline_item):
+            pipeline_item.logger = self.logger
+            pipeline_item.logger.name = pipeline_item.__class__.__name__
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '{asctime}: {name:20} (from '+ self.__class__.__name__
+                + '): {levelname}: {message}',
+                datefmt='%Y-%m-%d %H:%M:%S', style='{'))
+            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.addHandler(handler)
+            return pipeline_item
+
+        # Read in slice of raw data
+        raw_values = set_logger(MapSliceProcessor()).process(
+            data, spec_file, scan_number, idx_slice=idx_slice,
+            detectors=detectors, config=config, inputdir=inputdir)
+
+        def get_detector_data(values, name):
+            for v in values:
+                if os.path.basename(v['path']) == name:
+                    return v['data']
+            return None
+
+        # Use raw detector data as input to integration
+        for d in detectors:
+            data.append(
+                PipelineData(
+                    name=d['id'],
+                    data=get_detector_data(raw_values, d['id']),
+                )
+            )
+        # Get integrated data
+        processed_values = set_logger(PyfaiIntegrationProcessor()).process(
+            data, idx_slices=[idx_slice])
+
+        return raw_values + processed_values
 
 
 if __name__ == '__main__':

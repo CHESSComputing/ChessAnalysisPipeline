@@ -100,6 +100,11 @@ class DetectorDataReader(Reader):
         else:
             background_data = None
 
+        # Handle mask_value of NaN
+        if isinstance(mask_value, str):
+            if mask_value.lower() == 'nan':
+                mask_value = np.nan
+
         # Scale data, apply mask, subtract background
         self.logger.info('Applying corrections to raw data')
         corrected_data = self.correct_data(

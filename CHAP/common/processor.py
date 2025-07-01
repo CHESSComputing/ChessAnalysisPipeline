@@ -1218,7 +1218,8 @@ class MapProcessor(Processor):
     scalar-valued raw data requested by the supplied map configuration.
     """
     def process(
-            self, data, config=None, detectors=None, placeholder_data=False,
+            self, data, config=None, detectors=None,
+            fill_data=True, placeholder_data=False,
             num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
@@ -1235,6 +1236,9 @@ class MapProcessor(Processor):
             returned NeXus NXentry object (overruling the detector
             info in data, if present).
         :type detectors: list[dict], optional
+        :param fill_data: Flag to indicate whether or not to fill out
+            datasets with real data, optional.
+        :type fill_data: bool, defaults to `True`
         :param placeholder_data: For SMB EDD maps only. Value to use
             for missing detector data frames, or `False` if missing
             data should raise an error, defaults to `False`.
@@ -1283,141 +1287,179 @@ class MapProcessor(Processor):
             except Exception as exc:
                 raise RuntimeError from exc
 
-        # Validate the number of processors
-        if not isinstance(num_proc, int):
-            self.logger.warning('Ignoring invalid parameter num_proc '
-                                f'({num_proc}), running serially')
-            num_proc = 1
-        elif num_proc > 1:
-            try:
-                # System modules
-                from os import cpu_count
-
-                # Third party modules
-                from mpi4py import MPI
-
-                if num_proc > cpu_count():
-                    self.logger.warning(
-                        f'The requested number of processors ({num_proc}) '
-                        'exceeds the maximum number of processors '
-                        f'({cpu_count()}): reset it to {cpu_count()}')
-                    num_proc = cpu_count()
-            except:
-                self.logger.warning('Unable to load mpi4py, running serially')
+        if fill_data:
+            # Validate the number of processors
+            if not isinstance(num_proc, int):
+                self.logger.warning('Ignoring invalid parameter num_proc '
+                                    f'({num_proc}), running serially')
                 num_proc = 1
-        self.logger.debug(f'Number of processors: {num_proc}')
+            elif num_proc > 1:
+                try:
+                    # System modules
+                    from os import cpu_count
 
-        # Create the sub-pipeline configuration for each processor
-        # FIX: catered to EDD with one spec scan
-        assert len(map_config.spec_scans) == 1
-        spec_scans = map_config.spec_scans[0]
-        scan_numbers = spec_scans.scan_numbers
-        num_scan = len(scan_numbers)
-        if num_scan < num_proc:
-            self.logger.warning(
-                f'The requested number of processors ({num_proc}) exceeds '
-                f'the number of scans ({num_scan}): reset it to {num_scan}')
-            num_proc = num_scan
-        if num_proc == 1:
-            common_comm = comm
-            offsets = [0]
-        else:
-            scans_per_proc = num_scan//num_proc
-            num = scans_per_proc
-            if num_scan - scans_per_proc*num_proc > 0:
-                num += 1
-            spec_scans.scan_numbers = scan_numbers[:num]
-            n_scan = num
-            pipeline_config = []
-            offsets = [0]
-            for n_proc in range(1, num_proc):
+                    # Third party modules
+                    from mpi4py import MPI
+
+                    if num_proc > cpu_count():
+                        self.logger.warning(
+                            f'The requested number of processors ({num_proc}) '
+                            'exceeds the maximum number of processors '
+                            f'({cpu_count()}): reset it to {cpu_count()}')
+                        num_proc = cpu_count()
+                except:
+                    self.logger.warning(
+                        'Unable to load mpi4py, running serially')
+                    num_proc = 1
+            self.logger.debug(f'Number of processors: {num_proc}')
+
+            # Create the sub-pipeline configuration for each processor
+            # FIX: catered to EDD with one spec scan
+            assert len(map_config.spec_scans) == 1
+            spec_scans = map_config.spec_scans[0]
+            scan_numbers = spec_scans.scan_numbers
+            num_scan = len(scan_numbers)
+            if num_scan < num_proc:
+                self.logger.warning(
+                    f'The requested number of processors ({num_proc}) exceeds '
+                    f'the number of scans ({num_scan}): '
+                    f'reset it to {num_scan}')
+                num_proc = num_scan
+            if num_proc == 1:
+                common_comm = comm
+                offsets = [0]
+            else:
+                scans_per_proc = num_scan//num_proc
                 num = scans_per_proc
-                if n_proc < num_scan - scans_per_proc*num_proc:
+                if num_scan - scans_per_proc*num_proc > 0:
                     num += 1
-                config = map_config.model_dump()
-                config['spec_scans'][0]['scan_numbers'] = \
-                    scan_numbers[n_scan:n_scan+num]
-                pipeline_config.append(
-                    [{'common.MapProcessor': {
-                        'config': config,
-                        'detectors': [
-                            d.model_dump() for d in detector_config.detectors],
-                     }}])
-                offsets.append(n_scan)
-                n_scan += num
-
-            # Spawn the workers to run the sub-pipeline
-            run_config = RunConfig(
-                log_level=logging.getLevelName(self.logger.level), spawn=1)
-            tmp_names = []
-            with NamedTemporaryFile(delete=False) as fp:
-                fp_name = fp.name
-                tmp_names.append(fp_name)
-                with open(fp_name, 'w') as f:
-                    yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
+                spec_scans.scan_numbers = scan_numbers[:num]
+                n_scan = num
+                pipeline_config = []
+                offsets = [0]
                 for n_proc in range(1, num_proc):
-                    f_name = f'{fp_name}_{n_proc}'
-                    tmp_names.append(f_name)
-                    with open(f_name, 'w') as f:
-                        yaml.dump(
-                            {'config': run_config.model_dump(),
-                             'pipeline': pipeline_config[n_proc-1]},
-                            f, sort_keys=False)
-                sub_comm = MPI.COMM_SELF.Spawn(
-                    'CHAP', args=[fp_name], maxprocs=num_proc-1)
-                common_comm = sub_comm.Merge(False)
-                # Align with the barrier in RunConfig() on common_comm
-                # called from the spawned main() in common_comm
+                    num = scans_per_proc
+                    if n_proc < num_scan - scans_per_proc*num_proc:
+                        num += 1
+                    config = map_config.model_dump()
+                    config['spec_scans'][0]['scan_numbers'] = \
+                        scan_numbers[n_scan:n_scan+num]
+                    pipeline_config.append(
+                        [{'common.MapProcessor': {
+                            'config': config,
+                            'detectors': [
+                                d.model_dump()
+                                for d in detector_config.detectors],
+                         }}])
+                    offsets.append(n_scan)
+                    n_scan += num
+
+                # Spawn the workers to run the sub-pipeline
+                run_config = RunConfig(
+                    log_level=logging.getLevelName(self.logger.level), spawn=1)
+                tmp_names = []
+                with NamedTemporaryFile(delete=False) as fp:
+                    fp_name = fp.name
+                    tmp_names.append(fp_name)
+                    with open(fp_name, 'w') as f:
+                        yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
+                    for n_proc in range(1, num_proc):
+                        f_name = f'{fp_name}_{n_proc}'
+                        tmp_names.append(f_name)
+                        with open(f_name, 'w') as f:
+                            yaml.dump(
+                                {'config': run_config.model_dump(),
+                                 'pipeline': pipeline_config[n_proc-1]},
+                                f, sort_keys=False)
+                    sub_comm = MPI.COMM_SELF.Spawn(
+                        'CHAP', args=[fp_name], maxprocs=num_proc-1)
+                    common_comm = sub_comm.Merge(False)
+                    # Align with the barrier in RunConfig() on common_comm
+                    # called from the spawned main() in common_comm
+                    common_comm.barrier()
+                    # Align with the barrier in run() on common_comm
+                    # called from the spawned main()
+                    common_comm.barrier()
+
+            if common_comm is None:
+                num_proc = 1
+                rank = 0
+            else:
+                num_proc = common_comm.Get_size()
+                rank = common_comm.Get_rank()
+            if num_proc == 1:
+                offset = 0
+            else:
+                num_scan = common_comm.bcast(num_scan, root=0)
+                offset = common_comm.scatter(offsets, root=0)
+
+            # Read the raw data
+            if map_config.experiment_type == 'EDD':
+                data, independent_dimensions, all_scalar_data = \
+                    self._read_raw_data_edd(
+                        map_config, detector_config, common_comm, num_scan,
+                        offset, placeholder_data)
+            else:
+                data, independent_dimensions, all_scalar_data = \
+                    self._read_raw_data(
+                        map_config, detector_config, common_comm, num_scan,
+                        offset)
+            if not rank:
+                self.logger.debug(f'Data shape: {data.shape}')
+                if independent_dimensions is not None:
+                    self.logger.debug('Independent dimensions shape: '
+                                      f'{independent_dimensions.shape}')
+                if all_scalar_data is not None:
+                    self.logger.debug('Scalar data shape: '
+                                      f'{all_scalar_data.shape}')
+
+            if rank:
+                return None
+
+            if num_proc > 1:
+                # Reset the scan_numbers to the original full set
+                spec_scans.scan_numbers = scan_numbers
+                # Align with the barrier in main() on common_comm
+                # when disconnecting the spawned worker
                 common_comm.barrier()
-                # Align with the barrier in run() on common_comm
-                # called from the spawned main()
-                common_comm.barrier()
-
-        if common_comm is None:
-            num_proc = 1
-            rank = 0
+                # Disconnect spawned workers and cleanup temporary files
+                sub_comm.Disconnect()
+                for tmp_name in tmp_names:
+                    os.remove(tmp_name)
         else:
-            num_proc = common_comm.Get_size()
-            rank = common_comm.Get_rank()
-        if num_proc == 1:
-            offset = 0
-        else:
-            num_scan = common_comm.bcast(num_scan, root=0)
-            offset = common_comm.scatter(offsets, root=0)
-
-        # Read the raw data
-        if map_config.experiment_type == 'EDD':
-            data, independent_dimensions, all_scalar_data = \
-                self._read_raw_data_edd(
-                    map_config, detector_config, common_comm, num_scan,
-                    offset, placeholder_data)
-        else:
-            data, independent_dimensions, all_scalar_data = \
-                self._read_raw_data(
-                    map_config, detector_config, common_comm, num_scan, offset)
-        if not rank:
-            self.logger.debug(f'Data shape: {data.shape}')
-            if independent_dimensions is not None:
-                self.logger.debug('Independent dimensions shape: '
-                                  f'{independent_dimensions.shape}')
-            if all_scalar_data is not None:
-                self.logger.debug('Scalar data shape: '
-                                  f'{all_scalar_data.shape}')
-
-        if rank:
-            return None
-
-        if num_proc > 1:
-            # Reset the scan_numbers to the original full set
-            spec_scans.scan_numbers = scan_numbers
-            # Align with the barrier in main() on common_comm
-            # when disconnecting the spawned worker
-            common_comm.barrier()
-            # Disconnect spawned workers and cleanup temporary files
-            sub_comm.Disconnect()
-            for tmp_name in tmp_names:
-                os.remove(tmp_name)
-
+            # fill_data is False, just use empty arrays
+            map_len = 0
+            _independent_dimensions = {
+                dim.label: [] for dim in map_config.independent_dimensions}
+            det_shapes = False
+            for scans in map_config.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    map_len += scanparser.spec_scan_npts
+                    for dim in map_config.independent_dimensions:
+                        val = dim.get_value(
+                            scans, scan_number, -1,
+                            map_config.scalar_data)
+                        if not isinstance(val, list):
+                            val = [val]
+                        _independent_dimensions[dim.label].extend(val)
+                    if not det_shapes:
+                        det_shapes = {}
+                        for detector in detector_config.detectors:
+                            ddata_init = scanparser.get_detector_data(
+                                detector.id, 0)
+                            if isinstance(ddata_init, tuple):
+                                ddata_init = ddata_init[0].squeeze()
+                            det_shapes[detector.id] = ddata_init.shape
+            all_scalar_data = np.empty(
+                (len(map_config.all_scalar_data), map_len))
+            data = np.empty(
+                (len(detector_config.detectors),
+                 map_len,
+                 *det_shapes[detector_config.detectors[0].id]))
+            independent_dimensions = np.asarray(
+                [_independent_dimensions[dim.label]
+                 for dim in map_config.independent_dimensions])
         # Construct and return the NeXus NXroot object
         return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
@@ -2262,6 +2304,64 @@ class NexusToXarrayProcessor(Processor):
                          dims=dims,
                          name=name,
                          attrs=attrs)
+
+
+class NexusToZarrProcessor(Processor):
+    """Converter for NeXus to Zarr format."""
+    def process(self, data, chunks='auto'):
+        from nexusformat.nexus import (NXfield, NXgroup)
+        import zarr
+        from zarr.storage import MemoryStore
+
+        nexus_group = self.unwrap_pipelinedata(data)[0]
+        zarr_group = zarr.create_group(store=MemoryStore({}))
+
+        def copy_group(nexus_group, zarr_group):
+            self.logger.info(f'Copying {nexus_group.nxpath}')
+            # Copy attributes
+            for attr_key, attr_value in nexus_group.attrs.items():
+                zarr_group.attrs[attr_key] = attr_value.nxvalue
+
+            # Copy datasets and sub-groups
+            for key, item in nexus_group.items():
+                if isinstance(item, NXfield):
+                    if isinstance(item.nxdata, np.ndarray):
+                        try:
+                            # Determine chunks
+                            if isinstance(chunks, list):
+                                if len(chunks) < len(item.nxdata.shape):
+                                    _chunks = (
+                                        *chunks,
+                                        *item.nxdata.shape[len(chunks):]
+                                    )
+                                elif len(chunks) > len(item.nxdata.shape):
+                                    _chunks = 'auto'
+                                else:
+                                    _chunks = chunks
+                            else:
+                                _chunks = chunks
+                            # Copy dataset
+                            zarr_dset = zarr_group.create_array(
+                                name=key,
+                                shape=item.nxdata.shape,
+                                dtype=item.nxdata.dtype,
+                                attributes={k: v.nxvalue
+                                            for k, v in item.attrs.items()},
+                                chunks=_chunks,
+                            )
+                            self.logger.info(f'Copying {item.nxpath}')
+                            zarr_dset[:] = item.nxdata
+                        except Exception as e:
+                            self.logger.error(f'{item.nxpath}: {e}')
+                    else:
+                        self.logger.warning(f'Ignoring {item.nxpath}')
+                elif isinstance(item, NXgroup):
+                    # Recursively copy subgroup
+                    zarr_subgroup = zarr_group.create_group(key)
+                    copy_group(item, zarr_subgroup)
+
+        copy_group(nexus_group, zarr_group)
+        return zarr_group
 
 
 class NormalizeNexusProcessor(Processor):
@@ -3445,7 +3545,7 @@ class ZarrToNexusProcessor(Processor):
                         nexus_dset = nexus_group.create_dataset(
                             name=key,
                             data=item.__array__(),
-                            chunks=item.chunks,
+                            # chunks=item.chunks, # FIXME
                             compression='gzip',
                             compression_opts=4  # GZIP compression level
                         )

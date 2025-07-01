@@ -21,6 +21,7 @@ from CHAP.common.processor import (
     MPISpawnMapProcessor,
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
+    NexusToZarrProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
     PrintProcessor,
@@ -56,7 +57,12 @@ from CHAP.common.writer import (
     MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,
+    NexusValuesWriter,
     PyfaiResultsWriter,
     YAMLWriter,
     TXTWriter,
+    ZarrValuesWriter,
+    ZarrWriter,
 )
+
+from CHAP.common.map_utils import MapSliceProcessor
