@@ -101,6 +101,21 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         """Return the azimuthal integrator."""
         return self._ai
 
+    @property
+    def mask_data(self):
+        """Return the mask array to use for this detector from the
+        data in the file specified with the `mask_file` field. Return
+        `None` if `mask_file` is `None`.
+        """
+        if self.mask_file is None:
+            return None
+
+        import fabio
+        _mask_file = fabio.open(self.mask_file)
+        mask_data = _mask_file.data
+        _mask_file.close()
+        return mask_data
+
 
 class MultiGeometryConfig(CHAPBaseModel):
     """Class representing the configuration for treating simultaneously
@@ -400,27 +415,41 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         `init_placeholder_data`.
         """
         if self.integration_method == 'integrate_radial':
-            return {ai:np.full(ais[ai].detector.shape, 0)
+            return {ai:np.full(ais[ai].ai.detector.shape, 0)
                    for ai in self.integration_params.ais}
-        return {ai:np.full(ais[ai].detector.shape, 0)
+        return {ai:np.full(ais[ai].ai.detector.shape, 0)
                for ai in self.multi_geometry.ais}
 
-    def init_placeholder_results(self, ais, masks=None):
+    def init_placeholder_results(self, ais):
         """Get placeholder results for this integration so we can fill
         in the datasets for results of coordinates when setting up a
         zarr tree for holding results of
         `saxswaxs.PyfaiIntegrationProcessor`.
         """
         self._placeholder_result = self.integrate(
-            ais, self.get_placeholder_data(ais), masks)
+            ais, self.get_placeholder_data(ais))
 
-    def integrate(self, ais, data, masks=None):
+    def integrate(self, azimuthal_integrators, data):
+        """Perform the integration and return the results.
+
+        :param azimuthal_integrators: List of single-detector
+            integrator configurations.
+        :type azimuthal_integrators: list[AzimuthalIntegratorConfig]
+        :param data: Dictionary of 2D detector frames to be
+            integrated.
+        :type data: dict[str, np.ndarray]
+        :return: Integrated intensities and coordinates for every
+            frame (or set of frames) in `input_data`.
+        :rtype: dict[str, object]
+        """
         # Third party modules
         from pyFAI.units import (
             AZIMUTHAL_UNITS,
             RADIAL_UNITS,
             to_unit,
         )
+
+        ais = {name: ai.ai for name, ai in azimuthal_integrators.items()}
 
         if self.integration_method == 'integrate_radial':
             # Third party modules
@@ -449,17 +478,18 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 #            print(f'\nintegration_params: {integration_params}\n\n')
             for name in self.integration_params.ais:
                 ai = ais[name]
-                if masks is None:
-                    lst_mask = None
-                else:
-                    lst_mask = masks[name]
+                mask = azimuthal_integrators[name].mask_data
+                # if masks is None:
+                #     lst_mask = None
+                # else:
+                #     lst_mask = masks[name]
 #                print(f'\n\nai {type(ai)}:\n{ai}\n')
 #                print(f'name: {name}\n')
 #                print(f'npts: {npts}\n')
                 _results = [
                     ai.integrate_radial(
                         data=data[name][i],
-                        mask=lst_mask,
+                        mask=mask,
                         **integration_params)
                     for i in range(npts)
                 ]
@@ -546,7 +576,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 if len(data) != 1:
                     raise RuntimeError(
                         'Multiple detector not tested without multi_geometry')
-                id = list(ais.keys())[0]
+                _id = list(ais.keys())[0]
                 ai = list(ais.values())[0]
                 integration_method = getattr(ai, self.integration_method)
                 integration_params = self.integration_params.model_dump()
@@ -556,14 +586,14 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 raise RuntimeError(f'Check use of mask in integration_method')
                 if masks is None:
                     results = [
-                        integration_method(data[id][i], **integration_params)
+                        integration_method(data[_id][i], **integration_params)
                         for i in range(npts)
                     ]
                 else:
                     results = [
                         integration_method(
                             np.where(
-                                 masks[ai], 0, data[id][i].astype(np.float64),
+                                 masks[ai], 0, data[_id][i].astype(np.float64),
                             **integration_params))
                         for i in range(npts)
                     ]
@@ -576,10 +606,13 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                     **self.multi_geometry.model_dump(exclude={'ais'}))
 #                print(f'\nmg: {mg}\n\n')
                 integration_method = getattr(mg, self.integration_method)
-                if masks is None:
-                    lst_mask = None
-                else:
-                    lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
+                lst_mask = []
+                for name in self.multi_geometry.ais:
+                    lst_mask.append(azimuthal_integrators[name].mask_data)
+                # if masks is None:
+                #     lst_mask = None
+                # else:
+                #     lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
 #                print(f'\nlst_mask: {lst_mask}')
 #                print(f'\nself.integration_params {type(self.integration_params)}:\n{self.integration_params.model_dump(exclude="attrs")}')
 #                mask = np.asarray(lst_mask[0])
@@ -781,7 +814,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
         """
-        ais = {ai.id: ai.ai for ai in self.azimuthal_integrators}
+        ais = {ai.id: ai for ai in self.azimuthal_integrators}
         for integration in self.integrations:
             integration.init_placeholder_results(ais)
         tree = {

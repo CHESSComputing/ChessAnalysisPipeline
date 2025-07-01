@@ -41,22 +41,7 @@ class PyfaiIntegrationProcessor(Processor):
         # Organize input for integrations
         input_data = {d['name']: d['data']
             for d in [d for d in data if isinstance(d['data'], np.ndarray)]}
-        ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
-
-        # Read the mask(s)
-        masks = {}
-        for ai in config.azimuthal_integrators:
-            self.logger.debug(f'Reading {ai.mask_file}')
-            try:
-                with fabio.open(ai.mask_file) as f:
-                    mask = f.data
-                    self.logger.debug(f'mask shape for {ai.id}: {mask.shape}')
-                    masks[ai.id] = mask
-            except:
-                self.logger.debug(
-                    f'Unable to read mask file for {ai.id} ({ai.mask_file})')
-        if not masks:
-            masks = None
+        ais = {ai.id: ai for ai in config.azimuthal_integrators}
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
@@ -69,8 +54,7 @@ class PyfaiIntegrationProcessor(Processor):
         for integration in config.integrations:
             t0 = time.time()
             self.logger.info(f'Integrating {integration.name}...')
-            result = integration.integrate(ais, input_data, masks)
-#            self.logger.debug(f'result = {result}')
+            result = integration.integrate(ais, input_data)
             tf = time.time()
             self.logger.debug(
                 f'Integrated {integration.name} '

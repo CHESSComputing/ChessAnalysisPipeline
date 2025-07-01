@@ -691,22 +691,8 @@ class PyfaiIntegrationProcessor(Processor):
             self.logger.debug('data shape(s) after summing: '
                               f'{[(k, v.shape) for k, v in data.items()]}')
 
-        # Read the mask(s)
-        masks = {}
-        for ai in config.azimuthal_integrators:
-            self.logger.debug(f'Reading {ai.mask_file}')
-            try:
-                with fabio.open(ai.mask_file) as f:
-                    mask = f.data
-                    self.logger.debug(f'mask shape for {ai.id}: {mask.shape}')
-                    masks[ai.id] = mask
-            except:
-                self.logger.debug(f'No mask file found for {ai.id}')
-        if not masks:
-            masks = None
-
         # Perform integration(s)
-        ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
+        ais = {ai.id: ai for ai in config.azimuthal_integrators}
         for integration in config.integrations:
 
             # Add a NXprocess object(s) to the NXroot
@@ -722,7 +708,7 @@ class PyfaiIntegrationProcessor(Processor):
                 ai.model_dump_json() for ai in config.azimuthal_integrators]
 
             # Integrate the data
-            results = integration.integrate(ais, data, masks)
+            results = integration.integrate(ais, data)
 
             # Create the NXdata object with the integrated data
             intensities = results['intensities']
