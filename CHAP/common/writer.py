@@ -460,7 +460,9 @@ class MatplotlibFigureWriter(Writer):
 
 class NexusWriter(Writer):
     """Writer for NeXus files from `NXobject`-s."""
-    def write(self, data, filename, nxpath=None, force_overwrite=False):
+    def write(
+            self, data, filename, nxpath=None, force_overwrite=False,
+            remove=False):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
@@ -475,9 +477,6 @@ class NexusWriter(Writer):
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
-        # System modules
-        import os
-
         # Third party modules
         from nexusformat.nexus import (
             NXFile,
@@ -486,51 +485,51 @@ class NexusWriter(Writer):
             NXroot,
         )
 
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, NXobject):
-            return data
+        nxobject = self.get_data(data, remove=remove)
 
-        nxname = data.nxname
-        if not os.path.isfile(filename) and nxpath is not None:
+        nxname = nxobject.nxname
+        if not os_path.isfile(filename) and nxpath is not None:
             self.logger.warning(
                 f'{filename} does not yet exist. Argument for nxpath '
                 '({nxpath}) will be ignored.')
             nxpath = None
         if nxpath is None:
-            nxclass = data.nxclass
-            if nxclass == 'NXentry':
-                data = NXroot(data)
-                data[nxname].set_default()
-            elif nxclass != 'NXroot':
-                data = NXroot(NXentry(data))
+            nxclass = nxobject.nxclass
+            if nxclass == 'NXroot':
+                nxroot = nxobject
+            elif nxclass == 'NXentry':
+                nxroot = NXroot(nxobject)
+                nxroot[nxname].set_default()
+            else:
+                nxroot = NXroot(NXentry(nxobject))
                 if nxclass == 'NXdata':
-                    data.entry[nxname].set_default()
-                data.entry.set_default()
-            write_nexus(data, filename, force_overwrite)
+                    nxroot.entry[nxname].set_default()
+                nxroot.entry.set_default()
+            write_nexus(nxroot, filename, force_overwrite)
         else:
             nxfile = NXFile(filename, 'rw')
             root = nxfile.readfile()
             if nxfile.get(nxpath) is None:
-                if nxfile.get(os.path.dirname(nxpath)) is not None:
-                    nxpath, nxname = os.path.split(nxpath)
+                if nxfile.get(os_path.dirname(nxpath)) is not None:
+                    nxpath, nxname = os_path.split(nxpath)
                 else:
                     nxpath = root.NXentry[0].nxpath
                     self.logger.warning(
                         f'Path "{nxpath}" not present in {filename}. '
                         f'Using {nxpath} instead.')
-            full_nxpath = os.path.join(nxpath, nxname)
+            full_nxpath = os_path.join(nxpath, nxname)
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in '
+                    f'{os_path.join(nxpath, nxname)} already exists in '
                     f'{filename}')
                 if force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '
-                        f'{os.path.join(nxpath, nxname)} in {filename}')
+                        f'{os_path.join(nxpath, nxname)} in {filename}')
                     del root[full_nxpath]
             try:
-                root[full_nxpath] = data
+                root[full_nxpath] = nxobject
             except Exception as exc:
                 nxfile.close()
                 raise exc
@@ -556,7 +555,7 @@ class PyfaiResultsWriter(Writer):
             `.nxs`.
         :type filename: str
         """
-        import os
+        from os import remove
 
         from pyFAI.containers import Integrate1dResult, Integrate2dResult
 
@@ -573,13 +572,13 @@ class PyfaiResultsWriter(Writer):
                 'all pyFAI.containers.Integrate1dResult, or all '
                 'pyFAI.containers.Integrate2dResult.')
 
-        if os.path.isfile(filename):
+        if os_path.isfile(filename):
             if force_overwrite:
                 self.logger.warning(f'Removing existing file {filename}')
-                os.remove(filename)
+                remove(filename)
             else:
                 raise Exception(f'{filename} already exists.')
-        _, ext = os.path.splitext(filename)
+        _, ext = os_path.splitext(filename)
         if ext.lower() == '.npz':
             self.write_npz(results, filename)
         elif ext.lower() == '.nxs':

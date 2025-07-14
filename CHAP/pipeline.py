@@ -16,19 +16,19 @@ from time import time
 
 class Pipeline():
     """Pipeline represent generic Pipeline class."""
-    def __init__(self, items=None, kwds=None):
+    def __init__(self, pipeline_items=None, pipeline_kwargs=None):
         """Pipeline class constructor.
 
-        :param items: List of objects, optional.
-        :type items: list
-        :param kwds: List of method keyword argugents for the objects,
-            optional.
-        :type kwds: list
+        :param pipeline_items: List of pipeline item objects, optional.
+        :type pipeline_items: list[obj]
+        :param pipeline_kwargs: List of method keyword arguments for
+            the pipeline item objects, optional.
+        :type pipeline_kwargs: list[dict]
         """
         self.__name__ = self.__class__.__name__
 
-        self.items = items
-        self.kwds = kwds
+        self.items = pipeline_items
+        self.kwargs = pipeline_kwargs
 
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
@@ -38,9 +38,8 @@ class Pipeline():
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        #data = [PipelineData()]
         data = []
-        for item, kwargs in zip(self.items, self.kwds):
+        for item, kwargs in zip(self.items, self.kwargs):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
                 data = item.execute(data=data, **kwargs)
@@ -189,10 +188,10 @@ class PipelineItem():
 
     def get_data(self, data, name=None, schema=None, remove=True):
         """Look through `data` for an item whose `'data'` value is
-        either a nexusformat.nexus.NXroot or nexusformat.nexus.NXentry
-        object. Pick the item for which the `'name'` key matches
-        `name` if set or the `'schema'` key matches `schema` if set,
-        pick the first match otherwise. Return the NeXus object.
+        a nexusformat.nexus.NXobject object. Pick the item for which
+        the `'name'` key matches `name` if set or the `'schema'` key
+        matches `schema` if set, pick the last match otherwise.
+        Return the NeXus object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
@@ -206,33 +205,29 @@ class PipelineItem():
         :type remove: bool, optional
         :raises ValueError: If there's no match for `name` in `data`,
             or if the associated object is not of type 
-            nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
+            nexusformat.nexus.NXobject.
         :return: The first matching data item.
-        :rtype: Union[nexusformat.nexus.NXroot,
-            nexusformat.nexus.NXentry]
+        :rtype: nexusformat.nexus.NXobjct
         """
         # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
+        from nexusformat.nexus import NXobject
 
         nxobject = None
         t0 = time()
         if name is None and schema is None:
-            for i, d in enumerate(data):
-                if isinstance(d.get('data'), (NXroot, NXentry)):
+            for i, d in reversed(list(enumerate(data))):
+                if isinstance(d.get('data'), NXobject):
                     nxobject = d.get('data')
                     if remove:
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No NXroot or NXentry data item found')
+                raise ValueError(f'No NXobject data item found')
         elif name is not None:
             self.logger.debug(f'Getting data item named "{name}"')
-            for i, d in enumerate(data):
+            for i, d in reversed(list(enumerate(data))):
                 if (d.get('name') == name
-                        and isinstance(d.get('data'), (NXroot, NXentry))):
+                        and isinstance(d.get('data'), NXobject)):
                     nxobject = d.get('data')
                     if remove:
                         data.pop(i)
@@ -241,9 +236,9 @@ class PipelineItem():
                 raise ValueError(f'No match for data item named "{name}"')
         elif schema is not None:
             self.logger.debug(f'Getting data item with schema "{schema}"')
-            for i, d in enumerate(data):
+            for i, d in reversed(list(enumerate(data))):
                 if (d.get('schema') == schema
-                        and isinstance(d.get('data'), (NXroot, NXentry))):
+                        and isinstance(d.get('data'), NXobject)):
                     nxobject = d.get('data')
                     if remove:
                         data.pop(i)
@@ -313,9 +308,12 @@ class PipelineItem():
         self.logger.info(
             f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
-        return [PipelineData(name=self.__name__,
-                             data=data,
-                             schema=schema)]
+        if method_name == 'read':
+            return [PipelineData(name=self.__name__, data=data, schema=schema)]
+        if method_name == 'write':
+            return kwargs.get('data',[])
+        return kwargs.get('data',[]) + [
+            PipelineData(name=self.__name__, data=data, schema=schema)]
 
 
 class MultiplePipelineItem(PipelineItem):
@@ -338,7 +336,7 @@ class MultiplePipelineItem(PipelineItem):
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
-        data = kwargs['data']
+        data = kwargs.get('data', [])
         if items is None:
             items = []
         for item_config in items:
