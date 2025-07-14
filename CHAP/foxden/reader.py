@@ -26,8 +26,8 @@ class FoxdenDataDiscoveryReader(Reader):
 
         :param config: FOXDEN HTTP request configuration.
         :type config: CHAP.foxden.models.FoxdenRequestConfig
-        :return: Contents of the input data.
-        :rtype: object
+        :return: Discovered data records.
+        :rtype: list
         """
         # Load and validate the FoxdenRequestConfig configuration
         config = self.get_config(
@@ -76,8 +76,8 @@ class FoxdenMetadataReader(Reader):
 
         :param config: FOXDEN HTTP request configuration.
         :type config: CHAP.foxden.models.FoxdenRequestConfig
-        :return: Contents of the input data.
-        :rtype: object
+        :return: Metadata records.
+        :rtype: list
         """
         # Load and validate the FoxdenRequestConfig configuration
         config = self.get_config(
@@ -118,46 +118,55 @@ class FoxdenProvenanceReader(Reader):
     """Reader for FOXDEN Provenance data from a specific FOXDEN
     Provenance service.
     """
-    def read(
-            self, url, data, did='', method='POST', verbose=False):
-            #self, url, data, did='', method='GET', verbose=False):
-#TODO FIX
-        """Read data from a specific FOXDEN Provenance service and
-        return the file names to the upstream caller.
+    def read(self, config):
+        """Read records from the FOXDEN Provenance service based on did
+        or an arbitrary query.
 
-        :param url: URL of service.
-        :type url: str
-        :param data: Input data.
-        :type data: list[PipelineData]
-        :param did: FOXDEN dataset identifier (did).
-        :type did: string, optional
-        :param method: HTTP method to use, `'POST'` for creation or
-            `'PUT'` for update, defaults to `'POST'`.
-        :type method: str, optional
-        :param verbose: Verbose output flag, defaults to `False`.
-        :type verbose: bool, optional
-        :return: List of file names from the FOXDEN provenance service.
+        :param config: FOXDEN HTTP request configuration.
+        :type config: CHAP.foxden.models.FoxdenRequestConfig
+        :return: Provenance input and output file records.
         :rtype: list
         """
-        self.logger.info(
-            f'Executing "process" with url={url} data={data} did={did}')
-        rurl = f'{url}/files?did={did}'
-        payload = None
-        if verbose:
-            self.logger.info(f'method={method} url={rurl}')
-        response = HttpRequest(rurl, payload, method=method)
-        if verbose:
+        # Load and validate the FoxdenRequestConfig configuration
+        config = self.get_config(
+            config=config, schema='foxden.models.FoxdenRequestConfig')
+        self.logger.debug(f'config: {config}')
+
+        # Submit HTTP request and return response
+        rurl = f'{config.url}/files?did={config.did}'
+        request = {'client': 'CHAP-FoxdenProvenanceReader'}
+        if config.did is None:
+            if config.query is None:
+                query = '{}'
+            else:
+                query = config.query
+            request['service_query'] = {'query': query, 'limit': config.limit}
+        else:
+            if config.limit is not None:
+                self.logger.warning(
+                    f'Ignoring parameter "limit" ({config.limit}), '
+                    'when "did" is specified')
+            if config.query is not None:
+                self.logger.warning(
+                    f'Ignoring parameter "query" ({config.query}), '
+                    'when "did" is specified')
+            request['service_query'] = {'query': f'did:{config.did}'}
+        payload = json.dumps(request)
+        self.logger.info(f'method=GET url={rurl} payload={payload}')
+        response = HttpRequest(rurl, payload, method='GET', scope='read')
+        exit(f'\n\nresponse.text:\n{response.text}')
+        if config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            data = []
-            # Receive FOXDEN provenance records and extract only the
-            # file names to return to the upstream caller
-            for rec in json.loads(response.text):
-                data.append(rec['name'])
+            result = [{'name': v['name'], 'file_type': v['file_type']}
+                      for v in json.loads(response.text)]
         else:
-            data = []
-        return data
+            self.logger.warning(f'HTTP error code {response.status_code}')
+            result = []
+        self.logger.debug(f'Returning {len(result)} records')
+        return result
+
 
 class FoxdenSpecScansReader(Reader):
     """Reader for FOXDEN SpecScans data from a specific FOXDEN
