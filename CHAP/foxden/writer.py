@@ -80,11 +80,12 @@ class FoxdenMetadataWriter(Writer):
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, dict):
-            raise ValueError('Invalid data parameter {(data)}')
+        record = self.get_data(
+            data, name='FoxdenMetadataProcessor', remove=False)
+        if not isinstance(record, dict):
+            raise ValueError('Invalid metadata record {(record)}')
 
-        # FIX it would be useful to perform validation of data
+        # FIX it would be useful to perform validation of record
 
         # Load and validate the FoxdenRequestConfig configuration
         config = self.get_config(
@@ -94,13 +95,13 @@ class FoxdenMetadataWriter(Writer):
 
         # For now cut out anything but the did and application fields
         # from the CHAP workflow metadata record
-        metadata = data.pop('metadata')
-        data = {'did': data['did'],
-                'application': data.get('application', 'CHAP')}
+        metadata = record.pop('metadata')
+        record = {'did': record['did'],
+                'application': record.get('application', 'CHAP')}
 
         # Submit HTTP request and return response
         rurl = f'{config.url}'
-        mrec = {'Schema': 'Analysis', 'Record': data}
+        mrec = {'Schema': 'Analysis', 'Record': record}
         payload = json.dumps(mrec)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='write')
@@ -113,7 +114,7 @@ class FoxdenMetadataWriter(Writer):
             self.logger.warning(f'HTTP error code {response.status_code}')
             result = []
         # For now, return the did
-        return data['did']
+        return record['did']
         return result
 
 
@@ -129,10 +130,12 @@ class FoxdenProvenanceWriter(Writer):
         :return: HTTP response from FOXDEN Provenance service.
         :rtype: list[dict]
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, list) or len(data) != 1:
-            raise ValueError('Invalid data parameter {(data)}')
-        data = data[0]
+        record = self.get_data(data, name='FoxdenProvenanceProcessor')
+        if not isinstance(record, list) or len(record) != 1:
+            raise ValueError('Invalid provenance record {(record)}')
+        record = record[0]
+        if not isinstance(record, dict):
+            raise ValueError('Invalid provenance record {(record)}')
 
         # FIX it would be useful to perform validation of data
 
@@ -144,7 +147,7 @@ class FoxdenProvenanceWriter(Writer):
 
         # Submit HTTP request and return response
         rurl = f'{url}/dataset'
-        payload = json.dumps(data)
+        payload = json.dumps(record)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='write')
         if config.verbose:

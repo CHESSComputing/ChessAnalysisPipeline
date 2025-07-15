@@ -18,10 +18,10 @@ from CHAP.processor import Processor
 
 class FoxdenMetadataProcessor(Processor):
     """Processor to collect CHAP workflow metadata from a workflow
-    NeXus output file.
+    NeXus output object.
     """
     def process(self, data):
-        """Extract metadata from a workflow NeXus output file for
+        """Extract metadata from a workflow NeXus output object for
         submission to the FOXDEN Metadata service.
 
         :param data: Input data.
@@ -30,7 +30,7 @@ class FoxdenMetadataProcessor(Processor):
         :rtype: dict
         """
         # Local modules
-        from CHAP.common.models.map import MapConfig
+#        from CHAP.common.models.map import MapConfig
 
         # Third party modules
         from json import loads
@@ -39,14 +39,14 @@ class FoxdenMetadataProcessor(Processor):
             NXroot,
         )
 
-        # Load and validate the tomography fields
-        nxentry = self.get_data(data)
+        # Load and validate the workflow NeXus output object
+        nxentry = self.get_data(data, remove=False)
         if isinstance(nxentry, NXroot):
             nxentry = nxentry[nxentry.default]
         if not isinstance(nxentry, NXentry):
             raise ValueError(f'Invalid input data type {type(nxentry)}')
 
-        # Get experiment type
+        # Get did and experiment type
         #map_config = MapConfig(**loads(str(nxentry.map_config)))
         #experiment_type = map_config.experiment_type
         map_config = loads(str(nxentry.map_config))
@@ -96,22 +96,45 @@ class FoxdenMetadataProcessor(Processor):
 
 
 class FoxdenProvenanceProcessor(Processor):
-    """Processor to communicate with FOXDEN provenance server."""
-    def process(self, data, filename):
-        """FOXDEN Provenance server communication processor.
+    """Processor to collect CHAP workflow provenance data."""
+    def process(self, data, filename=None):
+        """Extract provenance data from a workflow NeXus output object
+        for submission to the FOXDEN Provenance service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param filename: CHAP workflow NeXus output file name.
-        :type filename: str
+        :param filename: File name of the workflow NeXus output file
+            (only required when it cannot be obtained from the input
+            data).
+        :type filename: str, optional
         :return: CHAP workflow provenance record.
         :rtype: dict
         """
-        did = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(did, str):
-            raise ValueError(
-                f'Invalid did type in input data ({type(did)}, {did})')
+        # Third party modules
+        from json import loads
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
 
+        # Load and validate the workflow NeXus output object
+        nxentry = self.get_data(data, remove=False)
+        if 'file_name' in nxentry.attrs:
+            filename = nxentry.attrs['file_name']
+        if isinstance(nxentry, NXroot):
+            nxentry = nxentry[nxentry.default]
+        if not isinstance(nxentry, NXentry):
+            raise ValueError(f'Invalid input data type {type(nxentry)}')
+
+        # Load and validate metadata
+        record = self.get_data(data, name='FoxdenMetadataProcessor')
+        try:
+            did = record['did']
+        except:
+            raise ValueError(
+                'Unable to get did from metadata record {(record)}')
+
+        # Extract provenance data
         provenance = {
             'did': did,
             'parent_did': did.rsplit('/', 1)[0],

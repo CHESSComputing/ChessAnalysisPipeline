@@ -156,6 +156,10 @@ class TomoCHESSMapConverter(Processor):
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
+        if map_config.did is None:
+            self.logger.warning(
+                f'Unable to extract did from map configuration')
+            map_config.did = f'/sample={map_config.sample.name}'
         assert len(map_config.spec_scans) == 1
         spec_scan = map_config.spec_scans[0]
         scan_numbers = spec_scan.scan_numbers

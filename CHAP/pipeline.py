@@ -188,10 +188,12 @@ class PipelineItem():
 
     def get_data(self, data, name=None, schema=None, remove=True):
         """Look through `data` for an item whose `'data'` value is
-        a nexusformat.nexus.NXobject object. Pick the item for which
+        a nexusformat.nexus.NXobject object or matches a given name or
+        schema. Pick the item for which
         the `'name'` key matches `name` if set or the `'schema'` key
-        matches `schema` if set, pick the last match otherwise.
-        Return the NeXus object.
+        matches `schema` if set, pick the last match for a 
+        nexusformat.nexus.NXobject object otherwise.
+        Return the data object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
@@ -203,21 +205,21 @@ class PipelineItem():
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
-        :raises ValueError: If there's no match for `name` in `data`,
-            or if the associated object is not of type 
+        :raises ValueError: If there's no match for `name` or 'schema`
+            in `data`, or if there is no object of type
             nexusformat.nexus.NXobject.
-        :return: The first matching data item.
-        :rtype: nexusformat.nexus.NXobjct
+        :return: The last matching data item.
+        :rtype: obj
         """
         # Third party modules
         from nexusformat.nexus import NXobject
 
-        nxobject = None
+        result = None
         t0 = time()
         if name is None and schema is None:
             for i, d in reversed(list(enumerate(data))):
                 if isinstance(d.get('data'), NXobject):
-                    nxobject = d.get('data')
+                    result = d.get('data')
                     if remove:
                         data.pop(i)
                     break
@@ -226,9 +228,8 @@ class PipelineItem():
         elif name is not None:
             self.logger.debug(f'Getting data item named "{name}"')
             for i, d in reversed(list(enumerate(data))):
-                if (d.get('name') == name
-                        and isinstance(d.get('data'), NXobject)):
-                    nxobject = d.get('data')
+                if d.get('name') == name:
+                    result = d.get('data')
                     if remove:
                         data.pop(i)
                     break
@@ -237,9 +238,8 @@ class PipelineItem():
         elif schema is not None:
             self.logger.debug(f'Getting data item with schema "{schema}"')
             for i, d in reversed(list(enumerate(data))):
-                if (d.get('schema') == schema
-                        and isinstance(d.get('data'), NXobject)):
-                    nxobject = d.get('data')
+                if d.get('schema') == schema:
+                    result = d.get('data')
                     if remove:
                         data.pop(i)
                     break
@@ -249,7 +249,7 @@ class PipelineItem():
         self.logger.debug(
            f'Obtained pipeline data in {time()-t0:.3f} seconds')
 
-        return nxobject
+        return result
 
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the

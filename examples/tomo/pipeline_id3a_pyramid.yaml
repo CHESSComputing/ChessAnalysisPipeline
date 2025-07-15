@@ -98,3 +98,12 @@ pipeline:
   - common.NexusWriter:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
+
+#foxden:
+#
+#  - foxden.FoxdenMetadataProcessor
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
