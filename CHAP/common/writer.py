@@ -334,8 +334,7 @@ class H5Writer(Writer):
 
 class ImageWriter(Writer):
     """Writer for saving image files."""
-    def write(
-            self, data, filename=None, fileformat=None, force_overwrite=False):
+    def write(self, data, outputdir, filename=None, force_overwrite=False):
         """Write the image(s) contained in `data` to file.
 
         :param data: The image (stack).
@@ -343,9 +342,6 @@ class ImageWriter(Writer):
         :param filename: The name of the file to write to (for a
             single image, with or without extension).
         :type filename: str, optional
-        :param fileformat: The file format (ignored if filename has an
-            extension), defaults to 'png'.
-        :type fileformat: str, optional
         :param force_overwrite: Flag to allow files to be
             overwritten if they already exists, defaults to `False`.
         :type force_overwrite: bool, optional
@@ -360,10 +356,11 @@ class ImageWriter(Writer):
             # Local modules
             from CHAP.utils.general import save_iobuf_fig
 
-            for buf, filename in data:
-                save_iobuf_fig(
-                    buf, filename, fileformat=fileformat,
-                    force_overwrite=force_overwrite)
+            for (buf, fileformat), basename in data:
+                filename = f'{basename}.{fileformat}'
+                if not os_path.isabs(filename):
+                    filename = os_path.join(outputdir, filename)
+                save_iobuf_fig(buf, filename, force_overwrite=force_overwrite)
             return data
 
         if isinstance(data, dict):

@@ -101,7 +101,7 @@ recon:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
   - common.ImageWriter:
-      fileformat: png
+      outputdir: saved_figs
       force_overwrite: true
 
 #foxden:

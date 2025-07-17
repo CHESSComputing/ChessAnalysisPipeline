@@ -1250,33 +1250,40 @@ def baseline_arPLS(
     return z
 
 
-def fig_to_iobuf(fig):
+def fig_to_iobuf(fig, fileformat=None):
     """Return an in-memory object as a byte stream represention of
     a Matplotlib figure.
 
     :param fig: Matplotlib figure object.
     :type fig: matplotlib.figure.Figure
-    :return: Byte stream representation of the Matplotlib figure.
-    :rtype: _io.BytesIO
+    :param fileformat: Valid Matplotlib saved figure file format,
+        defaults to `'png'`.
+    :type fileformat: str, optional
+    :return: Byte stream representation of the Matplotlib figure and
+        the associated file format.
+    :rtype: tuple[_io.BytesIO, str]
     """
     # System modules
     from io import BytesIO
 
+    if fileformat is None:
+        fileformat = 'png'
+    else:
+        if fileformat not in plt.gcf().canvas.get_supported_filetypes():
+            fileformat = 'png'
+
     buf = BytesIO()
-    fig.savefig(buf, format='png')
-    return buf
+    fig.savefig(buf, format=fileformat)
+    return buf, fileformat
 
 
-def save_iobuf_fig(buf, filename, fileformat=None, force_overwrite=False):
+def save_iobuf_fig(buf, filename, force_overwrite=False):
     """Save a byte stream represention of a Matplotlib figure to file.
 
     :param buf: Byte stream representation of the Matplotlib figure.
     :type buf: _io.BytesIO
-    :param filename: Filename (with or without extension).
+    :param filename: Filename (with a valid extension).
     :type filename: str
-    :param fileformat: The file format (ignored if filename has an
-        extension), defaults to 'png'.
-    :type fileformat: str, optional
     :param force_overwrite: Flag to allow `filename` to be overwritten
         if it already exists, defaults to `False`.
     :type force_overwrite: bool, optional
@@ -1291,27 +1298,15 @@ def save_iobuf_fig(buf, filename, fileformat=None, force_overwrite=False):
 
     # Validate filename and extension
     basename, ext = os_path.splitext(filename)
-    if fileformat is None:
-        if not ext or ext not in exts:
-            ext = '.png'
-    else:
-        if not ext or ext not in exts:
-            try:
-                assert isinstance(fileformat, str)
-                ext = fileformat
-                if fileformat[0] != '.':
-                    ext = f'.{ext}'
-                assert ext in  exts
-            except:
-                ext = '.png'
-    filename = basename + ext
+    if not ext or ext not in exts:
+        raise ValueError(f'Invalid file format {ext[1:]}')
     if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
     # Write image to file
     buf.seek(0)
     img = Image.open(buf)
-    img.save(basename + ext)
+    img.save(filename)
 
 
 def select_mask_1d(
