@@ -1267,13 +1267,21 @@ def fig_to_iobuf(fig):
     return buf
 
 
-def save_iobuf_fig(buf, filename, ext='.png'):
+def save_iobuf_fig(buf, filename, fileformat=None, force_overwrite=False):
     """Save a byte stream represention of a Matplotlib figure to file.
 
     :param buf: Byte stream representation of the Matplotlib figure.
     :type buf: _io.BytesIO
-    :param filename: Filename.
+    :param filename: Filename (with or without extension).
     :type filename: str
+    :param fileformat: The file format (ignored if filename has an
+        extension), defaults to 'png'.
+    :type fileformat: str, optional
+    :param force_overwrite: Flag to allow `filename` to be overwritten
+        if it already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    :raises RuntimeError: If a file already exists and
+        `force_overwrite` is `False`.
     """
     # Third party modules
     from PIL import Image
@@ -1281,12 +1289,29 @@ def save_iobuf_fig(buf, filename, ext='.png'):
     exts = Image.registered_extensions()
     exts = {ex for ex, f in exts.items() if f in Image.SAVE}
 
+    # Validate filename and extension
+    basename, ext = os_path.splitext(filename)
+    if fileformat is None:
+        if not ext or ext not in exts:
+            ext = '.png'
+    else:
+        if not ext or ext not in exts:
+            try:
+                assert isinstance(fileformat, str)
+                ext = fileformat
+                if fileformat[0] != '.':
+                    ext = f'.{ext}'
+                assert ext in  exts
+            except:
+                ext = '.png'
+    filename = basename + ext
+    if os_path.isfile(filename) and not force_overwrite:
+        raise FileExistsError(f'{filename} already exists')
+
+    # Write image to file
     buf.seek(0)
     img = Image.open(buf)
-    ext = os_path.splitext(filename)[1]
-    if not ext or ext not in exts:
-        filename += '.png'
-    img.save(filename)
+    img.save(basename + ext)
 
 
 def select_mask_1d(
