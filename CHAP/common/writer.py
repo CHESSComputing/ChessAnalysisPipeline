@@ -15,54 +15,6 @@ import numpy as np
 # Local modules
 from CHAP import Writer
 
-def write_image(data, filename, logger, force_overwrite=False):
-    """Write an image to file.
-
-    :param data: The image (stack) to write to file
-    :type data: bytes, dict, matplotlib.animation.FuncAnimation,
-        numpy.ndarray
-    :param filename: File name.
-    :type filename: str
-    :param force_overwrite: Flag to allow data to be overwritten if it
-        already exists, defaults to `False`.
-    :type force_overwrite: bool, optional
-    """
-    # Third party modules
-    from matplotlib import animation
-
-    if os_path.isfile(filename) and not force_overwrite:
-        raise FileExistsError(f'{filename} already exists')
-
-    if isinstance(data, dict):
-        fileformat = data['fileformat']
-        image_data = data['image_data']
-    else:
-        image_data = data
-    basename, ext = os_path.splitext(filename)
-    if ext and ext != f'.{fileformat}':
-        logger.warning('Ignoring inconsistent file extension')
-    filename = f'{basename}.{fileformat}'
-    if isinstance(image_data, bytes):
-        with open(filename, "wb") as f:
-            f.write(image_data)
-    elif isinstance(image_data, np.ndarray):
-        if image_data.ndim == 2:
-            # Third party modules
-            from imageio import imwrite
-
-            imwrite(filename, image_data)
-        elif image_data.ndim == 3:
-            # Third party modules
-#            from imageio import mimwrite as imwrite
-            from tifffile import imwrite
-
-            kwargs = {'bigtiff': True}
-            imwrite(filename, image_data, **kwargs)
-    elif isinstance(image_data, animation.FuncAnimation):
-        image_data.save(filename)
-    else:
-        raise ValueError(f'Invalid image input type {type(image_data)}')
-
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
     """Write a Matplotlib figure to file.
@@ -382,24 +334,79 @@ class H5Writer(Writer):
 
 class ImageWriter(Writer):
     """Writer for saving image files."""
-    def write(self, data, filename, force_overwrite=False):
-        """Write the image contained in `data` to file.
+    def write(
+            self, data, filename=None, fileformat=None, force_overwrite=False):
+        """Write the image(s) contained in `data` to file.
 
-        :param data: The image(stack).
+        :param data: The image (stack).
         :type data: list[PipelineData]
-        :param filename: The name of the file to write to.
-        :type filename: str
-        :param force_overwrite: Flag to allow data in `filename` to be
-            overwritten if it already exists, defaults to `False`.
+        :param filename: The name of the file to write to (for a
+            single image, with or without extension).
+        :type filename: str, optional
+        :param fileformat: The file format (ignored if filename has an
+            extension), defaults to 'png'.
+        :type fileformat: str, optional
+        :param force_overwrite: Flag to allow files to be
+            overwritten if they already exists, defaults to `False`.
         :type force_overwrite: bool, optional
-        :raises RuntimeError: If `filename` already exists and
+        :raises RuntimeError: If a file already exists and
             `force_overwrite` is `False`.
-        :return: The original image(stack).
-        :rtype: numpy.ndarray
+        :return: The original image (stack).
+        :rtype: bytes, list, dict, matplotlib.animation.FuncAnimation,
+            numpy.ndarray
         """
         data = self.unwrap_pipelinedata(data)[-1]
-        write_image(data, filename, self.logger, force_overwrite)
+        if isinstance(data, list):
+            # Local modules
+            from CHAP.utils.general import save_iobuf_fig
 
+            for buf, filename in data:
+                save_iobuf_fig(
+                    buf, filename, fileformat=fileformat,
+                    force_overwrite=force_overwrite)
+            return data
+
+        if isinstance(data, dict):
+            raise NotImplementedError(
+                'ImageWriter for dict needs extension testing')
+            fileformat = data['fileformat']
+            image_data = data['image_data']
+        else:
+            image_data = data
+        basename, ext = os_path.splitext(filename)
+        if fileformat is None:
+            if not ext:
+                ext = '.png'
+        else:
+            try:
+                assert isinstance(fileformat, str)
+                ext = fileformat
+                if fileformat[0] != '.':
+                    ext = f'.{ext}'
+            except:
+                ext = '.png'
+        filename = basename + ext
+        if os_path.isfile(filename) and not force_overwrite:
+            raise FileExistsError(f'{filename} already exists')
+        if isinstance(image_data, bytes):
+            with open(filename, "wb") as f:
+                f.write(image_data)
+        elif isinstance(image_data, np.ndarray):
+            if image_data.ndim == 2:
+                # Third party modules
+                from imageio import imwrite
+
+                imwrite(filename, image_data)
+            elif image_data.ndim == 3:
+                # Third party modules
+                from tifffile import imwrite
+
+                kwargs = {'bigtiff': True}
+                imwrite(filename, image_data, **kwargs)
+        elif isinstance(image_data, animation.FuncAnimation):
+            image_data.save(filename)
+        else:
+            raise ValueError(f'Invalid image input type {type(image_data)}')
         return data
 
 
