@@ -1250,10 +1250,50 @@ def baseline_arPLS(
     return z
 
 
+def fig_to_iobuf(fig):
+    """Return an in-memory object as a byte stream represention of
+    a Matplotlib figure.
+
+    :param fig: Matplotlib figure object.
+    :type fig: matplotlib.figure.Figure
+    :return: Byte stream representation of the Matplotlib figure.
+    :rtype: _io.BytesIO
+    """
+    # System modules
+    from io import BytesIO
+
+    buf = BytesIO()
+    fig.savefig(buf, format='png')
+    return buf
+
+
+def save_iobuf_fig(buf, filename, ext='.png'):
+    """Save a byte stream represention of a Matplotlib figure to file.
+
+    :param buf: Byte stream representation of the Matplotlib figure.
+    :type buf: _io.BytesIO
+    :param filename: Filename.
+    :type filename: str
+    """
+    # Third party modules
+    from PIL import Image
+
+    exts = Image.registered_extensions()
+    exts = {ex for ex, f in exts.items() if f in Image.SAVE}
+
+    buf.seek(0)
+    img = Image.open(buf)
+    ext = os_path.splitext(filename)[1]
+    if not ext or ext not in exts:
+        filename += '.png'
+    img.save(filename)
+
+
 def select_mask_1d(
         y, x=None, preselected_index_ranges=None, preselected_mask=None,
         title=None, xlabel=None, ylabel=None, min_num_index_ranges=None,
-        max_num_index_ranges=None, interactive=True, filename=None):
+        max_num_index_ranges=None, interactive=True, filename=None,
+        return_buf=False):
     """Display a lineplot and have the user select a mask.
 
     :param y: One-dimensional data array for which a mask will be
@@ -1286,15 +1326,19 @@ def select_mask_1d(
     :param filename: Save a .png of the plot to filename, defaults to
         `None`, in which case the plot is not saved.
     :type filename: str, optional
-    :return: A boolean mask array and the list of selected index
-        ranges.
-    :rtype: numpy.ndarray, list[list[int, int]]
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: A byte stream represention of the Matplotlib figure if
+        return_buf is `True` (`None` otherwise), a boolean mask array,
+        and the list of selected index ranges.
+    :rtype: Union[io.BytesIO, None], numpy.ndarray, list[list[int, int]]
     """
     # System modules
     from copy import deepcopy
 
     # Third party modules
-    if interactive or filename is not None:
+    if interactive or filename is not None or return_buf:
         from matplotlib.patches import Patch
         from matplotlib.widgets import Button, SpanSelector
 
@@ -1463,12 +1507,12 @@ def select_mask_1d(
                 np.copy(np.asarray(preselected_mask, dtype=bool)),
                 preselected_index_ranges))
 
-    if not interactive and filename is None:
+    if not interactive and filename is None and not return_buf:
 
         # Update the mask with the preselected index ranges
         selected_mask = update_mask(len(x)*[False], preselected_index_ranges)
 
-        return selected_mask, preselected_index_ranges
+        return None, selected_mask, preselected_index_ranges
 
     spans = []
     fig_title = []
@@ -1547,7 +1591,7 @@ def select_mask_1d(
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
-    if filename is not None:
+    if filename is not None or return_buf:
         if interactive:
             if len(selected_index_ranges) > 1:
                 title += f'Selected ROIs: {selected_index_ranges}'
@@ -1556,15 +1600,19 @@ def select_mask_1d(
             fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
         fig.tight_layout(rect=(0, 0, 1, 0.95))
-        fig.savefig(filename)
+        if filename is not None:
+            fig.savefig(filename)
+        if return_buf:
+            buf = fig_to_iobuf(fig)
     plt.close()
-
-    return selected_mask, selected_index_ranges
+    if return_buf:
+        return buf, selected_mask, selected_index_ranges
+    return None, selected_mask, selected_index_ranges
 
 
 def select_roi_1d(
         y, x=None, preselected_roi=None, title=None, xlabel=None, ylabel=None,
-        interactive=True, filename=None):
+        interactive=True, filename=None, return_buf=False):
     """Display a 2D plot and have the user select a single region
     of interest.
 
@@ -1587,9 +1635,13 @@ def select_roi_1d(
     :param filename: Save a .png of the plot to filename, defaults to
         `None`, in which case the plot is not saved.
     :type filename: str, optional
-    :return: The selected region of interest as array indices and a
-        matplotlib figure.
-    :rtype: matplotlib.figure.Figure, tuple(int, int)
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: A byte stream represention of the Matplotlib figure if
+        return_buf is `True` (`None` otherwise), and the selected
+        region of interest.
+    :rtype: Union[io.BytesIO, None], tuple(int, int)
     """
     # Check inputs
     y = np.asarray(y)
@@ -1601,17 +1653,18 @@ def select_roi_1d(
                              f'({preselected_roi})')
         preselected_roi = [preselected_roi]
 
-    _, roi = select_mask_1d(
+    buf, _, roi = select_mask_1d(
         y, x=x, preselected_index_ranges=preselected_roi, title=title,
         xlabel=xlabel, ylabel=ylabel, min_num_index_ranges=1,
-        max_num_index_ranges=1, interactive=interactive, filename=filename)
+        max_num_index_ranges=1, interactive=interactive, filename=filename,
+        return_buf=return_buf)
 
-    return tuple(roi[0])
+    return buf, tuple(roi[0])
 
 def select_roi_2d(
         a, preselected_roi=None, title=None, title_a=None,
         row_label='row index', column_label='column index', interactive=True,
-        filename=None):
+        filename=None, return_buf=False):
     """Display a 2D image and have the user select a single rectangular
        region of interest.
 
@@ -1636,11 +1689,16 @@ def select_roi_2d(
     :param filename: Save a .png of the plot to filename, defaults to
         `None`, in which case the plot is not saved.
     :type filename: str, optional
-    :return: The selected region of interest as array indices.
-    :rtype: tuple(int, int, int, int)
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: A byte stream represention of the Matplotlib figure if
+        return_buf is `True` (`None` otherwise), and the selected
+        region of interest.
+    :rtype: Union[io.BytesIO, None], tuple(int, int, int, int)
     """
     # Third party modules
-    if interactive or filename is not None:
+    if interactive or filename is not None or return_buf:
         from matplotlib.widgets import Button, RectangleSelector
 
     def change_fig_title(title):
@@ -1707,8 +1765,8 @@ def select_roi_2d(
     if title is None:
         title = 'Click and drag to select or adjust a region of interest (ROI)'
 
-    if not interactive and filename is None:
-        return preselected_roi
+    if not interactive and filename is None and not return_buf:
+        return None, preselected_roi
 
     fig_title = []
     subfig_title = []
@@ -1772,7 +1830,7 @@ def select_roi_2d(
         reset_btn.ax.remove()
         confirm_btn.ax.remove()
 
-    if filename is not None:
+    if filename is not None or return_buf:
         if fig_title:
             fig_title[0].set_in_layout(True)
             fig.tight_layout(rect=(0, 0, 1, 0.95))
@@ -1784,21 +1842,26 @@ def select_roi_2d(
             rects[0]._center_handle.set_visible(False)
             rects[0]._corner_handles.set_visible(False)
             rects[0]._edge_handles.set_visible(False)
-        fig.savefig(filename)
+        if filename is not None:
+            fig.savefig(filename)
+        if return_buf:
+            buf = fig_to_iobuf(fig)
     plt.close()
 
     roi = tuple(int(v) for v in rects[0].extents)
     if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
         roi = None
 
-    return roi
+    if return_buf:
+        return buf, roi
+    return None, roi
 
 
 def select_image_indices(
         a, axis, b=None, preselected_indices=None, axis_index_offset=0,
         min_range=None, min_num_indices=2, max_num_indices=2, title=None,
         title_a=None, title_b=None, row_label='row index',
-        column_label='column index', interactive=True):
+        column_label='column index', interactive=True, return_buf=False):
     """Display a 2D image and have the user select a set of image
        indices in either row or column direction. 
 
@@ -1837,9 +1900,14 @@ def select_image_indices(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure instead of the
+        matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
     :return: The selected region of interest as array indices and a
         matplotlib figure.
-    :rtype: matplotlib.figure.Figure, tuple(int, int, int, int)
+    :rtype: Union[matplotlib.figure.Figure, io.BytesIO],
+        tuple(int, int, int, int)
     """
     # Third party modules
     from matplotlib.widgets import TextBox, Button
@@ -2059,7 +2127,6 @@ def select_image_indices(
         confirm_cid = confirm_btn.on_clicked(confirm)
 
         plt.show()
-        plt.close()
 
         # Disconnect all widget callbacks when figure is closed
         index_input.disconnect(indices_cid)
@@ -2074,40 +2141,38 @@ def select_image_indices(
     fig_title[0].set_in_layout(True)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
 
+    if return_buf:
+        buf = fig_to_iobuf(fig)
+    else:
+        buf = None
+    plt.close()
     if indices:
-        return fig, tuple(sorted(indices))
-    return fig, None
+        return buf, tuple(sorted(indices))
+    return buf, None
 
 
 def quick_imshow(
         a, title=None, row_label='row index', column_label='column index',
-        path=None, name=None, save_fig=False, save_only=False,
-        extent=None, show_grid=False, grid_color='w', grid_linewidth=1,
-        block=False, **kwargs):
-    """Display a 2D image."""
+        path=None, name=None, show_fig=True, save_fig=False,
+        return_fig=False, block=None, extent=None, show_grid=False,
+        grid_color='w', grid_linewidth=1, **kwargs):
+    """Display and or save a 2D image and or return an in-memory object
+    as a byte stream represention.
+    """
     if title is not None and not isinstance(title, str):
         raise ValueError(f'Invalid parameter title ({title})')
     if path is not None and not isinstance(path, str):
         raise ValueError(f'Invalid parameter path ({path})')
+    if not isinstance(show_fig, bool):
+        raise ValueError(f'Invalid parameter show_fig ({show_fig})')
     if not isinstance(save_fig, bool):
         raise ValueError(f'Invalid parameter save_fig ({save_fig})')
-    if not isinstance(save_only, bool):
-        raise ValueError(f'Invalid parameter save_only ({save_only})')
-    if not isinstance(block, bool):
+    if not isinstance(return_fig, bool):
+        raise ValueError(f'Invalid parameter return_fig ({return_fig})')
+    if block is not None and not isinstance(block, bool):
         raise ValueError(f'Invalid parameter block ({block})')
     if not title:
         title = 'quick imshow'
-    if name is None:
-        ttitle = re_sub(r'\s+', '_', title)
-        if path is None:
-            path = ttitle
-        else:
-            path = f'{path}/{ttitle}'
-    else:
-        if path is None:
-            path = name
-        else:
-            path = f'{path}/{name}'
     if ('cmap' in kwargs and a.ndim == 3
             and (a.shape[2] == 3 or a.shape[2] == 4)):
         use_cmap = True
@@ -2125,31 +2190,38 @@ def quick_imshow(
             kwargs.pop('cmap')
     if extent is None:
         extent = (0, a.shape[1], a.shape[0], 0)
-    if not save_only:
-        if block:
-            plt.ioff()
-        else:
-            plt.ion()
-    plt.figure(figsize=(11, 8.5))
-    plt.imshow(a, extent=extent, **kwargs)
-    ax = plt.gca()
+    plt.ioff()
+    fig, ax = plt.subplots(figsize=(11, 8.5))
+    ax.imshow(a, extent=extent, **kwargs)
     ax.set_title(title, fontsize='xx-large')
     ax.set_xlabel(column_label, fontsize='x-large')
     ax.set_ylabel(row_label, fontsize='x-large')
     if show_grid:
         ax.grid(color=grid_color, linewidth=grid_linewidth)
-    if (os_path.splitext(path)[1]
-            not in plt.gcf().canvas.get_supported_filetypes()):
-        path += '.png'
-    if save_only:
+    if show_fig:
+        plt.show(block=block)
+    if save_fig:
+        if name is None:
+            title = re_sub(r'\s+', '_', title)
+            if path is None:
+                path = title
+            else:
+                path = f'{path}/{title}'
+        else:
+            if path is None:
+                path = name
+            else:
+                path = f'{path}/{name}'
+        if (os_path.splitext(path)[1]
+                not in plt.gcf().canvas.get_supported_filetypes()):
+            path += '.png'
         plt.savefig(path)
-        plt.close()
+    if return_fig:
+        buf = fig_to_iobuf(fig)
     else:
-        if save_fig:
-            plt.savefig(path)
-        if block:
-            plt.show(block=block)
+        buf = None
     plt.close()
+    return buf 
 
 
 def quick_plot(
@@ -2158,6 +2230,7 @@ def quick_plot(
         show_grid=False, save_fig=False, save_only=False, block=False,
         **kwargs):
     """Display a 2D line plot."""
+    #RV FIX: Update with return_buf
     if title is not None and not isinstance(title, str):
         illegal_value(title, 'title', 'quick_plot')
         title = None
