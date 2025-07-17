@@ -312,6 +312,10 @@ class PipelineItem():
             return [PipelineData(name=self.__name__, data=data, schema=schema)]
         if method_name == 'write':
             return kwargs.get('data',[])
+        if isinstance(data, tuple):
+            return kwargs.get('data',[]) + [
+                PipelineData(name=self.__name__, data=d, schema=schema)
+                for d in data]
         return kwargs.get('data',[]) + [
             PipelineData(name=self.__name__, data=data, schema=schema)]
 

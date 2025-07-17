@@ -26,7 +26,6 @@ from CHAP.utils.general import (
     input_num_list,
     input_yesno,
     fig_to_iobuf,
-    save_iobuf_fig,
     select_image_indices,
     select_roi_1d,
     select_roi_2d,
@@ -767,13 +766,9 @@ class TomoDataProcessor(Processor):
                 combine_data_config = TomoCombineConfig()
             nxroot = tomo.combine_data(nxroot, combine_data_config)
 
-        # FIX for now print the figures here instead of outputting them to the pipeline
-        for args in tomo._figures:
-            save_iobuf_fig(*args)
-
         if center_config is not None:
             return center_config
-        return nxroot
+        return nxroot, tomo._figures
 
 
 class SetNumexprThreads:
@@ -2781,6 +2776,8 @@ class Tomo:
             else:
                 radio_btn.disconnect(radio_cid)
                 radio_btn.ax.remove()
+                # Needed to work around a bug in Matplotlib:
+                radio_btn.active = False
                 if search_button:
                     search_btn.disconnect(search_cid)
                     search_btn.ax.remove()

@@ -375,6 +375,8 @@ def select_material_params(
                 modified_material.append(label)
                 radio_btn.disconnect(radio_cid)
                 radio_btn.ax.remove()
+                # Needed to work around a bug in Matplotlib:
+                radio_btn.active = False
                 plt.close()
 
             mat_texts.append(
