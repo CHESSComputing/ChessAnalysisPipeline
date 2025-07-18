@@ -808,16 +808,17 @@ class ImageProcessor(Processor):
                 fileformat = 'png'
             else:
                 fileformat = config.fileformat
-            fig, plt = self._create_figure(data)
+            fig, plt = self._create_figure(np.squeeze(data))
             if interactive:
                 plt.show()
             if save_figures:
+                # Local modules
+                from CHAP.utils.general import fig_to_iobuf
+
                 # Return a binary image of the figure
-                buf = BytesIO()
-                fig.savefig(buf, format=fileformat)
-                buf.seek(0)
-                image_data = buf.read()
+                buf, fileformat = fig_to_iobuf(fig, fileformat=fileformat)
             plt.close()
+            return {'image_data': buf, 'fileformat': fileformat}
         
         else:
 
