@@ -562,19 +562,19 @@ class TomoDataProcessor(Processor):
     def process(
             self, data, config=None, interactive=False, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figs=True):
+            combine_data=False, save_figures=True):
         return self._process(
             data, config=config, interactive=interactive,
             reduce_data=reduce_data, find_center=find_center,
             calibrate_center=calibrate_center,
             reconstruct_data=reconstruct_data, combine_data=combine_data,
-            save_figs=save_figs)
+            save_figures=save_figures)
 
     #@profile
     def _process(
             self, data, config=None, interactive=False, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figs=True):
+            combine_data=False, save_figures=True):
         """Process the input map or configuration with the step
         specific instructions and return either a dictionary or a
         Process the input map or configuration with the step specific
@@ -605,9 +605,9 @@ class TomoDataProcessor(Processor):
         :param combine_data: Combine the reconstructed tomography
             stacks, defaults to `False`.
         :type combine_data: bool, optional
-        :param save_figs: Create Matplotlib figures that can be saved
+        :param save_figures: Create Matplotlib figures that can be saved
             to file downstream in the workflow, defaults to `True`.
-        :type save_figs: bool, optional
+        :type save_figures: bool, optional
         :raises ValueError: Invalid input or configuration parameter.
         :raises RuntimeError: Missing map configuration to generate
             reduced tomography images.
@@ -694,7 +694,8 @@ class TomoDataProcessor(Processor):
         nxroot = self.get_data(data)
 
         tomo = Tomo(
-            logger=self.logger, interactive=interactive, save_figs=save_figs)
+            logger=self.logger, interactive=interactive,
+            save_figures=save_figures)
 
         nxsetconfig(memory=100000)
 
@@ -811,7 +812,8 @@ class SetNumexprThreads:
 class Tomo:
     """Reconstruct a set of tomographic images."""
     def __init__(
-            self, logger=None, interactive=False, num_core=-1, save_figs=True):
+            self, logger=None, interactive=False, num_core=-1,
+           save_figures=True):
         """Initialize Tomo.
 
         :param interactive: Allows for user interactions,
@@ -819,9 +821,9 @@ class Tomo:
         :type interactive: bool, optional
         :param num_core: Number of processors.
         :type num_core: int
-        :param save_figs: Create Matplotlib figures that can be saved
+        :param save_figures: Create Matplotlib figures that can be saved
             to file downstream in the workflow, defaults to `True`.
-        :type save_figs: bool, optional
+        :type save_figures: bool, optional
         :raises ValueError: Invalid input parameter.
         """
         # System modules
@@ -842,7 +844,7 @@ class Tomo:
         self._interactive = interactive
         self._num_core = num_core
         self._test_config = {}
-        self._save_figs = save_figs
+        self._save_figures = save_figures
         self._figures = []
         if self._num_core == -1:
             self._num_core = cpu_count()
@@ -1113,14 +1115,14 @@ class Tomo:
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field',
-                interactive=self._interactive, return_buf=self._save_figs)
+                interactive=self._interactive, return_buf=self._save_figures)
             if center_rows[1] == img_row_bounds[1]:
                 center_rows = (center_rows[0], center_rows[1]-1)
             offset_center_rows = (
                 center_rows[0] - img_row_bounds[0],
                 center_rows[1] - img_row_bounds[0])
             # Save figure
-            if self._save_figs:
+            if self._save_figures:
                 self._figures.append((buf, 'center_finding_rows'))
 
         # Find the center offsets at each of the center rows
@@ -1318,7 +1320,7 @@ class Tomo:
             z = np.asarray(z + nxentry.reduced_data.z_translation[0])
 
             # Save a few reconstructed image slices
-            if self._save_figs:
+            if self._save_figures:
                 x_index = x_slice-x_range[0]
                 title = f'recon {res_title} x={x[x_index]:.4f}'
                 self._figures.append(
@@ -1345,7 +1347,7 @@ class Tomo:
                     re_sub(r'\s+', '_', title)))
         else:
             # Save a few reconstructed image slices
-            if self._save_figs:
+            if self._save_figures:
                 for i in range(tomo_recon_stacks.shape[0]):
                     basetitle = f'recon stack {i}'
                     title = f'{basetitle} {res_title} xslice{x_slice}'
@@ -1505,7 +1507,7 @@ class Tomo:
 
         # Resize the combined tomography data stacks
         # - combined axis data order: row/-z,y,x
-        if self._interactive or self._save_figs:
+        if self._interactive or self._save_figures:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
         else:
@@ -1584,7 +1586,7 @@ class Tomo:
         z = np.asarray(z + nxentry.reduced_data.z_translation[0])
 
         # Save a few combined image slices
-        if self._save_figs:
+        if self._save_figures:
             x_slice = tomo_shape[2]//2
             title = f'recon combined x={x[x_slice]:.4f}'
             self._figures.append(
@@ -1700,7 +1702,7 @@ class Tomo:
             tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.)
 
         # Save dark field
-        if self._save_figs:
+        if self._save_figures:
             self._figures.append(
                 (quick_imshow(
                     tdf, title='Dark field', show_fig=False, return_fig=True),
@@ -1752,7 +1754,7 @@ class Tomo:
         tbf[tbf < 1] = 1
 
         # Save bright field
-        if self._save_figs:
+        if self._save_figures:
             self._figures.append(
                 (quick_imshow(
                     tbf, title='Bright field', show_fig=False,
@@ -1924,7 +1926,7 @@ class Tomo:
             title=title,
             title_a=r'Tomography image at $\theta$ = 'f'{round(theta, 2)+0}',
             title_b='Bright field',
-            interactive=self._interactive, return_buf=self._save_figs)
+            interactive=self._interactive, return_buf=self._save_figures)
         if not calibrate_center_rows and (num_tomo_stacks > 1
                 and (img_row_bounds[1]-img_row_bounds[0]+1)
                      < int((delta_z - 0.5*pixel_size) / pixel_size)):
@@ -1932,7 +1934,7 @@ class Tomo:
                 'Image bounds and pixel size prevent seamless stacking')
 
         # Save figure
-        if self._save_figs:
+        if self._save_figures:
             if calibrate_center_rows:
                 filename = 'rotation_calibration_rows'
             else:
@@ -2265,7 +2267,7 @@ class Tomo:
             f'{center_offset_vo:.2f}')
 
         selected_center_offset = center_offset_vo
-        if self._interactive or self._save_figs:
+        if self._interactive or self._save_figures:
 
             # Try Guizar-Sicairos's phase correlation method to find
             # the center
@@ -2357,10 +2359,10 @@ class Tomo:
                 self._select_center_offset(
                     recon_planes, row, center_offsets, default_offset_index=0,
                     fig_titles=fig_titles, search_button=False,
-                    include_all_bad=True, return_buf=self._save_figs)
+                    include_all_bad=True, return_buf=self._save_figures)
 
             # Save figure
-            if self._save_figs:
+            if self._save_figures:
                 self._figures.append((buf, f'recon_row_{row}_default_centers'))
 
         # Create reconstructions for a specified search range
@@ -2458,9 +2460,9 @@ class Tomo:
                         [recon_planes[i] for i in indices],
                         row, preselected_offsets, default_offset_index=1,
                         include_all_bad=include_all_bad,
-                        return_buf=self._save_figs)
+                        return_buf=self._save_figures)
                 # Save figure
-                if self._save_figs:
+                if self._save_figures:
                     self._figures.append((
                         buf,
                         f'recon_row_{row}_center_range_'
@@ -2531,10 +2533,10 @@ class Tomo:
                 self._select_center_offset(
                     recon_planes, row, center_offsets, default_offset_index=0,
                     fig_titles=fig_titles, search_button=False,
-                    return_buf=self._save_figs)
+                    return_buf=self._save_figures)
 
             # Save figure
-            if self._save_figs:
+            if self._save_figures:
                 self._figures.append((
                     buf,
                     f'recon_row_{row}_center_{selected_center_offset:.2f}'))
@@ -2964,8 +2966,8 @@ class Tomo:
             tomosum, preselected_roi=preselected_roi,
             title_a='Reconstructed data summed over z',
             row_label='y', column_label='x',
-            interactive=self._interactive, return_buf=self._save_figs)
-        if self._save_figs:
+            interactive=self._interactive, return_buf=self._save_figures)
+        if self._save_figures:
             if combine_data:
                 filename = 'combined_data_xy_roi'
             else:
@@ -3003,9 +3005,9 @@ class Tomo:
             buf, z_bounds = select_roi_1d(
                 tomosum, preselected_roi=z_bounds,
                 xlabel='z', ylabel='Reconstructed data summed over x and y',
-                interactive=self._interactive, return_buf=self._save_figs)
+                interactive=self._interactive, return_buf=self._save_figures)
             self._logger.debug(f'z_bounds = {z_bounds}')
-            if self._save_figs:
+            if self._save_figures:
                 if combine_data:
                     filename = 'combined_data_z_roi'
                 else:

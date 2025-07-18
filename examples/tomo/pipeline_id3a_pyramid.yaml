@@ -96,12 +96,12 @@ recon:
             schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
       reduce_data: true
-      save_figs: true
+      save_figures: true
   - common.NexusWriter:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
   - common.ImageWriter:
-      outputdir: saved_figs
+      outputdir: saved_figures
       force_overwrite: true
 
 #foxden:
