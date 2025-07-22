@@ -15,6 +15,7 @@ from logging import getLogger
 from os import path as os_path
 from os import (
     access,
+    makedirs,
     R_OK,
 )
 from re import compile as re_compile
@@ -1300,6 +1301,9 @@ def save_iobuf_fig(buf, filename, force_overwrite=False):
     basename, ext = os_path.splitext(filename)
     if not ext or ext not in exts:
         raise ValueError(f'Invalid file format {ext[1:]}')
+    filedir = os_path.dirname(filename)
+    if not os_path.isdir(filedir):
+        makedirs(filedir)
     if os_path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
@@ -1611,6 +1615,7 @@ def select_mask_1d(
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
 
+    buf = None
     if filename is not None or return_buf:
         if interactive:
             if len(selected_index_ranges) > 1:
@@ -1625,9 +1630,7 @@ def select_mask_1d(
         if return_buf:
             buf = fig_to_iobuf(fig)
     plt.close()
-    if return_buf:
-        return buf, selected_mask, selected_index_ranges
-    return None, selected_mask, selected_index_ranges
+    return buf, selected_mask, selected_index_ranges
 
 
 def select_roi_1d(
@@ -1850,6 +1853,7 @@ def select_roi_2d(
         reset_btn.ax.remove()
         confirm_btn.ax.remove()
 
+    buf = None
     if filename is not None or return_buf:
         if fig_title:
             fig_title[0].set_in_layout(True)
@@ -1872,9 +1876,7 @@ def select_roi_2d(
     if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
         roi = None
 
-    if return_buf:
-        return buf, roi
-    return None, roi
+    return buf, roi
 
 
 def select_image_indices(

@@ -190,6 +190,7 @@ def main():
     sub_pipelines = args.pipeline
     pipeline_config = []
     if sub_pipelines is None:
+#        sub_pipelines = list(config.keys())
         for sub_pipeline in config.values():
             pipeline_config += sub_pipeline
     else:

@@ -605,14 +605,16 @@ class TomoDataProcessor(Processor):
         :param combine_data: Combine the reconstructed tomography
             stacks, defaults to `False`.
         :type combine_data: bool, optional
-        :param save_figures: Create Matplotlib figures that can be saved
-            to file downstream in the workflow, defaults to `True`.
+        :param save_figures: Create Matplotlib figures that can be
+            saved to file downstream in the workflow,
+            defaults to `True`.
         :type save_figures: bool, optional
         :raises ValueError: Invalid input or configuration parameter.
         :raises RuntimeError: Missing map configuration to generate
             reduced tomography images.
-        :return: Processed (meta)data of the last step.
-        :rtype: Union[dict, nexusformat.nexus.NXroot]
+        :return: Processed (meta)data of the last step and a list of
+            byte stream representions of Matplotlib figures.
+        :rtype: Union[dict, nexusformat.nexus.NXroot], list[io.BytesIO]
         """
         # Third party modules
         from nexusformat.nexus import nxsetconfig
@@ -841,11 +843,11 @@ class Tomo:
 
         if not isinstance(interactive, bool):
             raise ValueError(f'Invalid parameter interactive ({interactive})')
+        self._figures = []
         self._interactive = interactive
         self._num_core = num_core
         self._test_config = {}
         self._save_figures = save_figures
-        self._figures = []
         if self._num_core == -1:
             self._num_core = cpu_count()
         if not isinstance(self._num_core, int) or self._num_core < 0:
@@ -2800,10 +2802,10 @@ class Tomo:
 
         if return_buf:
             buf = fig_to_iobuf(fig)
+        else:
+            buf = None
         plt.close()
-        if return_buf:
-            return buf, *selected_offset[0]
-        return None, *selected_offset[0]
+        return buf, *selected_offset[0]
 
     #@profile
     def _reconstruct_one_tomo_stack(

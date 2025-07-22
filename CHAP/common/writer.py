@@ -299,7 +299,7 @@ class H5Writer(Writer):
         """Write the NeXus object contained in `data` to hdf5 file.
 
         :param data: The data to write to file.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
@@ -334,20 +334,26 @@ class H5Writer(Writer):
 
 class ImageWriter(Writer):
     """Writer for saving image files."""
-    def write(self, data, outputdir, filename=None, force_overwrite=False):
+    def write(
+            self, data, outputdir, filename=None, force_overwrite=False,
+            remove=False):
         """Write the image(s) contained in `data` to file.
 
-        :param data: The image (stack).
+        :param data: The data to write to file.
         :type data: list[PipelineData]
+        :param outputdir: The name of the directory to write to.
+        :type outputdir: str
         :param filename: The name of the file to write to (for a
             single image or a tiff image stack, with a valid extension).
         :type filename: str, optional
         :param force_overwrite: Flag to allow files to be
             overwritten if they already exists, defaults to `False`.
         :type force_overwrite: bool, optional
+        :param remove: Flag to remove the NeXus object from `data`.
+        :type remove: bool, optional.
         :raises RuntimeError: If a file already exists and
             `force_overwrite` is `False`.
-        :return: The original image (stack).
+        :return: The data written to disk.
         :rtype: list, dict, matplotlib.animation.FuncAnimation,
             numpy.ndarray
         """
@@ -355,25 +361,34 @@ class ImageWriter(Writer):
         from io import BytesIO
 
         # Third party modules
-        from matplotlib.animation import FuncAnimation
+        from matplotlib.animation import (
+            ArtistAnimation,
+            FuncAnimation,
+        )
 
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
-        data = self.unwrap_pipelinedata(data)[-1]
-        if isinstance(data, list):
-            for (buf, fileformat), basename in data:
+        if remove:
+            print(f'remove parameter not implemented yet')
+        ddata = self.unwrap_pipelinedata(data)[-1]
+        if isinstance(ddata, list):
+            for (buf, fileformat), basename in ddata:
                 filename = f'{basename}.{fileformat}'
                 if not os_path.isabs(filename):
                     filename = os_path.join(outputdir, filename)
-                save_iobuf_fig(buf, filename, force_overwrite=force_overwrite)
-            return data
+                if isinstance(buf, (ArtistAnimation, FuncAnimation)):
+                    buf.save(filename)
+                else:
+                    save_iobuf_fig(
+                        buf, filename, force_overwrite=force_overwrite)
+            return ddata
 
-        if isinstance(data, dict):
-            fileformat = data['fileformat']
-            image_data = data['image_data']
+        if isinstance(ddata, dict):
+            fileformat = ddata['fileformat']
+            image_data = ddata['image_data']
         else:
-            image_data = data
+            image_data = ddata
         basename, ext = os_path.splitext(filename)
         if ext[1:] != fileformat:
             filename = f'{filename}.{fileformat}'
@@ -396,11 +411,11 @@ class ImageWriter(Writer):
 
                 kwargs = {'bigtiff': True}
                 imwrite(filename, image_data, **kwargs)
-        elif isinstance(image_data, FuncAnimation):
+        elif isinstance(image_data, (ArtistAnimation, FuncAnimation)):
             image_data.save(filename)
         else:
             raise ValueError(f'Invalid image input type {type(image_data)}')
-        return data
+        return ddata
 
 
 class MatplotlibAnimationWriter(Writer):
@@ -409,7 +424,7 @@ class MatplotlibAnimationWriter(Writer):
         """Write the matplotlib.animation.ArtistAnimation object
         contained in `data` to file.
 
-        :param data: The matplotlib animation.
+        :param data: The data to write to file.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
@@ -437,7 +452,7 @@ class MatplotlibFigureWriter(Writer):
         """Write the matplotlib.figure.Figure contained in `data` to
         file.
 
-        :param data: The matplotlib figure.
+        :param data: The data to write to file.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
@@ -472,6 +487,8 @@ class NexusWriter(Writer):
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
+        :param remove: Flag to remove the NeXus object from `data`.
+        :type remove: bool, optional.
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
         :return: The data written to file.
@@ -485,6 +502,8 @@ class NexusWriter(Writer):
             NXroot,
         )
 
+        if remove:
+            print(f'remove parameter not implemented yet')
         nxobject = self.get_data(data, remove=remove)
 
         nxname = nxobject.nxname
@@ -546,8 +565,8 @@ class PyfaiResultsWriter(Writer):
         """Save pyFAI integration results to a file. Format is
         determined automatically form the extension of `filename`.
 
-        :param data: Integration results to save.
-        :type data: Union[PipelineData,
+        :param data: The data to write to file.
+        :type data: Union[list[PipelineData],
             list[pyFAI.containers.IntegrateResult]]
         :param filename: Name of the file to which results will be
             saved. Format of output is determined ffrom the
@@ -614,8 +633,8 @@ class TXTWriter(Writer):
         """Write a string or tuple or list of strings contained in 
         `data` to file.
 
-        :param data: The data to write to disk.
-        :type data: str, tuple[str], list[str]
+        :param data: The data to write to file.
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param append: Flag to allow data in `filename` to be
@@ -639,16 +658,18 @@ class TXTWriter(Writer):
 
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s."""
-    def write(self, data, filename, force_overwrite=False):
+    def write(self, data, filename, force_overwrite=False, remove=False):
         """Write the dictionary contained in `data` to file.
 
         :param data: The data to write to file.
-        :type data: dict
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
+        :param remove: Flag to remove the NeXus object from `data`.
+        :type remove: bool, optional.
         :raises TypeError: If the object contained in `data` is not a
             `dict`.
         :raises RuntimeError: If `filename` already exists and
@@ -656,19 +677,31 @@ class YAMLWriter(Writer):
         :return: The data written to file.
         :rtype: dict
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        try:
-            # Third party modules
-            from pydantic import BaseModel
+        # Third party modules
+        from pydantic import BaseModel
 
-            # Local modules
-            from CHAP.models import CHAPBaseModel
+        # Local modules
+        from CHAP.models import CHAPBaseModel
 
-            if isinstance(data, (BaseModel, CHAPBaseModel)):
-                data = data.model_dump()
-        except:
-            pass
-        write_yaml(data, filename, force_overwrite)
+        if remove:
+            print(f'remove parameter not implemented yet')
+        yaml_dict = None
+        for i, d in reversed(list(enumerate(data))):
+            ddata = d['data']
+            if isinstance(ddata, dict):
+                yaml_dict = ddata
+#                if remove:
+#                    data.pop(i)
+                break
+            if isinstance(ddata, (BaseModel, CHAPBaseModel)):
+                try:
+                    yaml_dict = ddata.model_dump()
+#                    if remove:
+#                        data.pop(i)
+                    break
+                except:
+                    pass
+        write_yaml(yaml_dict, filename, force_overwrite)
         return data
 
 

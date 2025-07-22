@@ -360,7 +360,7 @@ class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
             self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            save_figures=False, outputdir='.', interactive=False):
+            interactive=False, save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
@@ -380,15 +380,12 @@ class ConstructBaseline(Processor):
         :param max_iter: The maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
         :return: The smoothed baseline and the configuration.
         :rtype: numpy.array, dict
         """
@@ -399,13 +396,13 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
-            interactive)
+            data, x, mask, tol, lam, max_iter, interactive=interactive,
+            return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
             y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-            xlabel=None, ylabel=None, interactive=False, filename=None):
+            xlabel=None, ylabel=None, interactive=False, return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -435,19 +432,24 @@ class ConstructBaseline(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :param filename: Save a .png of the plot to filename, defaults
-            to `None`, in which case the plot is not saved.
-        :type filename: str, optional
-        :return: The smoothed baseline and the configuration.
-        :rtype: numpy.array, dict
+        :param return_buf: Return an in-memory object as a byte stream
+            represention of the Matplotlib figure, defaults to `False`.
+        :type return_buf: bool, optional
+        :return: The smoothed baseline and the configuration and a
+            byte stream represention of the Matplotlib figure if
+            return_buf is `True` (`None` otherwise)
+        :rtype: numpy.array, dict, Union[io.BytesIO, None]
         """
         # Third party modules
-        if interactive or filename is not None:
+        if interactive or return_buf:
             from matplotlib.widgets import TextBox, Button
             import matplotlib.pyplot as plt
 
         # Local modules
-        from CHAP.utils.general import baseline_arPLS
+        from CHAP.utils.general import (
+            baseline_arPLS,
+            fig_to_iobuf,
+        )
 
         def change_fig_subtitle(maxed_out=False, subtitle=None):
             """Change the figure's subtitle."""
@@ -518,11 +520,11 @@ class ConstructBaseline(Processor):
             y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             full_output=True)
 
-        if not interactive and filename is None:
+        if not interactive and not return_buf:
             config = {
                 'tol': tol, 'lambda': lam, 'max_iter': max_iter,
                 'num_iter': num_iter, 'error': error, 'mask': mask}
-            return baseline, config
+            return baseline, config, None
 
         lambdas = [lam]
         weights = [w]
@@ -596,17 +598,19 @@ class ConstructBaseline(Processor):
             continue_btn.ax.remove()
             confirm_btn.ax.remove()
 
-        if filename is not None:
+        if return_buf:
             fig_title.set_in_layout(True)
             fig_subtitles[-1].set_in_layout(True)
             fig.tight_layout(rect=(0, 0, 1, 0.90))
-            fig.savefig(filename)
+            buf = fig_to_iobuf(fig)
+        else:
+            buf = None
         plt.close()
 
         config = {
             'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
             'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
-        return baseline, config
+        return baseline, config, buf
 
 
 class ConvertStructuredProcessor(Processor):

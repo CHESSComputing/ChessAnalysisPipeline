@@ -267,7 +267,7 @@ def run_material_selector(
 
 def select_material_params(
         x, y, tth, preselected_materials=None, label='Reference Data',
-        interactive=False, filename=None):
+        interactive=False, return_buf=False):
     """Interactively adjust the lattice parameters and space group for
     a list of materials. It is possible to add / remove materials from
     the list.
@@ -288,12 +288,18 @@ def select_material_params(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-    :param filename: Save a .png of the plot to filename, defaults to
-        `None`, in which case the plot is not saved.
-    :type filename: str, optional
-    :return: The selected materials for the strain analyses.
-    :rtype: list[CHAP.edd.models.MaterialConfig]
+        :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: The selected materials for the strain analyses and a byte
+        stream represention of the Matplotlib figure if return_buf is
+        `True` (`None` otherwise).
+    :rtype: list[CHAP.edd.models.MaterialConfig],
+        Union[io.BytesIO, None]
     """
+    # Local modules
+    from CHAP.utils.general import fig_to_iobuf
+
     # Run the MaterialParamSelector with the callback function to
     # handle the materials data and, if requested, the output figure
     materials = None
@@ -306,10 +312,12 @@ def select_material_params(
     run_material_selector(
         x, y, tth, preselected_materials, label, on_complete, interactive)
 
-    if filename is not None:
-        figure.savefig(filename)
+    if return_buf:
+        buf = fig_to_iobuf(figure)
+    else:
+        buf = None
 
-    return materials
+    return materials, buf
 
 
 if __name__ == '__main__':
