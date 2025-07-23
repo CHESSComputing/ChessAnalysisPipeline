@@ -336,7 +336,7 @@ class ImageWriter(Writer):
     """Writer for saving image files."""
     def write(
             self, data, outputdir, filename=None, force_overwrite=False,
-            remove=False):
+            remove=True):
         """Write the image(s) contained in `data` to file.
 
         :param data: The data to write to file.
@@ -349,8 +349,9 @@ class ImageWriter(Writer):
         :param force_overwrite: Flag to allow files to be
             overwritten if they already exists, defaults to `False`.
         :type force_overwrite: bool, optional
-        :param remove: Flag to remove the NeXus object from `data`.
-        :type remove: bool, optional.
+        :param remove: If there is a matching entry in `data`, remove
+            it from the list, defaults to `True`.
+        :type remove: bool, optional
         :raises RuntimeError: If a file already exists and
             `force_overwrite` is `False`.
         :return: The data written to disk.
@@ -369,9 +370,14 @@ class ImageWriter(Writer):
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
-        if remove:
-            print(f'remove parameter not implemented yet')
-        ddata = self.unwrap_pipelinedata(data)[-1]
+        try:
+            ddata = self.get_data(
+                data, schema='common.write.ImageWriter', remove=remove)
+        except ValueError:
+            self.logger.warning(
+                'Unable to find match with schema `common.write.ImageWriter`: '
+                'return without writing')
+            return None
         if isinstance(ddata, list):
             for (buf, fileformat), basename in ddata:
                 filename = f'{basename}.{fileformat}'

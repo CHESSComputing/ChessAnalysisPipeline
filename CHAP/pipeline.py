@@ -314,7 +314,8 @@ class PipelineItem():
             return kwargs.get('data',[])
         if isinstance(data, tuple):
             return kwargs.get('data',[]) + [
-                PipelineData(name=self.__name__, data=d, schema=schema)
+                d if isinstance(d, PipelineData)
+                else PipelineData(name=self.__name__, data=d, schema=schema)
                 for d in data]
         return kwargs.get('data',[]) + [
             PipelineData(name=self.__name__, data=data, schema=schema)]

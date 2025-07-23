@@ -614,12 +614,13 @@ class TomoDataProcessor(Processor):
             reduced tomography images.
         :return: Processed (meta)data of the last step and a list of
             byte stream representions of Matplotlib figures.
-        :rtype: Union[dict, nexusformat.nexus.NXroot], list[io.BytesIO]
+        :rtype: Union[dict, nexusformat.nexus.NXroot], PipelineData
         """
         # Third party modules
         from nexusformat.nexus import nxsetconfig
 
         # Local modules
+        from CHAP.pipeline import PipelineData
         from CHAP.tomo.models import (
             TomoFindCenterConfig,
             TomoReconstructConfig,
@@ -770,8 +771,12 @@ class TomoDataProcessor(Processor):
             nxroot = tomo.combine_data(nxroot, combine_data_config)
 
         if center_config is not None:
-            return center_config
-        return nxroot, tomo._figures
+            return center_config, PipelineData(
+                name=self.__name__, data=tomo._figures,
+                schema='common.write.ImageWriter')
+        return nxroot, PipelineData(
+            name=self.__name__, data=tomo._figures,
+            schema='common.write.ImageWriter')
 
 
 class SetNumexprThreads:

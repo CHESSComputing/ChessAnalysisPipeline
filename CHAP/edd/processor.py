@@ -18,6 +18,7 @@ import numpy as np
 
 # Local modules
 from CHAP.processor import Processor
+from CHAP.pipeline import PipelineData
 from CHAP.utils.general import fig_to_iobuf
 
 FLOAT_MIN = float_info.min
@@ -674,8 +675,9 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         :type dvl_config: CHAP.edd.models.DiffractionVolumeLengthConfig
         :param scanned_vals: The scanned motor position values.
         :type scanned_vals: numpy.ndarray
-        :return: Updated energy DVL measurement configuration.
-        :rtype: dict
+        :return: Updated energy DVL measurement configuration and a list of
+            byte stream representions of Matplotlib figures.
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -785,7 +787,9 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     plt.show()
                 plt.close()
 
-        return dvl_config.model_dump(), self._figures
+        return dvl_config.model_dump(), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
 
 class LatticeParameterRefinementProcessor(BaseStrainProcessor):
@@ -1087,7 +1091,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         :returns: Dictionary representing the energy-calibrated
             version of the calibrated configuration and a list of
             byte stream representions of Matplotlib figures.
-        :rtype: dict, list[io.BytesIO]
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from json import loads
@@ -1188,7 +1192,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         self._subtract_baselines()
 
         # Calibrate detector channel energies based on fluorescence peaks
-        return self._calibrate(calibration_config), self._figures
+        return self._calibrate(calibration_config), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
     def _get_mask(self):
         """Get the mask used in the energy calibration."""
@@ -1624,7 +1630,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         :return: Original configuration with the tuned values for
             2&theta and the linear correction parameters added and a
             list of byte stream representions of Matplotlib figures.
-        :rtype: dict, list[io.BytesIO]
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from json import loads
@@ -1759,7 +1765,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         self._subtract_baselines()
 
         # Calibrate detector channel energies
-        return self._calibrate(calibration_config), self._figures
+        return self._calibrate(calibration_config), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
     def _calibrate(self, calibration_config):
         """Calibrate 2&theta and linear and fine tune the energy
@@ -2341,9 +2349,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         :type interactive: bool, optional
         :raises RuntimeError: Unable to get a valid strain analysis
             configuration.
-        :return: The strain analysis setup or results.
+        :return: The strain analysis setup or results, a list of
+            byte stream representions of Matplotlib figures and an
+            animation of the fit results.
         :rtype: Union[list[dict[str, object]],
-                      nexusformat.nexus.NXroot]
+            nexusformat.nexus.NXroot], PipelineData, PipelineData
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -2480,18 +2490,34 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 self.logger.info(f'... done')
             else:
                 self.logger.warning('Skip adding points')
-            return nxroot, self._figures, self._animation
+            return (
+                nxroot, 
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
+
         if setup:
             return (
                 self._get_nxroot(
                     nxentry, calibration_config, strain_analysis_config),
-                self._figures,
-                self._animation)
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
         if update:
             return (
                 self._strain_analysis(strain_analysis_config),
-                self._figures,
-                self._animation)
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
         return None
 
     def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
