@@ -1518,10 +1518,12 @@ class MapProcessor(Processor):
             raise ValueError('Multiple detectors not tested yet')
         if map_config.experiment_type == 'TOMO':
             dtype = np.float32
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id, dtype=dtype)
         else:
             dtype = None
-        ddata = scanparser.get_detector_data(
-            detector_config.detectors[0].id, dtype=dtype)
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id)
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
