@@ -83,8 +83,10 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     install_requires=[
-        'PyYAML'
+        'pyyaml==6.0.2',
+        'pydantic==2.7.3',
+        'numpy==1.26.4'
     ],
 )
