@@ -53,7 +53,7 @@ def environments():
             "details": "Conda environment",
             "parent_environment": None,
             "os_name": os_name,
-            "packages": packages
+            "packages": packages[:5]+['... plus many more'] #RV FIX
         })
 
     # Check for Virtualenv (excluding Conda)

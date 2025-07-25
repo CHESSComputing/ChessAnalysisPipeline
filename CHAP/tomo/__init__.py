@@ -12,4 +12,4 @@ from CHAP.tomo.processor import (
     TomoSpecProcessor,
 )
 # from CHAP.tomo.reader import
-# from CHAP.tomo.writer import
+from CHAP.tomo.writer import TomoWriter

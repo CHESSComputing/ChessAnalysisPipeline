@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: hollow_pyramid
   interactive: true
-  log_level: INFO
+  log_level: info
   profile: false
 
 pipeline:
@@ -97,18 +97,14 @@ recon:
   - tomo.TomoDataProcessor:
       reduce_data: true
       save_figures: true
-  - common.NexusWriter:
+  - tomo.TomoWriter:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
-
-#foxden:
-#
-#  - foxden.FoxdenMetadataProcessor
-#  - foxden.FoxdenMetadataWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor
-#  - foxden.FoxdenProvenanceWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8310'
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceProcessor
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'

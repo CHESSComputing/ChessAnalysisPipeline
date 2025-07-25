@@ -493,7 +493,8 @@ class NexusWriter(Writer):
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
-        :param remove: Flag to remove the NeXus object from `data`.
+        :param remove: Flag to remove the NeXus object from `data`,
+            defaults to `False`.
         :type remove: bool, optional.
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
@@ -508,8 +509,6 @@ class NexusWriter(Writer):
             NXroot,
         )
 
-        if remove:
-            print(f'remove parameter not implemented yet')
         nxobject = self.get_data(data, remove=remove)
 
         nxname = nxobject.nxname
@@ -665,7 +664,7 @@ class TXTWriter(Writer):
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s."""
     def write(self, data, filename, force_overwrite=False, remove=False):
-        """Write the dictionary contained in `data` to file.
+        """Write the last dictionary contained in `data` to file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
@@ -674,8 +673,8 @@ class YAMLWriter(Writer):
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
-        :param remove: Flag to remove the NeXus object from `data`.
-        :type remove: bool, optional.
+        :param remove: Flag to remove the dictionary from `data`,
+            defaults to `False`.
         :raises TypeError: If the object contained in `data` is not a
             `dict`.
         :raises RuntimeError: If `filename` already exists and
@@ -689,21 +688,19 @@ class YAMLWriter(Writer):
         # Local modules
         from CHAP.models import CHAPBaseModel
 
-        if remove:
-            print(f'remove parameter not implemented yet')
         yaml_dict = None
         for i, d in reversed(list(enumerate(data))):
             ddata = d['data']
             if isinstance(ddata, dict):
                 yaml_dict = ddata
-#                if remove:
-#                    data.pop(i)
+                if remove:
+                    data.pop(i)
                 break
             if isinstance(ddata, (BaseModel, CHAPBaseModel)):
                 try:
                     yaml_dict = ddata.model_dump()
-#                    if remove:
-#                        data.pop(i)
+                    if remove:
+                        data.pop(i)
                     break
                 except:
                     pass

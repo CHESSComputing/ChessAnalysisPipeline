@@ -371,7 +371,10 @@ def run(
     if comm is not None:
         comm.barrier()
 
-    return pipeline.execute()[0]['data']
+    result = pipeline.execute()
+    if result:
+        return result[0]['data']
+    return result
 
 
 if __name__ == '__main__':

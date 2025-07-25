@@ -39,16 +39,17 @@ class FoxdenDoiWriter(Writer):
         :param verbose: Verbose output flag, defaults to `False`.
         :type verbose: bool, optional
         :return: HTTP response from FOXDEN DOI service.
-        :rtype: list with dictionary entry
+        :rtype: list[dict]
         """
         self.logger.info(
             f'Executing "process" with url={url} data={data}')
         rurl = f'{url}/publish'
+        raise NotImplementedError
         # FIX it would be useful to perform validation of data
-        if isinstance(data, list) and len(data) == 1:
-            data = data[0]['data'][0]
-        if not isinstance(data, dict):
-            raise ValueError(f'Invalid "data" parameter ({data})')
+#        if isinstance(data, list) and len(data) == 1:
+#            data = data[0]['data'][0]
+#        if not isinstance(data, dict):
+#            raise ValueError(f'Invalid "data" parameter ({data})')
         draft_str = 'on' if draft else ''
         publish_meta = 'on' if publishMetadata else ''
         form_data = {
@@ -64,8 +65,8 @@ class FoxdenDoiWriter(Writer):
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
-        data = [{'code': response.status_code, 'data': response.text}]
-        return data
+        result = [{'code': response.status_code, 'data': response.text}]
+        return result
 
 
 class FoxdenMetadataWriter(Writer):
@@ -80,8 +81,9 @@ class FoxdenMetadataWriter(Writer):
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
+
         record = self.get_data(
-            data, name='FoxdenMetadataProcessor', remove=False)
+            data, schema='metadata')
         if not isinstance(record, dict):
             raise ValueError('Invalid metadata record {(record)}')
 
@@ -95,9 +97,8 @@ class FoxdenMetadataWriter(Writer):
 
         # For now cut out anything but the did and application fields
         # from the CHAP workflow metadata record
-        metadata = record.pop('metadata')
         record = {'did': record['did'],
-                'application': record.get('application', 'CHAP')}
+                  'application': record.get('application', 'CHAP')}
 
         # Submit HTTP request and return response
         rurl = f'{config.url}'
@@ -113,8 +114,6 @@ class FoxdenMetadataWriter(Writer):
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
             result = []
-        # For now, return the did
-        return record['did']
         return result
 
 
@@ -131,9 +130,6 @@ class FoxdenProvenanceWriter(Writer):
         :rtype: list[dict]
         """
         record = self.get_data(data, name='FoxdenProvenanceProcessor')
-        if not isinstance(record, list) or len(record) != 1:
-            raise ValueError('Invalid provenance record {(record)}')
-        record = record[0]
         if not isinstance(record, dict):
             raise ValueError('Invalid provenance record {(record)}')
 
