@@ -6,6 +6,9 @@ from copy import deepcopy
 # Third party modules
 import numpy as np
 
+# Local modules
+from CHAP.utils.general import fig_to_iobuf
+
 def get_peak_locations(ds, tth):
     """Return the peak locations for a given set of lattice spacings
     and 2&theta value.
@@ -111,7 +114,7 @@ def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
 
 
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
-        interactive=False, filename=None, detector_id=None):
+        detector_id=None, interactive=False, return_buf=False):
     """Show a matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
     initial 2&theta guess and responds by updating the HKL locations
@@ -133,15 +136,17 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :param filename: Save a .png of the plot to filename, defaults to
-        `None`, in which case the plot is not saved.
-    :type filename: str, optional
     :param detector_id: Detector ID.
     :type detector_id: str, optional
-    :return: The selected initial guess for 2&theta.
-    :rtype: float
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: The selected initial guess for 2&theta and a byte stream
+        represention of the Matplotlib figure if return_buf is `True`
+        (`None` otherwise).
+    :rtype: float, Union[io.BytesIO, None]
     """
-    if not interactive and filename is None:
+    if not interactive and not return_buf:
         return tth_initial_guess
 
     # Third party modules
@@ -262,7 +267,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         confirm_btn.ax.remove()
 
     # Save the figures if requested and close
-    if filename is not None:
+    if return_buf:
         if interactive:
             title = r'Initial guess for 2$\theta$='f'{tth_input.text}'
             if detector_id is not None:
@@ -270,7 +275,9 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
             fig_title[0]._text = title
         fig_title[0].set_in_layout(True)
         fig.tight_layout(rect=(0, 0, 1, 0.95))
-        fig.savefig(filename)
+        buf = fig_to_iobuf(fig)
+    else:
+        buf = None
     plt.close()
 
     if not interactive:
@@ -280,13 +287,13 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
             tth_new_guess = float(tth_input.text)
         except Exception:
             tth_new_guess = select_tth_initial_guess(
-                x, y, hkls, ds, tth_initial_guess, interactive, filename)
+                x, y, hkls, ds, tth_initial_guess, interactive, return_buf)
 
-    return tth_new_guess
+    return tth_new_guess, buf
 
 def select_material_params(
         x, y, tth, preselected_materials=None, label='Reference Data',
-        interactive=False, filename=None):
+        interactive=False, return_buf=False):
     """Interactively select the lattice parameters and space group for
     a list of materials. A matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
@@ -311,18 +318,21 @@ def select_material_params(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-    :param filename: Save a .png of the plot to filename, defaults to
-        `None`, in which case the plot is not saved.
-    :type filename: str, optional
-    :return: The selected materials for the strain analyses.
-    :rtype: list[CHAP.edd.models.MaterialConfig]
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: The selected materials for the strain analyses and a byte
+        stream represention of the Matplotlib figure if return_buf is
+        `True` (`None` otherwise).
+    :rtype: list[CHAP.edd.models.MaterialConfig],
+        Union[io.BytesIO, None]
     """
-    if not interactive and filename is None:
+    if not interactive and not return_buf:
         if preselected_materials is None:
             raise RuntimeError(
                 'If the material properties are not explicitly provided, '
                 'the pipeline must be run with `interactive=True`.')
-        return preselected_materials
+        return preselected_materials, None
 
     # Third party modules
     from hexrd.material import Material
@@ -375,6 +385,8 @@ def select_material_params(
                 modified_material.append(label)
                 radio_btn.disconnect(radio_cid)
                 radio_btn.ax.remove()
+                # Needed to work around a bug in Matplotlib:
+                radio_btn.active = False
                 plt.close()
 
             mat_texts.append(
@@ -523,7 +535,7 @@ def select_material_params(
             button[0].ax.remove()
         buttons.clear()
 
-    if filename is not None:
+    if return_buf:
         for mat_text in mat_texts:
             pos = mat_text.get_position()
             if interactive:
@@ -534,7 +546,9 @@ def select_material_params(
                 mat_text.set_text('Selected materials:')
             mat_text.set_in_layout(True)
         fig.tight_layout(rect=(0, 0.05 + 0.05*len(materials), 1, 1))
-        fig.savefig(filename)
+        buf = fig_to_iobuf(fig)
+    else:
+        buf = None
     plt.close()
 
     if modified_material:
@@ -564,7 +578,7 @@ def select_material_params(
                 print(f'{e}: try again')
         return select_material_params(
             x, y, tth, preselected_materials=materials, label=label,
-            interactive=interactive, filename=filename)
+            interactive=interactive, return_buf=return_buf)
 
     if added_material:
         # Local modules
@@ -596,29 +610,30 @@ def select_material_params(
         materials.append(new_material)
         return select_material_params(
             x, y, tth, preselected_materials=materials, label=label,
-            interactive=interactive, filename=filename)
+            interactive=interactive, return_buf=return_buf)
 
     if removed_material:
         return select_material_params(
             x, y, tth,
             preselected_materials=[
                 m for m in materials if m.name not in removed_material],
-            label=label, interactive=interactive, filename=filename)
+            label=label, interactive=interactive, return_buf=return_buf)
 
     if not materials:
         return select_material_params(
-            x, y, tth, label=label, interactive=interactive, filename=filename)
+            x, y, tth, label=label, interactive=interactive,
+            return_buf=return_buf)
 
     return [
         MaterialConfig(
             material_name=m.name, sgnum=m.sgnum,
             lattice_parameters=[
                 m.latticeParameters[i].value for i in range(6)])
-        for m in materials]
+        for m in materials], buf
 
 def select_material_params_gui(
         x, y, tth, preselected_materials=None, label='Reference Data',
-        interactive=False, filename=None):
+        interactive=False, return_buf=False):
     """Interactively adjust the lattice parameters and space group for
     a list of materials. It is possible to add / remove materials from
     the list.
@@ -639,11 +654,14 @@ def select_material_params_gui(
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-    :param filename: Save a .png of the plot to filename, defaults to
-        `None`, in which case the plot is not saved.
-    :type filename: str, optional
-    :return: The selected materials for the strain analyses.
-    :rtype: list[CHAP.edd.models.MaterialConfig]
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: The selected materials for the strain analyses and a byte
+        stream represention of the Matplotlib figure if return_buf is
+        `True` (`None` otherwise).
+    :rtype: list[CHAP.edd.models.MaterialConfig],
+        Union[io.BytesIO, None]
     """
     # Local modules
     from CHAP.edd.select_material_params_gui import run_material_selector
@@ -658,16 +676,15 @@ def select_material_params_gui(
     run_material_selector(
         x, y, tth, preselected_materials, label, on_complete, interactive)
 
-    if filename is not None:
-        figure.savefig(filename)
-
-    return materials
+    if return_buf:
+        materials, fig_to_iobuf(figure)
+    return materials, None
 
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         preselected_hkl_indices=None, num_hkl_min=1, detector_id=None,
         ref_map=None, flux_energy_range=None, calibration_bin_ranges=None,
-        label='Reference Data', interactive=False, filename=None):
+        label='Reference Data', interactive=False, return_buf=False):
     """Return a matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD energy/tth calibration and/or strain
     analysis.
@@ -710,12 +727,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     :param interactive: Show the plot and allow user interactions with
         the matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
-    :param filename: Save a .png of the plot to filename, defaults to
-        `None`, in which case the plot is not saved.
-    :type filename: str, optional
-    :return: The list of selected data index ranges to include, and the
-        list of HKL indices to include
-    :rtype: list[list[int]], list[int]
+    :param return_buf: Return an in-memory object as a byte stream
+        represention of the Matplotlib figure, defaults to `False`.
+    :type return_buf: bool, optional
+    :return: The list of selected data index ranges to include, the
+        list of HKL indices to include and a byte stream represention
+        of the Matplotlib figure if return_buf is `True` (`None`
+        otherwise).
+    :rtype: list[list[int]], list[int], Union[io.BytesIO, None]
     """
     # Third party modules
     import matplotlib.lines as mlines
@@ -782,7 +801,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         removed_hkls = False
         for hkl_index in deepcopy(selected_hkl_indices):
             if hkl_locations_in_any_span(hkl_index) < 0:
-                if interactive or filename is not None:
+                if interactive or return_buf:
                     hkl_vlines[hkl_index].set(**excluded_hkl_props)
                 selected_hkl_indices.remove(hkl_index)
                 removed_hkls = True
@@ -813,11 +832,11 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         for hkl_index in range(len(hkl_locations)):
             if (hkl_index not in selected_hkl_indices
                     and hkl_locations_in_any_span(hkl_index) >= 0):
-                if interactive or filename is not None:
+                if interactive or return_buf:
                     hkl_vlines[hkl_index].set(**included_hkl_props)
                 selected_hkl_indices.append(hkl_index)
                 added_hkls = True
-        if interactive or filename is not None:
+        if interactive or return_buf:
             if combined_spans:
                 if added_hkls or removed_hkls:
                     change_error_text(
@@ -916,7 +935,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     included_hkl_props = {
         'color': 'green', 'linestyle': '-', 'linewidth': 2,
         'marker': 10, 'markersize': 10, 'fillstyle': 'full'}
-    if not interactive and filename is None:
+    if not interactive and not return_buf:
 
         # It is too convenient to not use the Matplotlib SpanSelector
         # so define a (fig, ax) tuple, despite not creating a figure
@@ -992,7 +1011,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
 
     if not interactive:
 
-        if filename is not None:
+        if return_buf:
             if detector_id is None:
                 change_fig_title('Selected data and HKLs used in fitting')
             else:
@@ -1126,7 +1145,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
             change_fig_title('Select data and HKLs to use in fitting '
                              f'detector {detector_id}')
         fig.subplots_adjust(bottom=0.2)
-        if filename is not None and ref_map is not None:
+        if not return_buf and ref_map is not None:
             position_cax()
 
         # Setup "Add span" button
@@ -1160,7 +1179,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         reset_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
-    if filename is not None:
+    if return_buf:
         if interactive:
             if error_texts:
                 error_texts[0].remove()
@@ -1173,7 +1192,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         fig.tight_layout(rect=(0, 0, 0.9, 0.9))
         if ref_map is not None:
             position_cax()
-        fig.savefig(filename)
+        buf = fig_to_iobuf(fig)
+    else:
+        buf = None
     plt.close()
 
     selected_bin_ranges = [np.searchsorted(x, span.extents).tolist()
@@ -1185,7 +1206,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     else:
         selected_hkl_indices = None
 
-    return selected_bin_ranges, selected_hkl_indices
+    return selected_bin_ranges, selected_hkl_indices, buf
 
 
 def get_rolling_sum_spectra(

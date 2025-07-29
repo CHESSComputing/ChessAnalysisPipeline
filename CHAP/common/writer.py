@@ -15,54 +15,6 @@ import numpy as np
 # Local modules
 from CHAP import Writer
 
-def write_image(data, filename, logger, force_overwrite=False):
-    """Write an image to file.
-
-    :param data: The image (stack) to write to file
-    :type data: bytes, dict, matplotlib.animation.FuncAnimation,
-        numpy.ndarray
-    :param filename: File name.
-    :type filename: str
-    :param force_overwrite: Flag to allow data to be overwritten if it
-        already exists, defaults to `False`.
-    :type force_overwrite: bool, optional
-    """
-    # Third party modules
-    from matplotlib import animation
-
-    if os_path.isfile(filename) and not force_overwrite:
-        raise FileExistsError(f'{filename} already exists')
-
-    if isinstance(data, dict):
-        fileformat = data['fileformat']
-        image_data = data['image_data']
-    else:
-        image_data = data
-    basename, ext = os_path.splitext(filename)
-    if ext and ext != f'.{fileformat}':
-        logger.warning('Ignoring inconsistent file extension')
-    filename = f'{basename}.{fileformat}'
-    if isinstance(image_data, bytes):
-        with open(filename, "wb") as f:
-            f.write(image_data)
-    elif isinstance(image_data, np.ndarray):
-        if image_data.ndim == 2:
-            # Third party modules
-            from imageio import imwrite
-
-            imwrite(filename, image_data)
-        elif image_data.ndim == 3:
-            # Third party modules
-#            from imageio import mimwrite as imwrite
-            from tifffile import imwrite
-
-            kwargs = {'bigtiff': True}
-            imwrite(filename, image_data, **kwargs)
-    elif isinstance(image_data, animation.FuncAnimation):
-        image_data.save(filename)
-    else:
-        raise ValueError(f'Invalid image input type {type(image_data)}')
-
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
     """Write a Matplotlib figure to file.
@@ -347,7 +299,7 @@ class H5Writer(Writer):
         """Write the NeXus object contained in `data` to hdf5 file.
 
         :param data: The data to write to file.
-        :type data: CHAP.pipeline.PipelineData
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
@@ -382,25 +334,94 @@ class H5Writer(Writer):
 
 class ImageWriter(Writer):
     """Writer for saving image files."""
-    def write(self, data, filename, force_overwrite=False):
-        """Write the image contained in `data` to file.
+    def write(
+            self, data, outputdir, filename=None, force_overwrite=False,
+            remove=True):
+        """Write the image(s) contained in `data` to file.
 
-        :param data: The image(stack).
+        :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param filename: The name of the file to write to.
-        :type filename: str
-        :param force_overwrite: Flag to allow data in `filename` to be
-            overwritten if it already exists, defaults to `False`.
+        :param outputdir: The name of the directory to write to.
+        :type outputdir: str
+        :param filename: The name of the file to write to (for a
+            single image or a tiff image stack, with a valid extension).
+        :type filename: str, optional
+        :param force_overwrite: Flag to allow files to be
+            overwritten if they already exists, defaults to `False`.
         :type force_overwrite: bool, optional
-        :raises RuntimeError: If `filename` already exists and
+        :param remove: If there is a matching entry in `data`, remove
+            it from the list, defaults to `True`.
+        :type remove: bool, optional
+        :raises RuntimeError: If a file already exists and
             `force_overwrite` is `False`.
-        :return: The original image(stack).
-        :rtype: numpy.ndarray
+        :return: The data written to disk.
+        :rtype: list, dict, matplotlib.animation.FuncAnimation,
+            numpy.ndarray
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        write_image(data, filename, self.logger, force_overwrite)
+        # System modules
+        from io import BytesIO
 
-        return data
+        # Third party modules
+        from matplotlib.animation import (
+            ArtistAnimation,
+            FuncAnimation,
+        )
+
+        # Local modules
+        from CHAP.utils.general import save_iobuf_fig
+
+        try:
+            ddata = self.get_data(
+                data, schema='common.write.ImageWriter', remove=remove)
+        except ValueError:
+            self.logger.warning(
+                'Unable to find match with schema `common.write.ImageWriter`: '
+                'return without writing')
+            return None
+        if isinstance(ddata, list):
+            for (buf, fileformat), basename in ddata:
+                filename = f'{basename}.{fileformat}'
+                if not os_path.isabs(filename):
+                    filename = os_path.join(outputdir, filename)
+                if isinstance(buf, (ArtistAnimation, FuncAnimation)):
+                    buf.save(filename)
+                else:
+                    save_iobuf_fig(
+                        buf, filename, force_overwrite=force_overwrite)
+            return ddata
+
+        if isinstance(ddata, dict):
+            fileformat = ddata['fileformat']
+            image_data = ddata['image_data']
+        else:
+            image_data = ddata
+        basename, ext = os_path.splitext(filename)
+        if ext[1:] != fileformat:
+            filename = f'{filename}.{fileformat}'
+        if not os_path.isabs(filename):
+            filename = os_path.join(outputdir, filename)
+        if os_path.isfile(filename) and not force_overwrite:
+            raise FileExistsError(f'{filename} already exists')
+        if isinstance(image_data, BytesIO):
+            save_iobuf_fig(
+                image_data, filename, force_overwrite=force_overwrite)
+        elif isinstance(image_data, np.ndarray):
+            if image_data.ndim == 2:
+                # Third party modules
+                from imageio import imwrite
+
+                imwrite(filename, image_data)
+            elif image_data.ndim == 3:
+                # Third party modules
+                from tifffile import imwrite
+
+                kwargs = {'bigtiff': True}
+                imwrite(filename, image_data, **kwargs)
+        elif isinstance(image_data, (ArtistAnimation, FuncAnimation)):
+            image_data.save(filename)
+        else:
+            raise ValueError(f'Invalid image input type {type(image_data)}')
+        return ddata
 
 
 class MatplotlibAnimationWriter(Writer):
@@ -409,7 +430,7 @@ class MatplotlibAnimationWriter(Writer):
         """Write the matplotlib.animation.ArtistAnimation object
         contained in `data` to file.
 
-        :param data: The matplotlib animation.
+        :param data: The data to write to file.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
@@ -437,7 +458,7 @@ class MatplotlibFigureWriter(Writer):
         """Write the matplotlib.figure.Figure contained in `data` to
         file.
 
-        :param data: The matplotlib figure.
+        :param data: The data to write to file.
         :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
@@ -460,7 +481,9 @@ class MatplotlibFigureWriter(Writer):
 
 class NexusWriter(Writer):
     """Writer for NeXus files from `NXobject`-s."""
-    def write(self, data, filename, nxpath=None, force_overwrite=False):
+    def write(
+            self, data, filename, nxpath=None, force_overwrite=False,
+            remove=False):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
@@ -470,14 +493,14 @@ class NexusWriter(Writer):
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
+        :param remove: Flag to remove the NeXus object from `data`,
+            defaults to `False`.
+        :type remove: bool, optional.
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
         :return: The data written to file.
         :rtype: nexusformat.nexus.NXobject
         """
-        # System modules
-        import os
-
         # Third party modules
         from nexusformat.nexus import (
             NXFile,
@@ -486,51 +509,51 @@ class NexusWriter(Writer):
             NXroot,
         )
 
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, NXobject):
-            return data
+        nxobject = self.get_data(data, remove=remove)
 
-        nxname = data.nxname
-        if not os.path.isfile(filename) and nxpath is not None:
+        nxname = nxobject.nxname
+        if not os_path.isfile(filename) and nxpath is not None:
             self.logger.warning(
                 f'{filename} does not yet exist. Argument for nxpath '
                 '({nxpath}) will be ignored.')
             nxpath = None
         if nxpath is None:
-            nxclass = data.nxclass
-            if nxclass == 'NXentry':
-                data = NXroot(data)
-                data[nxname].set_default()
-            elif nxclass != 'NXroot':
-                data = NXroot(NXentry(data))
+            nxclass = nxobject.nxclass
+            if nxclass == 'NXroot':
+                nxroot = nxobject
+            elif nxclass == 'NXentry':
+                nxroot = NXroot(nxobject)
+                nxroot[nxname].set_default()
+            else:
+                nxroot = NXroot(NXentry(nxobject))
                 if nxclass == 'NXdata':
-                    data.entry[nxname].set_default()
-                data.entry.set_default()
-            write_nexus(data, filename, force_overwrite)
+                    nxroot.entry[nxname].set_default()
+                nxroot.entry.set_default()
+            write_nexus(nxroot, filename, force_overwrite)
         else:
             nxfile = NXFile(filename, 'rw')
             root = nxfile.readfile()
             if nxfile.get(nxpath) is None:
-                if nxfile.get(os.path.dirname(nxpath)) is not None:
-                    nxpath, nxname = os.path.split(nxpath)
+                if nxfile.get(os_path.dirname(nxpath)) is not None:
+                    nxpath, nxname = os_path.split(nxpath)
                 else:
                     nxpath = root.NXentry[0].nxpath
                     self.logger.warning(
                         f'Path "{nxpath}" not present in {filename}. '
                         f'Using {nxpath} instead.')
-            full_nxpath = os.path.join(nxpath, nxname)
+            full_nxpath = os_path.join(nxpath, nxname)
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in '
+                    f'{os_path.join(nxpath, nxname)} already exists in '
                     f'{filename}')
                 if force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '
-                        f'{os.path.join(nxpath, nxname)} in {filename}')
+                        f'{os_path.join(nxpath, nxname)} in {filename}')
                     del root[full_nxpath]
             try:
-                root[full_nxpath] = data
+                root[full_nxpath] = nxobject
             except Exception as exc:
                 nxfile.close()
                 raise exc
@@ -547,8 +570,8 @@ class PyfaiResultsWriter(Writer):
         """Save pyFAI integration results to a file. Format is
         determined automatically form the extension of `filename`.
 
-        :param data: Integration results to save.
-        :type data: Union[PipelineData,
+        :param data: The data to write to file.
+        :type data: Union[list[PipelineData],
             list[pyFAI.containers.IntegrateResult]]
         :param filename: Name of the file to which results will be
             saved. Format of output is determined ffrom the
@@ -556,7 +579,7 @@ class PyfaiResultsWriter(Writer):
             `.nxs`.
         :type filename: str
         """
-        import os
+        from os import remove
 
         from pyFAI.containers import Integrate1dResult, Integrate2dResult
 
@@ -573,13 +596,13 @@ class PyfaiResultsWriter(Writer):
                 'all pyFAI.containers.Integrate1dResult, or all '
                 'pyFAI.containers.Integrate2dResult.')
 
-        if os.path.isfile(filename):
+        if os_path.isfile(filename):
             if force_overwrite:
                 self.logger.warning(f'Removing existing file {filename}')
-                os.remove(filename)
+                remove(filename)
             else:
                 raise Exception(f'{filename} already exists.')
-        _, ext = os.path.splitext(filename)
+        _, ext = os_path.splitext(filename)
         if ext.lower() == '.npz':
             self.write_npz(results, filename)
         elif ext.lower() == '.nxs':
@@ -615,8 +638,8 @@ class TXTWriter(Writer):
         """Write a string or tuple or list of strings contained in 
         `data` to file.
 
-        :param data: The data to write to disk.
-        :type data: str, tuple[str], list[str]
+        :param data: The data to write to file.
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param append: Flag to allow data in `filename` to be
@@ -640,16 +663,18 @@ class TXTWriter(Writer):
 
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s."""
-    def write(self, data, filename, force_overwrite=False):
-        """Write the dictionary contained in `data` to file.
+    def write(self, data, filename, force_overwrite=False, remove=False):
+        """Write the last dictionary contained in `data` to file.
 
         :param data: The data to write to file.
-        :type data: dict
+        :type data: list[PipelineData]
         :param filename: The name of the file to write to.
         :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
+        :param remove: Flag to remove the dictionary from `data`,
+            defaults to `False`.
         :raises TypeError: If the object contained in `data` is not a
             `dict`.
         :raises RuntimeError: If `filename` already exists and
@@ -657,19 +682,29 @@ class YAMLWriter(Writer):
         :return: The data written to file.
         :rtype: dict
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        try:
-            # Third party modules
-            from pydantic import BaseModel
+        # Third party modules
+        from pydantic import BaseModel
 
-            # Local modules
-            from CHAP.models import CHAPBaseModel
+        # Local modules
+        from CHAP.models import CHAPBaseModel
 
-            if isinstance(data, (BaseModel, CHAPBaseModel)):
-                data = data.model_dump()
-        except:
-            pass
-        write_yaml(data, filename, force_overwrite)
+        yaml_dict = None
+        for i, d in reversed(list(enumerate(data))):
+            ddata = d['data']
+            if isinstance(ddata, dict):
+                yaml_dict = ddata
+                if remove:
+                    data.pop(i)
+                break
+            if isinstance(ddata, (BaseModel, CHAPBaseModel)):
+                try:
+                    yaml_dict = ddata.model_dump()
+                    if remove:
+                        data.pop(i)
+                    break
+                except:
+                    pass
+        write_yaml(yaml_dict, filename, force_overwrite)
         return data
 
 

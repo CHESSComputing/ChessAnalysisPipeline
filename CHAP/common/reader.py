@@ -54,6 +54,7 @@ class FabioImageReader(Reader):
             arrays, if a glob pattern matching more than one file was
             provided).
         """
+        # Third party modules
         from glob import glob
         import fabio
 
@@ -103,7 +104,11 @@ class LinkamReader(Reader):
         :returns: Linkam data represented in an `NXdata` object
         :rtype: nexusformat.nexus.NXdata
         """
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         # Parse .txt file
         start_time, metadata, data = self.__class__.parse_file(
@@ -157,6 +162,7 @@ class LinkamReader(Reader):
         :returns:
         :rtype: tuple(float, dict[str, str], dict[str, list[float]])
         """
+        # System modules
         from datetime import datetime
         import os
         import re
@@ -385,6 +391,7 @@ class NexusReader(Reader):
         # Third party modules
         from nexusformat.nexus import nxload
         from nexusformat.nexus.tree import NX_CONFIG
+
         NX_CONFIG['memory'] = nxmemory
 
         return nxload(filename)[nxpath]
@@ -420,6 +427,7 @@ class NXdataReader(Reader):
         :returns: A new NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         # Read in NXfields

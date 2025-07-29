@@ -18,6 +18,8 @@ import numpy as np
 
 # Local modules
 from CHAP.processor import Processor
+from CHAP.pipeline import PipelineData
+from CHAP.utils.general import fig_to_iobuf
 
 FLOAT_MIN = float_info.min
 
@@ -43,12 +45,12 @@ class BaseEddProcessor(Processor):
     """Base processor for the EDD processors."""
     def __init__(self):
         super().__init__()
-        self._save_figures = False
-        self._outputdir = '.'
         self._interactive = False
+        self._save_figures = False
 
         self._detectors = []
         self._energies = []
+        self._figures = []
         self._masks = []
         self._mask_index_ranges = []
         self._mean_data = []
@@ -162,15 +164,13 @@ class BaseEddProcessor(Processor):
 
         if self._save_figures:
             if self.__name__ == 'MCATthCalibrationProcessor':
-                basename = 'tth_calibration_mask_hkls.png'
+                basename = 'tth_calibration_mask_hkls'
             elif self.__name__ == 'StrainAnalysisProcessor':
-                basename = 'strainanalysis_mask_hkls.png'
+                basename = 'strainanalysis_mask_hkls'
             elif self.__name__ == 'LatticeParameterRefinementProcessor':
-                basename = 'lp_refinement_mask_hkls.png'
+                basename = 'lp_refinement_mask_hkls'
             else:
-                basename = f'{self.__name__}_mask_hkls.png'
-        else:
-            filename = None
+                basename = f'{self.__name__}_mask_hkls'
 
         for energies, mean_data, nxdata, detector in zip(
                 self._energies, self._mean_data, self._nxdata_detectors,
@@ -191,12 +191,7 @@ class BaseEddProcessor(Processor):
                 tth = detector.tth_initial_guess
             else:
                 tth = detector.tth_calibrated
-            if self._save_figures:
-                filename = os.path.join(
-                    self._outputdir, f'{detector.id}_{basename}')
-            else:
-                filename = None
-            mask_ranges, hkl_indices = \
+            mask_ranges, hkl_indices, buf = \
                 select_mask_and_hkls(
                     energies, mean_data, hkls, ds, tth,
                     preselected_bin_ranges=detector.get_mask_ranges(),
@@ -204,7 +199,10 @@ class BaseEddProcessor(Processor):
                     detector_id=detector.id, ref_map=nxdata.nxsignal.nxdata,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of the spectra in the map',
-                    interactive=self._interactive, filename=filename)
+                    interactive=self._interactive,
+                    return_buf=self._save_figures)
+            if self._save_figures:
+                self._figures.append((buf, f'{detector.id}_{basename}'))
             detector.hkl_indices = hkl_indices
             detector.convert_mask_ranges(mask_ranges)
             self.logger.debug(
@@ -297,19 +295,17 @@ class BaseEddProcessor(Processor):
 
         if self._save_figures:
             if self.__name__ == 'LatticeParameterRefinementProcessor':
-                basename = 'lp_refinement_baseline.png'
+                basename = 'lp_refinement_baseline'
             elif self.__name__ == 'DiffractionVolumeLengthProcessor':
-                basename = 'dvl_baseline.png'
+                basename = 'dvl_baseline'
             elif self.__name__ == 'MCAEnergyCalibrationProcessor':
-                basename = 'energy_calibration_baseline.png'
+                basename = 'energy_calibration_baseline'
             elif self.__name__ == 'MCATthCalibrationProcessor':
-                basename = 'tth_calibration_baseline.png'
+                basename = 'tth_calibration_baseline'
             elif self.__name__ == 'StrainAnalysisProcessor':
-                basename = 'strainanalysis_baseline.png'
+                basename = 'strainanalysis_baseline'
             else:
-                basename = f'{self.__name__}_baseline.png'
-        else:
-            filename = None
+                basename = f'{self.__name__}_baseline'
 
         baselines = []
         for energies, mean_data, (low, _), nxdata, detector in zip(
@@ -325,11 +321,8 @@ class BaseEddProcessor(Processor):
                 else:
                     x = energies
                     xlabel = 'Energy (keV)'
-                if self._save_figures:
-                    filename = os.path.join(
-                        self._outputdir, f'{detector.id}_{basename}')
 
-                baseline, baseline_config = \
+                baseline, baseline_config, buf = \
                     ConstructBaseline.construct_baseline(
                         mean_data, x=x, tol=detector.baseline.tol,
                         lam=detector.baseline.lam,
@@ -337,7 +330,9 @@ class BaseEddProcessor(Processor):
                         title=f'Baseline for detector {detector.id}',
                         xlabel=xlabel, ylabel='Intensity (counts)',
                         interactive=self._interactive,
-                        filename=filename)
+                        return_buf=self._save_figures)
+                if self._save_figures:
+                    self._figures.append((buf, f'{detector.id}_{basename}'))
 
                 baselines.append(baseline)
                 detector.baseline.lam = baseline_config['lambda']
@@ -364,26 +359,11 @@ class BaseStrainProcessor(BaseEddProcessor):
             from CHAP.edd.utils import select_material_params
 
         detector = self._detectors[index]
-        if self._save_figures:
-            if self.__name__ == 'StrainAnalysisProcessor':
-                filename = os.path.join(
-                    self._outputdir,
-                    f'{detector.id}_strainanalysis_material_config.png')
-            elif self.__name__ == 'LatticeParameterRefinementProcessor':
-                filename = os.path.join(
-                    self._outputdir,
-                    f'{detector.id}_lp_refinement_material_config.png')
-            else:
-                filename = os.path.join(
-                    self._outputdir,
-                    f'{detector.id}_{self.__name__}_config.png')
-        else:
-            filename = None
         return select_material_params(
             self._energies[index], self._mean_data[index],
             detector.tth_calibrated, label='Sum of the spectra in the map',
             preselected_materials=materials, interactive=self._interactive,
-            filename=filename)
+            return_buf=self._save_figures)
 
     def _get_sum_axes_data(self, nxdata, detector_id, sum_axes=True):
         """Get the raw MCA data collected by the scan averaged over the
@@ -516,8 +496,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
     diffraction volume length for an EDD setup.
     """
     def process(
-            self, data, config=None, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config=None, save_figures=False, interactive=False,
+            inputdir='.'):
         """Return the calculated value of the DVL.
 
         :param data: Input configuration for the DVL calculation
@@ -533,9 +513,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
@@ -550,9 +527,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import MCAElementConfig
 
-        self._save_figures = save_figures
-        self._outputdir = outputdir
         self._interactive = interactive
+        self._save_figures = save_figures
 
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
@@ -650,18 +626,15 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
 
             # Interactively adjust the mask used in the energy
             # calibration
-            if self._save_figures:
-                filename = os.path.join(
-                    self._outputdir, f'{detector.id}_dvl_mask.png')
-            else:
-                filename = None
-            _, detector.mask_ranges = select_mask_1d(
+            buf, _, detector.mask_ranges = select_mask_1d(
                 mean_data, preselected_index_ranges=detector.mask_ranges,
                 title=f'Mask for detector {detector.id}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
                 min_num_index_ranges=1, interactive=self._interactive,
                 filename=filename)
+            if self._save_figures:
+                self._figures.append((buf, f'{detector.id}_dvl_mask'))
             self.logger.debug(
                 f'mask_ranges for detector {detector.id}:'
                 f' {detector.mask_ranges}')
@@ -702,8 +675,9 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         :type dvl_config: CHAP.edd.models.DiffractionVolumeLengthConfig
         :param scanned_vals: The scanned motor position values.
         :type scanned_vals: numpy.ndarray
-        :return: Updated energy DVL measurement configuration.
-        :rtype: dict
+        :return: Updated energy DVL measurement configuration and a list of
+            byte stream representions of Matplotlib figures.
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -763,7 +737,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             detector.fit_sigma = float(result.best_values['sigma'])
             if dvl_config.measurement_mode == 'manual':
                 if self._interactive:
-                    _, dvl_bounds = select_mask_1d(
+                    buf, _, dvl_bounds = select_mask_1d(
                         masked_sum, x=x,
                         preselected_index_ranges=[
                             (index_nearest(x, -0.5*detector.dvl),
@@ -807,15 +781,15 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     verticalalignment='bottom')
                 if self._save_figures:
                     fig.tight_layout(rect=(0, 0, 1, 0.95))
-                    figfile = os.path.join(
-                        self._outputdir, f'{detector.id}_dvl.png')
-                    plt.savefig(figfile)
-                    self.logger.info(f'Saved figure to {figfile}')
+                    self._figures.append((
+                        fig_to_iobuf(fig), f'{detector.id}_dvl'))
                 if self._interactive:
                     plt.show()
                 plt.close()
 
-        return dvl_config.model_dump()
+        return dvl_config.model_dump(), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
 
 class LatticeParameterRefinementProcessor(BaseStrainProcessor):
@@ -823,8 +797,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     parameters.
     """
     def process(
-            self, data, config=None, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config=None, save_figures=False, interactive=False,
+            inputdir='.'):
         """Given a strain analysis configuration, return a copy
         contining refined values for the materials' lattice
         parameters.
@@ -842,9 +816,6 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
@@ -863,9 +834,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         from CHAP.edd.models import MCAElementStrainAnalysisConfig
         from CHAP.utils.general import list_to_string
 
-        self._save_figures = save_figures
-        self._outputdir = outputdir
         self._interactive = interactive
+        self._save_figures = save_figures
 
         # Load the pipeline input data
         try:
@@ -970,7 +940,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         self._subtract_baselines()
 
         # Return the lattice parameter refinement from visual inspection
-        return  self._refine_lattice_parameters(strain_analysis_config)
+        return self._refine_lattice_parameters(strain_analysis_config)
 
     def _refine_lattice_parameters(self, strain_analysis_config):
         """Return a strain analysis configuration with the refined
@@ -989,9 +959,10 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         names = []
         sgnums = []
         lattice_parameters = []
-        for i in range(len(self._detectors)):
-            for m in self._adjust_material_props(
-                    strain_analysis_config.materials, i):
+        for i, detector in enumerate(self._detectors):
+            materials, buf =  self._adjust_material_props(
+                strain_analysis_config.materials, i)
+            for m in materials:
                 if m.material_name in names:
                     lattice_parameters[names.index(m.material_name)].append(
                         m.lattice_parameters)
@@ -999,6 +970,9 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                     names.append(m.material_name)
                     sgnums.append(m.sgnum)
                     lattice_parameters.append([m.lattice_parameters])
+            if self._save_figures:
+                self._figures.append((
+                    buf, f'{detector.id}_lp_refinement_material_config'))
         refined_materials = []
         for name, sgnum, lat_params in zip(names, sgnums, lattice_parameters):
             if lat_params:
@@ -1066,7 +1040,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 #            if save_figures:
 #                fig.tight_layout()#rect=(0, 0, 1, 0.95))
 #                figfile = os.path.join(
-#                    outputdir, f'{detector.id}_lat_param_fits.png')
+#                    outputdir, f'{detector.id}_lat_param_fits')
 #                plt.savefig(figfile)
 #                self.logger.info(f'Saved figure to {figfile}')
 #            if interactive:
@@ -1088,7 +1062,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
     """
     def process(
             self, data, config=None, save_figures=False, interactive=False,
-            inputdir='.', outputdir='.'):
+            inputdir='.'):
         """For each detector in the `MCAEnergyCalibrationConfig`
         provided with `data`, fit the specified peaks in the MCA
         spectrum specified. Using the difference between the provided
@@ -1114,12 +1088,10 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :returns: Dictionary representing the energy-calibrated
-            version of the calibrated configuration.
-        :rtype: dict
+            version of the calibrated configuration and a list of
+            byte stream representions of Matplotlib figures.
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from json import loads
@@ -1131,9 +1103,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             MCAElementConfig,
         )
 
-        self._save_figures = save_figures
-        self._outputdir = outputdir
         self._interactive = interactive
+        self._save_figures = save_figures
 
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
@@ -1221,7 +1192,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         self._subtract_baselines()
 
         # Calibrate detector channel energies based on fluorescence peaks
-        return self._calibrate(calibration_config)
+        return self._calibrate(calibration_config), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
     def _get_mask(self):
         """Get the mask used in the energy calibration."""
@@ -1232,22 +1205,19 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
             # Interactively adjust the mask used in the energy
             # calibration
-            if self._save_figures:
-                filename = os.path.join(
-                    self._outputdir,
-                    f'{detector.id}_energy_calibration_mask.png')
-            else:
-                filename = None
-            _, detector.mask_ranges = select_mask_1d(
+            buf, _, detector.mask_ranges = select_mask_1d(
                 mean_data, preselected_index_ranges=detector.mask_ranges,
                 title=f'Mask for detector {detector.id}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
                 min_num_index_ranges=1, interactive=self._interactive,
-                filename=filename)
+                return_buf=self._save_figures)
             self.logger.debug(
                 f'mask_ranges for detector {detector.id}:'
                 f' {detector.mask_ranges}')
+            if self._save_figures:
+                self._figures.append((
+                    buf, f'{detector.id}_energy_calibration_mask'))
             if not detector.mask_ranges:
                 raise ValueError(
                     'No value provided for mask_ranges. Provide it in '
@@ -1290,19 +1260,17 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             bins = low + np.arange(energies.size, dtype=np.int16)
 
             # Get the intial peak positions for fitting
-            if self._save_figures:
-                filename = os.path.join(
-                    self._outputdir,
-                    f'{detector.id}'
-                        '_energy_calibration_initial_peak_positions.png')
-            else:
-                filename = None
             input_indices = [low + index_nearest(energies, energy)
                              for energy in peak_energies]
-            initial_peak_indices = self._get_initial_peak_positions(
+            buf, initial_peak_indices = self._get_initial_peak_positions(
                 mean_data*np.asarray(mask).astype(np.int32), low,
                 detector.mask_ranges, input_indices, max_peak_index,
-                filename, detector.id)
+                detector.id, return_buf=self._save_figures)
+            if self._save_figures:
+                self._figures.append(
+                    (buf,
+                     f'{detector.id}'
+                         '_energy_calibration_initial_peak_positions'))
 
             # Construct the fit model and perform the fit
             models = []
@@ -1404,11 +1372,9 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 fig.tight_layout()
 
                 if self._save_figures:
-                    figfile = os.path.join(
-                        self._outputdir,
-                        f'{detector.id}_energy_calibration_fit.png')
-                    plt.savefig(figfile)
-                    self.logger.info(f'Saved figure to {figfile}')
+                    self._figures.append(
+                        (fig_to_iobuf(fig),
+                         f'{detector.id}_energy_calibration_fit'))
                 if self._interactive:
                     plt.show()
                 plt.close()
@@ -1417,7 +1383,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
     def _get_initial_peak_positions(
             self, y, low, index_ranges, input_indices, input_max_peak_index,
-            filename, detector_id, reset_flag=0):
+            detector_id, reset_flag=0, return_buf=False):
         # Third party modules
         import matplotlib.pyplot as plt
         from matplotlib.widgets import Button
@@ -1617,18 +1583,20 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             reset_btn.ax.remove()
             confirm_btn.ax.remove()
 
-        if filename is not None:
+        if return_buf:
             fig_title[0].set_in_layout(True)
             fig.tight_layout(rect=(0, 0, 1, 0.95))
-            fig.savefig(filename)
+            buf = fig_to_iobuf(fig)
+        else:
+            buf = None
         plt.close()
 
         if self._interactive and len(peak_indices) != num_peak:
             reset_flag += 1
             return self._get_initial_peak_positions(
                 y, low, index_ranges, input_indices, input_max_peak_index,
-                filename, detector_id, reset_flag=reset_flag)
-        return peak_indices
+                detector_id, reset_flag=reset_flag, return_buf=return_buf)
+        return buf, peak_indices
 
 
 class MCATthCalibrationProcessor(BaseEddProcessor):
@@ -1636,8 +1604,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
     energy calibration coefficients for an EDD experimental setup.
     """
     def process(
-            self, data, config=None, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config=None, save_figures=False, interactive=False,
+            inputdir='.'):
         """Return the calibrated 2&theta value and the fine tuned
         energy calibration coefficients to convert MCA channel
         indices to MCA channel energies.
@@ -1651,20 +1619,18 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
+        :param interactive: Allows for user interactions,
+            defaults to `False`.
+        :type interactive: bool, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param interactive: Allows for user interactions,
-            defaults to `False`.
-        :type interactive: bool, optional
         :raises RuntimeError: Invalid or missing input configuration.
         :return: Original configuration with the tuned values for
-            2&theta and the linear correction parameters added.
-        :rtype: dict
+            2&theta and the linear correction parameters added and a
+            list of byte stream representions of Matplotlib figures.
+        :rtype: dict, PipelineData
         """
         # Third party modules
         from json import loads
@@ -1679,7 +1645,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from CHAP.utils.general import list_to_string
 
         self._save_figures = save_figures
-        self._outputdir = outputdir
         self._interactive = interactive
 
         # Load the detector data
@@ -1800,7 +1765,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         self._subtract_baselines()
 
         # Calibrate detector channel energies
-        return self._calibrate(calibration_config)
+        return self._calibrate(calibration_config), PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter')
 
     def _calibrate(self, calibration_config):
         """Calibrate 2&theta and linear and fine tune the energy
@@ -1979,11 +1946,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 fig.tight_layout()
 
                 if self._save_figures:
-                    figfile = os.path.join(
-                        self._outputdir,
-                        f'{detector.id}_tth_calibration_fit.png')
-                    plt.savefig(figfile)
-                    self.logger.info(f'Saved figure to {figfile}')
+                    self._figures.append((
+                        fig_to_iobuf(fig),
+                        f'{detector.id}_tth_calibration_fit'))
                 if self._interactive:
                     plt.show()
                 plt.close()
@@ -2268,15 +2233,12 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             hkls, ds = get_unique_hkls_ds(
                 materials, tth_max=detector.tth_max, tth_tol=detector.tth_tol)
 
-            if self._save_figures:
-                filename = os.path.join(
-                   self._outputdir,
-                   f'{detector.id}_tth_calibration_initial_guess.png')
-            else:
-                filename = None
-            detector.tth_initial_guess = select_tth_initial_guess(
+            detector.tth_initial_guess, buf = select_tth_initial_guess(
                 energies, mean_data, hkls, ds, detector.tth_initial_guess,
-                self._interactive, filename, detector.id)
+                detector.id, self._interactive, self._save_figures)
+            if self._save_figures:
+                   self._figures.append((
+                       buf, f'{detector.id}_tth_calibration_initial_guess'))
             self.logger.debug(
                 f'tth_initial_guess for detector {detector.id}: '
                 f'{detector.tth_initial_guess}')
@@ -2356,8 +2318,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
     def process(
             self, data, config=None, setup=True, update=True,
-            save_figures=False, inputdir='.', outputdir='.',
-            interactive=False):
+            save_figures=False, interactive=False, inputdir='.'):
         """Setup the strain analysis and/or return the strain analysis
         results as a list of updated points or a
         `nexusformat.nexus.NXroot` object.
@@ -2383,17 +2344,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
         :raises RuntimeError: Unable to get a valid strain analysis
             configuration.
-        :return: The strain analysis setup or results.
+        :return: The strain analysis setup or results, a list of
+            byte stream representions of Matplotlib figures and an
+            animation of the fit results.
         :rtype: Union[list[dict[str, object]],
-                      nexusformat.nexus.NXroot]
+            nexusformat.nexus.NXroot], PipelineData, PipelineData
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -2417,8 +2377,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     'Saving figures option disabled during setup')
                 save_figures = False
         self._save_figures = save_figures
-        self._outputdir = outputdir
         self._interactive = interactive
+        self._animation = []
 
         # Load the pipeline input data
         try:
@@ -2530,12 +2490,34 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 self.logger.info(f'... done')
             else:
                 self.logger.warning('Skip adding points')
-            return nxroot
+            return (
+                nxroot, 
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
+
         if setup:
-            return self._get_nxroot(
-                nxentry, calibration_config, strain_analysis_config)
+            return (
+                self._get_nxroot(
+                    nxentry, calibration_config, strain_analysis_config),
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
         if update:
-            return self._strain_analysis(strain_analysis_config)
+            return (
+                self._strain_analysis(strain_analysis_config),
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'),
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
         return None
 
     def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
@@ -2627,16 +2609,14 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 [f'relative norm = {(max_ / norm_all_data):.5f}'] +
                 [f'{a}[{i}] = {nxdata[a][i]}' for a in axes]))
             if self._save_figures:
-                plt.savefig(os.path.join(
-                    path, f'frame_{str(i).zfill(num_digit)}.png'))
+                self._figures.append((
+                    fig_to_iobuf(fig),
+                    os.path.join(path, f'frame_{str(i).zfill(num_digit)}')))
             return intensity, best_fit, index
 
         if self._save_figures:
-            path = os.path.join(
-                self._outputdir,
-                f'{detector_id}_strainanalysis_unconstrained_fits')
-            if not os.path.isdir(path):
-                os.mkdir(path)
+            start_index = len(self._figures)
+            path = f'{detector_id}_strainanalysis_unconstrained_fits'
 
         axes = get_axes(nxdata)
         if 'energy' in axes:
@@ -2671,11 +2651,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
 
             frames = []
-            for i in range(num_frame):
-                frame = plt.imread(
-                    os.path.join(
-                        path,
-                        f'frame_{str(i).zfill(num_digit)}.png'))
+            for (buf, _), _ in self._figures[start_index:]:
+                buf.seek(0)
+                frame = plt.imread(buf)
                 im = plt.imshow(frame, animated=True)
                 if not i:
                     plt.imshow(frame)
@@ -2689,10 +2667,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             plt.show()
 
         if self._save_figures:
-            path = os.path.join(
-                self._outputdir,
-                f'{detector_id}_strainanalysis_unconstrained_fits.gif')
-            ani.save(path)
+            self._animation.append((
+                (ani, 'gif'),
+                f'{detector_id}_strainanalysis_unconstrained_fits'))
         plt.close()
 
     def _get_nxroot(self, nxentry, calibration_config, strain_analysis_config):
@@ -2893,7 +2870,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         self._subtract_baselines()
 
         # Adjust the material properties
-        self._adjust_material_props(strain_analysis_config.materials)
+        _, buf = self._adjust_material_props(strain_analysis_config.materials)
+        if self._save_figures:
+            self._figures.append((
+                buf,
+                f'{self._detectors[0].id}_strainanalysis_material_config'))
 
         # Setup the points list with the map axes values
         nxdata_ref = self._nxdata_detectors[0]

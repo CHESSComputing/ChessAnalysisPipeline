@@ -39,16 +39,17 @@ class FoxdenDoiWriter(Writer):
         :param verbose: Verbose output flag, defaults to `False`.
         :type verbose: bool, optional
         :return: HTTP response from FOXDEN DOI service.
-        :rtype: list with dictionary entry
+        :rtype: list[dict]
         """
         self.logger.info(
             f'Executing "process" with url={url} data={data}')
         rurl = f'{url}/publish'
+        raise NotImplementedError
         # FIX it would be useful to perform validation of data
-        if isinstance(data, list) and len(data) == 1:
-            data = data[0]['data'][0]
-        if not isinstance(data, dict):
-            raise ValueError(f'Invalid "data" parameter ({data})')
+#        if isinstance(data, list) and len(data) == 1:
+#            data = data[0]['data'][0]
+#        if not isinstance(data, dict):
+#            raise ValueError(f'Invalid "data" parameter ({data})')
         draft_str = 'on' if draft else ''
         publish_meta = 'on' if publishMetadata else ''
         form_data = {
@@ -64,8 +65,8 @@ class FoxdenDoiWriter(Writer):
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
-        data = [{'code': response.status_code, 'data': response.text}]
-        return data
+        result = [{'code': response.status_code, 'data': response.text}]
+        return result
 
 
 class FoxdenMetadataWriter(Writer):
@@ -80,11 +81,13 @@ class FoxdenMetadataWriter(Writer):
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, dict):
-            raise ValueError('Invalid data parameter {(data)}')
 
-        # FIX it would be useful to perform validation of data
+        record = self.get_data(
+            data, schema='metadata')
+        if not isinstance(record, dict):
+            raise ValueError('Invalid metadata record {(record)}')
+
+        # FIX it would be useful to perform validation of record
 
         # Load and validate the FoxdenRequestConfig configuration
         config = self.get_config(
@@ -94,13 +97,12 @@ class FoxdenMetadataWriter(Writer):
 
         # For now cut out anything but the did and application fields
         # from the CHAP workflow metadata record
-        metadata = data.pop('metadata')
-        data = {'did': data['did'],
-                'application': data.get('application', 'CHAP')}
+        record = {'did': record['did'],
+                  'application': record.get('application', 'CHAP')}
 
         # Submit HTTP request and return response
         rurl = f'{config.url}'
-        mrec = {'Schema': 'Analysis', 'Record': data}
+        mrec = {'Schema': 'Analysis', 'Record': record}
         payload = json.dumps(mrec)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='write')
@@ -112,8 +114,6 @@ class FoxdenMetadataWriter(Writer):
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
             result = []
-        # For now, return the did
-        return data['did']
         return result
 
 
@@ -129,10 +129,9 @@ class FoxdenProvenanceWriter(Writer):
         :return: HTTP response from FOXDEN Provenance service.
         :rtype: list[dict]
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        if not isinstance(data, list) or len(data) != 1:
-            raise ValueError('Invalid data parameter {(data)}')
-        data = data[0]
+        record = self.get_data(data, name='FoxdenProvenanceProcessor')
+        if not isinstance(record, dict):
+            raise ValueError('Invalid provenance record {(record)}')
 
         # FIX it would be useful to perform validation of data
 
@@ -144,7 +143,7 @@ class FoxdenProvenanceWriter(Writer):
 
         # Submit HTTP request and return response
         rurl = f'{url}/dataset'
-        payload = json.dumps(data)
+        payload = json.dumps(record)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='write')
         if config.verbose:
