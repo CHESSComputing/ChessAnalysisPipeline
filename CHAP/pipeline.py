@@ -312,17 +312,18 @@ class PipelineItem():
         self.logger.info(
             f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
+        name = kwargs.get('name', self.__name__)
         if method_name == 'read':
-            return [PipelineData(name=self.__name__, data=data, schema=schema)]
+            return [PipelineData(name=name, data=data, schema=schema)]
         if method_name == 'write':
             return kwargs.get('data',[])
         if isinstance(data, tuple):
             return kwargs.get('data',[]) + [
                 d if isinstance(d, PipelineData)
-                else PipelineData(name=self.__name__, data=d, schema=schema)
+                else PipelineData(name=name, data=d, schema=schema)
                 for d in data]
         return kwargs.get('data',[]) + [
-            PipelineData(name=self.__name__, data=data, schema=schema)]
+            PipelineData(name=name, data=data, schema=schema)]
 
 
 class MultiplePipelineItem(PipelineItem):
