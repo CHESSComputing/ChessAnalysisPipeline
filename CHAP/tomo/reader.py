@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Tomography command line reader."""
+"""Tomography specific reader."""
+
 
 if __name__ == '__main__':
     # Local modules

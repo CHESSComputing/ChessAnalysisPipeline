@@ -164,6 +164,7 @@ class FabioImageReader(Reader):
             arrays, if a glob pattern matching more than one file was
             provided).
         """
+        # Third party modules
         from glob import glob
         import fabio
 
@@ -213,7 +214,11 @@ class LinkamReader(Reader):
         :returns: Linkam data represented in an `NXdata` object
         :rtype: nexusformat.nexus.NXdata
         """
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         # Parse .txt file
         start_time, metadata, data = self.__class__.parse_file(
@@ -267,6 +272,7 @@ class LinkamReader(Reader):
         :returns:
         :rtype: tuple(float, dict[str, str], dict[str, list[float]])
         """
+        # System modules
         from datetime import datetime
         import os
         import re
@@ -530,6 +536,7 @@ class NexusReader(Reader):
         # Third party modules
         from nexusformat.nexus import nxload
         from nexusformat.nexus.tree import NX_CONFIG
+
         NX_CONFIG['memory'] = nxmemory
 
         return nxload(filename)[nxpath]
@@ -565,6 +572,7 @@ class NXdataReader(Reader):
         :returns: A new NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
+        # Third party modules
         from nexusformat.nexus import NXdata
 
         # Read in NXfields
@@ -823,13 +831,18 @@ class SpecReader(Reader):
                     nxdata.data = NXfield(
                         value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
+                    if config.experiment_type == 'TOMO':
+                        dtype = np.float32
+                    else:
+                        dtype = None
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in detectors.detectors:
                         nxdata[detector.id] = NXfield(
-                           value=scanparser.get_detector_data(detector.id))
+                           value=scanparser.get_detector_data(
+                               detector.id, dtype=dtype))
 
         if detectors is None and config.experiment_type == 'EDD':
             if detector_data_format == 'spec':

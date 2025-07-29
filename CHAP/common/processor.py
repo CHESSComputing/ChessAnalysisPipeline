@@ -19,145 +19,145 @@ import numpy as np
 from CHAP import Processor
 
 
-class AnimationProcessor(Processor):
-    """A Processor to show and return an animation.
-    """
-    def process(
-            self, data, num_frames, vmin=None, vmax=None, axis=None,
-            interval=1000, blit=True, repeat=True, repeat_delay=1000,
-            interactive=False):
-        """Show and return an animation of image slices from a dataset
-        contained in `data`.
-
-        :param data: Input data.
-        :type data: list[PipelineData]
-        :param num_frames: Number of frames for the animation.
-        :type num_frames: int
-        :param vmin: Minimum array value in image slice, defaults to
-            `None`, which uses the actual minimum value in the slice.
-        :type vmin: float
-        :param vmax: Maximum array value in image slice, defaults to
-            `None`, which uses the actual maximum value in the slice.
-        :type vmax: float
-        :param axis: Axis direction or name of the image slices,
-            defaults to `0`
-        :type axis: Union[int, str], optional
-        :param interval: Delay between frames in milliseconds (only
-            used when interactive=True), defaults to `1000`
-        :type interval: int, optional
-        :param blit: Whether blitting is used to optimize drawing,
-            default to `True`
-        :type blit: bool, optional
-        :param repeat: Whether the animation repeats when the sequence
-            of frames is completed (only used when interactive=True),
-            defaults to `True`
-        :type repeat: bool, optional
-        :param repeat_delay: Delay in milliseconds between consecutive
-            animation runs if repeat is `True` (only used when
-            interactive=True), defaults to `1000`
-        :type repeat_delay: int, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :return: The matplotlib animation.
-        :rtype: matplotlib.animation.ArtistAnimation
-        """
-        # Third party modules
-        from matplotlib import animation
-        import matplotlib.pyplot as plt
-
-        # Get the default Nexus NXdata object
-        data = self.unwrap_pipelinedata(data)[0]
-        try:
-            nxdata = data.get_default()
-        except Exception as exc:
-            raise ValueError(
-                f'Unable to find an NXdata object in ({data})') from exc
-        if nxdata.nxclass != 'NXdata':
-            raise ValueError(
-                f'Invalid default pathway to an NXdata object in ({data})')
-
-        # Get the frames
-        axes = nxdata.attrs.get('axes', None)
-        title = f'{nxdata.nxpath}/{nxdata.signal}'
-        if nxdata.nxsignal.ndim == 2:
-            exit('AnimationProcessor not tested yet for a 2D dataset')
-        elif nxdata.nxsignal.ndim == 3:
-            if isinstance(axis, int):
-                if not 0 <= axis < nxdata.nxsignal.ndim:
-                    raise ValueError(f'axis index out of range ({axis} not in '
-                                     f'[0, {nxdata.nxsignal.ndim-1}])')
-            elif isinstance(axis, str):
-                if axes is None or axis not in list(axes.nxdata):
-                    raise ValueError(
-                        f'Unable to match axis = {axis} in {nxdata.tree}')
-                axes = list(axes.nxdata)
-                axis = axes.index(axis)
-            else:
-                raise ValueError(f'Invalid parameter axis ({axis})')
-            delta = int(nxdata.nxsignal.shape[axis]/(num_frames+1))
-            indices = np.linspace(
-                delta, nxdata.nxsignal.shape[axis]-delta, num_frames)
-            if not axis:
-                frames = [nxdata[nxdata.signal][int(index),:,:]
-                          for index in indices]
-            elif axis == 1:
-                frames = [nxdata[nxdata.signal][:,int(index),:]
-                          for index in indices]
-            else:
-                frames = [nxdata[nxdata.signal][:,:,int(index)]
-                          for index in indices]
-            if axes is None:
-                axes = [i for i in range(3) if i != axis]
-                row_coords = range(frames[0].shape[1])
-                row_label = f'axis {axes[1]} index'
-                column_coords = range(frames[0].shape[0])
-                column_label = f'axis {axes[0]} index'
-            else:
-                axes.pop(axis)
-                row_coords = nxdata[axes[1]].nxdata
-                row_label = axes[1]
-                if 'units' in nxdata[axes[1]].attrs:
-                    row_label += f' ({nxdata[axes[1]].units})'
-                column_coords = nxdata[axes[0]].nxdata
-                column_label = axes[0]
-                if 'units' in nxdata[axes[0]].attrs:
-                    column_label += f' ({nxdata[axes[0]].units})'
-        else:
-            raise ValueError('Invalid data dimension (must be 2D or 3D)')
-
-        # Create the movie
-        if vmin is None or vmax is None:
-            a_max = frames[0].max()
-            for n in range(1, num_frames):
-                a_max = min(a_max, frames[n].max())
-            a_max = float(a_max)
-            if vmin is None:
-                vmin = -a_max
-            if vmax is None:
-                vmax = a_max
-        extent = (
-            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
-        fig, ax = plt.subplots(figsize=(11, 8.5))
-        ax.set_title(title, fontsize='xx-large', pad=20)
-        ax.set_xlabel(row_label, fontsize='x-large')
-        ax.set_ylabel(column_label, fontsize='x-large')
-        fig.tight_layout()
-        ims = [[plt.imshow(
-                    frames[n], extent=extent, origin='lower',
-                    vmin=vmin, vmax=vmax, cmap='gray',
-                    animated=True)]
-               for n in range(num_frames)]
-        plt.colorbar()
-        if interactive:
-            ani = animation.ArtistAnimation(
-                fig, ims, interval=interval, blit=blit, repeat=repeat,
-                repeat_delay=repeat_delay)
-            plt.show()
-        else:
-            ani = animation.ArtistAnimation(fig, ims, blit=blit)
-
-        return ani
+#class AnimationProcessor(Processor):
+#    """A Processor to show and return an animation.
+#    """
+#    def process(
+#            self, data, num_frames, vmin=None, vmax=None, axis=None,
+#            interval=1000, blit=True, repeat=True, repeat_delay=1000,
+#            interactive=False):
+#        """Show and return an animation of image slices from a dataset
+#        contained in `data`.
+#
+#        :param data: Input data.
+#        :type data: list[PipelineData]
+#        :param num_frames: Number of frames for the animation.
+#        :type num_frames: int
+#        :param vmin: Minimum array value in image slice, defaults to
+#            `None`, which uses the actual minimum value in the slice.
+#        :type vmin: float
+#        :param vmax: Maximum array value in image slice, defaults to
+#            `None`, which uses the actual maximum value in the slice.
+#        :type vmax: float
+#        :param axis: Axis direction or name of the image slices,
+#            defaults to `0`
+#        :type axis: Union[int, str], optional
+#        :param interval: Delay between frames in milliseconds (only
+#            used when interactive=True), defaults to `1000`
+#        :type interval: int, optional
+#        :param blit: Whether blitting is used to optimize drawing,
+#            default to `True`
+#        :type blit: bool, optional
+#        :param repeat: Whether the animation repeats when the sequence
+#            of frames is completed (only used when interactive=True),
+#            defaults to `True`
+#        :type repeat: bool, optional
+#        :param repeat_delay: Delay in milliseconds between consecutive
+#            animation runs if repeat is `True` (only used when
+#            interactive=True), defaults to `1000`
+#        :type repeat_delay: int, optional
+#        :param interactive: Allows for user interactions, defaults to
+#            `False`.
+#        :type interactive: bool, optional
+#        :return: The matplotlib animation.
+#        :rtype: matplotlib.animation.ArtistAnimation
+#        """
+#        # Third party modules
+#        from matplotlib import animation
+#        import matplotlib.pyplot as plt
+#
+#        # Get the default Nexus NXdata object
+#        data = self.unwrap_pipelinedata(data)[0]
+#        try:
+#            nxdata = data.get_default()
+#        except Exception as exc:
+#            raise ValueError(
+#                f'Unable to find an NXdata object in ({data})') from exc
+#        if nxdata.nxclass != 'NXdata':
+#            raise ValueError(
+#                f'Invalid default pathway to an NXdata object in ({data})')
+#
+#        # Get the frames
+#        axes = nxdata.attrs.get('axes', None)
+#        title = f'{nxdata.nxpath}/{nxdata.signal}'
+#        if nxdata.nxsignal.ndim == 2:
+#            exit('AnimationProcessor not tested yet for a 2D dataset')
+#        elif nxdata.nxsignal.ndim == 3:
+#            if isinstance(axis, int):
+#                if not 0 <= axis < nxdata.nxsignal.ndim:
+#                    raise ValueError(f'axis index out of range ({axis} not in '
+#                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+#            elif isinstance(axis, str):
+#                if axes is None or axis not in list(axes.nxdata):
+#                    raise ValueError(
+#                        f'Unable to match axis = {axis} in {nxdata.tree}')
+#                axes = list(axes.nxdata)
+#                axis = axes.index(axis)
+#            else:
+#                raise ValueError(f'Invalid parameter axis ({axis})')
+#            delta = int(nxdata.nxsignal.shape[axis]/(num_frames+1))
+#            indices = np.linspace(
+#                delta, nxdata.nxsignal.shape[axis]-delta, num_frames)
+#            if not axis:
+#                frames = [nxdata[nxdata.signal][int(index),:,:]
+#                          for index in indices]
+#            elif axis == 1:
+#                frames = [nxdata[nxdata.signal][:,int(index),:]
+#                          for index in indices]
+#            else:
+#                frames = [nxdata[nxdata.signal][:,:,int(index)]
+#                          for index in indices]
+#            if axes is None:
+#                axes = [i for i in range(3) if i != axis]
+#                row_coords = range(frames[0].shape[1])
+#                row_label = f'axis {axes[1]} index'
+#                column_coords = range(frames[0].shape[0])
+#                column_label = f'axis {axes[0]} index'
+#            else:
+#                axes.pop(axis)
+#                row_coords = nxdata[axes[1]].nxdata
+#                row_label = axes[1]
+#                if 'units' in nxdata[axes[1]].attrs:
+#                    row_label += f' ({nxdata[axes[1]].units})'
+#                column_coords = nxdata[axes[0]].nxdata
+#                column_label = axes[0]
+#                if 'units' in nxdata[axes[0]].attrs:
+#                    column_label += f' ({nxdata[axes[0]].units})'
+#        else:
+#            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+#
+#        # Create the movie
+#        if vmin is None or vmax is None:
+#            a_max = frames[0].max()
+#            for n in range(1, num_frames):
+#                a_max = min(a_max, frames[n].max())
+#            a_max = float(a_max)
+#            if vmin is None:
+#                vmin = -a_max
+#            if vmax is None:
+#                vmax = a_max
+#        extent = (
+#            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
+#        fig, ax = plt.subplots(figsize=(11, 8.5))
+#        ax.set_title(title, fontsize='xx-large', pad=20)
+#        ax.set_xlabel(row_label, fontsize='x-large')
+#        ax.set_ylabel(column_label, fontsize='x-large')
+#        fig.tight_layout()
+#        ims = [[plt.imshow(
+#                    frames[n], extent=extent, origin='lower',
+#                    vmin=vmin, vmax=vmax, cmap='gray',
+#                    animated=True)]
+#               for n in range(num_frames)]
+#        plt.colorbar()
+#        if interactive:
+#            ani = animation.ArtistAnimation(
+#                fig, ims, interval=interval, blit=blit, repeat=repeat,
+#                repeat_delay=repeat_delay)
+#            plt.show()
+#        else:
+#            ani = animation.ArtistAnimation(fig, ims, blit=blit)
+#
+#        return ani
 
 
 class AsyncProcessor(Processor):
@@ -210,41 +210,23 @@ class AsyncProcessor(Processor):
 
 class BinarizeProcessor(Processor):
     """A Processor to binarize a dataset."""
-    def process(
-            self, data, nxpath='', interactive=False, method='CHAP',
-            num_bin=256, axis=None, remove_original_data=False):
-        """Show and return a binarized dataset from a dataset
-        contained in `data`. The dataset must either be of type
-        `numpy.ndarray` or a NeXus NXobject object with a default path
-        to a NeXus NXfield object. 
+    def process(self, data, config=None, interactive=False):
+        """Plot and return a binarized dataset from a dataset contained
+        in `data`. The dataset must either be `array-like` or a NeXus
+        NXobject object with a default plottable data path or a
+        specified path to a NeXus NXdata or NXfield object. 
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param nxpath: The relative path to a specific NeXus NXentry or
-            NeXus NXdata object in the NeXus file tree to read the
-            input data from (ignored for Numpy or NeXus NXfield input
-            datasets), defaults to `''`
-        :type nxpath: str, optional
-        :param interactive: Allows for user interactions (ignored
-            for any method other than `'manual'`), defaults to `False`.
+        :param config: Initialization parameters for an instance of
+            CHAP.common.models.BinarizeProcessorConfig
+        :type config: dict, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
         :type interactive: bool, optional
-        :param method: Binarization method, defaults to `'CHAP'`
-            (CHAP's internal implementation of Otzu's method).
-        :type method: Literal['CHAP', 'manual', 'otsu', 'yen',
-            'isodata', 'minimum']
-        :param num_bin: The number of bins used to calculate the
-            histogram in the binarization algorithms (ignored for
-            method = `'manual'`), defaults to `256`.
-        :type num_bin: int, optional
-        :param axis: Axis direction of the image slices (ignored
-            for any method other than `'manual'`).
-        :type axis: int, optional
-        :param remove_original_data: Removes the original data field
-            (ignored for Numpy input datasets), defaults to `False`.
-        :type force_remove_original_data: bool, optional
-        :raises ValueError: Upon invalid input parameters.
-        :return: The binarized dataset with a return type equal to
-            that of the input dataset.
+        :return: The binarized dataset for an `array-like` input or
+            a return type equal that of the input object with the
+            binarized dataset added.
         :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # Third party modules
@@ -252,328 +234,125 @@ class BinarizeProcessor(Processor):
             NXdata,
             NXfield,
             NXlink,
-            NXprocess,
             nxsetconfig,
         )
 
         # Local modules
-        from CHAP.utils.general import (
-            is_int,
-            nxcopy,
-        )
-
-        if method not in [
-                'CHAP', 'manual', 'otsu', 'yen', 'isodata', 'minimum']:
-            raise ValueError(f'Invalid parameter method ({method})')
-        if not is_int(num_bin, gt=0):
-            raise ValueError(f'Invalid parameter num_bin ({num_bin})')
-        if not isinstance(remove_original_data, bool):
-            raise ValueError('Invalid parameter remove_original_data '
-                             f'({remove_original_data})')
+        from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=100000)
 
-        # Get the dataset and make a copy if it is a NeXus NXgroup
-        dataset = self.unwrap_pipelinedata(data)[-1]
-        if isinstance(dataset, np.ndarray):
-            if method == 'manual':
-                if axis is not None and not is_int(axis, gt=0, lt=3):
-                    raise ValueError(f'Invalid parameter axis ({axis})')
-                axes = ['i', 'j', 'k']
-            data = dataset
-        elif isinstance(dataset, NXfield):
-            if method == 'manual':
-                if axis is not None and not is_int(axis, gt=0, lt=3):
-                    raise ValueError(f'Invalid parameter axis ({axis})')
-                axes = ['i', 'j', 'k']
-            if isinstance(dataset, NXfield):
-                if nxpath not in ('', '/'):
-                    self.logger.warning('Ignoring parameter nxpath')
-                data = dataset.nxdata
-            else:
-                try:
-                    data = dataset[nxpath].nxdata
-                except Exception as exc:
-                    raise ValueError(
-                        f'Invalid parameter nxpath ({nxpath})') from exc
+        # Load the validated binarize processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import BinarizeProcessorConfig
+
+            config = BinarizeProcessorConfig()
         else:
-            # Get the default Nexus NXdata object
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.BinarizeProcessorConfig')
+
+        # Load the default data
+        try:
+            nxobject = self.get_data(data)
+            if config.nxpath is None:
+                dataset = nxobject.get_default()
+            else:
+                dataset = nxobject[config.nxpath]
+            if isinstance(dataset, NXdata):
+                nxsignal = dataset.nxsignal
+                data = nxsignal.nxdata
+            else:
+                data = dataset.nxdata
+            assert isinstance(data, np.ndarray)
+        except Exception:
             try:
-                nxdefault = dataset.get_default()
-            except:
-                nxdefault = None
-            if nxdefault is not None and nxdefault.nxclass != 'NXdata':
-                raise ValueError('Invalid default pathway NXobject type '
-                                 f'({nxdefault.nxclass})')
-            # Get the requested NeXus NXdata object to binarize
-            if nxpath is None:
-                nxclass = dataset.nxclass
-            else:
-                try:
-                    nxclass = dataset[nxpath].nxclass
-                except Exception as exc:
-                    raise ValueError(
-                        f'Invalid parameter nxpath ({nxpath})') from exc
-            if nxclass == 'NXdata':
-                nxdata = dataset[nxpath]
-            else:
-                if nxdefault is None:
-                    raise ValueError('No default pathway to a NXdata object')
-                nxdata = nxdefault
-            nxsignal = nxdata.nxsignal
-            if method == 'manual':
-                if hasattr(nxdata.attrs, 'axes'):
-                    axes = nxdata.attrs['axes']
-                    if isinstance(axis, str):
-                        if axis not in axes:
-                            raise ValueError(
-                                f'Invalid parameter axis ({axis})')
-                        axis = axes.index(axis)
-                    elif axis is not None and not is_int(axis, gt=0, lt=3):
-                        raise ValueError(f'Invalid parameter axis ({axis})')
-                else:
-                    axes = ['i', 'j', 'k']
-                if nxsignal.ndim != 3:
-                    raise ValueError('Invalid data dimension (must be 3D)')
-            data = nxsignal.nxdata
-            # Create a copy of the input NeXus object, removing the
-            # default NeXus NXdata object as well as the original
-            # dateset if the remove_original_data parameter is set
-            exclude_nxpaths = []
-            if nxdefault is not None:
-                exclude_nxpaths.append(
-                    os.path.join(os.path.relpath(
-                        nxdefault.nxpath, dataset.nxpath)))
-            if remove_original_data:
-                if (nxdefault is None
-                        or nxdefault.nxpath != nxdata.nxpath):
-                    relpath_nxdata = os.path.relpath(
-                        nxdata.nxpath, dataset.nxpath)
-                    keys = list(nxdata.keys())
-                    keys.remove(nxsignal.nxname)
-                    for a in nxdata.axes:
-                        keys.remove(a)
-                    if keys:
-                        raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
-                    elif relpath_nxdata == '.':
-                        exclude_nxpaths.append(nxsignal.nxname)
-                        if dataset.nxclass != 'NXdata':
-                            exclude_nxpaths += nxdata.axes
-                    else:
-                        exclude_nxpaths.append(relpath_nxdata)
-                if not (dataset.nxclass == 'NXdata'
-                        or nxdata.nxsignal.nxtarget is None):
-                    nxsignal = dataset[nxsignal.nxtarget]
-                    nxgroup = nxsignal.nxgroup
-                    keys = list(nxgroup.keys())
-                    keys.remove(nxsignal.nxname)
-                    for a in nxgroup.axes:
-                        keys.remove(a)
-                    if keys:
-                        raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
-                    else:
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxgroup.nxpath, dataset.nxpath)))
-            nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
+                dataset = self.unwrap_pipelinedata(data)[-1]
+                assert isinstance(dataset, np.ndarray)
+                data = dataset
+            except Exception:
+                raise ValueError('Unable the load a valid input data object')
+
+        if config.method == 'yen':
+            min_ = data.min()
+            max_ = data.max()
+            data = 1 + (config.num_bin - 1) * (data - min_) / (max_ - min_)
 
         # Get a histogram of the data
-        if method not in ['manual', 'yen']:
-            counts, edges = np.histogram(data, bins=num_bin)
-            centers = edges[:-1] + 0.5 * np.diff(edges)
+        counts, edges = np.histogram(data, bins=config.num_bin)
+        centers = edges[:-1] + 0.5 * np.diff(edges)
 
         # Calculate the data cutoff threshold
-        if method == 'CHAP':
+        if config.method == 'CHAP':
             weights = np.cumsum(counts)
             means = np.cumsum(counts * centers)
-            weights = weights[0:-1]/weights[-1]
-            means = means[0:-1]/means[-1]
-            variances = (means-weights)**2/(weights*(1.-weights))
+            weights = weights[0:-1] / weights[-1]
+            means = means[0:-1] / means[-1]
+            variances = (means-weights)**2 / (weights * (1. - weights))
             threshold = centers[np.argmax(variances)]
-        elif method == 'otsu':
+        elif config.method == 'otsu':
             # Third party modules
             from skimage.filters import threshold_otsu
 
             threshold = threshold_otsu(hist=(counts, centers))
-        elif method == 'yen':
+        elif config.method == 'yen':
             # Third party modules
             from skimage.filters import threshold_yen
 
-            _min = data.min()
-            _max = data.max()
-            data = 1+(num_bin-1)*(data-_min)/(_max-_min)
-            counts, edges = np.histogram(data, bins=num_bin)
-            centers = edges[:-1] + 0.5 * np.diff(edges)
-
             threshold = threshold_yen(hist=(counts, centers))
-        elif method == 'isodata':
+        elif config.method == 'isodata':
             # Third party modules
             from skimage.filters import threshold_isodata
 
             threshold = threshold_isodata(hist=(counts, centers))
-        elif method == 'minimum':
+        else:
             # Third party modules
             from skimage.filters import threshold_minimum
 
             threshold = threshold_minimum(hist=(counts, centers))
-        else:
-            # Third party modules
-            import matplotlib.pyplot as plt
-            from matplotlib.widgets import RadioButtons, Button
 
-            # Local modules
-            from CHAP.utils.general import (
-                select_roi_1d,
-                select_roi_2d,
-            )
+        # Apply the data cutoff threshold
+        data = np.where(data < threshold, 0, 1).astype(np.ubyte)
 
-            def select_direction(direction):
-                """Callback function for the "Select direction" input.
-                """
-                selected_direction.append(radio_btn.value_selected)
-                plt.close()
-
-            def accept(event):
-                """Callback function for the "Accept" button."""
-                selected_direction.append(radio_btn.value_selected)
-                plt.close()
-
-            # Select the direction for data averaging
-            if axis is not None:
-                mean_data = data.mean(axis=axis)
-                subaxes = [i for i in range(3) if i != axis]
-            else:
-                selected_direction = []
-
-                # Setup figure
-                title_pos = (0.5, 0.95)
-                title_props = {'fontsize': 'xx-large',
-                               'horizontalalignment': 'center',
-                               'verticalalignment': 'bottom'}
-                fig, axs = plt.subplots(ncols=3, figsize=(17, 8.5))
-                mean_data = []
-                for i, ax in enumerate(axs):
-                    mean_data.append(data.mean(axis=i))
-                    subaxes = [a for a in axes if a != axes[i]]
-                    ax.imshow(mean_data[i], aspect='auto', cmap='gray')
-                    ax.set_title(
-                        f'Data averaged in {axes[i]}-direction',
-                        fontsize='x-large')
-                    ax.set_xlabel(subaxes[1], fontsize='x-large')
-                    ax.set_ylabel(subaxes[0], fontsize='x-large')
-                fig_title = plt.figtext(
-                    *title_pos,
-                    'Select a direction or press "Accept" for the default one '
-                    f'({axes[0]}) to obtain the binary threshold value',
-                    **title_props)
-                fig.subplots_adjust(bottom=0.25, top=0.85)
-
-                # Setup RadioButtons
-                select_text = plt.figtext(
-                    0.225, 0.175, 'Averaging direction', fontsize='x-large',
-                    horizontalalignment='center', verticalalignment='center')
-                radio_btn = RadioButtons(
-                    plt.axes([0.175, 0.05, 0.1, 0.1]), labels=axes, active=0)
-                radio_cid = radio_btn.on_clicked(select_direction)
-
-                # Setup "Accept" button
-                accept_btn = Button(
-                    plt.axes([0.7, 0.05, 0.15, 0.075]), 'Accept')
-                accept_cid = accept_btn.on_clicked(accept)
-
-                plt.show()
-
-                axis = axes.index(selected_direction[0])
-                mean_data = mean_data[axis]
-                subaxes = [a for a in axes if a != axes[axis]]
-
-                plt.close()
-
-            # Select the ROI's orthogonal to the selected averaging direction
-            bounds = []
-            for i, bound in enumerate(['"0"', '"1"']):
-                roi = select_roi_2d(
-                    mean_data,
-                    title=f'Select the ROI to obtain the {bound} data value',
-                    title_a=f'Data averaged in the {axes[axis]}-direction',
-                    row_label=subaxes[0], column_label=subaxes[1])
-
-                # Select the index range in the selected averaging direction
-                if not axis:
-                    mean_roi_data = data[:,roi[2]:roi[3],roi[0]:roi[1]].mean(
-                        axis=(1,2))
-                elif axis == 1:
-                    mean_roi_data = data[roi[2]:roi[3],:,roi[0]:roi[1]].mean(
-                        axis=(0,2))
-                else:
-                    mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
-                        axis=(0,1))
-
-                _range = select_roi_1d(
-                    mean_roi_data, preselected_roi=(0, data.shape[axis]),
-                    title=f'Select the {axes[axis]}-direction range to obtain '
-                          f'the {bound} data bound',
-                    xlabel=axes[axis], ylabel='Average data')
-
-                # Obtain the lower/upper data bound
-                if not axis:
-                    bounds.append(
-                        data[
-                            _range[0]:_range[1],roi[2]:roi[3],roi[0]:roi[1]
-                        ].mean())
-                elif axis == 1:
-                    bounds.append(
-                        data[
-                            roi[2]:roi[3],_range[0]:_range[1],roi[0]:roi[1]
-                        ].mean())
-                else:
-                    bounds.append(
-                        data[
-                            roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
-                        ].mean())
-
-            # Get the data cutoff threshold
-            threshold = np.mean(bounds)
-
-        # Apply the data cutoff threshold and return the output
-        data = np.where(data<threshold, 0, 1).astype(np.ubyte)
-#        from CHAP.utils.general import quick_imshow
-#        quick_imshow(data[int(data.shape[0]/2),:,:], block=True)
-#        quick_imshow(data[:,int(data.shape[1]/2),:], block=True)
-#        quick_imshow(data[:,:,int(data.shape[2]/2)], block=True)
+        # Return the output for array-like or NeXus NXfield inputs
         if isinstance(dataset, np.ndarray):
             return data
         if isinstance(dataset, NXfield):
             attrs = dataset.attrs
             attrs.pop('target', None)
-            return NXfield(
-                value=data, name=dataset.nxname, attrs=dataset.attrs)
+            nxfield = NXfield(
+                value=data, name=f'{dataset.nxname}_binarized', attrs=attrs)
+            return nxfield
+
+        # Otherwise create a copy of the input NeXus, add the binarized
+        # data to the copied original dataset, and remove the original
+        # dataset if config.remove_original_data is set
         name = f'{nxsignal.nxname}_binarized'
-        if nxobject.nxclass == 'NXdata':
-            nxobject[name] = data
-            nxobject.attrs['signal'] = name
-            return nxobject
-        if nxobject.nxclass == 'NXroot':
-            nxentry = nxobject[nxobject.default]
+        nxdefault = nxobject.get_default()
+        if isinstance(nxsignal, NXlink):
+            link = dataset.nxpath
+            path = os.path.split(nxsignal.nxtarget)[0]
         else:
-            nxentry = nxobject
-        axes = []
-        for a in nxdata.axes:
-            attrs = nxdata[a].attrs
-            attrs.pop('target', None)
-            axes.append(
-                NXfield(nxdata[a], name=a, attrs=attrs))
-        nxentry[name] = NXprocess(
-            NXdata(NXfield(data, name=name), axes),
-            attrs={'source': nxsignal.nxpath})
-        nxdata = nxentry[name].data
-        nxentry.data = NXdata(
-            NXlink(nxdata.nxsignal.nxpath),
-            [NXlink(os.path.join(nxdata.nxpath, a)) for a in nxdata.axes])
-        nxentry.data.set_default()
+            link = nxdefault.nxpath
+            path = os.path.split(nxsignal.nxpath)[0]
+        exclude_nxpaths = []
+        if config.remove_original_data:
+            if link is not None:
+                exclude_nxpaths.append(os.path.relpath(
+                    f'{link}/{nxsignal.nxname}', nxobject.nxpath))
+            exclude_nxpaths.append(os.path.relpath(
+                f'{path}/{nxsignal.nxname}', nxobject.nxpath))
+        nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
+        attrs = nxsignal.attrs
+        attrs.pop('target', None)
+        nxobject[f'{path}/{name}'] = NXfield(
+            value=data, name=name, attrs=attrs)
+        nxobject[path].attrs['signal'] = name
+        if link is not None:
+            nxobject[f'{link}/{name}'] = NXlink(f'{path}/{name}')
+            nxobject[link].attrs['signal'] = name
+
         return nxobject
 
 
@@ -581,7 +360,7 @@ class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
             self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            save_figures=False, outputdir='.', interactive=False):
+            interactive=False, save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
@@ -601,15 +380,12 @@ class ConstructBaseline(Processor):
         :param max_iter: The maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
         :return: The smoothed baseline and the configuration.
         :rtype: numpy.array, dict
         """
@@ -620,13 +396,13 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
-            interactive)
+            data, x, mask, tol, lam, max_iter, interactive=interactive,
+            return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
             y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-            xlabel=None, ylabel=None, interactive=False, filename=None):
+            xlabel=None, ylabel=None, interactive=False, return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -656,19 +432,24 @@ class ConstructBaseline(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :param filename: Save a .png of the plot to filename, defaults
-            to `None`, in which case the plot is not saved.
-        :type filename: str, optional
-        :return: The smoothed baseline and the configuration.
-        :rtype: numpy.array, dict
+        :param return_buf: Return an in-memory object as a byte stream
+            represention of the Matplotlib figure, defaults to `False`.
+        :type return_buf: bool, optional
+        :return: The smoothed baseline and the configuration and a
+            byte stream represention of the Matplotlib figure if
+            return_buf is `True` (`None` otherwise)
+        :rtype: numpy.array, dict, Union[io.BytesIO, None]
         """
         # Third party modules
-        if interactive or filename is not None:
+        if interactive or return_buf:
             from matplotlib.widgets import TextBox, Button
             import matplotlib.pyplot as plt
 
         # Local modules
-        from CHAP.utils.general import baseline_arPLS
+        from CHAP.utils.general import (
+            baseline_arPLS,
+            fig_to_iobuf,
+        )
 
         def change_fig_subtitle(maxed_out=False, subtitle=None):
             """Change the figure's subtitle."""
@@ -739,11 +520,11 @@ class ConstructBaseline(Processor):
             y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             full_output=True)
 
-        if not interactive and filename is None:
+        if not interactive and not return_buf:
             config = {
                 'tol': tol, 'lambda': lam, 'max_iter': max_iter,
                 'num_iter': num_iter, 'error': error, 'mask': mask}
-            return baseline, config
+            return baseline, config, None
 
         lambdas = [lam]
         weights = [w]
@@ -817,17 +598,19 @@ class ConstructBaseline(Processor):
             continue_btn.ax.remove()
             confirm_btn.ax.remove()
 
-        if filename is not None:
+        if return_buf:
             fig_title.set_in_layout(True)
             fig_subtitles[-1].set_in_layout(True)
             fig.tight_layout(rect=(0, 0, 1, 0.90))
-            fig.savefig(filename)
+            buf = fig_to_iobuf(fig)
+        else:
+            buf = None
         plt.close()
 
         config = {
             'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
             'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
-        return baseline, config
+        return baseline, config, buf
 
 
 class ConvertStructuredProcessor(Processor):
@@ -840,190 +623,6 @@ class ConvertStructuredProcessor(Processor):
 
         data = self.unwrap_pipelinedata(data)[0]
         return convert_structured_unstructured(data)
-
-
-class ImageProcessor(Processor):
-    """A Processor to plot an image (slice) from a NeXus object."""
-    def process(
-            self, data, vmin=None, vmax=None, axis=0, index=None,
-            coord=None, interactive=False, save_figure=True, outputdir='.',
-            filename='image.png'):
-        """Plot and/or save an image (slice) from a NeXus NXobject
-        object with a default data path contained in `data` and return
-        the NeXus NXdata data object.
-
-        :param data: Input data.
-        :type data: list[PipelineData]
-        :param vmin: Minimum array value in image slice, default to
-            `None`, which uses the actual minimum value in the slice.
-        :type vmin: float
-        :param vmax: Maximum array value in image slice, default to
-            `None`, which uses the actual maximum value in the slice.
-        :type vmax: float
-        :param axis: Axis direction or name of the image slice,
-            defaults to `0`
-        :type axis: Union[int, str], optional
-        :param index: Array index of the slice of data to plot.
-        :type index: int, optional
-        :param coord: Coordinate value of the slice of data to plot.
-        :type coord: Union[int, float], optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :param save_figure: Save a .png of the image, defaults to
-            `True`.
-        :type save_figure: bool, optional
-        :param outputdir: Directory to which any output figure will
-            be saved, defaults to `'.'`
-        :type outputdir: str, optional
-        :param filename: Image filename, defaults to `"image.png"`.
-        :type filename: str, optional
-        :return: The input data object.
-        :rtype: nexusformat.nexus.NXdata
-        """
-        # Third party modules
-        import matplotlib.pyplot as plt
-
-        # Local modules
-        from CHAP.utils.general import index_nearest
-
-        # Validate input parameters
-        if not isinstance(interactive, bool):
-            raise ValueError(f'Invalid parameter interactive ({interactive})')
-        if not isinstance(save_figure, bool):
-            raise ValueError(f'Invalid parameter save_figure ({save_figure})')
-        if not isinstance(outputdir, str):
-            raise ValueError(f'Invalid parameter outputdir ({outputdir})')
-        if not isinstance(filename, str):
-            raise ValueError(f'Invalid parameter filename ({filename})')
-        if not os.path.isabs(filename):
-            filename = os.path.join(outputdir, filename)
-
-        # Get the default Nexus NXdata object
-        data = self.unwrap_pipelinedata(data)[0]
-        try:
-            nxdata = data.get_default()
-        except Exception as exc:
-            raise ValueError(
-                f'Unable to find an NXdata object in ({data})') from exc
-        if nxdata.nxclass != 'NXdata':
-            raise ValueError(
-                f'Invalid default pathway to an NXdata object in ({data})')
-
-        # Get the data slice
-        axes = nxdata.attrs.get('axes', None)
-        if axes is not None:
-            axes = list(axes.nxdata)
-        coords = None
-        title = f'{nxdata.nxpath}/{nxdata.signal}'
-        if nxdata.nxsignal.ndim == 2:
-            exit('ImageProcessor not tested yet for a 2D dataset')
-            if axis is not None:
-                axis = None
-                self.logger.warning('Ignoring parameter axis')
-            if index is not None:
-                index = None
-                self.logger.warning('Ignoring parameter index')
-            if coord is not None:
-                coord = None
-                self.logger.warning('Ignoring parameter coord')
-            a = nxdata.nxsignal
-        elif nxdata.nxsignal.ndim == 3:
-            if isinstance(axis, int):
-                if not 0 <= axis < nxdata.nxsignal.ndim:
-                    raise ValueError(f'axis index out of range ({axis} not in '
-                                     f'[0, {nxdata.nxsignal.ndim-1}])')
-            elif isinstance(axis, str):
-                if axes is None or axis not in axes:
-                    raise ValueError(
-                        f'Unable to match axis = {axis} in {nxdata.tree}')
-                axis = axes.index(axis)
-            else:
-                raise ValueError(f'Invalid parameter axis ({axis})')
-            if axes is not None and hasattr(nxdata, axes[axis]):
-                coords = nxdata[axes[axis]].nxdata
-                axis_name = axes[axis]
-            else:
-                axis_name = f'axis {axis}'
-            if index is None and coord is None:
-                index = nxdata.nxsignal.shape[axis] // 2
-            else:
-                if index is not None:
-                    if coord is not None:
-                        coord = None
-                        self.logger.warning('Ignoring parameter coord')
-                    if not isinstance(index, int):
-                        raise ValueError(f'Invalid parameter index ({index})')
-                    if not 0 <= index < nxdata.nxsignal.shape[axis]:
-                        raise ValueError(
-                            f'index value out of range ({index} not in '
-                            f'[0, {nxdata.nxsignal.shape[axis]-1}])')
-                else:
-                    if not isinstance(coord, (int, float)):
-                        raise ValueError(f'Invalid parameter coord ({coord})')
-                    if coords is None:
-                        raise ValueError(
-                            f'Unable to get coordinates for {axis_name} '
-                            f'in {nxdata.tree}')
-                    index = index_nearest(nxdata[axis_name], coord)
-            if coords is None:
-                slice_info = f'slice at {axis_name} and index {index}'
-            else:
-                coord = coords[index]
-                slice_info = f'slice at {axis_name} = '\
-                             f'{nxdata[axis_name][index]:.3f}'
-                if 'units' in nxdata[axis_name].attrs:
-                    slice_info += f' ({nxdata[axis_name].units})'
-            if not axis:
-                a = nxdata[nxdata.signal][index,:,:]
-            elif axis == 1:
-                a = nxdata[nxdata.signal][:,index,:]
-            else:
-                a = nxdata[nxdata.signal][:,:,index]
-            if coords is None:
-                axes = [i for i in range(3) if i != axis]
-                row_coords = range(a.shape[1])
-                row_label = f'axis {axes[1]} index'
-                column_coords = range(a.shape[0])
-                column_label = f'axis {axes[0]} index'
-            else:
-                axes.pop(axis)
-                row_coords = nxdata[axes[1]].nxdata
-                row_label = axes[1]
-                if 'units' in nxdata[axes[1]].attrs:
-                    row_label += f' ({nxdata[axes[1]].units})'
-                column_coords = nxdata[axes[0]].nxdata
-                column_label = axes[0]
-                if 'units' in nxdata[axes[0]].attrs:
-                    column_label += f' ({nxdata[axes[0]].units})'
-        else:
-            raise ValueError('Invalid data dimension (must be 2D or 3D)')
-
-        # Create figure
-        a_max = a.max()
-        if vmin is None:
-            vmin = -a_max
-        if vmax is None:
-            vmax = a_max
-        extent = (
-            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
-        fig, ax = plt.subplots(figsize=(11, 8.5))
-        plt.imshow(
-            a, extent=extent, origin='lower', vmin=vmin, vmax=vmax,
-            cmap='gray')
-        fig.suptitle(title, fontsize='xx-large')
-        ax.set_title(slice_info, fontsize='xx-large', pad=20)
-        ax.set_xlabel(row_label, fontsize='x-large')
-        ax.set_ylabel(column_label, fontsize='x-large')
-        plt.colorbar()
-        fig.tight_layout()
-        if interactive:
-            plt.show()
-        if save_figure:
-            fig.savefig(filename)
-        plt.close()
-
-        return nxdata
 
 
 class ExpressionProcessor(Processor):
@@ -1098,6 +697,281 @@ class ExpressionProcessor(Processor):
         )
 
 
+class ImageProcessor(Processor):
+    """A Processor to plot an image (slice) from a NeXus object."""
+    def __init__(self):
+        super().__init__()
+        self._figinfo = None
+
+    def process(
+            self, data, config=None, save_figures=True, interactive=False):
+        """Plot and/or return image slices from a NeXus NXobject
+        object with a default plottable data path.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.common.models.ImageProcessorConfig
+        :type config: dict, optional
+        :param save_figures: Return the plottable image(s) to be
+            written to file downstream in the pipeline,
+            defaults to `True`.
+        :type save_figures: bool, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
+        :return: The plottable image(s) (for save_figures = `True`)
+            or the input default NeXus NXdata object
+            (for save_figures = `False`).
+        :rtype: Union[bytes, nexusformat.nexus.NXdata, numpy.ndarray]
+        """
+        if not save_figures and not interactive:
+            return
+
+        # Third party modules
+        from nexusformat.nexus import nxsetconfig
+
+        nxsetconfig(memory=100000)
+
+        # Load the default data
+        try:
+            nxdata = self.get_data(data).get_default()
+        except Exception:
+            raise ValueError(
+                'Unable the load the default NXdata object from the input '
+                f'pipeline ({data})')
+
+        # Load the validated image processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import ImageProcessorConfig
+
+            config = ImageProcessorConfig()
+        else:
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.ImageProcessorConfig')
+
+        # Get the axes info and image slice(s)
+        try:
+            data = nxdata.nxsignal
+        except Exception:
+            raise ValueError(
+                f'Unable the find the default signal in:\n({nxdata.tree})')
+        axis = config.axis
+        axes = nxdata.attrs.get('axes', None)
+        if axes is not None:
+            axes = list(axes.nxdata)
+        if nxdata.nxsignal.ndim == 2:
+            exit('ImageProcessor not tested yet for a 2D dataset')
+            if axis is not None:
+                axis = None
+                self.logger.warning('Ignoring parameter axis')
+            if index is not None:
+                index = None
+                self.logger.warning('Ignoring parameter index')
+            if coord is not None:
+                coord = None
+                self.logger.warning('Ignoring parameter coord')
+        elif nxdata.nxsignal.ndim == 3:
+            if isinstance(axis, int):
+                if not 0 <= axis < nxdata.nxsignal.ndim:
+                    raise ValueError(f'axis index out of range ({axis} not in '
+                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+            elif isinstance(axis, str):
+                if axes is None or axis not in axes:
+                    raise ValueError(
+                        f'Unable to match axis = {axis} in {nxdata.tree}')
+                axis = axes.index(axis)
+            else:
+                raise ValueError(f'Invalid parameter axis ({axis})')
+            if axis:
+                data = np.moveaxis(data, axis, 0)
+            if axes is not None and hasattr(nxdata, axes[axis]):
+                if axis == 1:
+                    axes = [axes[1], axes[0], axes[2]]
+                elif axis:
+                    axes = [axes[2], axes[0], axes[1]]
+                axis_name = axes[0]
+                if 'units' in nxdata[axis_name].attrs:
+                    axis_unit = f' ({nxdata[axis_name].units})'
+                else:
+                    axis_unit = ''
+                row_label = axes[2]
+                row_coords = nxdata[row_label].nxdata
+                column_label = axes[1]
+                column_coords = nxdata[column_label].nxdata
+                if 'units' in nxdata[row_label].attrs:
+                    row_label += f' ({nxdata[row_label].units})'
+                if 'units' in nxdata[column_label].attrs:
+                    column_label += f' ({nxdata[column_label].units})'
+            else:
+                exit('No axes attribute not tested yet')
+                axes = [0, 1, 2]
+                axes.pop(axis)
+                axis_name = f'axis {axis}'
+                axis_unit = ''
+#                row_label = f'axis {axis[1]}'
+#                row_coords = None
+#                column_label = f'axis {axis[0]}'
+#                column_coords = None
+            axis_coords = nxdata[axis_name].nxdata
+        else:
+            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+        if config.coord_range is None:
+            index_range = config.index_range
+        else:
+            # Local modules
+            from CHAP.utils.general import (
+                index_nearest_down,
+                index_nearest_up,
+            )
+
+            if config.index_range is not None:
+                self.logger.warning('Ignoring parameter index_range')
+            if isinstance(config.coord_range, (int, float)):
+                index_range = index_nearest_up(
+                    axis_coords, config.coord_range)
+            elif len(config.coord_range) == 2:
+                index_range = [
+                    index_nearest_up(axis_coords, config.coord_range[0]),
+                    index_nearest_down(axis_coords, config.coord_range[1])]
+            else:
+                index_range = [
+                    index_nearest_up(axis_coords, config.coord_range[0]),
+                    index_nearest_down(axis_coords, config.coord_range[1]),
+                    int(max(1, config.coord_range[2] /
+                        ((axis_coords[-1]-axis_coords[0])/data.shape[0])))]
+        if index_range == -1:
+            index_range = nxdata.nxsignal.shape[axis] // 2
+        if isinstance(index_range, int):
+            data = data[index_range]
+            axis_coords = [axis_coords[index_range]]
+        elif index_range is not None:
+            slice_ = slice(*tuple(index_range))
+            data = data[slice_]
+            axis_coords = axis_coords[slice_]
+        if config.vrange is None:
+            vrange = (data.min(), data.max())
+        else:
+            vrange = config.vrange
+
+        # Create the figure configuration
+        self._figconfig = {
+            'title': f'{nxdata.nxpath}/{nxdata.signal}',
+            'axis_name': axis_name,
+            'axis_unit': axis_unit,
+            'axis_coords': axis_coords,
+            'row_label': row_label,
+            'column_label': column_label,
+            'extent': (row_coords[0], row_coords[-1],
+                       column_coords[-1], column_coords[0]),
+            'vrange': vrange,
+        }
+        self.logger.debug(f'figure configuration:\n{self._figconfig}')
+
+        if len(axis_coords) == 1:
+            # Create a figure for a single image slice
+
+            # System modules
+            from io import BytesIO
+
+            if config.animation:
+                self.logger.warning(
+                    'Ignoring animation parameter for a single image')
+                fileformat = 'png'
+            if config.fileformat is None:
+                fileformat = 'png'
+            else:
+                fileformat = config.fileformat
+            fig, plt = self._create_figure(np.squeeze(data))
+            if interactive:
+                plt.show()
+            if save_figures:
+                # Local modules
+                from CHAP.utils.general import fig_to_iobuf
+
+                # Return a binary image of the figure
+                buf, fileformat = fig_to_iobuf(fig, fileformat=fileformat)
+            plt.close()
+            return {'image_data': buf, 'fileformat': fileformat}
+        
+        else:
+
+            # Create an animation for a set of image slices
+            if interactive or config.animation:
+                ani = self._create_animation(data, interactive)
+
+            if save_figures:
+                if config.animation:
+                    # Return the animation object
+                    if (config.fileformat is not None
+                            and config.fileformat != 'gif'):
+                        self.logger.warning(
+                            'Ignoring inconsistent file extension')
+                    fileformat = 'gif'
+                    image_data = ani
+                else:
+                    # Return the set of image slices as a tif stack
+                    if (config.fileformat is not None
+                            and config.fileformat != 'tif'):
+                        self.logger.warning(
+                            'Ignoring inconsistent file extension')
+                    fileformat = 'tif'
+                    data = 255.0*((data - vrange[0])/ 
+                                  (vrange[1] - vrange[0]))
+                    image_data = data.astype(np.uint8)
+
+        if save_figures:
+            return {'image_data': image_data, 'fileformat': fileformat}
+        return nxdata
+
+    def _create_animation(self, data, interactive):
+        # Third party modules
+        from functools import partial
+        from matplotlib import animation
+
+        def animate(i, plt, title):
+            im.set_array(data[i])
+            title.set_text(self._set_title(i))
+            plt.draw()
+            return im,
+
+        fig, im, plt, title = self._create_figure(data[0], animated=True)
+        ani = animation.FuncAnimation(
+            fig, partial(animate, plt=plt, title=title), frames=data.shape[0],
+            interval=50, blit=True)
+        if interactive:
+            plt.show()
+        plt.close()
+
+        return ani
+
+    def _create_figure(self, image, animated=False):
+        # Third party modules
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        im = plt.imshow(
+            image, extent=self._figconfig['extent'], origin='lower',
+            vmin=self._figconfig['vrange'][0],
+            vmax=self._figconfig['vrange'][1], cmap='gray', animated=animated)
+        fig.suptitle(self._figconfig['title'], fontsize='x-large')
+        title = ax.set_title(self._set_title(0), fontsize='x-large', pad=10)
+        ax.set_xlabel(self._figconfig['row_label'], fontsize='x-large')
+        ax.set_ylabel(self._figconfig['column_label'], fontsize='x-large')
+        plt.colorbar()
+        fig.tight_layout()
+        if animated:
+            return fig, im, plt, title
+        return fig, plt
+
+    def _set_title(self, i):
+        return self._figconfig['axis_name'] +\
+            f' = {self._figconfig["axis_coords"][i]:.3f}' +\
+            self._figconfig['axis_unit']
+
+
 class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
     NXentry object representing that map's metadata and any
@@ -1106,6 +980,16 @@ class MapProcessor(Processor):
     def process(
             self, data, config=None, detectors=None,
             fill_data=True, placeholder_data=False,
+            num_proc=1, comm=None, inputdir=None):
+
+        return self._process(
+            data, config=config, detectors=detectors,
+            placeholder_data=placeholder_data, num_proc=num_proc,
+            comm=comm, inputdir=inputdir)
+
+#    @profile
+    def _process(
+            self, data, config=None, detectors=None, placeholder_data=False,
             num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
@@ -1154,10 +1038,28 @@ class MapProcessor(Processor):
             string_to_list,
         )
 
+        # Check for available metadata
+        metadata = {}
+        if data:
+            try:
+                for i, d in enumerate(data):
+                    if d.get('schema') == 'metadata':
+                        metadata = d.get('data')
+                        if remove:
+                            data.pop(i)
+                        break
+            except:
+                pass
+            if len(metadata) > 1:
+                raise ValueError(
+                    f'Unable to find unique data for schema "metadata"')
+            if metadata:
+                metadata = self._get_metadata_config(metadata[0])
+
         # Get the validated map configuration
         map_config = self.get_config(
             data=data, config=config, schema='common.models.map.MapConfig',
-            inputdir=inputdir)
+            **metadata, inputdir=inputdir)
 
         # Validate the detectors
         try:
@@ -1351,6 +1253,36 @@ class MapProcessor(Processor):
         return self._get_nxroot(
             map_config, detector_config, data, independent_dimensions,
             all_scalar_data, placeholder_data)
+
+    def _get_metadata_config(self, metadata):
+        """Get experiment specific configurational data from the
+        FOXDEN metadata record
+
+        :param metadata: FOXDEN metadata record.
+        :type metadata: dict
+        :return: Experiment specific configurational data.
+        :rtype: dict
+        """
+        config = {'did': metadata.get('did')}
+        experiment_type = metadata.get('technique')
+        if 'tomography' in experiment_type:
+            config['title'] = metadata.get('sample_name')
+            station = metadata.get('beamline')[0]
+            if station == '3A':
+                station = 'id3a'
+            else:
+                raise ValueError(f'Invalid beamline parameter ({beamline})')
+            config['station'] = station
+            config['experiment_type'] = 'TOMO'
+            config['sample'] = {'name': config['title'],
+                                    'description': metadata.get('description')}
+            if station == 'id3a':
+                config['spec_file'] = os.path.join(
+                    metadata.get('data_location_raw'), 'spec.log')
+        else:
+            raise ValueError(
+                f'Experiment type {experiment_type} not implemented yet')
+        return config
 
     def _get_nxroot(
             self, map_config, detector_config, data, independent_dimensions,
@@ -1652,6 +1584,7 @@ class MapProcessor(Processor):
                 0, 1),
             independent_dimensions, all_scalar_data)
 
+#    @profile
     def _read_raw_data(
             self, map_config, detector_config, comm, num_scan, offset):
         """Read the raw data for a given map configuration.
@@ -1695,17 +1628,26 @@ class MapProcessor(Processor):
         scans = map_config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
-        ddata = scanparser.get_detector_data(detector_config.detectors[0].id)
+        #RV only correct for multiple detectors if the same image sizes
+        if len(detector_config.detectors) != 1:
+            raise ValueError('Multiple detectors not tested yet')
+        if map_config.experiment_type == 'TOMO':
+            dtype = np.float32
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id, dtype=dtype)
+        else:
+            dtype = None
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id)
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)
         num_sd = len(map_config.all_scalar_data)
         if num_proc == 1:
             assert num_scan == len(scan_numbers)
-            data = np.empty(
-                (num_det, num_scan, *ddata.shape), dtype=ddata.dtype)
+            data = num_det*[num_scan*[None]]
             independent_dimensions = np.empty(
-                (num_scan, num_id, num_dim), dtype=np.float64)
+               (num_scan, num_id, num_dim), dtype=np.float64)
             if num_sd:
                 all_scalar_data = np.empty(
                     (num_scan, num_sd, num_dim), dtype=np.float64)
@@ -1713,7 +1655,7 @@ class MapProcessor(Processor):
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
             self.logger.debug(f'Scan numbers on processor {rank}: '
                               f'{list_to_string(scan_numbers)}')
-            datatype = dtlib.from_numpy_dtype(ddata.dtype)
+            datatype = dtlib.from_numpy_dtype(dtype)
             itemsize = datatype.Get_size()
             if not rank:
                 nbytes = num_scan * np.prod(ddata.shape) * itemsize
@@ -1721,8 +1663,9 @@ class MapProcessor(Processor):
                 nbytes = 0
             win = MPI.Win.Allocate_shared(nbytes, itemsize, comm=comm)
             buf, _ = win.Shared_query(0)
+            #RV improve memory requirements ala single processor case?
             data = np.ndarray(
-                buffer=buf, dtype=ddata.dtype,
+                buffer=buf, dtype=dtype,
                 shape=(num_det, num_scan, *ddata.shape))
             datatype = dtlib.from_numpy_dtype(np.float64)
             itemsize = datatype.Get_size()
@@ -1751,28 +1694,23 @@ class MapProcessor(Processor):
                 for i, detector in enumerate(detector_config.detectors):
                     if init:
                         init = False
+                        data[i][offset] = ddata
+                        del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        ddata = scanparser.get_detector_data(
-                            detector_config.detectors[i].id)
-                    data[i][offset] = ddata
+                        data[i][offset] = scanparser.get_detector_data(
+                            detector_config.detectors[i].id, dtype=dtype)
                 for i, dim in enumerate(map_config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False)[:num_dim]
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v[:num_dim]
                     elif dim.data_type in ['smb_par', 'spec_motor',
                                            'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
-                        #v = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
                             relative=False, scalar_data=map_config.scalar_data)
-                        #print(f'\ndim: {dim}\nv {np.asarray(v).shape}: {v}')
-                        #independent_dimensions[offset,i] = v
                     else:
                         raise RuntimeError(
                             f'{dim.data_type} in data_type not tested')
@@ -1781,7 +1719,8 @@ class MapProcessor(Processor):
                         scans, scan_number, scan_step_index=-1,
                         relative=False)
                 offset += 1
-
+        if num_proc == 1:
+            data = np.asarray(data)
         if num_sd:
             return (
                 data.reshape(
@@ -2134,6 +2073,229 @@ class NexusToNumpyProcessor(Processor):
         np_data = default_data[default_signal].nxdata
 
         return np_data
+
+
+#class NexusToTiffsprocessor(Processor):
+#    """A Processor to convert the default plottable data in a NeXus
+#    object into a set of tiff slices.
+#    """
+#    def process(self, data, config=None, save_figures=True, interactive=False):
+#        """Plot and/or save a set of image(s) (slices) from a NeXus
+#        NXdata object or a NXobject object reachable via a default data
+#        path in `data` and return (a set) of tiffs.
+#
+#        :param data: Input data.
+#        :type data: list[PipelineData]
+#        :param config: Initialization parameters for an instance of
+#            CHAP.common.models.ImageProcessorConfig
+#        :type config: dict, optional
+#        :param save_figures: Save .tifs of plots, defaults to `True`.
+#        :type save_figures: bool, optional
+#        :param interactive: Allows for user interactions, defaults to
+#            `False`.
+#        :type interactive: bool, optional
+#        :return: The set of tiffs.
+#        :rtype: nexusformat.nexus.NXdata
+#        """
+#        # Third party modules
+#        import matplotlib.pyplot as plt
+#        from nexusformat.nexus import (
+#            NXdata,
+#            NXentry,
+#            NXroot,
+#            nxsetconfig,
+#        )
+#
+##        self._save_figures = save_figures
+##        self._interactive = interactive
+#
+#        nxsetconfig(memory=100000)
+#
+#        # Load the default data
+#        try:
+#            nxdata = self.get_data(data).get_default()
+#        except Exception:
+#            raise ValueError(
+#                'Unable the load the default NXdata object from the input '
+#                f'pipeline ({data})')
+#
+#        # Load the validated image processor configuration
+#        if config is None:
+#            # Local modules
+#            from CHAP.common.models.common import ImageProcessorConfig
+#
+#            config = ImageProcessorConfig()
+#        else:
+#            config = self.get_config(
+#                data, config=config,
+#                schema='common.models.ImageProcessorConfig')
+#
+#        # Get the image slice(s)
+#        try:
+#            data = nxdata[nxdata.signal]
+#        except Exception:
+#            raise ValueError(
+#                f'Unable the find the default signal in:\n({nxdata.tree})')
+#        axis = config.axis
+#        axes = nxdata.attrs.get('axes', None)
+#        if axes is not None:
+#            axes = list(axes.nxdata)
+#        if nxdata.nxsignal.ndim == 2:
+#            exit('NexusToTiffsprocessor not yet implemented for a 2D dataset')
+#            if axis is not None:
+#                axis = None
+#                self.logger.warning('Ignoring parameter axis')
+#        elif nxdata.nxsignal.ndim == 3:
+#            if isinstance(axis, int):
+#                if not 0 <= axis < nxdata.nxsignal.ndim:
+#                    raise ValueError(f'axis index out of range ({axis} not in '
+#                                     f'[0, {nxdata.nxsignal.ndim-1}])')
+#            elif isinstance(axis, str):
+#                if axes is None or axis not in axes:
+#                    raise ValueError(
+#                        f'Unable to match axis = {axis} in {nxdata.tree}')
+#                axis = axes.index(axis)
+#            else:
+#                raise ValueError(f'Invalid parameter axis ({axis})')
+#            if axis:
+#                data = np.moveaxis(data, axis, 0)
+#            if axes is not None and hasattr(nxdata, axes[axis]):
+#                if axis == 1:
+#                    axes = [axes[1], axes[0], axes[2]]
+#                elif axis:
+#                    axes = [axes[2], axes[0], axes[1]]
+#                axis_name = axes[0]
+#                if 'units' in nxdata[axis_name].attrs:
+#                    axis_unit = f' ({nxdata[axis_name].units})'
+#                else:
+#                    axis_unit = ''
+##                row_label = axes[2]
+##                row_coords = nxdata[row_label].nxdata
+##                column_label = axes[1]
+##                column_coords = nxdata[column_label].nxdata
+##                if 'units' in nxdata[row_label].attrs:
+##                    row_label += f' ({nxdata[row_label].units})'
+##                if 'units' in nxdata[column_label].attrs:
+##                    column_label += f' ({nxdata[column_label].units})'
+#            else:
+#                exit('No axes attribute not tested yet')
+#                axes = [0, 1, 2]
+#                axes.pop(axis)
+#                axis_name = f'axis {axis}'
+#                axis_unit = ''
+##                row_label = f'axis {axis[1]}'
+##                row_coords = None
+##                column_label = f'axis {axis[0]}'
+##                column_coords = None
+#            axis_coords = nxdata[axis_name].nxdata
+#        else:
+#            raise ValueError('Invalid data dimension (must be 2D or 3D)')
+#        index_range = config.index_range
+#        if config.coord_range is not None:
+#            # Local modules
+#            from CHAP.utils.general import (
+#                index_nearest_down,
+#                index_nearest_up,
+#            )
+#
+#            if isinstance(config.coord_range, (int, float)):
+#                index_range = index_nearest_up(
+#                    axis_coords, config.coord_range)
+#            elif len(config.coord_range) == 2:
+#                index_range = [
+#                    index_nearest_up(axis_coords, config.coord_range[0]),
+#                    index_nearest_down(axis_coords, config.coord_range[1])]
+#            else:
+#                index_range = [
+#                    index_nearest_up(axis_coords, config.coord_range[0]),
+#                    index_nearest_down(axis_coords, config.coord_range[1]),
+#                    int(max(1, config.coord_range[2]/
+#                        ((axis_coords[-1]-axis_coords[0])/data.shape[0])))]
+#        if isinstance(index_range, int):
+#            data = data[index_range]
+#            axis_coords = [axis_coords[index_range]]
+#        elif index_range is not None:
+#            slice_ = slice(*tuple(index_range))
+#            data = data[slice_]
+#            axis_coords = axis_coords[slice_]
+#
+#        # Write the image slice(s) as a tiff (stack)
+#        if not config.animation:
+#            min_ = data.min()
+#            return ((data*255.0 - min_)/(data.max() - min_)).astype(np.uint8)
+#
+#        # Create an animation of the fit points
+##        if vmin is None:
+##            vmin = data.min()
+##        if vmax is None:
+##            vmax = data.max()
+##        if row_coords is None or column_coords is None:
+##            extent = None
+##            # MUST STILL FLIP to account for origin='lower'
+##        else:
+##            extent = (row_coords[0], row_coords[-1],
+##                      column_coords[0], column_coords[-1])
+##        if self._interactive or self._save_figures:
+##            fig, ax = plt.subplots()
+##            print(f'\t\t... plotting image {0}')
+##            img = plt.imshow(
+##                data[0], extent=extent, origin='lower', vmin=vmin,
+##                vmax=vmax, cmap='gray')
+##            title = ax.set_title(f'{axis_name} = {axis_coords[0]}{axis_unit}',
+##                fontsize='xx-large')#, pad=20)
+##            ax.set_xlabel(row_label, fontsize='x-large')
+##            ax.set_ylabel(column_label, fontsize='x-large')
+##            if save_figure:
+##                fig.savefig(filename)
+##            for i in range(1, 5):#data.shape[0]):
+##                if self._interactive:
+##                    plt.pause(2)
+##                img.set_data(data[20*i])
+##                title.set_text(f'{axis_name} = {axis_coords[20*i]}{axis_unit}')
+##                print(f'\t\t... plotting image {20*i}')
+##                if self._interactive:
+##                    fig.canvas.draw()
+##                if save_figure:
+##                    fig.savefig(filename)
+##            if self._interactive:
+##                plt.pause(1)
+##            plt.close()
+#
+##            self._create_animation(
+##                nxdata, data, axis_name, axis_coords, axis_unit, column_label,
+##                row_label, extent, vmin, vmax)
+#
+#        return nxdata
+#
+#    def _create_animation(
+#            self, nxdata, data, axis_name, axis_coords, axis_unit, row_label,
+#            column_label, extent, vmin, vmax):
+#        """Create an animation of the fit results."""
+#        # Third party modules
+#        from matplotlib import animation
+#        import matplotlib.pyplot as plt
+#
+#        def animate(i):
+#            im.set_array(data[30+i])
+#            return im,
+#
+#        fig, ax = plt.subplots()
+#        im = plt.imshow(#data[30], animated=True)
+#            data[30], extent=extent, origin='lower', vmin=vmin, vmax=vmax,
+#            cmap='gray', animated=True)
+##        ax.set_title(slice_label, fontsize='xx-large')#, pad=20)
+#        ax.set_xlabel(row_label, fontsize='x-large')
+#        ax.set_ylabel(column_label, fontsize='x-large')
+#
+#        ani = animation.FuncAnimation(
+#            fig, animate, frames=20, interval=50, blit=True)
+#
+##        if self._save_figures:
+##            ani.save(os.path.join(self._outputdir, 'movie.gif'))
+#        ani.save(os.path.join(self._outputdir, 'movie.gif'))
+#        if self._interactive:
+#            plt.show()
+#        plt.close()
 
 
 class NexusToXarrayProcessor(Processor):

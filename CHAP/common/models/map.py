@@ -870,6 +870,8 @@ class MapConfig(CHAPBaseModel):
     """Class representing an experiment consisting of one or more SPEC
     scans.
 
+    :param: did: FOXDEN data identifier.
+    :type did: str, optional
     :ivar title: The title for the map configuration.
     :type title: str
     :ivar station: The name of the station at which the map was
@@ -907,6 +909,7 @@ class MapConfig(CHAPBaseModel):
     :ivar attrs: Additional Map configuration attributes.
     :type attrs: dict, optional
     """
+    did: Optional[constr(strip_whitespace=True)] = None
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     experiment_type: Literal[
@@ -948,16 +951,27 @@ class MapConfig(CHAPBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        inputdir = data.get('inputdir')
-        if inputdir is not None:
-            spec_scans = data.get('spec_scans')
-            for i, scans in enumerate(deepcopy(spec_scans)):
-                spec_file = scans['spec_file']
-                if not os.path.isabs(spec_file):
-                    spec_scans[i]['spec_file'] = os.path.join(
-                        inputdir, spec_file)
-                spec_scans[i] = SpecScans(**spec_scans[i], **data)
-            data['spec_scans'] = spec_scans
+        if 'spec_file' in data and 'scan_numbers' in data:
+            spec_file = data.pop('spec_file')
+            scan_numbers = data.pop('scan_numbers')
+            if 'spec_scans' in data:
+                raise ValueError(
+                    f'Ambiguous SPEC scan information: spec_file={spec_file},'
+                    f' scan_numbers={scan_numbers}, and '
+                    f'spec_scans={data["spec_scans"]}')
+            data['spec_scans'] = [
+                {'spec_file': spec_file, 'scan_numbers': scan_numbers}]
+        else:
+            inputdir = data.get('inputdir')
+            if inputdir is not None:
+                spec_scans = data.get('spec_scans')
+                for i, scans in enumerate(deepcopy(spec_scans)):
+                    spec_file = scans['spec_file']
+                    if not os.path.isabs(spec_file):
+                        spec_scans[i]['spec_file'] = os.path.join(
+                            inputdir, spec_file)
+                    spec_scans[i] = SpecScans(**spec_scans[i], **data)
+                data['spec_scans'] = spec_scans
         return data
 
     @field_validator('experiment_type')

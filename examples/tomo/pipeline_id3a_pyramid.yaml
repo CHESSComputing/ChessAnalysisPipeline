@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: hollow_pyramid
   interactive: true
-  log_level: INFO
+  log_level: info
   profile: false
 
 pipeline:
@@ -45,7 +45,7 @@ pipeline:
   - pipeline.MultiplePipelineItem:
       items:
 #        - common.NexusReader:
-#            filename: ../hollow_pyramid/map_hollow_pyramid.nxs
+#            filename: map_hollow_pyramid.nxs
 #            schema: tomofields
         - common.SpecReader:
             config:
@@ -74,13 +74,17 @@ pipeline:
             filename: detector_pyramid.yaml
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-#  - common.NexusWriter:
-#      filename: chess_map_hollow_pyramid.nxs
-#      force_overwrite: true
+  - common.NexusWriter:
+      filename: chess_map_hollow_pyramid.nxs
+      force_overwrite: true
+
+recon:
 
   # Full tomography reconstruction
   - pipeline.MultiplePipelineItem:
       items:
+        - common.NexusReader:
+            filename: chess_map_hollow_pyramid.nxs
         - common.YAMLReader:
             filename: find_center_id3a.yaml
             schema: tomo.models.TomoFindCenterConfig
@@ -92,9 +96,15 @@ pipeline:
             schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
       reduce_data: true
-      outputdir: saved_figs
-      save_figs: 'only'
-  - common.NexusWriter:
+      save_figures: true
+  - tomo.TomoWriter:
       filename: combined_hollow_pyramid.nxs
       force_overwrite: true
-
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceProcessor
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'

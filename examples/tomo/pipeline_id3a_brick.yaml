@@ -60,10 +60,9 @@ pipeline:
             filename: combine_data_id3a.yaml
             schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
-      reduce_data: True
+      reduce_data: true
       outputdir: saved_figs
       save_figs: 'only'
   - common.NexusWriter:
       filename: combined_hollow_brick.nxs
       force_overwrite: true
-

@@ -2,6 +2,20 @@
 
 The tomography subpackage contains the modules that are unique to tomography data processing workflows. This document describes how to run a tomography reconstruction workflow in a Linux terminal.
 
+## Tomographic reconstruction
+
+Tomography is a type of 3D imaging that uses some type of penetrative wave (an X-ray beam at CHESS). Tomographic reconstruction refers to the process of recovering 3D spatial information on an object from a set of projected images acquired under different angles after transmission of the beam through the sample.
+
+| ![](images/Tomographic_fig1.png) |
+|:--:|
+| Illustration of tomographic reconstruction (https://en.wikipedia.org/wiki/Tomographic_reconstruction). The projected image on the detector results from transmission of the beam through the sample at a given angle at varying locations. The intensity at the detector depends on the amount of scattering and absorption in the sample or on, what is often called, its linear attenuation coefficient. Spatial variations in for example density can lead to spatial variations of the local attenuation coefficient. The intensity on the detector is basically a measure of its line integral along a path $AB$ at a projected sample position $r$. We can then obtain full 3D reconstruction of the spatial variation from a set of 2D images at varying angles $\theta$ by a mathematical inversion technique called the inverse Radon transform  (https://en.wikipedia.org/wiki/Radon_transform). |
+
+## The input data
+
+A standard tomographic experiment at CHESS (and other similar institutions) consist of a set of X-ray transmission measurements captured on a 2D area detector. It typically involves two (sets of) measurements without a sample in the beam, one with the beam stop in place (the dark image), and one with the beam stop open (the bright image). Followed by a measurement of a stack of images (a tomographic image series) at varying rotation angle (over 180 or a full 360 degrees of rotation) with the sample in the beam secured to a rotating sample holder. Note that if the sample is larger than the beam cross section, this may require multiple image stacks at various sample positions in the plane perpendicular to the X-ray beam.
+
+## Processing the data
+
 A standard tomographic reconstruction in CHAP consists of three steps:
 
 - Reducing the data, i.e., correcting the raw detector images for background and non-uniformities in the beam intensity profile using dark and bright fields collected separately from the tomography image series.
@@ -9,10 +23,10 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 - Finding the calibrated rotation axis. Accurate reconstruction relies on accurately knowing the center of rotation at each data plane perpendicular to the rotation axis (the sinogram). This rotation axis is calibrated by selecting two data planes, one near the top and one near the bottom of the sample or beam, and visually or automatically picking the optimal center location.
 
 - Reconstructing the reduced data for the calibrated rotation axis. For samples taller than the height of the beam, this last step can consist of two parts:
-
     - reconstruction of each individual stack of images, and
-
     - combining the individual stacks into one 3D reconstructed data set.
+
+Note that combining stacks with a horizontal displacement for samples wider than the width of the beam are not yet implemented.
 
 ## Activating the tomography conda environment
 
@@ -21,6 +35,8 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 Log in to the CHESS Compute Farm and activate the `CHAP_tomo` environment:
 ```bash
 source /nfs/chess/sw/miniforge3_chap/bin/activate
+```
+```bash
 conda activate CHAP_tomo
 ```
 
@@ -50,7 +66,7 @@ conda activate CHAP_tomo
     - 0.0065
     lens_magnification: 5.0
     ``` 
-    Here, the base file name and the prefix field must equal the detector name and mach any `detector_names` fields in the pipeline input file.
+    Here, the prefix field must equal a detector ID field in the `detectors` list in the pipeline input file.
 1. Run the reconstruction:
    ```bash
    CHAP <pipelinefilename>
@@ -59,15 +75,15 @@ conda activate CHAP_tomo
 
 ## Inspecting output
 
-The output consists of a single NeXus (`.nxs`) file containing the reconstructed data set as well as all metadata pertaining to the reconstruction. Additionally, optional output figures (`.png`) may be save to an output directory specified in the pipeline file.
+The output consists of a single NeXus (`.nxs`) file containing the reconstructed data set as well as all metadata pertaining to the reconstruction. Additionally, optional output figures (`.png`) may be saved to an output directory specified in the pipeline file.
 
-Any of the optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in [NeXpy](https://nexpy.github.io/nexpy/), a high-level python interface to HDF5 files, particularly those stored as [NeXus data](http://www.nexusformat.org):
+The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in [NeXpy](https://nexpy.github.io/nexpy/), a high-level python interface to HDF5 files, particularly those stored as [NeXus data](http://www.nexusformat.org):
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
    nexpy &
    ```
-1. After the GUI pops up, click File-> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
+1. After the GUI pops up, click File -> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
 1. Double click on the base level `NXroot` field in the leftmost "NeXus Data" panel to view the reconstruction. Note that the `NXroot` name is always the basename of the output file.
 1. Or navigate the filetree in the "NeXus Data" panel to inspect any other output or metadata field. Note that the latest data set in any tomography reconstruction workflow is always available under the "data" `NXdata` field among the default `NXentry`'s fields (it is this data set that is opened in the viewer panel when double clicking the `NXroot` field). The default `NXentry` name is always the "title" field in the workflow's map configuration.
 
@@ -76,11 +92,13 @@ Any of the optional output figures can be viewed directly by any PNG image viewe
 Create a workflow `pipeline.yaml` file according to the [instructions](/docs/pipeline.md). A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in `.yaml` files):
 ```
 config:
+  root: .           # Change as desired
   inputdir: .       # Change as desired
+                    # Path can be relative to root (line 2) or absolute
   outputdir: output # Change as desired
+                    # Path can be relative to root (line 2) or absolute
   interactive: true # Change as desired
   log_level: INFO
-  profile: false
 
 pipeline:
 
@@ -93,8 +111,8 @@ pipeline:
         sample:
           name: <your_sample_name> # Change as desired
                                    # typically the sample name
-        spec_scans: # Edit: spec.log path and tomography scan numbers
-                    # Path can be relative to inputdir (line 2) or absolute
+        spec_scans: # Edit both SPEC log file path and tomography scan numbers
+                    # Path can be relative to inputdir (line 3) or absolute
           - spec_file: <your_raw_data_directory>/spec.log
             scan_numbers: [3, 4, 5]
         independent_dimensions:
@@ -119,8 +137,8 @@ pipeline:
             config:
               station: id3a # Change as needed
               experiment_type: TOMO
-              spec_scans: # Edit: spec.log path and dark field scan number
-                          # Path can be relative to inputdir (line 2) or absolute
+              spec_scans: # Edit both SPEC log file path and tomography scan numbers
+                          # Path can be relative to inputdir (line 3) or absolute
                 - spec_file: <your_raw_data_directory>/spec.log
                   scan_numbers: 1
             detectors:
@@ -130,8 +148,8 @@ pipeline:
             config:
               station: id3a # Change as needed
               experiment_type: TOMO
-              spec_scans: # Edit: absolute spec.log path and bright field scan number
-                          # Path can be relative to inputdir (line 2) or absolute
+              spec_scans: # Edit both SPEC log file path and tomography scan numbers
+                          # Path can be relative to inputdir (line 3) or absolute
                 - spec_file: <your_raw_data_directory>/spec.log
                   scan_numbers: 2
             detectors:
@@ -139,22 +157,22 @@ pipeline:
             schema: brightfield
         - common.YAMLReader:
             filename: andor2.yaml # Detector config file
-                                  # Must be a path relative to inputdir (line 2) or an absolute path
+                                  # Path can be relative to inputdir (line 3) or  absolute
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
 
-  # Run the tomography reconstruction
+  # Full tomography reconstruction
   - tomo.TomoDataProcessor:
-      reduce_data: True
-      find_center: True
-      reconstruct_data: True
-      combine_data: True    # Only needed for a stack of tomography image sets
+      reduce_data: true
+      find_center: true
+      reconstruct_data: true
+      combine_data: true    # Only needed for a stack of tomography image sets
       outputdir: saved_figs # Change as desired, unless an absolute path
-                            # this will appear under 'outdutdir' (line 3)
+                            # this will appear under 'outdutdir' (line 5)
       save_figs: 'only'
   - common.NexusWriter:
       filename: reconstructed_sample.nxs # Change as desired
-                                         # will be placed in 'outdutdir' (line 3)
+                                         # will be placed in 'outdutdir' (line 5)
       force_overwrite: true # Do not set to false!
                             # Rename an existing file if you want to prevent
                             # it from being overwritten
@@ -175,17 +193,15 @@ To perform the reconstruction:
 1. Within the work directory, create a plain text file, named `pipeline_id3a_pyramid.yaml`, with the following content (note that spaces and indentation are important in `.yaml` files):
     ```
     config:
-
       root: .
       inputdir: <path_to_CHAP_clone_dir>/examples/tomo/config
       outputdir: hollow_pyramid
       interactive: true
       log_level: INFO
-      profile: false
 
     pipeline:
 
-      # Convert the CHESS style map
+      # Create the map
       - common.MapProcessor:
           config:
             title: hollow_pyramid
@@ -194,22 +210,21 @@ To perform the reconstruction:
             sample:
               name: hollow_pyramid
             spec_scans:
-            - spec_file: ../data/hollow_pyramid/spec.log
-              scan_numbers: [3, 4, 5]
+              - spec_file: ../data/hollow_pyramid/spec.log
+                scan_numbers: [3, 4, 5]
             independent_dimensions:
-            - label: rotation_angles
-              units: degrees
-              data_type: scan_column
-              name: theta
-            - label: x_translation
-              units: mm
-              data_type: smb_par
-              name: ramsx
-            - label: z_translation
-              units: mm
-              data_type: smb_par
-              name: ramsz
-          num_proc: 1
+              - label: rotation_angles
+                units: degrees
+                data_type: scan_column
+                name: theta
+              - label: x_translation
+                units: mm
+                data_type: smb_par
+                name: ramsx
+              - label: z_translation
+                units: mm
+                data_type: smb_par
+                name: ramsz
           detectors:
             - id: sim
           schema: tomofields
@@ -220,8 +235,8 @@ To perform the reconstruction:
                   station: id3a
                   experiment_type: TOMO
                   spec_scans:
-                  - spec_file: ../data/hollow_pyramid/spec.log
-                    scan_numbers: 1
+                    - spec_file: ../data/hollow_pyramid/spec.log
+                      scan_numbers: 1
                 detectors:
                   - id: sim
                 schema: darkfield
@@ -231,8 +246,8 @@ To perform the reconstruction:
                   station: id3a
                   experiment_type: TOMO
                   spec_scans:
-                  - spec_file: spec.log
-                    scan_numbers: 2
+                    - spec_file: spec.log
+                      scan_numbers: 2
                 detectors:
                   - id: sim
                 schema: brightfield
@@ -243,10 +258,10 @@ To perform the reconstruction:
 
       # Full tomography reconstruction
       - tomo.TomoDataProcessor:
-          reduce_data: True
-          find_center: True
-          reconstruct_data: True
-          combine_data: True
+          reduce_data: true
+          find_center: true
+          reconstruct_data: true
+          combine_data: true
           outputdir: saved_figs
           save_figs: 'only'
       - common.NexusWriter:
@@ -259,7 +274,7 @@ To perform the reconstruction:
     ```
 1. Follow the interactive prompts or replace `true` with `false` on line 5 in `pipeline_id3a_pyramid.yaml` (`interactive: false`) and run the workflow non-interactively.
 1. Inspect the results:
-    - In NeXpy as instructed above, navigate to `<your_work_directory>/hollow_pyramid` and open `combined_hollow_pyramid.nxs`
+    - In NeXpy, as instructed above, navigate to `<your_work_directory>/hollow_pyramid` and open `combined_hollow_pyramid.nxs`
     - By displaying the output figures in `<your_work_directory>/hollow_pyramid/save_figs`
 
 The "config" block defines the CHAP generic configuration parameters:
@@ -270,11 +285,9 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `outputdir`: The default directory for files written by any CHAP writter (must have write access, will be created if not existing), defaults to `root`. Must be an absolute path or relative to `root`.
 
-- `interactive`: Allows for user interactions, defaults to `False`.
+- `interactive`: Allows for user interactions, defaults to `false`.
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
-
-- `profile`: Runs the pipeline in a [Python profiler](https://docs.python.org/3/library/profile.html).
 
 The "pipeline" block creates the actual workflow pipeline, it this example it consists of four toplevel processes that get executed successively:
 

@@ -16,19 +16,19 @@ from time import time
 
 class Pipeline():
     """Pipeline represent generic Pipeline class."""
-    def __init__(self, items=None, kwds=None):
+    def __init__(self, pipeline_items=None, pipeline_kwargs=None):
         """Pipeline class constructor.
 
-        :param items: List of objects, optional.
-        :type items: list
-        :param kwds: List of method keyword argugents for the objects,
-            optional.
-        :type kwds: list
+        :param pipeline_items: List of pipeline item objects, optional.
+        :type pipeline_items: list[obj]
+        :param pipeline_kwargs: List of method keyword arguments for
+            the pipeline item objects, optional.
+        :type pipeline_kwargs: list[dict]
         """
         self.__name__ = self.__class__.__name__
 
-        self.items = items
-        self.kwds = kwds
+        self.items = pipeline_items
+        self.kwargs = pipeline_kwargs
 
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
@@ -38,9 +38,8 @@ class Pipeline():
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        #data = [PipelineData()]
         data = []
-        for item, kwargs in zip(self.items, self.kwds):
+        for item, kwargs in zip(self.items, self.kwargs):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
                 data = item.execute(data=data, **kwargs)
@@ -187,64 +186,74 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name=None, remove=True, nxobject=True):
-        """Look through `data` for an item which is either a
-        nexusformat.nexus.NXroot or a nexusformat.nexus.NXentry
-        object. Pick the item for which the `'name'` key matches
-        `name` if set, pick the first match otherwise.
-        Return the default nexusformat.nexus.NXentry object.
+    def get_data(self, data, name=None, schema=None, remove=True, nxobject=None):
+        """Look through `data` for an item whose `'data'` value is
+        a nexusformat.nexus.NXobject object or matches a given name or
+        schema. Pick the item for which
+        the `'name'` key matches `name` if set or the `'schema'` key
+        matches `schema` if set, pick the last match for a 
+        nexusformat.nexus.NXobject object otherwise.
+        Return the data object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
         :param name: Name of the data item to match in `data` & return.
         :type name: str
+        :param schema: Name of the `BaseModel` class to match in
+            `data` & return.
+        :type schema: str
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
-        :raises ValueError: If there's no match for `name` in `data`,
-            or if the associated object is not of type 
-            nexusformat.nexus.NXroot or nexusformat.nexus.NXentry.
-        :return: The first matching data item.
-        :rtype: Union[nexusformat.nexus.NXroot,
-            nexusformat.nexus.NXentry]
+        :param nxobject: vestigial, to be deleted.
+        :raises ValueError: If there's no match for `name` or 'schema`
+            in `data`, or if there is no object of type
+            nexusformat.nexus.NXobject.
+        :return: The last matching data item.
+        :rtype: obj
         """
         # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
+        from nexusformat.nexus import NXobject
 
-        _data = None
+        if nxobject is not None:
+            self.logger.warning('nxobject is a deprectaed kwarg for get_data')
+        
+        result = None
         t0 = time()
-        if name is None:
-            for i, d in enumerate(data):
-                if ((not nxobject)
-                    or (nxobject and isinstance(
-                        d.get('data'), (NXroot, NXentry)))):
-                    _data = d.get('data')
-                    name = d.get('name')
+        if name is None and schema is None:
+            for i, d in reversed(list(enumerate(data))):
+                if isinstance(d.get('data'), NXobject):
+                    result = d.get('data')
                     if remove:
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No matching data item found')
-        else:
-            self.logger.debug(f'Getting {name} data item')
-            for i, d in enumerate(data):
-                if (d.get('name') == name and (
-                        (not nxobject) or
-                        (nxobject and isinstance(
-                            d.get('data'), (NXroot, NXentry))))):
-                    _data = d.get('data')
+                raise ValueError(f'No NXobject data item found')
+        elif name is not None:
+            self.logger.debug(f'Getting data item named "{name}"')
+            for i, d in reversed(list(enumerate(data))):
+                if d.get('name') == name:
+                    result = d.get('data')
                     if remove:
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No match for {name} data item found')
+                raise ValueError(f'No match for data item named "{name}"')
+        elif schema is not None:
+            self.logger.debug(f'Getting data item with schema "{schema}"')
+            for i, d in reversed(list(enumerate(data))):
+                if d.get('schema') == schema:
+                    result = d.get('data')
+                    if remove:
+                        data.pop(i)
+                    break
+            else:
+                raise ValueError(
+                    f'No match for data item with schema "{schema}"')
         self.logger.debug(
-           f'Got {name} data in {time()-t0:.3f} seconds')
+           f'Obtained pipeline data in {time()-t0:.3f} seconds')
 
-        return _data
+        return result
 
     def execute(self, schema=None, **kwargs):
         """Run the appropriate method of the object and return the
@@ -303,9 +312,17 @@ class PipelineItem():
         self.logger.info(
             f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
-        return [PipelineData(name=kwargs.get('name', self.__name__),
-                             data=data,
-                             schema=schema)]
+        if method_name == 'read':
+            return [PipelineData(name=self.__name__, data=data, schema=schema)]
+        if method_name == 'write':
+            return kwargs.get('data',[])
+        if isinstance(data, tuple):
+            return kwargs.get('data',[]) + [
+                d if isinstance(d, PipelineData)
+                else PipelineData(name=self.__name__, data=d, schema=schema)
+                for d in data]
+        return kwargs.get('data',[]) + [
+            PipelineData(name=self.__name__, data=data, schema=schema)]
 
 
 class MultiplePipelineItem(PipelineItem):
@@ -328,7 +345,7 @@ class MultiplePipelineItem(PipelineItem):
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
-        data = kwargs['data']
+        data = kwargs.get('data', [])
         if items is None:
             items = []
         for item_config in items:
