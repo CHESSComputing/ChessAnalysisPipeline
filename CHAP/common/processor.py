@@ -978,19 +978,18 @@ class MapProcessor(Processor):
     scalar-valued raw data requested by the supplied map configuration.
     """
     def process(
-            self, data, config=None, detectors=None,
-            fill_data=True, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
+            self, data, config=None, detectors=None, fill_data=True,
+            placeholder_data=False, num_proc=1, comm=None, inputdir=None):
 
         return self._process(
-            data, config=config, detectors=detectors,
+            data, config=config, detectors=detectors, fill_data=fill_data,
             placeholder_data=placeholder_data, num_proc=num_proc,
             comm=comm, inputdir=inputdir)
 
 #    @profile
     def _process(
-            self, data, config=None, detectors=None, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
+            self, data, config=None, detectors=None, fill_data=True,
+            placeholder_data=False, num_proc=1, comm=None, inputdir=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
