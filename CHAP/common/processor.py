@@ -2361,7 +2361,7 @@ class NexusToZarrProcessor(Processor):
         import zarr
         from zarr.storage import MemoryStore
 
-        nexus_group = self.unwrap_pipelinedata(data)[0]
+        nexus_group = self.get_data(data)
         zarr_group = zarr.create_group(store=MemoryStore({}))
 
         def copy_group(nexus_group, zarr_group):

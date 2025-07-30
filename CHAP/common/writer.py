@@ -584,7 +584,7 @@ class NexusValuesWriter(Writer):
         import os
         from nexusformat.nexus import NXFile
 
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.unwrap_pipelinedata(data)[-1]
 
         for d in data:
             with NXFile(filename, 'a') as nxroot:
@@ -813,7 +813,7 @@ class ZarrValuesWriter(Writer):
         zarrfile = zarr.open(filename, mode='a')
 
         # Get list of PyfaiIntegrationProcessor results to write
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.unwrap_pipelinedata(data)[-1]
         for d in data:
             self.zarr_writer(
                 zarrfile=zarrfile,
