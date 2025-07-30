@@ -667,6 +667,7 @@ class ExpressionProcessor(Processor):
             else:
                 symtable[name] = self.get_data(
                     data, name=name, remove=False, nxobject=False)
+        self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
         new_data = aeval(expression)
 
@@ -690,6 +691,7 @@ class ExpressionProcessor(Processor):
                             value=symtable[name]
                         )
                         for name in names
+                        if name not in ('round', 'np', 'numpy')
                     },
                     attrs={'expression': expression}
                 ),
