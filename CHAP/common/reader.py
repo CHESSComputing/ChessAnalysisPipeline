@@ -520,7 +520,7 @@ class PandasReader(Reader):
 
 class NexusReader(Reader):
     """Reader for NeXus files."""
-    def read(self, filename, nxpath='/', nxmemory=2000):
+    def read(self, filename, nxpath='/', idx=None, nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
         :param filename: The name of the NeXus file to read from.
@@ -539,7 +539,10 @@ class NexusReader(Reader):
 
         NX_CONFIG['memory'] = nxmemory
 
-        return nxload(filename)[nxpath]
+        data = nxload(filename)[nxpath]
+        if idx is not None:
+            data = data[idx]
+        return data
 
 
 class NXdataReader(Reader):
