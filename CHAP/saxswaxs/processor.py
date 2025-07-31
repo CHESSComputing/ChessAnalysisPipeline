@@ -9,7 +9,8 @@ from CHAP.common import ExpressionProcessor
 
 class FluxCorrectionProcessor(ExpressionProcessor):
     """Processor for flux correction."""
-    def process(self, data, presample_intensity_reference_rate=None, nxprocess=False):
+    def process(self, data, presample_intensity_reference_rate=None,
+                nxprocess=False):
         """Given input data for `'intensity'`,
         `'presample_intensity'`, and `'dwell_time_actual'`, return
         flux corrected intensity signal.
@@ -48,7 +49,8 @@ class FluxCorrectionProcessor(ExpressionProcessor):
                 np.expand_dims(presample_intensity, axis=-1), dim, axis=-1
             )
         symtable = {
-            'presample_intensity_reference_rate': presample_intensity_reference_rate,
+            'presample_intensity_reference_rate':
+                presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity
         }
@@ -56,7 +58,8 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             'intensity *'
             '(presample_intensity_reference_rate / presample_intensity)'
         )
-        return self._process(data, expression, symtable=symtable, nxprocess=nxprocess)
+        return self._process(
+            data, expression, symtable=symtable, nxprocess=nxprocess)
 
 
 class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
@@ -119,7 +122,8 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
             )
 
         symtable = {
-            'presample_intensity_reference_rate': presample_intensity_reference_rate,
+            'presample_intensity_reference_rate':
+                presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
             'T': T
@@ -129,7 +133,8 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
         )
-        return self._process(data, expression, symtable=symtable, nxprocess=nxprocess)
+        return self._process(
+            data, expression, symtable=symtable, nxprocess=nxprocess)
 
 
 class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
@@ -197,10 +202,12 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         background_intensity = self.get_data(
             data, name='background_intensity',
         )
-        background_intensity = np.broadcast_to(background_intensity, intensity.shape)
+        background_intensity = np.broadcast_to(
+            background_intensity, intensity.shape)
 
         symtable = {
-            'presample_intensity_reference_rate': presample_intensity_reference_rate,
+            'presample_intensity_reference_rate':
+                presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
             'T': T,
@@ -216,7 +223,8 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             '* (presample_intensity_reference_rate / np.average(background_presample_intensity))'
             ')'
         )
-        return self._process(data, expression, symtable=symtable, nxprocess=nxprocess)
+        return self._process(
+            data, expression, symtable=symtable, nxprocess=nxprocess)
 
 
 class PyfaiIntegrationProcessor(Processor):
@@ -394,7 +402,8 @@ class SetupProcessor(Processor):
                 '{asctime}: {name:20} (from '+ self.__class__.__name__
                 + '): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.removeHandler(
+                pipeline_item.logger.handlers[0])
             pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
@@ -450,7 +459,8 @@ class UpdateValuesProcessor(Processor):
                 '{asctime}: {name:20} (from '+ self.__class__.__name__
                 + '): {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
-            pipeline_item.logger.removeHandler(pipeline_item.logger.handlers[0])
+            pipeline_item.logger.removeHandler(
+                pipeline_item.logger.handlers[0])
             pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
