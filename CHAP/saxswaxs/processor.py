@@ -36,10 +36,10 @@ class FluxCorrectionProcessor(ExpressionProcessor):
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
         presample_intensity = self.get_data(
-            data, name='presample_intensity', nxobject=False
+            data, name='presample_intensity',
         )
         intensity = self.get_data(
-            data, name='intensity', nxobject=False
+            data, name='intensity',
         )
         # Extend presample_intensity along last dim to have same shape
         # as intensity
@@ -87,7 +87,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         :rtype: object
         """
         intensity = self.get_data(
-            data, name='intensity', nxobject=False
+            data, name='intensity',
         )
 
         if presample_intensity_reference_rate is None:
@@ -109,7 +109,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
             )
 
         presample_intensity = self.get_data(
-            data, name='presample_intensity', nxobject=False
+            data, name='presample_intensity',
         )
         # Extend presample_intensity along last dim to have same shape
         # as intensity
@@ -161,7 +161,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         :rtype: object
         """
         intensity = self.get_data(
-            data, name='intensity', nxobject=False
+            data, name='intensity',
         )
 
         if presample_intensity_reference_rate is None:
@@ -183,7 +183,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             )
 
         presample_intensity = self.get_data(
-            data, name='presample_intensity', nxobject=False
+            data, name='presample_intensity',
         )
         # Extend presample_intensity along last dim to have same shape
         # as intensity
@@ -195,7 +195,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         # Broadcast background intensity signal to shape of measured
         # intensity signal
         background_intensity = self.get_data(
-            data, name='background_intensity', nxobject=False
+            data, name='background_intensity',
         )
         background_intensity = np.broadcast_to(background_intensity, intensity.shape)
 
