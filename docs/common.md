@@ -19,10 +19,10 @@ The `ImageProcessor` accepts two additional optional input parameters, the proce
 The `ImageProcessor` configuration (`config`) dictionary accepts the following parameters:
 
 - `animation` (`bool`, optional): Create an animation for an image stack (ignored for a single image), defaults to `False`
-- `axis` (`int`, `str`, optional): Axis direction or name for the image slice(s), defaults to `0`.
+- `axis` (`int`, `str`, optional): Axis direction or name for the image slice(s), defaults to 0.
 - `coord_range` (`float`, `list[float]`, optional): Coordinate value range of the selected image slice(s), up to three floating point numbers (start, end, step), defaults to `None`, which enables index_range to select the image slice(s). Include only `coord_range` or `index_range`, not both.
 - `index_range` (`int`, `list[int]`, optional): Array index range of the selected image slice(s), up to three integers (start, end, step). Set `index_range` to -1 to select the center image slice of an image stack in the `axis` direction. Only used when coord_range = `None`. Defaults to `None`, which will include all slices.
-- fileformat (`gif`, `jpeg`, `png`, `tif`, optional): Image (stack) return file type, defaults to `png` for a single image, `tif` for an image stack, or `gif` for an animation.
+- fileformat (`gif`, `jpeg`, `png`, `tif`, optional): Image (stack) or animation return file type, defaults to `png` for a single image, `tif` for an image stack, or `gif` for an animation.
 - vrange (`list[float, float]`: Data value range in image slice(s), defaults to `None`, which uses the full data value range in the slice(s).
 
 
