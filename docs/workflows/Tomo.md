@@ -26,7 +26,7 @@ A standard tomographic reconstruction in CHAP consists of three steps:
     - reconstruction of each individual stack of images, and
     - combining the individual stacks into one 3D reconstructed data set.
 
-Note that combining stacks with a horizontal displacement for samples wider than the width of the beam are not yet implemented.
+Note that combining stacks with a horizontal displacement for samples wider than the width of the beam is not yet implemented.
 
 ## Activating the tomography conda environment
 
@@ -75,7 +75,7 @@ conda activate CHAP_tomo
 
 ## Inspecting output
 
-The output consists of a single NeXus (`.nxs`) file containing the reconstructed data set as well as all metadata pertaining to the reconstruction. Additionally, optional output figures (`.png`) may be saved to an output directory specified in the pipeline file.
+The output consists of a single NeXus (`.nxs`) file containing the reconstructed data set and a metadata record that can be processed and saved or uploaded to an external metadata service downstream in the pipeline file. Additionally, optional output figures (`.png`) may be saved to an output directory specified in the pipeline file.
 
 The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in [NeXpy](https://nexpy.github.io/nexpy/), a high-level python interface to HDF5 files, particularly those stored as [NeXus data](http://www.nexusformat.org):
 
@@ -157,7 +157,7 @@ pipeline:
             schema: brightfield
         - common.YAMLReader:
             filename: andor2.yaml # Detector config file
-                                  # Path can be relative to inputdir (line 3) or  absolute
+                                  # Path can be relative to inputdir (line 3) or absolute
             schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
 
@@ -167,12 +167,16 @@ pipeline:
       find_center: true
       reconstruct_data: true
       combine_data: true    # Only needed for a stack of tomography image sets
-      outputdir: saved_figs # Change as desired, unless an absolute path
-                            # this will appear under 'outdutdir' (line 5)
-      save_figs: 'only'
+      save_figures: true
   - common.NexusWriter:
       filename: reconstructed_sample.nxs # Change as desired
                                          # will be placed in 'outdutdir' (line 5)
+      force_overwrite: true # Do not set to false!
+                            # Rename an existing file if you want to prevent
+                            # it from being overwritten
+  - common.ImageWriter:
+      outputdir: figures # Change as desired, unless an absolute path
+                         # this will appear under 'outdutdir' (line 5)
       force_overwrite: true # Do not set to false!
                             # Rename an existing file if you want to prevent
                             # it from being overwritten
@@ -267,6 +271,9 @@ To perform the reconstruction:
       - common.NexusWriter:
           filename: combined_hollow_pyramid.nxs
           force_overwrite: true
+      - common.ImageWriter:
+          outputdir: figures
+          force_overwrite: true
     ```
 1. Execute
     ```bash
@@ -275,7 +282,7 @@ To perform the reconstruction:
 1. Follow the interactive prompts or replace `true` with `false` on line 5 in `pipeline_id3a_pyramid.yaml` (`interactive: false`) and run the workflow non-interactively.
 1. Inspect the results:
     - In NeXpy, as instructed above, navigate to `<your_work_directory>/hollow_pyramid` and open `combined_hollow_pyramid.nxs`
-    - By displaying the output figures in `<your_work_directory>/hollow_pyramid/save_figs`
+    - By displaying the output figures in `<your_work_directory>/hollow_pyramid/figures`
 
 The "config" block defines the CHAP generic configuration parameters:
 
@@ -289,7 +296,7 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The "pipeline" block creates the actual workflow pipeline, it this example it consists of four toplevel processes that get executed successively:
+The "pipeline" block creates the actual workflow pipeline, it this example it consists of six toplevel processes that get executed successively:
 
 - `common.MapProcessor`: A processor that creates a CHESS style map.
 
@@ -301,3 +308,4 @@ The "pipeline" block creates the actual workflow pipeline, it this example it co
 
 - `common.NexusWriter`: A processor that writes the reconstructed data to a NeXus file.
 
+- `common.ImageWriter`: A pocessor that writes any output figures created by `tomo.TomoDataProcessor` to a directory `figures` underneath the workflow output directory.
