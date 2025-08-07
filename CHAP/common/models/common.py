@@ -25,6 +25,31 @@ from pydantic import (
 from CHAP.models import CHAPBaseModel
 
 
+class BinarizeProcessorConfig(CHAPBaseModel):
+    """Configuration class to binarize a dataset in a 2D or 3D
+    array-like object or a NeXus NXdata or NXfield object.
+
+    :param method: Binarization method, defaults to `'CHAP'`
+        (CHAP's internal implementation of Otzu's method).
+    :type method: Literal['CHAP', 'isodata', 'minimum', 'otsu', 'yen']
+    :param num_bin: The number of bins used to calculate the
+        histogram in the binarization algorithms, defaults to `256`.
+    :type num_bin: int, optional
+    :param nxpath: The path to a specific NeXus NXdata or NXfield
+        object in the NeXus file tree to read the input data from
+        (ignored for non-NeXus input objects).
+    :type nxpath: str, optional
+    :param remove_original_data: Removes the original data field
+        (ignored for non-NeXus input objects), defaults to `False`.
+    :type remove_original_data: bool, optional
+    """
+    method: Optional[Literal[
+        'CHAP', 'isodata', 'minimum', 'otsu', 'yen']] = 'CHAP'
+    num_bin: Optional[conint(ge=0)] = 256
+    nxpath: Optional[str] = None
+    remove_original_data: Optional[bool] = False
+
+
 class ImageProcessorConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.

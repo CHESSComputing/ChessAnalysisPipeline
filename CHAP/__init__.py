@@ -20,6 +20,7 @@ appear in specific `Processor` implementations.
 
 from CHAP.models import CHAPBaseModel
 from CHAP.reader import Reader
+from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
 from CHAP.writer import Writer
 

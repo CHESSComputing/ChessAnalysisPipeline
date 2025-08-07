@@ -190,6 +190,7 @@ def main():
     sub_pipelines = args.pipeline
     pipeline_config = []
     if sub_pipelines is None:
+#        sub_pipelines = list(config.keys())
         for sub_pipeline in config.values():
             pipeline_config += sub_pipeline
     else:
@@ -289,8 +290,8 @@ def run(
     else:
         rank = comm.Get_rank()
 
-    objects = []
-    kwds = []
+    pipeline_items = []
+    pipeline_kwargs = []
     for item in pipeline_config:
         # Load individual object with given name from its module
         kwargs = run_config.model_dump(exclude={'root', 'profile', 'spawn'})
@@ -355,22 +356,25 @@ def run(
             obj.logger.addHandler(log_handler)
         if logger is not None:
             logger.info(f'Loaded {obj}')
-        objects.append(obj)
+        pipeline_items.append(obj)
         kwargs['comm'] = comm
-        kwds.append(kwargs)
-    pipeline = Pipeline(objects, kwds)
+        pipeline_kwargs.append(kwargs)
+    pipeline = Pipeline(pipeline_items, pipeline_kwargs)
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)
     if logger is not None:
-        logger.info(f'Loaded {pipeline} with {len(objects)} items\n')
+        logger.info(f'Loaded {pipeline} with {len(pipeline_items)} items\n')
         logger.info(f'Calling "execute" on {pipeline}')
 
     # Make sure os.makedirs completes before continuing all nodes
     if comm is not None:
         comm.barrier()
 
-    return pipeline.execute()[0]['data']
+    result = pipeline.execute()
+    if result:
+        return result[0]['data']
+    return result
 
 
 if __name__ == '__main__':

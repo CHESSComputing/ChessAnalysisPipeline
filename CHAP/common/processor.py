@@ -210,41 +210,23 @@ class AsyncProcessor(Processor):
 
 class BinarizeProcessor(Processor):
     """A Processor to binarize a dataset."""
-    def process(
-            self, data, nxpath='', interactive=False, method='CHAP',
-            num_bin=256, axis=None, remove_original_data=False):
-        """Show and return a binarized dataset from a dataset
-        contained in `data`. The dataset must either be of type
-        `numpy.ndarray` or a NeXus NXobject object with a default path
-        to a NeXus NXfield object. 
+    def process(self, data, config=None, interactive=False):
+        """Plot and return a binarized dataset from a dataset contained
+        in `data`. The dataset must either be `array-like` or a NeXus
+        NXobject object with a default plottable data path or a
+        specified path to a NeXus NXdata or NXfield object. 
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param nxpath: The relative path to a specific NeXus NXentry or
-            NeXus NXdata object in the NeXus file tree to read the
-            input data from (ignored for Numpy or NeXus NXfield input
-            datasets), defaults to `''`
-        :type nxpath: str, optional
-        :param interactive: Allows for user interactions (ignored
-            for any method other than `'manual'`), defaults to `False`.
+        :param config: Initialization parameters for an instance of
+            CHAP.common.models.BinarizeProcessorConfig
+        :type config: dict, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
         :type interactive: bool, optional
-        :param method: Binarization method, defaults to `'CHAP'`
-            (CHAP's internal implementation of Otzu's method).
-        :type method: Literal['CHAP', 'manual', 'otsu', 'yen',
-            'isodata', 'minimum']
-        :param num_bin: The number of bins used to calculate the
-            histogram in the binarization algorithms (ignored for
-            method = `'manual'`), defaults to `256`.
-        :type num_bin: int, optional
-        :param axis: Axis direction of the image slices (ignored
-            for any method other than `'manual'`).
-        :type axis: int, optional
-        :param remove_original_data: Removes the original data field
-            (ignored for Numpy input datasets), defaults to `False`.
-        :type force_remove_original_data: bool, optional
-        :raises ValueError: Upon invalid input parameters.
-        :return: The binarized dataset with a return type equal to
-            that of the input dataset.
+        :return: The binarized dataset for an `array-like` input or
+            a return type equal that of the input object with the
+            binarized dataset added.
         :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # Third party modules
@@ -252,328 +234,125 @@ class BinarizeProcessor(Processor):
             NXdata,
             NXfield,
             NXlink,
-            NXprocess,
             nxsetconfig,
         )
 
         # Local modules
-        from CHAP.utils.general import (
-            is_int,
-            nxcopy,
-        )
-
-        if method not in [
-                'CHAP', 'manual', 'otsu', 'yen', 'isodata', 'minimum']:
-            raise ValueError(f'Invalid parameter method ({method})')
-        if not is_int(num_bin, gt=0):
-            raise ValueError(f'Invalid parameter num_bin ({num_bin})')
-        if not isinstance(remove_original_data, bool):
-            raise ValueError('Invalid parameter remove_original_data '
-                             f'({remove_original_data})')
+        from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=100000)
 
-        # Get the dataset and make a copy if it is a NeXus NXgroup
-        dataset = self.unwrap_pipelinedata(data)[-1]
-        if isinstance(dataset, np.ndarray):
-            if method == 'manual':
-                if axis is not None and not is_int(axis, gt=0, lt=3):
-                    raise ValueError(f'Invalid parameter axis ({axis})')
-                axes = ['i', 'j', 'k']
-            data = dataset
-        elif isinstance(dataset, NXfield):
-            if method == 'manual':
-                if axis is not None and not is_int(axis, gt=0, lt=3):
-                    raise ValueError(f'Invalid parameter axis ({axis})')
-                axes = ['i', 'j', 'k']
-            if isinstance(dataset, NXfield):
-                if nxpath not in ('', '/'):
-                    self.logger.warning('Ignoring parameter nxpath')
-                data = dataset.nxdata
-            else:
-                try:
-                    data = dataset[nxpath].nxdata
-                except Exception as exc:
-                    raise ValueError(
-                        f'Invalid parameter nxpath ({nxpath})') from exc
+        # Load the validated binarize processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import BinarizeProcessorConfig
+
+            config = BinarizeProcessorConfig()
         else:
-            # Get the default Nexus NXdata object
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.BinarizeProcessorConfig')
+
+        # Load the default data
+        try:
+            nxobject = self.get_data(data)
+            if config.nxpath is None:
+                dataset = nxobject.get_default()
+            else:
+                dataset = nxobject[config.nxpath]
+            if isinstance(dataset, NXdata):
+                nxsignal = dataset.nxsignal
+                data = nxsignal.nxdata
+            else:
+                data = dataset.nxdata
+            assert isinstance(data, np.ndarray)
+        except Exception:
             try:
-                nxdefault = dataset.get_default()
-            except:
-                nxdefault = None
-            if nxdefault is not None and nxdefault.nxclass != 'NXdata':
-                raise ValueError('Invalid default pathway NXobject type '
-                                 f'({nxdefault.nxclass})')
-            # Get the requested NeXus NXdata object to binarize
-            if nxpath is None:
-                nxclass = dataset.nxclass
-            else:
-                try:
-                    nxclass = dataset[nxpath].nxclass
-                except Exception as exc:
-                    raise ValueError(
-                        f'Invalid parameter nxpath ({nxpath})') from exc
-            if nxclass == 'NXdata':
-                nxdata = dataset[nxpath]
-            else:
-                if nxdefault is None:
-                    raise ValueError('No default pathway to a NXdata object')
-                nxdata = nxdefault
-            nxsignal = nxdata.nxsignal
-            if method == 'manual':
-                if hasattr(nxdata.attrs, 'axes'):
-                    axes = nxdata.attrs['axes']
-                    if isinstance(axis, str):
-                        if axis not in axes:
-                            raise ValueError(
-                                f'Invalid parameter axis ({axis})')
-                        axis = axes.index(axis)
-                    elif axis is not None and not is_int(axis, gt=0, lt=3):
-                        raise ValueError(f'Invalid parameter axis ({axis})')
-                else:
-                    axes = ['i', 'j', 'k']
-                if nxsignal.ndim != 3:
-                    raise ValueError('Invalid data dimension (must be 3D)')
-            data = nxsignal.nxdata
-            # Create a copy of the input NeXus object, removing the
-            # default NeXus NXdata object as well as the original
-            # dateset if the remove_original_data parameter is set
-            exclude_nxpaths = []
-            if nxdefault is not None:
-                exclude_nxpaths.append(
-                    os.path.join(os.path.relpath(
-                        nxdefault.nxpath, dataset.nxpath)))
-            if remove_original_data:
-                if (nxdefault is None
-                        or nxdefault.nxpath != nxdata.nxpath):
-                    relpath_nxdata = os.path.relpath(
-                        nxdata.nxpath, dataset.nxpath)
-                    keys = list(nxdata.keys())
-                    keys.remove(nxsignal.nxname)
-                    for a in nxdata.axes:
-                        keys.remove(a)
-                    if keys:
-                        raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
-                    elif relpath_nxdata == '.':
-                        exclude_nxpaths.append(nxsignal.nxname)
-                        if dataset.nxclass != 'NXdata':
-                            exclude_nxpaths += nxdata.axes
-                    else:
-                        exclude_nxpaths.append(relpath_nxdata)
-                if not (dataset.nxclass == 'NXdata'
-                        or nxdata.nxsignal.nxtarget is None):
-                    nxsignal = dataset[nxsignal.nxtarget]
-                    nxgroup = nxsignal.nxgroup
-                    keys = list(nxgroup.keys())
-                    keys.remove(nxsignal.nxname)
-                    for a in nxgroup.axes:
-                        keys.remove(a)
-                    if keys:
-                        raise RuntimeError('Not tested yet')
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxsignal.nxpath, dataset.nxpath)))
-                    else:
-                        exclude_nxpaths.append(os.path.join(
-                            os.path.relpath(nxgroup.nxpath, dataset.nxpath)))
-            nxobject = nxcopy(dataset, exclude_nxpaths=exclude_nxpaths)
+                dataset = self.unwrap_pipelinedata(data)[-1]
+                assert isinstance(dataset, np.ndarray)
+                data = dataset
+            except Exception:
+                raise ValueError('Unable the load a valid input data object')
+
+        if config.method == 'yen':
+            min_ = data.min()
+            max_ = data.max()
+            data = 1 + (config.num_bin - 1) * (data - min_) / (max_ - min_)
 
         # Get a histogram of the data
-        if method not in ['manual', 'yen']:
-            counts, edges = np.histogram(data, bins=num_bin)
-            centers = edges[:-1] + 0.5 * np.diff(edges)
+        counts, edges = np.histogram(data, bins=config.num_bin)
+        centers = edges[:-1] + 0.5 * np.diff(edges)
 
         # Calculate the data cutoff threshold
-        if method == 'CHAP':
+        if config.method == 'CHAP':
             weights = np.cumsum(counts)
             means = np.cumsum(counts * centers)
-            weights = weights[0:-1]/weights[-1]
-            means = means[0:-1]/means[-1]
-            variances = (means-weights)**2/(weights*(1.-weights))
+            weights = weights[0:-1] / weights[-1]
+            means = means[0:-1] / means[-1]
+            variances = (means-weights)**2 / (weights * (1. - weights))
             threshold = centers[np.argmax(variances)]
-        elif method == 'otsu':
+        elif config.method == 'otsu':
             # Third party modules
             from skimage.filters import threshold_otsu
 
             threshold = threshold_otsu(hist=(counts, centers))
-        elif method == 'yen':
+        elif config.method == 'yen':
             # Third party modules
             from skimage.filters import threshold_yen
 
-            _min = data.min()
-            _max = data.max()
-            data = 1+(num_bin-1)*(data-_min)/(_max-_min)
-            counts, edges = np.histogram(data, bins=num_bin)
-            centers = edges[:-1] + 0.5 * np.diff(edges)
-
             threshold = threshold_yen(hist=(counts, centers))
-        elif method == 'isodata':
+        elif config.method == 'isodata':
             # Third party modules
             from skimage.filters import threshold_isodata
 
             threshold = threshold_isodata(hist=(counts, centers))
-        elif method == 'minimum':
+        else:
             # Third party modules
             from skimage.filters import threshold_minimum
 
             threshold = threshold_minimum(hist=(counts, centers))
-        else:
-            # Third party modules
-            import matplotlib.pyplot as plt
-            from matplotlib.widgets import RadioButtons, Button
 
-            # Local modules
-            from CHAP.utils.general import (
-                select_roi_1d,
-                select_roi_2d,
-            )
+        # Apply the data cutoff threshold
+        data = np.where(data < threshold, 0, 1).astype(np.ubyte)
 
-            def select_direction(direction):
-                """Callback function for the "Select direction" input.
-                """
-                selected_direction.append(radio_btn.value_selected)
-                plt.close()
-
-            def accept(event):
-                """Callback function for the "Accept" button."""
-                selected_direction.append(radio_btn.value_selected)
-                plt.close()
-
-            # Select the direction for data averaging
-            if axis is not None:
-                mean_data = data.mean(axis=axis)
-                subaxes = [i for i in range(3) if i != axis]
-            else:
-                selected_direction = []
-
-                # Setup figure
-                title_pos = (0.5, 0.95)
-                title_props = {'fontsize': 'xx-large',
-                               'horizontalalignment': 'center',
-                               'verticalalignment': 'bottom'}
-                fig, axs = plt.subplots(ncols=3, figsize=(17, 8.5))
-                mean_data = []
-                for i, ax in enumerate(axs):
-                    mean_data.append(data.mean(axis=i))
-                    subaxes = [a for a in axes if a != axes[i]]
-                    ax.imshow(mean_data[i], aspect='auto', cmap='gray')
-                    ax.set_title(
-                        f'Data averaged in {axes[i]}-direction',
-                        fontsize='x-large')
-                    ax.set_xlabel(subaxes[1], fontsize='x-large')
-                    ax.set_ylabel(subaxes[0], fontsize='x-large')
-                fig_title = plt.figtext(
-                    *title_pos,
-                    'Select a direction or press "Accept" for the default one '
-                    f'({axes[0]}) to obtain the binary threshold value',
-                    **title_props)
-                fig.subplots_adjust(bottom=0.25, top=0.85)
-
-                # Setup RadioButtons
-                select_text = plt.figtext(
-                    0.225, 0.175, 'Averaging direction', fontsize='x-large',
-                    horizontalalignment='center', verticalalignment='center')
-                radio_btn = RadioButtons(
-                    plt.axes([0.175, 0.05, 0.1, 0.1]), labels=axes, active=0)
-                radio_cid = radio_btn.on_clicked(select_direction)
-
-                # Setup "Accept" button
-                accept_btn = Button(
-                    plt.axes([0.7, 0.05, 0.15, 0.075]), 'Accept')
-                accept_cid = accept_btn.on_clicked(accept)
-
-                plt.show()
-
-                axis = axes.index(selected_direction[0])
-                mean_data = mean_data[axis]
-                subaxes = [a for a in axes if a != axes[axis]]
-
-                plt.close()
-
-            # Select the ROI's orthogonal to the selected averaging direction
-            bounds = []
-            for i, bound in enumerate(['"0"', '"1"']):
-                roi = select_roi_2d(
-                    mean_data,
-                    title=f'Select the ROI to obtain the {bound} data value',
-                    title_a=f'Data averaged in the {axes[axis]}-direction',
-                    row_label=subaxes[0], column_label=subaxes[1])
-
-                # Select the index range in the selected averaging direction
-                if not axis:
-                    mean_roi_data = data[:,roi[2]:roi[3],roi[0]:roi[1]].mean(
-                        axis=(1,2))
-                elif axis == 1:
-                    mean_roi_data = data[roi[2]:roi[3],:,roi[0]:roi[1]].mean(
-                        axis=(0,2))
-                else:
-                    mean_roi_data = data[roi[2]:roi[3],roi[0]:roi[1],:].mean(
-                        axis=(0,1))
-
-                _range = select_roi_1d(
-                    mean_roi_data, preselected_roi=(0, data.shape[axis]),
-                    title=f'Select the {axes[axis]}-direction range to obtain '
-                          f'the {bound} data bound',
-                    xlabel=axes[axis], ylabel='Average data')
-
-                # Obtain the lower/upper data bound
-                if not axis:
-                    bounds.append(
-                        data[
-                            _range[0]:_range[1],roi[2]:roi[3],roi[0]:roi[1]
-                        ].mean())
-                elif axis == 1:
-                    bounds.append(
-                        data[
-                            roi[2]:roi[3],_range[0]:_range[1],roi[0]:roi[1]
-                        ].mean())
-                else:
-                    bounds.append(
-                        data[
-                            roi[2]:roi[3],roi[0]:roi[1],_range[0]:_range[1]
-                        ].mean())
-
-            # Get the data cutoff threshold
-            threshold = np.mean(bounds)
-
-        # Apply the data cutoff threshold and return the output
-        data = np.where(data<threshold, 0, 1).astype(np.ubyte)
-#        from CHAP.utils.general import quick_imshow
-#        quick_imshow(data[int(data.shape[0]/2),:,:], block=True)
-#        quick_imshow(data[:,int(data.shape[1]/2),:], block=True)
-#        quick_imshow(data[:,:,int(data.shape[2]/2)], block=True)
+        # Return the output for array-like or NeXus NXfield inputs
         if isinstance(dataset, np.ndarray):
             return data
         if isinstance(dataset, NXfield):
             attrs = dataset.attrs
             attrs.pop('target', None)
-            return NXfield(
-                value=data, name=dataset.nxname, attrs=dataset.attrs)
+            nxfield = NXfield(
+                value=data, name=f'{dataset.nxname}_binarized', attrs=attrs)
+            return nxfield
+
+        # Otherwise create a copy of the input NeXus, add the binarized
+        # data to the copied original dataset, and remove the original
+        # dataset if config.remove_original_data is set
         name = f'{nxsignal.nxname}_binarized'
-        if nxobject.nxclass == 'NXdata':
-            nxobject[name] = data
-            nxobject.attrs['signal'] = name
-            return nxobject
-        if nxobject.nxclass == 'NXroot':
-            nxentry = nxobject[nxobject.default]
+        nxdefault = nxobject.get_default()
+        if isinstance(nxsignal, NXlink):
+            link = dataset.nxpath
+            path = os.path.split(nxsignal.nxtarget)[0]
         else:
-            nxentry = nxobject
-        axes = []
-        for a in nxdata.axes:
-            attrs = nxdata[a].attrs
-            attrs.pop('target', None)
-            axes.append(
-                NXfield(nxdata[a], name=a, attrs=attrs))
-        nxentry[name] = NXprocess(
-            NXdata(NXfield(data, name=name), axes),
-            attrs={'source': nxsignal.nxpath})
-        nxdata = nxentry[name].data
-        nxentry.data = NXdata(
-            NXlink(nxdata.nxsignal.nxpath),
-            [NXlink(os.path.join(nxdata.nxpath, a)) for a in nxdata.axes])
-        nxentry.data.set_default()
+            link = nxdefault.nxpath
+            path = os.path.split(nxsignal.nxpath)[0]
+        exclude_nxpaths = []
+        if config.remove_original_data:
+            if link is not None:
+                exclude_nxpaths.append(os.path.relpath(
+                    f'{link}/{nxsignal.nxname}', nxobject.nxpath))
+            exclude_nxpaths.append(os.path.relpath(
+                f'{path}/{nxsignal.nxname}', nxobject.nxpath))
+        nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
+        attrs = nxsignal.attrs
+        attrs.pop('target', None)
+        nxobject[f'{path}/{name}'] = NXfield(
+            value=data, name=name, attrs=attrs)
+        nxobject[path].attrs['signal'] = name
+        if link is not None:
+            nxobject[f'{link}/{name}'] = NXlink(f'{path}/{name}')
+            nxobject[link].attrs['signal'] = name
+
         return nxobject
 
 
@@ -581,7 +360,7 @@ class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
             self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            save_figures=False, outputdir='.', interactive=False):
+            interactive=False, save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
@@ -601,15 +380,12 @@ class ConstructBaseline(Processor):
         :param max_iter: The maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
+        :param save_figures: Save .pngs of plots for checking inputs &
+            outputs of this Processor, defaults to `False`.
+        :type save_figures: bool, optional
         :return: The smoothed baseline and the configuration.
         :rtype: numpy.array, dict
         """
@@ -620,13 +396,13 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x, mask, tol, lam, max_iter, save_figures, outputdir,
-            interactive)
+            data, x, mask, tol, lam, max_iter, interactive=interactive,
+            return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
             y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-            xlabel=None, ylabel=None, interactive=False, filename=None):
+            xlabel=None, ylabel=None, interactive=False, return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -656,19 +432,24 @@ class ConstructBaseline(Processor):
         :param interactive: Allows for user interactions, defaults to
             `False`.
         :type interactive: bool, optional
-        :param filename: Save a .png of the plot to filename, defaults
-            to `None`, in which case the plot is not saved.
-        :type filename: str, optional
-        :return: The smoothed baseline and the configuration.
-        :rtype: numpy.array, dict
+        :param return_buf: Return an in-memory object as a byte stream
+            represention of the Matplotlib figure, defaults to `False`.
+        :type return_buf: bool, optional
+        :return: The smoothed baseline and the configuration and a
+            byte stream represention of the Matplotlib figure if
+            return_buf is `True` (`None` otherwise)
+        :rtype: numpy.array, dict, Union[io.BytesIO, None]
         """
         # Third party modules
-        if interactive or filename is not None:
+        if interactive or return_buf:
             from matplotlib.widgets import TextBox, Button
             import matplotlib.pyplot as plt
 
         # Local modules
-        from CHAP.utils.general import baseline_arPLS
+        from CHAP.utils.general import (
+            baseline_arPLS,
+            fig_to_iobuf,
+        )
 
         def change_fig_subtitle(maxed_out=False, subtitle=None):
             """Change the figure's subtitle."""
@@ -739,11 +520,11 @@ class ConstructBaseline(Processor):
             y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             full_output=True)
 
-        if not interactive and filename is None:
+        if not interactive and not return_buf:
             config = {
                 'tol': tol, 'lambda': lam, 'max_iter': max_iter,
                 'num_iter': num_iter, 'error': error, 'mask': mask}
-            return baseline, config
+            return baseline, config, None
 
         lambdas = [lam]
         weights = [w]
@@ -817,17 +598,19 @@ class ConstructBaseline(Processor):
             continue_btn.ax.remove()
             confirm_btn.ax.remove()
 
-        if filename is not None:
+        if return_buf:
             fig_title.set_in_layout(True)
             fig_subtitles[-1].set_in_layout(True)
             fig.tight_layout(rect=(0, 0, 1, 0.90))
-            fig.savefig(filename)
+            buf = fig_to_iobuf(fig)
+        else:
+            buf = None
         plt.close()
 
         config = {
             'tol': tol, 'lambda': lambdas[-1], 'max_iter': max_iter,
             'num_iter': num_iters[-1], 'error': errors[-1], 'mask': mask}
-        return baseline, config
+        return baseline, config, buf
 
 
 class ConvertStructuredProcessor(Processor):
@@ -873,6 +656,11 @@ class ImageProcessor(Processor):
         """
         if not save_figures and not interactive:
             return
+
+        # Third party modules
+        from nexusformat.nexus import nxsetconfig
+
+        nxsetconfig(memory=100000)
 
         # Load the default data
         try:
@@ -1009,6 +797,7 @@ class ImageProcessor(Processor):
                        column_coords[-1], column_coords[0]),
             'vrange': vrange,
         }
+        self.logger.debug(f'figure configuration:\n{self._figconfig}')
 
         if len(axis_coords) == 1:
             # Create a figure for a single image slice
@@ -1024,16 +813,17 @@ class ImageProcessor(Processor):
                 fileformat = 'png'
             else:
                 fileformat = config.fileformat
-            fig, plt = self._create_figure(data)
+            fig, plt = self._create_figure(np.squeeze(data))
             if interactive:
                 plt.show()
             if save_figures:
+                # Local modules
+                from CHAP.utils.general import fig_to_iobuf
+
                 # Return a binary image of the figure
-                buf = BytesIO()
-                fig.savefig(buf, format=fileformat)
-                buf.seek(0)
-                image_data = buf.read()
+                buf, fileformat = fig_to_iobuf(fig, fileformat=fileformat)
             plt.close()
+            return {'image_data': buf, 'fileformat': fileformat}
         
         else:
 
@@ -1057,8 +847,9 @@ class ImageProcessor(Processor):
                         self.logger.warning(
                             'Ignoring inconsistent file extension')
                     fileformat = 'tif'
-                    image_data = ((data*255.0 - vrange[0])/ 
-                                  (vrange[1] - vrange[0])).astype(np.uint8)
+                    data = 255.0*((data - vrange[0])/ 
+                                  (vrange[1] - vrange[0]))
+                    image_data = data.astype(np.uint8)
 
         if save_figures:
             return {'image_data': image_data, 'fileformat': fileformat}
@@ -1728,10 +1519,12 @@ class MapProcessor(Processor):
             raise ValueError('Multiple detectors not tested yet')
         if map_config.experiment_type == 'TOMO':
             dtype = np.float32
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id, dtype=dtype)
         else:
             dtype = None
-        ddata = scanparser.get_detector_data(
-            detector_config.detectors[0].id, dtype=dtype)
+            ddata = scanparser.get_detector_data(
+                detector_config.detectors[0].id)
         num_det = len(detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(map_config.independent_dimensions)

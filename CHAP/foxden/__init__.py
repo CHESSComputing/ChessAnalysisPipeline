@@ -3,7 +3,7 @@ services.
 """
 
 from CHAP.foxden.processor import (
-    FoxdenMetadataProcessor,
+#    FoxdenMetadataProcessor,
     FoxdenProvenanceProcessor,
 )
 from CHAP.foxden.reader import (
