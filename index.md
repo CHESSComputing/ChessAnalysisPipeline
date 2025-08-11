@@ -1,9 +1,9 @@
 ### CHAP installation
-- [Installation](./installation.md)
+- [Installation](docs/installation.md)
 
 ### Workflow introductions
-- [Energy Dispersive Diffraction (EDD)](./workflows/EDD.md)
-- [Tomography](./workflows/Tomo.md)
+- [Energy Dispersive Diffraction (EDD)](docs/workflows/EDD.md)
+- [Tomography](docs/workflows/Tomo.md)
 
 <!--
 ```{toctree}
