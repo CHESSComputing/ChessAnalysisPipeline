@@ -2,6 +2,8 @@
 
 The EDD subpackage contains the modules that are unique to Energy Dispersive Diffraction (EDD) data processing workflows. This document describes how to run an detector energy calibration and strain analysis workflow in a Linux terminal.
 
+## Processing the data
+
 A standard strain analysis in CHAP consists of three steps:
 
 - Performing the detector channel energy calibration. This is typically performed by fitting a set of fluorescence peak centers in an EDD experiment on a CeO2 sample and comparing the results to their known energy values.
@@ -17,6 +19,8 @@ A standard strain analysis in CHAP consists of three steps:
 Log in to the CHESS Compute Farm and activate the `CHAP_edd` environment:
 ```bash
 source /nfs/chess/sw/miniforge3_chap/bin/activate
+```
+```bash
 conda activate CHAP_edd
 ```
 
@@ -47,7 +51,7 @@ conda activate CHAP_edd
 
 The output consists of a single NeXus (`.nxs`) file containing the strain analysis data as well as all metadata pertaining to the analysis. Additionally, optional output figures (`.png`) may be saved to an output directory specified in the pipeline file.
 
-Any of the optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in [NeXpy](https://nexpy.github.io/nexpy/), a high-level python interface to HDF5 files, particularly those stored as [NeXus data](http://www.nexusformat.org):
+The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in [NeXpy](https://nexpy.github.io/nexpy/), a high-level python interface to HDF5 files, particularly those stored as [NeXus data](http://www.nexusformat.org):
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
@@ -61,30 +65,32 @@ Any of the optional output figures can be viewed directly by any PNG image viewe
 Create a workflow `pipeline.yaml` file according to the [instructions](/docs/pipeline.md). A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in `.yaml` files):
 ```
 config:
+  root: .           # Change as desired
   inputdir: .       # Change as desired
+                    # Path can be relative to root (line 2) or absolute
   outputdir: output # Change as desired
+                    # Path can be relative to root (line 2) or absolute
   interactive: true # Change as desired
   log_level: INFO
-  profile: false
 
 pipeline:
 
   # Energy calibration
   - common.SpecReader:
       config:
-        station: id3a
+        station: id3a # Change as needed
         experiment_type: EDD
-        spec_scans: # Edit: spec.log path and scan numbers
-                    # Path can be relative to inputdir (line 2) or absolute
+        spec_scans: # Edit both SPEC log file path and EDD scan numbers
+                    # Path can be relative to inputdir (line 3) or absolute
           - spec_file: <your_raw_ceria_data_directory>/spec.log
             scan_numbers: 1
   - edd.MCAEnergyCalibrationProcessor:
       config:
-        baseline: true
         mask_ranges: [[650, 850]]
         max_peak_index: 1
         peak_energies: [34.276, 34.717, 39.255, 40.231]
-        detectors:  # Use available detector elements when omitted
+        detectors:  # Choose the detectors
+                    # Use all available detector elements when omitted
           - id: 0
           - id: 11
           - id: 22
@@ -100,16 +106,14 @@ pipeline:
       items:
         - common.SpecReader:
             config:
-              station: id3a
+              station: id3a # Change as needed
               experiment_type: EDD
-              spec_scans: # Edit: spec.log path and scan numbers
+              spec_scans: # Edit both SPEC log file path and EDD scan numbers
                           # Path can be relative to inputdir (line 2) or absolute
                 - spec_file: <your_raw_ceria_data_directory>/spec.log
                   scan_numbers: 1
   - edd.MCATthCalibrationProcessor:
       config:
-        calibration_method: direct_fit_bragg
-        baseline: true
         energy_mask_ranges: [[81, 135]] # Change as needed
         detectors:  # The same as in the energy calibration when omitted
           - id: 0
@@ -137,7 +141,6 @@ pipeline:
             schema: edd.models.MCATthCalibrationConfig
   - edd.StrainAnalysisProcessor:
       config:
-        baseline: true
         detectors: # Edit: Do not leave this list empty!
           - id: 0
           - id: 11
@@ -169,8 +172,6 @@ The "config" block defines the CHAP generic configuration parameters:
 - `interactive`: Allows for user interactions, defaults to `False`.
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
-
-- `profile`: Runs the pipeline in a [Python profiler](https://docs.python.org/3/library/profile.html).
 
 The "pipeline" block creates the actual workflow pipeline, in this example it consists of nine toplevel processes that get executed successively:
 
@@ -206,15 +207,19 @@ Note that the energy calibration can also be obtained ahead of time and used for
 
 As mentioned above a standard EDD experiment needs calibration of the detector channel energies. Experiments have shown that the channel energies $`E_j`$ vary linearly with the channel index $`j`$ within the energy range of typical EDD experiments: $`E_j = mj+b`$, where the slope $`m`$ and intercept $`b`$ can be determined in one or a combination of two experiments:
 
-1. With an XRF experiment by fitting a set of flueorescence peak centers at known energies. This uniquely determines $`m`$ and $`b`$ within the statistical errors of the experiment without having to know the actual takeoff angle $`2\theta`$.
+1. With an XRF experiment by fitting a set of flueorescence peak centers at known energies:
 
-1. With a diffraction experiment by fitting a set of Bragg peak centers corresponding to known lattice spacings $`d_{hkl}`$. Given Bragg's law, $`\lambda = 2d\sin(\theta)`$, with $`E = hc/\lambda`$, the Bragg peaks appear at channels with energies $`E_{hkl} = hc / (2d_{hkl}\sin(\theta)`$. Rearranging this with the detector channel energy calibration relation gives:
+This uniquely determines $`m`$ and $`b`$ within the statistical errors of the experiment without having to know the actual takeoff angle $`2\theta`$.
+
+1. With a diffraction experiment by fitting a set of Bragg peak centers corresponding to known lattice spacings $`d_{hkl}`$:
+
+Given Bragg's law, $`\lambda = 2d\sin(\theta)`$, with $`E = hc/\lambda`$, the Bragg peaks appear at channels with energies $`E_{hkl} = hc / (2d_{hkl}\sin(\theta)`$. Rearranging this with the detector channel energy calibration relation gives:
 ```math
 \frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j_{hkl}+b'
 ```
 which says that given a set of known Bragg peaks corresponding to lattice spacings $`d_{hkl}`$ occuring at channel indices $`j_{hkl}`$, a linear fit will uniquely determine $`m'`$ and $`b'`$. For a known takeoff angle $`2\theta`$, this uniquely determines $`m`$ and $`b`$ as well. Note that this also implies that without an accurately known value of $2`theta`$, one *cannot* uniquely determine $`m`$ and $`b`$ from Bragg diffraction alone!
 
-This leads to the above mentioned two-step detector channel energy calibration proceedure:
+This leads to the above mentioned two-step detector channel energy calibration procedure:
 
 1. Get nominal values for $`m`$ and $`b`$, by performing an EDD/XRF experiment on a Ce02 sample and fitting a set of fluorescence peak centers with known energies vs detector channel index.
 
