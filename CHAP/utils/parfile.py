@@ -67,7 +67,7 @@ class ParFile():
                 if len(row_data) != num_column:
                     raise ValueError(
                         'Mismatch between the number of columns in the json '
-                        f'({num_column}) and line {i} of the par file '
+                        f'({num_column}) and line {i+1} of the par file '
                         f'({len(row_data)})')
                 self.data.append(row_data)
 
