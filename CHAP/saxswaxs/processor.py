@@ -142,6 +142,8 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
     also perform thickness correction."""
     def process(self, data,
                 presample_intensity_reference_rate=None,
+                sample_thickness_cm=None,
+                sample_mu_inv_cm=None,
                 nxprocess=False):
         """Given input data for `'intensity'`,
         `'presample_intensity'`, `'postsample_intensity'`,
@@ -159,12 +161,30 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             `'np.nanmean(presample_intensity /
             dwell_time_actual)'`. Defaults to `None`.
         :type presample_intensity_reference_rate: float, optional
+        :param sample_thickness_cm: Sample thickness in
+            centimeters. If specified, this processor will
+            additionally perform thickness correction. Use of this
+            parameter is mutualy exclusive with
+            use of `sample_mu_inv_cm`. Defaults to `None`.
+        :type sample_thickness_cm: float, optional
+        :param sample_mu_inv_cm: Sample linear attenuation coefficient
+            in inverse centimeters. If specified, this processor will
+            additionally perform thickness correction. Use of this
+            parameter is mutualy exclusive with use of
+            `sample_thickness_cm`. Defaults to `None`.
+        :type sample_mu_inv_cm: float, optional
         :param nxprocess: Flag to indicate the flux corrected data
             should be returned as an `NXprocess`. Defaults to `False`.
         :returns: Flux and absprption corrected version of input
             `'intensity'` data.
         :rtype: object
         """
+        if sample_thickness_cm is not None and sample_mu_inv_cm is not None:
+            raise ValueError((
+                'Cannot use sample_thickness_cm and sample_mu_inv_cm'
+                ' at the same time'
+            ))
+
         intensity = self.get_data(
             data, name='intensity',
         )
@@ -205,7 +225,15 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         background_intensity = np.broadcast_to(
             background_intensity, intensity.shape)
 
+        if sample_thickness_cm is not None:
+            t = sample_thickness_cm
+        elif sample_mu_inv_cm is not None:
+            t = -np.log(T / sample_mu_inv_cm)
+        else:
+            t = 1
+
         symtable = {
+            't': t,
             'presample_intensity_reference_rate':
                 presample_intensity_reference_rate,
             'intensity': intensity,
@@ -214,7 +242,8 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             'background_intensity': background_intensity
         }
         expression = (
-            '('
+            '(1 / t)'
+            '* ('
             '(1 / T)'
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
