@@ -84,7 +84,9 @@ class TomoMetadataProcessor(Processor):
             raise ValueError(f'Invalid beamline parameter ({beamline})')
         map_config['station'] = station
         experiment_type = data.get('technique')
-        assert 'tomography' in experiment_type
+        assert (
+            'tomography' in experiment_type or
+            'high_energy_diffraction_microscopy_far_field' in experiment_type)
         map_config['experiment_type'] = 'TOMO'
         map_config['sample'] = {'name': map_config['title'],
                                 'description': data.get('description')}
@@ -129,6 +131,7 @@ class TomoCHESSMapConverter(Processor):
         from copy import deepcopy
 
         # Third party modules
+        from nexusformat.nexus import nxsetconfig
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
@@ -142,6 +145,8 @@ class TomoCHESSMapConverter(Processor):
 
         # Local modules
         from CHAP.utils.general import index_nearest
+
+        nxsetconfig(memory=100000)
 
         # Load and validate the tomography fields
         tomofields = self.get_data(data, schema='tomofields')
@@ -170,14 +175,35 @@ class TomoCHESSMapConverter(Processor):
         except:
             self.logger.warning(f'Unable to load dark field from pipeline')
             darkfield = None
+        data_darkfield = None
         if darkfield is None:
-            for scan_number in range(min(scan_numbers), 0, -1):
-                scanparser = spec_scan.get_scanparser(scan_number)
-                scan_type = scanparser.get_scan_type()
-                if scan_type == 'df1':
-                    darkfield = scanparser
-                    break
-            else:
+            try:
+                for scan_number in range(min(scan_numbers), 0, -1):
+                    scanparser = spec_scan.get_scanparser(scan_number)
+                    scan_type = scanparser.get_scan_type()
+                    if scan_type == 'df1':
+                        darkfield = scanparser
+                        data_darkfield = darkfield.get_detector_data(
+                            detector_prefix)
+                        data_shape = data_darkfield.shape
+                        break
+            except:
+                pass
+            if data_darkfield is None:
+                try:
+                    for scan_number in range(
+                            1 + max(scan_numbers), 3 + max(scan_numbers)):
+                        scanparser = spec_scan.get_scanparser(scan_number)
+                        scan_type = scanparser.get_scan_type()
+                        if scan_type == 'df2':
+                            darkfield = scanparser
+                            data_darkfield = darkfield.get_detector_data(
+                                detector_prefix)
+                            data_shape = data_darkfield.shape
+                            break
+                except:
+                    pass
+            if data_darkfield is None:
                 self.logger.warning(f'Unable to load dark field')
         else:
             if isinstance(darkfield, NXroot):
@@ -373,16 +399,15 @@ class TomoCHESSMapConverter(Processor):
                         else:
                             z_translations += \
                                 num_image*[smb_pars[z_translation_name]]
-        elif darkfield is not None:
-            data = darkfield.get_detector_data(detector_prefix)
-            data_shape = data.shape
+        elif data_darkfield is not None:
+            data_shape = data_darkfield.shape
             assert len(data_shape) == 3
             assert data_shape[1] == nxdetector.rows
             assert data_shape[2] == nxdetector.columns
             num_image = data_shape[0]
             image_keys += num_image*[2]
             sequence_numbers += list(range(num_image))
-            image_stacks.append(data)
+            image_stacks.append(data_darkfield)
             rotation_angles += num_image*[0.0]
             if (x_translation_data_type == 'spec_motor' or
                     z_translation_data_type == 'spec_motor'):
@@ -1044,7 +1069,7 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_reduced'
         self._metadata['metadata']['reduced_data'] = tool_config.model_dump()
         self._metadata['metadata']['reduced_data']['date'] = str(
@@ -1195,7 +1220,7 @@ class Tomo:
         # Add to metadata
         from datetime import datetime
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_center'
         self._metadata['metadata']['findcenter'] = tool_config.model_dump()
         self._metadata['metadata']['findcenter']['date'] = str(
@@ -1484,7 +1509,7 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_reconstructed'
         self._metadata['metadata']['reconstructed_data'] = \
             tool_config.model_dump()
@@ -1721,7 +1746,7 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_combined'
         self._metadata['metadata']['combined_data'] = \
             tool_config.model_dump()
@@ -2618,7 +2643,8 @@ class Tomo:
         # Return the center location
         if self._interactive:
             if selected_center_offset == 'all bad':
-                print('\nUnable to successfully calibrate center axis')
+                self._logger.warning(
+                    '\nUnable to successfully calibrate center axis')
                 selected_center_offset = input_num(
                     'Enter the center offset for row {row}',
                     ge=-center_offset_range, le=center_offset_range)
