@@ -159,7 +159,6 @@ def convert_structured_unstructured(data):
                 dtype=data[s].nxdata.dtype,
             ) for s in signals}
             npts = len(data[signals[0]].nxdata.tolist())
-            print(f'converting {npts} data points')
             indices = {
                 a: np.searchsorted(structured_axes[a], data[a].nxdata)
                 for a in nxaxes
@@ -187,7 +186,7 @@ def convert_structured_unstructured(data):
             return structured_data
 
         elif 'axes' in data.attrs:
-            # Convert structued to unstructured
+            # Convert structured to unstructured
             raise NotImplementedError(
                 'Conversion from structured to unstructured not implemented.')
     else:

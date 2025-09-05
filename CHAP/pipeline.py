@@ -134,8 +134,10 @@ class PipelineItem():
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
         identified by `schema` and return it. If no item is found and
-        config is specified, validate it against the configuration's
-        Pydantic model identified by `schema` and return it.
+        `config` and `schema` are specified, validate `config`
+        against the configuration's Pydantic model identified by
+        `schema` and return it. Return `config` if no item is found
+        and `config` is specified, but `schema` is not.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData], optional
@@ -152,7 +154,7 @@ class PipelineItem():
         :type remove: bool, optional
         :raises ValueError: If there's no match for `schema` in `data`.
         :return: The first matching configuration model.
-        :rtype: BaseModel
+        :rtype: Union[dict, BaseModel]
         """
         self.logger.debug(f'Getting {schema} configuration')
         t0 = time()
@@ -186,7 +188,8 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name=None, schema=None, remove=True, nxobject=None):
+    def get_data(
+            self, data, name=None, schema=None, remove=True, nxobject=None):
         """Look through `data` for an item whose `'data'` value is
         a nexusformat.nexus.NXobject object or matches a given name or
         schema. Pick the item for which
