@@ -60,7 +60,6 @@ class HdrmOrmfinderProcessor(Processor):
         )
 
         # Local modules
-        from CHAP.edd.processor import get_axes
         from CHAP.giwaxs.models import AzimuthalIntegratorConfig
 
         nxsetconfig(memory=100000)
@@ -274,7 +273,7 @@ class HdrmPeakfinderProcessor(Processor):
         from skimage.feature import peak_local_max
 
         # Local modules
-        from CHAP.edd.processor import get_axes
+        from CHAP.common.map_utils import get_axes
 
         nxsetconfig(memory=100000)
 

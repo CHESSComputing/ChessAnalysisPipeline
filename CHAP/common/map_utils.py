@@ -1,4 +1,22 @@
+"""Common map data model functions and classes."""
+
+# Local modules
 from CHAP import Processor
+
+def get_axes(nxdata, skip_axes=None):
+    """Get the axes of an NXdata object used in EDD."""
+    if skip_axes is None:
+        skip_axes = []
+    if 'unstructured_axes' in nxdata.attrs:
+        axes = nxdata.attrs['unstructured_axes']
+    elif 'axes' in nxdata.attrs:
+        axes = nxdata.attrs['axes']
+    else:
+        return []
+    if isinstance(axes, str):
+        axes = [axes]
+    return [str(a) for a in axes if a not in skip_axes]
+
 
 class MapSliceProcessor(Processor):
     """Proccessor for getting partial map data for filling in a NeXus
