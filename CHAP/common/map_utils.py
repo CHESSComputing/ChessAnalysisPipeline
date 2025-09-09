@@ -49,7 +49,7 @@ class MapSliceProcessor(Processor):
         from chess_scanparsers import choose_scanparser
 
         from CHAP.common.models.map import SpecScans
-        
+
         # Get the validated map configuration
         map_config = self.get_config(
             data=data, config=config, schema='common.models.map.MapConfig',
@@ -66,7 +66,7 @@ class MapSliceProcessor(Processor):
                     inputdir=inputdir)
             except Exception as exc:
                 raise RuntimeError from exc
-        
+
         if not os.path.isabs(spec_file):
             spec_file = os.path.join(inputdir, spec_file)
 
@@ -125,4 +125,141 @@ class MapSliceProcessor(Processor):
             ]
         )
         return data_points
-        
+
+
+class SpecScanToMapConfigProcessor(Processor):
+    """Processor to get the `CHAP.common.models.map.MapConfig`
+    dictionary configuration representation of a single CHESS SPEC
+    scan."""
+    def process(self, data,
+                spec_file, scan_number, station, experiment,
+                dwell_time_actual_counter_name,
+                presample_intensity_counter_name,
+                postsample_intensity_counter_name=None):
+        """Return a dictionary representing a valid MapConfig object that
+        contains only the single given scan.
+
+        :param spec_file: Name of spec file
+        :type spec_file: str
+        :param scan_number: Number of scan
+        :type scan_number: int
+        :param station: Station id ("id**" format)
+        :type station: Literal["id1a3", "id3a", "id3b", "id4b"]
+        :param experiment: Experiment type
+        :type experiment: Literal["edd", "giwaxs", "hdrm", "powder",
+            "saxswaxs", "tomo", "xrf"]
+        :returns: Single-scan map configuration
+        :rtype: dict
+        """
+        import os
+
+        from chess_scanparsers import choose_scanparser
+
+        SP = choose_scanparser(station, experiment)
+        sp = SP(spec_file, scan_number)
+
+        def get_independent_dimensions(_scanparser):
+            """Return a value for the `independent_dimensions` field of a
+            `MapConfig` object containing just one SPEC scan -- the one
+            represented by the given `_scanparser`.
+
+            :param _scanparser: The instance of `ScanParser` to get
+                `independent_dimensions` for.
+            :type _scanparser: chess_scanparsers.FMBSAXSWAXSScanParser
+            :returns: Value to use for the `independent_dimensions` field in
+                the `MapConfig` associated with this scan.
+            :rtype: list[dict[str, str]]
+            """
+            from datetime import datetime
+            import re
+            match = re.match(r'a(\d+)scan', _scanparser.spec_macro)
+            if match:
+                # Use only the first motor as the independent dim. All
+                # others, even though they are also scanned, are scalar
+                # data
+                return (
+                    [{'label': _scanparser.spec_scan_motor_mnes[0],
+                      'units': 'unknown',
+                      'data_type': 'spec_motor',
+                      'name': _scanparser.spec_scan_motor_mnes[0]}],
+                    [{'label': mne,
+                      'units': 'unknown units',
+                      'data_type': 'spec_motor',
+                      'name': mne}
+                     for mne in _scanparser.spec_scan_motor_mnes[1:]]
+                )
+            if _scanparser.spec_macro in ('tseries', 'loopscan'):
+                scan_firstline = _scanparser.spec_scan.firstline
+                headers = _scanparser.spec_file._headers
+                useheader_i = -1
+                while useheader_i < len(headers) - 1:
+                    if headers[useheader_i + 1].firstline < scan_firstline:
+                        useheader_i += 1
+                    else:
+                        break
+                    t0 = headers[useheader_i]._epoch
+                return (
+                    [{'label': 'Epoch',
+                      'units': 'seconds',
+                      'data_type': 'expression',
+                      'name': f'Epoch_offset + {t0}'}],
+                    [{'label': 'Epoch_offset',
+                      'units': 'seconds',
+                      'data_type': 'scan_column',
+                      'name': 'Epoch'}])
+            elif _scanparser.spec_macro == 'flyscan' and \
+                 not len(_scanparser.spec_args) == 5:
+                return (
+                    [{'label': 'Time',
+                      'units': 'seconds',
+                      'data_type': 'scan_column',
+                      'name': 'Time'}],
+                    [])
+            elif _scanparser.is_snake():
+                return (
+                    [{'label': mne,
+                      'units': 'unknown units',
+                      'data_type': 'scan_column',
+                      'name': list(_scanparser.spec_scan_data.keys())[i]}
+                     for i, mne in enumerate(
+                             _scanparser.spec_scan_motor_mnes)],
+                    []
+                )
+            return (
+                [{'label': mne,
+                  'units': 'unknown units',
+                  'data_type': 'spec_motor',
+                  'name': mne}
+                 for mne in _scanparser.spec_scan_motor_mnes],
+                [])
+
+        normalized_spec_file = os.path.realpath(spec_file).replace(
+            '/daq/', '/raw/')
+        independent_dimensions, scalar_data = get_independent_dimensions(sp)
+        mapconfig_dict = {
+            'title': sp.scan_title,
+            'station': station,
+            'experiment_type': experiment.upper(),
+            'sample': {
+                'name': sp.scan_name
+            },
+            'spec_scans': [
+                {
+                    'spec_file': normalized_spec_file,
+                    'scan_numbers': [scan_number]
+                }
+            ],
+            'independent_dimensions': independent_dimensions,
+            'dwell_time_actual': {
+                'data_type': 'scan_column',
+                'name': dwell_time_actual_counter_name},
+            'presample_intensity': {
+                'data_type': 'scan_column',
+                'name': presample_intensity_counter_name},
+            'scalar_data': scalar_data,
+        }
+        if postsample_intensity_counter_name:
+                mapconfig_dict['postsample_intensity'] = {
+                    'data_type': 'scan_column',
+                    'name': postsample_intensity_counter_name}
+        return mapconfig_dict
