@@ -85,6 +85,7 @@ class TomoMetadataProcessor(Processor):
         map_config['station'] = station
         experiment_type = data.get('technique')
         assert (
+            'other' in experiment_type or
             'tomography' in experiment_type or
             'high_energy_diffraction_microscopy_far_field' in experiment_type)
         map_config['experiment_type'] = 'TOMO'
@@ -95,10 +96,20 @@ class TomoMetadataProcessor(Processor):
             if isinstance(scan_numbers, list):
                 if isinstance(scan_numbers[0], list):
                     scan_numbers = scan_numbers[0]
-            map_config['spec_scans'] = [{
-                'spec_file': os_path.join(
-                    data.get('data_location_raw'), 'spec.log'),
-                'scan_numbers': scan_numbers}]
+            #RV FIX FOXDEN demo only
+            foxden_demo = config.get('foxden_demo')
+            if foxden_demo is not None:
+                data_location_raw = '/nfs/chess/aux/cycles/2025-2/id3a/' + \
+                                    'weber-4314-b/raw_data/lof2-4'
+                map_config['spec_scans'] = [{
+                    'spec_file': os_path.join(data_location_raw, 'spec.log'),
+                    'scan_numbers': scan_numbers}]
+                map_config['attrs'] = {'foxden_demo': foxden_demo}
+            else:
+                map_config['spec_scans'] = [{
+                    'spec_file': os_path.join(
+                        data.get('data_location_raw'), 'spec.log'),
+                    'scan_numbers': scan_numbers}]
         map_config['independent_dimensions'] = config['independent_dimensions']
 
         # Validate the MapConfig info
@@ -152,6 +163,15 @@ class TomoCHESSMapConverter(Processor):
         tomofields = self.get_data(data, schema='tomofields')
         if isinstance(tomofields, NXroot):
             tomofields = tomofields[tomofields.default]
+        #RV FIX FOXDEN demo only
+        else:
+            return tomofields.model_dump()
+        #RV fix par = '' issue in MapConfig
+        print(f'\n\ntomofields:\n{tomofields.tree}\n\n')
+        print(f'\n\nmap_config 1:\n')
+        from pprint import pprint
+        pprint(loads(str(tomofields.map_config)))
+        print('\n\n')
         if not isinstance(tomofields, NXentry):
             raise ValueError(f'Invalid parameter tomofields {tomofields})')
         detector_prefix = str(tomofields.detector_ids)
@@ -161,6 +181,9 @@ class TomoCHESSMapConverter(Processor):
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
+        print('\n\nmap_config 2:\n')
+        pprint(map_config)
+        exit('Done')
         if map_config.did is None:
             self.logger.warning(
                 f'Unable to extract did from map configuration')
@@ -720,16 +743,35 @@ class TomoDataProcessor(Processor):
                     data=data, schema='tomo.models.TomoCombineConfig')
         except ValueError:
             combine_data_config = None
-        nxroot = self.get_data(data)
+        #RV FIX FOXDEN demo only
+        try:
+            nxroot = self.get_data(data)
+        except:
+            nxroot = 'foxden_demo'
+            map_config = self.get_data(data, name='TomoCHESSMapConverter')
+#RV FIX        nxroot = self.get_data(data)
 
         # Generate metadata
-        map_config = loads(str(nxroot[nxroot.default].map_config))
+        #RV FIX FOXDEN demo only
+        if nxroot != 'foxden_demo':
+            map_config = loads(str(nxroot[nxroot.default].map_config))
+#RV FIX        map_config = loads(str(nxroot[nxroot.default].map_config))
+        try:
+            btr = map_config['did'].split('btr=')[1].split('/')[0]
+            assert isinstance(btr, str)
+        except:
+            raise ValueError(f'Unable to get a valid btr from did ({btr})')
         metadata = {
             'parent_did': map_config['did'],
             'application': 'CHAP',
+            'btr': btr,
             'experiment_type': map_config['experiment_type'],
             'metadata': {}
         }
+        from pprint import pprint
+        print(f'\n\nmetadata 1:')
+        pprint(metadata)
+        print('\n\n')
 
         tomo = Tomo(
             metadata, logger=self.logger, interactive=interactive,
@@ -800,6 +842,10 @@ class TomoDataProcessor(Processor):
             nxroot = tomo.combine_data(nxroot, combine_data_config)
 
         metadata.pop('parent_did'),
+        from pprint import pprint
+        print(f'\n\nmetadata 2:')
+        pprint(metadata)
+        print('\n\n')
         if center_config is not None:
             return (
                 PipelineData(
@@ -938,6 +984,22 @@ class Tomo:
 
         self._logger.info('Generate the reduced tomography images')
 
+        #RV FIX FOXDEN demo only
+        if nxroot is None or nxroot == 'foxden_demo':
+            # Add to metadata
+            from datetime import datetime
+            self._metadata['did'] = \
+                f'{self._metadata["parent_did"]}/workflow=' + \
+                f'{self._metadata["experiment_type"].lower()}_reduced'
+            if tool_config is None:
+                self._metadata['metadata']['reduced_data'] = {}
+            else:
+                self._metadata['metadata']['reduced_data'] = \
+                        tool_config.model_dump()
+            self._metadata['metadata']['reduced_data']['date'] = str(
+                datetime.now())
+            return None, None
+
         # Validate input parameter
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -950,16 +1012,10 @@ class Tomo:
 
             tool_config = TomoReduceConfig()
         img_row_bounds = tool_config.img_row_bounds
-        if img_row_bounds is not None:
-            if (nxentry.instrument.source.attrs['station']
-                    in ('id1a3', 'id3a')):
-                self._logger.warning('Ignoring parameter img_row_bounds '
-                                    'for id1a3 and id3a')
-                img_row_bounds = None
-            elif calibrate_center_rows:
-                self._logger.warning('Ignoring parameter img_row_bounds '
-                                    'during rotation axis calibration')
-                img_row_bounds = None
+        if img_row_bounds is not None and calibrate_center_rows:
+            self._logger.warning('Ignoring parameter img_row_bounds '
+                                 'during rotation axis calibration')
+            img_row_bounds = None
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key is None or 'data' not in nxentry.instrument.detector:
             raise ValueError(f'Unable to find image_key or data in '
@@ -1071,7 +1127,11 @@ class Tomo:
         self._metadata['did'] = \
             f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_reduced'
-        self._metadata['metadata']['reduced_data'] = tool_config.model_dump()
+        if tool_config is None:
+            self._metadata['metadata']['reduced_data'] = {}
+        else:
+            self._metadata['metadata']['reduced_data'] = \
+                tool_config.model_dump()
         self._metadata['metadata']['reduced_data']['date'] = str(
             reduced_data.date)
 
@@ -1098,6 +1158,18 @@ class Tomo:
         from nexusformat.nexus import NXroot
 
         self._logger.info('Find the calibrated center axis info')
+
+        #RV FIX FOXDEN demo only
+        if nxroot is None or nxroot == 'foxden_demo':
+            # Add to metadata
+            from datetime import datetime
+            self._metadata['did'] = \
+                f'{self._metadata["parent_did"]}/workflow=' + \
+                f'{self._metadata["experiment_type"].lower()}_center'
+            self._metadata['metadata']['findcenter'] = tool_config.model_dump()
+            self._metadata['metadata']['findcenter']['date'] = str(
+                datetime.now())
+            return None
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -1254,6 +1326,19 @@ class Tomo:
         from CHAP.tomo.models import TomoFindCenterConfig
 
         self._logger.info('Reconstruct the tomography data')
+
+        #RV FIX FOXDEN demo only
+        if nxroot is None or nxroot == 'foxden_demo':
+            # Add to metadata
+            from datetime import datetime
+            self._metadata['did'] = \
+                f'{self._metadata["parent_did"]}/workflow=' + \
+                f'{self._metadata["experiment_type"].lower()}_reconstructed'
+            self._metadata['metadata']['reconstructed_data'] = \
+                tool_config.model_dump()
+            self._metadata['metadata']['reconstructed_data']['date'] = str(
+                datetime.now())
+            return None
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -1896,11 +1981,16 @@ class Tomo:
             raise RuntimeError('Unable to load the tomography images') from exc
 
         # Set initial image bounds or rotation calibration rows
+        if num_tomo_stacks > 1 and (nxentry.instrument.source.attrs['station']
+                in ('id1a3', 'id3a')):
+            self._logger.warning('Ignoring parameter img_row_bounds '
+                                 'for id1a3 and id3a for an image stack')
+            img_row_bounds = None
         tbf = reduced_data.data.bright_field.nxdata
         if (not isinstance(calibrate_center_rows, bool)
                 and is_int_pair(calibrate_center_rows)):
             img_row_bounds = calibrate_center_rows
-        else:
+        elif img_row_bounds is None:
             if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
                 # System modules
                 from sys import float_info

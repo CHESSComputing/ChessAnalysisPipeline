@@ -985,6 +985,10 @@ class MapProcessor(Processor):
             data=data, config=config, schema='common.models.map.MapConfig',
             **metadata, inputdir=inputdir)
 
+        #RV FIX FOXDEN demo only
+        if map_config.attrs.get('foxden_demo') == 'demo':
+            return map_config
+
         # Validate the detectors
         try:
             # Local modules

@@ -101,6 +101,7 @@ class FoxdenMetadataWriter(Writer):
         # from the CHAP workflow metadata record
         record = {'did': record['did'],
                   'application': record.get('application', 'CHAP'),
+                  'btr': record.get('btr'),
                   'user': getuser()}
 
         # Submit HTTP request and return response
