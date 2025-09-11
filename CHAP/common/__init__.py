@@ -72,3 +72,7 @@ from CHAP.common.map_utils import (
     MapSliceProcessor,
     SpecScanToMapConfigProcessor,
 )
+
+from CHAP.common.nexus_utils import (
+    NexusMakeLinkProcessor,
+)
