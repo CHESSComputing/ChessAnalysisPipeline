@@ -3129,26 +3129,53 @@ class UnstructuredToStructuredProcessor(Processor):
         except Exception:
             raise ValueError(error_txt)
 
-        # Get the structured data
-        nxdata_structured = self.convert_nxdata(
-            nxdata, config.remove_original_data)
         if isinstance(nxobject, NXdata):
             nxdata_structured.nxname = nxobject.nxname
             return nxdata_structured
 
+        # Get the structured data
+        if config.nxpath_scalar is None:
+            nxdata_scalar = {}
+        else:
+            try:
+                nxdata_scalar = {
+                    path:nxobject[path] for path in config.nxpath_scalar}
+            except Exception:
+                self.logger.warning(
+                    f'Unable the load scalar data config.nxpath_scalar '
+                    f'({config.nxpath_scalar}), nxobject:\n({nxobject.tree})')
+                nxdata_scalar = {}
+
+        nxdata_structured, nxdata_scalar_structured = self.convert_nxdata(
+            nxdata, nxdata_scalar, config.remove_original_data)
+
         # Return the modified NeXus NXobject object
+
         nxpath = os.path.relpath(nxdata.nxpath, nxobject.nxpath)
         if config.remove_original_data:
-            nxobject = nxcopy(nxobject, exclude_nxpaths=nxpath)
+            exclude_nxpaths = [nxpath]
+            for scalar_data, path in zip(
+                    nxdata_scalar_structured, nxdata_scalar.keys()):
+                if scalar_data is not None:
+                    exclude_nxpaths.append(os.path.relpath(path, nxobject.nxpath))
+            nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
         else:
             nxobject = nxcopy(nxobject)
             nxpath = f'{os.path.split(nxpath)[0]}/{nxdata_structured.nxname}'
         nxobject[nxpath] = nxdata_structured
         nxobject[nxpath].set_default()
+        if not nxdata_scalar_structured:
+            return nxobject
 
+        for scalar_data, path in zip(
+                nxdata_scalar_structured, nxdata_scalar.keys()):
+            if scalar_data is not None:
+                nxpath = os.path.relpath(path, nxobject.nxpath)
+                nxpath = f'{os.path.split(nxpath)[0]}/{scalar_data.nxpath}'
+                nxobject[nxpath] = scalar_data
         return nxobject
 
-    def convert_nxdata(self, nxdata, remove_original_data):
+    def convert_nxdata(self, nxdata, nxdata_scalar, remove_original_data):
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
@@ -3252,6 +3279,31 @@ class UnstructuredToStructuredProcessor(Processor):
         for s in signals:
             map_shape[s] = tuple(coord_dims + list(nxdata[s].shape[1:]))
 
+        # Scalar fields
+        scalar_fields = {}
+        field_names = []
+        for path, scalar_data in nxdata_scalar.items():
+            if isinstance(scalar_data, NXdata):
+                scalar_fields[path] = []
+                for v in scalar_data:
+                    if (f'{path}/{v}' not in field_names
+                            and isinstance(scalar_data[v], NXfield)
+                            and scalar_data[v].shape == (unstructured_dim)):
+                        scalar_fields[path].append(scalar_data[v])
+                        field_names.append(f'{path}/{v}')
+            elif isinstance(scalar_data, NXfield):
+                field  = scalar_data.nxname
+                if (path not in field_names
+                        and scalar_data.shape == (unstructured_dim)):
+                    scalar_fields[path] = [scalar_data]
+                    field_names.append(path)
+                else:
+                    scalar_fields[path] = []
+            else:
+                self.logger.warning(
+                    'Skip unknown scalar data object of type '
+                    f'{type(scalar_data)}:\n{scalar_data}')
+
         # Check the mapping
         num_axes = len(axes)
         full_mapping = (
@@ -3321,7 +3373,8 @@ class UnstructuredToStructuredProcessor(Processor):
         else:
             name = f'{nxdata.nxname}_structured'
         if full_mapping:
-            # Populate the structured NXdata with the reshaped the data
+            # Populate the structured NXdata object with its reshaped
+            # data
             nxdata_structured = NXdata(
                 name=name,
                 **{a: NXfield(
@@ -3335,7 +3388,38 @@ class UnstructuredToStructuredProcessor(Processor):
                     attrs=nxdata[s].attrs)
                    for s in signals},
                 attrs=attrs)
+            # Populate the structured scalar data with its reshaped
+            # data
+            nxdata_scalar_structured = []
+            for (path, scalar_data), ddata in zip(
+                    scalar_fields.items(), nxdata_scalar.values()):
+                if not scalar_data:
+                    nxdata_scalar_structured.append(None)
+                else:
+                    if remove_original_data:
+                        scalar_name = ddata.nxname
+                    else:
+                        scalar_name = f'{ddata.nxname}_structured'
+                    if isinstance(ddata, NXdata):
+                        nxdata_scalar_structured.append(
+                            NXdata(name=scalar_name,
+                                **{field.nxname: NXfield(
+                                    value=field.reshape(coord_dims),
+                                    dtype=field.dtype,
+                                    shape=coord_dims,
+                                    attrs=field.attrs)
+                                   for field in scalar_data}))
+                    else:
+                        nxdata_scalar_structured.append(
+                                NXfield(
+                                    name = scalar_name,
+                                    value=scalar_data[0].reshape(coord_dims),
+                                    dtype=scalar_data[0].dtype,
+                                    shape=coord_dims,
+                                    attrs=scalar_data[0].attrs))
         else:
+            if nxdata_scalar:
+                raise ValueError('nxdata_scalar not yet implemented here')
             # Create the structured NXdata object
             if coord_dims[0] > coord_dims[1]:
                 axes = list(reversed(axes))
@@ -3402,7 +3486,7 @@ class UnstructuredToStructuredProcessor(Processor):
             nxdata_structured[s].attrs['min'] = nxdata_structured[s].min()
             nxdata_structured[s].attrs['max'] = nxdata_structured[s].max()
 
-        return nxdata_structured
+        return nxdata_structured, nxdata_scalar_structured
 
 
 class UpdateNXvalueProcessor(Processor):
