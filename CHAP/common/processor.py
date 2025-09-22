@@ -2360,7 +2360,10 @@ class NexusToXarrayProcessor(Processor):
 class NexusToZarrProcessor(Processor):
     """Converter for NeXus to Zarr format."""
     def process(self, data, chunks='auto'):
-        from nexusformat.nexus import (NXfield, NXgroup)
+        from nexusformat.nexus import (
+            NXfield,
+            NXgroup,
+        )
         import zarr
         from zarr.storage import MemoryStore
 
@@ -3093,6 +3096,7 @@ class UnstructuredToStructuredProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
+            NXgroup,
             NXlink,
         )
 
@@ -3119,12 +3123,21 @@ class UnstructuredToStructuredProcessor(Processor):
                         f'the input pipeline ({data})'
             nxobject = self.get_data(data)
             if config.nxpath is None:
-                nxdata = nxobject.get_default()
+                # Local modules
+                from CHAP.utils.general import get_default_path
+
+                nxpath = get_default_path(nxobject)
             else:
                 error_txt = 'Unable the load the NXdata object from ' \
                             f'config.nxpath ({config.nxpath}), ' \
                             f'nxobject:\n({nxobject.tree})'
-                nxdata = nxobject[config.nxpath]
+                nxpath = config.nxpath
+            nxdata = nxobject[nxpath]
+            if isinstance(nxdata, NXgroup):
+                # Local modules
+                from CHAP.utils.general import nxcopy
+
+                nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
             assert isinstance(nxdata, NXdata)
         except Exception:
             raise ValueError(error_txt)
@@ -3139,7 +3152,9 @@ class UnstructuredToStructuredProcessor(Processor):
         else:
             try:
                 nxdata_scalar = {
-                    path:nxobject[path] for path in config.nxpath_scalar}
+                    path:(nxobject[path] if isinstance(nxobject[path], NXdata)
+                    else nxcopy(nxobject[path], nxgroup_to_nxdata=True))
+                    for path in config.nxpath_scalar}
             except Exception:
                 self.logger.warning(
                     f'Unable the load scalar data config.nxpath_scalar '
@@ -3151,19 +3166,20 @@ class UnstructuredToStructuredProcessor(Processor):
 
         # Return the modified NeXus NXobject object
 
-        nxpath = os.path.relpath(nxdata.nxpath, nxobject.nxpath)
         if config.remove_original_data:
-            exclude_nxpaths = [nxpath]
+            exclude_nxpaths = [os.path.relpath(nxpath, nxobject.nxpath)]
             for scalar_data, path in zip(
                     nxdata_scalar_structured, nxdata_scalar.keys()):
                 if scalar_data is not None:
-                    exclude_nxpaths.append(os.path.relpath(path, nxobject.nxpath))
+                    exclude_nxpaths.append(
+                        os.path.relpath(path, nxobject.nxpath))
             nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
         else:
             nxobject = nxcopy(nxobject)
             nxpath = f'{os.path.split(nxpath)[0]}/{nxdata_structured.nxname}'
         nxobject[nxpath] = nxdata_structured
-        nxobject[nxpath].set_default()
+        if nxobject.nxclass in ('nxentry', 'nxroot'):
+            nxobject[nxpath].set_default()
         if not nxdata_scalar_structured:
             return nxobject
 
@@ -3179,6 +3195,7 @@ class UnstructuredToStructuredProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
+            NXgroup,
             NXfield,
         )
 
