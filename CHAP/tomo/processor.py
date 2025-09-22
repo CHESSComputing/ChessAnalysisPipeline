@@ -129,6 +129,7 @@ class TomoCHESSMapConverter(Processor):
         from copy import deepcopy
 
         # Third party modules
+        from nexusformat.nexus import nxsetconfig
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
@@ -142,6 +143,8 @@ class TomoCHESSMapConverter(Processor):
 
         # Local modules
         from CHAP.utils.general import index_nearest
+
+        nxsetconfig(memory=100000)
 
         # Load and validate the tomography fields
         tomofields = self.get_data(data, schema='tomofields')
