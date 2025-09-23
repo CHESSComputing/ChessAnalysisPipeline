@@ -1000,7 +1000,7 @@ class Tomo:
         if img_row_bounds is None:
             tbf_shape = reduced_data.data.bright_field.shape
             img_row_bounds = (0, tbf_shape[0])
-        tool_config.img_row_bounds = img_row_bounds
+        tool_config.img_row_bounds = list(img_row_bounds)
         reduced_data.img_row_bounds = tool_config.img_row_bounds
         reduced_data.img_row_bounds.units = 'pixels'
         reduced_data.img_row_bounds.attrs['long_name'] = \
@@ -1170,7 +1170,7 @@ class Tomo:
             # Save figure
             if self._save_figures:
                 self._figures.append((buf, 'center_finding_rows'))
-        tool_config.center_rows = center_rows
+        tool_config.center_rows = list(center_rows)
 
         # Find the center offsets at each of the center rows
         prev_center_offset = None
@@ -1308,9 +1308,9 @@ class Tomo:
         x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
             tomo_recon_stacks, x_bounds=tool_config.x_bounds,
             y_bounds=tool_config.y_bounds, z_bounds=tool_config.z_bounds)
-        tool_config.x_bounds = x_bounds
-        tool_config.y_bounds = y_bounds
-        tool_config.z_bounds = z_bounds
+        tool_config.x_bounds = None if x_bounds is None else list(x_bounds)
+        tool_config.y_bounds = None if y_bounds is None else list(y_bounds)
+        tool_config.z_bounds = None if z_bounds is None else list(z_bounds)
         if x_bounds is None:
             x_range = (0, tomo_recon_shape[2])
             x_slice = x_range[1]//2
@@ -1571,9 +1571,9 @@ class Tomo:
         if self._interactive or self._save_figures:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
-            tool_config.x_bounds = x_bounds
-            tool_config.y_bounds = y_bounds
-            tool_config.z_bounds = z_bounds
+            tool_config.x_bounds = None if x_bounds is None else list(x_bounds)
+            tool_config.y_bounds = None if y_bounds is None else list(y_bounds)
+            tool_config.z_bounds = None if z_bounds is None else list(z_bounds)
         else:
             x_bounds = tool_config.x_bounds
             if x_bounds is None:
@@ -3353,7 +3353,6 @@ class TomoSimFieldProcessor(Processor):
         # Get the path lenghts for position column coordinates
         lengths = np.zeros((len(thetas), len(img_y_coords)), dtype=np.float64)
         for i, theta in enumerate(thetas):
-            dummy = theta
             theta = theta - 90.*np.floor(theta/90.)
             if 45. < theta <= 90.:
                 theta = 90.-theta
