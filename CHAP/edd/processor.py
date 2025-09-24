@@ -2483,9 +2483,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         points = []
         if update:
             points = self._strain_analysis(strain_analysis_config)
-            if not (self._figures or self._animation):
-                return points
-            ret = [points]
         if setup:
             nxroot = self._get_nxroot(
                 nxentry, calibration_config, strain_analysis_config)
@@ -2498,6 +2495,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             if not (self._figures or self._animation):
                 return nxroot
             ret = [nxroot]
+        else:
+            if not (self._figures or self._animation):
+                return points
+            ret = [points]
         if self._figures:
             ret.append(
                 PipelineData(
