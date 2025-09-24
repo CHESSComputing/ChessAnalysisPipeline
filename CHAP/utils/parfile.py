@@ -41,14 +41,15 @@ class ParFile():
 
         with open(self.json_file) as json_file:
             columns = json.load(json_file)
-        self.column_names = [None] * len(columns)
+        num_column = len(columns)
+        self.column_names = [None] * num_column
         for i, name in columns.items():
             self.column_names[int(i)] = name
 
         self.data = []
         with open(self.par_file) as f:
             reader = csv.reader(f, delimiter=' ')
-            for row in reader:
+            for i, row in enumerate(reader):
                 if len(row) == 0:
                     continue
                 if row[0].startswith('#'):
@@ -63,6 +64,11 @@ class ParFile():
                         except:
                             pass
                     row_data.append(value)
+                if len(row_data) != num_column:
+                    raise ValueError(
+                        'Mismatch between the number of columns in the json '
+                        f'({num_column}) and line {i+1} of the par file '
+                        f'({len(row_data)})')
                 self.data.append(row_data)
 
         self.scann_i = self.column_names.index(scann_col_name)

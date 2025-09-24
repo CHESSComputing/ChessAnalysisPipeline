@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: hollow_brick
   interactive: true
-  log_level: INFO
+  log_level: info
   profile: false
 
 pipeline:
@@ -17,52 +17,50 @@ pipeline:
       detectors:
         - id: sim
       schema: tomofields
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.SpecReader:
-            config:
-              station: id3a
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: ../data/hollow_brick/spec.log
-                scan_numbers:
-                - 1
-            detectors:
-              - id: sim
-            schema: darkfield
-        - common.SpecReader:
-            inputdir: ../data/hollow_brick
-            config:
-              station: id3a
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: spec.log
-                scan_numbers:
-                - 2
-            detectors:
-              - id: sim
-            schema: brightfield
-        - common.YAMLReader:
-            filename: detector.yaml
-            schema: tomo.models.Detector
+  - common.SpecReader:
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: ../data/hollow_brick/spec.log
+          scan_numbers:
+          - 1
+      detectors:
+        - id: sim
+      schema: darkfield
+  - common.SpecReader:
+      inputdir: ../data/hollow_brick
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: spec.log
+          scan_numbers:
+          - 2
+      detectors:
+        - id: sim
+      schema: brightfield
+  - common.YAMLReader:
+      filename: detector.yaml
+      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
 
   # Full tomography reconstruction
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.YAMLReader:
-            filename: find_center_id3a.yaml
-            schema: tomo.models.TomoFindCenterConfig
-        - common.YAMLReader:
-            filename: reconstruct_data.yaml
-            schema: tomo.models.TomoReconstructConfig
-        - common.YAMLReader:
-            filename: combine_data_id3a.yaml
-            schema: tomo.models.TomoCombineConfig
+  - common.YAMLReader:
+      filename: find_center_id3a.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - common.YAMLReader:
+      filename: reconstruct_data.yaml
+      schema: tomo.models.TomoReconstructConfig
+  - common.YAMLReader:
+      filename: combine_data_id3a.yaml
+      schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
       reduce_data: true
-      outputdir: saved_figs
-      save_figs: 'only'
-  - common.NexusWriter:
+      save_figures: true
+  - tomo.TomoWriter:
       filename: combined_hollow_brick.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
       force_overwrite: true
