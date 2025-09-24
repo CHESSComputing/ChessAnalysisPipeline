@@ -2480,45 +2480,35 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         self._apply_combined_mask()
 
         # Setup and/or run the strain analysis
-        if setup and update:
+        points = []
+        if update:
+            points = self._strain_analysis(strain_analysis_config)
+            if not (self._figures or self._animation):
+                return points
+            ret = [points]
+        if setup:
             nxroot = self._get_nxroot(
                 nxentry, calibration_config, strain_analysis_config)
-            points = self._strain_analysis(strain_analysis_config)
             if points:
                 self.logger.info(f'Adding {len(points)} points')
                 self.add_points(nxroot, points, logger=self.logger)
                 self.logger.info(f'... done')
             else:
                 self.logger.warning('Skip adding points')
-            return (
-                nxroot, 
+            if not (self._figures or self._animation):
+                return nxroot
+            ret = [nxroot]
+        if self._figures:
+            ret.append(
                 PipelineData(
                     name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
+                    schema='common.write.ImageWriter'))
+        if self._animation:
+            ret.append(
                 PipelineData(
                     name=self.__name__, data=self._animation,
                     schema='common.write.ImageWriter'))
-
-        if setup:
-            return (
-                self._get_nxroot(
-                    nxentry, calibration_config, strain_analysis_config),
-                PipelineData(
-                    name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
-                PipelineData(
-                    name=self.__name__, data=self._animation,
-                    schema='common.write.ImageWriter'))
-        if update:
-            return (
-                self._strain_analysis(strain_analysis_config),
-                PipelineData(
-                    name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
-                PipelineData(
-                    name=self.__name__, data=self._animation,
-                    schema='common.write.ImageWriter'))
-        return None
+        return tuple(ret)
 
     def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
         """Add the fit collection as a `nexusformat.nexus.NXcollection`
