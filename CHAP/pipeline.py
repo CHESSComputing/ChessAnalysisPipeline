@@ -58,7 +58,7 @@ class PipelineData(dict):
 
 class PipelineItem():
     """An object that can be supplied as one of the items
-    `Pipeline.items`.
+    in `Pipeline.items`.
     """
     def __init__(self):
         """Constructor of PipelineItem class."""

@@ -164,7 +164,7 @@ class SpecScans(CHAPBaseModel):
                         f'No scan number {scan_number} in {spec_file}')
         return scan_numbers
 
-    @field_validator('par_file')
+    @field_validator('par_file', mode='before')
     @classmethod
     def validate_par_file(cls, par_file):
         """Validate the specified SMB par file.
@@ -199,7 +199,7 @@ class SpecScans(CHAPBaseModel):
         :return: `ScanParser` for the specified scan number.
         :rtype: ScanParser
         """
-        if self.par_file is None or not self.par_file:
+        if self.par_file is None:
             return get_scanparser(self.spec_file, scan_number)
         return get_scanparser(
             self.spec_file, scan_number, par_file=self.par_file)
@@ -273,7 +273,7 @@ def get_scanparser(spec_file, scan_number, par_file=None):
     """
     if scan_number not in get_available_scan_numbers(spec_file):
         return None
-    if par_file is None or not par_file:
+    if par_file is None:
         return ScanParser(spec_file, scan_number)
     return ScanParser(spec_file, scan_number, par_file=par_file)
 
@@ -954,13 +954,22 @@ class MapConfig(CHAPBaseModel):
         if 'spec_file' in data and 'scan_numbers' in data:
             spec_file = data.pop('spec_file')
             scan_numbers = data.pop('scan_numbers')
+            if 'par_file' in data:
+                par_file = data.pop('par_file')
+            else:
+                par_file = None
             if 'spec_scans' in data:
                 raise ValueError(
                     f'Ambiguous SPEC scan information: spec_file={spec_file},'
                     f' scan_numbers={scan_numbers}, and '
                     f'spec_scans={data["spec_scans"]}')
-            data['spec_scans'] = [
-                {'spec_file': spec_file, 'scan_numbers': scan_numbers}]
+            if par_file is None:
+                data['spec_scans'] = [
+                    {'spec_file': spec_file, 'scan_numbers': scan_numbers}]
+            else:
+                data['spec_scans'] = [
+                    {'spec_file': spec_file, 'scan_numbers': scan_numbers,
+                     'par_file': par_file}]
         else:
             inputdir = data.get('inputdir')
             spec_scans = data.get('spec_scans')
@@ -971,6 +980,7 @@ class MapConfig(CHAPBaseModel):
                 if inputdir is not None and not os.path.isabs(spec_file):
                     spec_scans[i]['spec_file'] = os.path.join(
                         inputdir, spec_file)
+            if 'spec_scans' in data:
                 spec_scans[i] = SpecScans(**scans, **data)
             data['spec_scans'] = spec_scans
         return data

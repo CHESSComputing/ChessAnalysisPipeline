@@ -42,23 +42,16 @@ class TomoWriter(Writer):
         #RV FIX make class methods from the Writer.write functions?
         # or create write function that also accept some default type
         # other than list[PipelineData]?
-#        writer().write(
-#            [PipelineData(name=self.__name__, data=tomodata)],
-#            filename, force_overwrite=force_overwrite)
-        #RV FIX FOXDEN demo only
-        if tomodata is not None:
-            writer().write(
-                [PipelineData(name=self.__name__, data=tomodata)],
-                filename, force_overwrite=force_overwrite)
+        writer().write(
+            [PipelineData(name=self.__name__, data=tomodata)],
+            filename, force_overwrite=force_overwrite)
 
         # Add provenance info to the data pipeline
         metadata = self.get_data(data, schema='metadata', remove=False)
         did = metadata['did']
         provenance = {
             'did': did,
-            #RV FIX FOXDEN demo only
-            'input_files': [{'name': '/nfs/chess/sw/foxden_demo/tomo/pipeline.yaml'}],
-            #'input_files': [{'name': 'todo.fix'}],
+            'input_files': [{'name': 'todo.fix: pipeline.yaml'}],
             'output_files': [{'name': os_path.realpath(filename)}],
         }
         data.append(PipelineData(

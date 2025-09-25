@@ -73,7 +73,7 @@ class TomoMetadataProcessor(Processor):
         except Exception as exc:
             raise
 
-        # Extracted any available MapConfig info
+        # Extract any available MapConfig info
         map_config = {}
         map_config['did'] = data.get('did')
         map_config['title'] = data.get('sample_name')
@@ -84,10 +84,7 @@ class TomoMetadataProcessor(Processor):
             raise ValueError(f'Invalid beamline parameter ({beamline})')
         map_config['station'] = station
         experiment_type = data.get('technique')
-        assert (
-            'other' in experiment_type or
-            'tomography' in experiment_type or
-            'high_energy_diffraction_microscopy_far_field' in experiment_type)
+        assert 'tomography' in experiment_type
         map_config['experiment_type'] = 'TOMO'
         map_config['sample'] = {'name': map_config['title'],
                                 'description': data.get('description')}
@@ -96,20 +93,10 @@ class TomoMetadataProcessor(Processor):
             if isinstance(scan_numbers, list):
                 if isinstance(scan_numbers[0], list):
                     scan_numbers = scan_numbers[0]
-            #RV FIX FOXDEN demo only
-            foxden_demo = config.get('foxden_demo')
-            if foxden_demo is not None:
-                data_location_raw = '/nfs/chess/aux/cycles/2025-2/id3a/' + \
-                                    'weber-4314-b/raw_data/lof2-4'
-                map_config['spec_scans'] = [{
-                    'spec_file': os_path.join(data_location_raw, 'spec.log'),
-                    'scan_numbers': scan_numbers}]
-                map_config['attrs'] = {'foxden_demo': foxden_demo}
-            else:
-                map_config['spec_scans'] = [{
-                    'spec_file': os_path.join(
-                        data.get('data_location_raw'), 'spec.log'),
-                    'scan_numbers': scan_numbers}]
+            map_config['spec_scans'] = [{
+                'spec_file': os_path.join(
+                    data.get('data_location_raw'), 'spec.log'),
+                'scan_numbers': scan_numbers}]
         map_config['independent_dimensions'] = config['independent_dimensions']
 
         # Validate the MapConfig info
@@ -157,21 +144,13 @@ class TomoCHESSMapConverter(Processor):
         # Local modules
         from CHAP.utils.general import index_nearest
 
+        # FIX make an config input
         nxsetconfig(memory=100000)
 
         # Load and validate the tomography fields
         tomofields = self.get_data(data, schema='tomofields')
         if isinstance(tomofields, NXroot):
             tomofields = tomofields[tomofields.default]
-        #RV FIX FOXDEN demo only
-        else:
-            return tomofields.model_dump()
-        #RV fix par = '' issue in MapConfig
-        print(f'\n\ntomofields:\n{tomofields.tree}\n\n')
-        print(f'\n\nmap_config 1:\n')
-        from pprint import pprint
-        pprint(loads(str(tomofields.map_config)))
-        print('\n\n')
         if not isinstance(tomofields, NXentry):
             raise ValueError(f'Invalid parameter tomofields {tomofields})')
         detector_prefix = str(tomofields.detector_ids)
@@ -181,9 +160,6 @@ class TomoCHESSMapConverter(Processor):
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
-        print('\n\nmap_config 2:\n')
-        pprint(map_config)
-        exit('Done')
         if map_config.did is None:
             self.logger.warning(
                 f'Unable to extract did from map configuration')
@@ -192,7 +168,8 @@ class TomoCHESSMapConverter(Processor):
         spec_scan = map_config.spec_scans[0]
         scan_numbers = spec_scan.scan_numbers
 
-        # Load and validate dark field
+        # Load and validate dark field (look upstream and downstream
+        # in the SPEC log file)
         try:
             darkfield = self.get_data(data, schema='darkfield')
         except:
@@ -234,7 +211,8 @@ class TomoCHESSMapConverter(Processor):
             if not isinstance(darkfield, NXentry):
                 raise ValueError(f'Invalid parameter darkfield ({darkfield})')
 
-        # Load and validate bright field
+        # Load and validate bright field (FIX look upstream and
+        # downstream # in the SPEC log file)
         try:
             brightfield = self.get_data(data, schema='brightfield')
         except:
@@ -743,19 +721,10 @@ class TomoDataProcessor(Processor):
                     data=data, schema='tomo.models.TomoCombineConfig')
         except ValueError:
             combine_data_config = None
-        #RV FIX FOXDEN demo only
-        try:
-            nxroot = self.get_data(data)
-        except:
-            nxroot = 'foxden_demo'
-            map_config = self.get_data(data, name='TomoCHESSMapConverter')
-#RV FIX        nxroot = self.get_data(data)
+        nxroot = self.get_data(data)
 
         # Generate metadata
-        #RV FIX FOXDEN demo only
-        if nxroot != 'foxden_demo':
-            map_config = loads(str(nxroot[nxroot.default].map_config))
-#RV FIX        map_config = loads(str(nxroot[nxroot.default].map_config))
+        map_config = loads(str(nxroot[nxroot.default].map_config))
         try:
             btr = map_config['did'].split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
@@ -768,15 +737,12 @@ class TomoDataProcessor(Processor):
             'experiment_type': map_config['experiment_type'],
             'metadata': {}
         }
-        from pprint import pprint
-        print(f'\n\nmetadata 1:')
-        pprint(metadata)
-        print('\n\n')
 
         tomo = Tomo(
             metadata, logger=self.logger, interactive=interactive,
             save_figures=save_figures)
 
+        # FIX make an config input
         nxsetconfig(memory=100000)
 
         # Calibrate the rotation axis
@@ -842,10 +808,6 @@ class TomoDataProcessor(Processor):
             nxroot = tomo.combine_data(nxroot, combine_data_config)
 
         metadata.pop('parent_did'),
-        from pprint import pprint
-        print(f'\n\nmetadata 2:')
-        pprint(metadata)
-        print('\n\n')
         if center_config is not None:
             return (
                 PipelineData(
@@ -983,22 +945,6 @@ class Tomo:
         )
 
         self._logger.info('Generate the reduced tomography images')
-
-        #RV FIX FOXDEN demo only
-        if nxroot is None or nxroot == 'foxden_demo':
-            # Add to metadata
-            from datetime import datetime
-            self._metadata['did'] = \
-                f'{self._metadata["parent_did"]}/workflow=' + \
-                f'{self._metadata["experiment_type"].lower()}_reduced'
-            if tool_config is None:
-                self._metadata['metadata']['reduced_data'] = {}
-            else:
-                self._metadata['metadata']['reduced_data'] = \
-                        tool_config.model_dump()
-            self._metadata['metadata']['reduced_data']['date'] = str(
-                datetime.now())
-            return None, None
 
         # Validate input parameter
         if isinstance(nxroot, NXroot):
@@ -1326,19 +1272,6 @@ class Tomo:
         from CHAP.tomo.models import TomoFindCenterConfig
 
         self._logger.info('Reconstruct the tomography data')
-
-        #RV FIX FOXDEN demo only
-        if nxroot is None or nxroot == 'foxden_demo':
-            # Add to metadata
-            from datetime import datetime
-            self._metadata['did'] = \
-                f'{self._metadata["parent_did"]}/workflow=' + \
-                f'{self._metadata["experiment_type"].lower()}_reconstructed'
-            self._metadata['metadata']['reconstructed_data'] = \
-                tool_config.model_dump()
-            self._metadata['metadata']['reconstructed_data']['date'] = str(
-                datetime.now())
-            return None
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]

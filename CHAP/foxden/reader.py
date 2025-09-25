@@ -62,6 +62,7 @@ class FoxdenDataDiscoveryReader(Reader):
         if response.status_code == 200:
             result = json.loads(response.text)['results']['records']
         else:
+            self.logger.warning(f'HTTP error code {response.status_code}')
             result = []
         self.logger.debug(f'Returning {len(result)} records')
         return result

@@ -84,8 +84,7 @@ class FoxdenMetadataWriter(Writer):
         # System modules
         from getpass import getuser
 
-        record = self.get_data(
-            data, schema='metadata')
+        record = self.get_data(data, schema='metadata')
         if not isinstance(record, dict):
             raise ValueError('Invalid metadata record {(record)}')
 
