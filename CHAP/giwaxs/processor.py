@@ -22,8 +22,8 @@ class GiwaxsConversionProcessor(Processor):
     rectangular coordinates.
     """
     def process(
-            self, data, config, save_figures=False, inputdir='.',
-            outputdir='.', interactive=False):
+            self, data, config, save_figures=False, interactive=False,
+            inputdir='.', outputdir='.'):
         """Process the GIWAXS input images & configuration and returns
         a map of the images in rectangular coordinates as a
         `nexusformat.nexus.NXroot` object.
@@ -37,6 +37,9 @@ class GiwaxsConversionProcessor(Processor):
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
+        :param interactive: Allows for user interactions, defaults to
+            `False`.
+        :type interactive: bool, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
             defaults to `'.'`.
@@ -44,9 +47,6 @@ class GiwaxsConversionProcessor(Processor):
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
         :type outputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -115,25 +115,25 @@ class GiwaxsConversionProcessor(Processor):
         nxprocess = NXprocess()
         try:
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        except Exception:
+        except Exception as exc:
             # Local imports
             from CHAP.utils.general import nxcopy
 
             # Copy nxroot if nxroot is read as read-only
+            # FIX fix this in nexus reader
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_converted'] = nxprocess
         nxprocess.conversion_config = config.model_dump_json()
 
         # Validate the azimuthal integrators and independent dimensions
-        nxentry = nxroot[nxroot.default]
-        nxdata = nxentry[nxentry.default]
+        nxdata = nxroot.get_default()
         ais = config.azimuthal_integrators
         if len(ais) > 1:
             raise RuntimeError(
                 'More than one azimuthal integrator not yet implemented')
         if ais[0].id not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxentry.tree}')
+                               f'{ais[0].id} in {nxdata.tree}')
         if not isinstance(nxdata.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
@@ -224,29 +224,17 @@ class GiwaxsConversionProcessor(Processor):
                 plt.close()
 
         # Create the NXdata object with the converted images
-        if False: #RV len(thetas) == 1:
-            nxprocess.data = NXdata(
-                NXfield(np.asarray(giwaxs_data_rect[0]), 'converted'),
-                (NXfield(
-                     q_perp_rect[0], 'q_perp_rect',
-                     attrs={'units': '\u212b$^{-1}$'}),
-                 NXfield(
-                     q_par_rect[0], 'q_par_rect',
-                     attrs={'units': '\u212b$^{-1}$'})))
-            nxprocess.data.theta = NXfield(
-                thetas[0], 'thetas', attrs={'units': 'rad'})
-        else:
-            nxprocess.data = NXdata(
-                NXfield(np.asarray(giwaxs_data_rect), 'converted'),
-                (NXfield(
-                     thetas, 'thetas', attrs={'units': 'rad'}),
-                 NXfield(
-                     q_perp_rect, 'q_perp_rect',
-                     attrs={'units': '\u212b$^{-1}$'}),
-                 NXfield(
-                     q_par_rect, 'q_par_rect',
-                     attrs={'units': '\u212b$^{-1}$'})))
-        nxprocess.default = 'data'
+        nxprocess.data = NXdata(
+            NXfield(
+                np.asarray(giwaxs_data_rect), f'{ais[0].id}_converted'),
+            (thetas,
+             NXfield(
+                 q_perp_rect, 'q_perp_rect',
+                 attrs={'units': '\u212b$^{-1}$'}),
+             NXfield(
+                 q_par_rect, 'q_par_rect',
+                 attrs={'units': '\u212b$^{-1}$'})))
+        nxprocess.attrs['default'] = 'data'
 
         return nxroot
 
@@ -567,6 +555,7 @@ class PyfaiIntegrationProcessor(Processor):
         from pyFAI.gui.utils.units import Unit
 
         # Local imports
+        from CHAP.common.map_utils import get_axes
         from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=100000)
@@ -595,7 +584,6 @@ class PyfaiIntegrationProcessor(Processor):
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
         data = {}
-        independent_dims = {}
         try:
             nxprocess_converted = nxroot[f'{nxroot.default}_converted']
             conversion_config = loads(
@@ -610,8 +598,8 @@ class PyfaiIntegrationProcessor(Processor):
                     AzimuthalIntegratorConfig,
                 )
 
-                config.azimuthal_integrators = [AzimuthalIntegratorConfig(
-                    **converted_ais[0])]
+                config.azimuthal_integrators = [
+                    AzimuthalIntegratorConfig(**converted_ais[0])]
             else:
                 converted_ids = [ai['id'] for ai in converted_ais]
                 skipped_detectors = []
@@ -629,28 +617,28 @@ class PyfaiIntegrationProcessor(Processor):
                     raise RuntimeError(
                         'No matching azimuthal integrators found')
                 config.azimuthal_integrators = ais
-            nxdata = nxprocess_converted.data
-            axes = nxdata.attrs['axes']
-            if len(nxdata.attrs['axes']) != 3:
+            try:
+                nxdata = nxprocess_converted.get_default()
+                data[config.azimuthal_integrators[0].id] = np.flip(
+                    nxdata.nxsignal.nxdata, axis=1)
+            except Exception as exc:
+                raise RuntimeError('No default converted data found')
+            if not axes:
+                raise RuntimeError('No axes found')
+            elif len(axes) != 3:
                 raise RuntimeError('More than one independent dimension '
-                                   'not yet implemented')
-            axes = axes[0]
-            independent_dims[config.azimuthal_integrators[0].id] = \
-                nxcopy(nxdata[axes])
-            data[config.azimuthal_integrators[0].id] = np.flip(
-                nxdata.converted.nxdata, axis=1)
-        except:
+                                   'not yet tested/implemented')
+        except Exception as exc:
             experiment_type = loads(
                 str(nxroot[nxroot.default].map_config))['experiment_type']
             if experiment_type == 'GIWAXS':
                 self.logger.warning(
                     'No converted data found, use raw data for integration')
-            nxentry = nxroot[nxroot.default]
             if config.azimuthal_integrators is None:
                 raise ValueError(
                     'Missing azimuthal_integrators parameter in '
                     f'PyfaiIntegrationProcessor.config ({config})')
-            nxdata = nxentry[nxentry.default]
+            nxdata = nxroot.get_default()
             skipped_detectors = []
             ais = []
             for ai in config.azimuthal_integrators:
@@ -660,7 +648,7 @@ class PyfaiIntegrationProcessor(Processor):
                             'Inconsistent raw data dimension '
                             f'{nxdata[ai.id].ndim}')
                     ais.append(ai)
-                    data[ai.id] = nxdata[ai.id]
+                    data[ai.id] = nxdata[ai.id].nxdata
                 else:
                     skipped_detectors.append(ai.id)
             if skipped_detectors:
@@ -669,24 +657,21 @@ class PyfaiIntegrationProcessor(Processor):
             if not ais:
                 raise RuntimeError('No matching raw detector data found')
             config.azimuthal_integrators = ais
-            if 'unstructured_axes' in nxdata.attrs:
-                axes = nxdata.attrs['unstructured_axes']
-                independent_dims[ais[0].id] = [nxcopy(nxdata[a]) for a in axes]
-            elif 'axes' in nxdata.attrs:
-                axes = nxdata.attrs['axes']
-                independent_dims[ais[0].id] = nxcopy(nxdata[axes])
-            else:
-                self.logger.warning('Unable to find independent_dimensions')
+            axes = get_axes(nxdata)
+            if not axes:
+                raise RuntimeError('No axes found')
+            elif len(axes) != 1:
+                raise RuntimeError('More than one independent dimension '
+                                   'not yet tested/implemented')
 
         # Select the images to integrate
         if False and config.scan_step_indices is not None:
             #FIX
-            independent_dims = independent_dims[config.scan_step_indices]
             data = data[config.scan_step_indices]
         self.logger.debug(
             f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
         if config.sum_axes:
-            data = {k:np.sum(v.nxdata, axis=0)[None,:,:]
+            data = {k:np.sum(v, axis=0)[None,:,:]
                     for k, v in data.items()}
             self.logger.debug('data shape(s) after summing: '
                               f'{[(k, v.shape) for k, v in data.items()]}')
@@ -712,20 +697,18 @@ class PyfaiIntegrationProcessor(Processor):
 
             # Create the NXdata object with the integrated data
             intensities = results['intensities']
-            if config.sum_axes:
-                raise NotImplementedError('sum_axes needs testing')
-            coords = []
-            for k, v in results['coords'].items():
+            coords = [] if config.sum_axes else [nxdata[axes[0]]]
+            for i, (k, v) in enumerate(results['coords'].items()):
                 if k.startswith('chi') and integration.right_handed:
                     values = -np.flip(v['data'])
-                    intensities = np.flip(intensities, (len(coords)))
+                    intensities = np.flip(intensities, i)
                 else:
                     values = v['data']
+                axes.append(k)
                 coords.append(NXfield(values, k, attrs=v['attributes']))
             nxdata = NXdata(NXfield(intensities, 'I'), tuple(coords))
-            if not isinstance(axes, str):
-                nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
-                del nxdata.attrs['axes']
+            if config.sum_axes:
+                del nxdata.attrs['signal']
             nxprocess.data = nxdata
             nxprocess.default = 'data'
 

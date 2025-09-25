@@ -9,7 +9,8 @@ from CHAP.common import ExpressionProcessor
 
 class FluxCorrectionProcessor(ExpressionProcessor):
     """Processor for flux correction."""
-    def process(self, data, presample_intensity_reference_rate=None, nxprocess=False):
+    def process(self, data, presample_intensity_reference_rate=None,
+            nxprocess=False):
         """Given input data for `'intensity'`,
         `'presample_intensity'`, and `'dwell_time_actual'`, return
         flux corrected intensity signal.
