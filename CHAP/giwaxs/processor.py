@@ -23,7 +23,7 @@ class GiwaxsConversionProcessor(Processor):
     """
     def process(
             self, data, config, save_figures=False, interactive=False,
-            inputdir='.', outputdir='.'):
+            inputdir='.'):
         """Process the GIWAXS input images & configuration and returns
         a map of the images in rectangular coordinates as a
         `nexusformat.nexus.NXroot` object.
@@ -44,9 +44,6 @@ class GiwaxsConversionProcessor(Processor):
             input configuration are not absolute paths,
             defaults to `'.'`.
         :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -55,6 +52,9 @@ class GiwaxsConversionProcessor(Processor):
             NXentry,
             NXroot,
         )
+
+        self._interactive = interactive
+        self._save_figures = save_figures
 
         # Load the detector data
         try:
@@ -77,39 +77,31 @@ class GiwaxsConversionProcessor(Processor):
             data=data, config=config, inputdir=inputdir,
             schema='giwaxs.models.GiwaxsConversionConfig')
 
-        return self.convert_q_rect(
-            nxroot, giwaxs_config, save_figures=save_figures,
-            interactive=interactive, outputdir=outputdir)
+        return self.convert_q_rect(nxroot, giwaxs_config)
 
-    def convert_q_rect(
-            self, nxroot, config, save_figures=False, interactive=False,
-            outputdir='.'):
+    def convert_q_rect(self, nxroot, config):
         """Return NXroot containing the converted GIWAXS images.
 
         :param nxroot: GIWAXS map with the raw detector data.
         :type nxroot: nexusformat.nexus.NXroot
         :param config: GIWAXS conversion configuration.
         :type config: CHAP.giwaxs.models.GiwaxsConversionConfig
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        if interactive or save_figures:
+        if self._interactive or self._save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
             NXdata,
             NXfield,
             NXprocess,
         )
+
+        # Local modules
+        if self._save_figures:
+            from CHAP.pipeline import PipelineData
+            from CHAP.utils.general import fig_to_iobuf
 
         # Add the NXprocess object to the NXroot
         nxprocess = NXprocess()
@@ -168,10 +160,12 @@ class GiwaxsConversionProcessor(Processor):
             q_par[q_perp_min_index,:].max(), image_dims[1])
         q_perp_rect = np.linspace(
             q_perp.min(), q_perp.max(), image_dims[0])
+        figures = []
         giwaxs_data_rect = []
 #        q_par_rect = []
 #        q_perp_rect = []
-        for i in range(len(thetas)):
+        num_digit = len(str(len(thetas)))
+        for i, theta in enumerate(thetas):
 #            q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
 #            q_par_rect.append(np.linspace(
 #                q_par[i,q_perp_min_index,:].min(),
@@ -187,9 +181,12 @@ class GiwaxsConversionProcessor(Processor):
                     giwaxs_data[i], q_par, q_perp, q_par_rect,
                     q_perp_rect))
 
-            if interactive or save_figures:
+            if self._interactive or self._save_figures:
                 vmax = giwaxs_data[i].max()/10
                 fig, ax = plt.subplots(1,2, figsize=(10, 5))
+                fig.suptitle(
+                    f'Detector {ais[0].id}: 'r'$\theta$'f' = {theta}')
+                # Right plot: imaged transformed to rectangular coords
                 ax[1].imshow(
                     giwaxs_data_rect[i],
                     vmin=0, vmax=vmax,
@@ -200,6 +197,7 @@ class GiwaxsConversionProcessor(Processor):
                 ax[1].set_title('Transformed Image')
                 ax[1].set_xlabel(r'q$_\parallel$'+' [\u212b$^{-1}$]')
                 ax[1].set_ylabel(r'q$_\perp$'+' [\u212b$^{-1}$]')
+                # Left plot: raw image
                 im = ax[0].imshow(giwaxs_data[i], vmin=0, vmax=vmax)
                 ax[0].set_aspect('equal')
                 lhs = ax[0].get_position().extents
@@ -212,16 +210,37 @@ class GiwaxsConversionProcessor(Processor):
                 fig.subplots_adjust(right=0.85)
                 cbar_ax = fig.add_axes([0.9, 0.15, 0.025, 0.7])
                 fig.colorbar(im, cax=cbar_ax)
-                if interactive:
-                    plt.show()
-                if save_figures:
+
+                if self._save_figures:
                     if config.scan_step_indices is None:
-                        fig.savefig(os.path.join(outputdir, 'converted'))
+                        index = str(i)
                     else:
-                        fig.savefig(os.path.join(
-                            outputdir,
-                            f'converted_{config.scan_step_indices[i]}'))
+                        index = str(config.scan_step_indices[i])
+                    figures.append((
+                        fig_to_iobuf(fig),
+                        f'{ais[0].id}_converted_{index.zfill(num_digit)}'))
+                if self._interactive:
+                    plt.show()
                 plt.close()
+
+        # Create an animation of the figures
+        animation = []
+        if self._save_figures and not config.skip_animation:
+            # Third party modules
+            from matplotlib.animation import ArtistAnimation
+
+            frames = []
+            for (buf, _), _ in figures:
+                buf.seek(0)
+                frame = plt.imread(buf)
+                im = plt.imshow(frame, animated=True)
+                if not i:
+                    plt.imshow(frame)
+                frames.append([im])
+
+            ani = ArtistAnimation(
+                 plt.gcf(), frames, interval=1000, blit=False, repeat=False)
+            animation.append(((ani, 'gif'), f'{ais[0].id}_converted'))
 
         # Create the NXdata object with the converted images
         nxprocess.data = NXdata(
@@ -236,6 +255,21 @@ class GiwaxsConversionProcessor(Processor):
                  attrs={'units': '\u212b$^{-1}$'})))
         nxprocess.attrs['default'] = 'data'
 
+        if self._save_figures:
+            if animation:
+                return (
+                    nxroot,
+                    PipelineData(
+                        name=self.__name__, data=figures,
+                        schema='common.write.ImageWriter'),
+                    PipelineData(
+                        name=self.__name__, data=animation,
+                        schema='common.write.ImageWriter'))
+            return (
+                nxroot,
+                PipelineData(
+                    name=self.__name__, data=figures,
+                    schema='common.write.ImageWriter'))
         return nxroot
 
     @staticmethod
