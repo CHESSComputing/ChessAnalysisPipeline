@@ -180,7 +180,7 @@ class EddMapReader(Reader):
                 'data_type': 'scan_column'},
             'attrs': attrs,
         }
-        MapConfig(**map_config_dict)
+        map_config_dict = MapConfig(**map_config_dict)
 
         # Add lab coordinates to the map's scalar_data only if they
         # are NOT already one of the sqeezed map's
@@ -200,16 +200,11 @@ class EddMapReader(Reader):
                 scalar_data.append(dim)
 
         # Convert list of scan_numbers to string notation
-        scan_numbers = map_config_dict['spec_scans'][0]['scan_numbers']
-        map_config_dict['spec_scans'][0]['scan_numbers'] = list_to_string(
+        scan_numbers = map_config_dict.spec_scans[0].scan_numbers
+        map_config_dict.spec_scans[0].scan_numbers = list_to_string(
             scan_numbers)
 
-        # For now overrule the map type to be always unstructured
-        # Later take out the option of structured entirely from
-        # MapConfig
-        map_config_dict['map_type'] = 'unstructured'
-
-        return map_config_dict
+        return map_config_dict.model_dump()
 
 
 class EddMPIMapReader(Reader):

@@ -359,8 +359,8 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            interactive=False, save_figures=False):
+            self, data, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6,
+            max_iter=20, interactive=False, save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
@@ -370,6 +370,9 @@ class ConstructBaseline(Processor):
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
+        :param spans: List of index ranges for selecting the data to be
+            included in baseline construction.
+        :type spans: list[[int, int]], optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
@@ -396,13 +399,15 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x, mask, tol, lam, max_iter, interactive=interactive,
+            data, x=x, mask=mask, spans=spans, tol=tol, lam=lam,
+            max_iter=max_iter, interactive=interactive,
             return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
-            y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-            xlabel=None, ylabel=None, interactive=False, return_buf=False):
+            y, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            title=None, xlabel=None, ylabel=None, interactive=False,
+            return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -414,6 +419,9 @@ class ConstructBaseline(Processor):
            construction.
         :type mask: array-like, optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :param spans: List of index ranges for selecting the data to be
+            included in baseline construction.
+        :type spans: list[[int, int]], optional
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
             between the residual of the data and the baseline and the
@@ -480,9 +488,9 @@ class ConstructBaseline(Processor):
             else:
                 lambdas.pop()
                 lambdas.append(10**lam)
-                baseline, _, _, num_iter, error = baseline_arPLS(
-                    y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter,
-                    full_output=True)
+                baseline, _, _, num_iter, error = get_baseline(
+                    y, mask=mask, spans=spans, tol=tol, lam=lambdas[-1],
+                    max_iter=max_iter)
                 num_iters.pop()
                 num_iters.append(num_iter)
                 errors.pop()
@@ -497,9 +505,9 @@ class ConstructBaseline(Processor):
 
         def continue_iter(event):
             """Callback function for the "Continue" button."""
-            baseline, _, w, n_iter, error = baseline_arPLS(
-                y, mask=mask, w=weights[-1], tol=tol, lam=lambdas[-1],
-                max_iter=max_iter, full_output=True)
+            baseline, _, w, n_iter, error = get_baseline(
+                y, mask=mask, spans=spans, w=weights[-1], tol=tol,
+                lam=lambdas[-1], max_iter=max_iter)
             num_iters[-1] += n_iter
             errors.pop()
             errors.append(error)
@@ -516,9 +524,16 @@ class ConstructBaseline(Processor):
             """Callback function for the "Confirm" button."""
             plt.close()
 
-        baseline, _, w, num_iter, error = baseline_arPLS(
-            y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
-            full_output=True)
+        def get_baseline(
+                y, mask=None, spans=None, w=None, tol=1.e-6, lam=1.6,
+                max_iter=20, full_output=True):
+            """Get a baseline."""
+            return baseline_arPLS(
+                y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+                full_output=True)
+
+        baseline, _, w, num_iter, error = get_baseline(
+            y, mask=mask, spans=spans, tol=tol, lam=lam, max_iter=max_iter)
 
         if not interactive and not return_buf:
             config = {
