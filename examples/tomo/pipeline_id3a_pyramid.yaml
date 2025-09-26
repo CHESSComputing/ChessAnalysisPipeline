@@ -39,61 +39,51 @@ pipeline:
       detectors:
         - id: sim
       schema: tomofields
-#  - common.NexusWriter:
-#      filename: map_hollow_pyramid.nxs
-#      force_overwrite: true
-  - pipeline.MultiplePipelineItem:
-      items:
-#        - common.NexusReader:
-#            filename: map_hollow_pyramid.nxs
-#            schema: tomofields
-        - common.SpecReader:
-            config:
-              station: id3a
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: ../data/hollow_pyramid/spec.log
-                scan_numbers:
-                - 1
-            detectors:
-              - id: sim
-            schema: darkfield
-        - common.SpecReader:
-            inputdir: ../data/hollow_pyramid
-            config:
-              station: id3a
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: spec.log
-                scan_numbers:
-                - 2
-            detectors:
-              - id: sim
-            schema: brightfield
-        - common.YAMLReader:
-            filename: detector_pyramid.yaml
-            schema: tomo.models.Detector
+  - common.SpecReader:
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: ../data/hollow_pyramid/spec.log
+          scan_numbers:
+          - 1
+      detectors:
+        - id: sim
+      schema: darkfield
+  - common.SpecReader:
+      inputdir: ../data/hollow_pyramid
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: spec.log
+          scan_numbers:
+          - 2
+      detectors:
+        - id: sim
+      schema: brightfield
+  - common.YAMLReader:
+      filename: detector_pyramid.yaml
+      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-  - common.NexusWriter:
-      filename: chess_map_hollow_pyramid.nxs
-      force_overwrite: true
+#  - common.NexusWriter:
+#      filename: chess_map_hollow_pyramid.nxs
+#      force_overwrite: true
 
 recon:
 
   # Full tomography reconstruction
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.NexusReader:
-            filename: chess_map_hollow_pyramid.nxs
-        - common.YAMLReader:
-            filename: find_center_id3a.yaml
-            schema: tomo.models.TomoFindCenterConfig
-        - common.YAMLReader:
-            filename: reconstruct_data.yaml
-            schema: tomo.models.TomoReconstructConfig
-        - common.YAMLReader:
-            filename: combine_data_id3a.yaml
-            schema: tomo.models.TomoCombineConfig
+#  - common.NexusReader:
+#      filename: chess_map_hollow_pyramid.nxs
+  - common.YAMLReader:
+      filename: find_center_id3a.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - common.YAMLReader:
+      filename: reconstruct_data.yaml
+      schema: tomo.models.TomoReconstructConfig
+  - common.YAMLReader:
+      filename: combine_data_id3a.yaml
+      schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:
       reduce_data: true
       save_figures: true
@@ -103,8 +93,8 @@ recon:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
-  - foxden.FoxdenMetadataWriter:
-      url: 'https://foxden-demo.classe.cornell.edu:8300'
-  - foxden.FoxdenProvenanceProcessor
-  - foxden.FoxdenProvenanceWriter:
-      url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
