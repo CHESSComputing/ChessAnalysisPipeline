@@ -41,9 +41,12 @@ def environments():
         conda_env_name = os.getenv("CONDA_DEFAULT_ENV", "unknown-conda-env")
         try:
             # Fetch Conda packages
-            conda_packages = subprocess.check_output(["conda", "list", "--json"], text=True)
+            conda_packages = subprocess.check_output(
+                ["conda", "list", "--json"], text=True)
             conda_packages = json.loads(conda_packages)
-            packages = [{"name": pkg["name"], "version": pkg["version"]} for pkg in conda_packages]
+            packages = [
+                {"name": pkg["name"], "version": pkg["version"]}
+                for pkg in conda_packages]
         except Exception:
             packages = []
 
@@ -53,7 +56,7 @@ def environments():
             "details": "Conda environment",
             "parent_environment": None,
             "os_name": os_name,
-            "packages": packages[:5]+['... plus many more'] #RV FIX
+            "packages": packages, #[:5]+[{'name': 'many_more', 'version': '0.0'}] #RV FIX
         })
 
     # Check for Virtualenv (excluding Conda)

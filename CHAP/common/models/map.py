@@ -164,7 +164,7 @@ class SpecScans(CHAPBaseModel):
                         f'No scan number {scan_number} in {spec_file}')
         return scan_numbers
 
-    @field_validator('par_file')
+    @field_validator('par_file', mode='before')
     @classmethod
     def validate_par_file(cls, par_file):
         """Validate the specified SMB par file.
@@ -176,7 +176,7 @@ class SpecScans(CHAPBaseModel):
         :rtype: str
         """
         if par_file is None or not par_file:
-            return ''
+            return None
         par_file = os.path.abspath(par_file)
         if not os.path.isfile(par_file):
             raise ValueError(f'Invalid SMB par file {par_file}')
@@ -199,10 +199,10 @@ class SpecScans(CHAPBaseModel):
         :return: `ScanParser` for the specified scan number.
         :rtype: ScanParser
         """
-        if self.par_file:
-            return get_scanparser(
-                self.spec_file, scan_number, par_file=self.par_file)
-        return get_scanparser(self.spec_file, scan_number)
+        if self.par_file is None:
+            return get_scanparser(self.spec_file, scan_number)
+        return get_scanparser(
+            self.spec_file, scan_number, par_file=self.par_file)
 
     def get_index(self, scan_number, scan_step_index, map_config):
         """Return a tuple representing the index of a specific step in
@@ -954,24 +954,35 @@ class MapConfig(CHAPBaseModel):
         if 'spec_file' in data and 'scan_numbers' in data:
             spec_file = data.pop('spec_file')
             scan_numbers = data.pop('scan_numbers')
+            if 'par_file' in data:
+                par_file = data.pop('par_file')
+            else:
+                par_file = None
             if 'spec_scans' in data:
                 raise ValueError(
                     f'Ambiguous SPEC scan information: spec_file={spec_file},'
                     f' scan_numbers={scan_numbers}, and '
                     f'spec_scans={data["spec_scans"]}')
-            data['spec_scans'] = [
-                {'spec_file': spec_file, 'scan_numbers': scan_numbers}]
+            if par_file is None:
+                data['spec_scans'] = [
+                    {'spec_file': spec_file, 'scan_numbers': scan_numbers}]
+            else:
+                data['spec_scans'] = [
+                    {'spec_file': spec_file, 'scan_numbers': scan_numbers,
+                     'par_file': par_file}]
         else:
             inputdir = data.get('inputdir')
-            if inputdir is not None:
-                spec_scans = data.get('spec_scans')
-                for i, scans in enumerate(deepcopy(spec_scans)):
-                    spec_file = scans['spec_file']
-                    if not os.path.isabs(spec_file):
-                        spec_scans[i]['spec_file'] = os.path.join(
-                            inputdir, spec_file)
-                    spec_scans[i] = SpecScans(**spec_scans[i], **data)
-                data['spec_scans'] = spec_scans
+            spec_scans = data.get('spec_scans')
+            for i, scans in enumerate(deepcopy(spec_scans)):
+                if isinstance(scans, SpecScans):
+                    scans = scans.model_dump()
+                spec_file = scans['spec_file']
+                if inputdir is not None and not os.path.isabs(spec_file):
+                    spec_scans[i]['spec_file'] = os.path.join(
+                        inputdir, spec_file)
+            if 'spec_scans' in data:
+                spec_scans[i] = SpecScans(**scans, **data)
+            data['spec_scans'] = spec_scans
         return data
 
     @field_validator('experiment_type')
