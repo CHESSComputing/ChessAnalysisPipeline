@@ -3,28 +3,26 @@ config:
   inputdir: config
   outputdir: data/hollow_brick
   interactive: true
-  log_level: INFO
+  log_level: info
   profile: false
 
 pipeline:
 
-  - pipeline.MultiplePipelineItem:
-      items:
-        # Create a simulated stack of tomography images
-        - common.YAMLReader:
-            filename: tomo_sim_id3a_brick.yaml
-            schema: tomo.models.TomoSimConfig
-        - tomo.TomoSimFieldProcessor:
-            schema: tomo.models.TomoSimField
-        # Create the dark field for the simulation
-        - tomo.TomoDarkFieldProcessor:
-            schema: tomo.models.TomoDarkField
-        # Create the bright field for the simulation
-        - tomo.TomoBrightFieldProcessor:
-            schema: tomo.models.TomoBrightField
-            num_image: 10
-        # Create the SPEC file for the simulation
-        - tomo.TomoSpecProcessor:
-            scan_numbers: [1, 2, 3, 4, 5]
-        - common.FileTreeWriter:
-            force_overwrite: true
+  # Create a simulated stack of tomography images
+  - common.YAMLReader:
+      filename: tomo_sim_id3a_brick.yaml
+      schema: tomo.models.TomoSimConfig
+  - tomo.TomoSimFieldProcessor:
+      schema: tomo.models.TomoSimField
+  # Create the dark field for the simulation
+  - tomo.TomoDarkFieldProcessor:
+      schema: tomo.models.TomoDarkField
+  # Create the bright field for the simulation
+  - tomo.TomoBrightFieldProcessor:
+      schema: tomo.models.TomoBrightField
+      num_image: 10
+  # Create the SPEC file for the simulation
+  - tomo.TomoSpecProcessor:
+      scan_numbers: [1, 2, 3, 4, 5]
+  - common.FileTreeWriter:
+      force_overwrite: true

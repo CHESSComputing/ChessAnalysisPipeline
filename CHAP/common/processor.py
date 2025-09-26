@@ -2379,7 +2379,6 @@ class PrintProcessor(Processor):
         :return: `data`
         :rtype: object
         """
-        print(f'\n{self.__name__} data:')
         if callable(getattr(data, '_str_tree', None)):
             # If data is likely a NeXus NXobject, print its tree
             # representation (since NXobjects' str representations are
@@ -2388,11 +2387,9 @@ class PrintProcessor(Processor):
         else:
             # System modules
             from pprint import pprint
-            try:
-                pprint(data)
-                print('')
-            except:
-                print(f'{str(data)}\n')
+
+            pprint(data)
+
         return data
 
 
