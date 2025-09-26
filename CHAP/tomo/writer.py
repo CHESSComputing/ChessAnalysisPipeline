@@ -51,7 +51,7 @@ class TomoWriter(Writer):
         did = metadata['did']
         provenance = {
             'did': did,
-            'input_files': [{'name': 'todo.fix'}],
+            'input_files': [{'name': 'todo.fix: pipeline.yaml'}],
             'output_files': [{'name': os_path.realpath(filename)}],
         }
         data.append(PipelineData(
