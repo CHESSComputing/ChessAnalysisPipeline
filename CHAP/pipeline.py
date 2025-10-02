@@ -27,24 +27,49 @@ class Pipeline():
         """
         self.__name__ = self.__class__.__name__
 
-        self.items = pipeline_items
-        self.kwargs = pipeline_kwargs
+        self._data = []
+        self._items = pipeline_items
+        self._kwargs = pipeline_kwargs
 
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
+
+    def validate(self):
+        """validate API."""
+        t0 = time()
+        self.logger.info('Executing "validate"\n')
+
+        for item, kwargs in zip(self._items, self._kwargs):
+            if hasattr(item, 'validate'):
+                self.logger.info(f'Calling "validate" on {item}')
+                item.validate(**kwargs)
+        self.logger.info(f'Executed "validate" in {time()-t0:.3f} seconds')
 
     def execute(self):
         """execute API."""
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        data = []
-        for item, kwargs in zip(self.items, self.kwargs):
+        for item, kwargs in zip(self._items, self._kwargs):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
-                data = item.execute(data=data, **kwargs)
+                data = item.execute(data=self._data, **kwargs)
+                name = kwargs.get('name', item.__name__)
+                if item.method_type == 'read':
+                    self._data.append(PipelineData(
+                        name=name, data=data, schema=item.schema))
+                elif item.method_type == 'process':
+                    if isinstance(data, tuple):
+                        self._data.extend(
+                            [d if isinstance(d, PipelineData)
+                             else PipelineData(
+                                 name=name, data=d, schema=item.schema)
+                             for d in data])
+                    else:
+                        self._data.append(PipelineData(
+                            name=name, data=data, schema=item.schema))
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
-        return data
+        return self._data
 
 
 class PipelineData(dict):
@@ -60,11 +85,36 @@ class PipelineItem():
     """An object that can be supplied as one of the items
     in `Pipeline.items`.
     """
-    def __init__(self):
+    def __init__(
+            self, inputdir='.', outputdir='.', interactive=False, schema=None):
         """Constructor of PipelineItem class."""
         self.__name__ = self.__class__.__name__
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
+
+        self._inputdir = inputdir
+        self._outputdir = outputdir
+        self._interactive = interactive
+        self._schema = schema
+
+        self._args = {}
+        self._method_type = None
+        if hasattr(self, 'read'):
+            self._method_type = 'read'
+        elif hasattr(self, 'process'):
+            self._method_type = 'process'
+        elif hasattr(self, 'write'):
+            self._method_type = 'write'
+        else:
+            self._method_type = None
+
+    @property
+    def method_type(self):
+        return self._method_type
+
+    @property
+    def schema(self):
+        return self._schema
 
     @staticmethod
     def get_default_nxentry(nxobject):
@@ -129,7 +179,7 @@ class PipelineItem():
         return unwrapped_data
 
     def get_config(
-            self, data=None, config=None, schema='', remove=True, **kwargs):
+            self, data=None, config=None, schema=None, remove=True, **kwargs):
         """Look through `data` for an item whose value for the first
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
@@ -139,14 +189,14 @@ class PipelineItem():
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData], optional
-        :param schema: Name of the `BaseModel` class to match in
-            `data` & return.
-        :type schema: str
         :param config: Initialization parameters for an instance of
             the Pydantic model identified by `schema`, required if
             data is unspecified, invalid or does not contain an item
             that matches the schema.
         :type config: dict, optional
+        :param schema: Name of the `BaseModel` class to match in
+            `data` & return.
+        :type schema: str, optional
         :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -175,7 +225,11 @@ class PipelineItem():
             else:
                 raise ValueError(
                     f'Unable to find a configuration for schema `{schema}`')
+        if self._method_type == 'read':
+            matching_config['inputdir'] = self._inputdir
 
+        if schema is None:
+            raise ValueError(f'Missing schema {type(self)} configuration')
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
         matching_config.update(kwargs)
@@ -198,10 +252,10 @@ class PipelineItem():
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
         :param name: Name of the data item to match in `data` & return.
-        :type name: str
+        :type name: str, optional
         :param schema: Name of the `BaseModel` class to match in
             `data` & return.
-        :type schema: str
+        :type schema: str, optional
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -251,76 +305,79 @@ class PipelineItem():
 
         return result
 
-    def execute(self, data, schema=None, **kwargs):
+    def validate(self, **kwargs):
+        """Validate the appropriate method of the object."""
+        self._method = getattr(self, self._method_type)
+        self._allowed_args = inspect.getfullargspec(self._method).args +\
+                             inspect.getfullargspec(self._method).kwonlyargs
+        if self._method_type == 'read':
+            if 'inputdir' in self._allowed_args:
+                self._args['inputdir'] = self._inputdir
+            if 'filename' in kwargs:
+                filename = kwargs.pop('filename')
+                newfilename = os.path.normpath(os.path.realpath(
+                    os.path.join(self._inputdir, filename)))
+                if (not os.path.isfile(newfilename)
+                        and not os.path.dirname(filename)):
+                    self.logger.warning(
+                        f'Unable to find {filename} in {self._inputdir}, '
+                        f' looking in {self._outputdir}')
+                    newfilename = os.path.normpath(os.path.realpath(
+                        os.path.join(self._outputdir, filename)))
+                kwargs['filename'] = newfilename
+        elif self._method_type == 'write':
+            if 'filename' in kwargs:
+                filename = os.path.normpath(os.path.realpath(
+                    os.path.join(self._outputdir, kwargs['filename'])))
+                if (not kwargs.get('force_overwrite', False)
+                        and os.path.isfile(filename)):
+                    raise ValueError(
+                        'Writing to an existing file without overwrite '
+                        f'permission. Remove {filename} or set '
+                        '"force_overwrite" in the pipeline configuration for '
+                        f'{self.__name__}')
+                kwargs['filename'] = filename
+            elif 'filename' in self._allowed_args:
+                raise ValueError(
+                    'Missing parameter "filename" in pipeline configuration '
+                    f'for {self.__name__}')
+
+        elif self._method_type != 'process':
+            self.logger.error('No implementation of read, process, or write')
+            return
+        if 'schema' in self._allowed_args:
+            self._args['schema'] = self._schema
+        for k, v in kwargs.items():
+            if k in self._allowed_args:
+                self._args[k] = v
+
+        #if self._method_type != 'process':
+        if self._method_type == 'read':
+            self.logger.debug(f'Validating "{self._method_type}" with schema '
+                              f'"{self._schema}" and {self._args}')
+            self.logger.info(f'Validating "{self._method_type}"')
+            self._method(**self._args)
+
+
+    def execute(self, data, **kwargs):
         """Run the appropriate method of the object and return the
         result.
 
-        :param schema: The name of a schema associated with the data
-            that will be returned.
-        :type schema: str
-        :param kwargs: A dictionary of any positional and keyword
-            arguments to supply to the read, process, or write method.
-        :type kwargs: dict
+        :param data: Input data.
+        :type data: list[PipelineData]
         :return: The wrapped result of running read, process, or write.
-        :rtype: list[PipelineData]
+        :rtype: Union[PipelineData, tuple[PipelineData]]
         """
-        if hasattr(self, 'read'):
-            method_name = 'read'
-            inputdir = kwargs.get('inputdir')
-            if 'filename' in kwargs:
-                filename = kwargs['filename']
-                newfilename = os.path.normpath(os.path.realpath(
-                    os.path.join(inputdir, filename)))
-                if (not os.path.isfile(newfilename)
-                        and not os.path.dirname(filename)):
-                    outputdir = kwargs.get('outputdir')
-                    self.logger.warning(
-                        f'Unable to find {filename} in {inputdir}, '
-                        f' looking in {outputdir}')
-                    newfilename = os.path.normpath(os.path.realpath(
-                        os.path.join(outputdir, filename)))
-                kwargs['filename'] = newfilename
-        elif hasattr(self, 'process'):
-            method_name = 'process'
-        elif hasattr(self, 'write'):
-            method_name = 'write'
-            outputdir = kwargs.get('outputdir')
-            if outputdir is not None and 'filename' in kwargs:
-                kwargs['filename'] = os.path.normpath(os.path.realpath(
-                    os.path.join(outputdir, kwargs['filename'])))
-        else:
-            self.logger.error('No implementation of read, process, or write')
-            return None
-
-        method = getattr(self, method_name)
-        allowed_args = inspect.getfullargspec(method).args \
-                       + inspect.getfullargspec(method).kwonlyargs
-        args = {}
-        for k, v in kwargs.items():
-            if k in allowed_args:
-                args[k] = v
-        if 'data' in allowed_args:
-            args['data'] = data
+        if 'data' in self._allowed_args:
+            self._args['data'] = data
 
         t0 = time()
-        self.logger.debug(
-            f'Executing "{method_name}" with schema "{schema}" and {args}')
-        self.logger.info(f'Executing "{method_name}"')
-        ddata = method(**args)
+        self.logger.debug(f'Executing "{self._method_type}" with schema '
+                          f'"{self._schema}" and {self._args}')
+        self.logger.info(f'Executing "{self._method_type}"')
+        data = self._method(**self._args)
         self.logger.info(
-            f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
-
-        name = kwargs.get('name', self.__name__)
-        if method_name == 'read':
-            data.append(PipelineData(name=name, data=ddata, schema=schema))
-            return data
-        elif method_name == 'process':
-            if isinstance(ddata, tuple):
-                data.extend([d if isinstance(d, PipelineData)
-                         else PipelineData(name=name, data=d, schema=schema)
-                         for d in ddata])
-            else:
-                data.append(PipelineData(name=name, data=ddata, schema=schema))
+            f'Finished "{self._method}" in {time()-t0:.0f} seconds\n')
         return data
 
 

@@ -346,11 +346,15 @@ def run(
             cls_name = name.split('.')[-1]
             mod_name = '.'.join(name.split('.')[:-1])
             module = __import__(mod_name, fromlist=[cls_name])
-            obj = getattr(module, cls_name)()
         else:
             mod_name, cls_name = name.split('.')
             module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
-            obj = getattr(module, cls_name)()
+        # Initialize the object
+        obj = getattr(module, cls_name)(
+            inputdir=kwargs.pop('inputdir'),
+            outputdir=kwargs.pop('outputdir'),
+            interactive=kwargs.pop('interactive'),
+            schema=kwargs.pop('schema') if 'schema' in kwargs else None)
         obj.logger.setLevel(kwargs.pop('log_level'))
         if log_handler is not None:
             obj.logger.addHandler(log_handler)
@@ -371,6 +375,10 @@ def run(
     if comm is not None:
         comm.barrier()
 
+    # Validate the pipeline configuration
+    pipeline.validate()
+
+    # Execute the pipeline
     result = pipeline.execute()
     if result:
         return result[0]['data']

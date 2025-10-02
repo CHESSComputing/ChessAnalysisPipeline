@@ -922,17 +922,16 @@ class MapProcessor(Processor):
     """
     def process(
             self, data, config=None, detectors=None, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
+            num_proc=1, comm=None):
 
         return self._process(
             data, config=config, detectors=detectors,
-            placeholder_data=placeholder_data, num_proc=num_proc,
-            comm=comm, inputdir=inputdir)
+            placeholder_data=placeholder_data, num_proc=num_proc, comm=comm)
 
 #    @profile
     def _process(
             self, data, config=None, detectors=None, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
+            num_proc=1, comm=None):
         """Process the output of a `Reader` that contains a map
         configuration and returns a NeXus NXentry object representing
         the map.
@@ -957,25 +956,14 @@ class MapProcessor(Processor):
         :type num_proc: int, optional
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths.
-        :type inputdir: str, optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
         import logging
-        from tempfile import NamedTemporaryFile
 
         # Third party modules
         import yaml
-
-        # Local modules
-        from CHAP.runner import RunConfig
-        from CHAP.utils.general import (
-            is_str_series,
-            string_to_list,
-        )
 
         # Check for available metadata
         metadata = {}
@@ -998,7 +986,7 @@ class MapProcessor(Processor):
         # Get the validated map configuration
         map_config = self.get_config(
             data=data, config=config, schema='common.models.map.MapConfig',
-            **metadata, inputdir=inputdir)
+            **metadata)
 
         # Validate the detectors
         try:
@@ -1009,8 +997,7 @@ class MapProcessor(Processor):
         except:
             try:
                 detector_config = self.get_config(
-                    data=data, schema='common.models.map.DetectorConfig',
-                    inputdir=inputdir)
+                    data=data, schema='common.models.map.DetectorConfig')
             except Exception as exc:
                 raise RuntimeError from exc
 
@@ -1053,6 +1040,12 @@ class MapProcessor(Processor):
             common_comm = comm
             offsets = [0]
         else:
+            # System modules
+            from tempfile import NamedTemporaryFile
+
+            # Local modules
+            from CHAP.runner import RunConfig
+
             scans_per_proc = num_scan//num_proc
             num = scans_per_proc
             if num_scan - scans_per_proc*num_proc > 0:
@@ -1720,8 +1713,7 @@ class MPIMapProcessor(Processor):
 
         # Get the validated map configuration
         map_config = self.get_config(
-            data=data, config=config, schema='common.models.map.MapConfig',
-            inputdir=inputdir)
+            data=data, config=config, schema='common.models.map.MapConfig')
 
         # Create the spec reader configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1806,9 +1798,6 @@ class MPISpawnMapProcessor(Processor):
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
-        # System modules
-        from tempfile import NamedTemporaryFile
-
         # Third party modules
         try:
             from mpi4py import MPI
@@ -1881,6 +1870,9 @@ class MPISpawnMapProcessor(Processor):
 
         # Spawn the workers to run the sub-pipeline
         if num_proc > first_proc:
+            # System modules
+            from tempfile import NamedTemporaryFile
+
             tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
                 fp_name = fp.name

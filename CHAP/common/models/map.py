@@ -63,7 +63,7 @@ class Detector(CHAPBaseModel):
     def validate_attrs(cls, attrs):
         """Validate any additional detector configuration attributes.
 
-        :param attrs: Any additional attributes to `DetectorConfig`.
+        :param attrs: Any additional attributes to `Detector`.
         :type attrs: dict
         :raises ValueError: Invalid attribute.
         :return: The validated field for `attrs`.
@@ -971,17 +971,16 @@ class MapConfig(CHAPBaseModel):
                     {'spec_file': spec_file, 'scan_numbers': scan_numbers,
                      'par_file': par_file}]
         else:
-            inputdir = data.get('inputdir')
             spec_scans = data.get('spec_scans')
-            for i, scans in enumerate(deepcopy(spec_scans)):
-                if isinstance(scans, SpecScans):
-                    scans = scans.model_dump()
-                spec_file = scans['spec_file']
-                if inputdir is not None and not os.path.isabs(spec_file):
-                    spec_scans[i]['spec_file'] = os.path.join(
-                        inputdir, spec_file)
             if 'spec_scans' in data:
-                spec_scans[i] = SpecScans(**scans, **data)
+                inputdir = data.get('inputdir')
+                for i, scans in enumerate(deepcopy(spec_scans)):
+                    if isinstance(scans, SpecScans):
+                        scans = scans.model_dump()
+                    spec_file = scans['spec_file']
+                    if inputdir is not None and not os.path.isabs(spec_file):
+                        scans['spec_file'] = os.path.join(inputdir, spec_file)
+                    spec_scans[i] = SpecScans(**scans, **data)
             data['spec_scans'] = spec_scans
         return data
 

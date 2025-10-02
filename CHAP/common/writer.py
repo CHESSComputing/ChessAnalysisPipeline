@@ -46,7 +46,7 @@ def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
         data.savefig(filename, **savefig_kw)
 
 def write_nexus(data, filename, force_overwrite=False):
-    """Write a Nexus object to file.
+    """Write a NeXus object to file.
 
     :param data: The data to write to file
     :type data: nexusformat.nexus.NXobject
@@ -370,6 +370,7 @@ class ImageWriter(Writer):
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
+        exit('\n\nFix ImageWriter for outputdir')
         try:
             ddata = self.get_data(
                 data, schema='common.write.ImageWriter', remove=remove)
@@ -514,8 +515,8 @@ class NexusWriter(Writer):
         nxname = nxobject.nxname
         if not os_path.isfile(filename) and nxpath is not None:
             self.logger.warning(
-                f'{filename} does not yet exist. Argument for nxpath '
-                '({nxpath}) will be ignored.')
+                f'{filename} does not yet exist, ignoring nxpath '
+                f'argument ({nxpath})')
             nxpath = None
         if nxpath is None:
             nxclass = nxobject.nxclass

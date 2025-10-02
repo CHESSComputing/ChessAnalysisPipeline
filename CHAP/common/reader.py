@@ -2,7 +2,7 @@
 """
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Writers used in multiple experiment-specific
+Description: Module for Readers used in multiple experiment-specific
              workflows.
 """
 
@@ -35,6 +35,27 @@ class BinaryFileReader(Reader):
         with open(filename, 'rb') as file:
             data = file.read()
         return data
+
+
+class ConfigReader(Reader):
+    """Reader for YAML files that optionally implements and verifies a
+    Pydantic configuration for a given schema."""
+    def read(self, filename, schema=None):
+        """Return an optionally verified dictionary from the contents
+        of a yaml file.
+
+        :param filename: YAML file name to read from.
+        :type filename: str
+        :param schema: Pydantic class schema name to verify the
+            configuration against, skip verification if not supplied.
+        :type schema: str, optional
+        :return: The (verified) contents of the yaml file.
+        :rtype: dict
+        """
+        data = YAMLReader.read(filename)
+        if schema is None:
+            return data
+        return self.get_config(config=data, schema=schema).model_dump()
 
 
 class FabioImageReader(Reader):
@@ -93,7 +114,7 @@ class LinkamReader(Reader):
     """Reader for loading Linkam load frame .txt files as an
     `NXdata`.
     """
-    def read(self, filename, columns=None, inputdir=None):
+    def read(self, filename, columns=None):
         """Read specified columns from the given Linkam file.
 
         :param filename: Name of Linkam .txt file
@@ -239,9 +260,7 @@ class LinkamReader(Reader):
 
 class MapReader(Reader):
     """Reader for CHESS sample maps."""
-    def read(
-            self, filename=None, map_config=None, detector_names=None,
-            inputdir=None):
+    def read(self, filename=None, map_config=None, detector_names=None):
         """Take a map configuration dictionary and return a
         representation of the map as a NeXus NXentry object. The
         NXentry's default data group will contain the raw data
@@ -257,10 +276,6 @@ class MapReader(Reader):
         :param detector_names: Detector prefixes to include raw data
             for in the returned NeXus NXentry object.
         :type detector_names: list[str], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
         :return: Data from the provided map configuration.
         :rtype: nexusformat.nexus.NXentry
         """
@@ -298,7 +313,8 @@ class MapReader(Reader):
 
         # Validate the map configuration provided by constructing a
         # MapConfig
-        map_config = MapConfig(**map_config, inputdir=inputdir)
+        map_config = self.get_config(
+            config=map_config, schema='common.models.map.MapConfig')
 
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
@@ -378,10 +394,10 @@ class NexusReader(Reader):
     def read(self, filename, nxpath='/', nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
-        :param filename: The name of the NeXus file to read from.
+        :param filename: NeXus file name to read from.
         :type filename: str
-        :param nxpath: The path to a specific location in the NeXus
-            file tree to read from, defaults to `'/'`.
+        :param nxpath: Path to a specific location in the NeXus file
+            tree to read from, defaults to `'/'`.
         :type nxpath: str, optional
         :raises nexusformat.nexus.NeXusError: If `filename` is not a
             NeXus file or `nxpath` is not in its tree.
@@ -546,11 +562,9 @@ class NXfieldReader(Reader):
 
 class SpecReader(Reader):
     """Reader for CHESS SPEC scans."""
-    def read(
-            self, filename=None, config=None, detectors=None,
-            inputdir=None):
+    def read(self, filename=None, config=None, detectors=None):
         """Take a SPEC configuration filename or dictionary and return
-        the raw data as a Nexus NXentry object.
+        the raw data as a NeXus NXentry object.
 
         :param filename: The name of file with the SPEC configuration
             to read from to pass onto the constructor of
@@ -564,10 +578,6 @@ class SpecReader(Reader):
             defaults to None (only a valid input for EDD).
         :type detectors: CHAP.common.models.map.DetectorConfig,
             optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
         :return: The data from the provided SPEC configuration.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -606,9 +616,9 @@ class SpecReader(Reader):
             raise RuntimeError('Invalid parameter config in '
                                f'common.SpecReader ({config})')
 
-        # Validate the SPEC configuration provided by constructing a
-        # SpecConfig
-        config = SpecConfig(**config, inputdir=inputdir)
+        # Get the validated SPEC configuration
+        config = self.get_config(
+            config=config, schema='common.models.map.SpecConfig')
 
         # Validate the detector configuration
         if detectors is None:
@@ -745,7 +755,8 @@ class URLReader(Reader):
 
 class YAMLReader(Reader):
     """Reader for YAML files."""
-    def read(self, filename):
+    @classmethod
+    def read(cls, filename):
         """Return a dictionary from the contents of a yaml file.
 
         :param filename: The name of the YAML file to read from.
