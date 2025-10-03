@@ -54,20 +54,19 @@ class Pipeline():
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
                 data = item.execute(data=self._data, **kwargs)
-                name = kwargs.get('name', item.__name__)
                 if item.method_type == 'read':
                     self._data.append(PipelineData(
-                        name=name, data=data, schema=item.schema))
+                        name=item.name, data=data, schema=item.schema))
                 elif item.method_type == 'process':
                     if isinstance(data, tuple):
                         self._data.extend(
                             [d if isinstance(d, PipelineData)
                              else PipelineData(
-                                 name=name, data=d, schema=item.schema)
+                                 name=item.name, data=d, schema=item.schema)
                              for d in data])
                     else:
                         self._data.append(PipelineData(
-                            name=name, data=data, schema=item.schema))
+                            name=item.name, data=data, schema=item.schema))
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
         return self._data
 
@@ -86,9 +85,10 @@ class PipelineItem():
     in `Pipeline.items`.
     """
     def __init__(
-            self, inputdir='.', outputdir='.', interactive=False, schema=None):
+            self, inputdir='.', outputdir='.', interactive=False, name=None,
+            schema=None):
         """Constructor of PipelineItem class."""
-        self.__name__ = self.__class__.__name__
+        self.__name__ = self.__class__.__name__ if name is None else name
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
 
@@ -111,6 +111,10 @@ class PipelineItem():
     @property
     def method_type(self):
         return self._method_type
+
+    @property
+    def name(self):
+        return self.__name__
 
     @property
     def schema(self):
@@ -180,7 +184,7 @@ class PipelineItem():
 
     def get_config(
             self, data=None, config=None, schema=None, remove=True, **kwargs):
-        """Look through `data` for an item whose value for the first
+        """Look through `data` for the first item whose value for the
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
         identified by `schema` and return it. If no item is found and
@@ -194,8 +198,9 @@ class PipelineItem():
             data is unspecified, invalid or does not contain an item
             that matches the schema.
         :type config: dict, optional
-        :param schema: Name of the `BaseModel` class to match in
-            `data` & return.
+        :param schema: Name of the `PipelineItem` class to match in
+            `data` & return, defaults to the internal PipelineItem
+            `schema` attribute.
         :type schema: str, optional
         :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
@@ -207,6 +212,8 @@ class PipelineItem():
         self.logger.debug(f'Getting {schema} configuration')
         t0 = time()
 
+        if schema is None:
+            schema = self.schema
         matching_config = False
         if data is not None:
             try:
@@ -228,8 +235,6 @@ class PipelineItem():
         if self._method_type == 'read':
             matching_config['inputdir'] = self._inputdir
 
-        if schema is None:
-            raise ValueError(f'Missing schema {type(self)} configuration')
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
         matching_config.update(kwargs)
@@ -335,18 +340,16 @@ class PipelineItem():
                         'Writing to an existing file without overwrite '
                         f'permission. Remove {filename} or set '
                         '"force_overwrite" in the pipeline configuration for '
-                        f'{self.__name__}')
+                        f'{self.name}')
                 kwargs['filename'] = filename
             elif 'filename' in self._allowed_args:
                 raise ValueError(
                     'Missing parameter "filename" in pipeline configuration '
-                    f'for {self.__name__}')
+                    f'for {self.name}')
 
         elif self._method_type != 'process':
             self.logger.error('No implementation of read, process, or write')
             return
-        if 'schema' in self._allowed_args:
-            self._args['schema'] = self._schema
         for k, v in kwargs.items():
             if k in self._allowed_args:
                 self._args[k] = v
@@ -354,7 +357,7 @@ class PipelineItem():
         #if self._method_type != 'process':
         if self._method_type == 'read':
             self.logger.debug(f'Validating "{self._method_type}" with schema '
-                              f'"{self._schema}" and {self._args}')
+                              f'"{self.schema}" and {self._args}')
             self.logger.info(f'Validating "{self._method_type}"')
             self._method(**self._args)
 
@@ -373,7 +376,7 @@ class PipelineItem():
 
         t0 = time()
         self.logger.debug(f'Executing "{self._method_type}" with schema '
-                          f'"{self._schema}" and {self._args}')
+                          f'"{self.schema}" and {self._args}')
         self.logger.info(f'Executing "{self._method_type}"')
         data = self._method(**self._args)
         self.logger.info(

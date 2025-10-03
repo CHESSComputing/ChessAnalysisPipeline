@@ -354,6 +354,7 @@ def run(
             inputdir=kwargs.pop('inputdir'),
             outputdir=kwargs.pop('outputdir'),
             interactive=kwargs.pop('interactive'),
+            name=kwargs.pop('name') if 'name' in kwargs else None,
             schema=kwargs.pop('schema') if 'schema' in kwargs else None)
         obj.logger.setLevel(kwargs.pop('log_level'))
         if log_handler is not None:

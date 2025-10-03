@@ -34,8 +34,7 @@ class EddMapReader(Reader):
         :param inputdir: Input directory, used only if filename is not
             an absolute path, defaults to `'.'`.
         :type inputdir: str, optional
-        :returns: Map configuration packaged with the appropriate
-            value for 'schema'.
+        :returns: Map configuration.
         :rtype: PipelineData
         """
         # Local modules
@@ -225,8 +224,7 @@ class EddMPIMapReader(Reader):
         :type dataset_id: int
         :param detector_names: Detector prefixes for the raw data.
         :type detector_names: list[str]
-        :returns: The EDD map including the raw data packaged with the
-            appropriate value for 'schema'.
+        :returns: The EDD map including the raw data packaged.
         :rtype: PipelineData
         """
         # Third party modules

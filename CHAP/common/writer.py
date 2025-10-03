@@ -370,7 +370,7 @@ class ImageWriter(Writer):
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
-        exit('\n\nFix ImageWriter for outputdir')
+        exit('\n\nFix ImageWriter for outputdir and schema')
         try:
             ddata = self.get_data(
                 data, schema='common.write.ImageWriter', remove=remove)

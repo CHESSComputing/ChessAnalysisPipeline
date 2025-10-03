@@ -53,9 +53,10 @@ class ConfigReader(Reader):
         :rtype: dict
         """
         data = YAMLReader.read(filename)
-        if schema is None:
-            return data
-        return self.get_config(config=data, schema=schema).model_dump()
+        if self.schema is not None:
+            data = self.get_config(
+                config=data, schema=self.schema).model_dump()
+        return data
 
 
 class FabioImageReader(Reader):
