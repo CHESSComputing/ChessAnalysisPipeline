@@ -42,12 +42,17 @@ class GiwaxsConversionConfig(CHAPBaseModel):
     :ivar save_raw_data: Save the raw data in the NeXus output,
         defaults to `False`.
     :type save_raw_data: bool, optional
+    :ivar skip_animation: Skip the animation (subject to `save_figures`
+        being `True`), defaults to `False`.
+    :type skip_animation: bool, optional
+
     """
     azimuthal_integrators: conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)
     scan_step_indices: Optional[
         conlist(min_length=1, item_type=conint(ge=0))] = None
     save_raw_data: Optional[bool] = False
+    skip_animation: Optional[bool] = False
 
     @field_validator('scan_step_indices', mode='before')
     @classmethod

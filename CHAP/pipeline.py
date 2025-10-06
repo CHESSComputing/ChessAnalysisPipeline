@@ -58,7 +58,7 @@ class PipelineData(dict):
 
 class PipelineItem():
     """An object that can be supplied as one of the items
-    `Pipeline.items`.
+    in `Pipeline.items`.
     """
     def __init__(self):
         """Constructor of PipelineItem class."""
@@ -134,8 +134,10 @@ class PipelineItem():
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
         identified by `schema` and return it. If no item is found and
-        config is specified, validate it against the configuration's
-        Pydantic model identified by `schema` and return it.
+        `config` and `schema` are specified, validate `config`
+        against the configuration's Pydantic model identified by
+        `schema` and return it. Return `config` if no item is found
+        and `config` is specified, but `schema` is not.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData], optional
@@ -152,7 +154,7 @@ class PipelineItem():
         :type remove: bool, optional
         :raises ValueError: If there's no match for `schema` in `data`.
         :return: The first matching configuration model.
-        :rtype: BaseModel
+        :rtype: Union[dict, BaseModel]
         """
         self.logger.debug(f'Getting {schema} configuration')
         t0 = time()
@@ -186,7 +188,8 @@ class PipelineItem():
 
         return model_config
 
-    def get_data(self, data, name=None, schema=None, remove=True, nxobject=None):
+    def get_data(
+            self, data, name=None, schema=None, remove=True, nxobject=None):
         """Look through `data` for an item whose `'data'` value is
         a nexusformat.nexus.NXobject object or matches a given name or
         schema. Pick the item for which
@@ -255,7 +258,7 @@ class PipelineItem():
 
         return result
 
-    def execute(self, schema=None, **kwargs):
+    def execute(self, data, schema=None, **kwargs):
         """Run the appropriate method of the object and return the
         result.
 
@@ -303,35 +306,37 @@ class PipelineItem():
         for k, v in kwargs.items():
             if k in allowed_args:
                 args[k] = v
+        if 'data' in allowed_args:
+            args['data'] = data
 
         t0 = time()
         self.logger.debug(
             f'Executing "{method_name}" with schema "{schema}" and {args}')
         self.logger.info(f'Executing "{method_name}"')
-        data = method(**args)
+        ddata = method(**args)
         self.logger.info(
             f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
         name = kwargs.get('name', self.__name__)
         if method_name == 'read':
-            return [PipelineData(name=name, data=data, schema=schema)]
-        if method_name == 'write':
-            return kwargs.get('data',[])
-        if isinstance(data, tuple):
-            return kwargs.get('data',[]) + [
-                d if isinstance(d, PipelineData)
-                else PipelineData(name=name, data=d, schema=schema)
-                for d in data]
-        return kwargs.get('data',[]) + [
-            PipelineData(name=name, data=data, schema=schema)]
+            data.append(PipelineData(name=name, data=ddata, schema=schema))
+            return data
+        elif method_name == 'process':
+            if isinstance(ddata, tuple):
+                data.extend([d if isinstance(d, PipelineData)
+                         else PipelineData(name=name, data=d, schema=schema)
+                         for d in ddata])
+            else:
+                data.append(PipelineData(name=name, data=ddata, schema=schema))
+        return data
 
 
 class MultiplePipelineItem(PipelineItem):
     """An object to deliver results from multiple `PipelineItem`s to a
     single `PipelineItem` in the `Pipeline.execute()` method.
     """
-    def execute(self, items=None, **kwargs):
-        """Independently execute all items in `self.items`, then
+    def execute(self, data, items=None, **kwargs):
+        """Independently execute all items in `items`, then
         return all of their results.
 
         :param items: PipelineItem configurations.
@@ -341,29 +346,35 @@ class MultiplePipelineItem(PipelineItem):
         :rtype: list[PipelineData]
         """
         # System modules
+        from copy import deepcopy
         from tempfile import NamedTemporaryFile
 
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
 
-        data = kwargs.get('data', [])
         if items is None:
             items = []
-        for item_config in items:
-            if isinstance(item_config, dict):
-                item_name = list(item_config.keys())[0]
-                item_args = item_config[item_name]
-            elif isinstance(item_config, str):
-                item_name = item_config
+        item_list = []
+        data_org = None
+        for item in items:
+            if isinstance(item, dict):
+                item_name = list(item.keys())[0]
+                item_args = item[item_name]
+            elif isinstance(item, str):
+                item_name = item
                 item_args = {}
             else:
                 raise RuntimeError(
-                    f'Unknown item config type {type(item_config)}')
-
+                    f'Unknown item config type {type(item)}')
             mod_name, cls_name = item_name.rsplit('.', 1)
             module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
-            item = getattr(module, cls_name)()
-            item.logger = self.logger
+
+            current_item = getattr(module, cls_name)()
+            item_list.append((current_item, item_args))
+            if data_org is None and hasattr(current_item, 'write'):
+                data_org = deepcopy(data)
+
+        for (item, item_args) in item_list:
             # Combine the command line arguments "inputdir",
             # "outputdir" and "interactive" with the item's arguments
             # joining "inputdir" and "outputdir" and giving precedence
@@ -395,9 +406,10 @@ class MultiplePipelineItem(PipelineItem):
                 args['outputdir'] = outputdir
             args = {**args, **item_args}
             if hasattr(item, 'write'):
-                item.execute(**args)[0]
+                item.execute(data=data, **args)
+                data = data_org
             else:
-                data.append(item.execute(**args)[0])
+                data = item.execute(data=data, **args)
 
         self.logger.info(
             f'Finished executing {len(items)} PipelineItems in {time()-t0:.0f}'

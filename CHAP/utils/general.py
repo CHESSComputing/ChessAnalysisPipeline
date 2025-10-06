@@ -2348,7 +2348,8 @@ def quick_plot(
 
 def nxcopy(
         nxobject, exclude_nxpaths=None, nxpath_prefix=None,
-        nxpathabs_prefix=None, nxpath_copy_abspath=None):
+        nxpathabs_prefix=None, nxpath_copy_abspath=None,
+        nxgroup_to_nxdata=False):
     """Function that returns a copy of a nexus object, optionally
     exluding certain child items.
 
@@ -2372,6 +2373,7 @@ def nxcopy(
     """
     # Third party modules
     from nexusformat.nexus import (
+        NXdata,
         NXentry,
         NXfield,
         NXgroup,
@@ -2396,7 +2398,10 @@ def nxcopy(
         return nxobject_copy
     else:
         # Create a group with the same type/name as the nxobject
-        nxobject_copy = nxobject.__class__(name=nxobject.nxname)
+        if nxgroup_to_nxdata and isinstance(nxobject, NXgroup):
+            nxobject_copy = NXdata(name=nxobject.nxname)
+        else:
+            nxobject_copy = nxobject.__class__(name=nxobject.nxname)
 
     # Copy attributes
     if isinstance(nxobject, NXroot):
@@ -2467,3 +2472,13 @@ def nxcopy(
                 nxobject_copy[k].attrs.pop('target', None)
 
     return nxobject_copy
+
+
+def get_default_path(nxobject):
+    path = ''
+    current = nxobject
+    while current.attrs.get('default') is not None:
+        path = path + '/' + current.attrs['default']
+
+        current = current[current.attrs['default']]
+    return path

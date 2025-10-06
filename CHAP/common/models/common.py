@@ -25,7 +25,7 @@ from pydantic import (
 from CHAP.models import CHAPBaseModel
 
 
-class BinarizeProcessorConfig(CHAPBaseModel):
+class BinarizeConfig(CHAPBaseModel):
     """Configuration class to binarize a dataset in a 2D or 3D
     array-like object or a NeXus NXdata or NXfield object.
 
@@ -50,7 +50,7 @@ class BinarizeProcessorConfig(CHAPBaseModel):
     remove_original_data: Optional[bool] = False
 
 
-class ImageProcessorConfig(CHAPBaseModel):
+class ImageConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.
 
@@ -127,3 +127,38 @@ class ImageProcessorConfig(CHAPBaseModel):
         if isinstance(vrange, (list, tuple)) and len(vrange) == 2:
             return [min(vrange), max(vrange)]
         return vrange
+
+
+class UnstructuredToStructuredConfig(CHAPBaseModel):
+    """Configuration class to reshape data in an NXdata from an
+    "unstructured" to a "structured" representation.
+
+    :param nxpath: The path to a specific NeXus NXdata object in the
+        NeXus file tree to read the input data from.
+    :type nxpath: str, optional
+    :param nxpath_scalar: The path to any additional scalar datasets
+        (Nexus NXdata or NXfield objects) in the NeXus file tree to
+        reshape.
+    :type nxpath_scalar: Union[str, list[str]], optional
+    :param remove_original_data: Removes the original data field,
+        defaults to `False`.
+    :type remove_original_data: bool, optional
+    """
+    nxpath: Optional[str] = None
+    nxpath_scalar: Optional[
+        Union[str, conlist(min_length=1, item_type=str)]] = None
+    remove_original_data: Optional[bool] = False
+
+    @field_validator('nxpath_scalar', mode='before')
+    @classmethod
+    def validate_nxpath_scalar(cls, nxpath_scalar):
+        """Validate nxpath_scalar.
+
+        :param nxpath_scalar: The nxpath_scalar path(s).
+        :type nxpath_scalar: Union[str, list[str]]
+        :return: nxpath_scalar.
+        :rtype: list[str]
+        """
+        if isinstance(nxpath_scalar, str):
+            return [nxpath_scalar]
+        return nxpath_scalar

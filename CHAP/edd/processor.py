@@ -17,28 +17,15 @@ from sys import float_info
 import numpy as np
 
 # Local modules
-from CHAP.processor import Processor
+from CHAP.common.map_utils import get_axes
 from CHAP.pipeline import PipelineData
+from CHAP.processor import Processor
 from CHAP.utils.general import fig_to_iobuf
 
 FLOAT_MIN = float_info.min
 
 # Current good detector channels for the 23 channel EDD detector:
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
-
-def get_axes(nxdata, skip_axes=None):
-    """Get the axes of an NXdata object used in EDD."""
-    if skip_axes is None:
-        skip_axes = []
-    if 'unstructured_axes' in nxdata.attrs:
-        axes = nxdata.attrs['unstructured_axes']
-    elif 'axes' in nxdata.attrs:
-        axes = nxdata.attrs['axes']
-    else:
-        return []
-    if isinstance(axes, str):
-        axes = [axes]
-    return [str(a) for a in axes if a not in skip_axes]
 
 
 class BaseEddProcessor(Processor):
@@ -2480,45 +2467,36 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         self._apply_combined_mask()
 
         # Setup and/or run the strain analysis
-        if setup and update:
+        points = []
+        if update:
+            points = self._strain_analysis(strain_analysis_config)
+        if setup:
             nxroot = self._get_nxroot(
                 nxentry, calibration_config, strain_analysis_config)
-            points = self._strain_analysis(strain_analysis_config)
             if points:
                 self.logger.info(f'Adding {len(points)} points')
                 self.add_points(nxroot, points, logger=self.logger)
                 self.logger.info(f'... done')
             else:
                 self.logger.warning('Skip adding points')
-            return (
-                nxroot, 
+            if not (self._figures or self._animation):
+                return nxroot
+            ret = [nxroot]
+        else:
+            if not (self._figures or self._animation):
+                return points
+            ret = [points]
+        if self._figures:
+            ret.append(
                 PipelineData(
                     name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
+                    schema='common.write.ImageWriter'))
+        if self._animation:
+            ret.append(
                 PipelineData(
                     name=self.__name__, data=self._animation,
                     schema='common.write.ImageWriter'))
-
-        if setup:
-            return (
-                self._get_nxroot(
-                    nxentry, calibration_config, strain_analysis_config),
-                PipelineData(
-                    name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
-                PipelineData(
-                    name=self.__name__, data=self._animation,
-                    schema='common.write.ImageWriter'))
-        if update:
-            return (
-                self._strain_analysis(strain_analysis_config),
-                PipelineData(
-                    name=self.__name__, data=self._figures,
-                    schema='common.write.ImageWriter'),
-                PipelineData(
-                    name=self.__name__, data=self._animation,
-                    schema='common.write.ImageWriter'))
-        return None
+        return tuple(ret)
 
     def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
         """Add the fit collection as a `nexusformat.nexus.NXcollection`

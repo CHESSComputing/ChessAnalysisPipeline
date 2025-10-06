@@ -219,7 +219,7 @@ class BinarizeProcessor(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.BinarizeProcessorConfig
+            CHAP.common.models.BinarizeConfig
         :type config: dict, optional
         :param interactive: Allows for user interactions, defaults to
             `False`.
@@ -242,16 +242,16 @@ class BinarizeProcessor(Processor):
 
         nxsetconfig(memory=100000)
 
-        # Load the validated binarize processor configuration
+        # Load the validated processor configuration
         if config is None:
             # Local modules
-            from CHAP.common.models.common import BinarizeProcessorConfig
+            from CHAP.common.models.common import BinarizeConfig
 
-            config = BinarizeProcessorConfig()
+            config = BinarizeConfig()
         else:
             config = self.get_config(
                 data, config=config,
-                schema='common.models.BinarizeProcessorConfig')
+                schema='common.models.BinarizeConfig')
 
         # Load the default data
         try:
@@ -713,7 +713,7 @@ class ImageProcessor(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.ImageProcessorConfig
+            CHAP.common.models.ImageConfig
         :type config: dict, optional
         :param save_figures: Return the plottable image(s) to be
             written to file downstream in the pipeline,
@@ -743,16 +743,16 @@ class ImageProcessor(Processor):
                 'Unable the load the default NXdata object from the input '
                 f'pipeline ({data})')
 
-        # Load the validated image processor configuration
+        # Load the validated processor configuration
         if config is None:
             # Local modules
-            from CHAP.common.models.common import ImageProcessorConfig
+            from CHAP.common.models.common import ImageConfig
 
-            config = ImageProcessorConfig()
+            config = ImageConfig()
         else:
             config = self.get_config(
                 data, config=config,
-                schema='common.models.ImageProcessorConfig')
+                schema='common.models.ImageConfig')
 
         # Get the axes info and image slice(s)
         try:
@@ -1229,7 +1229,7 @@ class MapProcessor(Processor):
                         val = dim.get_value(
                             scans, scan_number, -1,
                             map_config.scalar_data)
-                        if not isinstance(val, list):
+                        if not isinstance(val, (np.ndarray, list)):
                             val = [val]
                         _independent_dimensions[dim.label].extend(val)
                     if not det_shapes:
@@ -1699,8 +1699,12 @@ class MapProcessor(Processor):
                         del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        data[i][offset] = scanparser.get_detector_data(
-                            detector_config.detectors[i].id, dtype=dtype)
+                        if dtype is None:
+                            data[i][offset] = scanparser.get_detector_data(
+                                detector_config.detectors[i].id)
+                        else:
+                            data[i][offset] = scanparser.get_detector_data(
+                                detector_config.detectors[i].id, dtype=dtype)
                 for i, dim in enumerate(map_config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
@@ -1892,8 +1896,7 @@ class MPISpawnMapProcessor(Processor):
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
         :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
+            input configuration are not absolute paths.
         :type inputdir: str, optional
         :param outputdir: Directory to which any output figures will
             be saved, defaults to `'.'`.
@@ -2088,7 +2091,7 @@ class NexusToNumpyProcessor(Processor):
 #        :param data: Input data.
 #        :type data: list[PipelineData]
 #        :param config: Initialization parameters for an instance of
-#            CHAP.common.models.ImageProcessorConfig
+#            CHAP.common.models.ImageConfig
 #        :type config: dict, optional
 #        :param save_figures: Save .tifs of plots, defaults to `True`.
 #        :type save_figures: bool, optional
@@ -2120,16 +2123,16 @@ class NexusToNumpyProcessor(Processor):
 #                'Unable the load the default NXdata object from the input '
 #                f'pipeline ({data})')
 #
-#        # Load the validated image processor configuration
+#        # Load the validated processor configuration
 #        if config is None:
 #            # Local modules
-#            from CHAP.common.models.common import ImageProcessorConfig
+#            from CHAP.common.models.common import ImageConfig
 #
-#            config = ImageProcessorConfig()
+#            config = ImageConfig()
 #        else:
 #            config = self.get_config(
 #                data, config=config,
-#                schema='common.models.ImageProcessorConfig')
+#                schema='common.models.ImageConfig')
 #
 #        # Get the image slice(s)
 #        try:
@@ -2359,11 +2362,16 @@ class NexusToXarrayProcessor(Processor):
 class NexusToZarrProcessor(Processor):
     """Converter for NeXus to Zarr format."""
     def process(self, data, chunks='auto'):
-        from nexusformat.nexus import (NXfield, NXgroup)
+        from nexusformat.nexus import (
+            NXfield,
+            NXgroup,
+        )
         import zarr
         from zarr.storage import MemoryStore
 
         nexus_group = self.get_data(data)
+        if isinstance(chunks, int):
+            chunks = [chunks]
         zarr_group = zarr.create_group(store=MemoryStore({}))
 
         def copy_group(nexus_group, zarr_group):
@@ -2391,8 +2399,6 @@ class NexusToZarrProcessor(Processor):
                                     _chunks = 'auto'
                                 else:
                                     _chunks = chunks
-                            else:
-                                _chunks = chunks
                             # Copy dataset
                             zarr_dset = zarr_group.create_array(
                                 name=key,
@@ -3071,36 +3077,132 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to a "structured" representation.
     """
-    def process(self, data, nxpath=None):
-        # Third party modules
-        from nexusformat.nexus import NXdata
+    def process(self, data, config=None, inputdir=None):
+        """Plot and return a NeXus NXobject object with the default
+        NeXus NXData object added or replaced by its "structured"
+        representation.
 
-        try:
-            nxobject = self.get_data(data)
-        except:
-            nxobject = self.unwrap_pipelinedata(data)[0]
-        if isinstance(nxobject, NXdata):
-            return self.convert_nxdata(nxobject)
-        elif nxpath is not None:
-            # Local modules
-#            from CHAP.utils.general import nxcopy
-            try:
-                nxobject = nxobject[nxpath]
-            except:
-                raise ValueError(f'Invalid parameter nxpath ({nxpath})')
-        else:
-            raise ValueError(f'Invalid input data ({data})')
-        return self.convert_nxdata(nxobject)
-
-    def convert_nxdata(self, nxdata):
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param config: Initialization parameters for an instance of
+            CHAP.common.models.UnstructuredToStructuredConfig
+        :type config: dict, optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths.
+        :type inputdir: str, optional
+        :return: The input NeXus NXobject object with the default
+            NeXus NXData object added or replaced by its "structured"
+            representation.
+        :rtype: nexusformat.nexus.NXobject
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
+            NXgroup,
+            NXlink,
+        )
+
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
+        # Load the validated processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import (
+                UnstructuredToStructuredConfig,
+            )
+
+            config = UnstructuredToStructuredConfig()
+        else:
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.UnstructuredToStructuredConfig',
+                inputdir=inputdir)
+
+        # Load the default data
+        try:
+            error_txt = 'Unable the load the default NXdata object from ' \
+                        f'the input pipeline ({data})'
+            nxobject = self.get_data(data)
+            if config.nxpath is None:
+                # Local modules
+                from CHAP.utils.general import get_default_path
+
+                nxpath = get_default_path(nxobject)
+            else:
+                error_txt = 'Unable the load the NXdata object from ' \
+                            f'config.nxpath ({config.nxpath}), ' \
+                            f'nxobject:\n({nxobject.tree})'
+                nxpath = config.nxpath
+            nxdata = nxobject[nxpath]
+            if isinstance(nxdata, NXgroup):
+                # Local modules
+                from CHAP.utils.general import nxcopy
+
+                nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
+            assert isinstance(nxdata, NXdata)
+        except Exception:
+            raise ValueError(error_txt)
+
+        if isinstance(nxobject, NXdata):
+            nxdata_structured.nxname = nxobject.nxname
+            return nxdata_structured
+
+        # Get the structured data
+        if config.nxpath_scalar is None:
+            nxdata_scalar = {}
+        else:
+            try:
+                nxdata_scalar = {
+                    path:(nxobject[path] if isinstance(nxobject[path], NXdata)
+                    else nxcopy(nxobject[path], nxgroup_to_nxdata=True))
+                    for path in config.nxpath_scalar}
+            except Exception:
+                self.logger.warning(
+                    f'Unable the load scalar data config.nxpath_scalar '
+                    f'({config.nxpath_scalar}), nxobject:\n({nxobject.tree})')
+                nxdata_scalar = {}
+
+        nxdata_structured, nxdata_scalar_structured = self.convert_nxdata(
+            nxdata, nxdata_scalar, config.remove_original_data)
+
+        # Return the modified NeXus NXobject object
+
+        if config.remove_original_data:
+            exclude_nxpaths = [os.path.relpath(nxpath, nxobject.nxpath)]
+            for scalar_data, path in zip(
+                    nxdata_scalar_structured, nxdata_scalar.keys()):
+                if scalar_data is not None:
+                    exclude_nxpaths.append(
+                        os.path.relpath(path, nxobject.nxpath))
+            nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
+        else:
+            nxobject = nxcopy(nxobject)
+            nxpath = f'{os.path.split(nxpath)[0]}/{nxdata_structured.nxname}'
+        nxobject[nxpath] = nxdata_structured
+        if nxobject.nxclass in ('nxentry', 'nxroot'):
+            nxobject[nxpath].set_default()
+        if not nxdata_scalar_structured:
+            return nxobject
+
+        for scalar_data, path in zip(
+                nxdata_scalar_structured, nxdata_scalar.keys()):
+            if scalar_data is not None:
+                nxpath = os.path.relpath(path, nxobject.nxpath)
+                nxpath = f'{os.path.split(nxpath)[0]}/{scalar_data.nxpath}'
+                nxobject[nxpath] = scalar_data
+        return nxobject
+
+    def convert_nxdata(self, nxdata, nxdata_scalar, remove_original_data):
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXgroup,
             NXfield,
         )
 
         # Local modules
-        from CHAP.edd.processor import get_axes
+        from CHAP.common.map_utils import get_axes
 
         # Extract axes from the NXdata attributes
         axes = get_axes(nxdata)
@@ -3141,21 +3243,24 @@ class UnstructuredToStructuredProcessor(Processor):
         axes = unstructured_axes
 
         # Identify unique coordinate points for each axis
-        unique_coords = {}
         coords = {}
+        coord_dims = []
+        unique_coords = {}
+        unique_coords_index = {}
+        unique_coords_inverse = {}
+        unique_coords_counts = {}
         axes_attrs = {}
         for a in axes:
             coords[a] = nxdata[a].nxdata
-            unique_coords[a] = np.sort(np.unique(nxdata[a].nxdata))
+            (unique_coords[a], unique_coords_index[a],
+                    unique_coords_inverse[a], unique_coords_counts[a]) = \
+                np.unique(
+                    coords[a], return_index=True, return_inverse=True,
+                    return_counts=True)
+            coord_dims.append(unique_coords[a].size)
             axes_attrs[a] = deepcopy(nxdata[a].attrs)
             if 'target' in axes_attrs[a]:
                 del axes_attrs[a]['target']
-
-        # Calculate the total number of unique coordinate points
-        unique_npts = np.prod([len(v) for k, v in unique_coords.items()])
-        if unique_npts != unstructured_dim:
-            self.logger.warning('The unstructered grid does not fully map to '
-                                'a structered one (there are missing points)')
 
         # Identify the signals and the data point axes
         signals = []
@@ -3184,45 +3289,223 @@ class UnstructuredToStructuredProcessor(Processor):
                         and v.shape == data_point_shape):
                     data_point_axes.append(k)
 
-        # Create the structured NXdata object
-        structured_shape = tuple(len(unique_coords[a]) for a in axes)
         attrs = deepcopy(nxdata.attrs)
         if 'unstructured_axes' in attrs:
             attrs.pop('unstructured_axes')
-        attrs['axes'] = axes
-        nxdata_structured = NXdata(
-            name=f'{nxdata.nxname}_structured',
-            **{a: NXfield(
-                value=unique_coords[a],
-                attrs=axes_attrs[a])
-               for a in axes},
-            **{s: NXfield(
-#                value=np.reshape( # FIX not always a sound way to reshape.
-#                    nxdata[s], (*structured_shape, *nxdata[s].shape[1:])),
-                 dtype=nxdata[s].dtype,
-                 shape=(*structured_shape, *nxdata[s].shape[1:]),
-                attrs=nxdata[s].attrs)
-               for s in signals},
-            attrs=attrs)
-        if len(data_point_axes) == 1:
-            axes = nxdata_structured.attrs['axes']
-            if isinstance(axes, str):
-                axes = [axes]
-            nxdata_structured.attrs['axes'] = axes + data_point_axes
-        for a in data_point_axes:
-            nxdata_structured[a] = NXfield(
-                value=nxdata[a], attrs=nxdata[a].attrs)
+        if 'axes' not in attrs:
+            attrs['axes'] = {}
+        map_shape = {}
+        for s in signals:
+            map_shape[s] = tuple(coord_dims + list(nxdata[s].shape[1:]))
 
-        # Populate the structured NXdata object with values
-        for i, coord in enumerate(zip(*tuple(nxdata[a].nxdata for a in axes))):
-            structured_index = tuple(
-                np.asarray(
-                    coord[ii] == unique_coords[axes[ii]]).nonzero()[0][0]
-                for ii in range(len(axes)))
-            for s in signals:
-                nxdata_structured[s][structured_index] = nxdata[s][i]
+        # Scalar fields
+        scalar_fields = {}
+        field_names = []
+        for path, scalar_data in nxdata_scalar.items():
+            if isinstance(scalar_data, NXdata):
+                scalar_fields[path] = []
+                for v in scalar_data:
+                    if (f'{path}/{v}' not in field_names
+                            and isinstance(scalar_data[v], NXfield)
+                            and scalar_data[v].shape == (unstructured_dim)):
+                        scalar_fields[path].append(scalar_data[v])
+                        field_names.append(f'{path}/{v}')
+            elif isinstance(scalar_data, NXfield):
+                field  = scalar_data.nxname
+                if (path not in field_names
+                        and scalar_data.shape == (unstructured_dim)):
+                    scalar_fields[path] = [scalar_data]
+                    field_names.append(path)
+                else:
+                    scalar_fields[path] = []
+            else:
+                self.logger.warning(
+                    'Skip unknown scalar data object of type '
+                    f'{type(scalar_data)}:\n{scalar_data}')
 
-        return nxdata_structured
+        # Check the mapping
+        num_axes = len(axes)
+        full_mapping = (
+            num_axes == 2
+            and np.prod(coord_dims) == unstructured_dim)
+        if not full_mapping:
+            self.logger.warning('The unstructered grid does not fully map to '
+                                'a structered one (there are missing points)')
+        self.logger.info(f'full_mapping: {full_mapping}')
+        if full_mapping:
+            # Get the slow and fast index
+            # FIX Can be generalized to more than 2 dims
+            equal = {
+                a: np.array_equal(unique_coords_index[a], range(coord_dims[i]))
+                for i, a in enumerate(axes)}
+            equal_index = np.where(list(equal.values()))[0]
+            if len(equal_index) == 1:
+                if not equal_index[0]:
+                    axes = list(reversed(axes))
+                    coord_dims = list(reversed(coord_dims))
+                    for s in signals:
+                        map_shape[s] = tuple(
+                            coord_dims + list(nxdata[s].shape[1:]))
+            else:
+                # FIX Do we need rtol and atol input options for np.isclose?
+                self.logger.warning(
+                    'Inconsistent coordinates in full mapping'
+                    f'axes: {axes} equal: {equal} equal_index: {equal_index}')
+                rtol = 1.e-4
+                atol = 1.e-9
+                mm = [v.reshape(coord_dims) for v in coords.values()]
+                mean_mm = [
+                    [v.mean((i+1)%2) for i in range(num_axes)] for v in mm]
+                mean_mm_sorted = [[np.sort(v2) for v2 in v1] for v1 in mean_mm]
+                equal = [[
+                    np.all(np.isclose(np.sort(v1), v2, rtol=rtol, atol=atol))
+                       for v1, v2 in zip(unique_coords.values(), v)]
+                       for v in mean_mm_sorted]
+                if not np.array_equal(equal, np.identity(num_axes)):
+                    axes = list(reversed(axes))
+                    coord_dims = list(reversed(coord_dims))
+                    for s in signals:
+                        map_shape[s] = tuple(
+                            coord_dims + list(nxdata[s].shape[1:]))
+                    mm = [v.reshape(coord_dims) for v in coords.values()]
+                    mean_mm = [
+                        [v.mean(i) for i in range(num_axes)] for v in mm]
+                    mean_mm_sorted = [
+                        [np.sort(v2) for v2 in v1] for v1 in mean_mm]
+                    equal = [
+                        [np.all(np.isclose(
+                            np.sort(v1), v2, rtol=rtol, atol=atol))
+                        for v1, v2 in zip(unique_coords.values(), v)]
+                        for v in mean_mm_sorted]
+                    if not np.array_equal(equal, np.identity(num_axes)):
+                        axes = list(reversed(axes))
+                        coord_dims = list(reversed(coord_dims))
+                        for s in signals:
+                            map_shape[s] = tuple(
+                                coord_dims + list(nxdata[s].shape[1:]))
+                        full_mapping = False
+                        self.logger.warning('The unstructered grid does map '
+                                            'to a regular structered one')
+        attrs['axes'] = axes + [a for a in attrs['axes'] if a not in axes]
+        if remove_original_data:
+            name = nxdata.nxname
+        else:
+            name = f'{nxdata.nxname}_structured'
+        if full_mapping:
+            # Populate the structured NXdata object with its reshaped
+            # data
+            nxdata_structured = NXdata(
+                name=name,
+                **{a: NXfield(
+                    value=coords[a][np.sort(unique_coords_index[a])].tolist(),
+                    attrs=axes_attrs[a])
+                   for a in axes},
+                **{s: NXfield(
+                    value=nxdata[s].reshape(map_shape[s]),
+                    dtype=nxdata[s].dtype,
+                    shape=map_shape[s],
+                    attrs=nxdata[s].attrs)
+                   for s in signals},
+                attrs=attrs)
+            # Populate the structured scalar data with its reshaped
+            # data
+            nxdata_scalar_structured = []
+            for (path, scalar_data), ddata in zip(
+                    scalar_fields.items(), nxdata_scalar.values()):
+                if not scalar_data:
+                    nxdata_scalar_structured.append(None)
+                else:
+                    if remove_original_data:
+                        scalar_name = ddata.nxname
+                    else:
+                        scalar_name = f'{ddata.nxname}_structured'
+                    if isinstance(ddata, NXdata):
+                        nxdata_scalar_structured.append(
+                            NXdata(name=scalar_name,
+                                **{field.nxname: NXfield(
+                                    value=field.reshape(coord_dims),
+                                    dtype=field.dtype,
+                                    shape=coord_dims,
+                                    attrs=field.attrs)
+                                   for field in scalar_data}))
+                    else:
+                        nxdata_scalar_structured.append(
+                                NXfield(
+                                    name = scalar_name,
+                                    value=scalar_data[0].reshape(coord_dims),
+                                    dtype=scalar_data[0].dtype,
+                                    shape=coord_dims,
+                                    attrs=scalar_data[0].attrs))
+        else:
+            if nxdata_scalar:
+                raise ValueError('nxdata_scalar not yet implemented here')
+            # Create the structured NXdata object
+            if coord_dims[0] > coord_dims[1]:
+                axes = list(reversed(axes))
+                coord_dims = list(reversed(coord_dims))
+                for s in signals:
+                    map_shape[s] = tuple(
+                        coord_dims + list(nxdata[s].shape[1:]))
+                attrs['axes'] = axes + [a for a in attrs['axes']
+                                        if a not in axes]
+            nxdata_structured = NXdata(
+                name=name,
+                **{a: NXfield(
+                    value=unique_coords[a],
+                    attrs=axes_attrs[a])
+                   for a in axes},
+                **{s: NXfield(
+                    value=np.zeros(map_shape[s]),
+                    dtype=nxdata[s].dtype,
+                    shape=map_shape[s],
+                    attrs=nxdata[s].attrs)
+                   for s in signals},
+                attrs=attrs)
+            if len(data_point_axes) == 1:
+                axes = nxdata_structured.attrs['axes']
+                if isinstance(axes, str):
+                    axes = [axes]
+                nxdata_structured.attrs['axes'] = axes + data_point_axes
+            for a in data_point_axes:
+                nxdata_structured[a] = NXfield(
+                    value=nxdata[a], attrs=nxdata[a].attrs)
+
+            # Populate the structured NXdata object with values
+            # FIX A and B are really slow in their simple on the fly way!
+            if False:
+                unique_coords_sorted = {
+                    a:np.sort(unique_coords[a]) for a in axes}
+                for i, coord in enumerate(
+                        zip(*tuple(coords[a] for a in axes))):
+                    structured_index = tuple(
+                        np.asarray(
+                            coord[ii] == unique_coords_sorted[
+                                axes[ii]]).nonzero()[0][0]
+                        for ii in range(len(axes)))
+                    for s in signals:
+                        nxdata_structured[s][structured_index] = nxdata[s][i]
+            elif False:
+                for i in range(unstructured_dim):
+                    structured_index = tuple(
+                        unique_coords_inverse[a][i] for a in axes)
+                    for s in signals:
+                        nxdata_structured[s][structured_index] = nxdata[s][i]
+            else:
+                # Limit to two axes dimensions for now
+                if len(coord_dims) != 2:
+                    raise NotImplementedError('Not yet implemented for more '
+                                              'than 2 navigation dimensions')
+                for i in range(coord_dims[0]):
+                    rr = [ii for ii in range(unstructured_dim)
+                          if i == unique_coords_inverse[axes[0]][ii]]
+                    rrr = unique_coords_inverse[axes[1]][rr].tolist()
+                    for s in signals:
+                        nxdata_structured[s][i,rrr] = nxdata[s][rr]
+        for s in signals:
+            nxdata_structured[s].attrs['min'] = nxdata_structured[s].min()
+            nxdata_structured[s].attrs['max'] = nxdata_structured[s].max()
+
+        return nxdata_structured, nxdata_scalar_structured
 
 
 class UpdateNXvalueProcessor(Processor):

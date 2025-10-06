@@ -340,7 +340,7 @@ class SetupResultsProcessor(Processor):
             be processed later on (shape of the measurement itself,
             _not_ including the dimensions of any signals collected at
             each point in that measurement).
-        :type dataset_shape: list[int]
+        :type dataset_shape: Union[int, list[int]]
         :param dataset_chunks: Extent of chunks along each dimension
             of the completed dataset / measurement. Choose this
             according to how you will process your data -- for
@@ -349,7 +349,7 @@ class SetupResultsProcessor(Processor):
             `dataset_chunks` should be `[1, n]`. But if you plan to
             process each of the `n` columns as chunks,
             `dataset_chunks` should be `[m, 1]`.
-        :type dataset_chunks: list[int]
+        :type dataset_chunks: Union[int, list[int]]
         :return: Empty structure for filling in SAXS/WAXS data
         :rtype: zarr.group
         """
@@ -363,7 +363,12 @@ class SetupResultsProcessor(Processor):
 
         # Get zarr tree as dict from the
         # PyfaiIntegrationProcessorConfig
+        if isinstance(dataset_shape, int):
+            dataset_shape = [dataset_shape]
+        if isinstance(dataset_chunks, int):
+            dataset_chunks = [dataset_chunks]
         tree = config.zarr_tree(dataset_shape, dataset_chunks)
+
         # Construct & return the root zarr.group
         return self.zarr_setup(tree)
 
@@ -438,12 +443,12 @@ class SetupProcessor(Processor):
 
         # Get NXroot container for raw data map
         setup_map_processor = set_logger(MapProcessor())
-        nxmap = setup_map_processor.execute(
+        ddata = setup_map_processor.execute(
             data=data, detectors=detectors, fill_data=False, inputdir=inputdir)
 
         # Convert raw data map container to zarr format
-        nxmap_converter = set_logger(NexusToZarrProcessor())
-        zarr_map = nxmap_converter.process(nxmap, chunks=dataset_chunks)
+        ddata_converter = set_logger(NexusToZarrProcessor())
+        zarr_map = ddata_converter.process(ddata, chunks=dataset_chunks)
 
         # Get zarr container for integration results
         setup_results_processor = set_logger(SetupResultsProcessor())

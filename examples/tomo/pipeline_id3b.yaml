@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: hollow_cube
   interactive: true
-  log_level: INFO
+  log_level: info
   profile: false
 
 pipeline:
@@ -17,57 +17,44 @@ pipeline:
       detectors:
         - id: sim
       schema: tomofields
-#  - common.NexusWriter:
-#      filename: map_hollow_cube.nxs
-#      force_overwrite: true
-  - pipeline.MultiplePipelineItem:
-      items:
-#        - common.NexusReader:
-#            filename: ../hollow_cube/map_hollow_cube.nxs
-#            schema: tomofields
-        - common.SpecReader:
-            config:
-              station: id3b
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: ../data/hollow_cube/hollow_cube
-                scan_numbers:
-                - 1
-            detectors:
-              - id: sim
-            schema: darkfield
-        - common.SpecReader:
-            inputdir: ../data/hollow_cube
-            config:
-              station: id3b
-              experiment_type: TOMO
-              spec_scans:
-              - spec_file: hollow_cube
-                scan_numbers:
-                - 2
-            detectors:
-              - id: sim
-            schema: brightfield
-        - common.YAMLReader:
-            filename: detector.yaml
-            schema: tomo.models.Detector
+  - common.SpecReader:
+      config:
+        station: id3b
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: ../data/hollow_cube/hollow_cube
+          scan_numbers:
+          - 1
+      detectors:
+        - id: sim
+      schema: darkfield
+  - common.SpecReader:
+      inputdir: ../data/hollow_cube
+      config:
+        station: id3b
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: hollow_cube
+          scan_numbers:
+          - 2
+      detectors:
+        - id: sim
+      schema: brightfield
+  - common.YAMLReader:
+      filename: detector.yaml
+      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-#  - common.NexusWriter:
-#      filename: chess_map_hollow_cube.nxs
-#      force_overwrite: true
  
   # Full tomography reconstruction
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.YAMLReader:
-            filename: reduce_data_id3b.yaml
-            schema: tomo.models.TomoReduceConfig
-        - common.YAMLReader:
-            filename: find_center_id3b.yaml
-            schema: tomo.models.TomoFindCenterConfig
-        - common.YAMLReader:
-            filename: reconstruct_data.yaml
-            schema: tomo.models.TomoReconstructConfig
+  - common.YAMLReader:
+      filename: reduce_data_id3b.yaml
+      schema: tomo.models.TomoReduceConfig
+  - common.YAMLReader:
+      filename: find_center_id3b.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - common.YAMLReader:
+      filename: reconstruct_data.yaml
+      schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
       outputdir: saved_figs
       save_figs: 'only'
