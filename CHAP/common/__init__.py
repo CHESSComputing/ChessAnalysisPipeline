@@ -68,4 +68,11 @@ from CHAP.common.writer import (
     ZarrWriter,
 )
 
-from CHAP.common.map_utils import MapSliceProcessor
+from CHAP.common.map_utils import (
+    MapSliceProcessor,
+    SpecScanToMapConfigProcessor,
+)
+
+from CHAP.common.nexus_utils import (
+    NexusMakeLinkProcessor,
+)

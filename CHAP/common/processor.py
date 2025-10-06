@@ -666,7 +666,8 @@ class ExpressionProcessor(Processor):
                 symtable[name] = np
             else:
                 symtable[name] = self.get_data(
-                    data, name=name, remove=False, nxobject=False)
+                    data, name=name, remove=False)
+        self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
         new_data = aeval(expression)
 
@@ -690,6 +691,7 @@ class ExpressionProcessor(Processor):
                             value=symtable[name]
                         )
                         for name in names
+                        if name not in ('round', 'np', 'numpy')
                     },
                     attrs={'expression': expression}
                 ),
@@ -2559,7 +2561,7 @@ class PandasToXarrayProcessor(Processor):
         :returns: Input dataframe as xarray.
         :rtype: Union[`xarray.DataArray`, `xarray.Dataset`]
         """
-        dataframe = self.get_data(data, nxobject=False)
+        dataframe = self.get_data(data)
         return dataframe.to_xarray()
 
 
