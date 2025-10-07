@@ -8,7 +8,6 @@ Description:
 """
 
 # System modules
-import inspect
 import logging
 import os
 from time import time
@@ -34,15 +33,79 @@ class Pipeline():
         self.logger = logging.getLogger(self.__name__)
         self.logger.propagate = False
 
+        self._output_filenames = []
+        self._filename_mapping = {}
+
     def validate(self):
         """validate API."""
         t0 = time()
         self.logger.info('Executing "validate"\n')
 
         for item, kwargs in zip(self._items, self._kwargs):
+            if item._method_type == 'read':
+                if 'filename' in kwargs:
+                    filename = kwargs.pop('filename')
+                    if filename in self._filename_mapping:
+                        kwargs['filename'] = \
+                            self._filename_mapping[filename]['path']
+                        item.status = \
+                            self._filename_mapping[filename]['status']
+                    else:
+                        fullfilename = os.path.normpath(os.path.realpath(
+                            os.path.join(item._inputdir, filename)))
+                        if (not os.path.isfile(fullfilename)
+                                and not os.path.dirname(filename)):
+                            self.logger.warning(
+                                f'Unable to find {filename} in '
+                                f'{item._inputdir}, '
+                                f' looking in {item._outputdir}')
+                            fullfilename = os.path.normpath(os.path.realpath(
+                                os.path.join(item._outputdir, filename)))
+                        kwargs['filename'] = fullfilename
+                        if fullfilename in self._output_filenames:
+                            self._filename_mapping[filename] = {
+                                'path': fullfilename,
+                                'status': 'write_pending'}
+                            item.status = 'write_pending'
+                        else:
+                            self._filename_mapping[filename] = {
+                                    'path': fullfilename, 'status': None}
+                elif 'filename' in item._required_args:
+                    raise ValueError(
+                        'Missing parameter "filename" in pipeline '
+                        f'configuration for {item.name}')
+            elif item._method_type == 'write':
+                if 'filename' in kwargs:
+                    filename = kwargs.pop('filename')
+                    fullfilename = os.path.normpath(os.path.realpath(
+                        os.path.join(item._outputdir, filename)))
+                    if (not kwargs.get('force_overwrite', False)
+                            and (os.path.isfile(fullfilename)
+                                 or fullfilename in self._output_filenames)):
+                        raise ValueError(
+                            'Writing to an existing file without overwrite '
+                            f'permission. Remove {fullfilename} or set '
+                            '"force_overwrite" in the pipeline configuration '
+                            f'for {item.name}')
+                    kwargs['filename'] = fullfilename
+                elif 'filename' in item._required_args:
+                    raise ValueError(
+                        'Missing parameter "filename" in pipeline '
+                        f'configuration for {item.name}')
             if hasattr(item, 'validate'):
                 self.logger.info(f'Calling "validate" on {item}')
-                item.validate(**kwargs)
+                data = item.validate(**kwargs)
+            if item.method_type == 'read':
+                if data is not None:
+                    self._data.append(PipelineData(
+                        name=item.name, data=data, schema=item.schema))
+                    self._filename_mapping[filename]['status'] = 'read'
+                kwargs['filename'] = filename
+            elif item._method_type == 'write':
+                for k, v in self._filename_mapping.items():
+                    if v['path'] == fullfilename:
+                        self._filename_mapping[k]['status'] = 'write_pending'
+                self._output_filenames.append(fullfilename)
         self.logger.info(f'Executed "validate" in {time()-t0:.3f} seconds')
 
     def execute(self):
@@ -53,6 +116,9 @@ class Pipeline():
         for item, kwargs in zip(self._items, self._kwargs):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
+                if item.method_type == 'read':
+                    filename = kwargs.get('filename')
+                    item.status = self._filename_mapping[filename]['status']
                 data = item.execute(data=self._data, **kwargs)
                 if item.method_type == 'read':
                     self._data.append(PipelineData(
@@ -67,6 +133,11 @@ class Pipeline():
                     else:
                         self._data.append(PipelineData(
                             name=item.name, data=data, schema=item.schema))
+                elif item._method_type == 'write':
+                    fullfilename = kwargs.get('filename')
+                    for k, v in self._filename_mapping.items():
+                        if v['path'] == fullfilename:
+                            self._filename_mapping[k]['status'] = 'written'
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
         return self._data
 
@@ -87,6 +158,12 @@ class PipelineItem():
     def __init__(
             self, inputdir='.', outputdir='.', interactive=False, name=None,
             schema=None):
+        # System modules
+        from inspect import (
+            Parameter,
+            signature,
+        )
+
         """Constructor of PipelineItem class."""
         self.__name__ = self.__class__.__name__ if name is None else name
         self.logger = logging.getLogger(self.__name__)
@@ -97,7 +174,7 @@ class PipelineItem():
         self._interactive = interactive
         self._schema = schema
 
-        self._args = {}
+        self._method = None
         self._method_type = None
         if hasattr(self, 'read'):
             self._method_type = 'read'
@@ -106,7 +183,16 @@ class PipelineItem():
         elif hasattr(self, 'write'):
             self._method_type = 'write'
         else:
-            self._method_type = None
+            return
+        self._method = getattr(self, self._method_type)
+        sig = signature(self._method)
+        self._args = {}
+        self._allowed_args = [k for k, v in sig.parameters.items()
+                              if v.kind == v.POSITIONAL_OR_KEYWORD]
+        self._required_args = [k for k, v in sig.parameters.items()
+                               if (v.kind == v.POSITIONAL_OR_KEYWORD
+                                   and v.default is Parameter.empty)]
+        self._status = None
 
     @property
     def method_type(self):
@@ -119,6 +205,14 @@ class PipelineItem():
     @property
     def schema(self):
         return self._schema
+
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
 
     @staticmethod
     def get_default_nxentry(nxobject):
@@ -312,54 +406,17 @@ class PipelineItem():
 
     def validate(self, **kwargs):
         """Validate the appropriate method of the object."""
-        self._method = getattr(self, self._method_type)
-        self._allowed_args = inspect.getfullargspec(self._method).args +\
-                             inspect.getfullargspec(self._method).kwonlyargs
-        if self._method_type == 'read':
-            if 'inputdir' in self._allowed_args:
-                self._args['inputdir'] = self._inputdir
-            if 'filename' in kwargs:
-                filename = kwargs.pop('filename')
-                newfilename = os.path.normpath(os.path.realpath(
-                    os.path.join(self._inputdir, filename)))
-                if (not os.path.isfile(newfilename)
-                        and not os.path.dirname(filename)):
-                    self.logger.warning(
-                        f'Unable to find {filename} in {self._inputdir}, '
-                        f' looking in {self._outputdir}')
-                    newfilename = os.path.normpath(os.path.realpath(
-                        os.path.join(self._outputdir, filename)))
-                kwargs['filename'] = newfilename
-        elif self._method_type == 'write':
-            if 'filename' in kwargs:
-                filename = os.path.normpath(os.path.realpath(
-                    os.path.join(self._outputdir, kwargs['filename'])))
-                if (not kwargs.get('force_overwrite', False)
-                        and os.path.isfile(filename)):
-                    raise ValueError(
-                        'Writing to an existing file without overwrite '
-                        f'permission. Remove {filename} or set '
-                        '"force_overwrite" in the pipeline configuration for '
-                        f'{self.name}')
-                kwargs['filename'] = filename
-            elif 'filename' in self._allowed_args:
-                raise ValueError(
-                    'Missing parameter "filename" in pipeline configuration '
-                    f'for {self.name}')
-
-        elif self._method_type != 'process':
-            self.logger.error('No implementation of read, process, or write')
-            return
         for k, v in kwargs.items():
             if k in self._allowed_args:
                 self._args[k] = v
 
-        #if self._method_type != 'process':
-        if self._method_type == 'read':
+        if (self._method_type == 'read'
+                and self.status not in ('read', 'write_pending')):
             self.logger.debug(f'Validating "{self._method_type}" with schema '
                               f'"{self.schema}" and {self._args}')
             self.logger.info(f'Validating "{self._method_type}"')
-            self._method(**self._args)
+            return self._method(**self._args)
+        return None
 
 
     def execute(self, data, **kwargs):
@@ -373,7 +430,6 @@ class PipelineItem():
         """
         if 'data' in self._allowed_args:
             self._args['data'] = data
-
         t0 = time()
         self.logger.debug(f'Executing "{self._method_type}" with schema '
                           f'"{self.schema}" and {self._args}')
@@ -404,6 +460,7 @@ class MultiplePipelineItem(PipelineItem):
 
         t0 = time()
         self.logger.info(f'Executing {len(items)} PipelineItems')
+        exit('MultiplePipelineItem needs updating for the new pipeline')
 
         if items is None:
             items = []

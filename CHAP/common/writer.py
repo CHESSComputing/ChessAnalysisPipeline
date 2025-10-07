@@ -335,8 +335,7 @@ class H5Writer(Writer):
 class ImageWriter(Writer):
     """Writer for saving image files."""
     def write(
-            self, data, outputdir, filename=None, force_overwrite=False,
-            remove=True):
+            self, data, filename=None, force_overwrite=False, remove=True):
         """Write the image(s) contained in `data` to file.
 
         :param data: The data to write to file.
@@ -370,7 +369,7 @@ class ImageWriter(Writer):
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
-        exit('\n\nFix ImageWriter for outputdir and schema')
+        exit('\n\nFix ImageWriter for outputdir and schema\n\n')
         try:
             ddata = self.get_data(
                 data, schema='common.write.ImageWriter', remove=remove)
@@ -706,6 +705,8 @@ class YAMLWriter(Writer):
                 except:
                     pass
         write_yaml(yaml_dict, filename, force_overwrite)
+        self.status = 'written' # Right now does nothing yet, but could
+                                # add a sort of modification flag later
         return data
 
 

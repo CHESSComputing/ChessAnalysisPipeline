@@ -38,17 +38,14 @@ class BinaryFileReader(Reader):
 
 
 class ConfigReader(Reader):
-    """Reader for YAML files that optionally implements and verifies a
-    Pydantic configuration for a given schema."""
-    def read(self, filename, schema=None):
+    """Reader for YAML files that optionally implements and verifies it
+    agaist its Pydantic configuration schema."""
+    def read(self, filename):
         """Return an optionally verified dictionary from the contents
         of a yaml file.
 
         :param filename: YAML file name to read from.
         :type filename: str
-        :param schema: Pydantic class schema name to verify the
-            configuration against, skip verification if not supplied.
-        :type schema: str, optional
         :return: The (verified) contents of the yaml file.
         :rtype: dict
         """
@@ -56,6 +53,7 @@ class ConfigReader(Reader):
         if self.schema is not None:
             data = self.get_config(
                 config=data, schema=self.schema).model_dump()
+        self.status = 'read'
         return data
 
 

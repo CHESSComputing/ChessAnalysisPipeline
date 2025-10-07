@@ -729,7 +729,9 @@ class TomoDataProcessor(Processor):
             btr = map_config['did'].split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
         except:
-            raise ValueError(f'Unable to get a valid btr from did ({btr})')
+            self.logger.warning(
+                f'Unable to get a valid btr from map_config ({map_config})')
+            btr = 'unknown'
         metadata = {
             'parent_did': map_config['did'],
             'application': 'CHAP',
