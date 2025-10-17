@@ -1743,7 +1743,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
         self._setup_detector_data(
-            nxentry, available_detector_ids=calibration_detector_ids)
+            nxentry, available_detector_ids=raw_detector_ids)
 
         # Apply the flux correction
         self._apply_flux_correction(calibration_config.flux_file)
