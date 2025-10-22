@@ -136,29 +136,29 @@ class UnstructuredToStructuredConfig(CHAPBaseModel):
     :param nxpath: The path to a specific NeXus NXdata object in the
         NeXus file tree to read the input data from.
     :type nxpath: str, optional
-    :param nxpath_scalar: The path to any additional scalar datasets
+    :param nxpath_addnl: The path to any additional datasets
         (Nexus NXdata or NXfield objects) in the NeXus file tree to
         reshape.
-    :type nxpath_scalar: Union[str, list[str]], optional
+    :type nxpath_addnl: Union[str, list[str]], optional
     :param remove_original_data: Removes the original data field,
         defaults to `False`.
     :type remove_original_data: bool, optional
     """
     nxpath: Optional[str] = None
-    nxpath_scalar: Optional[
+    nxpath_addnl: Optional[
         Union[str, conlist(min_length=1, item_type=str)]] = None
     remove_original_data: Optional[bool] = False
 
-    @field_validator('nxpath_scalar', mode='before')
+    @field_validator('nxpath_addnl', mode='before')
     @classmethod
-    def validate_nxpath_scalar(cls, nxpath_scalar):
-        """Validate nxpath_scalar.
+    def validate_nxpath_addnl(cls, nxpath_addnl):
+        """Validate nxpath_addnl.
 
-        :param nxpath_scalar: The nxpath_scalar path(s).
-        :type nxpath_scalar: Union[str, list[str]]
-        :return: nxpath_scalar.
+        :param nxpath_addnl: The additional nxpath path(s).
+        :type nxpath_addnl: Union[str, list[str]]
+        :return: nxpath_addnl.
         :rtype: list[str]
         """
-        if isinstance(nxpath_scalar, str):
-            return [nxpath_scalar]
-        return nxpath_scalar
+        if isinstance(nxpath_addnl, str):
+            return [nxpath_addnl]
+        return nxpath_addnl
