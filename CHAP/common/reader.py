@@ -486,7 +486,7 @@ class MapReader(Reader):
 class PandasReader(Reader):
     """Reader for files that can be read in with
     (pandas)[https://pandas.pydata.org/docs/index.html]"""
-    def read(self, filename, method='read_csv', kwargs=None):
+    def read(self, filename, method='read_csv', comment='#', kwargs=None):
         """Return a `pandas.DataFrame` read from the given file.
 
         :param filename: Name of file to read from.
@@ -494,28 +494,29 @@ class PandasReader(Reader):
         :param method: Name of `pandas` method to use for reading from
             `filename`. Defaults to `'read_csv'`.
         :type method: str, optional
-        :param kwargs: Keyword arguments to use with the `pandas`
-            method used for reading. Defaults to `None`.
+        :param comment: Character to identify comment lines in the
+            input file, defaults to `'#'`.
+        :type comment: str, optional
+        :param kwargs: Additional keyword arguments to supply to the
+            `pandas` reader.
         :param kwargs: dict[str, object], optional.
         :rtype: `pandas.DataFrame`
         """
+        # Third party modules
         import pandas as pd
 
         reader = getattr(pd, method)
         if not callable(reader):
             raise ValueError(
-                f'{method} is not a callable in the pandas module.'
-            )
+                f'{method} is not a callable pandas reader method')
 
         if kwargs is None:
             kwargs = {}
         if not isinstance(kwargs, dict):
             raise TypeError(
-                f'Unexpected type for kwargs: {type(kwargs)} (should be dict)'
-            )
+                f'Invalid kwargs type ({type(kwargs)}, should be dict)')
 
-        data = reader(filename, **kwargs)
-        return data
+        return reader(filename, comment=comment, **kwargs)
 
 
 class NexusReader(Reader):
@@ -902,7 +903,7 @@ class URLReader(Reader):
 class YAMLReader(Reader):
     """Reader for YAML files."""
     def read(self, filename):
-        """Return a dictionary from the contents of a yaml file.
+        """Return a dictionary from the contents of a YAML file.
 
         :param filename: The name of the YAML file to read from.
         :type filename: str
