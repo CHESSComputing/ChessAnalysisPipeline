@@ -391,8 +391,11 @@ class ImageWriter(Writer):
             return ddata
 
         if isinstance(ddata, dict):
-            fileformat = ddata['fileformat']
             image_data = ddata['image_data']
+            fileformat = ddata['fileformat']
+        elif isinstance(ddata, tuple) and len(ddata) == 2:
+            image_data = ddata[0]
+            fileformat = ddata[1]
         else:
             image_data = ddata
         basename, ext = os_path.splitext(filename)
@@ -750,7 +753,8 @@ class YAMLWriter(Writer):
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param filename: The name of the file to write to.
+        :param filename: The name of the file to write to (add default
+            `'yaml'` extension if no extension is provided).
         :type filename: str
         :param force_overwrite: Flag to allow data in `filename` to be
             overwritten if it already exists, defaults to `False`.
@@ -769,6 +773,10 @@ class YAMLWriter(Writer):
 
         # Local modules
         from CHAP.models import CHAPBaseModel
+
+        basename, ext = os_path.splitext(filename)
+        if ext[1:] not in ('yml', 'yaml'):
+            filename += '.yaml'
 
         yaml_dict = None
         for i, d in reversed(list(enumerate(data))):

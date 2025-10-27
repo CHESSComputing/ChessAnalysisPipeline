@@ -14,7 +14,7 @@ class CfProcessor(Processor):
     """
     def process(
             self, data, interactive=False, save_figures=True, nxpath=None,
-            radial_range=None, eps=1.e-5):
+            radial_range=None, scan_step_indices=None, eps=1.e-5):
         """Return a dictionary with the computed correction factor Cf
         and the configuration parameters.
 
@@ -25,8 +25,8 @@ class CfProcessor(Processor):
         :param interactive: Allows for user interactions,
             defaults to `False`.
         :type interactive: bool, optional
-        :param save_figures: Create Matplotlib figures that can be
-            saved to file downstream in the workflow,
+        :param save_figures: Create Matplotlib correction factor
+            image that can be saved to file downstream in the workflow,
             defaults to `True`.
         :type save_figures: bool, optional
         :param nxpath: The path to a specific NeXus NXdata object in
@@ -35,12 +35,17 @@ class CfProcessor(Processor):
         :param radial_range: q-range used to compute Cf.
         :type radial_range: Union(
             list[float, float], tuple[float, float]), optional
+        :ivar scan_step_indices: Optional scan step indices to use for
+            the calculation. If not specified, the correction factor
+            will be computed on the average of all data for the scan.
+        :type scan_step_indices: int, str, list[int], optional
         :param eps: Minimum plotting value of the corrected azimuthally
             integrated SAXSWAXS data, default to `1.e-5`.
         :type eps: float
         :returns: Computed correction factor Cf and the configuration
-            parameters
-        :rtype: dict
+            parameters plus the optional correction factor image as a
+            CHAP.pipeline.PipelineData object.
+        :rtype: Union[dict, (dict, PipelineData)]
         """
         # Third party modules
         from pandas import DataFrame
@@ -56,6 +61,16 @@ class CfProcessor(Processor):
                 fig_to_iobuf,
                 round_to_n,
             )
+
+        # Validate the input parameters
+        if scan_step_indices is not None:
+            if isinstance(scan_step_indices, int):
+                scan_step_indices = [scan_step_indices]
+            elif isinstance(scan_step_indices, str):
+                # Local modules
+                from CHAP.utils.general import string_to_list
+
+                scan_step_indices = string_to_list(scan_step_indices)
 
         # Load the measured data
         if nxpath is None:
@@ -74,7 +89,19 @@ class CfProcessor(Processor):
             except Exception as exc:
                 raise ValueError('No valid default NXdata object in pipeline '
                                  'data') from exc
-        data_meas = nxdata.nxsignal.nxdata.mean(axis=0)
+        if scan_step_indices is not None and nxdata.nxsignal.ndim != 2:
+            self.logger.warning(
+                'Input parameters scan_step_indices for map with a number of '
+                'independent dimensions other than 1')
+            scan_step_indices = None
+        if nxdata.nxsignal.ndim == 1:
+            data_meas = nxdata.nxsignal.nxdata
+        elif nxdata.nxsignal.ndim == 2 and scan_step_indices is not None:
+            data_meas = \
+                nxdata.nxsignal.nxdata[scan_step_indices,:].mean(axis=0)
+        else:
+            data_meas = nxdata.nxsignal.nxdata.mean(
+                axis=tuple(range(nxdata.nxsignal.ndim-1)))
         q_meas = nxdata[nxdata.attrs['axes'][1]].nxdata
 
         # Load the reference data
@@ -88,23 +115,25 @@ class CfProcessor(Processor):
             raise ValueError(
                 'Invalid reference data format {type(ddata)}') from exc
 
-        # Interpolate reference data onto measured q values
+        # Interpolate measured reference data onto reference q values
         mask = np.where(
-            q_meas <= radial_range[1],
-            np.where(q_meas >= radial_range[0], 1, 0), 0).astype(bool)
-        if not q_meas[mask].size:
-            raise ValueError(
-                f'No measured values within specified radial range')
-        func = interp1d(q_ref, data_ref, kind='cubic')
-        data_ref_intpol = func(q_meas[mask])
-        if not data_ref_intpol.size:
+            q_ref <= radial_range[1],
+            np.where(q_ref >= radial_range[0], 1, 0), 0).astype(bool)
+        if not q_ref[mask].size:
             raise ValueError(
                 f'No reference values within specified radial range')
+        func = interp1d(q_meas, data_meas, kind='cubic')
+        data_meas_intpol = func(q_ref[mask])
+        if not data_meas_intpol.size:
+            raise ValueError(
+                f'No measured values within specified radial range')
 
         # Get the correction factor
-        ratio = data_ref_intpol/data_meas[mask]
+        ratio = data_ref[mask]/data_meas_intpol
         cf = ratio.mean()
         cf_stv = ratio.std()
+        self.logger.info(f'correction factor Cf: {round_to_n(cf, 6):e} \u00B1 '
+                         f'{round_to_n(100*cf_stv/cf, 2)}%')
 
         # Assemble result
         result = {
@@ -115,7 +144,7 @@ class CfProcessor(Processor):
 
         # Plot the results
         data_meas *= cf
-        figures = []
+        figures = None
         if interactive or save_figures:
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.plot(q_ref, data_ref, label='APS Reference Data')
@@ -142,13 +171,12 @@ class CfProcessor(Processor):
                 bbox=dict(facecolor='white', edgecolor='grey', pad=10.0))
             if save_figures:
                 fig.tight_layout(rect=(0, 0, 1, 0.95))
-                figures.append((
-                    fig_to_iobuf(fig), f'correction_factor_cf'))
+                figures  = fig_to_iobuf(fig)
             if interactive:
                 plt.show()
             plt.close()
 
-        if figures:
+        if figures is not None:
             return (
                 result,
                 PipelineData(name=self.__name__, data=figures,
