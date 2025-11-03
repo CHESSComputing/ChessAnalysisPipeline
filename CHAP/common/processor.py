@@ -3847,9 +3847,14 @@ class XarrayToNumpyProcessor(Processor):
 
 class ZarrToNexusProcessor(Processor):
     """Processor for converting .zarr data to .nxs format."""
-    def process(self, data, zarr_filename, nexus_filename):
+    def process(self, data, zarr_filename, nexus_filename, inputdir='.'):
         import zarr
         import h5py
+
+        if not os.path.isabs(zarr_filename):
+            zarr_filename = os.path.join(inputdir, zarr_filename)
+        if not os.path.isabs(nexus_filename):
+            nexus_filename = os.path.join(inputdir, nexus_filename)
 
         # Open the Zarr file
         zarr_file = zarr.open(zarr_filename, mode='r')
