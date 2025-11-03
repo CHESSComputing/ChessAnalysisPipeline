@@ -7,6 +7,183 @@ from CHAP import Processor
 from CHAP.common import ExpressionProcessor
 
 
+class CfProcessor(Processor):
+    """Processor to calculate the correction factor Cf that, when
+    multiplied by appropriately processed SAXSWAXS data obtained,
+    converts data to absolute cross-section / intensity in inverse cm.
+    """
+    def process(
+            self, data, interactive=False, save_figures=True, nxpath=None,
+            radial_range=None, scan_step_indices=None, eps=1.e-5):
+        """Return a dictionary with the computed correction factor Cf
+        and the configuration parameters.
+
+        :param data: Input data list containing the reference data
+            labelled with `'reference_data'` as well as the NeXus
+            input data with the azimuthally integrated SAXSWAXS data.
+        :type data: list[PipelineData]
+        :param interactive: Allows for user interactions,
+            defaults to `False`.
+        :type interactive: bool, optional
+        :param save_figures: Create Matplotlib correction factor
+            image that can be saved to file downstream in the workflow,
+            defaults to `True`.
+        :type save_figures: bool, optional
+        :param nxpath: The path to a specific NeXus NXdata object in
+            the input NeXus file tree to the measured data from.
+        :type nxpath: str, optional
+        :param radial_range: q-range used to compute Cf.
+        :type radial_range: Union(
+            list[float, float], tuple[float, float]), optional
+        :ivar scan_step_indices: Optional scan step indices to use for
+            the calculation. If not specified, the correction factor
+            will be computed on the average of all data for the scan.
+        :type scan_step_indices: int, str, list[int], optional
+        :param eps: Minimum plotting value of the corrected azimuthally
+            integrated SAXSWAXS data, default to `1.e-5`.
+        :type eps: float
+        :returns: Computed correction factor Cf and the configuration
+            parameters plus the optional correction factor image as a
+            CHAP.pipeline.PipelineData object.
+        :rtype: Union[dict, (dict, PipelineData)]
+        """
+        # Third party modules
+        from pandas import DataFrame
+        from scipy.interpolate import interp1d
+
+        if interactive or save_figures:
+            # Third party modules
+            import matplotlib.pyplot as plt
+
+            # Local modules
+            from CHAP.pipeline import PipelineData
+            from CHAP.utils.general import (
+                fig_to_iobuf,
+                round_to_n,
+            )
+
+        # Validate the input parameters
+        if scan_step_indices is not None:
+            if isinstance(scan_step_indices, int):
+                scan_step_indices = [scan_step_indices]
+            elif isinstance(scan_step_indices, str):
+                # Local modules
+                from CHAP.utils.general import string_to_list
+
+                scan_step_indices = string_to_list(scan_step_indices)
+
+        # Load the measured data
+        if nxpath is None:
+            try:
+                nxdata = self.get_default_nxdata(self.get_data(data))
+            except Exception as exc:
+                raise ValueError(
+                    'No valid default NXdata object in pipeline data') from exc
+        else:
+            # Third party modules
+            from nexusformat.nexus import NXdata
+
+            try:
+                nxdata = self.get_data(data)[nxpath]
+                assert isinstance(nxdata, NXdata)
+            except Exception as exc:
+                raise ValueError('No valid default NXdata object in pipeline '
+                                 'data') from exc
+        if scan_step_indices is not None and nxdata.nxsignal.ndim != 2:
+            self.logger.warning(
+                'Input parameters scan_step_indices for map with a number of '
+                'independent dimensions other than 1')
+            scan_step_indices = None
+        if nxdata.nxsignal.ndim == 1:
+            data_meas = nxdata.nxsignal.nxdata
+        elif nxdata.nxsignal.ndim == 2 and scan_step_indices is not None:
+            data_meas = \
+                nxdata.nxsignal.nxdata[scan_step_indices,:].mean(axis=0)
+        else:
+            data_meas = nxdata.nxsignal.nxdata.mean(
+                axis=tuple(range(nxdata.nxsignal.ndim-1)))
+        q_meas = nxdata[nxdata.attrs['axes'][1]].nxdata
+
+        # Load the reference data
+        ddata = self.get_data(data, name='reference_data')
+        try:
+            assert isinstance(ddata, DataFrame)
+            assert len(ddata.columns) in (2, 3)
+            q_ref = ddata.values[:,0]
+            data_ref = ddata.values[:,1]
+        except Exception as exc:
+            raise ValueError(
+                'Invalid reference data format {type(ddata)}') from exc
+
+        # Interpolate measured reference data onto reference q values
+        mask = np.where(
+            q_ref <= radial_range[1],
+            np.where(q_ref >= radial_range[0], 1, 0), 0).astype(bool)
+        if not q_ref[mask].size:
+            raise ValueError(
+                f'No reference values within specified radial range')
+        func = interp1d(q_meas, data_meas, kind='cubic')
+        data_meas_intpol = func(q_ref[mask])
+        if not data_meas_intpol.size:
+            raise ValueError(
+                f'No measured values within specified radial range')
+
+        # Get the correction factor
+        ratio = data_ref[mask]/data_meas_intpol
+        cf = ratio.mean()
+        cf_stv = ratio.std()
+        self.logger.info(f'correction factor Cf: {round_to_n(cf, 6):e} \u00B1 '
+                         f'{round_to_n(100*cf_stv/cf, 2)}%')
+
+        # Assemble result
+        result = {
+            'cf': float(cf),
+            'error': float(cf_stv),
+            'radial_range': radial_range,
+        }
+
+        # Plot the results
+        data_meas *= cf
+        figures = None
+        if interactive or save_figures:
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.plot(q_ref, data_ref, label='APS Reference Data')
+            ax.plot(q_meas, data_meas, label=f'Corrected FMB Data/C$_f$')
+            for v in radial_range:
+                plt.axvline(v, color='r', linestyle='--')
+            ax.set_yscale('log')
+            ax.set_title(f'Absolute Intensity Calculation', fontsize='xx-large')
+            ax.set_xlabel(r'{q_A^-1}', fontsize='x-large')
+            ax.set_ylabel('Normalized Intensity', fontsize='x-large')
+            min_x = q_meas.min()
+            max_x = q_meas.max()
+            delta_x = 0.1*(q_meas.max() - q_meas.min())
+            ax.set_xlim((min_x-delta_x, max_x+delta_x))
+            ax.set_ylim(
+                (10**np.floor(np.log10(data_meas[data_meas>eps].min())),
+                 10**np.floor(1+np.log10(data_meas.max()))))
+            ax.legend(fontsize='x-large', edgecolor='grey')
+            plt.annotate(
+                f'C$_f$ = {round_to_n(cf, 6):e} $\pm$ '
+                f'{round_to_n(100*cf_stv/cf, 2)}%\n'
+                f'1/C$_f$ = {round_to_n(1/cf, 6):e}',
+                (.65, .9), xycoords = 'axes fraction', fontsize='x-large',
+                bbox=dict(facecolor='white', edgecolor='grey', pad=10.0))
+            if save_figures:
+                fig.tight_layout(rect=(0, 0, 1, 0.95))
+                figures  = fig_to_iobuf(fig)
+            if interactive:
+                plt.show()
+            plt.close()
+
+        if figures is not None:
+            return (
+                result,
+                PipelineData(name=self.__name__, data=figures,
+                    schema='common.write.ImageWriter'))
+        return result
+
+
 class FluxCorrectionProcessor(ExpressionProcessor):
     """Processor for flux correction."""
     def process(self, data, presample_intensity_reference_rate=None,

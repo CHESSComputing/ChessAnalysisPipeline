@@ -3,6 +3,7 @@ processing workflows.
 """
 
 from CHAP.saxswaxs.processor import (
+    CfProcessor,
     FluxCorrectionProcessor,
     FluxAbsorptionCorrectionProcessor,
     FluxAbsorptionBackgroundCorrectionProcessor,

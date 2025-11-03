@@ -3085,7 +3085,7 @@ class UnstructuredToStructuredProcessor(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.UnstructuredToStructuredConfig
+            CHAP.common.models.common.UnstructuredToStructuredConfig
         :type config: dict, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths.

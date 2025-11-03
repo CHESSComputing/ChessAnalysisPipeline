@@ -312,10 +312,12 @@ class PipelineItem():
         t0 = time()
         self.logger.debug(
             f'Executing "{method_name}" with schema "{schema}" and {args}')
-        self.logger.info(f'Executing "{method_name}"')
+        if 'filename' in kwargs:
+            self.logger.info(
+                f'Executing "{method_name}" on file {kwargs["filename"]}')
+        else:
+            self.logger.info(f'Executing "{method_name}"')
         ddata = method(**args)
-        self.logger.info(
-            f'Finished "{method_name}" in {time()-t0:.0f} seconds\n')
 
         name = kwargs.get('name', self.__name__)
         if method_name == 'read':
