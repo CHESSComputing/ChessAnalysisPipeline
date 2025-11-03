@@ -3077,7 +3077,7 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to a "structured" representation.
     """
-    def process(self, data, config=None, inputdir=None):
+    def process(self, data, nxpath=None, signals=None, unstructured_axes=None):
         """Plot and return a NeXus NXobject object with the default
         NeXus NXData object added or replaced by its "structured"
         representation.
@@ -3096,420 +3096,212 @@ class UnstructuredToStructuredProcessor(Processor):
         :rtype: nexusformat.nexus.NXobject
         """
         # Third party modules
-        from nexusformat.nexus import (
-            NXdata,
-            NXgroup,
-            NXlink,
-        )
+        from nexusformat.nexus import NXdata
 
-        # Local modules
-        from CHAP.utils.general import nxcopy
-
-        # Load the validated processor configuration
-        if config is None:
-            # Local modules
-            from CHAP.common.models.common import (
-                UnstructuredToStructuredConfig,
-            )
-
-            config = UnstructuredToStructuredConfig()
-        else:
-            config = self.get_config(
-                data, config=config,
-                schema='common.models.common.UnstructuredToStructuredConfig',
-                inputdir=inputdir)
-
-        # Load the default data
         try:
-            error_txt = 'Unable the load the default NXdata object from ' \
-                        f'the input pipeline ({data})'
             nxobject = self.get_data(data)
-            if config.nxpath is None:
-                # Local modules
-                from CHAP.utils.general import get_default_path
+        except:
+            nxobject = self.unwrap_pipelinedata(data)[0]
 
-                nxpath = get_default_path(nxobject)
-            else:
-                error_txt = 'Unable the load the NXdata object from ' \
-                            f'config.nxpath ({config.nxpath}), ' \
-                            f'nxobject:\n({nxobject.tree})'
-                nxpath = config.nxpath
-            nxdata = nxobject[nxpath]
-            if isinstance(nxdata, NXgroup):
-                # Local modules
-                from CHAP.utils.general import nxcopy
-
-                nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
-            assert isinstance(nxdata, NXdata)
-        except Exception:
-            raise ValueError(error_txt)
-
-        if isinstance(nxobject, NXdata):
-            nxdata_structured.nxname = nxobject.nxname
-            return nxdata_structured
-
-        # Get the structured data
-        if config.nxpath_addnl is None:
-            nxdata_addnl = {}
-        else:
-            try:
-                nxdata_addnl = {
-                    path:(nxobject[path] if isinstance(nxobject[path], NXdata)
-                    else nxcopy(nxobject[path], nxgroup_to_nxdata=True))
-                    for path in config.nxpath_addnl}
-            except Exception:
-                self.logger.warning(
-                    f'Unable the load config.nxpath_addnl '
-                    f'({config.nxpath_addnl}), nxobject:\n({nxobject.tree})')
-                nxdata_addnl = {}
-
-        nxdata_structured, nxdata_addnl_structured = self.convert_nxdata(
-            nxdata, nxdata_addnl, config.remove_original_data)
-
-        # Return the modified NeXus NXobject object
-
-        if config.remove_original_data:
-            exclude_nxpaths = [os.path.relpath(nxpath, nxobject.nxpath)]
-            for addnl_data, path in zip(
-                    nxdata_addnl_structured, nxdata_addnl.keys()):
-                if addnl_data is not None:
-                    exclude_nxpaths.append(
-                        os.path.relpath(path, nxobject.nxpath))
-            nxobject = nxcopy(nxobject, exclude_nxpaths=exclude_nxpaths)
-        else:
-            nxobject = nxcopy(nxobject)
-            nxpath = f'{os.path.split(nxpath)[0]}/{nxdata_structured.nxname}'
-        nxobject[nxpath] = nxdata_structured
-        if nxobject.nxclass in ('nxentry', 'nxroot'):
-            nxobject[nxpath].set_default()
-        if not nxdata_addnl_structured:
-            return nxobject
-
-        for addnl_data, path in zip(
-                nxdata_addnl_structured, nxdata_addnl.keys()):
-            if addnl_data is not None:
-                nxpath = os.path.relpath(path, nxobject.nxpath)
-                nxpath = f'{os.path.split(nxpath)[0]}/{addnl_data.nxpath}'
-                nxobject[nxpath] = addnl_data
-        return nxobject
-
-    def convert_nxdata(self, nxdata, nxdata_addnl, remove_original_data):
-        # Third party modules
-        from nexusformat.nexus import (
-            NXdata,
-            NXgroup,
-            NXfield,
+        signals, unstructured_axes = self.guess_signals_axes(
+            nxobject, signals, unstructured_axes
         )
+        signals, unstructured_axes = self.validate_signals_axes(
+            nxobject, signals, unstructured_axes
+        )
+        return self.convert(nxobject, signals, unstructured_axes)
 
-        # Local modules
-        from CHAP.common.map_utils import get_axes
+    def guess_signals_axes(self, nxdata, signals, unstructured_axes):
+        """Return two lists: the names of the candidate signal-like
+        and axes-like fields in the NXdata object provided, given the
+        other initial hints for those lists. Candidate signal/axes
+        fields are considered to be all the fields in the NXdata that
+        are not already candidates for the axes/signal fields.
 
-        # Extract axes from the NXdata attributes
-        axes = get_axes(nxdata)
-        for a in axes:
-            if a not in nxdata:
-                raise ValueError(f'Missing coordinates for {a}')
+        :param nxdata:
+        :type nxdata: nexusformat.nexus.NXdata
+        :param signals: List of names of the dataset's signal-like
+            fields
+        :type signals: list[str]
+        :param unstructured_axes: List of names of the dataset's
+            unstructured axes fields
+        :type unstructured_axes: list[str]
+        :returns: Best guess at the signal and axes fields
+        :rtype: list[str], list[str]
+        """
+        from nexusformat.nexus import NXfield
 
-        # Check the independent dimensions and axes
-        unstructured_axes = []
-        unstructured_dim = None
-        for a in axes:
-            if not isinstance(nxdata[a], NXfield):
-                raise ValueError(
-                    f'Invalid axis field type ({type(nxdata[a])})')
-            if len(nxdata[a].shape) == 1:
-                if not unstructured_axes:
-                    unstructured_axes.append(a)
-                    unstructured_dim = nxdata[a].size
+        self.logger.debug('Guessing signal & axes fields')
+        if signals is None:
+            # Get unstructured_axes first
+            if unstructured_axes is None:
+                axes_attr = nxdata.attrs.get('unstructured_axes')
+                if axes_attr is not None:
+                    _unstructured_axes = axes_attr
                 else:
-                    if nxdata[a].size == unstructured_dim:
-                        unstructured_axes.append(a)
-                    elif 'unstructured_axes' in nxdata.attrs:
-                        raise ValueError(f'Inconsistent axes dimensions')
-            elif 'unstructured_axes' in nxdata.attrs:
-                raise ValueError(
-                    f'Invalid unstructered axis shape ({nxdata[a].shape})')
-        if not axes and hasattr(nxdata, 'signal'):
-            if len(nxdata[nxdata.signal].shape) < 2:
-                raise ValueError(
-                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
-            unstructured_dim = nxdata[nxdata.signal].shape[0]
-            for k, v in nxdata.items():
-                if (isinstance(v, NXfield) and len(v.shape) == 1
-                        and v.shape[0] == unstructured_dim):
-                    unstructured_axes.append(k)
-        if unstructured_dim is None:
-            raise ValueError(f'Unable to determine the unstructered axes')
-        axes = unstructured_axes
-
-        # Identify unique coordinate points for each axis
-        coords = {}
-        coord_dims = []
-        unique_coords = {}
-        unique_coords_index = {}
-        unique_coords_inverse = {}
-        unique_coords_counts = {}
-        axes_attrs = {}
-        for a in axes:
-            coords[a] = nxdata[a].nxdata
-            (unique_coords[a], unique_coords_index[a],
-                    unique_coords_inverse[a], unique_coords_counts[a]) = \
-                np.unique(
-                    coords[a], return_index=True, return_inverse=True,
-                    return_counts=True)
-            coord_dims.append(unique_coords[a].size)
-            axes_attrs[a] = deepcopy(nxdata[a].attrs)
-            if 'target' in axes_attrs[a]:
-                del axes_attrs[a]['target']
-
-        # Identify the signals and the data point axes
-        signals = []
-        data_point_axes = []
-        data_point_shape = []
-        if hasattr(nxdata, 'signal'):
-            if (len(nxdata[nxdata.signal].shape) < 2
-                    or nxdata[nxdata.signal].shape[0] != unstructured_dim):
-                raise ValueError(
-                    f'Invalid signal shape ({nxdata[nxdata.signal].shape})')
-            signals = [nxdata.signal]
-            data_point_shape = [nxdata[nxdata.signal].shape[1:]]
-        for k, v in nxdata.items():
-            if (isinstance(v, NXfield) and k not in axes and k not in signals
-                    and v.shape[0] == unstructured_dim):
-                signals.append(k)
-                if not data_point_shape:
-                    data_point_shape.append(v.shape[1:])
-        if len(data_point_shape) == 1:
-            data_point_shape = data_point_shape[0]
+                    raise RuntimeError(
+                        'Can\'t guess both signals and unstructured_axes')
+            else:
+                _unstructured_axes = unstructured_axes
+            if nxdata.nxsignal is not None:
+                # Use the nxsignal attr
+                _signals = [nxdata.nxsignal.nxname]
+            else:
+                # Use all fields that aren't already axes
+                _signals = [
+                    f for f in nxdata
+                    if f not in unstructured_axes
+                    and isinstance(nxdata[f], NXfield)
+                ]
         else:
-            data_point_shape = []
-        for dim in data_point_shape:
-            for k, v in nxdata.items():
-                if (isinstance(v, NXfield) and k not in axes
-                        and v.shape == data_point_shape):
-                    data_point_axes.append(k)
+            _signals = signals
+            if unstructured_axes is None:
+                _unstructured_axes = [
+                    f for f in nxdata
+                    if f not in _signals
+                    and isinstance(nxdata[f], NXfield)
+                ]
+            else:
+                _unstructured_axes = unstructured_axes
 
+        self.logger.debug(f'Guessing signals: {_signals}')
+        self.logger.debug(f'Guessing axes: {_unstructured_axes}')
+        return _signals, _unstructured_axes
+
+    def validate_signals_axes(self, nxdata, signals, unstructured_axes):
+        """Validate consistency of signal and axis fields in an NXdata
+        group.
+
+        This method checks that all fields specified in `signals` and
+        `unstructured_axes` are present in the given `NXdata` object,
+        that they are of type `NXfield`, and that their sizes are
+        consistent.  Specifically, all unstructured axes must have the
+        same length, and each signal’s first dimension must match this
+        length. Raises `TypeError` or `ValueError` if validation
+        fails.
+
+        :param nxdata: The NXdata group containing signals and axes to
+            validate.
+        :type nxdata: NXdata
+        :param signals: Names of fields in the NXdata that represent
+            signals to validate.
+        :type signals: list[str]
+        :param unstructured_axes: Names of fields in the NXdata that
+            represent unstructured axes to validate.
+        :type unstructured_axes: list[str]
+        :returns: The validated `signals` and `unstructured_axes` lists.
+        :rtype: tuple[list[str], list[str]]
+        """
+        from nexusformat.nexus import NXfield
+
+        self.logger.debug('Validating signal & axes fields')
+        fields = signals + unstructured_axes
+        # Check presence & types of all indicated fields
+        for f in fields:
+            _f = nxdata.get(f)
+            if not isinstance(_f, NXfield):
+                raise TypeError(f'{f} is {type(_f)}, expected NXfield')
+
+        # Check unstructured axes shapes
+        for u_a in unstructured_axes:
+            if len(nxdata[u_a].squeeze().shape) > 1:
+                raise ValueError(
+                    f'Axis {u_a} is not 1-D; shape is: {nxdata[u_a].shape}')
+
+        # Check unstructured axes sizes
+        dataset_length = nxdata[unstructured_axes[0]].size
+        self.logger.debug(f'Validating axes for size={dataset_length}')
+        for u_a in unstructured_axes[1:]:
+            if nxdata[u_a].size != dataset_length:
+                raise ValueError(
+                    f'Axis {u_a} size is {nxdata[u_a].size}; '
+                    'expected {dataset_length}'
+                )
+        # Check signal shapes
+        for s in signals:
+            first_dim = nxdata[s].shape[0]
+            if first_dim != dataset_length:
+                raise ValueError(
+                    f'Signal {s} first axis is {first_dim}, '
+                    'expected {dataset_length}'
+		)
+        self.logger.debug('Validated signals & axes')
+        return signals, unstructured_axes
+
+    def convert(self, nxdata, signals, unstructured_axes):
+        """Convert an NXdata group with unstructured axes into a
+        structured form.
+
+        This method restructures an `NXdata` object by replacing
+        unstructured axis fields with structured (unique, sorted) axes
+        and reshaping the associated signals accordingly. Signal data
+        are placed into an N-dimensional array defined by the
+        Cartesian product of the structured axes. Any other NXfields
+        in the input NXdata that are not part of `signals` or
+        `unstructured_axes` are preserved in the output.
+
+        :param nxdata: The unstructured NXdata group to convert.
+        :type nxdata: NXdata
+        :param signals: Names of fields in the NXdata that represent
+            signals to be restructured.
+        :type signals: list[str]
+        :param unstructured_axes: Names of fields in the NXdata that
+            represent unstructured axes. These axes will be replaced
+            by unique, structured equivalents.
+        :type unstructured_axes: list[str]
+        :returns: A new NXdata object containing structured axes,
+            reshaped signals, and any unconverted NXfields preserved
+            from the input.
+        :rtype: NXdata
+        """
+        from nexusformat.nexus import NXdata, NXfield
+
+        self.logger.debug('Performing conversion to structured dataset')
+        self.logger.debug('Copying original NXdata')
         attrs = deepcopy(nxdata.attrs)
-        if 'unstructured_axes' in attrs:
-            attrs.pop('unstructured_axes')
-        if 'axes' not in attrs:
-            attrs['axes'] = {}
-        map_shape = {}
-        for s in signals:
-            map_shape[s] = tuple(coord_dims + list(nxdata[s].shape[1:]))
-
-        # Scalar fields
-        addnl_fields = {}
-        field_names = []
-        for path, addnl_data in nxdata_addnl.items():
-            if isinstance(addnl_data, NXdata):
-                addnl_fields[path] = []
-                for v in addnl_data:
-                    if (f'{path}/{v}' not in field_names
-                            and isinstance(addnl_data[v], NXfield)
-                            and addnl_data[v].shape[0] == (unstructured_dim)):
-                        addnl_fields[path].append(addnl_data[v])
-                        field_names.append(f'{path}/{v}')
-            elif isinstance(addnl_data, NXfield):
-                field  = addnl_data.nxname
-                if (path not in field_names
-                        and addnl_data.shape[0] == (unstructured_dim)):
-                    addnl_fields[path] = [addnl_data]
-                    field_names.append(path)
-                else:
-                    addnl_fields[path] = []
-            else:
-                self.logger.warning(
-                    'Skip unknown additional data object of type '
-                    f'{type(addnl_data)}:\n{addnl_data}')
-
-        # Check the mapping
-        num_axes = len(axes)
-        full_mapping = (
-            num_axes == 2
-            and np.prod(coord_dims) == unstructured_dim)
-        if not full_mapping:
-            self.logger.warning('The unstructered grid does not fully map to '
-                                'a structered one (there are missing points)')
-        self.logger.info(f'full_mapping: {full_mapping}')
-        if full_mapping:
-            # Get the slow and fast index
-            # FIX Can be generalized to more than 2 dims
-            equal = {
-                a: np.array_equal(unique_coords_index[a], range(coord_dims[i]))
-                for i, a in enumerate(axes)}
-            equal_index = np.where(list(equal.values()))[0]
-            if len(equal_index) == 1:
-                if not equal_index[0]:
-                    axes = list(reversed(axes))
-                    coord_dims = list(reversed(coord_dims))
-                    for s in signals:
-                        map_shape[s] = tuple(
-                            coord_dims + list(nxdata[s].shape[1:]))
-            else:
-                # FIX Do we need rtol and atol input options for np.isclose?
-                self.logger.warning(
-                    'Inconsistent coordinates in full mapping'
-                    f'axes: {axes} equal: {equal} equal_index: {equal_index}')
-                rtol = 1.e-4
-                atol = 1.e-9
-                mm = [v.reshape(coord_dims) for v in coords.values()]
-                mean_mm = [
-                    [v.mean((i+1)%2) for i in range(num_axes)] for v in mm]
-                mean_mm_sorted = [[np.sort(v2) for v2 in v1] for v1 in mean_mm]
-                equal = [[
-                    np.all(np.isclose(np.sort(v1), v2, rtol=rtol, atol=atol))
-                       for v1, v2 in zip(unique_coords.values(), v)]
-                       for v in mean_mm_sorted]
-                if not np.array_equal(equal, np.identity(num_axes)):
-                    axes = list(reversed(axes))
-                    coord_dims = list(reversed(coord_dims))
-                    for s in signals:
-                        map_shape[s] = tuple(
-                            coord_dims + list(nxdata[s].shape[1:]))
-                    mm = [v.reshape(coord_dims) for v in coords.values()]
-                    mean_mm = [
-                        [v.mean(i) for i in range(num_axes)] for v in mm]
-                    mean_mm_sorted = [
-                        [np.sort(v2) for v2 in v1] for v1 in mean_mm]
-                    equal = [
-                        [np.all(np.isclose(
-                            np.sort(v1), v2, rtol=rtol, atol=atol))
-                        for v1, v2 in zip(unique_coords.values(), v)]
-                        for v in mean_mm_sorted]
-                    if not np.array_equal(equal, np.identity(num_axes)):
-                        axes = list(reversed(axes))
-                        coord_dims = list(reversed(coord_dims))
-                        for s in signals:
-                            map_shape[s] = tuple(
-                                coord_dims + list(nxdata[s].shape[1:]))
-                        full_mapping = False
-                        self.logger.warning('The unstructered grid does map '
-                                            'to a regular structered one')
-        attrs['axes'] = axes + [a for a in attrs['axes'] if a not in axes]
-        if remove_original_data:
-            name = nxdata.nxname
-        else:
-            name = f'{nxdata.nxname}_structured'
-        if full_mapping:
-            # Populate the structured NXdata object with its reshaped
-            # data
-            nxdata_structured = NXdata(
-                name=name,
-                **{a: NXfield(
-                    value=coords[a][np.sort(unique_coords_index[a])].tolist(),
-                    attrs=axes_attrs[a])
-                   for a in axes},
-                **{s: NXfield(
-                    value=nxdata[s].reshape(map_shape[s]),
-                    dtype=nxdata[s].dtype,
-                    shape=map_shape[s],
-                    attrs=nxdata[s].attrs)
-                   for s in signals},
-                attrs=attrs)
-            # Populate the structured additional data with its reshaped
-            # data
-            nxdata_addnl_structured = []
-            for (path, addnl_data), ddata in zip(
-                    addnl_fields.items(), nxdata_addnl.values()):
-                if not addnl_data:
-                    nxdata_addnl_structured.append(None)
-                else:
-                    if remove_original_data:
-                        addnl_name = ddata.nxname
-                    else:
-                        addnl_name = f'{ddata.nxname}_structured'
-                    if isinstance(ddata, NXdata):
-                        nxdata_addnl_structured.append(
-                            NXdata(name=addnl_name,
-                                **{field.nxname: NXfield(
-                                    value=field.reshape(
-                                        (*tuple(coord_dims),
-                                         *field.shape[1:])),
-                                    dtype=field.dtype,
-                                    shape=(*tuple(coord_dims),
-                                           *field.shape[1:]),
-                                    attrs=field.attrs)
-                                   for field in addnl_data}))
-                    else:
-                        shape = (*tuple(coord_dims), *ddata.shape[1:])
-                        nxdata_addnl_structured.append(
-                                NXfield(
-                                    name = addnl_name,
-                                    value=addnl_data[0].reshape(shape),
-                                    dtype=addnl_data[0].dtype,
-                                    shape=shape,
-                                    attrs=addnl_data[0].attrs))
-        else:
-            if nxdata_addnl:
-                raise ValueError('nxdata_addnl not yet implemented here')
-            # Create the structured NXdata object
-            if coord_dims[0] > coord_dims[1]:
-                axes = list(reversed(axes))
-                coord_dims = list(reversed(coord_dims))
-                for s in signals:
-                    map_shape[s] = tuple(
-                        coord_dims + list(nxdata[s].shape[1:]))
-                attrs['axes'] = axes + [a for a in attrs['axes']
-                                        if a not in axes]
-            nxdata_structured = NXdata(
-                name=name,
-                **{a: NXfield(
-                    value=unique_coords[a],
-                    attrs=axes_attrs[a])
-                   for a in axes},
-                **{s: NXfield(
-                    value=np.zeros(map_shape[s]),
-                    dtype=nxdata[s].dtype,
-                    shape=map_shape[s],
-                    attrs=nxdata[s].attrs)
-                   for s in signals},
-                attrs=attrs)
-            if len(data_point_axes) == 1:
-                axes = nxdata_structured.attrs['axes']
-                if isinstance(axes, str):
-                    axes = [axes]
-                nxdata_structured.attrs['axes'] = axes + data_point_axes
-            for a in data_point_axes:
-                nxdata_structured[a] = NXfield(
-                    value=nxdata[a], attrs=nxdata[a].attrs)
-
-            # Populate the structured NXdata object with values
-            # FIX A and B are really slow in their simple on the fly way!
-            if False:
-                unique_coords_sorted = {
-                    a:np.sort(unique_coords[a]) for a in axes}
-                for i, coord in enumerate(
-                        zip(*tuple(coords[a] for a in axes))):
-                    structured_index = tuple(
-                        np.asarray(
-                            coord[ii] == unique_coords_sorted[
-                                axes[ii]]).nonzero()[0][0]
-                        for ii in range(len(axes)))
-                    for s in signals:
-                        nxdata_structured[s][structured_index] = nxdata[s][i]
-            elif False:
-                for i in range(unstructured_dim):
-                    structured_index = tuple(
-                        unique_coords_inverse[a][i] for a in axes)
-                    for s in signals:
-                        nxdata_structured[s][structured_index] = nxdata[s][i]
-            else:
-                # Limit to two axes dimensions for now
-                if len(coord_dims) != 2:
-                    raise NotImplementedError('Not yet implemented for more '
-                                              'than 2 navigation dimensions')
-                for i in range(coord_dims[0]):
-                    rr = [ii for ii in range(unstructured_dim)
-                          if i == unique_coords_inverse[axes[0]][ii]]
-                    rrr = unique_coords_inverse[axes[1]][rr].tolist()
-                    for s in signals:
-                        nxdata_structured[s][i,rrr] = nxdata[s][rr]
-        for s in signals:
-            nxdata_structured[s].attrs['min'] = nxdata_structured[s].min()
-            nxdata_structured[s].attrs['max'] = nxdata_structured[s].max()
-
-        return nxdata_structured, nxdata_addnl_structured
+        attrs['axes'] = unstructured_axes
+        self.logger.debug('Getting unique axes points')
+        structured_axes = {a: np.unique(nxdata[a].nxdata)
+                           for a in unstructured_axes}
+        dataset_shape = tuple(len(v) for a, v in structured_axes.items())
+        self.logger.debug('Allocating empty structured signal arrays')
+        structured_signals = {s: np.empty(
+            (*dataset_shape, *nxdata[s].shape[1:]),
+            dtype=nxdata[s].nxdata.dtype
+        ) for s in signals}
+        npts = len(nxdata[signals[0]].nxdata.tolist())
+        self.logger.info(f'Converting {npts} data points')
+        indices = {
+            a: np.searchsorted(structured_axes[a], nxdata[a].nxdata)
+            for a in unstructured_axes
+        }
+        for s, value in structured_signals.items():
+            value[tuple(indices[a] for a in unstructured_axes)] = nxdata[s]
+        unconverted_fields = [
+            f for f in nxdata
+            if f not in signals + unstructured_axes
+            and isinstance(nxdata[f], NXfield)
+        ]
+        structured_nxdata = NXdata(
+            **{s: NXfield(
+                value=structured_signals[s],
+                name=s,
+                attrs=nxdata[s].attrs,
+            ) for s in signals},
+            name=nxdata.nxname,
+            attrs=attrs,
+            axes=tuple(
+                NXfield(
+                    value=value,
+                    name=a,
+                    attrs={k: v for k, v in nxdata[a].attrs.items()
+                           if not k == 'target'},
+                )
+                for a, value in structured_axes.items()
+            ),
+            **{f: nxdata[f] for f in unconverted_fields}
+        )
+        return structured_nxdata
 
 
 class UpdateNXvalueProcessor(Processor):
@@ -3851,9 +3643,14 @@ class XarrayToNumpyProcessor(Processor):
 
 class ZarrToNexusProcessor(Processor):
     """Processor for converting .zarr data to .nxs format."""
-    def process(self, data, zarr_filename, nexus_filename):
+    def process(self, data, zarr_filename, nexus_filename, inputdir='.'):
         import zarr
         import h5py
+
+        if not os.path.isabs(zarr_filename):
+            zarr_filename = os.path.join(inputdir, zarr_filename)
+        if not os.path.isabs(nexus_filename):
+            nexus_filename = os.path.join(inputdir, nexus_filename)
 
         # Open the Zarr file
         zarr_file = zarr.open(zarr_filename, mode='r')
