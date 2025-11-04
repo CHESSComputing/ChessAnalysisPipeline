@@ -13,3 +13,9 @@ Documentation for the latest version can be found on [this project's github page
 
 ## Galaxy
 The `galaxy-tools/` directory contains a set of CHAP-based tools for use in the [Galaxy](https://galaxyproject.org) science gateway.
+
+### Docker build
+```
+# choose which release tag you will use and them build docker images as following
+docker build --build-arg tag=0.0.9 -t chapi:0.0.9 .
+```
