@@ -341,7 +341,7 @@ class PointByPointScanData(CHAPBaseModel):
         if ((not issubclass(cls,CorrectionsData))
                 and label in CorrectionsData.reserved_labels()):
             raise ValueError(
-                f'{cls.__name__}.label may not be any of the following '
+                f'{cls.__class__.__name__}.label may not be any of the following '
                 f'reserved values: {CorrectionsData.reserved_labels()}')
         return label
 

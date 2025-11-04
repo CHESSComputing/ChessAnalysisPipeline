@@ -1044,7 +1044,7 @@ class MapProcessor(Processor):
             from tempfile import NamedTemporaryFile
 
             # Local modules
-            from CHAP.runner import RunConfig
+            from CHAP.models import RunConfig
 
             scans_per_proc = num_scan//num_proc
             num = scans_per_proc
@@ -1701,10 +1701,8 @@ class MPIMapProcessor(Processor):
         from mpi4py import MPI
 
         # Local modules
-        from CHAP.runner import (
-            RunConfig,
-            run,
-        )
+        from CHAP.models import RunConfig
+        from CHAP.runner import run
         from CHAP.common.models.map import SpecScans
 
         comm = MPI.COMM_WORLD
@@ -1806,10 +1804,8 @@ class MPISpawnMapProcessor(Processor):
         import yaml
 
         # Local modules
-        from CHAP.runner import (
-            RunConfig,
-            runner,
-        )
+        from CHAP.models import RunConfig
+        from CHAP.runner import runner
         from CHAP.common.models.map import SpecScans
 
         # Get the map configuration from data
@@ -1817,12 +1813,19 @@ class MPISpawnMapProcessor(Processor):
             data=data, schema='common.models.map.MapConfig', inputdir=inputdir)
 
         # Get the run configuration to use for the sub-pipeline
+        # Optionally include the root node as a worker node
         if sub_pipeline is None:
             sub_pipeline = {}
         run_config = {'inputdir': inputdir, 'outputdir': outputdir,
             'interactive': interactive, 'log_level': log_level}
         run_config.update(sub_pipeline.get('config'))
-        run_config = RunConfig(**run_config, logger=self.logger)
+        if root_as_worker:
+            first_proc = 1
+            spawn = 1
+        else:
+            first_proc = 0
+            spawn = -1
+        run_config = RunConfig(**run_config, logger=self.logger, spawn=spawn)
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -1859,14 +1862,6 @@ class MPISpawnMapProcessor(Processor):
                         'root_as_worker': root_as_worker}}]
             pipeline_config.append(sub_pipeline_config)
             n_scan += num
-
-        # Optionally include the root node as a worker node
-        if root_as_worker:
-            first_proc = 1
-            run_config.spawn = 1
-        else:
-            first_proc = 0
-            run_config.spawn = -1
 
         # Spawn the workers to run the sub-pipeline
         if num_proc > first_proc:

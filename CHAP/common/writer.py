@@ -150,13 +150,13 @@ def write_yaml(data, filename, force_overwrite=False):
     with open(filename, 'w') as f:
         yaml.dump(data, f, sort_keys=False)
 
-def write_filetree(data, outputdir, force_overwrite=False):
+def write_filetree(data, outputdir='.', force_overwrite=False):
     """Write data to a file tree.
 
     :param data: The data to write to files
     :type data: nexusformat.nexus.NXobject
     :param outputdir: Output directory.
-    :type filename: str
+    :type filename: str, optional
     :param force_overwrite: Flag to allow data to be overwritten if it
         already exists, defaults to `False`.
     :type force_overwrite: bool, optional
@@ -246,14 +246,12 @@ class ExtractArchiveWriter(Writer):
 
 class FileTreeWriter(Writer):
     """Writer for a file tree in NeXus format."""
-    def write(self, data, outputdir, force_overwrite=False):
+    def write(self, data, force_overwrite=False):
         """Write a NeXus format object contained in `data` to a 
         directory tree stuctured like the NeXus tree.
 
         :param data: The data to write to disk.
         :type data: list[PipelineData]
-        :param outputdir: The name of the directory to write to.
-        :type outputdir: str
         :param force_overwrite: Flag to allow data to be overwritten
             if it already exists, defaults to `False`.
         :type force_overwrite: bool, optional
@@ -288,7 +286,7 @@ class FileTreeWriter(Writer):
             raise TypeError('Cannot write object of type '
                             f'{type(data).__name__} as a file tree to disk.')
 
-        write_filetree(nxentry, outputdir, force_overwrite)
+        write_filetree(nxentry, self.outputdir, force_overwrite)
 
         return data
 
@@ -340,8 +338,6 @@ class ImageWriter(Writer):
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param outputdir: The name of the directory to write to.
-        :type outputdir: str
         :param filename: The name of the file to write to (for a
             single image or a tiff image stack, with a valid extension).
         :type filename: str, optional
@@ -369,7 +365,6 @@ class ImageWriter(Writer):
         # Local modules
         from CHAP.utils.general import save_iobuf_fig
 
-        exit('\n\nFix ImageWriter for outputdir and schema\n\n')
         try:
             ddata = self.get_data(
                 data, schema='common.write.ImageWriter', remove=remove)
@@ -382,7 +377,7 @@ class ImageWriter(Writer):
             for (buf, fileformat), basename in ddata:
                 filename = f'{basename}.{fileformat}'
                 if not os_path.isabs(filename):
-                    filename = os_path.join(outputdir, filename)
+                    filename = os_path.join(self.outputdir, filename)
                 if isinstance(buf, (ArtistAnimation, FuncAnimation)):
                     buf.save(filename)
                 else:
@@ -399,7 +394,7 @@ class ImageWriter(Writer):
         if ext[1:] != fileformat:
             filename = f'{filename}.{fileformat}'
         if not os_path.isabs(filename):
-            filename = os_path.join(outputdir, filename)
+            filename = os_path.join(self.outputdir, filename)
         if os_path.isfile(filename) and not force_overwrite:
             raise FileExistsError(f'{filename} already exists')
         if isinstance(image_data, BytesIO):

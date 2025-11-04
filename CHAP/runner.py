@@ -4,145 +4,14 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description:
 """
 
-# System modules
-from argparse import ArgumentParser
-import logging
-import os
-from typing import (
-    Literal,
-    Optional,
-)
-from yaml import safe_load
-
-# Third party modules
-from pydantic import (
-    DirectoryPath,
-    conint,
-    field_validator,
-    model_validator,
-)
-
-# Local modules
-from CHAP.models import CHAPBaseModel
-from CHAP.pipeline import Pipeline
-
-
-class RunConfig(CHAPBaseModel):
-    """Pipeline run configuration class.
-
-    :ivar root: Default work directory, defaults to the current run
-        directory.
-    :type root: str, optional
-    :ivar inputdir: Input directory, used only if any input file in the
-        pipeline is not an absolute path, defaults to `'root'`.
-    :type inputdir: str, optional
-    :ivar outputdir: Output directory, used only if any output file in
-        the pipeline is not an absolute path, defaults to `'root'`.
-    :type outputdir: str, optional
-    :ivar interactive: Allows for user interactions,
-        defaults to `False`.
-    :type interactive: bool, optional
-    :ivar log_level: Logger level (not case sensitive),
-        defaults to `'INFO'`.
-    :type log_level: Literal[
-        'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
-    :ivar profile: Allows for code profiling, defaults to `False`.
-    :type profile: bool, optional
-    :ivar spawn: Internal use only, flag to check if the pipeline is
-        executed as a worker spawned by another Processor.
-    :type spawn: int, optional
-    """
-    root: Optional[DirectoryPath] = None
-    inputdir: Optional[DirectoryPath] = None
-    outputdir: Optional[DirectoryPath] = None
-    interactive: Optional[bool] = False
-    log_level: Optional[Literal[
-        'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']] = 'INFO'
-    profile: Optional[bool] = False
-    spawn: Optional[int] = 0
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_config(cls, data):
-        """Ensure that valid directory paths are provided.
-
-        :param data: Pydantic validator data object.
-        :type data: RunConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
-        :rtype: dict
-        """
-        if isinstance(data, dict):
-            # System modules
-            from tempfile import NamedTemporaryFile
-
-            # Make sure os.makedirs is only called from the root node
-            comm = data.get('comm')
-            if comm is None:
-                rank = 0
-            else:
-                rank = comm.Get_rank()
-
-            # Check if root exists (create it if not) and is readable
-            root = data.get('root', os.getcwd())
-            if not rank:
-                if not os.path.isdir(root):
-                    os.makedirs(root)
-                if not os.access(root, os.R_OK):
-                    raise OSError('root directory is not accessible for '
-                                  f'reading ({root})')
-            data['root'] = root
-
-            # Check if inputdir exists and is readable
-            inputdir = data.get('inputdir', '.')
-            if not os.path.isabs(inputdir):
-                inputdir = os.path.normpath(os.path.realpath(
-                    os.path.join(root, inputdir)))
-            if not rank:
-                if not os.path.isdir(inputdir):
-                    raise OSError(
-                        f'input directory does not exist ({inputdir})')
-                if not os.access(inputdir, os.R_OK):
-                    raise OSError(
-                        'input directory is not accessible for reading '
-                        f'({inputdir})')
-            data['inputdir'] = inputdir
-
-            # Check if outputdir exists (create it if not) and is writable
-            outputdir = data.get('outputdir', '.')
-            if not os.path.isabs(outputdir):
-                outputdir = os.path.normpath(os.path.realpath(
-                    os.path.join(root, outputdir)))
-            if not rank:
-                if not os.path.isdir(outputdir):
-                    os.makedirs(outputdir)
-                try:
-                    NamedTemporaryFile(dir=outputdir)
-                except:
-                    raise OSError('output directory is not accessible for '
-                                  f'writing ({self.outputdir})')
-            data['outputdir'] = outputdir
-
-            # Make sure os.makedirs completes before continuing
-            # Make sure barrier() is also called on the main node if
-            # this is called from a spawned slave node
-            if comm is not None:
-                comm.barrier()
-
-        return data
-
-    @field_validator('log_level', mode='before')
-    @classmethod
-    def validate_log_level(cls, log_level):
-        """Capitalize log_level."""
-        return log_level.upper()
-
-
 def parser():
     """Return an argument parser for the `CHAP` CLI. This parser has
     one argument: the input CHAP configuration file.
     """
+    # System modules
+    from argparse import ArgumentParser
     pparser = ArgumentParser(prog='PROG')
+
     pparser.add_argument(
         'config', action='store', default='', help='Input configuration file')
     pparser.add_argument(
@@ -151,6 +20,12 @@ def parser():
 
 def main():
     """Main function."""
+    # System modules
+    from yaml import safe_load
+
+    # Local modules
+    from CHAP.models import RunConfig
+
     try:
         # Third party modules
         from mpi4py import MPI
@@ -167,6 +42,7 @@ def main():
     configfile = args.config
     with open(configfile) as file:
         config = safe_load(file)
+    #RV Add to input_files in provenance data writer
 
     # Check if executed as a worker spawned by another Processor
     run_config = RunConfig(**config.pop('config'), comm=comm)
@@ -254,6 +130,9 @@ def set_logger(log_level='INFO'):
     :return: The CHAP logger and logging handler.
     :rtype: logging.Logger, logging.StreamHandler
     """
+    # System modules
+    import logging
+
     logger = logging.getLogger(__name__)
     log_level = getattr(logging, log_level.upper())
     logger.setLevel(log_level)
@@ -282,7 +161,12 @@ def run(
         list of pipeline items.
     """
     # System modules
+    from logging import getLogger
+    import os
     from tempfile import NamedTemporaryFile
+
+    # Local modules
+    from CHAP.pipeline import Pipeline
 
     # Make sure os.makedirs is only called from the root node
     if comm is None:
@@ -291,10 +175,10 @@ def run(
         rank = comm.Get_rank()
 
     pipeline_items = []
-    pipeline_kwargs = []
+    pipeline_args = []
     for item in pipeline_config:
         # Load individual object with given name from its module
-        kwargs = run_config.model_dump(exclude={'root', 'profile', 'spawn'})
+        config = run_config.model_dump()
         if isinstance(item, dict):
             name = list(item.keys())[0]
             item_args = item.get(name)
@@ -312,7 +196,7 @@ def run(
                 if not os.access(inputdir, os.R_OK):
                     raise OSError('input directory is not accessible for '
                                   f'reading ({inputdir})')
-                item_args['inputdir'] = inputdir
+                config['inputdir'] = inputdir
             if 'outputdir' in item_args:
                 outputdir = item_args.pop('outputdir')
                 if not os.path.isabs(outputdir):
@@ -327,8 +211,7 @@ def run(
                         raise OSError(
                             'output directory is not accessible for '
                             f'writing ({outputdir})') from exc
-                item_args['outputdir'] = outputdir
-            kwargs.update(item_args)
+                config['outputdir'] = outputdir
         else:
             name = item
         if 'users' in name:
@@ -350,36 +233,34 @@ def run(
             mod_name, cls_name = name.split('.')
             module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
         # Initialize the object
+        item_args['comm'] = comm
+        if 'name' not in item_args:
+            item_args['name'] = cls_name
+        schema = item_args.pop('schema', None)
         obj = getattr(module, cls_name)(
-            inputdir=kwargs.pop('inputdir'),
-            outputdir=kwargs.pop('outputdir'),
-            interactive=kwargs.pop('interactive'),
-            name=kwargs.pop('name') if 'name' in kwargs else None,
-            schema=kwargs.pop('schema') if 'schema' in kwargs else None)
-        obj.logger.setLevel(kwargs.pop('log_level'))
+            logger=getLogger(name), schema=schema, **config, **item_args)
+        for k in obj.model_dump():
+            item_args.pop(k, None)
         if log_handler is not None:
             obj.logger.addHandler(log_handler)
         if logger is not None:
             logger.info(f'Loaded {obj}')
         pipeline_items.append(obj)
-        kwargs['comm'] = comm
-        pipeline_kwargs.append(kwargs)
-    pipeline = Pipeline(pipeline_items, pipeline_kwargs)
+        pipeline_args.append(item_args)
+    pipeline = Pipeline(items=pipeline_items, args=pipeline_args)
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)
     if logger is not None:
         logger.info(f'Loaded {pipeline} with {len(pipeline_items)} items\n')
-        logger.info(f'Calling "execute" on {pipeline}')
 
     # Make sure os.makedirs completes before continuing all nodes
     if comm is not None:
         comm.barrier()
 
-    # Validate the pipeline configuration
-    pipeline.validate()
-
     # Execute the pipeline
+    if logger is not None:
+        logger.info(f'Calling "execute" on {pipeline}')
     result = pipeline.execute()
     if result:
         return result[0]['data']
