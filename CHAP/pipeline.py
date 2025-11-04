@@ -65,7 +65,7 @@ class PipelineItem(RunConfig):
     def validate_config(self):
         """Validate the `PipelineItem` configuration.
 
-        :return: The validated list of class properties.
+        :return: The validated configuration.
         :rtype: PipelineItem
         """
         # System modules
@@ -363,10 +363,11 @@ class Pipeline(CHAPBaseModel):
 
     @model_validator(mode='after')
     def validate_config(self):
-        """Create and validate the private attribute _material.
+        """Validate the `Pipeline` configuration and initialize and
+        validate the private attributes.
 
-        :return: The validated list of class properties.
-        :rtype: PipelineItem
+        :return: The validated configuration.
+        :rtype: Pipeline
         """
         t0 = time()
         self.__name__ = self.__class__.__name__
@@ -449,7 +450,7 @@ class Pipeline(CHAPBaseModel):
         return self
 
     def execute(self):
-        """execute API."""
+        """Executes the pipeline."""
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
