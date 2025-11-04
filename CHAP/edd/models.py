@@ -225,7 +225,7 @@ class MaterialConfig(CHAPBaseModel):
         """Create and validate the private attribute _material.
 
         :return: The validated list of class properties.
-        :rtype: dict
+        :rtype: MaterialConfig
         """
         # Local modules
         from CHAP.edd.utils import make_material

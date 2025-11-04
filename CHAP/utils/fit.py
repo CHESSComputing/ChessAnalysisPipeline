@@ -10,7 +10,6 @@ Description: General curve fitting module
 # System modules
 from collections import Counter
 from copy import deepcopy
-from logging import getLogger
 from os import (
     cpu_count,
     mkdir,
@@ -42,7 +41,6 @@ from CHAP.utils.general import (
     quick_plot,
 )
 
-logger = getLogger(__name__)
 FLOAT_MIN = float_info.min
 FLOAT_MAX = float_info.max
 FLOAT_EPS = float_info.epsilon

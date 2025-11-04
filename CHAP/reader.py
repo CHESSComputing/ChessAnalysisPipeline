@@ -33,12 +33,10 @@ class Reader(PipelineItem):
         :return: Entire contents of the file.
         :rtype: str
         """
-
         if not filename:
             self.logger.warning(
                 'No file name is given, will skip read operation')
             return None
-
         with open(filename) as file:
             data = file.read()
         return data
@@ -77,7 +75,6 @@ def main(opt_parser=OptionParser):
         '{name:20}: {message}', style='{'))
     reader.logger.addHandler(log_handler)
     data = reader.read(filename=opts.filename)
-
     print(f'Reader {reader} reads from {opts.filename}, data {data}')
 
 

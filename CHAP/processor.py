@@ -17,6 +17,7 @@ from sys import modules
 # Local modules
 from CHAP.pipeline import PipelineItem
 
+
 class Processor(PipelineItem):
     """Generic data processor.
 

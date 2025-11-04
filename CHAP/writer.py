@@ -25,12 +25,14 @@ class Writer(PipelineItem):
     can be used by a successive `PipelineItem`.
     """
     def write(self, data, filename):
-        """Write the input data as text to a file.
+        """Write the last `CHAP.pipeline.PipelineData` item in `data`
+        as text to a file.
 
         :param data: Input data.
-        :type data: list[PipelineData]
-        :param filename: Name of file to write to.
+        :type data: list[CHAP.pipeline.PipelineData]
+        :param filename: Name of the file to write to.
         :type filename: str
+
         :return: Contents of the input data.
         :rtype: object
         """
