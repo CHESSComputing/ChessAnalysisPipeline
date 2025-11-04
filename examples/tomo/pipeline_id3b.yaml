@@ -9,7 +9,7 @@ config:
 pipeline:
 
   # Convert the CHESS style map
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: map_id3b.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
@@ -40,19 +40,19 @@ pipeline:
       detectors:
         - id: sim
       schema: brightfield
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: detector.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
  
   # Full tomography reconstruction
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: reduce_data_id3b.yaml
       schema: tomo.models.TomoReduceConfig
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: find_center_id3b.yaml
       schema: tomo.models.TomoFindCenterConfig
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:

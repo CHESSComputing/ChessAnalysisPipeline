@@ -6,10 +6,10 @@ config:
   log_level: info
   profile: false
 
-pipeline:
+map:
 
   # Convert the CHESS style map
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: map_id3a_pyramid.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
@@ -39,6 +39,14 @@ pipeline:
       detectors:
         - id: sim
       schema: tomofields
+  - common.NexusWriter:
+      filename: map_hollow_pyramid.nxs
+      force_overwrite: true
+
+convert:
+
+  - common.NexusReader:
+      filename: map_hollow_pyramid.nxs
   - common.SpecReader:
       config:
         station: id3a
@@ -62,26 +70,26 @@ pipeline:
       detectors:
         - id: sim
       schema: brightfield
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: detector_pyramid.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-#  - common.NexusWriter:
-#      filename: chess_map_hollow_pyramid.nxs
-#      force_overwrite: true
+  - common.NexusWriter:
+      filename: chess_map_hollow_pyramid.nxs
+      force_overwrite: true
 
 recon:
 
   # Full tomography reconstruction
-#  - common.NexusReader:
-#      filename: chess_map_hollow_pyramid.nxs
-  - common.YAMLReader:
+  - common.NexusReader:
+      filename: chess_map_hollow_pyramid.nxs
+  - common.ConfigReader:
       filename: find_center_id3a.yaml
       schema: tomo.models.TomoFindCenterConfig
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: combine_data_id3a.yaml
       schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:

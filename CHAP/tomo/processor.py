@@ -586,19 +586,18 @@ class TomoDataProcessor(Processor):
     and the metadata associated with the workflow.
     """
     def process(
-            self, data, config=None, interactive=False, reduce_data=False,
-            find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figures=True):
+            self, data, config=None, reduce_data=False, find_center=False,
+            calibrate_center=False, reconstruct_data=False, combine_data=False,
+            save_figures=True):
         return self._process(
-            data, config=config, interactive=interactive,
-            reduce_data=reduce_data, find_center=find_center,
-            calibrate_center=calibrate_center,
+            data, config=config, reduce_data=reduce_data,
+            find_center=find_center, calibrate_center=calibrate_center,
             reconstruct_data=reconstruct_data, combine_data=combine_data,
             save_figures=save_figures)
 
     #@profile
     def _process(
-            self, data, config=None, interactive=False, reduce_data=False,
+            self, data, config=None, reduce_data=False,
             find_center=False, calibrate_center=False, reconstruct_data=False,
             combine_data=False, save_figures=True):
         """Process the input map or configuration with the step
@@ -613,9 +612,6 @@ class TomoDataProcessor(Processor):
         :param config: Initialization parameters for a single
             tomography workflow step.
         :type config: dict, optional
-        :param interactive: Allows for user interactions,
-            defaults to `False`.
-        :type interactive: bool, optional
         :param reduce_data: Generate reduced tomography images,
             defaults to `False`.
         :type reduce_data: bool, optional
@@ -741,8 +737,9 @@ class TomoDataProcessor(Processor):
         }
 
         tomo = Tomo(
-            metadata, logger=self.logger, interactive=interactive,
-            save_figures=save_figures)
+            metadata, save_figures=save_figures,
+            **Processor(**self.model_dump()).model_dump(
+                exclude={'logger', 'name', 'schema_'}))
 
         # FIX make an config input
         nxsetconfig(memory=100000)
@@ -813,19 +810,19 @@ class TomoDataProcessor(Processor):
         if center_config is not None:
             return (
                 PipelineData(
-                    name=self.__name__, data=metadata, schema='metadata'),
+                    name=self.name, data=metadata, schema='metadata'),
                 PipelineData(
-                    name=self.__name__, data=tomo._figures,
+                    name=self.name, data=tomo._figures,
                     schema='common.write.ImageWriter'),
                 PipelineData(
-                    name=self.__name__, data=center_config.model_dump(),
+                    name=self.name, data=center_config.model_dump(),
                     schema='tomodata'))
         return (
-            PipelineData(name=self.__name__, data=metadata, schema='metadata'),
+            PipelineData(name=self.name, data=metadata, schema='metadata'),
             PipelineData(
-                name=self.__name__, data=tomo._figures,
+                name=self.name, data=tomo._figures,
                 schema='common.write.ImageWriter'),
-            PipelineData(name=self.__name__, data=nxroot, schema='tomodata'))
+            PipelineData(name=self.name, data=nxroot, schema='tomodata'))
 
 
 class SetNumexprThreads:
@@ -865,18 +862,14 @@ class SetNumexprThreads:
         set_num_threads(self._num_core_org)
 
 
-class Tomo:
+class Tomo(Processor):
     """Reconstruct a set of tomographic images."""
     def __init__(
-            self, metadata, logger=None, interactive=False, num_core=-1,
-           save_figures=True):
+            self, metadata, num_core=-1, save_figures=True, **kwargs):
         """Initialize Tomo.
 
         :param metadata: Metadata record.
         :type metadata: dict
-        :param interactive: Allows for user interactions,
-            defaults to `False`.
-        :type interactive: bool, optional
         :param num_core: Number of processors.
         :type num_core: int
         :param save_figures: Create Matplotlib figures that can be saved
@@ -887,20 +880,8 @@ class Tomo:
         # System modules
         from multiprocessing import cpu_count
 
-        self.__name__ = self.__class__.__name__
-        if logger is None:
-            # System modules
-            from logging import getLogger
-
-            self._logger = getLogger(self.__name__)
-            self._logger.propagate = False
-        else:
-            self._logger = logger
-
-        if not isinstance(interactive, bool):
-            raise ValueError(f'Invalid parameter interactive ({interactive})')
+        super().__init__(**kwargs)
         self._figures = []
-        self._interactive = interactive
         self._metadata = metadata
         self._num_core = num_core
         self._test_config = {}
@@ -910,13 +891,13 @@ class Tomo:
         if not isinstance(self._num_core, int) or self._num_core < 0:
             raise ValueError(f'Invalid parameter num_core ({num_core})')
         if self._num_core > cpu_count():
-            self._logger.warning(
+            self.logger.warning(
                 f'num_core = {self._num_core} is larger than the number '
                 f'of available processors and reduced to {cpu_count()}')
             self._num_core = cpu_count()
         # Tompy py uses numexpr with NUMEXPR_MAX_THREADS = 64
         if self._num_core > 64:
-            self._logger.warning(
+            self.logger.warning(
                 f'num_core = {self._num_core} is larger than the number '
                 f'of processors suitable to Tomopy and reduced to 64')
             self._num_core = 64
@@ -946,7 +927,7 @@ class Tomo:
             NXroot,
         )
 
-        self._logger.info('Generate the reduced tomography images')
+        self.logger.info('Generate the reduced tomography images')
 
         # Validate input parameter
         if isinstance(nxroot, NXroot):
@@ -961,7 +942,7 @@ class Tomo:
             tool_config = TomoReduceConfig()
         img_row_bounds = tool_config.img_row_bounds
         if img_row_bounds is not None and calibrate_center_rows:
-            self._logger.warning('Ignoring parameter img_row_bounds '
+            self.logger.warning('Ignoring parameter img_row_bounds '
                                  'during rotation axis calibration')
             img_row_bounds = None
         image_key = nxentry.instrument.detector.get('image_key', None)
@@ -989,7 +970,7 @@ class Tomo:
         if drop_fraction:
             if delta_theta is not None:
                 delta_theta = None
-                self._logger.warning(
+                self.logger.warning(
                     'Ignoring delta_theta when an image mask is used')
             np.random.seed(0)
             image_mask = np.where(np.random.rand(
@@ -1004,13 +985,13 @@ class Tomo:
                 image_mask = np.asarray(
                     [0 if i%delta_theta else 1
                         for i in range(len(thetas))], dtype=bool)
-            self._logger.debug(f'zoom_perc: {zoom_perc}')
-            self._logger.debug(f'delta_theta: {delta_theta}')
+            self.logger.debug(f'zoom_perc: {zoom_perc}')
+            self.logger.debug(f'delta_theta: {delta_theta}')
             if zoom_perc is not None:
                 reduced_data.attrs['zoom_perc'] = zoom_perc
         tool_config.delta_theta = delta_theta
         if image_mask is not None:
-            self._logger.debug(f'image_mask = {image_mask}')
+            self.logger.debug(f'image_mask = {image_mask}')
             reduced_data.image_mask = image_mask
             thetas = thetas[image_mask]
 
@@ -1019,7 +1000,7 @@ class Tomo:
         img_row_bounds = self._set_detector_bounds(
             nxentry, reduced_data, image_key, thetas[0],
             img_row_bounds, calibrate_center_rows)
-        self._logger.debug(f'img_row_bounds = {img_row_bounds}')
+        self.logger.debug(f'img_row_bounds = {img_row_bounds}')
         if calibrate_center_rows:
             calibrate_center_rows = tuple(sorted(img_row_bounds))
             img_row_bounds = None
@@ -1033,7 +1014,7 @@ class Tomo:
             'image row boundaries in detector frame of reference'
 
         # Store rotation angles for image stacks
-        self._logger.debug(f'thetas = {thetas}')
+        self.logger.debug(f'thetas = {thetas}')
         reduced_data.rotation_angle = thetas
         reduced_data.rotation_angle.units = 'degrees'
 
@@ -1105,7 +1086,7 @@ class Tomo:
         # Third party modules
         from nexusformat.nexus import NXroot
 
-        self._logger.info('Find the calibrated center axis info')
+        self.logger.info('Find the calibrated center axis info')
 
         #RV FIX FOXDEN demo only
         if nxroot is None or nxroot == 'foxden_demo':
@@ -1134,14 +1115,14 @@ class Tomo:
         # too big get the data from the actual place, not from
         # nxentry.data
         num_tomo_stacks = nxentry.reduced_data.data.tomo_fields.shape[0]
-        self._logger.debug(f'num_tomo_stacks = {num_tomo_stacks}')
+        self.logger.debug(f'num_tomo_stacks = {num_tomo_stacks}')
         if num_tomo_stacks == 1:
             center_stack_index = 0
         else:
             center_stack_index = tool_config.center_stack_index
             if calibrate_center_rows:
                 center_stack_index = num_tomo_stacks//2
-            elif self._interactive:
+            elif self.interactive:
                 if center_stack_index is None:
                     center_stack_index = input_int(
                         '\nEnter tomography stack index to calibrate the '
@@ -1150,7 +1131,7 @@ class Tomo:
             else:
                 if center_stack_index is None:
                     center_stack_index = num_tomo_stacks//2
-                    self._logger.warning(
+                    self.logger.warning(
                         'center_stack_index unspecified, use stack '
                         f'{center_stack_index} to find center axis info')
         tool_config.center_stack_index = center_stack_index
@@ -1185,8 +1166,8 @@ class Tomo:
                     center_rows = (
                         img_row_bounds[0]+offset, img_row_bounds[1]-1-offset)
                 else:
-                    if not self._interactive:
-                        self._logger.warning('center_rows unspecified, find '
+                    if not self.interactive:
+                        self.logger.warning('center_rows unspecified, find '
                                              'centers at reduced data bounds')
                     center_rows = (img_row_bounds[0], img_row_bounds[1]-1)
             buf, center_rows = select_image_indices(
@@ -1203,7 +1184,7 @@ class Tomo:
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field',
-                interactive=self._interactive, return_buf=self._save_figures)
+                interactive=self.interactive, return_buf=self._save_figures)
             if center_rows[1] == img_row_bounds[1]:
                 center_rows = (center_rows[0], center_rows[1]-1)
             offset_center_rows = (
@@ -1230,10 +1211,10 @@ class Tomo:
                     gaussian_sigma=tool_config.gaussian_sigma,
                     ring_width=tool_config.ring_width,
                     prev_center_offset=prev_center_offset))
-            self._logger.info(
+            self.logger.info(
                 f'Finding center row {row} took {time()-t0:.2f} seconds')
-            self._logger.debug(f'center_row = {row:.2f}')
-            self._logger.debug(f'center_offset = {center_offsets[-1]:.2f}')
+            self.logger.debug(f'center_row = {row:.2f}')
+            self.logger.debug(f'center_offset = {center_offsets[-1]:.2f}')
             prev_center_offset = center_offsets[-1]
         tool_config.center_offsets = center_offsets
 
@@ -1273,7 +1254,7 @@ class Tomo:
         )
         from CHAP.tomo.models import TomoFindCenterConfig
 
-        self._logger.info('Reconstruct the tomography data')
+        self.logger.info('Reconstruct the tomography data')
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -1338,7 +1319,7 @@ class Tomo:
                 gaussian_sigma=tool_config.gaussian_sigma,
                 remove_stripe_sigma=tool_config.remove_stripe_sigma,
                 ring_width=tool_config.ring_width)
-            self._logger.info(
+            self.logger.info(
                 f'Reconstruction of stack {i} took {time()-t0:.2f} seconds')
 
             # Combine stacks
@@ -1560,7 +1541,7 @@ class Tomo:
             NXroot,
         )
 
-        self._logger.info('Combine the reconstructed tomography stacks')
+        self.logger.info('Combine the reconstructed tomography stacks')
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -1582,7 +1563,7 @@ class Tomo:
             num_tomo_stacks = \
                 nxentry.reconstructed_data.data.reconstructed_data.shape[0]
         if num_tomo_stacks == 1:
-            self._logger.info('Only one stack available: leaving combine_data')
+            self.logger.info('Only one stack available: leaving combine_data')
             return nxroot
 
         # Get and combine the reconstructed stacks
@@ -1604,13 +1585,13 @@ class Tomo:
             [nxentry.reconstructed_data.data.reconstructed_data[i,:,:,:]
                for i in range(num_tomo_stacks-1, 0, -1)]
             + [tomo_recon_combined])
-        self._logger.info(
+        self.logger.info(
             f'Combining the reconstructed stacks took {time()-t0:.2f} seconds')
         tomo_shape = tomo_recon_combined.shape
 
         # Resize the combined tomography data stacks
         # - combined axis data order: row/-z,y,x
-        if self._interactive or self._save_figures:
+        if self.interactive or self._save_figures:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
             tool_config.x_bounds = None if x_bounds is None else list(x_bounds)
@@ -1619,21 +1600,21 @@ class Tomo:
         else:
             x_bounds = tool_config.x_bounds
             if x_bounds is None:
-                self._logger.warning(
+                self.logger.warning(
                     'x_bounds unspecified, combine data for full x-range')
             elif not is_int_pair(
                     x_bounds, ge=0, le=tomo_shape[2]):
                 raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
             y_bounds = tool_config.y_bounds
             if y_bounds is None:
-                self._logger.warning(
+                self.logger.warning(
                     'y_bounds unspecified, combine data for full y-range')
             elif not is_int_pair(
                     y_bounds, ge=0, le=tomo_shape[1]):
                 raise ValueError(f'Invalid parameter y_bounds ({y_bounds})')
             z_bounds = tool_config.z_bounds
             if z_bounds is None:
-                self._logger.warning(
+                self.logger.warning(
                     'z_bounds unspecified, combine data for full z-range')
             elif not is_int_pair(
                     z_bounds, ge=0, le=tomo_shape[0]):
@@ -1787,7 +1768,7 @@ class Tomo:
         if field_indices:
             tdf_stack = nxentry.instrument.detector.data[field_indices,:,:]
         else:
-            self._logger.warning('Dark field unavailable')
+            self.logger.warning('Dark field unavailable')
             return reduced_data
 
         # Take median
@@ -1801,18 +1782,18 @@ class Tomo:
 
         # Remove dark field intensities above the cutoff
         tdf_cutoff = tdf.min() + 2 * (np.median(tdf)-tdf.min())
-        self._logger.debug(f'tdf_cutoff = {tdf_cutoff}')
+        self.logger.debug(f'tdf_cutoff = {tdf_cutoff}')
         if tdf_cutoff is not None:
             if not isinstance(tdf_cutoff, (int, float)) or tdf_cutoff < 0:
-                self._logger.warning(
+                self.logger.warning(
                     f'Ignoring illegal value of tdf_cutoff {tdf_cutoff}')
             else:
                 tdf[tdf > tdf_cutoff] = np.nan
-                self._logger.debug(f'tdf_cutoff = {tdf_cutoff}')
+                self.logger.debug(f'tdf_cutoff = {tdf_cutoff}')
 
         # Remove nans
         tdf_mean = np.nanmean(tdf)
-        self._logger.debug(f'tdf_mean = {tdf_mean}')
+        self.logger.debug(f'tdf_mean = {tdf_mean}')
         np.nan_to_num(
             tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.)
 
@@ -1918,7 +1899,7 @@ class Tomo:
         # Set initial image bounds or rotation calibration rows
         if num_tomo_stacks > 1 and (nxentry.instrument.source.attrs['station']
                 in ('id1a3', 'id3a')):
-            self._logger.warning('Ignoring parameter img_row_bounds '
+            self.logger.warning('Ignoring parameter img_row_bounds '
                                  'for id1a3 and id3a for an image stack')
             img_row_bounds = None
         tbf = reduced_data.data.bright_field.nxdata
@@ -1929,6 +1910,7 @@ class Tomo:
             if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
                 # System modules
                 from sys import float_info
+                from logging import getLogger
 
                 # Third party modules
                 from nexusformat.nexus import (
@@ -1939,11 +1921,14 @@ class Tomo:
                 # Local modules
                 from CHAP.utils.fit import FitProcessor
 
+
                 pixel_size = float(nxentry.instrument.detector.row_pixel_size)
                 # Try to get a fit from the bright field
                 row_sum = np.sum(tbf, 1)
                 num = len(row_sum)
-                fit = FitProcessor()
+                fit = FitProcessor(
+                    **Processor(**self.model_dump()).model_dump(
+                        exclude={'logger', 'name', 'schema_'}))
                 model = {'model': 'rectangle',
                          'parameters': [
                              {'name': 'amplitude',
@@ -1989,16 +1974,16 @@ class Tomo:
                         delta_z = min(
                             delta_z,
                             z_translation_levels[i]-z_translation_levels[i-1])
-                self._logger.debug(f'delta_z = {delta_z}')
+                self.logger.debug(f'delta_z = {delta_z}')
                 num_row_min = int((delta_z + 0.5*pixel_size) / pixel_size)
                 if num_row_min > tbf.shape[0]:
-                    self._logger.warning(
+                    self.logger.warning(
                         'Image bounds and pixel size prevent seamless '
                         'stacking')
                     row_low = 0
                     row_upp = tbf.shape[0]
                 else:
-                    self._logger.debug(f'num_row_min = {num_row_min}')
+                    self.logger.debug(f'num_row_min = {num_row_min}')
                     if have_fit:
                         # Center the default range relative to the fitted
                         # window
@@ -2020,9 +2005,9 @@ class Tomo:
                         'for multiple stacks on FMB')
                 # For FMB: use the first tomography image to select range
                 # RV revisit if they do tomography with multiple stacks
-                if img_row_bounds is None and not self._interactive:
+                if img_row_bounds is None and not self.interactive:
                     if calibrate_center_rows:
-                        self._logger.warning(
+                        self.logger.warning(
                             'calibrate_center_rows unspecified, find rotation '
                             'axis at detector bounds (with a small margin)')
                         # Add a small margin to avoid edge effects
@@ -2030,7 +2015,7 @@ class Tomo:
                         img_row_bounds = (
                             offset, first_image.shape[0]-1-offset)
                     else:
-                        self._logger.warning(
+                        self.logger.warning(
                             'img_row_bounds unspecified, reduce data for '
                             'entire detector range')
                         img_row_bounds = (0, first_image.shape[0])
@@ -2046,11 +2031,11 @@ class Tomo:
             title=title,
             title_a=r'Tomography image at $\theta$ = 'f'{round(theta, 2)+0}',
             title_b='Bright field',
-            interactive=self._interactive, return_buf=self._save_figures)
+            interactive=self.interactive, return_buf=self._save_figures)
         if not calibrate_center_rows and (num_tomo_stacks > 1
                 and (img_row_bounds[1]-img_row_bounds[0]+1)
                      < int((delta_z - 0.5*pixel_size) / pixel_size)):
-            self._logger.warning(
+            self.logger.warning(
                 'Image bounds and pixel size prevent seamless stacking')
 
         # Save figure
@@ -2110,11 +2095,11 @@ class Tomo:
         zoom_perc = None
 
         if delta_theta is not None and not is_num(delta_theta, gt=0):
-            self._logger.warning(
+            self.logger.warning(
                 f'Invalid parameter delta_theta ({delta_theta}), '
                 'ignoring delta_theta')
             delta_theta = None
-        if self._interactive:
+        if self.interactive:
             if delta_theta is None:
                 delta_theta = thetas[1]-thetas[0]
             print(f'\nAvailable \u03b8 range: [{thetas[0]}, {thetas[-1]}]')
@@ -2144,7 +2129,7 @@ class Tomo:
         if 'dark_field' in reduced_data.data:
             tdf = reduced_data.data.dark_field.nxdata
         else:
-            self._logger.warning('Dark field unavailable')
+            self.logger.warning('Dark field unavailable')
             tdf = None
 
         # Get bright field
@@ -2299,13 +2284,13 @@ class Tomo:
             zoom_perc = 100
             if zoom_perc != 100:
                 t0 = time()
-                self._logger.debug('Zooming in ...')
+                self.logger.debug('Zooming in ...')
                 tomo_zoom_list = []
                 for j in range(tomo_stack.shape[0]):
                     tomo_zoom = zoom(tomo_stack[j,:,:], 0.01*zoom_perc)
                     tomo_zoom_list.append(tomo_zoom)
                 tomo_stack = np.stack(tomo_zoom_list)
-                self._logger.info(f'Zooming in took {time()-t0:.2f} seconds')
+                self.logger.info(f'Zooming in took {time()-t0:.2f} seconds')
                 del tomo_zoom_list
 
             # Combine resized stacks
@@ -2368,7 +2353,7 @@ class Tomo:
         if center_offset_max is None:
             center_offset_max = 50
         if num_core > NUM_CORE_TOMOPY_LIMIT:
-            self._logger.debug(
+            self.logger.debug(
                 f'Running find_center_vo on {NUM_CORE_TOMOPY_LIMIT} '
                 'cores ...')
             tomo_center = find_center_vo(
@@ -2378,16 +2363,16 @@ class Tomo:
             tomo_center = find_center_vo(
                 sinogram, ncore=num_core, smin=center_offset_min,
                 smax=center_offset_max)
-        self._logger.info(
+        self.logger.info(
             f'Finding center using Nghia Vo\'s method took {time()-t0:.2f} '
             'seconds')
         center_offset_vo = float(tomo_center-center_offset_range)
-        self._logger.info(
+        self.logger.info(
             f'Center at row {row} using Nghia Vo\'s method = '
             f'{center_offset_vo:.2f}')
 
         selected_center_offset = center_offset_vo
-        if self._interactive or self._save_figures:
+        if self.interactive or self._save_figures:
 
             # Try Guizar-Sicairos's phase correlation method to find
             # the center
@@ -2395,11 +2380,11 @@ class Tomo:
             tomo_center = find_center_pc(
                 tomo_stacks[stack_index,0,:,:],
                 tomo_stacks[stack_index,-1,:,:])
-            self._logger.info(
+            self.logger.info(
                 'Finding center using Guizar-Sicairos\'s phase correlation '
                 f'method took {time()-t0:.2f} seconds')
             center_offset_pc = float(tomo_center-center_offset_range)
-            self._logger.info(
+            self.logger.info(
                 f'Center at row {row} using Guizar-Sicairos\'s image entropy '
                 f'method = {center_offset_pc:.2f}')
 
@@ -2409,11 +2394,11 @@ class Tomo:
 #            tomo_center = find_center(
 #                tomo_stacks[stack_index,:,:,:], thetas,
 #                ind=offset_row)
-#            self._logger.info(
+#            self.logger.info(
 #                'Finding center using Donath\'s image entropy method took '
 #                f'{time()-t0:.2f} seconds')
 #            center_offset_ie = float(tomo_center-center_offset_range)
-#            self._logger.info(
+#            self.logger.info(
 #                f'Center at row {row} using Donath\'s image entropy method = '
 #                f'{center_offset_ie:.2f}')
 
@@ -2425,7 +2410,7 @@ class Tomo:
             recon_planes = [self._reconstruct_planes(
                     sinogram, center_offset_vo, thetas, num_core=num_core,
                     gaussian_sigma=gaussian_sigma, ring_width=ring_width)]
-            self._logger.info(
+            self.logger.info(
                 f'Reconstructing row {row} with center at '
                 f'{center_offset_vo} took {time()-t0:.2f} seconds')
 
@@ -2437,7 +2422,7 @@ class Tomo:
             recon_planes.append(self._reconstruct_planes(
                     sinogram, center_offset_pc, thetas, num_core=num_core,
                     gaussian_sigma=gaussian_sigma, ring_width=ring_width))
-            self._logger.info(
+            self.logger.info(
                 f'Reconstructing row {row} with center at '
                 f'{center_offset_pc} took {time()-t0:.2f} seconds')
 
@@ -2449,7 +2434,7 @@ class Tomo:
 #            recon_planes.append(self._reconstruct_planes(
 #                sinogram, center_offset_ie, thetas, num_core=num_core,
 #                gaussian_sigma=gaussian_sigma, ring_width=ring_width))
-#            self._logger.info(
+#            self.logger.info(
 #                f'Reconstructing row {row} with center at '
 #                f'{center_offset_ie} took {time()-t0:.2f} seconds')
 
@@ -2463,7 +2448,7 @@ class Tomo:
                 recon_planes.append(self._reconstruct_planes(
                     sinogram, prev_center_offset, thetas, num_core=num_core,
                     gaussian_sigma=gaussian_sigma, ring_width=ring_width))
-                self._logger.info(
+                self.logger.info(
                     f'Reconstructing row {row} with center at '
                     f'{prev_center_offset} took {time()-t0:.2f} seconds')
 
@@ -2486,7 +2471,7 @@ class Tomo:
                 self._figures.append((buf, f'recon_row_{row}_default_centers'))
 
         # Create reconstructions for a specified search range
-        if self._interactive:
+        if self.interactive:
             if (center_search_range is None
                     and input_yesno('\nDo you want to reconstruct images '
                                     'for a range of rotation centers', 'n')):
@@ -2520,15 +2505,15 @@ class Tomo:
                 self._figures.append(
                     (quick_imshow(
                         search_recon_planes[i], title=title, row_label='y',
-                        column_label='x', show_fig=self._interactive,
-                        return_fig=True, block=self._interactive),
+                        column_label='x', show_fig=self.interactive,
+                        return_fig=True, block=self.interactive),
                     f'recon_row_{row}_center_{center:.2f}'))
                 center_offsets.append(center)
                 recon_planes.append(search_recon_planes[i])
 
         # Perform an interactive center finding search
         calibrate_interactively = False
-        if self._interactive:
+        if self.interactive:
             if selected_center_offset == 'all bad':
                 calibrate_interactively = input_yesno(
                     '\nDo you want to perform an interactive search to '
@@ -2609,7 +2594,7 @@ class Tomo:
                         include_all_bad = False
                     selected_center_offset_prev = round(selected_center_offset)
                 if step_size > max_step_size:
-                    self._logger.warning(
+                    self.logger.warning(
                         'Exceeding maximum step size of {max_step_size}')
                     step_size = max_step_size
 
@@ -2625,7 +2610,7 @@ class Tomo:
             center_offset_min = selected_center_offset-step_size
             center_offset_max = selected_center_offset+step_size
             if num_core > NUM_CORE_TOMOPY_LIMIT:
-                self._logger.debug(
+                self.logger.debug(
                     f'Running find_center_vo on {NUM_CORE_TOMOPY_LIMIT} '
                     'cores ...')
                 tomo_center = find_center_vo(
@@ -2636,7 +2621,7 @@ class Tomo:
                     sinogram, ncore=num_core, smin=center_offset_min,
                     smax=center_offset_max)
             center_offset_vo = float(tomo_center-center_offset_range)
-            self._logger.info(
+            self.logger.info(
                 f'Center at row {row} using Nghia Vo\'s method = '
                 f'{center_offset_vo:.2f}')
 
@@ -2666,9 +2651,9 @@ class Tomo:
         del sinogram
 
         # Return the center location
-        if self._interactive:
+        if self.interactive:
             if selected_center_offset == 'all bad':
-                self._logger.warning(
+                self.logger.warning(
                     '\nUnable to successfully calibrate center axis')
                 selected_center_offset = input_num(
                     'Enter the center offset for row {row}',
@@ -2731,7 +2716,7 @@ class Tomo:
 #        else:
 #            weight = vis_parameters.get('denoise_weight', 0.1)
 #            if not is_num(weight, ge=0.):
-#                self._logger.warning(
+#                self.logger.warning(
 #                    f'Invalid weight ({weight}) in _get_edges_one_plane, '
 #                    'set to a default of 0.1')
 #                weight = 0.1
@@ -2844,7 +2829,7 @@ class Tomo:
                     'Select the best offset and press "Accept" to accept',
                     **subtitle_props)
 
-        if not self._interactive:
+        if not self.interactive:
 
             selected_offset.append(
                 (True, preselected_offsets[default_offset_index]))
@@ -2911,7 +2896,7 @@ class Tomo:
             fig_title.remove()
         else:
             fig_title.set_in_layout(True)
-            if self._interactive:
+            if self.interactive:
                 select_text.remove()
         fig_subtitle.remove()
         fig.tight_layout(rect=(0, 0, 1, 0.95))
@@ -2970,18 +2955,18 @@ class Tomo:
                     tomo_stack, sigma=remove_stripe_sigma, ncore=num_core)
 
         # Perform initial image reconstruction
-        self._logger.debug('Performing initial image reconstruction')
+        self.logger.debug('Performing initial image reconstruction')
         t0 = time()
         tomo_recon_stack = recon(
             tomo_stack, thetas, centers, sinogram_order=True,
             algorithm=algorithm, ncore=num_core)
-        self._logger.info(
+        self.logger.info(
             f'Performing initial image reconstruction took {time()-t0:.2f} '
             'seconds')
 
         # Run optional secondary iterations
         if secondary_iters > 0:
-            self._logger.debug(
+            self.logger.debug(
                 'Running {secondary_iters} secondary iterations')
 #            options = {
 #                'method': 'SIRT_CUDA',
@@ -3014,7 +2999,7 @@ class Tomo:
                 tomo_stack, thetas, centers, init_recon=tomo_recon_stack,
                 options=options, sinogram_order=True, algorithm=astra,
                 ncore=num_core)
-            self._logger.info(
+            self.logger.info(
                 f'Performing secondary iterations took {time()-t0:.2f} '
                 'seconds')
 
@@ -3051,16 +3036,16 @@ class Tomo:
 
         # Selecting x an y bounds (in z-plane)
         if x_bounds is None:
-            if not self._interactive:
-                self._logger.warning('x_bounds unspecified, use data for '
+            if not self.interactive:
+                self.logger.warning('x_bounds unspecified, use data for '
                                      'full x-range')
                 x_bounds = (0, tomo_recon_stacks[0].shape[2])
         elif not is_int_pair(
                 x_bounds, ge=0, le=tomo_recon_stacks[0].shape[2]):
             raise ValueError(f'Invalid parameter x_bounds ({x_bounds})')
         if y_bounds is None:
-            if not self._interactive:
-                self._logger.warning('y_bounds unspecified, use data for '
+            if not self.interactive:
+                self.logger.warning('y_bounds unspecified, use data for '
                                      'full y-range')
                 y_bounds = (0, tomo_recon_stacks[0].shape[1])
         elif not is_int_pair(
@@ -3087,7 +3072,7 @@ class Tomo:
             tomosum, preselected_roi=preselected_roi,
             title_a='Reconstructed data summed over z',
             row_label='y', column_label='x',
-            interactive=self._interactive, return_buf=self._save_figures)
+            interactive=self.interactive, return_buf=self._save_figures)
         if self._save_figures:
             if combine_data:
                 filename = 'combined_data_xy_roi'
@@ -3100,20 +3085,20 @@ class Tomo:
         else:
             x_bounds = (int(roi[0]), int(roi[1]))
             y_bounds = (int(roi[2]), int(roi[3]))
-        self._logger.debug(f'x_bounds = {x_bounds}')
-        self._logger.debug(f'y_bounds = {y_bounds}')
+        self.logger.debug(f'x_bounds = {x_bounds}')
+        self.logger.debug(f'y_bounds = {y_bounds}')
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack or when combining a stack)
         if num_tomo_stacks == 1 or combine_data:
             if z_bounds is None:
-                if not self._interactive:
+                if not self.interactive:
                     if combine_data:
-                        self._logger.warning(
+                        self.logger.warning(
                             'z_bounds unspecified, combine reconstructed data '
                             'for full z-range')
                     else:
-                        self._logger.warning(
+                        self.logger.warning(
                             'z_bounds unspecified, reconstruct data for '
                             'full z-range')
                 z_bounds = (0, tomo_recon_stacks[0].shape[0])
@@ -3126,8 +3111,8 @@ class Tomo:
             buf, z_bounds = select_roi_1d(
                 tomosum, preselected_roi=z_bounds,
                 xlabel='z', ylabel='Reconstructed data summed over x and y',
-                interactive=self._interactive, return_buf=self._save_figures)
-            self._logger.debug(f'z_bounds = {z_bounds}')
+                interactive=self.interactive, return_buf=self._save_figures)
+            self.logger.debug(f'z_bounds = {z_bounds}')
             if self._save_figures:
                 if combine_data:
                     filename = 'combined_data_z_roi'
