@@ -2399,6 +2399,8 @@ class NexusToZarrProcessor(Processor):
                                     _chunks = 'auto'
                                 else:
                                     _chunks = chunks
+                            else:
+                                _chunks = chunks
                             # Copy dataset
                             zarr_dset = zarr_group.create_array(
                                 name=key,
@@ -3135,7 +3137,7 @@ class UnstructuredToStructuredProcessor(Processor):
         if signals is None:
             # Get unstructured_axes first
             if unstructured_axes is None:
-                axes_attr = nxdata.attrs.get('unstructured_axes')
+                axes_attr = nxdata.attrs.get('unstructured_axes').nxvalue
                 if axes_attr is not None:
                     _unstructured_axes = axes_attr
                 else:
@@ -3150,7 +3152,7 @@ class UnstructuredToStructuredProcessor(Processor):
                 # Use all fields that aren't already axes
                 _signals = [
                     f for f in nxdata
-                    if f not in unstructured_axes
+                    if f not in _unstructured_axes
                     and isinstance(nxdata[f], NXfield)
                 ]
         else:
