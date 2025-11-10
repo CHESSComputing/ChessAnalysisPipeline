@@ -3227,7 +3227,7 @@ class UnstructuredToStructuredProcessor(Processor):
 
         # Check unstructured axes shapes
         for asis in unstructured_axes:
-            if nxdata[asis].squeeze().ndim) > 1:
+            if nxdata[asis].squeeze().ndim > 1:
                 raise ValueError('Invalid unstructered axis shape for '
                                  f'{axis}: {nxdata[axis].shape}')
 
