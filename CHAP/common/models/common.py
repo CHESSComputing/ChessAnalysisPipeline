@@ -133,32 +133,72 @@ class UnstructuredToStructuredConfig(CHAPBaseModel):
     """Configuration class to reshape data in an NXdata from an
     "unstructured" to a "structured" representation.
 
-    :param nxpath: The path to a specific NeXus NXdata object in the
+    :param nxpath: Path to a specific NeXus NXdata object in the
         NeXus file tree to read the input data from.
     :type nxpath: str, optional
-    :param nxpath_addnl: The path to any additional datasets
-        (Nexus NXdata or NXfield objects) in the NeXus file tree to
-        reshape.
-    :type nxpath_addnl: Union[str, list[str]], optional
-    :param remove_original_data: Removes the original data field,
-        defaults to `False`.
-    :type remove_original_data: bool, optional
+    :param signals: Paths to the dataset's signal-like fields to
+        reshape (in addition to possible ones in the optional `nxpath`
+        object).
+    :type signals: Union[str, list[str]], optional
+    :param unstructured_axes: Names of the dataset's unstructured axes
+        fields. Defaults to the `'unstructured axis'` attribute of the
+        default NeXus NXdata object or that specified in `nxpath` if
+        present. If `nxpath` is unspecified and there is no default
+        NeXus NXdata object, the `unstructured_axes` is required and
+        has to contain full paths to the unstructured axes fields.
+    :type unstructured_axes: Union[str, list[str]], optional
     """
     nxpath: Optional[str] = None
-    nxpath_addnl: Optional[
+    signals: Optional[
         Union[str, conlist(min_length=1, item_type=str)]] = None
-    remove_original_data: Optional[bool] = False
+    unstructured_axes: Optional[
+        Union[str, conlist(min_length=1, item_type=str)]] = None
 
-    @field_validator('nxpath_addnl', mode='before')
+    @field_validator('nxpath', mode='before')
     @classmethod
-    def validate_nxpath_addnl(cls, nxpath_addnl):
-        """Validate nxpath_addnl.
+    def validate_nxpath(cls, nxpath):
+        """Validate nxpath.
 
-        :param nxpath_addnl: The additional nxpath path(s).
-        :type nxpath_addnl: Union[str, list[str]]
-        :return: nxpath_addnl.
+        :param nxpath: Path to a specific NeXus NXdata object in the
+            NeXus file tree to read the input data from.
+        :type nxpath: str
+        :return: nxpath.
+        :rtype: str
+        """
+        if nxpath[0] == '/':
+            nxpath = nxpath[1:]
+        return nxpath
+
+    @field_validator('signals', mode='before')
+    @classmethod
+    def validate_signals(cls, signals):
+        """Validate signals.
+
+        :param signals: The (additional) dataset's signal-like fields.
+        :type signals: Union[str, list[str]]
+        :return: signals.
         :rtype: list[str]
         """
-        if isinstance(nxpath_addnl, str):
-            return [nxpath_addnl]
-        return nxpath_addnl
+        if isinstance(signals, str):
+            signals = [signals]
+        for i, signal in enumerate(signals):
+            if signal[0] == '/':
+                signals[i] = signal[1:]
+        return signals
+
+    @field_validator('unstructured_axes', mode='before')
+    @classmethod
+    def validate_unstructured_axes(cls, unstructured_axes):
+        """Validate unstructured_axes.
+
+        :param unstructured_axes: The dataset's unstructured axes
+        :type unstructured_axes: Union[str, list[str]]
+        :return: unstructured_axes.
+        :rtype: list[str]
+        """
+        if isinstance(unstructured_axes, str):
+            unstructured_axes = [unstructured_axes]
+        for i, axis in enumerate(unstructured_axes):
+            if axis[0] == '/':
+                unstructured_axes[i] = axis[1:]
+        return unstructured_axes
