@@ -3125,7 +3125,11 @@ class UnstructuredToStructuredProcessor(Processor):
         try:
             error_txt = 'Unable the load the default NeXus object from ' \
                         f'the input pipeline ({data})'
-            nxobject = self.get_data(data)
+            try:
+                nxobject = self.get_data(data)
+            except Exception as exc:
+                self.logger.error(exc)
+                raise exc
             if config.nxpath is None:
                 # Local modules
                 from CHAP.utils.general import get_default_path
@@ -3136,13 +3140,21 @@ class UnstructuredToStructuredProcessor(Processor):
                             f'config.nxpath ({config.nxpath}), ' \
                             f'nxobject:\n({nxobject.tree})'
                 nxpath = config.nxpath
-            nxdata = nxobject[nxpath]
-            if isinstance(nxdata, NXgroup):
+            try:
+                nxdata = nxobject[nxpath]
+            except Exception as exc:
+                self.logger.error(exc)
+                raise exc
+            if 0:#isinstance(nxdata, NXgroup):
                 # Local modules
                 from CHAP.utils.general import nxcopy
 
-                nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
-            assert isinstance(nxdata, NXdata)
+                try:
+                    nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
+                except Exception as exc:
+                    self.logger.error(exc)
+                    raise exc
+            assert isinstance(nxdata, (NXdata, NXgroup))
         except:
             self.logger.warning(error_txt)
             nxdata = None
