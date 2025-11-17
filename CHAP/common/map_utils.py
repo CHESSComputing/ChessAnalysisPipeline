@@ -153,7 +153,8 @@ class SpecScanToMapConfigProcessor(Processor):
                 spec_file, scan_number, station, experiment,
                 dwell_time_actual_counter_name,
                 presample_intensity_counter_name,
-                postsample_intensity_counter_name=None):
+                postsample_intensity_counter_name=None,
+                validate_data_present=True):
         """Return a dictionary representing a valid MapConfig object that
         contains only the single given scan.
 
@@ -255,6 +256,7 @@ class SpecScanToMapConfigProcessor(Processor):
             '/daq/', '/raw/')
         independent_dimensions, scalar_data = get_independent_dimensions(sp)
         mapconfig_dict = {
+            'validate_data_present': validate_data_present,
             'title': sp.scan_title,
             'station': station,
             'experiment_type': experiment.upper(),

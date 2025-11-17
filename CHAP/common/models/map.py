@@ -675,7 +675,8 @@ def validate_data_source_for_map_config(data_source, info):
                 import_scanparser(
                     values['station'], values['experiment_type'])
                 data_source.validate_for_station(values['station'])
-                data_source.validate_for_spec_scans(values['spec_scans'])
+                if values['validate_data_present']:
+                    data_source.validate_for_spec_scans(values['spec_scans'])
         return data_source
 
     return _validate_data_source_for_map_config(data_source, info)
@@ -909,6 +910,7 @@ class MapConfig(CHAPBaseModel):
     :ivar attrs: Additional Map configuration attributes.
     :type attrs: dict, optional
     """
+    validate_data_present: bool = True
     did: Optional[constr(strip_whitespace=True)] = None
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
