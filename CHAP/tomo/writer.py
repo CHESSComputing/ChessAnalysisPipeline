@@ -32,13 +32,16 @@ class TomoWriter(Writer):
         # Local modules
         from CHAP.pipeline import PipelineData
 
-        # Write the (partial) tomographic reconstruction result
+        # Load the (partial) tomographic reconstruction result
         tomodata = self.get_data(data, schema='tomodata', remove=remove)
+
         # Local modules
         if isinstance(tomodata, dict):
             from CHAP.common.writer import YAMLWriter as writer
         else:
             from CHAP.common.writer import NexusWriter as writer
+
+        # Write the (partial) tomographic reconstruction result
         #RV FIX make class methods from the Writer.write functions?
         # or create write function that also accept some default type
         # other than list[PipelineData]?
@@ -51,7 +54,7 @@ class TomoWriter(Writer):
         did = metadata['did']
         provenance = {
             'did': did,
-            'input_files': [{'name': 'todo.fix'}],
+            'input_files': [{'name': 'todo.fix: pipeline.yaml'}],
             'output_files': [{'name': os_path.realpath(filename)}],
         }
         data.append(PipelineData(

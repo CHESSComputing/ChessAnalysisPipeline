@@ -359,8 +359,8 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            interactive=False, save_figures=False):
+            self, data, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6,
+            max_iter=20, interactive=False, save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
@@ -370,6 +370,9 @@ class ConstructBaseline(Processor):
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
+        :param spans: List of index ranges for selecting the data to be
+            included in baseline construction.
+        :type spans: list[[int, int]], optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
@@ -396,13 +399,15 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x, mask, tol, lam, max_iter, interactive=interactive,
+            data, x=x, mask=mask, spans=spans, tol=tol, lam=lam,
+            max_iter=max_iter, interactive=interactive,
             return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
-            y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
-            xlabel=None, ylabel=None, interactive=False, return_buf=False):
+            y, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            title=None, xlabel=None, ylabel=None, interactive=False,
+            return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -414,6 +419,9 @@ class ConstructBaseline(Processor):
            construction.
         :type mask: array-like, optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :param spans: List of index ranges for selecting the data to be
+            included in baseline construction.
+        :type spans: list[[int, int]], optional
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
             between the residual of the data and the baseline and the
@@ -480,9 +488,9 @@ class ConstructBaseline(Processor):
             else:
                 lambdas.pop()
                 lambdas.append(10**lam)
-                baseline, _, _, num_iter, error = baseline_arPLS(
-                    y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter,
-                    full_output=True)
+                baseline, _, _, num_iter, error = get_baseline(
+                    y, mask=mask, spans=spans, tol=tol, lam=lambdas[-1],
+                    max_iter=max_iter)
                 num_iters.pop()
                 num_iters.append(num_iter)
                 errors.pop()
@@ -497,9 +505,9 @@ class ConstructBaseline(Processor):
 
         def continue_iter(event):
             """Callback function for the "Continue" button."""
-            baseline, _, w, n_iter, error = baseline_arPLS(
-                y, mask=mask, w=weights[-1], tol=tol, lam=lambdas[-1],
-                max_iter=max_iter, full_output=True)
+            baseline, _, w, n_iter, error = get_baseline(
+                y, mask=mask, spans=spans, w=weights[-1], tol=tol,
+                lam=lambdas[-1], max_iter=max_iter)
             num_iters[-1] += n_iter
             errors.pop()
             errors.append(error)
@@ -516,9 +524,16 @@ class ConstructBaseline(Processor):
             """Callback function for the "Confirm" button."""
             plt.close()
 
-        baseline, _, w, num_iter, error = baseline_arPLS(
-            y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
-            full_output=True)
+        def get_baseline(
+                y, mask=None, spans=None, w=None, tol=1.e-6, lam=1.6,
+                max_iter=20, full_output=True):
+            """Get a baseline."""
+            return baseline_arPLS(
+                y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+                full_output=True)
+
+        baseline, _, w, num_iter, error = get_baseline(
+            y, mask=mask, spans=spans, tol=tol, lam=lam, max_iter=max_iter)
 
         if not interactive and not return_buf:
             config = {
@@ -674,8 +689,11 @@ class ExpressionProcessor(Processor):
         if not nxprocess:
             return new_data
 
+        # Third party modules
         from nexusformat.nexus import (
-            NXdata, NXfield, NXprocess
+            NXdata,
+            NXfield,
+            NXprocess,
         )
         return NXprocess(
             name='expression',
@@ -2362,6 +2380,7 @@ class NexusToXarrayProcessor(Processor):
 class NexusToZarrProcessor(Processor):
     """Converter for NeXus to Zarr format."""
     def process(self, data, chunks='auto'):
+        # Third party modules
         from nexusformat.nexus import (
             NXfield,
             NXgroup,
@@ -2399,6 +2418,8 @@ class NexusToZarrProcessor(Processor):
                                     _chunks = 'auto'
                                 else:
                                     _chunks = chunks
+                            else:
+                                _chunks = chunks
                             # Copy dataset
                             zarr_dset = zarr_group.create_array(
                                 name=key,
@@ -2577,14 +2598,16 @@ class PrintProcessor(Processor):
         :return: `data`
         :rtype: object
         """
-        print(f'{self.__name__} data :')
         if callable(getattr(data, '_str_tree', None)):
             # If data is likely a NeXus NXobject, print its tree
             # representation (since NXobjects' str representations are
             # just their nxname)
             print(data._str_tree(attrs=True, recursive=True))
         else:
-            print(str(data))
+            # System modules
+            from pprint import pprint
+
+            pprint(data)
 
         return data
 
@@ -3077,7 +3100,7 @@ class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to a "structured" representation.
     """
-    def process(self, data, nxpath=None, signals=None, unstructured_axes=None):
+    def process(self, data, config=None, inputdir=None):
         """Plot and return a NeXus NXobject object with the default
         NeXus NXData object added or replaced by its "structured"
         representation.
@@ -3085,7 +3108,7 @@ class UnstructuredToStructuredProcessor(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.common.UnstructuredToStructuredConfig
+            CHAP.common.models.common.UnstructuredToStructuredConfig.
         :type config: dict, optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths.
@@ -3096,212 +3119,298 @@ class UnstructuredToStructuredProcessor(Processor):
         :rtype: nexusformat.nexus.NXobject
         """
         # Third party modules
-        from nexusformat.nexus import NXdata
+        from nexusformat.nexus import (
+            NXdata,
+            NXgroup,
+        )
 
+        # Load the validated processor configuration
+        if config is None:
+            # Local modules
+            from CHAP.common.models.common import (
+                UnstructuredToStructuredConfig,
+            )
+
+            config = UnstructuredToStructuredConfig()
+        else:
+            config = self.get_config(
+                data, config=config,
+                schema='common.models.common.UnstructuredToStructuredConfig',
+                inputdir=inputdir)
+
+        # Load the default data
         try:
-            nxobject = self.get_data(data)
+            error_txt = 'Unable the load the default NeXus object from ' \
+                        f'the input pipeline ({data})'
+            try:
+                nxobject = self.get_data(data)
+            except Exception as exc:
+                self.logger.error(exc)
+                raise exc
+            if config.nxpath is None:
+                # Local modules
+                from CHAP.utils.general import get_default_path
+
+                nxpath = get_default_path(nxobject)
+            else:
+                error_txt = 'Unable the load the NXdata object from ' \
+                            f'config.nxpath ({config.nxpath}), ' \
+                            f'nxobject:\n({nxobject.tree})'
+                nxpath = config.nxpath
+            try:
+                nxdata = nxobject[nxpath]
+            except Exception as exc:
+                self.logger.error(exc)
+                raise exc
+            if 0:#isinstance(nxdata, NXgroup):
+                # Local modules
+                from CHAP.utils.general import nxcopy
+
+                try:
+                    nxdata = nxcopy(nxdata, nxgroup_to_nxdata=True)
+                except Exception as exc:
+                    self.logger.error(exc)
+                    raise exc
+            assert isinstance(nxdata, (NXdata, NXgroup))
         except:
-            nxobject = self.unwrap_pipelinedata(data)[0]
+            self.logger.warning(error_txt)
+            nxdata = None
+            nxpath = ''
 
-        signals, unstructured_axes = self.guess_signals_axes(
-            nxobject, signals, unstructured_axes
-        )
-        signals, unstructured_axes = self.validate_signals_axes(
-            nxobject, signals, unstructured_axes
-        )
-        return self.convert(nxobject, signals, unstructured_axes)
+        signals, axes_paths = self.guess_signals_axes(
+            config, nxdata, nxpath)
+        signals_paths, axes_paths = self.validate_signals_axes(
+            nxobject, signals, axes_paths)
+        return self.convert(nxobject, nxpath, signals_paths, axes_paths)
 
-    def guess_signals_axes(self, nxdata, signals, unstructured_axes):
-        """Return two lists: the names of the candidate signal-like
-        and axes-like fields in the NXdata object provided, given the
+    def guess_signals_axes(self, config, nxdata, nxpath):
+        """Return two lists: the paths to the candidate signal-like
+        and axes-like fields in the NeXus object provided, given the
         other initial hints for those lists. Candidate signal/axes
-        fields are considered to be all the fields in the NXdata that
-        are not already candidates for the axes/signal fields.
+        fields are considered to be all the fields in the default or
+        selected `NXdata` object that are not already candidates for
+        the axes/signal fields.
 
-        :param nxdata:
-        :type nxdata: nexusformat.nexus.NXdata
-        :param signals: List of names of the dataset's signal-like
-            fields
-        :type signals: list[str]
-        :param unstructured_axes: List of names of the dataset's
-            unstructured axes fields
-        :type unstructured_axes: list[str]
-        :returns: Best guess at the signal and axes fields
+        :param config: UnstructuredToStructured configuration.
+        :type config:
+            CHAP.common.models.common.UnstructuredToStructuredConfig
+        :param nxpath: Path to a NXdata object.
+        :type nxpath: str
+        :returns: Best guess at the signals and axes paths
         :rtype: list[str], list[str]
         """
+        # Third party modules
         from nexusformat.nexus import NXfield
 
-        self.logger.debug('Guessing signal & axes fields')
-        if signals is None:
-            # Get unstructured_axes first
-            if unstructured_axes is None:
-                axes_attr = nxdata.attrs.get('unstructured_axes')
-                if axes_attr is not None:
-                    _unstructured_axes = axes_attr
+        # Local modules
+        from CHAP.common.map_utils import get_axes
+
+        if nxpath:
+            nxpath += '/'
+        self.logger.debug('Guessing signal & unstructured axes')
+        if config.signals is None:
+            if nxdata is None:
+                raise RuntimeError(
+                    'Unable to guess both signals and unstructured axes')
+            try:
+                # Get unstructured axes
+                axes = config.unstructured_axes
+                if axes is None:
+                    axes = get_axes(nxdata)
+                assert axes
+                # Get signals
+                if hasattr(nxdata, 'signal'):
+                    # Use the signal attribute
+                    signals_paths = [f'{nxpath}{nxdata.signal}']
                 else:
-                    raise RuntimeError(
-                        'Can\'t guess both signals and unstructured_axes')
-            else:
-                _unstructured_axes = unstructured_axes
-            if nxdata.nxsignal is not None:
-                # Use the nxsignal attr
-                _signals = [nxdata.nxsignal.nxname]
-            else:
-                # Use all fields that aren't already axes
-                _signals = [
-                    f for f in nxdata
-                    if f not in unstructured_axes
-                    and isinstance(nxdata[f], NXfield)
-                ]
+                    # Use all fields that are not already unstructured axes
+                    # as signals
+                    signals_paths = [
+                        f'{nxpath}{k}' for k, v in nxdata.items()
+                        if k not in axes and isinstance(v, NXfield)]
+                assert signals_paths
+            except:
+                raise RuntimeError(
+                    'Unable to guess both signals and unstructured axes')
         else:
-            _signals = signals
-            if unstructured_axes is None:
-                _unstructured_axes = [
-                    f for f in nxdata
-                    if f not in _signals
-                    and isinstance(nxdata[f], NXfield)
-                ]
-            else:
-                _unstructured_axes = unstructured_axes
+            # Get unstructured axes
+            axes = config.unstructured_axes
+            if axes is None:
+                try:
+                    axes = get_axes(nxdata)
+                except:
+                    if nxdata is None:
+                        axes = []
+                    else:
+                        axes = [
+                            k for k, v in nxdata.items()
+                            if f'{nxpath}{k}' not in config.signals
+                                and isinstance(v, NXfield)]
+                if not axes:
+                    raise ValueError('Unable to guess unstructered axes')
+            # Get signals
+            signals_paths = config.signals
+            if nxdata is not None:
+                # Add all fields that are not already unstructured axes
+                # to the signals
+                signals_paths += [
+                    f'{nxpath}{k}' for k, v in nxdata.items()
+                    if k not in axes and isinstance(v, NXfield)
+                    and f'{nxpath}{k}' not in config.signals]
 
-        self.logger.debug(f'Guessing signals: {_signals}')
-        self.logger.debug(f'Guessing axes: {_unstructured_axes}')
-        return _signals, _unstructured_axes
+        axes_paths = [f'{nxpath}{a}' for a in axes]
+        self.logger.debug(f'Guessing signals paths: {signals_paths}')
+        self.logger.debug(f'Guessing unstructured axes paths: {axes_paths}')
+        return signals_paths, axes_paths
 
-    def validate_signals_axes(self, nxdata, signals, unstructured_axes):
-        """Validate consistency of signal and axis fields in an NXdata
-        group.
+    def validate_signals_axes(
+            self, nxobject, signals_paths, axes_paths):
+        """Validate the consistency of the signal and axes fields.
 
         This method checks that all fields specified in `signals` and
-        `unstructured_axes` are present in the given `NXdata` object,
-        that they are of type `NXfield`, and that their sizes are
-        consistent.  Specifically, all unstructured axes must have the
-        same length, and each signal’s first dimension must match this
-        length. Raises `TypeError` or `ValueError` if validation
-        fails.
+        `axes` are present in the input NeXus object, that they are
+        of type `NXfield`, and that their sizes are consistent.
+        Specifically, all unstructured axes must have the same length,
+        and each signal’s first dimension must match this length.
+        Raises `TypeError` or `ValueError` if validation fails.
 
-        :param nxdata: The NXdata group containing signals and axes to
+        :param nxobject: Input NeXus object.
+        :type nxobject: nexusformat.nexus.NXobject
+        :param signals_paths: Field paths to signals to validate.
+        :type signals_paths: list[str]
+        :param axes_paths: Field paths to unstructured axes to
             validate.
-        :type nxdata: NXdata
-        :param signals: Names of fields in the NXdata that represent
-            signals to validate.
-        :type signals: list[str]
-        :param unstructured_axes: Names of fields in the NXdata that
-            represent unstructured axes to validate.
-        :type unstructured_axes: list[str]
-        :returns: The validated `signals` and `unstructured_axes` lists.
-        :rtype: tuple[list[str], list[str]]
+        :type axes_paths: list[str]
+        :returns: The validated signals and unstructured axes path
+            lists.
+        :rtype: list[str], list[str]
         """
-        from nexusformat.nexus import NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+            NXgroup,
+        )
 
-        self.logger.debug('Validating signal & axes fields')
-        fields = signals + unstructured_axes
-        # Check presence & types of all indicated fields
-        for f in fields:
-            _f = nxdata.get(f)
-            if not isinstance(_f, NXfield):
-                raise TypeError(f'{f} is {type(_f)}, expected NXfield')
+        self.logger.debug('Validating signal & unstructured axes')
 
-        # Check unstructured axes shapes
-        for u_a in unstructured_axes:
-            if len(nxdata[u_a].squeeze().shape) > 1:
+        # Validate unstructured axes
+        unstructured_dim = None
+        for a in axes_paths:
+            try:
+                nxfield = nxobject[a]
+            except:
+                raise TypeError(f'Invalid unstructured axis {a}')
+            if not isinstance(nxfield, NXfield):
+                raise TypeError(f'Invalid field type ({type(nxfield)}) for '
+                                f'unstructured axis {a}')
+            if nxfield.squeeze().ndim > 1:
+                raise ValueError('Invalid unstructered axis shape for '
+                                 f'{a}: {nxfield.shape}')
+            if unstructured_dim is None:
+                unstructured_dim = nxfield.size
+            elif nxfield.size != unstructured_dim:
                 raise ValueError(
-                    f'Axis {u_a} is not 1-D; shape is: {nxdata[u_a].shape}')
+                    f'Inconsistent axis dimension: size of {a} is '
+                    f'{nxfield.size} instead of {unstructured_dim}')
 
-        # Check unstructured axes sizes
-        dataset_length = nxdata[unstructured_axes[0]].size
-        self.logger.debug(f'Validating axes for size={dataset_length}')
-        for u_a in unstructured_axes[1:]:
-            if nxdata[u_a].size != dataset_length:
-                raise ValueError(
-                    f'Axis {u_a} size is {nxdata[u_a].size}; '
-                    'expected {dataset_length}'
-                )
-        # Check signal shapes
-        for s in signals:
-            first_dim = nxdata[s].shape[0]
-            if first_dim != dataset_length:
-                raise ValueError(
-                    f'Signal {s} first axis is {first_dim}, '
-                    'expected {dataset_length}'
-		)
-        self.logger.debug('Validated signals & axes')
-        return signals, unstructured_axes
+        # Validate signals
+        signals = []
+        for s in signals_paths:
+            try:
+                nxfield = nxobject[s]
+            except:
+                raise TypeError(f'Invalid signal {s}')
+            if isinstance(nxfield, NXfield):
+                if nxfield.shape[0] != unstructured_dim:
+                    raise ValueError(
+                        f'Inconsistent signal dimension: signal {s}\'s first '
+                        f'axis dimension is {nxfield.shape[0]} instead of '
+                        f'{unstructured_dim}')
+                signals.append(s)
+            elif isinstance(nxfield, (NXdata, NXgroup)):
+                for k, v in nxfield.items():
+                    signal_path = f'{s}/{k}'
+                    if (isinstance(v, NXfield)
+                            and signal_path not in axes_paths + signals
+                            and v.shape[0] == unstructured_dim):
+                        signals.append(signal_path)
+            else:
+                raise TypeError(f'Invalid axis field type ({type(axis)})')
+        self.logger.debug(f'Validated signals: {signals}')
+        self.logger.debug(f'Validated unstructured axes: {axes_paths}')
+        return signals, axes_paths
 
-    def convert(self, nxdata, signals, unstructured_axes):
-        """Convert an NXdata group with unstructured axes into a
+    def convert(self, nxobject, nxpath, signals_paths, axes_paths):
+        """Convert the signal fields with unstructured axes into a
         structured form.
 
-        This method restructures an `NXdata` object by replacing
+        This method restructures the input NeXus object by replacing
         unstructured axis fields with structured (unique, sorted) axes
         and reshaping the associated signals accordingly. Signal data
         are placed into an N-dimensional array defined by the
-        Cartesian product of the structured axes. Any other NXfields
-        in the input NXdata that are not part of `signals` or
-        `unstructured_axes` are preserved in the output.
+        Cartesian product of the structured axes. Any NeXus objects in
+        the input that are not part of `signals_paths` or `axes_paths`
+        are preserved in the output.
 
-        :param nxdata: The unstructured NXdata group to convert.
-        :type nxdata: NXdata
-        :param signals: Names of fields in the NXdata that represent
-            signals to be restructured.
-        :type signals: list[str]
-        :param unstructured_axes: Names of fields in the NXdata that
-            represent unstructured axes. These axes will be replaced
-            by unique, structured equivalents.
-        :type unstructured_axes: list[str]
-        :returns: A new NXdata object containing structured axes,
-            reshaped signals, and any unconverted NXfields preserved
-            from the input.
-        :rtype: NXdata
+        :param nxobject: Input NeXus object.
+        :type nxobject: nexusformat.nexus.NXobject
+        :param nxpath: Path to a NXdata object.
+        :type nxpath: str
+        :param signals_paths: Field paths to signals to restructure.
+        :type signals_paths: list[str]
+        :param axes_paths: Field paths to unstructured axes that will
+            be replaced by unique, structured equivalents.
+        :type axes_paths: list[str]
+        :returns: The NeXus object with all signals and unstructured
+            axes replaced with their structured equivalents.
+        :rtype: NXobject
         """
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
+        # Local modules
+        from CHAP.utils.general import nxcopy
 
         self.logger.debug('Performing conversion to structured dataset')
-        self.logger.debug('Copying original NXdata')
-        attrs = deepcopy(nxdata.attrs)
-        attrs['axes'] = unstructured_axes
+        nxobject_copy = nxcopy(
+            nxobject, exclude_nxpaths=signals_paths+axes_paths)
+
         self.logger.debug('Getting unique axes points')
-        structured_axes = {a: np.unique(nxdata[a].nxdata)
-                           for a in unstructured_axes}
-        dataset_shape = tuple(len(v) for a, v in structured_axes.items())
+        structured_axes = {a: np.unique(nxobject[a].nxdata)
+                           for a in axes_paths}
+        dataset_shape = tuple(v.size for v in structured_axes.values())
         self.logger.debug('Allocating empty structured signal arrays')
-        structured_signals = {s: np.empty(
-            (*dataset_shape, *nxdata[s].shape[1:]),
-            dtype=nxdata[s].nxdata.dtype
-        ) for s in signals}
-        npts = len(nxdata[signals[0]].nxdata.tolist())
-        self.logger.info(f'Converting {npts} data points')
+        structured_signals = {
+            s: np.empty(
+                (*dataset_shape, *nxobject[s].shape[1:]),
+                dtype=nxobject[s].nxdata.dtype)
+            for s in signals_paths}
+        self.logger.info(
+            f'Converting {nxobject[signals_paths[0]].nxdata.size} data points')
         indices = {
-            a: np.searchsorted(structured_axes[a], nxdata[a].nxdata)
-            for a in unstructured_axes
-        }
-        for s, value in structured_signals.items():
-            value[tuple(indices[a] for a in unstructured_axes)] = nxdata[s]
-        unconverted_fields = [
-            f for f in nxdata
-            if f not in signals + unstructured_axes
-            and isinstance(nxdata[f], NXfield)
-        ]
-        structured_nxdata = NXdata(
-            **{s: NXfield(
+            a: np.searchsorted(structured_axes[a], nxobject[a].nxdata)
+            for a in axes_paths}
+        for k, v in structured_signals.items():
+            v[tuple(indices[a] for a in axes_paths)] = nxobject[k]
+        for s in signals_paths:
+            nxobject_copy[s] = NXfield(
                 value=structured_signals[s],
-                name=s,
-                attrs=nxdata[s].attrs,
-            ) for s in signals},
-            name=nxdata.nxname,
-            attrs=attrs,
-            axes=tuple(
-                NXfield(
-                    value=value,
-                    name=a,
-                    attrs={k: v for k, v in nxdata[a].attrs.items()
-                           if not k == 'target'},
-                )
-                for a, value in structured_axes.items()
-            ),
-            **{f: nxdata[f] for f in unconverted_fields}
-        )
-        return structured_nxdata
+                name=os.path.basename(s),
+                attrs=nxobject[s].attrs)
+        for a in axes_paths:
+            nxobject_copy[a] = NXfield(
+                value=structured_axes[a],
+                name=os.path.basename(a),
+                attrs={k:v for k, v in nxobject[a].attrs.items()
+                    if k != 'target'})
+        if nxpath and 'unstructured_axes' in nxobject_copy[nxpath].attrs:
+            nxobject_copy[nxpath].attrs['axes'] = \
+                nxobject_copy[nxpath].attrs.pop('unstructured_axes')
+        return nxobject_copy
 
 
 class UpdateNXvalueProcessor(Processor):

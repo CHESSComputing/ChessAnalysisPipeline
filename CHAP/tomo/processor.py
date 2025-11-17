@@ -73,7 +73,7 @@ class TomoMetadataProcessor(Processor):
         except Exception as exc:
             raise
 
-        # Extracted any available MapConfig info
+        # Extract any available MapConfig info
         map_config = {}
         map_config['did'] = data.get('did')
         map_config['title'] = data.get('sample_name')
@@ -144,6 +144,7 @@ class TomoCHESSMapConverter(Processor):
         # Local modules
         from CHAP.utils.general import index_nearest
 
+        # FIX make a config input
         nxsetconfig(memory=100000)
 
         # Load and validate the tomography fields
@@ -167,20 +168,42 @@ class TomoCHESSMapConverter(Processor):
         spec_scan = map_config.spec_scans[0]
         scan_numbers = spec_scan.scan_numbers
 
-        # Load and validate dark field
+        # Load and validate dark field (look upstream and downstream
+        # in the SPEC log file)
         try:
             darkfield = self.get_data(data, schema='darkfield')
         except:
             self.logger.warning(f'Unable to load dark field from pipeline')
             darkfield = None
+        data_darkfield = None
         if darkfield is None:
-            for scan_number in range(min(scan_numbers), 0, -1):
-                scanparser = spec_scan.get_scanparser(scan_number)
-                scan_type = scanparser.get_scan_type()
-                if scan_type == 'df1':
-                    darkfield = scanparser
-                    break
-            else:
+            try:
+                for scan_number in range(min(scan_numbers), 0, -1):
+                    scanparser = spec_scan.get_scanparser(scan_number)
+                    scan_type = scanparser.get_scan_type()
+                    if scan_type == 'df1':
+                        darkfield = scanparser
+                        data_darkfield = darkfield.get_detector_data(
+                            detector_prefix)
+                        data_shape = data_darkfield.shape
+                        break
+            except:
+                pass
+            if data_darkfield is None:
+                try:
+                    for scan_number in range(
+                            1 + max(scan_numbers), 3 + max(scan_numbers)):
+                        scanparser = spec_scan.get_scanparser(scan_number)
+                        scan_type = scanparser.get_scan_type()
+                        if scan_type == 'df2':
+                            darkfield = scanparser
+                            data_darkfield = darkfield.get_detector_data(
+                                detector_prefix)
+                            data_shape = data_darkfield.shape
+                            break
+                except:
+                    pass
+            if data_darkfield is None:
                 self.logger.warning(f'Unable to load dark field')
         else:
             if isinstance(darkfield, NXroot):
@@ -188,7 +211,8 @@ class TomoCHESSMapConverter(Processor):
             if not isinstance(darkfield, NXentry):
                 raise ValueError(f'Invalid parameter darkfield ({darkfield})')
 
-        # Load and validate bright field
+        # Load and validate bright field (FIX look upstream and
+        # downstream # in the SPEC log file)
         try:
             brightfield = self.get_data(data, schema='brightfield')
         except:
@@ -376,16 +400,15 @@ class TomoCHESSMapConverter(Processor):
                         else:
                             z_translations += \
                                 num_image*[smb_pars[z_translation_name]]
-        elif darkfield is not None:
-            data = darkfield.get_detector_data(detector_prefix)
-            data_shape = data.shape
+        elif data_darkfield is not None:
+            data_shape = data_darkfield.shape
             assert len(data_shape) == 3
             assert data_shape[1] == nxdetector.rows
             assert data_shape[2] == nxdetector.columns
             num_image = data_shape[0]
             image_keys += num_image*[2]
             sequence_numbers += list(range(num_image))
-            image_stacks.append(data)
+            image_stacks.append(data_darkfield)
             rotation_angles += num_image*[0.0]
             if (x_translation_data_type == 'spec_motor' or
                     z_translation_data_type == 'spec_motor'):
@@ -702,9 +725,15 @@ class TomoDataProcessor(Processor):
 
         # Generate metadata
         map_config = loads(str(nxroot[nxroot.default].map_config))
+        try:
+            btr = map_config['did'].split('btr=')[1].split('/')[0]
+            assert isinstance(btr, str)
+        except:
+            raise ValueError(f'Unable to get a valid btr from did ({btr})')
         metadata = {
             'parent_did': map_config['did'],
             'application': 'CHAP',
+            'btr': btr,
             'experiment_type': map_config['experiment_type'],
             'metadata': {}
         }
@@ -713,6 +742,7 @@ class TomoDataProcessor(Processor):
             metadata, logger=self.logger, interactive=interactive,
             save_figures=save_figures)
 
+        # FIX make an config input
         nxsetconfig(memory=100000)
 
         # Calibrate the rotation axis
@@ -928,16 +958,10 @@ class Tomo:
 
             tool_config = TomoReduceConfig()
         img_row_bounds = tool_config.img_row_bounds
-        if img_row_bounds is not None:
-            if (nxentry.instrument.source.attrs['station']
-                    in ('id1a3', 'id3a')):
-                self._logger.warning('Ignoring parameter img_row_bounds '
-                                    'for id1a3 and id3a')
-                img_row_bounds = None
-            elif calibrate_center_rows:
-                self._logger.warning('Ignoring parameter img_row_bounds '
-                                    'during rotation axis calibration')
-                img_row_bounds = None
+        if img_row_bounds is not None and calibrate_center_rows:
+            self._logger.warning('Ignoring parameter img_row_bounds '
+                                 'during rotation axis calibration')
+            img_row_bounds = None
         image_key = nxentry.instrument.detector.get('image_key', None)
         if image_key is None or 'data' not in nxentry.instrument.detector:
             raise ValueError(f'Unable to find image_key or data in '
@@ -1047,9 +1071,13 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_reduced'
-        self._metadata['metadata']['reduced_data'] = tool_config.model_dump()
+        if tool_config is None:
+            self._metadata['metadata']['reduced_data'] = {}
+        else:
+            self._metadata['metadata']['reduced_data'] = \
+                tool_config.model_dump()
         self._metadata['metadata']['reduced_data']['date'] = str(
             reduced_data.date)
 
@@ -1076,6 +1104,18 @@ class Tomo:
         from nexusformat.nexus import NXroot
 
         self._logger.info('Find the calibrated center axis info')
+
+        #RV FIX FOXDEN demo only
+        if nxroot is None or nxroot == 'foxden_demo':
+            # Add to metadata
+            from datetime import datetime
+            self._metadata['did'] = \
+                f'{self._metadata["parent_did"]}/workflow=' + \
+                f'{self._metadata["experiment_type"].lower()}_center'
+            self._metadata['metadata']['findcenter'] = tool_config.model_dump()
+            self._metadata['metadata']['findcenter']['date'] = str(
+                datetime.now())
+            return None
 
         if isinstance(nxroot, NXroot):
             nxentry = nxroot[nxroot.default]
@@ -1198,7 +1238,7 @@ class Tomo:
         # Add to metadata
         from datetime import datetime
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_center'
         self._metadata['metadata']['findcenter'] = tool_config.model_dump()
         self._metadata['metadata']['findcenter']['date'] = str(
@@ -1487,7 +1527,7 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_reconstructed'
         self._metadata['metadata']['reconstructed_data'] = \
             tool_config.model_dump()
@@ -1724,7 +1764,7 @@ class Tomo:
 
         # Add to metadata
         self._metadata['did'] = \
-            f'{self._metadata["parent_did"]}/' + \
+            f'{self._metadata["parent_did"]}/workflow=' + \
             f'{self._metadata["experiment_type"].lower()}_combined'
         self._metadata['metadata']['combined_data'] = \
             tool_config.model_dump()
@@ -1874,11 +1914,16 @@ class Tomo:
             raise RuntimeError('Unable to load the tomography images') from exc
 
         # Set initial image bounds or rotation calibration rows
+        if num_tomo_stacks > 1 and (nxentry.instrument.source.attrs['station']
+                in ('id1a3', 'id3a')):
+            self._logger.warning('Ignoring parameter img_row_bounds '
+                                 'for id1a3 and id3a for an image stack')
+            img_row_bounds = None
         tbf = reduced_data.data.bright_field.nxdata
         if (not isinstance(calibrate_center_rows, bool)
                 and is_int_pair(calibrate_center_rows)):
             img_row_bounds = calibrate_center_rows
-        else:
+        elif img_row_bounds is None:
             if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
                 # System modules
                 from sys import float_info
@@ -2621,7 +2666,8 @@ class Tomo:
         # Return the center location
         if self._interactive:
             if selected_center_offset == 'all bad':
-                print('\nUnable to successfully calibrate center axis')
+                self._logger.warning(
+                    '\nUnable to successfully calibrate center axis')
                 selected_center_offset = input_num(
                     'Enter the center offset for row {row}',
                     ge=-center_offset_range, le=center_offset_range)

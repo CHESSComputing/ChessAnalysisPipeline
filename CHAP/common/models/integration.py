@@ -582,7 +582,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
         return results
 
-    def zarr_tree(self, dataset_shape, dataset_chunks):
+    def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from this integration.
         """
@@ -611,7 +611,8 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                             },
                             'dtype': 'float64',
                             'shape': (*dataset_shape, *self.result_shape),
-                            'chunks': (*dataset_chunks, *self.result_shape),
+                            'chunks': (*dataset_chunks, *self.result_shape)
+                                      if dataset_chunks != 'auto' else 'auto',
                             'compressors': None,
                         },
                         **self.result_coords,
@@ -664,7 +665,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
                 data['azimuthal_integrators'] = ais
         return data
 
-    def zarr_tree(self, dataset_shape, dataset_chunks):
+    def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
         """

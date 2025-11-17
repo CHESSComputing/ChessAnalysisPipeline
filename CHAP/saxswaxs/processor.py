@@ -504,7 +504,7 @@ class SetupResultsProcessor(Processor):
     for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
     `common.ZarrValuesWriter`.
     """
-    def process(self, data, dataset_shape, dataset_chunks,
+    def process(self, data, dataset_shape, dataset_chunks='auto',
                 config=None, inputdir='.'):
         """Return a `zarr.group` to hold processed SAXS/WAXS data
         processed by `saxswaxs.PyfaiIntegrationProcessor`.
@@ -594,8 +594,9 @@ class SetupProcessor(Processor):
     """Convenience Processor for setting up a container for SAXS/WAXS
     experiments.
     """
-    def process(self, data, dataset_shape, dataset_chunks, detectors,
-                inputdir='.'):
+    def process(
+            self, data, detectors, dataset_shape=None, dataset_chunks='auto',
+            num_chunk=1, inputdir='.'):
         import asyncio
         import logging
         import zarr
@@ -622,6 +623,25 @@ class SetupProcessor(Processor):
         setup_map_processor = set_logger(MapProcessor())
         ddata = setup_map_processor.execute(
             data=data, detectors=detectors, fill_data=False, inputdir=inputdir)
+
+        if dataset_shape is None:
+            try:
+                nxroot = self.get_data(ddata, remove=False)
+                nxentry = self.get_default_nxentry(nxroot)
+                nxdata = nxentry[nxentry.default]
+                for detector in detectors:
+                    if dataset_shape is None:
+                        dataset_shape = nxdata[detector['id']].shape[:-2]
+                    else:
+                        assert (
+                            dataset_shape == nxdata[detector['id']].shape[:-2])
+            except Exception as exc:
+                raise ValueError(
+                    'Unable to get consistent dataset shape from map') from exc
+        if dataset_chunks == 'auto':
+            dataset_chunks = dataset_shape[0]//num_chunk
+            if num_chunk*dataset_chunks < dataset_shape[0]:
+                dataset_chunks += 1
 
         # Convert raw data map container to zarr format
         ddata_converter = set_logger(NexusToZarrProcessor())

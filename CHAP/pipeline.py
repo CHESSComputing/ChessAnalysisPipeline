@@ -318,6 +318,7 @@ class PipelineItem():
         else:
             self.logger.info(f'Executing "{method_name}"')
         ddata = method(**args)
+        self.logger.info(f'Executed "{method_name}" in {time()-t0:.3f} seconds')
 
         name = kwargs.get('name', self.__name__)
         if method_name == 'read':

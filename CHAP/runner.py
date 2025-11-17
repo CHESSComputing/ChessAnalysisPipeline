@@ -298,6 +298,8 @@ def run(
         if isinstance(item, dict):
             name = list(item.keys())[0]
             item_args = item.get(name)
+            if item_args is None:
+                item_args = {}
             # Picking "inputdir" and "outputdir" from the item or from
             # the default run configuration, giving precedence to the
             # former
