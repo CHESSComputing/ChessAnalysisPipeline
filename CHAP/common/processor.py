@@ -1253,11 +1253,14 @@ class MapProcessor(Processor):
                     if not det_shapes:
                         det_shapes = {}
                         for detector in detector_config.detectors:
-                            ddata_init = scanparser.get_detector_data(
-                                detector.id, 0)
-                            if isinstance(ddata_init, tuple):
-                                ddata_init = ddata_init[0].squeeze()
-                            det_shapes[detector.id] = ddata_init.shape
+                            if detector.shape:
+                                det_shapes[detector.id] = detector.shape
+                            else:
+                                ddata_init = scanparser.get_detector_data(
+                                    detector.id, 0)
+                                if isinstance(ddata_init, tuple):
+                                    ddata_init = ddata_init[0].squeeze()
+                                det_shapes[detector.id] = ddata_init.shape
             all_scalar_data = np.empty(
                 (len(map_config.all_scalar_data), map_len))
             data = np.empty(

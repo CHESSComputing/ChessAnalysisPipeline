@@ -41,6 +41,7 @@ class Detector(CHAPBaseModel):
     :type attrs: dict, optional
     """
     id: constr(min_length=1)
+    shape: Optional[tuple[int, int]] = None
     attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 
     @field_validator('id', mode='before')
