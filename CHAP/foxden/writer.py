@@ -81,9 +81,10 @@ class FoxdenMetadataWriter(Writer):
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
+        # System modules
+        from getpass import getuser
 
-        record = self.get_data(
-            data, schema='metadata')
+        record = self.get_data(data, schema='metadata')
         if not isinstance(record, dict):
             raise ValueError('Invalid metadata record {(record)}')
 
@@ -98,7 +99,9 @@ class FoxdenMetadataWriter(Writer):
         # For now cut out anything but the did and application fields
         # from the CHAP workflow metadata record
         record = {'did': record['did'],
-                  'application': record.get('application', 'CHAP')}
+                  'application': record.get('application', 'CHAP'),
+                  'btr': record.get('btr'),
+                  'user': getuser()}
 
         # Submit HTTP request and return response
         rurl = f'{config.url}'
@@ -113,6 +116,7 @@ class FoxdenMetadataWriter(Writer):
             result = [{'code': response.status_code, 'data': response.text}]
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
+            self.logger.warning(f'HTTP response:\n{response.__dict__}')
             result = []
         return result
 
@@ -153,6 +157,7 @@ class FoxdenProvenanceWriter(Writer):
             result = [{'code': response.status_code, 'data': response.text}]
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
+            self.logger.warning(f'HTTP response:\n{response.__dict__}')
             result = []
         return result
 
