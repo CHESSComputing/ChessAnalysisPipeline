@@ -662,8 +662,7 @@ def validate_data_source_for_map_config(data_source, info):
     :return: The validated `data_source` instance.
     :rtype: PointByPointScanData
     """
-    def _validate_data_source_for_map_config(
-            data_source, info):
+    def _validate_data_source_for_map_config(data_source, info):
         if isinstance(data_source, list):
             return [_validate_data_source_for_map_config(d_s, info)
                     for d_s in data_source]

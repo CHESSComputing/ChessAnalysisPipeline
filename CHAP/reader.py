@@ -10,10 +10,41 @@ Define a generic `Reader` object.
 # System modules
 import argparse
 import logging
+import os
 from sys import modules
+from typing import ClassVar
+
+# Third party modules
+from pydantic import (
+    PrivateAttr,
+    model_validator,
+)
 
 # Local modules
-from CHAP.pipeline import PipelineItem
+from CHAP import PipelineItem
+
+
+def validate_reader_model(model_instance):
+    model_instance._mapping_filename = model_instance.filename
+    filename = os.path.normpath(os.path.realpath(
+        os.path.join(model_instance.inputdir, model_instance.filename)))
+    if (not os.path.isfile(filename)
+            and not os.path.dirname(model_instance.filename)):
+        model_instance.logger.warning(
+            f'Unable to find {model_instance.filename} in '
+            f'{model_instance.inputdir}, looking in '
+            f'{model_instance.outputdir}')
+        filename = os.path.normpath(os.path.realpath(
+            os.path.join(model_instance.outputdir, model_instance.filename)))
+    # Note that model_instance.filename has str type instead of FilePath
+    # since its existence is not yet gueranteed (it can be writen
+    # over the course of the pipeline's execution). So postpone
+    # validation until the entire pipeline gets validated.
+    if not os.path.isfile(filename):
+        model_instance.logger.warning(
+            f'Unable to find {model_instance.filename} during validation')
+    model_instance.filename = filename
+    return model_instance
 
 
 class Reader(PipelineItem):
@@ -24,21 +55,32 @@ class Reader(PipelineItem):
     its own disrupts the flow of data in a `Pipeline` -- it does not
     receive or pass along any data returned by the previous
     `PipelineItem`.
+
+    :ivar filename: Name of file to read from.
+    :type filename: str
     """
-    def read(self, filename):
+    filename: str
+
+    _mapping_filename: PrivateAttr(default=None)
+
+    _validate_filename = model_validator(mode="after")(
+        validate_reader_model)
+
+    def read(self):
         """Read and return the contents of `filename` as text.
 
-        :param filename: Name of file to read from.
-        :type filename: str
-        :return: Entire contents of the file.
+        :return: The file content.
         :rtype: str
         """
-        if not filename:
+        if not self.filename:
             self.logger.warning(
-                'No file name is given, will skip read operation')
+                'No file name is given, skipping read operation')
             return None
-        with open(filename) as file:
-            data = file.read()
+        try:
+            with open(self.filename) as f:
+                data = f.read()
+        except:
+            return None
         return data
 
 

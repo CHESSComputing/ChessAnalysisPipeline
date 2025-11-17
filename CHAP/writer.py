@@ -10,10 +10,28 @@ Define a generic `Writer` object.
 # System modules
 import argparse
 import logging
+import os
 from sys import modules
+from typing import Optional
+
+# Third party modules
+from pydantic import model_validator
 
 # Local modules
-from CHAP.pipeline import PipelineItem
+from CHAP import PipelineItem
+
+
+def validate_writer_model(model_instance):
+    model_instance.filename = os.path.normpath(os.path.realpath(
+        os.path.join(model_instance.outputdir, model_instance.filename)))
+    if (not model_instance.force_overwrite
+            and os.path.isfile(model_instance.filename)):
+        raise ValueError(
+            'Writing to an existing file without overwrite permission. '
+            f'permission. Remove {model_instance.filename} or set '
+            '"force_overwrite" in pipeline configuration for '
+            f'{model_instance.name}')
+    return model_instance
 
 
 class Writer(PipelineItem):
@@ -23,22 +41,41 @@ class Writer(PipelineItem):
     returned by a previous `PipelineItem`, write its data to a
     particular file format, then return the same data unaltered so it
     can be used by a successive `PipelineItem`.
+
+    :ivar filename: Name of file to write to.
+    :type filename: str
+    :ivar force_overwrite: Flag to allow data in `filename` to be
+        overwritten if it already exists, defaults to `False`.
+    :type force_overwrite: bool, optional
+    :ivar remove: Flag to remove the dictionary from `data`,
+        defaults to `False`.
+    :type remove: bool, optional
     """
-    def write(self, data, filename):
+    filename: str
+    force_overwrite: Optional[bool] = False
+    remove: Optional[bool] = False
+
+    _validate_filename = model_validator(mode="after")(
+        validate_writer_model)
+
+    def write(self, data):
         """Write the last `CHAP.pipeline.PipelineData` item in `data`
         as text to a file.
 
         :param data: Input data.
         :type data: list[CHAP.pipeline.PipelineData]
-        :param filename: Name of the file to write to.
-        :type filename: str
-
         :return: Contents of the input data.
-        :rtype: object
+        :rtype: list[PipelineData]
         """
-        data = self.unwrap_pipelinedata(data)[-1]
-        with open(filename, 'a') as file:
-            file.write(data)
+        ddata = self.unwrap_pipelinedata(data)[-1]
+        if os_path.isfile(self.filename) and not self.force_overwrite:
+            raise FileExistsError(f'{self.filename} already exists')
+        with open(self.filename, 'w') as f:
+            f.write(ddata)
+        if self.remove:
+            data.pop()
+        self.status = 'written' # Right now does nothing yet, but could
+                                # add a sort of modification flag later
         return data
 
 

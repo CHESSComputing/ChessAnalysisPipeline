@@ -21,7 +21,7 @@ from CHAP.common import (
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
 )
-from CHAP.pipeline import PipelineData
+from CHAP import PipelineData
 
 test_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                              'data')

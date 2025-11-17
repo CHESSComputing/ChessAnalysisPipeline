@@ -166,7 +166,7 @@ def run(
     from tempfile import NamedTemporaryFile
 
     # Local modules
-    from CHAP.pipeline import Pipeline
+    from CHAP import Pipeline
 
     # Make sure os.makedirs is only called from the root node
     if comm is None:

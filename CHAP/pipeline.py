@@ -376,56 +376,32 @@ class Pipeline(CHAPBaseModel):
             self.logger.propagate = False
 
         for item, args in zip(self.items, self.args):
-            if item.method_type == 'read':
-                if 'filename' in args:
-                    filename = args.pop('filename')
-                    if filename in self._filename_mapping:
-                        args['filename'] = \
-                            self._filename_mapping[filename]['path']
+            if hasattr(item, 'filename') and item.filename is not None:
+                if item.method_type == 'read':
+                    if item._mapping_filename in self._filename_mapping:
+                        item.filename = \
+                            self._filename_mapping[
+                                item._mapping_filename]['path']
                         item.status = \
-                            self._filename_mapping[filename]['status']
+                            self._filename_mapping[
+                                item._mapping_filename]['status']
                     else:
-                        filepath = os.path.normpath(os.path.realpath(
-                            os.path.join(item.inputdir, filename)))
-                        if (not os.path.isfile(filepath)
-                                and not os.path.dirname(filename)):
-                            self.logger.warning(
-                                f'Unable to find {filename} in '
-                                f'{item.inputdir}, '
-                                f' looking in {item.outputdir}')
-                            filepath = os.path.normpath(os.path.realpath(
-                                os.path.join(item.outputdir, filename)))
-                        args['filename'] = filepath
-                        if filepath in self._output_filenames:
-                            self._filename_mapping[filename] = {
-                                'path': filepath,
+                        if item.filename in self._output_filenames:
+                            self._filename_mapping[item._mapping_filename] = {
+                                'path': item.filename,
                                 'status': 'write_pending'}
                             item.status = 'write_pending'
                         else:
-                            self._filename_mapping[filename] = {
-                                    'path': filepath, 'status': None}
-                elif 'filename' in item.get_required_args():
-                    raise ValueError(
-                        'Missing parameter "filename" in pipeline '
-                        f'configuration for {item.name}')
-            elif item.method_type == 'write':
-                if 'filename' in args:
-                    filename = args.pop('filename')
-                    filepath = os.path.normpath(os.path.realpath(
-                        os.path.join(item.outputdir, filename)))
-                    if (not args.get('force_overwrite', False)
-                            and (os.path.isfile(filepath)
-                                 or filepath in self._output_filenames)):
+                            self._filename_mapping[item._mapping_filename] = {
+                                'path': item.filename, 'status': None}
+                elif item.method_type == 'write':
+                    if (not item.force_overwrite
+                            and self.filename in self._output_filenames):
                         raise ValueError(
                             'Writing to an existing file without overwrite '
-                            f'permission. Remove {filename} or set '
+                            f'permission. Remove {self.filename} or set '
                             '"force_overwrite" in the pipeline configuration '
                             f'for {item.name}')
-                    args['filename'] = filepath
-                elif 'filename' in item.get_required_args():
-                    raise ValueError(
-                        'Missing parameter "filename" in pipeline '
-                        f'configuration for {item.name}')
             item.set_args(**args)
             if item.method_type == 'read':
                 if item.status not in ('read', 'write_pending'):
@@ -436,14 +412,17 @@ class Pipeline(CHAPBaseModel):
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
                         name=item.name, data=data, schema=item.schema))
-                    self._filename_mapping[filename]['status'] = 'read'
-                args['filename'] = filename
+                    if hasattr(item, 'filename') and item.filename is not None:
+                        self._filename_mapping[
+                            item._mapping_filename]['status'] = 'read'
             elif item.method_type == 'write':
-                for k, v in self._filename_mapping.items():
-                    if v['path'] == filepath:
-                        self._filename_mapping[k]['status'] = 'write_pending'
-                if filepath not in self._output_filenames:
-                    self._output_filenames.append(filepath)
+                if hasattr(item, 'filename') and item.filename is not None:
+                    for k, v in self._filename_mapping.items():
+                        if v['path'] == item.filename:
+                            self._filename_mapping[k]['status'] = \
+                                'write_pending'
+                    if item.filename not in self._output_filenames:
+                        self._output_filenames.append(item.filename)
         self.logger.info(
             f'Executed "validate_config" in {time()-t0:.3f} seconds')
 
@@ -457,9 +436,10 @@ class Pipeline(CHAPBaseModel):
         for item, args in zip(self.items, self.args):
             if hasattr(item, 'execute'):
                 self.logger.info(f'Calling "execute" on {item}')
-                if item.method_type == 'read':
-                    filename = args.get('filename')
-                    item.status = self._filename_mapping[filename]['status']
+                if (item.method_type == 'read' and hasattr(item, 'filename')
+                        and item.filename is not None):
+                    item.status = self._filename_mapping[
+                        item._mapping_filename]['status']
                 data = item.execute(data=self._data)
                 if item.method_type == 'read':
                     self._data.append(PipelineData(
@@ -475,9 +455,9 @@ class Pipeline(CHAPBaseModel):
                         self._data.append(PipelineData(
                             name=item.name, data=data, schema=item.schema))
                 elif item.method_type == 'write':
-                    filename = args.get('filename')
-                    for k, v in self._filename_mapping.items():
-                        if v['path'] == filename:
-                            self._filename_mapping[k]['status'] = 'written'
+                    if hasattr(item, 'filename') and item.filename is not None:
+                        for k, v in self._filename_mapping.items():
+                            if v['path'] == item.filename:
+                                self._filename_mapping[k]['status'] = 'written'
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
         return self._data

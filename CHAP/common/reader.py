@@ -14,42 +14,48 @@ from os.path import (
     splitext,
 )
 from sys import modules
+from typing import Optional
 
 # Third party modules
 import numpy as np
+from pydantic import (
+    PrivateAttr,
+    model_validator,
+)
 
 # Local modules
 from CHAP import Reader
+from CHAP.reader import validate_reader_model
+
+
+def validate_model(model_instance):
+    if model_instance.filename is not None:
+        validate_reader_model(model_instance)
+    return model_instance
 
 
 class BinaryFileReader(Reader):
     """Reader for binary files."""
-    def read(self, filename):
+    def read(self):
         """Return a content of a given binary file.
 
-        :param filename: The name of the binary file to read from.
-        :type filename: str
         :return: The file content.
         :rtype: binary
         """
-        with open(filename, 'rb') as file:
+        with open(self.filename, 'rb') as file:
             data = file.read()
         return data
 
 
 class ConfigReader(Reader):
     """Reader for YAML files that optionally implements and verifies it
-    agaist its Pydantic configuration schema."""
-    def read(self, filename):
+    agaist its Pydantic configuration schema.
+    """
+    def read(self):
         """Return an optionally verified dictionary from the contents
         of a yaml file.
-
-        :param filename: YAML file name to read from.
-        :type filename: str
-        :return: The (verified) contents of the yaml file.
-        :rtype: dict
         """
-        data = YAMLReader.read(filename)
+        data = YAMLReader(**self.model_dump()).read()
         if self.schema is not None:
             data = self.get_config(
                 config=data, schema=self.schema).model_dump()
@@ -61,15 +67,12 @@ class FabioImageReader(Reader):
     """Reader for images using the python package
     [`fabio`](https://fabio.readthedocs.io/en/main/).
     """
-    def read(self, filename, frame=None):
+    def read(self, frame=None):
         """Return the data from the image file(s) provided.
 
-        :param filename: The image filename, or glob pattern for image
-            filenames, to read.
-        :type filename: str
         :param frame: The index of a specific frame to read from the
             file(s), defaults to `None`.
-        :type filename: int, optional
+        :type frame: int, optional
         :returns: Image data as a numpy array (or list of numpy
             arrays, if a glob pattern matching more than one file was
             provided).
@@ -78,7 +81,7 @@ class FabioImageReader(Reader):
         from glob import glob
         import fabio
 
-        filenames = glob(filename)
+        filenames = glob(self.filename)
         data = []
         for f in filenames:
             image = fabio.open(f, frame=frame)
@@ -89,11 +92,9 @@ class FabioImageReader(Reader):
 
 class H5Reader(Reader):
     """Reader for h5 files."""
-    def read(self, filename, h5path='/', idx=None):
+    def read(self, h5path='/', idx=None):
         """Return the data object stored at `h5path` in an h5-file.
 
-        :param filename: The name of the h5-file to read from.
-        :type filename: str
         :param h5path: The path to a specific location in the h5 file
             to read data from, defaults to `'/'`.
         :type h5path: str, optional
@@ -103,7 +104,7 @@ class H5Reader(Reader):
         # Third party modules
         from h5py import File
 
-        data = File(filename, 'r')[h5path]
+        data = File(self.filename, 'r')[h5path]
         if idx is not None:
             data = data[tuple(idx)]
         return data
@@ -113,11 +114,9 @@ class LinkamReader(Reader):
     """Reader for loading Linkam load frame .txt files as an
     `NXdata`.
     """
-    def read(self, filename, columns=None):
+    def read(self, columns=None):
         """Read specified columns from the given Linkam file.
 
-        :param filename: Name of Linkam .txt file
-        :type filename: str
         :param columns: Column names to read in, defaults to None
             (read in all columns)
         :type columns: list[str], optional
@@ -132,7 +131,7 @@ class LinkamReader(Reader):
 
         # Parse .txt file
         start_time, metadata, data = self.__class__.parse_file(
-            filename, self.logger)
+            self.filename, self.logger)
 
         # Get list of actual data column names and corresponding
         # signal nxnames (same as user-supplied column names)
@@ -152,7 +151,8 @@ class LinkamReader(Reader):
                         # column name has both _X and _Y components
                         col_actual = f'{col}_Y'
                     else:
-                        self.logger.warning(f'{col} not present in {filename}')
+                        self.logger.warning(
+                            f'{col} not present in {self.filename}')
                         continue
                 signal_names.append((col_actual, col))
         self.logger.info(f'Using (column name, signal name): {signal_names}')
@@ -173,12 +173,10 @@ class LinkamReader(Reader):
         return nxdata
 
     @classmethod
-    def parse_file(cls, filename, logger):
+    def parse_file(cls, logger):
         """Return start time, metadata, and data stored in the
         provided Linkam .txt file.
 
-        :param filename: Name of Linkam .txt file
-        :type filename: str
         :returns:
         :rtype: tuple(float, dict[str, str], dict[str, list[float]])
         """
@@ -189,7 +187,7 @@ class LinkamReader(Reader):
 
         # Get t=0 from filename
         start_time = None
-        basename = os.path.basename(filename)
+        basename = os.path.basename(self.filename)
         pattern = r'(\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{2})'
         match = re.search(pattern, basename)
         if match:
@@ -197,12 +195,12 @@ class LinkamReader(Reader):
             dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
             start_time = dt.timestamp()
         else:
-            logger.warning('Datetime not found in filename')
+            logger.warning(f'Datetime not found in {self.filename}')
 
         # Get data add metadata from file contents
         metadata = {}
         data = False
-        with open(filename, 'r', encoding='utf-8') as inf:
+        with open(self.filename, 'r', encoding='utf-8') as inf:
             for line in inf:
                 line = line.strip()
                 if not line:
@@ -258,17 +256,23 @@ class LinkamReader(Reader):
 
 
 class MapReader(Reader):
-    """Reader for CHESS sample maps."""
-    def read(self, filename=None, map_config=None, detector_names=None):
+    """Reader for CHESS sample maps.
+
+    :ivar filename: Name of file to read from.
+    :type filename: str, optional
+    """
+    filename: Optional[str] = None
+
+    _mapping_filename: PrivateAttr(default=None)
+
+    _validate_filename = model_validator(mode="after")(validate_model)
+
+    def read(self, map_config=None, detector_names=None):
         """Take a map configuration dictionary and return a
         representation of the map as a NeXus NXentry object. The
         NXentry's default data group will contain the raw data
         collected over the course of the map.
 
-        :param filename: The name of a file with the map configuration
-            to read and pass onto the constructor of
-            `CHAP.common.models.map.MapConfig`.
-        :type filename: str, optional
         :param map_config: A map configuration to be passed directly to
             the constructor of `CHAP.common.models.map.MapConfig`.
         :type map_config: dict, optional
@@ -292,20 +296,20 @@ class MapReader(Reader):
 
         raise RuntimeError('MapReader is obsolete, use MapProcessor')
 
-        if filename is not None:
+        if self.filename is not None:
             if map_config is not None:
                 raise RuntimeError('Specify either filename or map_config '
                                    'in common.MapReader, not both')
             # Read the map configuration from file
-            if not isfile(filename):
-                raise OSError(f'input file does not exist ({filename})')
-            extension = splitext(filename)[1]
+            if not isfile(self.filename):
+                raise OSError(f'input file does not exist ({self.filename})')
+            extension = splitext(self.filename)[1]
             if extension in ('.yml', '.yaml'):
                 reader = YAMLReader()
             else:
                 raise RuntimeError('input file has a non-implemented '
-                                   f'extension ({filename})')
-            map_config = reader.read(filename)
+                                   f'extension ({self.filename})')
+            map_config = reader.read(self.filename)
         elif not isinstance(map_config, dict):
             raise RuntimeError('Invalid parameter map_config in '
                                f'common.MapReader ({map_config})')
@@ -390,11 +394,9 @@ class MapReader(Reader):
 
 class NexusReader(Reader):
     """Reader for NeXus files."""
-    def read(self, filename, nxpath='/', nxmemory=2000):
+    def read(self, nxpath='/', nxmemory=2000):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
-        :param filename: NeXus file name to read from.
-        :type filename: str
         :param nxpath: Path to a specific location in the NeXus file
             tree to read from, defaults to `'/'`.
         :type nxpath: str, optional
@@ -409,14 +411,12 @@ class NexusReader(Reader):
 
         NX_CONFIG['memory'] = nxmemory
 
-        return nxload(filename)[nxpath]
+        return nxload(self.filename)[nxpath]
 
 
 class NXdataReader(Reader):
     """Reader for constructing an NXdata object from components."""
-    def read(
-            self, name, nxfield_params, signal_name, axes_names, attrs=None,
-            inputdir='.'):
+    def read(self, name, nxfield_params, signal_name, axes_names, attrs=None):
         """Return a basic NXdata object constructed from components.
 
         :param name: The name of the NXdata group.
@@ -435,10 +435,6 @@ class NXdataReader(Reader):
         :param attrs: Dictionary of additional attributes for the
             NXdata.
         :type attrs: dict, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
         :returns: A new NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
@@ -446,7 +442,7 @@ class NXdataReader(Reader):
         from nexusformat.nexus import NXdata
 
         # Read in NXfields
-        nxfields = [NXfieldReader().read(**params, inputdir=inputdir)
+        nxfields = [NXfieldReader().read(**params, inputdir=self.inputdir)
                     for params in nxfield_params]
         nxfields = {nxfield.nxname: nxfield for nxfield in nxfields}
 
@@ -485,16 +481,11 @@ class NXdataReader(Reader):
 class NXfieldReader(Reader):
     """Reader for an NXfield with options to modify certain attributes.
     """
-    def read(
-            self, filename, nxpath, nxname=None, update_attrs=None,
-            slice_params=None, inputdir='.'):
+    def read(self, nxpath, nxname=None, update_attrs=None, slice_params=None):
         """Return a copy of the indicated NXfield from the file. Name
         and attributes of the returned copy may be modified with the
         `nxname` and `update_attrs` keyword arguments.
 
-        :param filename: Name of the NeXus file containing the NXfield
-            to read.
-        :type filename: str
         :param nxpath: Path in `nxfile` pointing to the NXfield to
            read.
         :type nxpath: str
@@ -511,10 +502,6 @@ class NXfieldReader(Reader):
             `"step"` -- `1`. The order of the list must correspond to
             the order of the field's axes.
         :type slice_params: list[dict[str, int]], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
         :returns: A copy of the indicated NXfield (with name and
             attributes optionally modified).
         :rtype: nexusformat.nexus.NXfield
@@ -525,9 +512,7 @@ class NXfieldReader(Reader):
             nxload,
         )
 
-        if not isabs(filename):
-            filename = join(inputdir, filename)
-        nxroot = nxload(filename)
+        nxroot = nxload(self.filename)
         nxfield = nxroot[nxpath]
 
         if nxname is None:
@@ -560,15 +545,21 @@ class NXfieldReader(Reader):
 
 
 class SpecReader(Reader):
-    """Reader for CHESS SPEC scans."""
-    def read(self, filename=None, config=None, detectors=None):
+    """Reader for CHESS SPEC scans.
+
+    :ivar filename: Name of file to read from.
+    :type filename: str, optional
+    """
+    filename: Optional[str] = None
+
+    _mapping_filename: PrivateAttr(default=None)
+
+    _validate_filename = model_validator(mode="after")(validate_model)
+
+    def read(self, config=None, detectors=None):
         """Take a SPEC configuration filename or dictionary and return
         the raw data as a NeXus NXentry object.
 
-        :param filename: The name of file with the SPEC configuration
-            to read from to pass onto the constructor of
-            `CHAP.common.models.map.SpecConfig`.
-        :type filename: str, optional
         :param config: A SPEC configuration to be passed directly
             to the constructor of `CHAP.common.models.map.SpecConfig`.
         :type config: dict, optional
@@ -597,20 +588,20 @@ class SpecReader(Reader):
             SpecConfig,
         )
 
-        if filename is not None:
+        if self.filename is not None:
             if config is not None:
                 raise RuntimeError('Specify either filename or config '
                                    'in common.SpecReader, not both')
             # Read the map configuration from file
-            if not isfile(filename):
-                raise OSError(f'input file does not exist ({filename})')
-            extension = splitext(filename)[1]
+            if not isfile(self.filename):
+                raise OSError(f'input file does not exist ({self.filename})')
+            extension = splitext(self.filename)[1]
             if extension in ('.yml', '.yaml'):
                 reader = YAMLReader()
             else:
                 raise RuntimeError('input file has a non-implemented '
-                                   f'extension ({filename})')
-            config = reader.read(filename)
+                                   f'extension ({self.filename})')
+            config = reader.read(self.filename)
         elif not isinstance(config, dict):
             raise RuntimeError('Invalid parameter config in '
                                f'common.SpecReader ({config})')
@@ -754,20 +745,17 @@ class URLReader(Reader):
 
 class YAMLReader(Reader):
     """Reader for YAML files."""
-    @classmethod
-    def read(cls, filename):
+    def read(self):
         """Return a dictionary from the contents of a yaml file.
 
-        :param filename: The name of the YAML file to read from.
-        :type filename: str
         :return: The contents of the file.
         :rtype: dict
         """
         # Third party modules
         import yaml
 
-        with open(filename) as file:
-            data = yaml.safe_load(file)
+        with open(self.filename) as f:
+            data = yaml.safe_load(f)
         return data
 
 

@@ -643,7 +643,7 @@ class TomoDataProcessor(Processor):
         from nexusformat.nexus import nxsetconfig
 
         # Local modules
-        from CHAP.pipeline import PipelineData
+        from CHAP import PipelineData
         from CHAP.tomo.models import (
             TomoFindCenterConfig,
             TomoReconstructConfig,

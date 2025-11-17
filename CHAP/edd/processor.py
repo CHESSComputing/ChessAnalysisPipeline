@@ -17,8 +17,10 @@ from sys import float_info
 import numpy as np
 
 # Local modules
-from CHAP.processor import Processor
-from CHAP.pipeline import PipelineData
+from CHAP import (
+    PipelineData,
+    Processor,
+)
 from CHAP.utils.general import fig_to_iobuf
 
 FLOAT_MIN = float_info.min
