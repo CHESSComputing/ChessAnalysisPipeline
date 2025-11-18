@@ -1276,7 +1276,8 @@ def get_rolling_sum_spectra(
     return ry
 
 
-def get_spectra_fits(spectra, energies, peak_locations, detector):
+def get_spectra_fits(
+        spectra, energies, peak_locations, detector, **kwargs):
     """Return twenty arrays of fit results for the map of spectra
     provided: uniform centers, uniform center errors, uniform
     amplitudes, uniform amplitude errors, uniform sigmas, uniform
@@ -1357,7 +1358,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     }
 
     # Perform uniform fit
-    fit = FitProcessor()
+    fit = FitProcessor(**kwargs)
     uniform_fit = fit.process(nxdata, config)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:

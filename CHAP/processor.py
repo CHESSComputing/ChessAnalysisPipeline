@@ -15,7 +15,7 @@ import logging
 from sys import modules
 
 # Local modules
-from CHAP import PipelineItem
+from CHAP.pipeline import PipelineItem
 
 
 class Processor(PipelineItem):

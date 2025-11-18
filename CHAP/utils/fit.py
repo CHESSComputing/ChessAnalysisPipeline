@@ -31,6 +31,7 @@ except ImportError:
     HAVE_JOBLIB = False
 from nexusformat.nexus import NXdata
 import numpy as np
+from pydantic import model_validator
 
 # Local modules
 from CHAP.processor import Processor
@@ -88,7 +89,8 @@ class FitProcessor(Processor):
         )
 
         # Unwrap the PipelineData if called as a Pipeline Processor
-        if not isinstance(data, (Fit, FitMap)) and not isinstance(data, NXdata):
+        if (not isinstance(data, (Fit, FitMap))
+                and not isinstance(data, NXdata)):
             data = self.unwrap_pipelinedata(data)[0]
 
         if isinstance(data, (Fit, FitMap)):
@@ -145,14 +147,14 @@ class FitProcessor(Processor):
 
             # Instantiate the Fit or FitMap object and fit the data
             if np.squeeze(nxdata.nxsignal).ndim == 1:
-                fit = Fit(nxdata, fit_config)
+                fit = Fit(nxdata, fit_config, self.logger)
                 fit.fit()
                 if fit_config.print_report:
                     fit.print_fit_report()
                 if fit_config.plot:
                     fit.plot(skip_init=True)
             else:
-                fit = FitMap(nxdata, fit_config)
+                fit = FitMap(nxdata, fit_config, self.logger)
                 fit.fit(
                     rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
@@ -173,7 +175,6 @@ class FitProcessor(Processor):
         models = []
         num_peak = len(model_config.centers)
         if num_peak == 1 and model_config.fit_type == 'uniform':
-            logger.debug('Ignoring fit_type input for fitting one peak')
             model_config.fit_type = 'unconstrained'
 
         sig_min = FLOAT_MIN
@@ -519,7 +520,7 @@ class Fit:
     """
     Wrapper class for scipy/lmfit.
     """
-    def __init__(self, nxdata, config):
+    def __init__(self, nxdata, config, logger):
         """Initialize Fit."""
         self._code = config.code
         for model in config.models:
@@ -533,6 +534,7 @@ class Fit:
         else:
             # Third party modules
             from lmfit import Parameters
+        self._logger = logger
         self._mask = None
         self._method = config.method
         self._model = None
@@ -661,7 +663,8 @@ class Fit:
 
         components = {}
         if self._result is None:
-            logger.warning('Unable to collect components in Fit.components')
+            self._logger.warning(
+                'Unable to collect components in Fit.components')
             return components
         for component in self._result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
@@ -786,7 +789,7 @@ class Fit:
         if self._result is None:
             return None
         if not self._result.success:
-            logger.warning(
+            self._logger.warning(
                 f'ier = {self._result.ier}: {self._result.message}')
             if (self._code == 'lmfit' and self._result.ier
                     and self._result.ier != 5):
@@ -828,11 +831,11 @@ class Fit:
             raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
         if not parameter['vary']:
-            logger.warning(
+            self._logger.warning(
                 f'Ignoring min in parameter {name} in '
                 f'Fit.add_parameter (vary = {parameter["vary"]})')
             parameter['min'] = -np.inf
-            logger.warning(
+            self._logger.warning(
                 f'Ignoring max in parameter {name} in '
                 f'Fit.add_parameter (vary = {parameter["vary"]})')
             parameter['max'] = np.inf
@@ -1059,15 +1062,15 @@ class Fit:
                     max=parameter.max, vary=parameter.vary)
             else:
                 if parameter.value is not None:
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "value" for expression parameter'
                         f'{name} = {parameter.expr}')
                 if not np.isinf(parameter.min):
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "min" for expression parameter'
                         f'{name} = {parameter.expr}')
                 if not np.isinf(parameter.max):
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "max" for expression parameter'
                         f'{name} = {parameter.expr}')
                 self._parameters[name].set(
@@ -1086,7 +1089,7 @@ class Fit:
 
         # Check input parameters
         if self._model is None:
-            logger.error('Undefined fit model')
+            self._logger.error('Undefined fit model')
             return None
         self._mask = kwargs.pop('mask', None)
         guess = kwargs.pop('guess', False)
@@ -1095,7 +1098,7 @@ class Fit:
                 f'Invalid value of keyword argument guess ({guess})')
         if self._result is not None:
             if guess:
-                logger.warning(
+                self._logger.warning(
                     'Ignoring input parameter guess during refitting')
                 guess = False
 #        if 'try_linear_fit' in kwargs:
@@ -1106,7 +1109,7 @@ class Fit:
 #                    'Invalid value of keyword argument try_linear_fit '
 #                    f'({try_linear_fit})')
 #            if not self._try_linear_fit:
-#                logger.warning(
+#                self._logger.warning(
 #                    'Ignore superfluous keyword argument "try_linear_fit" '
 #                    '(not yet supported for callable models)')
 #            else:
@@ -1171,9 +1174,9 @@ class Fit:
             mask = self._mask
         if y is not None:
             if not isinstance(y, (tuple, list, np.ndarray)):
-                logger.warning('Ignorint invalid parameter y ({y}')
+                self._logger.warning('Ignorint invalid parameter y ({y}')
             if len(y) != len(self._x):
-                logger.warning(
+                self._logger.warning(
                     'Ignoring parameter y in plot (wrong dimension)')
                 y = None
         if y is not None:
@@ -1230,18 +1233,18 @@ class Fit:
         x = np.asarray(x)
         y = np.asarray(y)
         if len(x) != len(y):
-            logger.error(
+            self._logger.error(
                 f'Invalid x and y lengths ({len(x)}, {len(y)}), '
                 'skip initial guess')
             return None, None, None
         if isinstance(center_guess, (int, float)):
             if args:
-                logger.warning(
+                self._logger.warning(
                     'Ignoring additional arguments for single center_guess '
                     'value')
         elif isinstance(center_guess, (tuple, list, np.ndarray)):
             if len(center_guess) == 1:
-                logger.warning(
+                self._logger.warning(
                     'Ignoring additional arguments for single center_guess '
                     'value')
                 if not isinstance(center_guess[0], (int, float)):
@@ -1575,7 +1578,7 @@ class Fit:
         from sympy import diff
 
 #        if not self._try_linear_fit:
-#            logger.info(
+#            self._logger.info(
 #                'Skip linearity check (not yet supported for callable models)')
 #            return False
         free_parameters = \
@@ -1860,7 +1863,7 @@ class Fit:
                     [v['max'] for v in self._parameter_bounds.values()])
                 if self._method in ('lm', 'leastsq'):
                     self._method = 'trf'
-                    logger.debug(
+                    self._logger.debug(
                         f'Fit method changed to {self._method} for fit with '
                         'bounds')
             else:
@@ -2077,9 +2080,9 @@ class Fit:
 
 class FitMap(Fit):
     """Wrapper to the Fit class to fit data on a N-dimensional map."""
-    def __init__(self, nxdata, config):
+    def __init__(self, nxdata, config, logger):
         """Initialize FitMap."""
-        super().__init__(None, config)
+        super().__init__(None, config, logger)
         self._best_errors = None
         self._best_fit = None
         self._best_parameters = None
@@ -2165,7 +2168,7 @@ class FitMap(Fit):
     @property
     def chisqr(self):
         """Return the chisqr value of each best fit."""
-        logger.warning('Undefined property chisqr')
+        self._logger.warning('Undefined property chisqr')
 
     @property
     def components(self):
@@ -2175,7 +2178,7 @@ class FitMap(Fit):
 
         components = {}
         if self._result is None:
-            logger.warning(
+            self._logger.warning(
                 'Unable to collect components in FitMap.components')
             return components
         for component in self._result.components:
@@ -2219,7 +2222,7 @@ class FitMap(Fit):
     def covar(self):
         """Return the covarience matrices of the best fit parameters.
         """
-        logger.warning('Undefined property covar')
+        self._logger.warning('Undefined property covar')
 
     @property
     def max_nfev(self):
@@ -2271,12 +2274,12 @@ class FitMap(Fit):
         """Return the variable names for the covarience matrix
         property.
         """
-        logger.warning('Undefined property var_names')
+        self._logger.warning('Undefined property var_names')
 
     @property
     def y(self):
         """Return the input y-array."""
-        logger.warning('Undefined property y')
+        self._logger.warning('Undefined property y')
 
     @property
     def ymap(self):
@@ -2291,7 +2294,7 @@ class FitMap(Fit):
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')
         if self.best_values is None or self.best_errors is None:
-            logger.warning(
+            self._logger.warning(
                 f'Unable to obtain best parameter values for dims = {dims}')
             return {}
         # Create current parameters
@@ -2322,7 +2325,7 @@ class FitMap(Fit):
         try:
             rmtree(self._memfolder)
         except:
-            logger.warning('Could not clean-up automatically.')
+            self._logger.warning('Could not clean-up automatically.')
 
     def plot(
             self, dims=None, y_title=None, plot_residual=False,
@@ -2339,7 +2342,7 @@ class FitMap(Fit):
         dims = tuple(dims)
         if (self._result is None or self.best_fit is None
                 or self.best_values is None):
-            logger.warning(
+            self._logger.warning(
                 f'Unable to plot fit for dims = {dims}')
             return
         if y_title is None or not isinstance(y_title, str):
@@ -2398,7 +2401,7 @@ class FitMap(Fit):
         """Fit the model to the input data."""
         # Check input parameters
         if self._model is None:
-            logger.error('Undefined fit model')
+            self._logger.error('Undefined fit model')
         num_proc_max = max(1, cpu_count())
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
@@ -2417,16 +2420,16 @@ class FitMap(Fit):
             self._plot = config.plot
 #            self._skip_init = config.skip_init
         if num_proc > 1 and not HAVE_JOBLIB:
-            logger.warning(
+            self._logger.warning(
                 'Missing joblib in the conda environment, running serially')
             num_proc = 1
         if num_proc > num_proc_max:
-            logger.warning(
+            self._logger.warning(
                 f'The requested number of processors ({num_proc}) exceeds the '
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
-        logger.debug(f'Using {num_proc} processors to fit the data')
+        self._logger.debug(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
@@ -2602,7 +2605,7 @@ class FitMap(Fit):
                 # Perform the remaining fits in parallel
                 num_fit = self._map_dim-1
                 if num_proc > num_fit:
-                    logger.warning(
+                    self._logger.warning(
                         f'The requested number of processors ({num_proc}) '
                         'exceeds the number of fits, num_proc reduced to '
                         f'{num_fit}')
@@ -2721,7 +2724,8 @@ class FitMap(Fit):
         if (y_max == 0.0
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
-            logger.debug(f'Skipping fit for n = {n} (rel norm = {y_max:.5f})')
+            self._logger.debug(
+                f'Skipping fit for n = {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 from CHAP.utils.fit import ModelResult
 
@@ -2796,7 +2800,7 @@ class FitMap(Fit):
                 errortxt += f'\n\t{result.lmdif_message}'
             if hasattr(result, 'message'):
                 errortxt += f'\n\t{result.message}'
-            logger.warning(f'{errortxt}')
+            self._logger.warning(f'{errortxt}')
 
         # Renormalize the data and results
         self._renormalize(n, result)

@@ -82,7 +82,7 @@ class Detector(CHAPBaseModel):
 class DetectorConfig(CHAPBaseModel):
     """Class representing a detector configuration.
 
-    :ivar detectors: The detector list.
+    :ivar detectors: Detector list.
     :type detectors: list[Detector]
     """
     detectors: conlist(item_type=Detector, min_length=1)

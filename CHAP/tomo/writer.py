@@ -20,7 +20,7 @@ class TomoWriter(Writer):
         from os import path as os_path
 
         # Local modules
-        from CHAP import PipelineData
+        from CHAP.pipeline import PipelineData
 
         # Load the (partial) tomographic reconstruction result
         tomodata = self.get_data(data, schema='tomodata', remove=self.remove)

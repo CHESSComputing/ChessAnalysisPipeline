@@ -227,7 +227,7 @@ class BinarizeProcessor(Processor):
         :return: The binarized dataset for an `array-like` input or
             a return type equal that of the input object with the
             binarized dataset added.
-        :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
+        :rtype: Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -3338,7 +3338,7 @@ class XarrayToNexusProcessor(Processor):
         """Return `data` represented as a NeXus NXdata object.
 
         :param data: The input `xarray` structure.
-        :type data: typing.Union[xarray.DataArray, xarray.Dataset]
+        :type data: Union[xarray.DataArray, xarray.Dataset]
         :return: The data and metadata in `data`.
         :rtype: nexusformat.nexus.NXdata
         """

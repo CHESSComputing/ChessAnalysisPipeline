@@ -105,7 +105,6 @@ class RunConfig(CHAPBaseModel):
     # To detemine if a pipeline is executed from a apawned worker
     _spawn: int = PrivateAttr(default=0)
 
-
     def __init__(self, **data):
         super().__init__(**data)
         if 'profile' in data:

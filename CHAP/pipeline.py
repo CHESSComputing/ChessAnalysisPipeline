@@ -86,6 +86,7 @@ class PipelineItem(RunConfig):
                 '{asctime}: {name:20}: {levelname}: {message}',
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
             self.logger.addHandler(log_handler)
+        self.logger.setLevel(self.log_level)
 
         if hasattr(self, 'read'):
             self._method_type = 'read'
@@ -111,6 +112,10 @@ class PipelineItem(RunConfig):
     @property
     def method_type(self):
         return self._method_type
+
+    @property
+    def run_config(self):
+        return RunConfig(**self.model_dump()).model_dump()
 
     @property
     def schema(self):

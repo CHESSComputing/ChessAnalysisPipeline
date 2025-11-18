@@ -14,7 +14,7 @@ import json
 import requests
 
 # Local modules
-from CHAP import PipelineItem
+from CHAP.pipeline import PipelineItem
 from CHAP.foxden.utils import HttpRequest
 
 

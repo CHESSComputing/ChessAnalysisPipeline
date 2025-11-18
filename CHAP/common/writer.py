@@ -12,13 +12,15 @@ from typing import Optional
 
 # Third party modules
 import numpy as np
-from pydantic import model_validator
+from pydantic import (
+    conint,
+    constr,
+    model_validator,
+)
 
 # Local modules
-from CHAP import (
-    PipelineItem,
-    Writer,
-)
+from CHAP import Writer
+from CHAP.pipeline import PipelineItem
 from CHAP.writer import validate_writer_model
 
 
@@ -439,42 +441,49 @@ class ImageWriter(PipelineItem):
 
 
 class MatplotlibAnimationWriter(Writer):
-    """Writer for saving matplotlib animations."""
-    def write(self, data, fps=1):
+    """Writer for saving matplotlib animations.
+
+    :ivar fps: Movie frame rate (frames per second), defaults to `1`.
+    :type fps: int, optional
+    """
+    fps: Optional[conint(gt=0)] = 1
+
+    def write(self, data):
         """Write the matplotlib.animation.ArtistAnimation object
         contained in `data` to file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param fps: Movie frame rate (frames per second),
-            defaults to `1`.
-        :type fps: int, optional
         :return: The original animation.
         :rtype: matplotlib.animation.ArtistAnimation
         """
         data = self.unwrap_pipelinedata(data)[-1]
         extension = os.path.splitext(self.filename)[1]
         if not extension:
-            data.save(f'{self.filename}.gif', fps=fps)
+            data.save(f'{self.filename}.gif', fps=self.fps)
         elif extension == '.gif':
-            data.save(self.filename, fps=fps)
+            data.save(self.filename, fps=self.fps)
         elif extension == '.mp4':
-            data.save(self.filename, writer='ffmpeg', fps=fps)
+            data.save(self.filename, writer='ffmpeg', fps=self.fps)
 
         return data
 
 
 class MatplotlibFigureWriter(Writer):
-    """Writer for saving matplotlib figures to image files."""
-    def write(self, data, savefig_kw=None):
+    """Writer for saving matplotlib figures to image files.
+
+    :ivar savefig_kw: Keyword args to pass to
+        matplotlib.figure.Figure.savefig.
+    :type savefig_kw: dict, optional
+    """
+    savefig_kw: Optional[dict] = None
+
+    def write(self, data):
         """Write the matplotlib.figure.Figure contained in `data` to
         file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param savefig_kw: Keyword args to pass to
-            matplotlib.figure.Figure.savefig.
-        :type savefig_kw: dict, optional
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
         :return: The original figure object.
@@ -482,14 +491,21 @@ class MatplotlibFigureWriter(Writer):
         """
         data = self.unwrap_pipelinedata(data)[-1]
         write_matplotlibfigure(
-            data, self.filename, savefig_kw, self.force_overwrite)
+            data, self.filename, self.savefig_kw, self.force_overwrite)
 
         return data
 
 
 class NexusWriter(Writer):
-    """Writer for NeXus files from `NXobject`-s."""
-    def write(self, data, nxpath=None):
+    """Writer for NeXus files from `NXobject`-s.
+
+    :ivar nxpath: Path to a specific location in the NeXus file tree
+        to write to (ignored if `filename` does not yet exist).
+    :type nxpath: str, optional
+    """
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = None
+
+    def write(self, data):
         """Write the NeXus object contained in `data` to file.
 
         :param data: The data to write to file.
@@ -510,12 +526,12 @@ class NexusWriter(Writer):
         nxobject = self.get_data(data, remove=self.remove)
 
         nxname = nxobject.nxname
-        if not os.path.isfile(self.filename) and nxpath is not None:
+        if not os.path.isfile(self.filename) and self.nxpath is not None:
             self.logger.warning(
                 f'{self.filename} does not yet exist, ignoring nxpath '
-                f'argument ({nxpath})')
-            nxpath = None
-        if nxpath is None:
+                f'argument ({self.nxpath})')
+            self.nxpath = None
+        if self.nxpath is None:
             nxclass = nxobject.nxclass
             if nxclass == 'NXroot':
                 nxroot = nxobject
@@ -531,24 +547,23 @@ class NexusWriter(Writer):
         else:
             nxfile = NXFile(self.filename, 'rw')
             root = nxfile.readfile()
-            if nxfile.get(nxpath) is None:
-                if nxfile.get(os.path.dirname(nxpath)) is not None:
-                    nxpath, nxname = os.path.split(nxpath)
+            if nxfile.get(self.nxpath) is None:
+                if nxfile.get(os.path.dirname(self.nxpath)) is not None:
+                    self.nxpath, nxname = os.path.split(self.nxpath)
                 else:
-                    nxpath = root.NXentry[0].nxpath
                     self.logger.warning(
-                        f'Path "{nxpath}" not present in {self.filename}. '
-                        f'Using {nxpath} instead.')
-            full_nxpath = os.path.join(nxpath, nxname)
+                        f'Path "{self.nxpath}" not present in {self.filename}. '
+                        f'Using {root.NXentry[0].nxpath} instead.')
+                    self.nxpath = root.NXentry[0].nxpath
+            full_nxpath = os.path.join(self.nxpath, nxname)
             self.logger.debug(f'Full path for object to write: {full_nxpath}')
             if nxfile.get(full_nxpath) is not None:
                 self.logger.debug(
-                    f'{os.path.join(nxpath, nxname)} already exists in '
-                    f'{self.filename}')
+                    f'{full_nxpath} already exists in {self.filename}')
                 if self.force_overwrite:
                     self.logger.warning(
                         'Deleting existing NXobject at '
-                        f'{os.path.join(nxpath, nxname)} in {self.filename}')
+                        f'{full_nxpath, nxname} in {self.filename}')
                     del root[full_nxpath]
             try:
                 root[full_nxpath] = nxobject
@@ -624,16 +639,20 @@ class PyfaiResultsWriter(Writer):
 
 class TXTWriter(Writer):
     """Writer for plain text files from string or tuples or lists of
-    strings."""
-    def write(self, data, append=False):
+    strings.
+
+    :ivar append: Flag to allow data in `filename` to be be appended,
+        defaults to `False`.
+    :type append: bool, optional
+    """
+    append: Optional[bool] = False
+
+    def write(self, data):
         """Write a string or tuple or list of strings contained in 
         `data` to file.
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
-        :param append: Flag to allow data in `filename` to be
-            be appended, defaults to `False`.
-        :type append: bool, optional
         :raises TypeError: If the object contained in `data` is not a
             `str`, `tuple[str]` or `list[str]`.
         :raises RuntimeError: If `filename` already exists and
@@ -642,7 +661,7 @@ class TXTWriter(Writer):
         :rtype: str, tuple[str], list[str]
         """
         data = self.unwrap_pipelinedata(data)[-1]
-        write_txt(data, self.filename, self.force_overwrite, append)
+        write_txt(data, self.filename, self.force_overwrite, self.append)
 
         return data
 

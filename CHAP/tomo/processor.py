@@ -643,7 +643,7 @@ class TomoDataProcessor(Processor):
         from nexusformat.nexus import nxsetconfig
 
         # Local modules
-        from CHAP import PipelineData
+        from CHAP.pipeline import PipelineData
         from CHAP.tomo.models import (
             TomoFindCenterConfig,
             TomoReconstructConfig,
@@ -736,10 +736,7 @@ class TomoDataProcessor(Processor):
             'metadata': {}
         }
 
-        tomo = Tomo(
-            metadata, save_figures=save_figures,
-            **Processor(**self.model_dump()).model_dump(
-                exclude={'logger', 'name', 'schema_'}))
+        tomo = Tomo(metadata, save_figures=save_figures, **self.run_config)
 
         # FIX make an config input
         nxsetconfig(memory=100000)
@@ -1921,14 +1918,11 @@ class Tomo(Processor):
                 # Local modules
                 from CHAP.utils.fit import FitProcessor
 
-
                 pixel_size = float(nxentry.instrument.detector.row_pixel_size)
                 # Try to get a fit from the bright field
                 row_sum = np.sum(tbf, 1)
                 num = len(row_sum)
-                fit = FitProcessor(
-                    **Processor(**self.model_dump()).model_dump(
-                        exclude={'logger', 'name', 'schema_'}))
+                fit = FitProcessor(**self.run_config)
                 model = {'model': 'rectangle',
                          'parameters': [
                              {'name': 'amplitude',

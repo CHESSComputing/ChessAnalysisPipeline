@@ -17,11 +17,12 @@ from typing import ClassVar
 # Third party modules
 from pydantic import (
     PrivateAttr,
+    constr,
     model_validator,
 )
 
 # Local modules
-from CHAP import PipelineItem
+from CHAP.pipeline import PipelineItem
 
 
 def validate_reader_model(model_instance):
@@ -59,7 +60,7 @@ class Reader(PipelineItem):
     :ivar filename: Name of file to read from.
     :type filename: str
     """
-    filename: str
+    filename: constr(strip_whitespace=True, min_length=1)
 
     _mapping_filename: PrivateAttr(default=None)
 

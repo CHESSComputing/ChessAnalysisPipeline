@@ -18,7 +18,7 @@ from typing import Optional
 from pydantic import model_validator
 
 # Local modules
-from CHAP import PipelineItem
+from CHAP.pipeline import PipelineItem
 
 
 def validate_writer_model(model_instance):

@@ -40,7 +40,6 @@ from CHAP.common.reader import (
     FabioImageReader,
     H5Reader,
     LinkamReader,
-    MapReader,
     NexusReader,
     NXdataReader,
     NXfieldReader,
