@@ -3253,13 +3253,6 @@ class UnstructuredToStructuredProcessor(Processor):
                     raise ValueError('Unable to guess unstructered axes')
             # Get signals
             signals_paths = config.signals
-            if nxdata is not None:
-                # Add all fields that are not already unstructured axes
-                # to the signals
-                signals_paths += [
-                    f'{nxpath}{k}' for k, v in nxdata.items()
-                    if k not in axes and isinstance(v, NXfield)
-                    and f'{nxpath}{k}' not in config.signals]
 
         axes_paths = [f'{nxpath}{a}' for a in axes]
         self.logger.debug(f'Guessing signals paths: {signals_paths}')
