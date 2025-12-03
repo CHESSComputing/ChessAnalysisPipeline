@@ -207,7 +207,7 @@ def run(
                         os.makedirs(outputdir)
                     try:
                         NamedTemporaryFile(dir=outputdir)
-                    except Exceptions as exc:
+                    except Exception as exc:
                         raise OSError(
                             'output directory is not accessible for '
                             f'writing ({outputdir})') from exc

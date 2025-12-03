@@ -68,7 +68,7 @@ class Writer(PipelineItem):
         :rtype: list[PipelineData]
         """
         ddata = self.unwrap_pipelinedata(data)[-1]
-        if os_path.isfile(self.filename) and not self.force_overwrite:
+        if os.path.isfile(self.filename) and not self.force_overwrite:
             raise FileExistsError(f'{self.filename} already exists')
         with open(self.filename, 'w') as f:
             f.write(ddata)

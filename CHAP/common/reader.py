@@ -156,7 +156,7 @@ class LinkamReader(Reader):
         )
 
         # Parse .txt file
-        start_time, metadata, data = self.__class__.parse_file(
+        start_time, metadata, data = LinkamReader.parse_file(
             self.filename, self.logger)
 
         # Get list of actual data column names and corresponding
@@ -199,7 +199,7 @@ class LinkamReader(Reader):
         return nxdata
 
     @classmethod
-    def parse_file(cls, logger):
+    def parse_file(cls, filename, logger):
         """Return start time, metadata, and data stored in the
         provided Linkam .txt file.
 
@@ -213,7 +213,7 @@ class LinkamReader(Reader):
 
         # Get t=0 from filename
         start_time = None
-        basename = os.path.basename(self.filename)
+        basename = os.path.basename(filename)
         pattern = r'(\d{2}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{2})'
         match = re.search(pattern, basename)
         if match:
@@ -221,12 +221,12 @@ class LinkamReader(Reader):
             dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
             start_time = dt.timestamp()
         else:
-            logger.warning(f'Datetime not found in {self.filename}')
+            logger.warning(f'Datetime not found in {filename}')
 
         # Get data add metadata from file contents
         metadata = {}
         data = False
-        with open(self.filename, 'r', encoding='utf-8') as inf:
+        with open(filename, 'r', encoding='utf-8') as inf:
             for line in inf:
                 line = line.strip()
                 if not line:
@@ -497,6 +497,7 @@ class SpecReader(Reader):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from json import dumps
         from nexusformat.nexus import (
             NXcollection,
@@ -505,6 +506,7 @@ class SpecReader(Reader):
             NXfield,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.common.models.map import Detector

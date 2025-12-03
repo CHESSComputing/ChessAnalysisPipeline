@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : general.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -32,7 +31,9 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+# pylint: disable=no-member
 tiny = np.finfo(np.float64).resolution
+# pylint: enable=no-member
 
 def gformat(val, length=11):
     """
@@ -260,6 +261,7 @@ def _is_int_or_num(
     if ge is None and gt is None and le is None and lt is None:
         return True
     error = False
+    error_msg = ''
     if ge is not None and v < ge:
         error = True
         error_msg = f'Value {v} out of range: {v} !>= {ge}'
@@ -1362,6 +1364,7 @@ def select_mask_1d(
     from copy import deepcopy
 
     # Third party modules
+    # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
         from matplotlib.patches import Patch
         from matplotlib.widgets import Button, SpanSelector
@@ -1721,6 +1724,7 @@ def select_roi_2d(
     :rtype: Union[io.BytesIO, None], tuple(int, int, int, int)
     """
     # Third party modules
+    # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
         from matplotlib.widgets import Button, RectangleSelector
 
@@ -1933,6 +1937,8 @@ def select_image_indices(
     """
     # Third party modules
     from matplotlib.widgets import TextBox, Button
+
+    index_input = None
 
     def change_fig_title(title):
         if fig_title:

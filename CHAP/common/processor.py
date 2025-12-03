@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -284,6 +283,7 @@ class BinarizeProcessor(Processor):
         centers = edges[:-1] + 0.5 * np.diff(edges)
 
         # Calculate the data cutoff threshold
+        # pylint: disable=no-name-in-module
         if config.method == 'CHAP':
             weights = np.cumsum(counts)
             means = np.cumsum(counts * centers)
@@ -311,6 +311,7 @@ class BinarizeProcessor(Processor):
             from skimage.filters import threshold_minimum
 
             threshold = threshold_minimum(hist=(counts, centers))
+        # pylint: enable=no-name-in-module
 
         # Apply the data cutoff threshold
         data = np.where(data < threshold, 0, 1).astype(np.ubyte)
@@ -449,9 +450,8 @@ class ConstructBaseline(Processor):
         :rtype: numpy.array, dict, Union[io.BytesIO, None]
         """
         # Third party modules
-        if interactive or return_buf:
-            from matplotlib.widgets import TextBox, Button
-            import matplotlib.pyplot as plt
+        from matplotlib.widgets import TextBox, Button
+        import matplotlib.pyplot as plt
 
         # Local modules
         from CHAP.utils.general import (
@@ -581,6 +581,7 @@ class ConstructBaseline(Processor):
             change_fig_subtitle(maxed_out=True)
         fig.subplots_adjust(bottom=0.0, top=0.85)
 
+        lambda_box = None
         if interactive:
 
             fig.subplots_adjust(bottom=0.2)
@@ -836,6 +837,8 @@ class ImageProcessor(Processor):
 
                 # Return a binary image of the figure
                 buf, fileformat = fig_to_iobuf(fig, fileformat=fileformat)
+            else:
+                buf = None
             plt.close()
             return {'image_data': buf, 'fileformat': fileformat}
         
@@ -844,6 +847,8 @@ class ImageProcessor(Processor):
             # Create an animation for a set of image slices
             if interactive or config.animation:
                 ani = self._create_animation(data, interactive)
+            else:
+                ani = None
 
             if save_figures:
                 if config.animation:
@@ -864,6 +869,8 @@ class ImageProcessor(Processor):
                     data = 255.0*((data - vrange[0])/ 
                                   (vrange[1] - vrange[0]))
                     image_data = data.astype(np.uint8)
+            else:
+                image_data = None
 
         if save_figures:
             return {'image_data': image_data, 'fileformat': fileformat}
@@ -972,8 +979,6 @@ class MapProcessor(Processor):
                 for i, d in enumerate(data):
                     if d.get('schema') == 'metadata':
                         metadata = d.get('data')
-                        if remove:
-                            data.pop(i)
                         break
             except:
                 pass
@@ -1087,6 +1092,7 @@ class MapProcessor(Processor):
                             {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc-1]},
                             f, sort_keys=False)
+                # pylint: disable=used-before-assignment
                 sub_comm = MPI.COMM_SELF.Spawn(
                     'CHAP', args=[fp_name], maxprocs=num_proc-1)
                 common_comm = sub_comm.Merge(False)
@@ -1164,7 +1170,7 @@ class MapProcessor(Processor):
             if station == '3A':
                 station = 'id3a'
             else:
-                raise ValueError(f'Invalid beamline parameter ({beamline})')
+                raise ValueError(f'Invalid beamline parameter ({station})')
             config['station'] = station
             config['experiment_type'] = 'TOMO'
             config['sample'] = {'name': config['title'],
@@ -1202,6 +1208,7 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -1211,6 +1218,7 @@ class MapProcessor(Processor):
             NXsample,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules:
         from CHAP.common.models.map import PointByPointScanData
@@ -1411,6 +1419,7 @@ class MapProcessor(Processor):
             all_scalar_data = np.empty(
                 (num_sd, num_scan*num_dim), dtype=np.float64)
         else:
+            # pylint: disable=used-before-assignment
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
             self.logger.debug(f'Scan numbers on processor {rank}: '
                               f'{list_to_string(scan_numbers)}')
@@ -1545,6 +1554,7 @@ class MapProcessor(Processor):
                 all_scalar_data = np.empty(
                     (num_scan, num_sd, num_dim), dtype=np.float64)
         else:
+            # pylint: disable=used-before-assignment
             self.logger.debug(f'Scan offset on processor {rank}: {offset}')
             self.logger.debug(f'Scan numbers on processor {rank}: '
                               f'{list_to_string(scan_numbers)}')
@@ -1579,6 +1589,8 @@ class MapProcessor(Processor):
                 all_scalar_data = np.ndarray(
                     buffer=buf_sd, dtype=np.float64,
                     shape=(num_scan, num_sd, num_dim))
+            else:
+                all_scalar_data = None
 
         # Read the raw data
         init = True
@@ -1797,10 +1809,7 @@ class MPISpawnMapProcessor(Processor):
            list of sub-pipeline items.
         """
         # Third party modules
-        try:
-            from mpi4py import MPI
-        except Exception as exc:
-            raise ImportError('Unable to import mpi4py') from exc
+        from mpi4py import MPI
         import yaml
 
         # Local modules
@@ -2479,7 +2488,7 @@ class RawDetectorDataMapProcessor(Processor):
         :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        map_config = self.get_config()
+        map_config = self.get_config(data)
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
         return nxroot
@@ -2530,12 +2539,14 @@ class RawDetectorDataMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
             NXinstrument,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         raise RuntimeError('Not updated for the new MapProcessor')
         nxroot = NXroot()

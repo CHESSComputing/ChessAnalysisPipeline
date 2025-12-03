@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -8,9 +7,10 @@ Description: Module for Processors used only by tomography experiments
 """
 
 # System modules
-from os import path as os_path
-from re import sub as re_sub
-from sys import exit as sys_exit
+from copy import deepcopy
+import os
+import re
+import sys
 from time import time
 
 # Third party modules
@@ -21,19 +21,19 @@ import numpy as np
 from CHAP.common.models.map import MapConfig
 from CHAP.processor import Processor
 from CHAP.utils.general import (
-    is_num,
-    is_num_series,
-    is_int_pair,
+    fig_to_iobuf,
     input_int,
     input_num,
     input_num_list,
     input_yesno,
-    fig_to_iobuf,
+    is_int_pair,
+    is_num,
+    is_num_series,
+    nxcopy,
     select_image_indices,
     select_roi_1d,
     select_roi_2d,
     quick_imshow,
-    nxcopy,
 )
 
 
@@ -81,7 +81,7 @@ class TomoMetadataProcessor(Processor):
         if station == '3A':
             station = 'id3a'
         else:
-            raise ValueError(f'Invalid beamline parameter ({beamline})')
+            raise ValueError(f'Invalid beamline parameter ({station})')
         map_config['station'] = station
         experiment_type = data.get('technique')
         assert 'tomography' in experiment_type
@@ -94,7 +94,7 @@ class TomoMetadataProcessor(Processor):
                 if isinstance(scan_numbers[0], list):
                     scan_numbers = scan_numbers[0]
             map_config['spec_scans'] = [{
-                'spec_file': os_path.join(
+                'spec_file': os.path.join(
                     data.get('data_location_raw'), 'spec.log'),
                 'scan_numbers': scan_numbers}]
         map_config['independent_dimensions'] = config['independent_dimensions']
@@ -125,11 +125,8 @@ class TomoCHESSMapConverter(Processor):
         :return: NeXus style tomography input configuration.
         :rtype: nexusformat.nexus.NXroot
         """
-        # System modules
-        from copy import deepcopy
-
         # Third party modules
-        from nexusformat.nexus import nxsetconfig
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
@@ -139,7 +136,9 @@ class TomoCHESSMapConverter(Processor):
             NXroot,
             NXsample,
             NXsource,
+            nxsetconfig,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.utils.general import index_nearest
@@ -273,6 +272,7 @@ class TomoCHESSMapConverter(Processor):
             matched_dimensions.pop(matched_dimensions.index('x_translation'))
         else:
             x_translation_data_type = None
+            x_translation_name = None
         if 'z_translation' in independent_dimensions:
             z_translation_data_type = \
                 tomofields.data.z_translation.attrs['data_type']
@@ -284,6 +284,7 @@ class TomoCHESSMapConverter(Processor):
             matched_dimensions.pop(matched_dimensions.index('z_translation'))
         else:
             z_translation_data_type = None
+            z_translation_name = None
         if matched_dimensions:
             raise ValueError('Unknown independent dimension '
                              f'({matched_dimensions}), independent dimensions '
@@ -645,9 +646,9 @@ class TomoDataProcessor(Processor):
         # Local modules
         from CHAP.pipeline import PipelineData
         from CHAP.tomo.models import (
+            TomoCombineConfig,
             TomoFindCenterConfig,
             TomoReconstructConfig,
-            TomoCombineConfig,
         )
 
         # Validate the input parameters
@@ -1395,7 +1396,7 @@ class Tomo(Processor):
                         tomo_recon_stack[:,:,x_index], title=title,
                         origin='lower', extent=(y[0], y[-1], z[0], z[-1]),
                         show_fig=False, return_fig=True),
-                    re_sub(r'\s+', '_', title)))
+                    re.sub(r'\s+', '_', title)))
                 y_index = y_slice-y_range[0]
                 title = f'recon {res_title} y={y[y_index]:.4f}'
                 self._figures.append(
@@ -1403,7 +1404,7 @@ class Tomo(Processor):
                         tomo_recon_stack[:,y_index,:], title=title,
                         origin='lower', extent=(x[0], x[-1], z[0], z[-1]),
                         show_fig=False, return_fig=True),
-                    re_sub(r'\s+', '_', title)))
+                    re.sub(r'\s+', '_', title)))
                 z_index = z_slice-z_range[0]
                 title = f'recon {res_title} z={z[z_index]:.4f}'
                 self._figures.append(
@@ -1411,7 +1412,7 @@ class Tomo(Processor):
                         tomo_recon_stack[z_index,:,:], title=title,
                         origin='lower', extent=(x[0], x[-1], y[0], y[-1]),
                         show_fig=False, return_fig=True),
-                    re_sub(r'\s+', '_', title)))
+                    re.sub(r'\s+', '_', title)))
         else:
             # Save a few reconstructed image slices
             if self._save_figures:
@@ -1422,19 +1423,19 @@ class Tomo(Processor):
                         (quick_imshow(
                             tomo_recon_stacks[i,:,:,x_slice-x_range[0]],
                             title=title, show_fig=False, return_fig=True),
-                        re_sub(r'\s+', '_', title)))
+                        re.sub(r'\s+', '_', title)))
                     title = f'{basetitle} {res_title} yslice{y_slice}'
                     self._figures.append(
                         (quick_imshow(
                             tomo_recon_stacks[i,:,y_slice-y_range[0],:],
                             title=title, show_fig=False, return_fig=True),
-                        re_sub(r'\s+', '_', title)))
+                        re.sub(r'\s+', '_', title)))
                     title = f'{basetitle} {res_title} zslice{z_slice}'
                     self._figures.append(
                         (quick_imshow(
                             tomo_recon_stacks[i,z_slice-z_range[0],:,:],
                             title=title, show_fig=False, return_fig=True),
-                        re_sub(r'\s+', '_', title)))
+                        re.sub(r'\s+', '_', title)))
 
         # Add image reconstruction to reconstructed data NXprocess
         # reconstructed axis data order:
@@ -1678,7 +1679,7 @@ class Tomo(Processor):
                     tomo_recon_combined[:,:,x_slice], title=title,
                     origin='lower', extent=(y[0], y[-1], z[0], z[-1]),
                     show_fig=False, return_fig=True),
-                re_sub(r'\s+', '_', title)))
+                re.sub(r'\s+', '_', title)))
             y_slice = tomo_shape[1]//2
             title = f'recon combined y={y[y_slice]:.4f}'
             self._figures.append(
@@ -1686,7 +1687,7 @@ class Tomo(Processor):
                     tomo_recon_combined[:,y_slice,:], title=title,
                     origin='lower', extent=(x[0], x[-1], z[0], z[-1]),
                     show_fig=False, return_fig=True),
-                re_sub(r'\s+', '_', title)))
+                re.sub(r'\s+', '_', title)))
             z_slice = tomo_shape[0]//2
             title = f'recon combined z={z[z_slice]:.4f}'
             self._figures.append(
@@ -1694,7 +1695,7 @@ class Tomo(Processor):
                     tomo_recon_combined[z_slice,:,:], title=title,
                     origin='lower', extent=(x[0], x[-1], y[0], y[-1]),
                     show_fig=False, return_fig=True),
-                re_sub(r'\s+', '_', title)))
+                re.sub(r'\s+', '_', title)))
 
         # Add image reconstruction to reconstructed data NXprocess
         # - combined axis data order: z,y,x
@@ -1905,10 +1906,6 @@ class Tomo(Processor):
             img_row_bounds = calibrate_center_rows
         elif img_row_bounds is None:
             if nxentry.instrument.source.attrs['station'] in ('id1a3', 'id3a'):
-                # System modules
-                from sys import float_info
-                from logging import getLogger
-
                 # Third party modules
                 from nexusformat.nexus import (
                     NXdata,
@@ -1931,11 +1928,11 @@ class Tomo(Processor):
                              {'name': 'center1', 'value': 0.25*num,
                                  'min': 0.0, 'max': num},
                              {'name': 'sigma1', 'value': num/7.0,
-                              'min': float_info.min},
+                              'min': sys.float_info.min},
                              {'name': 'center2', 'value': 0.75*num,
                               'min': 0.0, 'max': num},
                              {'name': 'sigma2', 'value': num/7.0,
-                              'min': float_info.min}]}
+                              'min': sys.float_info.min}]}
                 bounds_fit = fit.process(
                     data=NXdata(
                         NXfield(row_sum, 'y'),
@@ -2136,7 +2133,7 @@ class Tomo(Processor):
                 with SetNumexprThreads(self._num_core):
                     evaluate('tbf-tdf', out=tbf)
             except TypeError as e:
-                sys_exit(
+                exit(
                     f'\nA {type(e).__name__} occured while subtracting '
                     'the dark field with num_expr.evaluate()'
                     '\nTry reducing the detector range')
@@ -2184,6 +2181,8 @@ class Tomo(Processor):
         num_tomo_stacks = len(z_translation_levels)
         if calibrate_center_rows:
             center_stack_index = num_tomo_stacks//2
+        else:
+            center_stack_index = 0
         tomo_stacks = num_tomo_stacks*[None]
         horizontal_shifts = []
         vertical_shifts = []
@@ -2242,7 +2241,7 @@ class Tomo(Processor):
                     with SetNumexprThreads(self._num_core):
                         evaluate('tomo_stack-tdf', out=tomo_stack)
                 except TypeError as e:
-                    sys_exit(
+                    exit(
                         f'\nA {type(e).__name__} occured while subtracting '
                         'the dark field with num_expr.evaluate()'
                         '\nTry reducing the detector range'
@@ -2254,7 +2253,7 @@ class Tomo(Processor):
                 with SetNumexprThreads(self._num_core):
                     evaluate('tomo_stack/tbf', out=tomo_stack, truediv=True)
             except TypeError as e:
-                sys_exit(
+                exit(
                     f'\nA {type(e).__name__} occured while normalizing the '
                     'tomography data with num_expr.evaluate()'
                     '\nTry reducing the detector range'
@@ -2727,6 +2726,12 @@ class Tomo(Processor):
         import matplotlib.pyplot as plt
         from matplotlib.widgets import RadioButtons, Button
 
+        radio_btn = None
+
+        def reject():
+            """Callback function for the "Reject" input."""
+            pass
+
         def select_offset(offset):
             """Callback function for the "Select offset" input."""
             pass
@@ -2765,6 +2770,7 @@ class Tomo(Processor):
         if fig_titles is not None:
             assert len(fig_titles) == len(preselected_offsets)
 
+        select_text = None
         selected_offset = []
 
         title_pos = (0.5, 0.95)
@@ -3134,6 +3140,7 @@ class TomoSimFieldProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdetector,
             NXentry,
@@ -3142,6 +3149,7 @@ class TomoSimFieldProcessor(Processor):
             NXsample,
             NXsource,
         )
+        # pylint: enable=no-name-in-module
 
         # Get and validate the relevant configuration object in data
         config = self.get_config(data=data, schema='tomo.models.TomoSimConfig')
@@ -3429,12 +3437,14 @@ class TomoDarkFieldProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXroot,
             NXentry,
             NXinstrument,
             NXdetector,
         )
+        # pylint: enable=no-name-in-module
 
         # Get and validate the TomoSimField configuration object in data
         nxroot = self.get_data(
@@ -3501,12 +3511,14 @@ class TomoBrightFieldProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXroot,
             NXentry,
             NXinstrument,
             NXdetector,
         )
+        # pylint: enable=no-name-in-module
 
         # Get and validate the TomoSimField configuration object in data
         nxroot = self.get_data(
@@ -3680,6 +3692,8 @@ class TomoSpecProcessor(Processor):
                 z_translations = [0.]
             thetas = detector.thetas
             num_theta = thetas.size
+            field_type = None
+            scan_type = None
             if schema == 'tomo.models.TomoDarkField':
                 if station in ('id1a3', 'id3a'):
                     macro = f'slew_ome {thetas[0]} {thetas[-1]} ' \

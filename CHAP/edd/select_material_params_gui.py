@@ -336,6 +336,5 @@ if __name__ == '__main__':
     ]
     materials = select_material_params(
         x, y, tth, preselected_materials=preselected_materials,
-        interactive=True, filename=None,
-    )
+        interactive=True)
     print(f'Returned materials: {materials}')

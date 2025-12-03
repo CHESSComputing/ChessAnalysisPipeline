@@ -1,5 +1,4 @@
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : pipeline.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -171,8 +170,7 @@ class PipelineItem(RunConfig):
                 if not nxentries:
                     raise ValueError(f'Unable to retrieve a NXentry object')
                 elif len(nxentries) != 1:
-                    self.logger.warning(
-                        f'Found multiple NXentries, returning the first')
+                    print(f'Found multiple NXentries, returning the first')
                 nxentry = nxentries[0]
         elif isinstance(nxobject, NXentry):
             nxentry = nxobject

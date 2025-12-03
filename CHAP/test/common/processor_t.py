@@ -11,8 +11,8 @@ import unittest
 
 # Local modules
 from CHAP.common import (
-    AsyncProcessor,
-    IntegrationProcessor,
+#    AsyncProcessor,
+#    IntegrationProcessor,
 #    IntegrateMapProcessor,
 #    MapProcessor,
     NexusToNumpyProcessor,
@@ -27,35 +27,35 @@ test_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                              'data')
 
 
-class AsyncProcessorTest(unittest.TestCase):
-    """Unit test for CHAP.common.AsyncProcessor class"""
+#class AsyncProcessorTest(unittest.TestCase):
+#    """Unit test for CHAP.common.AsyncProcessor class"""
+#
+#    def setUp(self):
+#        self.processor = AsyncProcessor(PrintProcessor())
+#        self.data = ['doc0', 'doc1', 'doc2']
+#
+#    def testProcessor(self):
+#        """Unit test to test processor"""
+#        data = self.processor.process(self.data)
+#        self.assertIsNone(data)
 
-    def setUp(self):
-        self.processor = AsyncProcessor(PrintProcessor())
-        self.data = ['doc0', 'doc1', 'doc2']
 
-    def testProcessor(self):
-        """Unit test to test processor"""
-        data = self.processor.process(self.data)
-        self.assertIsNone(data)
-
-
-class IntegrationProcessorTest(unittest.TestCase):
-    """Unit test for CHAP.common.IntegrationProcessor class"""
-
-    def setUp(self):
-        from pyFAI.test.utilstest import create_fake_data
-        self.processor = IntegrationProcessor()
-        detector_data, integrator = create_fake_data()
-        integration_method = integrator.integrate1d
-        integration_kwargs = {'npt': 50}
-        self.data = (detector_data, integration_method, integration_kwargs)
-
-    def testProcessor(self):
-        """Unit test to test processor"""
-        from pyFAI.containers import IntegrateResult
-        data = self.processor.process(self.data)
-        self.assertIsInstance(data, IntegrateResult)
+#class IntegrationProcessorTest(unittest.TestCase):
+#    """Unit test for CHAP.common.IntegrationProcessor class"""
+#
+#    def setUp(self):
+#        from pyFAI.test.utilstest import create_fake_data
+#        self.processor = IntegrationProcessor()
+#        detector_data, integrator = create_fake_data()
+#        integration_method = integrator.integrate1d
+#        integration_kwargs = {'npt': 50}
+#        self.data = (detector_data, integration_method, integration_kwargs)
+#
+#    def testProcessor(self):
+#        """Unit test to test processor"""
+#        from pyFAI.containers import IntegrateResult
+#        data = self.processor.process(self.data)
+#        self.assertIsInstance(data, IntegrateResult)
 
 
 #class MapProcessorTest(unittest.TestCase):

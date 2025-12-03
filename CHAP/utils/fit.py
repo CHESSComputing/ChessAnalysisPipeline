@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : fit.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -195,6 +194,7 @@ class FitProcessor(Processor):
         if model_config.fit_type == 'uniform':
             parameters.append(FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN))
+            prefix = None
             if num_peak == 1:
                 prefix = ''
             for i, cen in enumerate(model_config.centers):
@@ -847,6 +847,7 @@ class Fit:
 
     def add_model(self, model, prefix):
         """Add a model component to the fit model."""
+        # pylint: disable=possibly-used-before-assignment
         if self._code == 'lmfit':
             from lmfit.models import (
                 ConstantModel,
@@ -1233,18 +1234,18 @@ class Fit:
         x = np.asarray(x)
         y = np.asarray(y)
         if len(x) != len(y):
-            self._logger.error(
+            print(
                 f'Invalid x and y lengths ({len(x)}, {len(y)}), '
                 'skip initial guess')
             return None, None, None
         if isinstance(center_guess, (int, float)):
             if args:
-                self._logger.warning(
+                print(
                     'Ignoring additional arguments for single center_guess '
                     'value')
         elif isinstance(center_guess, (tuple, list, np.ndarray)):
             if len(center_guess) == 1:
-                self._logger.warning(
+                print(
                     'Ignoring additional arguments for single center_guess '
                     'value')
                 if not isinstance(center_guess[0], (int, float)):
@@ -1636,6 +1637,9 @@ class Fit:
             simplify,
         )
 
+        # FIX self._parameter_norms
+        # pylint: disable=no-member
+        raise RuntimeError
         # Construct the matrix and the free parameter vector
         free_parameters = \
             [name for name, par in self._parameters.items() if par.vary]
@@ -2129,7 +2133,9 @@ class FitMap(Fit):
         if True: #self._mask is None:
             ymap_min = float(self._ymap_norm.min())
             ymap_max = float(self._ymap_norm.max())
-#        else:
+        else:
+            ymap_min = None
+            ymap_max = None
 #            self._mask = np.asarray(self._mask).astype(bool)
 #            if self._x.size != self._mask.size:
 #                raise ValueError(

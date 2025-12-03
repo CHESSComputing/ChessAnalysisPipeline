@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Keara Soloway, Rolf Verberg
@@ -619,8 +618,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                 title=f'Mask for detector {detector.id}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
-                min_num_index_ranges=1, interactive=self.interactive,
-                filename=filename)
+                min_num_index_ranges=1, interactive=self.interactive)
             if self._save_figures:
                 self._figures.append((buf, f'{detector.id}_dvl_mask'))
             self.logger.debug(
@@ -2218,10 +2216,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         :type points: list[dict[str, object]
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdetector,
             NXprocess,
         )
+        # pylint: enable=no-name-in-module
 
         nxprocess = None
         for nxobject in nxroot.values():
@@ -2465,12 +2465,14 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         object.
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
             NXfield,
             NXparameters,
         )
+        # pylint: enable=no-name-in-module
 
         nxdetector[f'{fit_type}_fit'] = NXcollection()
         nxcollection = nxdetector[f'{fit_type}_fit']
@@ -2557,6 +2559,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         if self._save_figures:
             start_index = len(self._figures)
             path = f'{detector_id}_strainanalysis_unconstrained_fits'
+        else:
+            start_index = None
+            path = None
 
         axes = get_axes(nxdata)
         if 'energy' in axes:
@@ -2630,12 +2635,14 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdetector,
             NXfield,
             NXprocess,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds

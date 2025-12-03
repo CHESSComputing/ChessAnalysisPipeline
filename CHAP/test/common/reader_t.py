@@ -18,6 +18,9 @@ from CHAP.common import (
 )
 
 
+#FIX
+# pylint: disable=too-many-function-args
+# pylint: disable=unexpected-keyword-arg
 class BinaryFileReaderTest(unittest.TestCase):
     """Unit test for CHAP.common.BinaryFileReader class"""
 

@@ -271,6 +271,7 @@ def get_scanparser(spec_file, scan_number, par_file=None):
     :param par_file: Path to a SMB par file.
     :type par_file: str, optional
     """
+    # pylint: disable=undefined-variable
     if scan_number not in get_available_scan_numbers(spec_file):
         return None
     if par_file is None:
@@ -1282,6 +1283,7 @@ def import_scanparser(station, experiment):
         'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     """
     # Third party modules
+    # pylint: disable=import-error
     from chess_scanparsers import choose_scanparser
 
     globals()['ScanParser'] = choose_scanparser(station, experiment)

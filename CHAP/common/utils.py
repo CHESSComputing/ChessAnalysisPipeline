@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : utils.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>

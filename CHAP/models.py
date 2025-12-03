@@ -179,7 +179,7 @@ class RunConfig(CHAPBaseModel):
                     NamedTemporaryFile(dir=outputdir)
                 except:
                     raise OSError('output directory is not accessible for '
-                                  f'writing ({self.outputdir})')
+                                  f'writing ({outputdir})')
             data['outputdir'] = outputdir
 
             # Make sure os.makedirs completes before continuing

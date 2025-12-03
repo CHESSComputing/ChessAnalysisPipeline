@@ -412,7 +412,7 @@ class ImageWriter(PipelineItem):
             image_data = ddata
         basename, ext = os.path.splitext(self.filename)
         if ext[1:] != fileformat:
-            self.filename = f'{filename}.{fileformat}'
+            self.filename = f'{self.filename}.{fileformat}'
         if not os.path.isabs(self.filename):
             self.filename = os.path.join(self.outputdir, self.filename)
         if os.path.isfile(self.filename) and not self.force_overwrite:

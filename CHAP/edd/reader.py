@@ -9,7 +9,9 @@ from typing import (
 )
 
 # Third party modules
+# pylint: disable=import-error
 from chess_scanparsers import SMBMCAScanParser as ScanParser
+# pylint: enable=import-error
 import numpy as np
 from pydantic import (
     conint,
@@ -108,6 +110,7 @@ class EddMapReader(Reader):
             scan_type = scan_types[0]
         except ValueError as e:
             # Third party modules
+            # pylint: disable=import-error
             from chess_scanparsers import SMBScanParser
 
             scanparser = SMBScanParser(parfile.spec_file, scan_nos[0])
@@ -278,6 +281,7 @@ class EddMPIMapReader(Reader):
         :rtype: PipelineData
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -285,6 +289,7 @@ class EddMPIMapReader(Reader):
             NXfield,
             NXsample,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.common.models.map import MapConfig

@@ -106,7 +106,9 @@ class ParFile():
         :rtype: CHAP.common.models.map.MapConfig
         """
         # Third party modeuls
+        # pylint: disable=import-error
         from chess_scanparsers import SMBScanParser
+        # pylint: enable=import-error
 
         # Local modules
         from CHAP.common.models.map import MapConfig

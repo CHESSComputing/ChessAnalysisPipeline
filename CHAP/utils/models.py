@@ -25,7 +25,9 @@ import numpy as np
 from CHAP.models import CHAPBaseModel
 from CHAP.utils.general import not_zero, tiny
 
+# pylint: disable=no-member
 tiny = np.finfo(np.float64).resolution
+# pylint: enable=no-member
 s2pi = np.sqrt(2*np.pi)
 
 #def constant(x, c=0.5):
@@ -108,6 +110,7 @@ def rectangle(
 
     if form == 'erf':
         # Third party modules
+        # pylint: disable=no-name-in-module
         from scipy.special import erf
 
         rect = 0.5*(erf(arg1) + erf(arg2))

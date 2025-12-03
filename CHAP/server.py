@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : server.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>

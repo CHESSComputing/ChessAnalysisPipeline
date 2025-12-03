@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Rolf Verberg
@@ -48,6 +47,7 @@ class HdrmOrmfinderProcessor(Processor):
         from json import loads
 
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -58,6 +58,7 @@ class HdrmOrmfinderProcessor(Processor):
             NXroot,
             nxsetconfig,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.edd.processor import get_axes
@@ -112,7 +113,7 @@ class HdrmOrmfinderProcessor(Processor):
                 'More than one azimuthal integrator not yet implemented')
         if f'{ais[0].id}_peaks' not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxentry.tree}')
+                               f'{ais[0].id} in {nxdata.tree}')
 
         # Create the NXdata object to store the ORM data
         nxprocess.data = NXdata()
@@ -145,6 +146,7 @@ class HdrmOrmfinderProcessor(Processor):
             num_peak = len(peaks)
             self.logger.info(f'Loaded {num_peak} peak points from file')
 
+            peaks_prelim = None
             prelim_flag = 0
             if num_peak > 75:
                 peaks_prelim = peaks[30:]
@@ -216,7 +218,12 @@ class HdrmOrmfinderProcessor(Processor):
         from scipy.optimize import basinhopping
 
         # Local modules
+        # pylint: disable=import-error
+        # pylint: disable=no-name-in-module
         from CHAP.hdrm.hkl import Calc_HKL
+        # pylint: enable=import-error
+        # pylint: disable=no-name-in-module
+
         def calcUB(eu):
             r = R.from_euler('zxz', eu)
             return np.matmul(r.as_matrix(), self._B)
@@ -271,7 +278,9 @@ class HdrmPeakfinderProcessor(Processor):
             NXroot,
             nxsetconfig,
         )
+        # pylint: disable=no-name-in-module
         from skimage.feature import peak_local_max
+        # pylint: enable=no-name-in-module
 
         # Local modules
         from CHAP.edd.processor import get_axes
