@@ -9,12 +9,10 @@ from typing import (
 )
 
 # Third party modules
-import numpy as np
 from pydantic import (
     BaseModel,
     DirectoryPath,
     PrivateAttr,
-    conint,
     field_validator,
     model_validator,
 )
@@ -65,9 +63,9 @@ class CHAPBaseModel(BaseModel):
             value = str(value)
         else:
             try:
-                # For np.array, np.ndarray, any np scalar, or native types 
+                # For np.array, np.ndarray, any np scalar, or native types
                 value = getattr(value, "tolist", lambda: value)()
-            except:
+            except Exception:
                 pass
         return value
 
@@ -177,9 +175,9 @@ class RunConfig(CHAPBaseModel):
                     os.makedirs(outputdir)
                 try:
                     NamedTemporaryFile(dir=outputdir)
-                except:
+                except Exception as exc:
                     raise OSError('output directory is not accessible for '
-                                  f'writing ({outputdir})')
+                                  f'writing ({outputdir})') from exc
             data['outputdir'] = outputdir
 
             # Make sure os.makedirs completes before continuing

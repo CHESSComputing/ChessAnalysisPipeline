@@ -10,9 +10,11 @@ Description: common set of utility functions
 import os
 import sys
 import platform
-import pkg_resources
 import subprocess
 import json
+
+# Third party modules
+import pkg_resources
 
 def osinfo():
     """Helper function to provide osinfo."""
@@ -28,7 +30,7 @@ def environments():
     Conda, or pip) and collects package information. Returns a list
     of detected environments with installed packages.
     """
-    environments = []
+    environments_ = []
     os_name = f'{platform.system().lower()}-{platform.release()}'
 
     # Check for Conda environment
@@ -44,7 +46,7 @@ def environments():
                         for pkg in conda_packages]
         except Exception:
             packages = []
-        environments.append({
+        environments_.append({
             'name': conda_env_name,
             'version': sys.version.split()[0],
             'details': 'Conda environment',
@@ -58,7 +60,7 @@ def environments():
         venv_name = os.path.basename(os.getenv('VIRTUAL_ENV', 'unknown-venv'))
         packages = [{'name': pkg.key, 'version': pkg.version}
                     for pkg in pkg_resources.working_set]
-        environments.append({
+        environments_.append({
             'name': venv_name,
             'version': sys.version.split()[0],
             'details': 'Virtualenv environment',
@@ -71,7 +73,7 @@ def environments():
     else:
         packages = [{'name': pkg.key, 'version': pkg.version}
                     for pkg in pkg_resources.working_set]
-        environments.append({
+        environments_.append({
             'name': 'system-python',
             'version': sys.version.split()[0],
             'details': 'System-wide Python',
@@ -94,7 +96,7 @@ def environments():
                      ).strip().decode()}
                     for pkg in pip_packages
                     if 'editable_project_location' in pkg]
-        environments.append({
+        environments_.append({
             'name': 'Python Package Installer',
             'version': sys.version.split()[0],
             'details': 'Editable project locations',
@@ -105,4 +107,4 @@ def environments():
     except Exception:
         pass
 
-    return environments
+    return environments_

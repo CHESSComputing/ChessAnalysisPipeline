@@ -28,6 +28,7 @@ def main():
 
     try:
         # Third party modules
+        # pylint: disable=c-extension-no-member
         from mpi4py import MPI
 
         have_mpi = True
@@ -47,6 +48,7 @@ def main():
     # Check if executed as a worker spawned by another Processor
     run_config = RunConfig(**config.pop('config'), comm=comm)
     if have_mpi and run_config.spawn:
+        # pylint: disable=c-extension-no-member
         sub_comm = MPI.Comm.Get_parent()
         common_comm = sub_comm.Merge(True)
         # Read worker specific input config file
@@ -221,6 +223,7 @@ def run(
             # processors.
             try:
                 # Third party modules
+                # pylint: disable=unused-import
                 import users
             except ImportError:
                 if logger is not None:

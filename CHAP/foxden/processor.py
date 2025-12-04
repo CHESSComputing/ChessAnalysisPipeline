@@ -99,13 +99,6 @@ class FoxdenProvenanceProcessor(Processor):
         :return: CHAP workflow provenance record.
         :rtype: dict
         """
-        # Third party modules
-        from json import loads
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         # Load the provenance info
         provenance = self.get_data(data, schema='provenance')
 

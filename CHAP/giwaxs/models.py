@@ -10,7 +10,6 @@ from typing import (
 )
 
 # Third party modules
-import numpy as np
 from pydantic import (
     FilePath,
     PrivateAttr,

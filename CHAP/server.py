@@ -20,7 +20,8 @@ curl -X POST -H "Content-type: application/json" -d@/tmp/chap.json http://localh
 flask --app server run
  * Serving Flask app 'server'
  * Debug mode: off
-WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+WARNING: This is a development server. Do not use it in a production
+deployment. Use a production WSGI server instead.
  * Running on http://127.0.0.1:5000
 Press CTRL+C to quit
 ...
@@ -96,8 +97,7 @@ def pipeline_route():
         jobs.append(taskManager.spawn(task, pipeline=content['pipeline']))
         taskManager.joinall(jobs)
         return {'status': 'ok', 'pipeline': content['pipeline']}
-    else:
-        return {'status': 'fail', 'reason': 'no pipeline in incoming request'}
+    return {'status': 'fail', 'reason': 'no pipeline in incoming request'}
 
 def task(*args, **kwds):
     """Helper function to execute CHAP pipeline."""

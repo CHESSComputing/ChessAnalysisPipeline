@@ -3,7 +3,6 @@
 # System modules
 from copy import deepcopy
 import os
-from pathlib import PosixPath
 from typing import (
     Dict,
     Literal,

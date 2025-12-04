@@ -70,7 +70,7 @@ class TomoMetadataProcessor(Processor):
             data = data[0]
             if not isinstance(data, dict):
                 raise ValueError(f'Invalid PipelineData input data ({data})')
-        except Exception as exc:
+        except Exception:
             raise
 
         # Extract any available MapConfig info
@@ -171,7 +171,7 @@ class TomoCHESSMapConverter(Processor):
         # in the SPEC log file)
         try:
             darkfield = self.get_data(data, schema='darkfield')
-        except:
+        except Exception:
             self.logger.warning(f'Unable to load dark field from pipeline')
             darkfield = None
         data_darkfield = None
@@ -186,7 +186,7 @@ class TomoCHESSMapConverter(Processor):
                             detector_prefix)
                         data_shape = data_darkfield.shape
                         break
-            except:
+            except Exception:
                 pass
             if data_darkfield is None:
                 try:
@@ -200,7 +200,7 @@ class TomoCHESSMapConverter(Processor):
                                 detector_prefix)
                             data_shape = data_darkfield.shape
                             break
-                except:
+                except Exception:
                     pass
             if data_darkfield is None:
                 self.logger.warning(f'Unable to load dark field')
@@ -214,7 +214,7 @@ class TomoCHESSMapConverter(Processor):
         # downstream # in the SPEC log file)
         try:
             brightfield = self.get_data(data, schema='brightfield')
-        except:
+        except Exception:
             self.logger.warning(f'Unable to load bright field from pipeline')
             brightfield = None
         if brightfield is None:
@@ -237,7 +237,7 @@ class TomoCHESSMapConverter(Processor):
         try:
             detector_config = self.get_config(
                 data=data, schema='tomo.models.Detector')
-        except:
+        except Exception:
             detector_config = None
 
         # Construct NXroot
@@ -725,7 +725,7 @@ class TomoDataProcessor(Processor):
         try:
             btr = map_config['did'].split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
-        except:
+        except Exception:
             self.logger.warning(
                 f'Unable to get a valid btr from map_config ({map_config})')
             btr = 'unknown'
@@ -2132,11 +2132,11 @@ class Tomo(Processor):
             try:
                 with SetNumexprThreads(self._num_core):
                     evaluate('tbf-tdf', out=tbf)
-            except TypeError as e:
-                exit(
-                    f'\nA {type(e).__name__} occured while subtracting '
+            except TypeError as exc:
+                raise (
+                    f'\nA {type(exc).__name__} occured while subtracting '
                     'the dark field with num_expr.evaluate()'
-                    '\nTry reducing the detector range')
+                    '\nTry reducing the detector range') from exc
 
         # Get image bounds
         img_row_bounds = tuple(reduced_data.get('img_row_bounds'))
@@ -2240,25 +2240,25 @@ class Tomo(Processor):
                 try:
                     with SetNumexprThreads(self._num_core):
                         evaluate('tomo_stack-tdf', out=tomo_stack)
-                except TypeError as e:
-                    exit(
-                        f'\nA {type(e).__name__} occured while subtracting '
+                except TypeError as exc:
+                    raise(
+                        f'\nA {type(exc).__name__} occured while subtracting '
                         'the dark field with num_expr.evaluate()'
                         '\nTry reducing the detector range'
                         f'\n(currently img_row_bounds = {img_row_bounds}, and '
-                        f'img_column_bounds = {img_column_bounds})\n')
+                        f'img_column_bounds = {img_column_bounds})\n') from exc
 
             # Normalize
             try:
                 with SetNumexprThreads(self._num_core):
                     evaluate('tomo_stack/tbf', out=tomo_stack, truediv=True)
-            except TypeError as e:
-                exit(
-                    f'\nA {type(e).__name__} occured while normalizing the '
+            except TypeError as exc:
+                raise(
+                    f'\nA {type(exc).__name__} occured while normalizing the '
                     'tomography data with num_expr.evaluate()'
                     '\nTry reducing the detector range'
                     f'\n(currently img_row_bounds = {img_row_bounds}, and '
-                    f'img_column_bounds = {img_column_bounds})\n')
+                    f'img_column_bounds = {img_column_bounds})\n') from exc
 
             # Remove non-positive values and linearize data
             # RV make input argument? cutoff = 1.e-6
@@ -2730,11 +2730,9 @@ class Tomo(Processor):
 
         def reject():
             """Callback function for the "Reject" input."""
-            pass
 
         def select_offset(offset):
             """Callback function for the "Select offset" input."""
-            pass
 
         def search(event):
             """Callback function for the "Search" button."""

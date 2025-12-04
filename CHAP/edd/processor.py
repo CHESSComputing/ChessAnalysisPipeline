@@ -72,6 +72,7 @@ class BaseEddProcessor(Processor):
         :return: The first matching configuration model.
         :rtype: BaseModel
         """
+        #FIX obsolete? Covered in PiplineItem
         config = None
         model_config = None
         if 'config' in kwargs:
@@ -568,13 +569,12 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             dvl_config.detectors = detectors
         if not dvl_config.detectors:
             self.logger.warning(
+            raise RuntimeError(
                 'No raw data for the requested DVL measurement detectors)')
-            exit('Code terminated')
         if (dvl_config.detectors[0].id == 'mca1'
                 and len(dvl_config.detectors) != 1):
-            self.logger.warning(
+            raise RuntimeError(
                 'Multiple detectors not implemented for mca1 detector')
-            exit('Code terminated')
         self._detectors = dvl_config.detectors
 
         # Load the raw MCA data and compute the detector bin energies
@@ -723,7 +723,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             detector.fit_sigma = float(result.best_values['sigma'])
             if dvl_config.measurement_mode == 'manual':
                 if self.interactive:
-                    buf, _, dvl_bounds = select_mask_1d(
+                    _, _, dvl_bounds = select_mask_1d(
                         masked_sum, x=x,
                         preselected_index_ranges=[
                             (index_nearest(x, -0.5*detector.dvl),
@@ -1064,10 +1064,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
         # Local modules
         from CHAP.common.models.map import DetectorConfig
-        from CHAP.edd.models import (
-            MCACalibrationConfig,
-            MCAElementConfig,
-        )
+        from CHAP.edd.models import MCAElementConfig
 
         self._save_figures = save_figures
 
@@ -1124,14 +1121,12 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     f'{list_to_string(skipped_detectors)} (no raw data)')
             calibration_config.detectors = detectors
         if not calibration_config.detectors:
-            self.logger.warning(
+            raise RuntimeError(
                 'No raw data for the requested calibration detectors)')
-            exit('Code terminated')
         if (calibration_config.detectors[0].id == 'mca1'
                 and len(calibration_config.detectors) != 1):
-            self.logger.warning(
+            raise RuntimeError(
                 'Multiple detectors not implemented for mca1 detector')
-            exit('Code terminated')
         self._detectors = calibration_config.detectors
 
         # Load the raw MCA data and compute the detector bin energies
@@ -1593,7 +1588,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Local modules
         from CHAP.common.models.map import DetectorConfig
         from CHAP.edd.models import (
-            MCACalibrationConfig,
             MCAElementConfig,
             MCATthCalibrationConfig,
         )
@@ -1771,12 +1765,12 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             t0 = time()
             if calibration_method == 'direct_fit_bragg':
                 results = self._direct_bragg_peak_fit(
-                    energies, mean_data, bins, mask, detector, hkls, ds,
-                    e_bragg, tth, quadratic_energy_calibration)
+                    energies, mean_data, bins, mask, detector, e_bragg, tth,
+                    quadratic_energy_calibration)
             elif calibration_method == 'direct_fit_tth_ecc':
                 results = self._direct_fit_tth_ecc(
-                    energies, mean_data, bins, mask, detector, hkls, ds,
-                    e_bragg, calibration_config.peak_energies, tth,
+                    energies, mean_data, bins, mask, detector, ds, e_bragg,
+                    calibration_config.peak_energies, tth,
                     quadratic_energy_calibration)
             else:
                 raise ValueError(
@@ -1912,8 +1906,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         return calibration_config.model_dump()
 
     def _direct_bragg_peak_fit(
-            self, energies, mean_data, bins, mask, detector, hkls, ds,
-            e_bragg, tth, quadratic_energy_calibration):
+            self, energies, mean_data, bins, mask, detector, e_bragg, tth,
+            quadratic_energy_calibration):
         """Perform an unconstrained fit minimizing the residual on the
         Bragg peaks only for a given 2&theta.
         """
@@ -1925,7 +1919,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         from scipy.signal import find_peaks as find_peaks_scipy
 
         # Local modules
-        from CHAP.edd.utils import get_peak_locations
         from CHAP.utils.fit import FitProcessor
         from CHAP.utils.general import index_nearest
 
@@ -2012,7 +2005,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         }
 
     def _direct_fit_tth_ecc(
-            self, energies, mean_data, bins, mask, detector, hkls, ds, e_bragg,
+            self, energies, mean_data, bins, mask, detector, ds, e_bragg,
             e_xrf, tth, quadratic_energy_calibration):
         """Perform a fit minimizing the residual on the Bragg peaks
         only or on both the Bragg peaks and the fluorescence peaks
@@ -2092,7 +2085,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
              * physical_constants['speed of light in vacuum'][0]
         for i, d in enumerate(ds):
             norm = 0.5*hc/d
-            cen = norm/np.sin(0.5*np.radians(tth))
             expr = f'(({norm}/sin(0.5*tth))-c)/b'
             if quadratic_energy_calibration:
                 expr = '(' + expr \
@@ -2111,8 +2103,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             {'parameters': parameters, 'models': models, 'method': 'trf'})
 
         # Extract values of interest from the best values
-        best_fit = result.best_fit
-        residual = result.residual
         tth_fit = np.degrees(result.best_values['tth'])
         if quadratic_energy_calibration:
             a_fit = result.best_values['a']
@@ -2193,8 +2183,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 energies, mean_data, hkls, ds, detector.tth_initial_guess,
                 detector.id, self.interactive, self._save_figures)
             if self._save_figures:
-                   self._figures.append((
-                       buf, f'{detector.id}_tth_calibration_initial_guess'))
+                self._figures.append((
+                    buf, f'{detector.id}_tth_calibration_initial_guess'))
             self.logger.debug(
                 f'tth_initial_guess for detector {detector.id}: '
                 f'{detector.tth_initial_guess}')

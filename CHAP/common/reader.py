@@ -7,13 +7,6 @@ Description: Module for Readers used in multiple experiment-specific
 """
 
 # System modules
-from os.path import (
-    isabs,
-    isfile,
-    join,
-    splitext,
-)
-from sys import modules
 from typing import (
     Optional,
     Union,
@@ -65,9 +58,9 @@ class ConfigReader(Reader):
         of a yaml file.
         """
         data = YAMLReader(**self.model_dump()).read()
-        if self.schema is not None:
+        if self.get_schema() is not None:
             data = self.get_config(
-                config=data, schema=self.schema).model_dump()
+                config=data, schema=self.get_schema()).model_dump()
         self.status = 'read'
         return data
 
@@ -238,9 +231,10 @@ class LinkamReader(Reader):
                     for val, col in zip(values, list(data.keys())):
                         try:
                             val = float(val)
-                        except:
+                        except Exception as exc:
                             logger.warning(
-                                f'Cannot convert {col} value to float: {val}')
+                                f'Cannot convert {col} value to float: {val} '
+                                f'({exc})')
                             continue
                         else:
                             data[col].append(val)
@@ -465,13 +459,12 @@ class SpecReader(Reader):
     _validate_filename = model_validator(mode="after")(validate_model)
 
     @model_validator(mode='after')
-    def validate_config(self):
+    def validate_specreader_after(self):
         """Validate the `SpecReader` configuration.
 
         :return: The validated configuration.
         :rtype: PipelineItem
         """
-        super().validate_config()
         if self.filename is not None:
             if self.config is not None:
                 raise ValueError('Specify either filename or config in '
@@ -529,7 +522,7 @@ class SpecReader(Reader):
                 try:
                     detectors_ids = [
                         int(d.id) for d in self.detectors.detectors]
-                except:
+                except Exception:
                     detectors_ids = [d.id for d in self.detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
@@ -554,23 +547,23 @@ class SpecReader(Reader):
                     nxscans[scan_number].spec_motors = dumps(
                         {k:float(v) for k,v
                          in scanparser.spec_positioner_values.items()})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].scan_columns = dumps(
                         {k:list(v) for k,v
                          in scanparser.spec_scan_data.items() if len(v)})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].smb_pars = dumps(
                         {k:v for k,v in scanparser.pars.items()})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].spec_scan_motor_mnes = dumps(
                         scanparser.spec_scan_motor_mnes)
-                except:
+                except Exception:
                     pass
                 if self.config.experiment_type == 'EDD':
                     nxdata = NXdata()

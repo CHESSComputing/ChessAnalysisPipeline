@@ -17,7 +17,7 @@ from CHAP.common import (
 #    MapProcessor,
     NexusToNumpyProcessor,
     NexusToXarrayProcessor,
-    PrintProcessor,
+#    PrintProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
 )

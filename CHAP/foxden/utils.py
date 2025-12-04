@@ -76,5 +76,5 @@ def HttpRequest(
     elif method.lower() == 'delete':
         response = delete(url, headers=headers, timeout=timeout, data=payload)
     else:
-        raise Exception(f'Unsupported method {method}')
+        raise ValueError(f'Unsupported method {method}')
     return response

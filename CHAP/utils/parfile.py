@@ -61,7 +61,7 @@ class ParFile():
                     except ValueError:
                         try:
                             value = float(value)
-                        except:
+                        except Exception:
                             pass
                     row_data.append(value)
                 if len(row_data) != num_column:

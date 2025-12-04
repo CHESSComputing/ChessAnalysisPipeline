@@ -9,9 +9,6 @@ Description: FOXDEN readers
 # System modules
 import json
 
-# Third party modules
-import requests
-
 # Local modules
 from CHAP.pipeline import PipelineItem
 from CHAP.foxden.utils import HttpRequest
@@ -172,9 +169,9 @@ class FoxdenSpecScansReader(PipelineItem):
     SpecScans service.
     """
     def read(
-            self, url, data, did='', query='', spec=None, method='POST', #'GET',
+            self, url, data, did='', query='', spec=None, method='POST', # 'GET',
             verbose=False):
-#TODO FIX
+# TODO FIX
         """Read and return data from a specific FOXDEN SpecScans
         service.
 

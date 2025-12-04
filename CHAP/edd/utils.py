@@ -677,7 +677,7 @@ def select_material_params_gui(
         x, y, tth, preselected_materials, label, on_complete, interactive)
 
     if return_buf:
-        materials, fig_to_iobuf(figure)
+        return materials, fig_to_iobuf(figure)
     return materials, None
 
 

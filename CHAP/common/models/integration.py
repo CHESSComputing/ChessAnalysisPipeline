@@ -399,7 +399,7 @@ class IntegrationConfig(CHAPBaseModel):
         """
         # Handle idiosyncracies of azimuthal ranges in pyFAI Adjust
         # chi ranges to get a continuous range of iintegrated data
-        chi_min, chi_max, *adjust = self.get_azimuthal_adjustments()
+        chi_min, chi_max, _, _ = self.get_azimuthal_adjustments()
         # Perform radial integration on a detector-by-detector basis.
         intensity_each_detector = []
         variance_each_detector = []
@@ -516,6 +516,7 @@ class IntegrationConfig(CHAPBaseModel):
                 radial_npt=self.radial_npt,
                 azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
                 azimuthal_npt=self.azimuthal_npt)
+        return None
 
     @property
     def integrated_data_dims(self):

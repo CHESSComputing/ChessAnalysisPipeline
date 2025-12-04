@@ -75,7 +75,7 @@ def main(opt_parser=OptionParser):
     log_handler.setFormatter(logging.Formatter(
         '{name:20}: {message}', style='{'))
     processor.logger.addHandler(log_handler)
-    data = processor.process(opts.data)
+    processor.process(opts.data)
 
 
 if __name__ == '__main__':

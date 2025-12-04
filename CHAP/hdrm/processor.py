@@ -43,9 +43,6 @@ class HdrmOrmfinderProcessor(Processor):
         :return: Orientation matrix.
         :rtype: nexusformat.nexus.NXroot
         """
-        # System modules
-        from json import loads
-
         # Third party modules
         # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
@@ -59,10 +56,6 @@ class HdrmOrmfinderProcessor(Processor):
             nxsetconfig,
         )
         # pylint: enable=no-name-in-module
-
-        # Local modules
-        from CHAP.edd.processor import get_axes
-        from CHAP.giwaxs.models import AzimuthalIntegratorConfig
 
         nxsetconfig(memory=100000)
 
@@ -157,7 +150,7 @@ class HdrmOrmfinderProcessor(Processor):
 
             self._calcB(config.materials[0].lattice_parameters)
 
-            if (prelim_flag):
+            if prelim_flag:
                 euler1, chisq1, _ = self._fit_peaks(
                     peaks_prelim, x0=[0.2, 0.2, 0.2], T=0.002)
                 self.logger.info(f'Euler angles: {euler1}, chisq: {chisq1}')
@@ -198,7 +191,7 @@ class HdrmOrmfinderProcessor(Processor):
         b3 = 2.0 * np.pi * a1 * a2 * np.sin(alpha3)/V
         betanum = np.cos(alpha2) * np.cos(alpha3) - np.cos(alpha1)
         betaden = np.sin(alpha2) * np.sin(alpha3)
-        beta1 = np.arccos(betanum / betaden)
+        #beta1 = np.arccos(betanum / betaden)
         betanum = np.cos(alpha1) * np.cos(alpha3) - np.cos(alpha2)
         betaden = np.sin(alpha1) * np.sin(alpha3)
         beta2 = np.arccos(betanum / betaden)
@@ -211,7 +204,7 @@ class HdrmOrmfinderProcessor(Processor):
             [0.0, 0.0, -b3]])
 
     def _fit_peaks(
-            self, peaks, x0=[0, 0, 0], T=1.0, stepsize=0.5, niter=100,
+            self, peaks, x0=(0, 0, 0), T=1.0, stepsize=0.5, niter=100,
             seed=None, method='BFGS'):
         # Third party modules
         from scipy.spatial.transform import Rotation as R
@@ -282,9 +275,6 @@ class HdrmPeakfinderProcessor(Processor):
         from skimage.feature import peak_local_max
         # pylint: enable=no-name-in-module
 
-        # Local modules
-        from CHAP.edd.processor import get_axes
-
         nxsetconfig(memory=100000)
 
         # Load the detector data
@@ -331,7 +321,6 @@ class HdrmPeakfinderProcessor(Processor):
         nxprocess.peakfinder_config = config.model_dump_json()
 
         # Create the NXdata object to store the peaks data
-        axes = get_axes(nxdata)
         nxprocess.data = NXdata()
         if 'axes' in nxdata.attrs:
             nxprocess.data.attrs['axes'] = nxdata.attrs['axes']
@@ -348,7 +337,6 @@ class HdrmPeakfinderProcessor(Processor):
         # Find peaks and add the data to the NXprocess object
         for detector_id in detector_ids:
             intensity = nxdata[detector_id].nxdata
-            detector_attrs = nxdata[detector_id].attrs
             if 'max' in nxdata[detector_id].attrs:
                 peak_cutoff = \
                     config.peak_cutoff * nxdata[detector_id].attrs['max']

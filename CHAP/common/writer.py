@@ -519,7 +519,6 @@ class NexusWriter(Writer):
         from nexusformat.nexus import (
             NXFile,
             NXentry,
-            NXobject,
             NXroot,
         )
 
@@ -591,12 +590,13 @@ class PyfaiResultsWriter(Writer):
 
         try:
             results = self.unwrap_pipelinedata(data)[0]
-        except:
+        except Exception:
             results = data
         if not isinstance(results, list):
             results = [results]
-        if not all([isinstance(r, Integrate1dResult) for r in results]) \
-           and not all([isinstance(r, Integrate2dResult) for r in results]):
+        if (not all([isinstance(r, Integrate1dResult) for r in results])
+               and not all(
+                   [isinstance(r, Integrate2dResult) for r in results])):
             raise Exception(
                 'Bad input data: all items must have the same type -- either '
                 'all pyFAI.containers.Integrate1dResult, or all '
@@ -700,7 +700,7 @@ class YAMLWriter(Writer):
                     if self.remove:
                         data.pop(i)
                     break
-                except:
+                except Exception:
                     pass
         write_yaml(yaml_dict, self.filename, self.force_overwrite)
         self.status = 'written' # Right now does nothing yet, but could

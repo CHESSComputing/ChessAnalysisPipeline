@@ -375,7 +375,7 @@ class ModelResult():
             try:
                 self.covar = self.redchi * np.linalg.inv(
                     np.dot(result.jac.T, result.jac))
-            except:
+            except Exception:
                 self.covar = None
 
         # Update the fit parameters with the fit result
@@ -459,6 +459,7 @@ class ModelResult():
             defaults to `False`.
         :type show_correl: bool, optional
         """
+        # FIX add show_correl
         # Local modules
         from CHAP.utils.general import (
             getfloat_attr,
@@ -1122,7 +1123,7 @@ class Fit:
         # Check if model is linear
         try:
             linear_model = self._check_linearity_model()
-        except:
+        except Exception:
             linear_model = False
         if kwargs.get('check_only_linearity') is not None:
             return linear_model
@@ -1140,7 +1141,7 @@ class Fit:
                     self._fit_linear_model(
                         self._x[~self._mask],
                         np.asarray(self._y_norm)[~self._mask])
-            except:
+            except Exception:
                 linear_model = False
         if not linear_model:
             self._result = self._fit_nonlinear_model(
@@ -1409,7 +1410,7 @@ class Fit:
                 # Try with the build-in lmfit guess method
                 # (only implemented for a single model)
                 self._parameters = self._model.guess(yy, x=xx)
-            except:
+            except Exception:
                 # Third party modules
                 from asteval import Interpreter
                 from lmfit.models import GaussianModel
@@ -2330,7 +2331,7 @@ class FitMap(Fit):
             return
         try:
             rmtree(self._memfolder)
-        except:
+        except Exception:
             self._logger.warning('Could not clean-up automatically.')
 
     def plot(

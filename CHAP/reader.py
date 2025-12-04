@@ -12,7 +12,6 @@ import argparse
 import logging
 import os
 from sys import modules
-from typing import ClassVar
 
 # Third party modules
 from pydantic import (
@@ -80,7 +79,7 @@ class Reader(PipelineItem):
         try:
             with open(self.filename) as f:
                 data = f.read()
-        except:
+        except Exception:
             return None
         return data
 

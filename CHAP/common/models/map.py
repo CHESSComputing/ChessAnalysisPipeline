@@ -10,7 +10,6 @@ import os
 from typing import (
     Literal,
     Optional,
-    Union,
 )
 
 # Third party modules
@@ -423,7 +422,7 @@ class PointByPointScanData(CHAPBaseModel):
         for label in ('round', 'np', 'numpy'):
             try:
                 labels.remove(label)
-            except:
+            except Exception:
                 pass
         for l in labels:
             if l in ('round', 'np', 'numpy'):
@@ -492,8 +491,7 @@ class PointByPointScanData(CHAPBaseModel):
                 spec_scans.spec_file, scan_number, self.name)
             if scan_step_index >= 0:
                 return timestamps[scan_step_index]
-            else:
-                return timestamps
+            return timestamps
         return None
 
 @cache
@@ -1083,7 +1081,7 @@ class MapConfig(CHAPBaseModel):
                 scanparser = scans.get_scanparser(scan_number)
                 try:
                     values.append(scanparser.pars[name])
-                except:
+                except Exception:
 #                    print(
 #                        f'Warning: No value found for .par file value "{name}"'
 #                        f' on scan {scan_number} in spec file '
@@ -1233,7 +1231,6 @@ class MapConfig(CHAPBaseModel):
         :rtype: tuple[SpecScans, int, int]
         """
         raise RuntimeError('get_scan_step_index not implemented')
-        scan_type = self.attrs.get('scan_type', -1)
         fly_axis_labels = self.attrs.get('fly_axis_labels', [])
         if self.map_type == 'structured':
             map_coords = self.get_coords(map_index)

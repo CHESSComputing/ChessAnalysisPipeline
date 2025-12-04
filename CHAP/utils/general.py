@@ -1062,10 +1062,7 @@ def rolling_average(
     elif not is_int(end, gt=start, le=size):
         raise ValueError(f'Invalid "end" parameter ({end})')
     if use_convolve is None:
-        if len(y_shape) == 1:
-            use_convolve = True
-        else:
-            use_convolve = False
+        use_convolve = bool(len(y_shape) == 1)
     if use_convolve and (start or end < size):
         y = np.take(y, range(start, end), axis=1)
         if x is not None:
@@ -1300,7 +1297,7 @@ def save_iobuf_fig(buf, filename, force_overwrite=False):
     exts = {ex for ex, f in exts.items() if f in Image.SAVE}
 
     # Validate filename and extension
-    basename, ext = os_path.splitext(filename)
+    _, ext = os_path.splitext(filename)
     if not ext or ext not in exts:
         raise ValueError(f'Invalid file format {ext[1:]}')
     filedir = os_path.dirname(filename)
@@ -1360,9 +1357,6 @@ def select_mask_1d(
         and the list of selected index ranges.
     :rtype: Union[io.BytesIO, None], numpy.ndarray, list[list[int, int]]
     """
-    # System modules
-    from copy import deepcopy
-
     # Third party modules
     # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
@@ -1519,7 +1513,7 @@ def select_mask_1d(
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
         index_ranges = []
-        for i, v in enumerate(preselected_index_ranges):
+        for v in preselected_index_ranges:
             if not is_num_pair(v):
                 raise ValueError('Invalid parameter preselected_index_ranges '
                                  f'({preselected_index_ranges})')
@@ -1979,20 +1973,19 @@ def select_image_indices(
             raise ValueError(
                 f'Exceeding maximum number of selected {row_column}s, click '
                 'either "Reset" or "Confirm"')
-        elif (indices and min_range is not None
+        if (indices and min_range is not None
                 and abs(max(index, *indices) - min(index, *indices))
                     < min_range):
             raise ValueError(
                 f'Selected {row_column} range is smaller than required '
                 'minimal range of {min_range}: ignoring last selection')
+        indices.append(index)
+        if not axis:
+            for ax in axs:
+                lines.append(ax.axhline(indices[-1], c='r', lw=2))
         else:
-            indices.append(index)
-            if not axis:
-                for ax in axs:
-                    lines.append(ax.axhline(indices[-1], c='r', lw=2))
-            else:
-                for ax in axs:
-                    lines.append(ax.axvline(indices[-1], c='r', lw=2))
+            for ax in axs:
+                lines.append(ax.axvline(indices[-1], c='r', lw=2))
 
     def select_index(expression):
         """Callback function for the "Select row/column index" TextBox.

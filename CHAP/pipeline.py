@@ -7,7 +7,6 @@ Description:
 
 # System modules
 import logging
-import os
 from time import time
 from types import MethodType
 from typing import (
@@ -61,7 +60,7 @@ class PipelineItem(RunConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def validate_config(self):
+    def validate_pipelineitem_config_after(self):
         """Validate the `PipelineItem` configuration.
 
         :return: The validated configuration.
@@ -117,10 +116,6 @@ class PipelineItem(RunConfig):
         return RunConfig(**self.model_dump()).model_dump()
 
     @property
-    def schema(self):
-        return self.schema_
-
-    @property
     def status(self):
         return self._status
 
@@ -138,6 +133,9 @@ class PipelineItem(RunConfig):
 
     def get_required_args(self):
         return self._required_args
+
+    def get_schema(self):
+        return self.schema_
 
     @staticmethod
     def get_default_nxentry(nxobject):
@@ -168,9 +166,9 @@ class PipelineItem(RunConfig):
                 nxentries = [
                     v for v in nxobject.values() if isinstance(v, NXentry)]
                 if not nxentries:
-                    raise ValueError(f'Unable to retrieve a NXentry object')
-                elif len(nxentries) != 1:
-                    print(f'Found multiple NXentries, returning the first')
+                    raise ValueError('Unable to retrieve a NXentry object')
+                if len(nxentries) != 1:
+                    print('Found multiple NXentries, returning the first')
                 nxentry = nxentries[0]
         elif isinstance(nxobject, NXentry):
             nxentry = nxobject
@@ -231,7 +229,7 @@ class PipelineItem(RunConfig):
         t0 = time()
 
         if schema is None:
-            schema = self.schema
+            schema = self.schema_
         matching_config = False
         if data is not None:
             try:
@@ -241,7 +239,7 @@ class PipelineItem(RunConfig):
                         if remove:
                             data.pop(i)
                         break
-            except:
+            except Exception:
                 pass
 
         if not matching_config:
@@ -305,7 +303,7 @@ class PipelineItem(RunConfig):
             else:
                 raise ValueError(f'No NXobject data item found')
         elif name is not None:
-            self.logger.debug(f'Getting data item named "{name}"')
+            self.logger.debug(f'Getting data item named {name}')
             for i, d in reversed(list(enumerate(data))):
                 if d.get('name') == name:
                     result = d.get('data')
@@ -313,9 +311,9 @@ class PipelineItem(RunConfig):
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No match for data item named "{name}"')
+                raise ValueError(f'No match for data item named {name}')
         elif schema is not None:
-            self.logger.debug(f'Getting data item with schema "{schema}"')
+            self.logger.debug(f'Getting data item with schema {schema}')
             for i, d in reversed(list(enumerate(data))):
                 if d.get('schema') == schema:
                     result = d.get('data')
@@ -325,8 +323,7 @@ class PipelineItem(RunConfig):
             else:
                 raise ValueError(
                     f'No match for data item with schema "{schema}"')
-        self.logger.debug(
-           f'Obtained pipeline data in {time()-t0:.3f} seconds')
+        self.logger.debug(f'Obtained pipeline data in {time()-t0:.3f} seconds')
 
         return result
 
@@ -339,12 +336,11 @@ class PipelineItem(RunConfig):
         :return: The wrapped result of running read, process, or write.
         :rtype: Union[PipelineData, tuple[PipelineData]]
         """
-        self._required_args
         if 'data' in self._allowed_args:
             self._args['data'] = data
         t0 = time()
         self.logger.debug(f'Executing "{self._method_type}" with schema '
-                          f'"{self.schema}" and {self._args}')
+                          f'"{self.schema_}" and {self._args}')
         self.logger.info(f'Executing "{self._method_type}"')
         data = self._method(**self._args)
         self.logger.info(
@@ -365,7 +361,7 @@ class Pipeline(CHAPBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def validate_config(self):
+    def validate_pipeline_config_after(self):
         """Validate the `Pipeline` configuration and initialize and
         validate the private attributes.
 
@@ -410,11 +406,11 @@ class Pipeline(CHAPBaseModel):
                 if item.status not in ('read', 'write_pending'):
                     self.logger.debug(
                         f'Validating "{item.method_type}" with schema '
-                        f'"{item.schema}" and {item.get_args()}')
+                        f'"{item.get_schema()}" and {item.get_args()}')
                     self.logger.info(f'Validating "{item.method_type}"')
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
-                        name=item.name, data=data, schema=item.schema))
+                        name=item.name, data=data, schema=item.get_schema()))
                     if hasattr(item, 'filename') and item.filename is not None:
                         self._filename_mapping[
                             item._mapping_filename]['status'] = 'read'
@@ -426,8 +422,8 @@ class Pipeline(CHAPBaseModel):
                                 'write_pending'
                     if item.filename not in self._output_filenames:
                         self._output_filenames.append(item.filename)
-        self.logger.info(
-            f'Executed "validate_config" in {time()-t0:.3f} seconds')
+        self.logger.info('Executed "validate_pipeline_config_after" in '
+                         f'{time()-t0:.3f} seconds')
 
         return self
 
@@ -436,9 +432,9 @@ class Pipeline(CHAPBaseModel):
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        for item, args in zip(self.items, self.args):
+        for item in self.items:
             if hasattr(item, 'execute'):
-                self.logger.info(f'Calling "execute" on {item}')
+                self.logger.info('Calling "execute" on %s', item)
                 if (item.method_type == 'read' and hasattr(item, 'filename')
                         and item.filename is not None):
                     item.status = self._filename_mapping[
@@ -446,17 +442,19 @@ class Pipeline(CHAPBaseModel):
                 data = item.execute(data=self._data)
                 if item.method_type == 'read':
                     self._data.append(PipelineData(
-                        name=item.name, data=data, schema=item.schema))
+                        name=item.name, data=data, schema=item.get_schema()))
                 elif item.method_type == 'process':
                     if isinstance(data, tuple):
                         self._data.extend(
                             [d if isinstance(d, PipelineData)
                              else PipelineData(
-                                 name=item.name, data=d, schema=item.schema)
+                                 name=item.name, data=d,
+                                 schema=item.get_schema())
                              for d in data])
                     else:
                         self._data.append(PipelineData(
-                            name=item.name, data=data, schema=item.schema))
+                            name=item.name, data=data,
+                            schema=item.get_schema()))
                 elif item.method_type == 'write':
                     if hasattr(item, 'filename') and item.filename is not None:
                         for k, v in self._filename_mapping.items():

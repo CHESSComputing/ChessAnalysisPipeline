@@ -3,13 +3,13 @@ config:
   inputdir: config
   outputdir: data/hollow_pyramid
   interactive: true
-  log_level: info
+  log_level: debug
   profile: false
 
 pipeline:
 
   # Create a simulated stack of tomography images
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: tomo_sim_id3a_pyramid.yaml
       schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor:

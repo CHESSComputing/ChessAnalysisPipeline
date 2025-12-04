@@ -3,10 +3,7 @@
 
 # System modules
 import os
-from typing import (
-    Optional,
-    Union,
-)
+from typing import Optional
 
 # Third party modules
 # pylint: disable=import-error
@@ -293,10 +290,6 @@ class EddMPIMapReader(Reader):
 
         # Local modules
         from CHAP.common.models.map import MapConfig
-        from CHAP.utils.general import (
-            is_int,
-            is_str_series,
-        )
         from CHAP.utils.parfile import ParFile
 
         parfile = ParFile(self.filename)
@@ -588,9 +581,6 @@ class SetupNXdataReader(Reader):
             and signal names, shapes, and attributes.
         :rtype: dict
         """
-        # Local modules
-        from CHAP.utils.general import is_int
-
         # Columns in input .txt file:
         # 0: scan number
         # 1: dataset index
@@ -792,10 +782,7 @@ class SliceNXdataReader(Reader):
 
         # Local modules
         from CHAP.common import NexusReader
-        from CHAP.utils.general import (
-            is_int,
-            nxcopy,
-        )
+        from CHAP.utils.general import nxcopy
 
         reader = NexusReader(**self.model_dump())
         nxroot = nxcopy(reader.read())
@@ -861,7 +848,6 @@ class UpdateNXdataReader(Reader):
         :rtype: list[dict[str, object]]
         """
         # Local modules
-        from CHAP.utils.general import is_int
         from CHAP.utils.parfile import ParFile
 
         scanparser = ScanParser(self.filename, self.scan_number)
