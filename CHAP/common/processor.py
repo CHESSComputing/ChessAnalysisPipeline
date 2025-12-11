@@ -643,7 +643,9 @@ class ConvertStructuredProcessor(Processor):
 class ExpressionProcessor(Processor):
     """Processor to perform an arbitrary expression on input
     data."""
-    def process(self, data, expression, symtable=None, nxprocess=False):
+    def process(self, data, expression, symtable=None, nxprocess=False,
+                nxfieldtable=None, nxdata_name='data',
+                nxfield_name='result'):
         """Return result of plugging input data into the given
         mathematical expression.
 
@@ -659,15 +661,39 @@ class ExpressionProcessor(Processor):
         :param nxprocess: Flag to indicate the results should be
             retunred as an `NXprocess`. Defaults to `False`.
         :type nxprocess: bool, optional
+        :param nxfieldtable: Used only if `nxprocess` is
+            `True`. Dictionary of additional `NXfield`s to include in
+            the `NXprocess` result object right next to the expression
+            result's `NXfield`. Dictionary keys become `NXfield` names
+            in the returned object. Defaults to `None`.
+        :type nxfieldtable: dict[str, NXfield], optional
+        :param nxdata_name: Used only if `nxprocess` is
+            `True`. Name for the `NXdata` group in the returned
+            `NXprocess` that contains actual result data. efaults to
+            `'data'`.
+        :type nxdata_name: str, optional
+        :param nxfield_name: Used only if `nxprocess` is
+            `True`. Name for the `NXfield` dataset that contains the
+            evaluated expression results. Defaults to `'result'`.
+        :type nxfield_name: str, optional
         :returns: Result of evaluating the expression.
         :rtype: object
         """
         return self._process(
-            data, expression, symtable=symtable, nxprocess=nxprocess)
+            data, expression, symtable=symtable, nxprocess=nxprocess,
+            nxfieldtable=nxfieldtable, nxdata_name=nxdata_name,
+            nxfield_name=nxfield_name
+        )
 
-    def _process(self, data, expression, symtable=None, nxprocess=False):
+    def _process(self, data, expression, symtable=None, nxprocess=False,
+                 nxfieldtable=None, nxdata_name='data',
+                 nxfield_name='result'):
         from ast import parse
         from asteval import get_ast_names, Interpreter
+
+        if not isinstance(nxfieldtable, dict):
+            self.logger.warning('No usable nxfieldtable provided, using {}')
+            nxfieldtable = {}
 
         names = get_ast_names(parse(expression))
         if symtable is None:
@@ -696,20 +722,17 @@ class ExpressionProcessor(Processor):
             NXprocess,
         )
         return NXprocess(
-            name='expression',
+            name=nxprocess,
             entries={
-                'data': NXdata(
+                nxdata_name: NXdata(
                     signal=NXfield(
-                        name='result',
+                        name=nxfield_name,
                         value=new_data,
                         attrs={'expression': expression}
                     ),
                     **{
-                        name: NXfield(
-                            value=symtable[name]
-                        )
-                        for name in names
-                        if name not in ('round', 'np', 'numpy')
+                        name: nxfield
+                        for name, nxfield in nxfieldtable.items()
                     },
                     attrs={'expression': expression}
                 ),
