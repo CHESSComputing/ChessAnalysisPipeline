@@ -12,6 +12,10 @@ Define a generic `Processor` object.
 import argparse
 import logging
 from sys import modules
+from typing import Optional
+
+# Third party modules
+from pydantic import model_validator
 
 # Local modules
 from CHAP.pipeline import PipelineItem
@@ -24,6 +28,72 @@ class Processor(PipelineItem):
     returned by the previous `PipelineItem`, process it in some way,
     and return the result for the next `PipelineItem` to use as input.
     """
+    @model_validator(mode='before')
+    @classmethod
+    def validate_processor_before(cls, data):
+        # System modules
+        from copy import deepcopy
+
+        # Local modules
+        from CHAP.utils.general import (
+            dictionary_update,
+            is_str_or_str_series,
+        )
+
+        #print(f'\nProcessor before')
+        if isinstance(data, dict):
+            if 'data' in data and 'modelmetaclass' in data:
+                mmc = data['modelmetaclass']
+                pipeline_fields = mmc.model_fields.get('pipeline_fields')
+                if pipeline_fields is not None:
+                    for k, v in pipeline_fields.default.items():
+                        if is_str_or_str_series(v, log=False):
+                            schema = v
+                            merge_key_paths = None
+                        else:
+                            schema = v.get('schema')
+                            merge_key_paths = v.get('merge_key_paths')
+                        #print(f'\n--> trying to get "{k}" for "{mmc}" from pipeline for schema "{schema}"')
+#                        print(f'from data {type(data["data"])}')
+#                        pprint(data['data'])
+                        try:
+#                            print('try getting value')
+                            value = deepcopy(mmc.get_data(
+                                data['data'], schema=schema, remove=False))
+                            #print(f'Got a value {type(value)}')
+#                            pprint(value)
+#                            print()
+                        except:
+                            #print(f'Unable to get "{k}" for {mmc}')
+                            pass
+                        else:
+#                            print(f'try validating value with merge_key_paths: {merge_key_paths}')
+                            if k in data:
+                                #print(f'Updating data[{k}]')
+#                                pprint(data[k])
+#                                print()
+                                data[k] = dictionary_update(
+                                    value, data[k],
+                                    merge_key_paths=merge_key_paths,
+                                    sort=True)
+#                                print(f'-> value updated to')
+#                                pprint(data[k])
+#                                print()
+                            else:
+                                #print(f'Setting value for {k}')
+                                data[k] = value
+#                                print(f'data[{k}] set to')
+#                                pprint(data[k])
+#                                print()
+        return data
+
+#    @model_validator(mode='after')
+#    def validate_processor_after(self):
+#        print(f'\nProcessor after {type(self)}:')
+#        pprint(self.model_dump())
+#        print('\n')
+#        return self
+
     def process(self, data):
         """Extract the contents of the input data, add a string to it,
         and return the amended value.

@@ -24,6 +24,7 @@ from pydantic import (
     constr,
     model_validator,
 )
+from pydantic._internal._model_construction import ModelMetaclass
 
 # Local modules
 from CHAP.models import (
@@ -53,14 +54,14 @@ class PipelineItem(RunConfig):
         'read', 'process', 'write'] = PrivateAttr(default=None)
     _args: dict = PrivateAttr(default={})
     _allowed_args: conlist(item_type=str) = PrivateAttr(default=[])
-    _required_args: conlist(item_type=str) = PrivateAttr(default=[])
+#    _required_args: conlist(item_type=str) = PrivateAttr(default=[])
     _status: Literal[
         'read', 'write_pending', 'written'] = PrivateAttr(default=None)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def validate_pipelineitem_config_after(self):
+    def validate_pipelineitem_after(self):
         """Validate the `PipelineItem` configuration.
 
         :return: The validated configuration.
@@ -68,7 +69,7 @@ class PipelineItem(RunConfig):
         """
         # System modules
         from inspect import (
-            Parameter,
+#            Parameter,
             signature,
         )
 
@@ -98,9 +99,9 @@ class PipelineItem(RunConfig):
         sig = signature(self._method)
         self._allowed_args = [k for k, v in sig.parameters.items()
                               if v.kind == v.POSITIONAL_OR_KEYWORD]
-        self._required_args = [k for k, v in sig.parameters.items()
-                               if (v.kind == v.POSITIONAL_OR_KEYWORD
-                                   and v.default is Parameter.empty)]
+#        self._required_args = [k for k, v in sig.parameters.items()
+#                               if (v.kind == v.POSITIONAL_OR_KEYWORD
+#                                   and v.default is Parameter.empty)]
         return self
 
     @property
@@ -131,8 +132,11 @@ class PipelineItem(RunConfig):
             if k in self._allowed_args:
                 self._args[k] = v
 
-    def get_required_args(self):
-        return self._required_args
+#    def get_required_args(self):
+#        return self._required_args
+
+    def has_filename(self):
+        return hasattr(self, 'filename') and self.filename is not None
 
     def get_schema(self):
         return self.schema_
@@ -168,7 +172,8 @@ class PipelineItem(RunConfig):
                 if not nxentries:
                     raise ValueError('Unable to retrieve a NXentry object')
                 if len(nxentries) != 1:
-                    print('Found multiple NXentries, returning the first')
+                    print('WARNING: Found multiple NXentries, returning the '
+                          'first')
                 nxentry = nxentries[0]
         elif isinstance(nxobject, NXentry):
             nxentry = nxobject
@@ -199,8 +204,8 @@ class PipelineItem(RunConfig):
         return unwrapped_data
 
     def get_config(
-            self, data=None, config=None, schema=None, remove=True, **kwargs):
-        """Look through `data` for the first item whose value for the
+            self, data=None, config=None, schema=None, remove=True):
+        """Look through `data` for the last item which value for the
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
         identified by `schema` and return it. If no item is found and
@@ -212,7 +217,8 @@ class PipelineItem(RunConfig):
         :param config: Initialization parameters for an instance of
             the Pydantic model identified by `schema`, required if
             data is unspecified, invalid or does not contain an item
-            that matches the schema.
+            that matches the schema, superseeds any equal parameters
+            contained in `data`.
         :type config: dict, optional
         :param schema: Name of the `PipelineItem` class to match in
             `data` & return, defaults to the internal PipelineItem
@@ -222,7 +228,7 @@ class PipelineItem(RunConfig):
            it from the list, defaults to `True`.
         :type remove: bool, optional
         :raises ValueError: If there's no match for `schema` in `data`.
-        :return: The first matching configuration model.
+        :return: The last matching validated configuration model.
         :rtype: PipelineItem
         """
         self.logger.debug(f'Getting {schema} configuration')
@@ -233,7 +239,7 @@ class PipelineItem(RunConfig):
         matching_config = False
         if data is not None:
             try:
-                for i, d in enumerate(data):
+                for i, d in reversed(list(enumerate(data))):
                     if d.get('schema') == schema:
                         matching_config = d.get('data')
                         if remove:
@@ -242,7 +248,14 @@ class PipelineItem(RunConfig):
             except Exception:
                 pass
 
-        if not matching_config:
+        if matching_config:
+            if config is not None:
+                # Local modules
+                from CHAP.utils.general import dictionary_update
+
+                # Update matching_config with config if both exist
+                matching_config = dictionary_update(matching_config, config)
+        else:
             if isinstance(config, dict):
                 matching_config = config
             else:
@@ -255,7 +268,6 @@ class PipelineItem(RunConfig):
 
         mod_name, cls_name = schema.rsplit('.', 1)
         module = __import__(f'CHAP.{mod_name}', fromlist=cls_name)
-        matching_config.update(kwargs)
         model_config = getattr(module, cls_name)(**matching_config)
 
         self.logger.debug(
@@ -263,14 +275,14 @@ class PipelineItem(RunConfig):
 
         return model_config
 
-    def get_data(self, data, name=None, schema=None, remove=True):
-        """Look through `data` for an item whose `'data'` value is
-        a nexusformat.nexus.NXobject object or matches a given name or
-        schema. Pick the item for which
-        the `'name'` key matches `name` if set or the `'schema'` key
-        matches `schema` if set, pick the last match for a 
-        nexusformat.nexus.NXobject object otherwise.
-        Return the data object.
+    @staticmethod
+    def get_data(data, name=None, schema=None, remove=True):
+        """Look through `data` for the last item which `'data'` value
+        is a nexusformat.nexus.NXobject object or matches a given name
+        or schema. Pick the last item for which the `'name'` key
+        matches `name` if set or the `'schema'` key matches `schema`
+        if set, pick the last match for a nexusformat.nexus.NXobject
+        object otherwise. Return the data object.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData].
@@ -278,7 +290,7 @@ class PipelineItem(RunConfig):
         :type name: str, optional
         :param schema: Name of the `PipelineItem` class to match in
             `data` & return.
-        :type schema: str, optional
+        :type schema: Union[str, list[str]], optional
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -292,7 +304,6 @@ class PipelineItem(RunConfig):
         from nexusformat.nexus import NXobject
 
         result = None
-        t0 = time()
         if name is None and schema is None:
             for i, d in reversed(list(enumerate(data))):
                 if isinstance(d.get('data'), NXobject):
@@ -303,7 +314,6 @@ class PipelineItem(RunConfig):
             else:
                 raise ValueError(f'No NXobject data item found')
         elif name is not None:
-            self.logger.debug(f'Getting data item named {name}')
             for i, d in reversed(list(enumerate(data))):
                 if d.get('name') == name:
                     result = d.get('data')
@@ -311,11 +321,10 @@ class PipelineItem(RunConfig):
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No match for data item named {name}')
+                raise ValueError(f'No match for data item named "{name}"')
         elif schema is not None:
-            self.logger.debug(f'Getting data item with schema {schema}')
             for i, d in reversed(list(enumerate(data))):
-                if d.get('schema') == schema:
+                if d.get('schema') in schema:
                     result = d.get('data')
                     if remove:
                         data.pop(i)
@@ -323,7 +332,6 @@ class PipelineItem(RunConfig):
             else:
                 raise ValueError(
                     f'No match for data item with schema "{schema}"')
-        self.logger.debug(f'Obtained pipeline data in {time()-t0:.3f} seconds')
 
         return result
 
@@ -342,6 +350,9 @@ class PipelineItem(RunConfig):
         self.logger.debug(f'Executing "{self._method_type}" with schema '
                           f'"{self.schema_}" and {self._args}')
         self.logger.info(f'Executing "{self._method_type}"')
+        #print(f'\nExecuting"{self.method_type}" with schema "{self.get_schema()}" and')
+        #pprint(self.get_args())
+        #print()
         data = self._method(**self._args)
         self.logger.info(
             f'Finished "{self._method}" in {time()-t0:.0f} seconds\n')
@@ -351,17 +362,18 @@ class PipelineItem(RunConfig):
 class Pipeline(CHAPBaseModel):
     """Class representing a full `Pipeline` object."""
     args: conlist(item_type=dict, min_length=1)
-    items: conlist(item_type=PipelineItem, min_length=1)
     logger: Optional[logging.Logger] = None
+    mmcs: conlist(item_type=ModelMetaclass, min_length=1)
 
     _data: conlist(item_type=PipelineData) = PrivateAttr(default=[])
+    _items: conlist(item_type=PipelineItem) = PrivateAttr(default=[])
     _output_filenames: conlist(item_type=FilePath) = PrivateAttr(default=[])
     _filename_mapping: dict = PrivateAttr(default={})
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
-    def validate_pipeline_config_after(self):
+    def validate_pipeline_after(self):
         """Validate the `Pipeline` configuration and initialize and
         validate the private attributes.
 
@@ -374,16 +386,19 @@ class Pipeline(CHAPBaseModel):
             self.logger = logging.getLogger(self.__name__)
             self.logger.propagate = False
 
-        for item, args in zip(self.items, self.args):
-            if hasattr(item, 'filename') and item.filename is not None:
+        #print(f'\n---------------------- Pipeline validation ------------------------------\n')
+        for mmc, args in zip(self.mmcs, self.args):
+            #print(f'\nInitializing "{mmc}" with\n')
+            #pprint(args)
+            #print()
+            item = mmc(data=self._data, modelmetaclass=mmc, **args)
+            if item.has_filename():
                 if item.method_type == 'read':
                     if item._mapping_filename in self._filename_mapping:
-                        item.filename = \
-                            self._filename_mapping[
-                                item._mapping_filename]['path']
-                        item.status = \
-                            self._filename_mapping[
-                                item._mapping_filename]['status']
+                        item.filename = self._filename_mapping[
+                            item._mapping_filename]['path']
+                        item.status = self._filename_mapping[
+                            item._mapping_filename]['status']
                     else:
                         if item.filename in self._output_filenames:
                             self._filename_mapping[item._mapping_filename] = {
@@ -402,29 +417,39 @@ class Pipeline(CHAPBaseModel):
                             '"force_overwrite" in the pipeline configuration '
                             f'for {item.name}')
             item.set_args(**args)
-            if item.method_type == 'read':
-                if item.status not in ('read', 'write_pending'):
+            if (item.method_type == 'read'
+                    and item.status not in ('read', 'write_pending')):
+                #RV FIX TODO
+                if item.get_schema() is not None:
                     self.logger.debug(
                         f'Validating "{item.method_type}" with schema '
                         f'"{item.get_schema()}" and {item.get_args()}')
                     self.logger.info(f'Validating "{item.method_type}"')
+                    #print(f'\nValidating "{item.method_type}" with schema "{item.get_schema()}" and\n')
+                    #pprint(item.get_args())
+                    #print()
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
                         name=item.name, data=data, schema=item.get_schema()))
-                    if hasattr(item, 'filename') and item.filename is not None:
+                    if item.has_filename():
                         self._filename_mapping[
                             item._mapping_filename]['status'] = 'read'
-            elif item.method_type == 'write':
-                if hasattr(item, 'filename') and item.filename is not None:
-                    for k, v in self._filename_mapping.items():
-                        if v['path'] == item.filename:
-                            self._filename_mapping[k]['status'] = \
-                                'write_pending'
-                    if item.filename not in self._output_filenames:
-                        self._output_filenames.append(item.filename)
-        self.logger.info('Executed "validate_pipeline_config_after" in '
-                         f'{time()-t0:.3f} seconds')
+                    else:
+                        item.status = 'read'
+            if item.method_type == 'write' and item.has_filename():
+                for k, v in self._filename_mapping.items():
+                    if v['path'] == item.filename:
+                        self._filename_mapping[k]['status'] = \
+                            'write_pending'
+                if item.filename not in self._output_filenames:
+                    self._output_filenames.append(item.filename)
+            self._items.append(item)
+        self.logger.info(f'Validated pipeline in {time()-t0:.3f} seconds')
 
+        #print(f'\nself._data after validation:')
+        #for d in self._data:
+        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
+        #print()
         return self
 
     def execute(self):
@@ -432,33 +457,38 @@ class Pipeline(CHAPBaseModel):
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        for item in self.items:
+        #print(f'\n---------------------- Pipeline execution------------------------------\n')
+        for item, args in zip(self._items, self.args):
             if hasattr(item, 'execute'):
-                self.logger.info('Calling "execute" on %s', item)
-                if (item.method_type == 'read' and hasattr(item, 'filename')
-                        and item.filename is not None):
+                self.logger.info(f'Calling "execute" on {item}\n')
+                if item.method_type == 'read' and item.has_filename():
                     item.status = self._filename_mapping[
                         item._mapping_filename]['status']
-                data = item.execute(data=self._data)
-                if item.method_type == 'read':
-                    self._data.append(PipelineData(
-                        name=item.name, data=data, schema=item.get_schema()))
-                elif item.method_type == 'process':
-                    if isinstance(data, tuple):
-                        self._data.extend(
-                            [d if isinstance(d, PipelineData)
-                             else PipelineData(
-                                 name=item.name, data=d,
-                                 schema=item.get_schema())
-                             for d in data])
-                    else:
+                if not (item.method_type == 'read' and item.status == 'read'):
+                    data = item.execute(data=self._data)
+                    if item.method_type == 'read':
                         self._data.append(PipelineData(
                             name=item.name, data=data,
                             schema=item.get_schema()))
-                elif item.method_type == 'write':
-                    if hasattr(item, 'filename') and item.filename is not None:
+                    elif item.method_type == 'process':
+                        if isinstance(data, tuple):
+                            self._data.extend(
+                                [d if isinstance(d, PipelineData)
+                                 else PipelineData(
+                                     name=item.name, data=d,
+                                     schema=item.get_schema())
+                                 for d in data])
+                        else:
+                            self._data.append(PipelineData(
+                                name=item.name, data=data,
+                                schema=item.get_schema()))
+                    elif item.method_type == 'write' and item.has_filename():
                         for k, v in self._filename_mapping.items():
                             if v['path'] == item.filename:
                                 self._filename_mapping[k]['status'] = 'written'
+                #print(f'\nself._data after {item.name}:')
+                #for d in self._data:
+                #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
+                #print()
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
         return self._data

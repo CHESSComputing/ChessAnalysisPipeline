@@ -30,7 +30,6 @@ except ImportError:
     HAVE_JOBLIB = False
 from nexusformat.nexus import NXdata
 import numpy as np
-from pydantic import model_validator
 
 # Local modules
 from CHAP.processor import Processor
@@ -191,12 +190,10 @@ class FitProcessor(Processor):
                 ast(f'fwhm = {model_config.fwhm_max}')
                 sig_max = ast(fwhm_factor[model_config.peak_models])
 
+        prefix = ''
         if model_config.fit_type == 'uniform':
             parameters.append(FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN))
-            prefix = None
-            if num_peak == 1:
-                prefix = ''
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -208,8 +205,6 @@ class FitProcessor(Processor):
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
         else:
-            if num_peak == 1:
-                prefix = ''
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -459,7 +454,7 @@ class ModelResult():
             defaults to `False`.
         :type show_correl: bool, optional
         """
-        # FIX add show_correl
+        # FIX add show_correl option
         # Local modules
         from CHAP.utils.general import (
             getfloat_attr,

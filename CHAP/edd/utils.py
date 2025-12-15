@@ -1320,7 +1320,7 @@ def get_spectra_fits(
     # Local modules
     from CHAP.utils.fit import FitProcessor
 
-    num_proc = detector.num_proc
+    num_proc = kwargs.get('num_proc', 1)
     rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
     nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))

@@ -58,10 +58,17 @@ class ConfigReader(Reader):
         of a yaml file.
         """
         data = YAMLReader(**self.model_dump()).read()
+        #print(f'\nConfigReader.read start data {type(data)}:')
+        raise RuntimeError(
+            'FIX ConfigReader downstream validators do not like a pydantic '
+            'class as output of a reader, but returning data.model_dict() '
+            'instead screws up default value identification')
+        #pprint(data)
         if self.get_schema() is not None:
-            data = self.get_config(
-                config=data, schema=self.get_schema()).model_dump()
+            data = self.get_config(config=data, schema=self.get_schema())
         self.status = 'read'
+        #print(f'\nConfigReader.read end data {type(data)}:')
+        #pprint(data)
         return data
 
 
@@ -442,16 +449,15 @@ class SpecReader(Reader):
         constructor of `CHAP.common.models.map.SpecConfig`.
     :type config: dict, optional
     :ivar detectors: Detector configurations of the detectors to
-        include raw data for in the returned NeXus output, defaults
-        to None (only a valid input for EDD).
+        include raw data for in the returned NeXus NXroot object,
+        defaults to None (only a valid input for EDD).
     :type detectors: Union[
-        list[dict], CHAP.common.models.map.DetectorConfig], optional
+        dict, common.models.map.DetectorConfig], optional
     :ivar filename: Name of file to read from.
     :type filename: str, optional
     """
     config: Optional[Union[dict, SpecConfig]] = None
-    detectors: Optional[Union[
-        conlist(min_length=1, item_type=dict), DetectorConfig]] = None
+    detector_config: Optional[DetectorConfig] = None
     filename: Optional[str] = None
 
     _mapping_filename: PrivateAttr(default=None)
@@ -472,14 +478,11 @@ class SpecReader(Reader):
             self.config = YAMLReader(**self.model_dump()).read()
         self.config = self.get_config(
             config=self.config, schema='common.models.map.SpecConfig')
-        if self.detectors is None:
+        if self.detector_config is None:
             if self.config.experiment_type != 'EDD':
                 raise RuntimeError(
-                    'Missing parameter detectors for experiment type '
+                    'Missing parameter detector_config for experiment type '
                     f'{self.config.experiment_type}')
-        else:
-            self.detectors = DetectorConfig(detectors=self.detectors)
-
         return self
 
     def read(self):
@@ -504,6 +507,12 @@ class SpecReader(Reader):
         # Local modules
         from CHAP.common.models.map import Detector
 
+        #print(f'\n\nSpecReader.read\nself.config:')
+        #pprint(self.config)
+        #print(f'\n\ndetector_config:')
+        #pprint(self.detector_config)
+        #print(f'\n\n')
+
         # Create the NXroot object
         nxroot = NXroot()
         nxentry = NXentry(name=self.config.experiment_type)
@@ -515,15 +524,6 @@ class SpecReader(Reader):
         # detector info and raw detector data
         nxentry.config = self.config.model_dump_json()
         nxentry.attrs['station'] = self.config.station
-        if self.config.experiment_type == 'EDD':
-            if self.detectors is None:
-                detectors_ids = None
-            else:
-                try:
-                    detectors_ids = [
-                        int(d.id) for d in self.detectors.detectors]
-                except Exception:
-                    detectors_ids = [d.id for d in self.detectors.detectors]
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
         if self.config.experiment_type == 'EDD':
@@ -540,8 +540,16 @@ class SpecReader(Reader):
                         detector_data_format = scanparser.detector_data_format
                     elif (scanparser.detector_data_format !=
                             detector_data_format):
-                        raise ValueError(
-                        'Mixing `spec` and `h5` data formats not implemented')
+                        raise NotImplementedError(
+                            'Mixing `spec` and `h5` data formats')
+                    if self.detector_config is None:
+                        detectors_ids = None
+                    elif detector_data_format == 'spec':
+                        raise NotImplementedError(
+                            'detector_data_format = "spec"')
+                    else:
+                        detectors_ids = [
+                            int(d.id) for d in self.detector_config.detectors]
                 nxscans[scan_number] = NXcollection()
                 try:
                     nxscans[scan_number].spec_motors = dumps(
@@ -581,21 +589,19 @@ class SpecReader(Reader):
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
-                    for detector in self.detectors.detectors:
+                    for detector in self.detector_config.detectors:
                         nxdata[detector.id] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.id, dtype=dtype))
 
-        if self.detectors is None and self.config.experiment_type == 'EDD':
+        if (self.config.experiment_type == 'EDD' and
+                self.detector_config is None):
             if detector_data_format == 'spec':
-                self.detectors = DetectorConfig(
-                    detectors=[Detector(id='mca1')
-                               for i in range(nxdata.data.shape[1])])
-            else:
-                self.detectors = DetectorConfig(
-                    detectors=[
-                        Detector(id=i) for i in range(nxdata.data.shape[1])])
-        nxentry.detectors = self.detectors.model_dump_json()
+                raise NotImplementedError('detector_data_format = "spec"')
+            self.detector_config = DetectorConfig(
+                detectors=[
+                    Detector(id=i) for i in range(nxdata.data.shape[1])])
+        nxentry.detectors = self.detector_config.model_dump_json()
 
         #return nxroot, nxpaths
         return nxroot

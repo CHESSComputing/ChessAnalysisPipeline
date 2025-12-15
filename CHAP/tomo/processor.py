@@ -7,15 +7,20 @@ Description: Module for Processors used only by tomography experiments
 """
 
 # System modules
-from copy import deepcopy
 import os
 import re
 import sys
 from time import time
+from typing import Optional
 
 # Third party modules
 from json import loads
 import numpy as np
+from pydantic import (
+    conint,
+    conlist,
+    field_validator,
+)
 
 # Local modules
 from CHAP.common.models.map import MapConfig
@@ -585,22 +590,39 @@ class TomoDataProcessor(Processor):
     containing the data after processing each individual step, an
     optional list of byte stream representions of Matplotlib figures,
     and the metadata associated with the workflow.
+
+    :ivar reduce_data: Generate reduced tomography images,
+        defaults to `False`.
+    :type reduce_data: bool, optional
+    :ivar find_center: Generate calibrated center axis info,
+        defaults to `False`.
+    :type find_center: bool, optional
+    :ivar calibrate_center: Calibrate the rotation axis,
+        defaults to `False`.
+    :type calibrate_center: bool, optional
+    :ivar reconstruct_data: Reconstruct the tomography data,
+        defaults to `False`.
+    :type reconstruct_data: bool, optional
+    :ivar combine_data: Combine the reconstructed tomography stacks,
+        defaults to `False`.
+    :type combine_data: bool, optional
+    :ivar save_figures: Create Matplotlib figures that can be
+        saved to file downstream in the workflow,
+        defaults to `True`.
+    :type save_figures: bool, optional
     """
-    def process(
-            self, data, config=None, reduce_data=False, find_center=False,
-            calibrate_center=False, reconstruct_data=False, combine_data=False,
-            save_figures=True):
-        return self._process(
-            data, config=config, reduce_data=reduce_data,
-            find_center=find_center, calibrate_center=calibrate_center,
-            reconstruct_data=reconstruct_data, combine_data=combine_data,
-            save_figures=save_figures)
+    reduce_data: Optional[bool] = False
+    find_center: Optional[bool] = False
+    calibrate_center: Optional[bool] = False
+    reconstruct_data: Optional[bool] = False
+    combine_data: Optional[bool] = False
+    save_figures: Optional[bool] = True
+
+    def process(self, data, config=None):
+        return self._process(data, config=config)
 
     #@profile
-    def _process(
-            self, data, config=None, reduce_data=False,
-            find_center=False, calibrate_center=False, reconstruct_data=False,
-            combine_data=False, save_figures=True):
+    def _process(self, data, config=None):
         """Process the input map or configuration with the step
         specific instructions and return either a dictionary or a
         `nexusformat.nexus.NXroot` object with the processed result,
@@ -613,25 +635,6 @@ class TomoDataProcessor(Processor):
         :param config: Initialization parameters for a single
             tomography workflow step.
         :type config: dict, optional
-        :param reduce_data: Generate reduced tomography images,
-            defaults to `False`.
-        :type reduce_data: bool, optional
-        :param find_center: Generate calibrated center axis info,
-            defaults to `False`.
-        :type find_center: bool, optional
-        :param calibrate_center: Calibrate the rotation axis,
-            defaults to `False`.
-        :type calibrate_center: bool, optional
-        :param reconstruct_data: Reconstruct the tomography data,
-            defaults to `False`.
-        :type reconstruct_data: bool, optional
-        :param combine_data: Combine the reconstructed tomography
-            stacks, defaults to `False`.
-        :type combine_data: bool, optional
-        :param save_figures: Create Matplotlib figures that can be
-            saved to file downstream in the workflow,
-            defaults to `True`.
-        :type save_figures: bool, optional
         :raises ValueError: Invalid input or configuration parameter.
         :raises RuntimeError: Missing map configuration to generate
             reduced tomography images.
@@ -652,21 +655,8 @@ class TomoDataProcessor(Processor):
         )
 
         # Validate the input parameters
-        if not isinstance(reduce_data, bool):
-            raise ValueError(f'Invalid parameter reduce_data ({reduce_data})')
-        if not isinstance(find_center, bool):
-            raise ValueError(f'Invalid parameter find_center ({find_center})')
-        if not isinstance(calibrate_center, bool):
-            raise ValueError(
-                f'Invalid parameter calibrate_center ({calibrate_center})')
-        if not isinstance(reconstruct_data, bool):
-            raise ValueError(
-                f'Invalid parameter reconstruct_data ({reconstruct_data})')
-        if not isinstance(combine_data, bool):
-            raise ValueError(
-                f'Invalid parameter combine_data ({combine_data})')
-        num_part = (reduce_data, find_center, calibrate_center,
-                    reconstruct_data, combine_data).count(True)
+        num_part = (self.reduce_data, self.find_center, self.calibrate_center,
+                    self.reconstruct_data, self.combine_data).count(True)
         if config is not None:
             if not num_part:
                 raise ValueError(
@@ -679,7 +669,7 @@ class TomoDataProcessor(Processor):
 
         # Validate the workflow step configurations
         try:
-            if reduce_data:
+            if self.reduce_data:
                 reduce_data_config = self.get_config(
                     data=data, config=config,
                     schema='tomo.models.TomoReduceConfig')
@@ -689,7 +679,7 @@ class TomoDataProcessor(Processor):
         except ValueError:
             reduce_data_config = None
         try:
-            if find_center:
+            if self.find_center:
                 find_center_config = self.get_config(
                     data=data, config=config,
                     schema='tomo.models.TomoFindCenterConfig')
@@ -699,7 +689,7 @@ class TomoDataProcessor(Processor):
         except ValueError:
             find_center_config = None
         try:
-            if reconstruct_data:
+            if self.reconstruct_data:
                 reconstruct_data_config = self.get_config(
                     data=data, config=config,
                     schema='tomo.models.TomoReconstructConfig')
@@ -709,7 +699,7 @@ class TomoDataProcessor(Processor):
         except ValueError:
             reconstruct_data_config = None
         try:
-            if combine_data:
+            if self.combine_data:
                 combine_data_config = self.get_config(
                     data=data, config=config,
                     schema='tomo.models.TomoCombineConfig')
@@ -737,15 +727,16 @@ class TomoDataProcessor(Processor):
             'metadata': {}
         }
 
-        tomo = Tomo(metadata, save_figures=save_figures, **self.run_config)
+        tomo = Tomo(
+            metadata, save_figures=self.save_figures, **self.run_config)
 
         # FIX make an config input
         nxsetconfig(memory=100000)
 
         # Calibrate the rotation axis
-        if calibrate_center:
-            if any((reduce_data, find_center, reconstruct_data,
-                    reconstruct_data_config, combine_data,
+        if self.calibrate_center:
+            if any((self.reduce_data, self.find_center, self.reconstruct_data,
+                    reconstruct_data_config, self.combine_data,
                     combine_data_config)):
                 self.logger.warning('Ignoring any step specific instructions '
                                     'during center calibration')
@@ -766,7 +757,7 @@ class TomoDataProcessor(Processor):
             return center_config.model_dump()
 
         # Reduce tomography images
-        if reduce_data or reduce_data_config is not None:
+        if self.reduce_data or reduce_data_config is not None:
             if nxroot is None:
                 raise RuntimeError('Map info required to reduce the '
                                    'tomography images')
@@ -774,7 +765,7 @@ class TomoDataProcessor(Processor):
 
         # Find calibrated center axis info for the tomography stacks
         center_config = None
-        if find_center or find_center_config is not None:
+        if self.find_center or find_center_config is not None:
             run_find_centers = False
             if find_center_config is None:
                 find_center_config = TomoFindCenterConfig()
@@ -791,7 +782,7 @@ class TomoDataProcessor(Processor):
         # Reconstruct tomography stacks
         # RV pass reconstruct_data_config and center_config directly to
         # tomo.reconstruct_data?
-        if reconstruct_data or reconstruct_data_config is not None:
+        if self.reconstruct_data or reconstruct_data_config is not None:
             if reconstruct_data_config is None:
                 reconstruct_data_config = TomoReconstructConfig()
             nxroot = tomo.reconstruct_data(
@@ -799,7 +790,7 @@ class TomoDataProcessor(Processor):
             center_config = None
 
         # Combine reconstructed tomography stacks
-        if combine_data or combine_data_config is not None:
+        if self.combine_data or combine_data_config is not None:
             if combine_data_config is None:
                 combine_data_config = TomoCombineConfig()
             nxroot = tomo.combine_data(nxroot, combine_data_config)
@@ -861,18 +852,22 @@ class SetNumexprThreads:
 
 
 class Tomo(Processor):
-    """Reconstruct a set of tomographic images."""
-    def __init__(
-            self, metadata, num_core=-1, save_figures=True, **kwargs):
+    """Reconstruct a set of tomographic images.
+
+    :ivar save_figures: Create Matplotlib figures that can be saved to
+        file downstream in the workflow, defaults to `True`.
+    :type save_figures: bool, optional
+    """
+    save_figures: Optional[bool] = True
+
+    #FIX make this in a validator
+    def __init__(self, metadata, num_core=-1, **kwargs):
         """Initialize Tomo.
 
         :param metadata: Metadata record.
         :type metadata: dict
         :param num_core: Number of processors.
         :type num_core: int
-        :param save_figures: Create Matplotlib figures that can be saved
-            to file downstream in the workflow, defaults to `True`.
-        :type save_figures: bool, optional
         :raises ValueError: Invalid input parameter.
         """
         # System modules
@@ -883,7 +878,6 @@ class Tomo(Processor):
         self._metadata = metadata
         self._num_core = num_core
         self._test_config = {}
-        self._save_figures = save_figures
         if self._num_core == -1:
             self._num_core = cpu_count()
         if not isinstance(self._num_core, int) or self._num_core < 0:
@@ -1182,14 +1176,14 @@ class Tomo(Processor):
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field',
-                interactive=self.interactive, return_buf=self._save_figures)
+                interactive=self.interactive, return_buf=self.save_figures)
             if center_rows[1] == img_row_bounds[1]:
                 center_rows = (center_rows[0], center_rows[1]-1)
             offset_center_rows = (
                 center_rows[0] - img_row_bounds[0],
                 center_rows[1] - img_row_bounds[0])
             # Save figure
-            if self._save_figures:
+            if self.save_figures:
                 self._figures.append((buf, 'center_finding_rows'))
         tool_config.center_rows = list(center_rows)
 
@@ -1388,7 +1382,7 @@ class Tomo(Processor):
             z = np.asarray(z + nxentry.reduced_data.z_translation[0])
 
             # Save a few reconstructed image slices
-            if self._save_figures:
+            if self.save_figures:
                 x_index = x_slice-x_range[0]
                 title = f'recon {res_title} x={x[x_index]:.4f}'
                 self._figures.append(
@@ -1415,7 +1409,7 @@ class Tomo(Processor):
                     re.sub(r'\s+', '_', title)))
         else:
             # Save a few reconstructed image slices
-            if self._save_figures:
+            if self.save_figures:
                 for i in range(tomo_recon_stacks.shape[0]):
                     basetitle = f'recon stack {i}'
                     title = f'{basetitle} {res_title} xslice{x_slice}'
@@ -1589,7 +1583,7 @@ class Tomo(Processor):
 
         # Resize the combined tomography data stacks
         # - combined axis data order: row/-z,y,x
-        if self.interactive or self._save_figures:
+        if self.interactive or self.save_figures:
             x_bounds, y_bounds, z_bounds = self._resize_reconstructed_data(
                 tomo_recon_combined, combine_data=True)
             tool_config.x_bounds = None if x_bounds is None else list(x_bounds)
@@ -1671,7 +1665,7 @@ class Tomo(Processor):
         z = np.asarray(z + nxentry.reduced_data.z_translation[0])
 
         # Save a few combined image slices
-        if self._save_figures:
+        if self.save_figures:
             x_slice = tomo_shape[2]//2
             title = f'recon combined x={x[x_slice]:.4f}'
             self._figures.append(
@@ -1796,7 +1790,7 @@ class Tomo(Processor):
             tdf, copy=False, nan=tdf_mean, posinf=tdf_mean, neginf=0.)
 
         # Save dark field
-        if self._save_figures:
+        if self.save_figures:
             self._figures.append(
                 (quick_imshow(
                     tdf, title='Dark field', show_fig=False, return_fig=True),
@@ -1848,7 +1842,7 @@ class Tomo(Processor):
         tbf[tbf < 1] = 1
 
         # Save bright field
-        if self._save_figures:
+        if self.save_figures:
             self._figures.append(
                 (quick_imshow(
                     tbf, title='Bright field', show_fig=False,
@@ -2022,7 +2016,7 @@ class Tomo(Processor):
             title=title,
             title_a=r'Tomography image at $\theta$ = 'f'{round(theta, 2)+0}',
             title_b='Bright field',
-            interactive=self.interactive, return_buf=self._save_figures)
+            interactive=self.interactive, return_buf=self.save_figures)
         if not calibrate_center_rows and (num_tomo_stacks > 1
                 and (img_row_bounds[1]-img_row_bounds[0]+1)
                      < int((delta_z - 0.5*pixel_size) / pixel_size)):
@@ -2030,7 +2024,7 @@ class Tomo(Processor):
                 'Image bounds and pixel size prevent seamless stacking')
 
         # Save figure
-        if self._save_figures:
+        if self.save_figures:
             if calibrate_center_rows:
                 filename = 'rotation_calibration_rows'
             else:
@@ -2133,7 +2127,7 @@ class Tomo(Processor):
                 with SetNumexprThreads(self._num_core):
                     evaluate('tbf-tdf', out=tbf)
             except TypeError as exc:
-                raise (
+                raise TypeError(
                     f'\nA {type(exc).__name__} occured while subtracting '
                     'the dark field with num_expr.evaluate()'
                     '\nTry reducing the detector range') from exc
@@ -2241,7 +2235,7 @@ class Tomo(Processor):
                     with SetNumexprThreads(self._num_core):
                         evaluate('tomo_stack-tdf', out=tomo_stack)
                 except TypeError as exc:
-                    raise(
+                    raise TypeError(
                         f'\nA {type(exc).__name__} occured while subtracting '
                         'the dark field with num_expr.evaluate()'
                         '\nTry reducing the detector range'
@@ -2253,7 +2247,7 @@ class Tomo(Processor):
                 with SetNumexprThreads(self._num_core):
                     evaluate('tomo_stack/tbf', out=tomo_stack, truediv=True)
             except TypeError as exc:
-                raise(
+                raise TypeError(
                     f'\nA {type(exc).__name__} occured while normalizing the '
                     'tomography data with num_expr.evaluate()'
                     '\nTry reducing the detector range'
@@ -2365,7 +2359,7 @@ class Tomo(Processor):
             f'{center_offset_vo:.2f}')
 
         selected_center_offset = center_offset_vo
-        if self.interactive or self._save_figures:
+        if self.interactive or self.save_figures:
 
             # Try Guizar-Sicairos's phase correlation method to find
             # the center
@@ -2457,10 +2451,10 @@ class Tomo(Processor):
                 self._select_center_offset(
                     recon_planes, row, center_offsets, default_offset_index=0,
                     fig_titles=fig_titles, search_button=False,
-                    include_all_bad=True, return_buf=self._save_figures)
+                    include_all_bad=True, return_buf=self.save_figures)
 
             # Save figure
-            if self._save_figures:
+            if self.save_figures:
                 self._figures.append((buf, f'recon_row_{row}_default_centers'))
 
         # Create reconstructions for a specified search range
@@ -2558,9 +2552,9 @@ class Tomo(Processor):
                         [recon_planes[i] for i in indices],
                         row, preselected_offsets, default_offset_index=1,
                         include_all_bad=include_all_bad,
-                        return_buf=self._save_figures)
+                        return_buf=self.save_figures)
                 # Save figure
-                if self._save_figures:
+                if self.save_figures:
                     self._figures.append((
                         buf,
                         f'recon_row_{row}_center_range_'
@@ -2631,10 +2625,10 @@ class Tomo(Processor):
                 self._select_center_offset(
                     recon_planes, row, center_offsets, default_offset_index=0,
                     fig_titles=fig_titles, search_button=False,
-                    return_buf=self._save_figures)
+                    return_buf=self.save_figures)
 
             # Save figure
-            if self._save_figures:
+            if self.save_figures:
                 self._figures.append((
                     buf,
                     f'recon_row_{row}_center_{selected_center_offset:.2f}'))
@@ -3070,8 +3064,8 @@ class Tomo(Processor):
             tomosum, preselected_roi=preselected_roi,
             title_a='Reconstructed data summed over z',
             row_label='y', column_label='x',
-            interactive=self.interactive, return_buf=self._save_figures)
-        if self._save_figures:
+            interactive=self.interactive, return_buf=self.save_figures)
+        if self.save_figures:
             if combine_data:
                 filename = 'combined_data_xy_roi'
             else:
@@ -3109,9 +3103,9 @@ class Tomo(Processor):
             buf, z_bounds = select_roi_1d(
                 tomosum, preselected_roi=z_bounds,
                 xlabel='z', ylabel='Reconstructed data summed over x and y',
-                interactive=self.interactive, return_buf=self._save_figures)
+                interactive=self.interactive, return_buf=self.save_figures)
             self.logger.debug(f'z_bounds = {z_bounds}')
-            if self._save_figures:
+            if self.save_figures:
                 if combine_data:
                     filename = 'combined_data_z_roi'
                 else:
@@ -3419,16 +3413,19 @@ class TomoSimFieldProcessor(Processor):
 class TomoDarkFieldProcessor(Processor):
     """A processor to create the dark field associated with a simulated
     tomography data set created by TomoSimProcessor.
+
+    :ivar num_image: Number of dark field images, defaults to `5`.
+    :type num_image: int, optional.
     """
-    def process(self, data, num_image=5):
+    num_image: Optional[conint(gt=0)] = 5
+
+    def process(self, data):
         """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
         dark field detector images.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param num_image: Number of dark field images, defaults to `5`.
-        :type num_image: int, optional.
         :raises ValueError: Missing or invalid input or configuration
             parameter.
         :return: Simulated dark field images.
@@ -3463,11 +3460,12 @@ class TomoDarkFieldProcessor(Processor):
             num_dummy_start = 1
             starting_image_index = 0
         starting_image_offset = num_dummy_start
-        num_image += num_dummy_start
+        self.num_image += num_dummy_start
 
         # Create the dark field
         dark_field = int(background_intensity) * np.ones(
-            (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
+            (self.num_image, detector_size[0], detector_size[1]),
+            dtype=np.int64)
 
         # Create a NeXus object and write to file
         nxdark = NXroot()
@@ -3482,7 +3480,7 @@ class TomoDarkFieldProcessor(Processor):
         nxdetector.row_pixel_size = detector.row_pixel_size
         nxdetector.column_pixel_size = detector.column_pixel_size
         nxdetector.data = dark_field
-        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
+        nxdetector.thetas = np.asarray((self.num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -3492,17 +3490,19 @@ class TomoDarkFieldProcessor(Processor):
 class TomoBrightFieldProcessor(Processor):
     """A processor to create the bright field associated with a
     simulated tomography data set created by TomoSimProcessor.
+
+    :ivar num_image: Number of bright field images, defaults to `5`.
+    :type num_image: int, optional.
     """
-    def process(self, data, num_image=5):
+    num_image: Optional[conint(gt=0)] = 5
+
+    def process(self, data):
         """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
         bright field detector images.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param num_image: Number of bright field images,
-            defaults to `5`.
-        :type num_image: int, optional.
         :raises ValueError: Missing or invalid input or configuration
             parameter.
         :return: Simulated bright field images.
@@ -3541,13 +3541,14 @@ class TomoBrightFieldProcessor(Processor):
 
         # Create the bright field
         bright_field = int(background_intensity+beam_intensity) * np.ones(
-            (num_image, detector_size[0], detector_size[1]), dtype=np.int64)
+            (self.num_image, detector_size[0], detector_size[1]),
+            dtype=np.int64)
         if num_dummy_start:
             dummy_fields = int(background_intensity) * np.ones(
                 (num_dummy_start, detector_size[0], detector_size[1]),
                 dtype=np.int64)
             bright_field = np.concatenate((dummy_fields, bright_field))
-            num_image += num_dummy_start
+            self.num_image += num_dummy_start
         # Add 20% to slit size to make the bright beam slightly taller
         # than the vertical displacements between stacks
         slit_size = 1.2*source.slit_size
@@ -3571,7 +3572,7 @@ class TomoBrightFieldProcessor(Processor):
         nxdetector.row_pixel_size = detector.row_pixel_size
         nxdetector.column_pixel_size = detector.column_pixel_size
         nxdetector.data = bright_field
-        nxdetector.thetas = np.asarray((num_image-num_dummy_start)*[0])
+        nxdetector.thetas = np.asarray((self.num_image-num_dummy_start)*[0])
         nxdetector.starting_image_index = starting_image_index
         nxdetector.starting_image_offset = starting_image_offset
 
@@ -3581,15 +3582,38 @@ class TomoBrightFieldProcessor(Processor):
 class TomoSpecProcessor(Processor):
     """A processor to create a tomography SPEC file associated with a
     simulated tomography data set created by TomoSimProcessor.
+
+    :ivar scan_numbers: List of SPEC scan numbers.
+    :type scan_numbers: list[int], optional
     """
-    def process(self, data, scan_numbers=None):
+    scan_numbers: Optional[
+        conlist(min_length=1, item_type=conint(gt=0))] = None
+
+    @field_validator('scan_numbers', mode='before')
+    @classmethod
+    def validate_scan_numbers(cls, scan_numbers):
+        """Validate the specified list of scan numbers.
+
+        :param scan_numbers: List of scan numbers.
+        :type scan_numbers: Union(int, list[int], str)
+        :return: List of scan numbers.
+        :rtype: list[int]
+        """
+        if isinstance(scan_numbers, int):
+            scan_numbers = [scan_numbers]
+        elif isinstance(scan_numbers, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_numbers = string_to_list(scan_numbers)
+        return scan_numbers
+
+    def process(self, data):
         """Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
         :param data: Input configuration for the simulation.
         :type data: list[PipelineData]
-        :param scan_numbers: List of SPEC scan numbers.
-        :type scan_numbers: list[int], optional
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
         :rtype: list[str]
@@ -3616,10 +3640,6 @@ class TomoSpecProcessor(Processor):
         nxroot = self.get_data(data, schema='tomo.models.TomoSimField')
         if nxroot is not None:
             configs['tomo.models.TomoSimField'] = nxroot
-        if scan_numbers is None:
-            scan_numbers = [1]
-        else:
-            scan_numbers = list(set(scan_numbers))
         station = None
         sample_type = None
         num_scan = 0
@@ -3654,10 +3674,12 @@ class TomoSpecProcessor(Processor):
             else:
                 raise ValueError(f'Invalid data shape ({data_shape})')
             num_scan += num_stack
-        if len(scan_numbers) != num_scan:
+        if self.scan_numbers is None:
+            self.scan_numbers = list(range(1, num_scan+1))
+        elif len(self.scan_numbers) != num_scan:
             raise ValueError(
                 f'Inconsistent number of scans ({num_scan}), '
-                f'len(scan_numbers) = {len(scan_numbers)})')
+                f'len(self.scan_numbers) = {len(self.scan_numbers)})')
 
         # Create the output data structure in NeXus format
         nxentry = NXentry()
@@ -3722,7 +3744,7 @@ class TomoSpecProcessor(Processor):
             starting_image_index = int(detector.starting_image_index)
             starting_image_offset = int(detector.starting_image_offset)
             for n, z_translation in enumerate(z_translations):
-                scan_number = scan_numbers[num_scan]
+                scan_number = self.scan_numbers[num_scan]
                 spec_file.append(f'#S {scan_number}  {macro}')
                 spec_file.append(
                     f'#D {datetime.now().strftime("%a %b %d %I:%M:%S %Y")}')
@@ -3803,7 +3825,7 @@ class TomoSpecProcessor(Processor):
 
             # Add image files as individual tiffs to output
             for scan_number, image_set, starting_image_index in zip(
-                    scan_numbers, image_sets, starting_image_indices):
+                    self.scan_numbers, image_sets, starting_image_indices):
                 nxentry[f'{scan_number}'] = NXsubentry()
                 nxsubentry = NXsubentry()
                 nxentry[f'{scan_number}']['nf'] = nxsubentry

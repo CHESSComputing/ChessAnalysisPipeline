@@ -68,7 +68,6 @@ def main():
     sub_pipelines = args.pipeline
     pipeline_config = []
     if sub_pipelines is None:
-#        sub_pipelines = list(config.keys())
         for sub_pipeline in config.values():
             pipeline_config += sub_pipeline
     else:
@@ -176,9 +175,11 @@ def run(
     else:
         rank = comm.Get_rank()
 
-    pipeline_items = []
+    #print(f'\n\n--------------- Init pipeline item configs ----------------\n\n')
     pipeline_args = []
+    pipeline_mmcs = []
     for item in pipeline_config:
+
         # Load individual object with given name from its module
         config = run_config.model_dump()
         if isinstance(item, dict):
@@ -216,6 +217,8 @@ def run(
                 config['outputdir'] = outputdir
         else:
             name = item
+
+        # Initialize the object's identifiers
         if 'users' in name:
             # Load users module. This is required in CHAPaaS which can
             # have common area for users module. Otherwise, we will be
@@ -235,27 +238,29 @@ def run(
         else:
             mod_name, cls_name = name.split('.')
             module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
-        # Initialize the object
-        item_args['comm'] = comm
+
+        pipeline_mmcs.append(getattr(module, cls_name))
+
+        # Initialize the object's runtime arguments
+        item_args['comm'] = comm  #FIX make comm a field in RunConfig?
         if 'name' not in item_args:
             item_args['name'] = cls_name
-        schema = item_args.pop('schema', None)
-        obj = getattr(module, cls_name)(
-            logger=getLogger(name), schema=schema, **config, **item_args)
-        for k in obj.model_dump():
-            item_args.pop(k, None)
+        item_args.update(config)
+        item_logger = getLogger(name)
         if log_handler is not None:
-            obj.logger.addHandler(log_handler)
+            item_logger.addHandler(log_handler)
+        item_args['logger'] = item_logger
         if logger is not None:
-            logger.info(f'Loaded {obj}')
-        pipeline_items.append(obj)
+            logger.info(
+                f'Initialized input fields for an instance of {cls_name}')
         pipeline_args.append(item_args)
-    pipeline = Pipeline(items=pipeline_items, args=pipeline_args)
+    #print(f'\n\n--------------- Init pipeline ----------------\n\n')
+    pipeline = Pipeline(mmcs=pipeline_mmcs, args=pipeline_args)
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)
     if logger is not None:
-        logger.info(f'Loaded {pipeline} with {len(pipeline_items)} items\n')
+        logger.info(f'Loaded {pipeline} with {len(pipeline_mmcs)} items\n')
 
     # Make sure os.makedirs completes before continuing all nodes
     if comm is not None:
@@ -264,6 +269,7 @@ def run(
     # Execute the pipeline
     if logger is not None:
         logger.info(f'Calling "execute" on {pipeline}')
+    #print(f'\n\n--------------- Run pipeline ----------------\n\n')
     result = pipeline.execute()
     if result:
         return result[0]['data']

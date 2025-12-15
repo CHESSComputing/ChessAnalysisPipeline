@@ -788,7 +788,7 @@ class SpecConfig(CHAPBaseModel):
 
     :ivar station: The name of the station at which the data was
         collected.
-    :type station: Literal['id1a3', 'id3a', 'id3b']
+    :type station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     :ivar spec_scans: A list of the SPEC scans that compose the set.
     :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
@@ -802,7 +802,7 @@ class SpecConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_specconfig_before(cls, data):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
@@ -939,7 +939,7 @@ class MapConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_mapconfig_before(cls, data, info):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
@@ -972,6 +972,8 @@ class MapConfig(CHAPBaseModel):
             spec_scans = data.get('spec_scans')
             if 'spec_scans' in data:
                 inputdir = data.get('inputdir')
+                if inputdir is None and info.data is not None:
+                    inputdir = info.data.get('inputdir')
                 for i, scans in enumerate(deepcopy(spec_scans)):
                     if isinstance(scans, SpecScans):
                         scans = scans.model_dump()

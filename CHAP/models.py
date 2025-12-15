@@ -118,7 +118,7 @@ class RunConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_runconfig_before(cls, data):
         """Ensure that valid directory paths are provided.
 
         :param data: Pydantic validator data object.

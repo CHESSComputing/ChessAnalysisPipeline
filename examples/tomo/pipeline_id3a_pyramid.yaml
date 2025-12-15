@@ -10,6 +10,9 @@ map:
 
   # Convert the CHESS style map
   - common.ConfigReader:
+      filename: detector_id3a_pyramid.yaml
+      schema: common.models.map.DetectorConfig
+  - common.ConfigReader:
       filename: map_id3a_pyramid.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
@@ -35,9 +38,10 @@ map:
 #          units: mm
 #          data_type: smb_par
 #          name: ramsz
+#      detector_config:
+#        detectors:
+#          - id: sim
       num_proc: 1
-      detectors:
-        - id: sim
       schema: tomofields
   - common.NexusWriter:
       filename: map_hollow_pyramid.nxs
@@ -47,6 +51,7 @@ convert:
 
   - common.NexusReader:
       filename: map_hollow_pyramid.nxs
+      schema: tomofields
   - common.SpecReader:
       config:
         station: id3a
@@ -55,8 +60,9 @@ convert:
         - spec_file: ../data/hollow_pyramid/spec.log
           scan_numbers:
           - 1
-      detectors:
-        - id: sim
+      detector_config:
+        detectors:
+          - id: sim
       schema: darkfield
   - common.SpecReader:
       inputdir: ../data/hollow_pyramid
@@ -67,8 +73,9 @@ convert:
         - spec_file: spec.log
           scan_numbers:
           - 2
-      detectors:
-        - id: sim
+      detector_config:
+        detectors:
+          - id: sim
       schema: brightfield
   - common.ConfigReader:
       filename: detector_pyramid.yaml
