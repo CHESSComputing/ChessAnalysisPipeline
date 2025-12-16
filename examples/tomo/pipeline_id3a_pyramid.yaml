@@ -9,10 +9,10 @@ config:
 map:
 
   # Convert the CHESS style map
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: detector_id3a_pyramid.yaml
       schema: common.models.map.DetectorConfig
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: map_id3a_pyramid.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
@@ -77,7 +77,7 @@ convert:
         detectors:
           - id: sim
       schema: brightfield
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: detector_pyramid.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
@@ -90,13 +90,13 @@ recon:
   # Full tomography reconstruction
   - common.NexusReader:
       filename: chess_map_hollow_pyramid.nxs
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: find_center_id3a.yaml
       schema: tomo.models.TomoFindCenterConfig
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: combine_data_id3a.yaml
       schema: tomo.models.TomoCombineConfig
   - tomo.TomoDataProcessor:

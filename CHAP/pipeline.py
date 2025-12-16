@@ -54,7 +54,6 @@ class PipelineItem(RunConfig):
         'read', 'process', 'write'] = PrivateAttr(default=None)
     _args: dict = PrivateAttr(default={})
     _allowed_args: conlist(item_type=str) = PrivateAttr(default=[])
-#    _required_args: conlist(item_type=str) = PrivateAttr(default=[])
     _status: Literal[
         'read', 'write_pending', 'written'] = PrivateAttr(default=None)
 
@@ -99,9 +98,6 @@ class PipelineItem(RunConfig):
         sig = signature(self._method)
         self._allowed_args = [k for k, v in sig.parameters.items()
                               if v.kind == v.POSITIONAL_OR_KEYWORD]
-#        self._required_args = [k for k, v in sig.parameters.items()
-#                               if (v.kind == v.POSITIONAL_OR_KEYWORD
-#                                   and v.default is Parameter.empty)]
         return self
 
     @property
@@ -131,9 +127,6 @@ class PipelineItem(RunConfig):
         for k, v in args.items():
             if k in self._allowed_args:
                 self._args[k] = v
-
-#    def get_required_args(self):
-#        return self._required_args
 
     def has_filename(self):
         return hasattr(self, 'filename') and self.filename is not None
@@ -323,6 +316,8 @@ class PipelineItem(RunConfig):
             else:
                 raise ValueError(f'No match for data item named "{name}"')
         elif schema is not None:
+            if isinstance(schema, str):
+                schema = [schema]
             for i, d in reversed(list(enumerate(data))):
                 if d.get('schema') in schema:
                     result = d.get('data')
@@ -350,9 +345,6 @@ class PipelineItem(RunConfig):
         self.logger.debug(f'Executing "{self._method_type}" with schema '
                           f'"{self.schema_}" and {self._args}')
         self.logger.info(f'Executing "{self._method_type}"')
-        #print(f'\nExecuting"{self.method_type}" with schema "{self.get_schema()}" and')
-        #pprint(self.get_args())
-        #print()
         data = self._method(**self._args)
         self.logger.info(
             f'Finished "{self._method}" in {time()-t0:.0f} seconds\n')
@@ -367,7 +359,7 @@ class Pipeline(CHAPBaseModel):
 
     _data: conlist(item_type=PipelineData) = PrivateAttr(default=[])
     _items: conlist(item_type=PipelineItem) = PrivateAttr(default=[])
-    _output_filenames: conlist(item_type=FilePath) = PrivateAttr(default=[])
+    #_output_filenames: conlist(item_type=FilePath) = PrivateAttr(default=[])
     _filename_mapping: dict = PrivateAttr(default={})
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -386,11 +378,8 @@ class Pipeline(CHAPBaseModel):
             self.logger = logging.getLogger(self.__name__)
             self.logger.propagate = False
 
-        #print(f'\n---------------------- Pipeline validation ------------------------------\n')
+        output_filenames = []
         for mmc, args in zip(self.mmcs, self.args):
-            #print(f'\nInitializing "{mmc}" with\n')
-            #pprint(args)
-            #print()
             item = mmc(data=self._data, modelmetaclass=mmc, **args)
             if item.has_filename():
                 if item.method_type == 'read':
@@ -400,7 +389,8 @@ class Pipeline(CHAPBaseModel):
                         item.status = self._filename_mapping[
                             item._mapping_filename]['status']
                     else:
-                        if item.filename in self._output_filenames:
+                        #if item.filename in self._output_filenames:
+                        if item.filename in output_filenames:
                             self._filename_mapping[item._mapping_filename] = {
                                 'path': item.filename,
                                 'status': 'write_pending'}
@@ -410,7 +400,8 @@ class Pipeline(CHAPBaseModel):
                                 'path': item.filename, 'status': None}
                 elif item.method_type == 'write':
                     if (not item.force_overwrite
-                            and self.filename in self._output_filenames):
+                            and self.filename in output_filenames):
+                            #and self.filename in self._output_filenames):
                         raise ValueError(
                             'Writing to an existing file without overwrite '
                             f'permission. Remove {self.filename} or set '
@@ -419,15 +410,11 @@ class Pipeline(CHAPBaseModel):
             item.set_args(**args)
             if (item.method_type == 'read'
                     and item.status not in ('read', 'write_pending')):
-                #RV FIX TODO
                 if item.get_schema() is not None:
                     self.logger.debug(
                         f'Validating "{item.method_type}" with schema '
                         f'"{item.get_schema()}" and {item.get_args()}')
                     self.logger.info(f'Validating "{item.method_type}"')
-                    #print(f'\nValidating "{item.method_type}" with schema "{item.get_schema()}" and\n')
-                    #pprint(item.get_args())
-                    #print()
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
                         name=item.name, data=data, schema=item.get_schema()))
@@ -441,15 +428,13 @@ class Pipeline(CHAPBaseModel):
                     if v['path'] == item.filename:
                         self._filename_mapping[k]['status'] = \
                             'write_pending'
-                if item.filename not in self._output_filenames:
-                    self._output_filenames.append(item.filename)
+                #if item.filename not in self._output_filenames:
+                #    self._output_filenames.append(item.filename)
+                if item.filename not in output_filenames:
+                    output_filenames.append(item.filename)
             self._items.append(item)
         self.logger.info(f'Validated pipeline in {time()-t0:.3f} seconds')
 
-        #print(f'\nself._data after validation:')
-        #for d in self._data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #print()
         return self
 
     def execute(self):
@@ -457,38 +442,38 @@ class Pipeline(CHAPBaseModel):
         t0 = time()
         self.logger.info('Executing "execute"\n')
 
-        #print(f'\n---------------------- Pipeline execution------------------------------\n')
-        for item, args in zip(self._items, self.args):
+        for mmc, item, args in zip(self.mmcs, self._items, self.args):
             if hasattr(item, 'execute'):
+                current_item = mmc(data=self._data, modelmetaclass=mmc, **args)
                 self.logger.info(f'Calling "execute" on {item}\n')
+                read_status = None
                 if item.method_type == 'read' and item.has_filename():
-                    item.status = self._filename_mapping[
+                    read_status = self._filename_mapping[
                         item._mapping_filename]['status']
-                if not (item.method_type == 'read' and item.status == 'read'):
-                    data = item.execute(data=self._data)
-                    if item.method_type == 'read':
+                    current_item.status = read_status
+                    current_item.filename = item.filename
+                current_item.set_args(**item.get_args())
+                if not (item.method_type == 'read' and read_status == 'read'):
+                    data = current_item.execute(data=self._data)
+                    if current_item.method_type == 'read':
                         self._data.append(PipelineData(
-                            name=item.name, data=data,
-                            schema=item.get_schema()))
-                    elif item.method_type == 'process':
+                            name=current_item.name, data=data,
+                            schema=current_item.get_schema()))
+                    elif current_item.method_type == 'process':
                         if isinstance(data, tuple):
                             self._data.extend(
                                 [d if isinstance(d, PipelineData)
                                  else PipelineData(
-                                     name=item.name, data=d,
-                                     schema=item.get_schema())
+                                     name=current_item.name, data=d,
+                                     schema=current_item.get_schema())
                                  for d in data])
                         else:
                             self._data.append(PipelineData(
-                                name=item.name, data=data,
-                                schema=item.get_schema()))
+                                name=current_item.name, data=data,
+                                schema=current_item.get_schema()))
                     elif item.method_type == 'write' and item.has_filename():
                         for k, v in self._filename_mapping.items():
                             if v['path'] == item.filename:
                                 self._filename_mapping[k]['status'] = 'written'
-                #print(f'\nself._data after {item.name}:')
-                #for d in self._data:
-                #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-                #print()
         self.logger.info(f'Executed "execute" in {time()-t0:.3f} seconds')
         return self._data

@@ -499,23 +499,14 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_diffractionvolumeLengthprocessor_before(cls, data):
-        #print(f'\nDiffractionVolumeLengthProcessor before {type(data)}:')
-        #pprint(data)
-        #print('\n')
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'diffractionvolumelength'
             data['detector_config'] = detector_config
-#            print(f'\nDiffractionVolumeLengthProcessor before end:')
-#            pprint(data)
-#            print()
         return data
 
     @model_validator(mode='after')
     def validate_diffractionvolumeLengthprocessor_after(self):
-        #print(f'\nDiffractionVolumeLengthProcessor after:')
-        #pprint(self.model_dump())
-        #print('\n')
         if self.config.sample_thickness is None:
             raise ValueError('Missing parameter "sample_thickness"')
         return self
@@ -532,16 +523,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Third party modules
         from json import loads
 
-        #print(f'\nDiffractionVolumeLengthProcessor.process start\ndata:')
-        #for d in data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #pprint(data)
-        #print(f'\nself.config:')
-        #pprint(self.config.model_dump())
-        #print(f'\nself.detector_config:')
-        #pprint(self.detector_config.model_dump())
-        #print()
-
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
@@ -550,7 +531,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Validate the detector configuration
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
         raw_detector_ids = [d.id for d in raw_detector_config.detectors]
-        #print(f'\nraw_detectors {type(raw_detector_config)}\n')
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
                 MCADetectorDiffractionVolumeLength(
@@ -590,11 +570,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         if not self.detector_config.detectors:
             raise ValueError(
                 'No raw data for the requested DVL measurement detectors)')
-        #print(f'\nself.detector_config:')
-        #for detector in self.detector_config.detectors:
-        #    print(f'{detector.id} {type(detector)}:')
-#            pprint(detector.model_dump())
-        #print()
 
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
@@ -843,24 +818,11 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_latticeparameterrefinementprocessor_before(cls, data):
-        #print(f'\nLatticeParameterRefinementProcessor before {type(data)}:')
-        #pprint(data)
-        #print()
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'strainanalysis'
             data['detector_config'] = detector_config
-#            print(f'\nLatticeParameterRefinementProcessor after:')
-#            pprint(data)
-#            print()
         return data
-
-    @model_validator(mode='after')
-    def validate_latticeparameterrefinementprocessor_after(self):
-        #print(f'\nLatticeParameterRefinementProcessor after:')
-        #pprint(self.model_dump())
-        #print()
-        return self
 
     def process(self, data):
         """Given a strain analysis configuration, return a copy
@@ -884,16 +846,6 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 
         # Local modules
         from CHAP.utils.general import list_to_string
-
-        #print(f'\nStrainAnalysisProcessor.process start\ndata:')
-        #for d in data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #pprint(data)
-        #print(f'\nself.config:')
-        #pprint(self.config.model_dump())
-        #print(f'\nself.detector_config:')
-        #pprint(self.detector_config.model_dump())
-        #print()
 
         # Load the pipeline input data
         try:
@@ -981,11 +933,6 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         if not self.detector_config.detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
-        #print(f'\nself.detector_config:')
-        #for detector in self.detector_config.detectors:
-        #    print(f'{detector.id} {type(detector)}:')
-#            pprint(detector.model_dump())
-        #print()
 
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
@@ -1152,24 +1099,11 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_mcaenergycalibrationprocessor_before(cls, data):
-        #print(f'\nMCAEnergyCalibrationProcessor before {type(data)}:')
-        #pprint(data)
-        #print()
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
             data['detector_config'] = detector_config
-#            print(f'\nMCAEnergyCalibrationProcessor after:')
-#            pprint(data)
-#            print()
         return data
-
-    @model_validator(mode='after')
-    def validate_mcaenergycalibrationprocessor_after(self):
-        #print(f'\nMCAEnergyCalibrationProcessor after:')
-        #pprint(self.model_dump())
-        #print()
-        return self
 
     def process(self, data):
         """For each detector in the `MCAEnergyCalibrationConfig`
@@ -1192,13 +1126,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # Third party modules
         from json import loads
 
-        #print(f'\nMCAEnergyCalibrationProcessor.process start\ndata:')
-        #for d in data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #pprint(data)
-        #print(f'\nself.detector_config:')
-        #pprint(self.detector_config.model_dump())
-        #print()
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
@@ -1208,12 +1135,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # configuration
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
         raw_detector_ids = [d.id for d in raw_detector_config.detectors]
-        #print(f'\nraw_detector_ids: {raw_detector_ids}\n')
-#        print(f'\nraw_detectors {type(raw_detector_config)}:')
-#        for d in raw_detector_config.detectors:
-#            print(f'{d.id} {type(d)}:')
-#            pprint(d.model_dump())
-#        print()
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
                 MCADetectorCalibration(
@@ -1253,11 +1174,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         if not self.detector_config.detectors:
             raise ValueError(
                 'No raw data for the requested calibration detectors)')
-        #print(f'\nself.detector_config:')
-        #for detector in self.detector_config.detectors:
-        #    print(f'{detector.id} {type(detector)}:')
-#            pprint(detector.model_dump())
-        #print()
 
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
@@ -1729,24 +1645,11 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_mcatthcalibrationprocessor_before(cls, data):
-        #print(f'\nMCATthCalibrationProcessor before {type(data)}:')
-        #pprint(data)
-        #print('\n')
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
             data['detector_config'] = detector_config
-#            print(f'\nMCATthCalibrationProcessor after:')
-#            pprint(data)
-#            print()
         return data
-
-    @model_validator(mode='after')
-    def validate_mcatthcalibrationprocessor_after(self):
-        #print(f'\nMCATthCalibrationProcessor after:')
-        #pprint(self.model_dump())
-        #print()
-        return self
 
     def process(self, data):
         """Return the calibrated 2&theta value and the fine tuned
@@ -1767,15 +1670,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         # Local modules
         from CHAP.utils.general import list_to_string
 
-        #print(f'\nMCATthCalibrationProcessor.process start\ndata:')
-        #for d in data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #pprint(data)
-        #print(f'\nself.detector_config:')
-        #pprint(self.detector_config.model_dump())
-        #print(f'\nself.config {type(self.config)}:')
-        #pprint(self.config.model_dump())
-        #print(f'\n')
         # Load the detector data
         # FIX input a numpy and create/use NXobject to numpy proc
         # FIX right now spec info is lost in output yaml, add to it?
@@ -1787,7 +1681,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             raise RuntimeError('No calibrated detectors')
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
         raw_detector_ids = [d.id for d in raw_detector_config.detectors]
-        #print(f'\nraw_detector_ids: {raw_detector_ids}\n')
         skipped_detectors = []
         detectors = []
         for detector in self.detector_config.detectors:
@@ -1809,8 +1702,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             self.logger.warning(
                 'Skipping detectors '
                 f'{list_to_string(skipped_detectors)} (no raw data)')
-        #if skipped_detectors:
-        #    print(f'\nSkipping detector(s) {list_to_string(skipped_detectors)} (no raw data)\n')
         skipped_detectors = []
         for i, detector in reversed(list(enumerate(detectors))):
             if detector.energy_calibration_coeffs is None:
@@ -1832,17 +1723,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             self.logger.warning(
                 'Skipping detectors '
                 f'{list_to_string(skipped_detectors)} (no calibration data)')
-        #if skipped_detectors:
-        #    print(f'\nSkipping detector(s) {list_to_string(skipped_detectors)} (no calibration data)\n')
         self.detector_config.detectors = detectors
         if not self.detector_config.detectors:
             raise RuntimeError('No raw or calibrated detectors')
-        #print(f'\ndetectors:')
-        #for d in detectors:
-        #    print(f'{d.id} {type(d)}:')
-#            pprint(d.model_dump())
-#            print(f'\n{d.id} d._energy_calibration_mask_ranges: {d._energy_calibration_mask_ranges}\n')
-        #print()
 
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra
@@ -2394,24 +2277,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_strainanalysisprocessor_before(cls, data):
-        #print(f'\nStrainAnalysisProcessor before {type(data)}:')
-        #pprint(data)
-        #print()
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'strainanalysis'
             data['detector_config'] = detector_config
-#            print(f'\nStrainAnalysisProcessor after:')
-#            pprint(data)
-#            print()
         return data
-
-    @model_validator(mode='after')
-    def validate_strainanalysisprocessor_after(self):
-        #print(f'\nStrainAnalysisProcessor after:')
-        #pprint(self.model_dump())
-        #print()
-        return self
 
     @staticmethod
     def add_points(nxroot, points, logger=None):
@@ -2521,16 +2391,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 self.save_figures = False
         self._animation = []
 
-        #print(f'\nStrainAnalysisProcessor.process start\ndata:')
-        #for d in data:
-        #    print(f"{d['name']} {type(d['data'])} {d['schema']}")
-        #pprint(data)
-        #print(f'\nself.config:')
-        #pprint(self.config.model_dump())
-        #print(f'\nself.detector_config:')
-        #pprint(self.detector_config.model_dump())
-        #print()
-
         # Load the pipeline input data
         try:
             nxobject = self.get_data(data)
@@ -2620,11 +2480,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         if not self.detector_config.detectors:
             raise ValueError('No valid data or unable to match an available '
                              'calibrated detector for the strain analysis')
-        #print(f'\nself.detector_config:')
-        #for detector in self.detector_config.detectors:
-        #    print(f'{detector.id} {type(detector)}:')
-#            pprint(detector.model_dump())
-        #print()
 
         # Load the raw MCA data and compute the detector bin energies
         # and the mean spectra

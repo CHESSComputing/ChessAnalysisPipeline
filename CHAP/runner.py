@@ -175,7 +175,6 @@ def run(
     else:
         rank = comm.Get_rank()
 
-    #print(f'\n\n--------------- Init pipeline item configs ----------------\n\n')
     pipeline_args = []
     pipeline_mmcs = []
     for item in pipeline_config:
@@ -254,7 +253,6 @@ def run(
             logger.info(
                 f'Initialized input fields for an instance of {cls_name}')
         pipeline_args.append(item_args)
-    #print(f'\n\n--------------- Init pipeline ----------------\n\n')
     pipeline = Pipeline(mmcs=pipeline_mmcs, args=pipeline_args)
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
@@ -269,7 +267,6 @@ def run(
     # Execute the pipeline
     if logger is not None:
         logger.info(f'Calling "execute" on {pipeline}')
-    #print(f'\n\n--------------- Run pipeline ----------------\n\n')
     result = pipeline.execute()
     if result:
         return result[0]['data']

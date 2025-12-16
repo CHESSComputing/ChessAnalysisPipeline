@@ -669,7 +669,8 @@ class TXTWriter(Writer):
 class YAMLWriter(Writer):
     """Writer for YAML files from `dict`-s."""
     def write(self, data):
-        """Write the last dictionary contained in `data` to file.
+        """Write the last matching dictionary contained in `data` to
+        file (the schema mush match is a schema is provided).
 
         :param data: The data to write to file.
         :type data: list[PipelineData]
@@ -686,22 +687,37 @@ class YAMLWriter(Writer):
         # Local modules
         from CHAP.models import CHAPBaseModel
 
-        yaml_dict = None
-        for i, d in reversed(list(enumerate(data))):
-            ddata = d['data']
-            if isinstance(ddata, dict):
-                yaml_dict = ddata
-                if self.remove:
-                    data.pop(i)
-                break
-            if isinstance(ddata, (BaseModel, CHAPBaseModel)):
+        def get_dict(data):
+            if isinstance(data, dict):
+                return data
+            if isinstance(data, (BaseModel, CHAPBaseModel)):
                 try:
-                    yaml_dict = ddata.model_dump()
+                    return data.model_dump()
+                except Exception:
+                    pass
+            return None
+
+        schema = self.get_schema()
+        yaml_dict = None
+        if schema is not None:
+            for i, d in reversed(list(enumerate(data))):
+                if schema == d['schema']:
+                    yaml_dict = get_dict(d['data'])
+                    if yaml_dict is not None:
+                        if self.remove:
+                            data.pop(i)
+                        break
+        if yaml_dict is None:
+            if schema is not None:
+                self.logger.warning(
+                    f'Unable to find match with schema {schema}: '
+                    'try finding a dictionary without matching schema')
+            for i, d in reversed(list(enumerate(data))):
+                yaml_dict = get_dict(d['data'])
+                if yaml_dict is not None:
                     if self.remove:
                         data.pop(i)
                     break
-                except Exception:
-                    pass
         write_yaml(yaml_dict, self.filename, self.force_overwrite)
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later

@@ -499,10 +499,6 @@ class MCADetectorConfig(FitConfig):
     @model_validator(mode='before')
     @classmethod
     def validate_mcadetectorconfig_before(cls, data):
-        #print(f'\nMCADetectorConfig before\n')
-#        print(f'data at start:')
-#        pprint(data)
-#        print()
         if isinstance(data, dict):
             processor_type = data.get('processor_type').lower()
             if 'detectors' in data:
@@ -515,43 +511,23 @@ class MCADetectorConfig(FitConfig):
                     if attrs:
                         d['attrs'] = attrs
                 data['detectors'] = detectors
-#        print(f'data at end:')
-#        pprint(data)
-#        print()
         return data
 
     @model_validator(mode='after')
     def validate_mcadetectorconfig_after(self):
-        #if self.detectors:
-        #    print(f'\nMCADetectorConfig after {type(self.detectors[0])}\n')
-        #else:
-        #    print(f'\nMCADetectorConfig after (no detectors)\n')
-#        print(f'self start {type(self)}:')
-#        pprint(self.model_dump())
         if self.detectors:
             self.update_detectors()
-            
         return self
 
     def update_detectors(self):
         """Update individual detector parameters with any non-default
         values from the global detector configuration.
         """
-        #print(f'\nMCADetectorConfig.update_detectors start\n')
-#        pprint(self.model_dump())
         for k, v in self:
             if k in self.model_fields_set:
-#                print(f'\n{k} in self.model_fields_set? {k in self.model_fields_set} ({self.model_fields_set})')
-#                print(f'\tv {id(v)} {type(v)}: {v}')
                 for d in self.detectors:
-#                    print(f'\n\t{k} for {d.id}')
-#                    print(f'\tmodel_fields_set: {d.model_fields_set}')
-                    #print(f'\tUpdating detector {d.id}? {hasattr(d, k) and k not in d.model_fields_set}')
-#                    print(f'\tUpdating detector {d.id}? {hasattr(d, k)}')
-                    if hasattr(d, k): # and k not in d.model_fields_set:
-#                        print(f'\tupdating {k}\n')
+                    if hasattr(d, k):
                         setattr(d, k, deepcopy(v))
-#        print(f'\nMCADetectorConfig.update_detectors end')
 
 
 # Processor configuration classes
@@ -585,15 +561,6 @@ class DiffractionVolumeLengthConfig(FitConfig):
 
     _exclude = set(vars(FitConfig()).keys())
 
-    @model_validator(mode='before')
-    @classmethod
-    def validate_diffractionvolumelengthconfig_before(cls, data):
-        #print(f'\nDiffractionVolumeLengthConfig before\n')
-#        printf'data {type(data)}:')
-#        pprint(data)
-#        print('\n')
-        return data
-
     @model_validator(mode='after')
     def validate_diffractionvolumelengthconfig_after(self):
         """Update the configuration with costum defaults after the
@@ -602,10 +569,6 @@ class DiffractionVolumeLengthConfig(FitConfig):
         :return: Updated energy calibration configuration class.
         :rtype: DiffractionVolumeLengthConfig
         """
-        #print(f'\nDiffractionVolumeLengthConfig after\n')
-#        print(f'self {type(self)}:')
-#        pprint(self.model_dump())
-#        print('\n')
         if self.measurement_mode == 'manual':
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
@@ -654,9 +617,6 @@ class MCACalibrationConfig(CHAPBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-#        print(f'\nMCACalibrationConfig before:\ndata {type(data)}:')
-#        pprint(data)
-#        print('\n')
         if isinstance(data, dict):
             inputdir = data.get('inputdir')
             if inputdir is not None:
@@ -664,13 +624,6 @@ class MCACalibrationConfig(CHAPBaseModel):
                 if flux_file is not None and not os.path.isabs(flux_file):
                     data['flux_file'] = os.path.join(inputdir, flux_file)
         return data
-
-#    @model_validator(mode='after')
-#    def validate_mcaenergycalibrationconfig_after(self):
-#        print(f'\nMCACalibrationConfig after:\nself {type(self)}:')
-#        pprint(self.model_dump())
-#        print('\n')
-#        return self
 
     @field_validator('scan_step_indices', mode='before')
     @classmethod
@@ -721,22 +674,6 @@ class MCACalibrationConfig(CHAPBaseModel):
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
 
-#    def update_detectors(self):
-#        """Update any detector configuration parameters not superseded
-#        by individual detector values.
-#        """
-#        print(f'\nMCACalibrationConfig.update_detectors\n')
-#        for detector in self.detectors:
-#            for k in self.__dict__:
-#                if hasattr(detector, k):
-#                    v = getattr(self, k)
-#                    have_default = detector.get_privateattr(k)
-#                    if have_default is None and v is not None:
-#                        setattr(detector, k, deepcopy(v))
-#                    elif have_default and v is not None:
-#                        setattr(detector, k, deepcopy(v))
-#                        detector._default_centers_range = False
-
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     """Base class representing metadata required to perform an energy
@@ -757,17 +694,10 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     @model_validator(mode='before')
     @classmethod
     def validate_mcaenergycalibrationconfig_before(cls, data):
-        #print(f'\nMCAEnergyCalibrationConfig before\n')
-#        print(f'\ndata {type(data)}:')
-#        pprint(data)
-#        print('\n')
         if isinstance(data, dict):
             detectors = data.pop('detectors', None)
             if detectors is not None:
                 data['detector_config'] = {'detectors': detectors}
-#                print(f'\ndata at end:')
-#                pprint(data)
-#                print('\n')
         return data
 
     @model_validator(mode='after')
@@ -779,35 +709,6 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         :return: Updated energy calibration configuration class.
         :rtype: MCAEnergyCalibrationConfig
         """
-        #print(f'\nMCAEnergyCalibrationConfig after\n')
-#        print(f'self {type(self)}:')
-#        pprint(self.model_dump())
-#        print('\n')
-#        if self.detectors is None:
-#            return self
-#        warning = False
-#        if self.energy_mask_ranges:
-#            self.energy_mask_ranges = None
-#            warning = True
-#        if self.detectors is not None:
-#            for detector in self.detectors:
-#                if detector.energy_mask_ranges:
-#                    detector.energy_mask_ranges = None
-#                    warning = True
-#        if warning:
-#            print('Ignoring energy_mask_ranges parameter for energy '
-#                  'calibration')
-#        self.update_detectors()
-#        return self
-#
-#    @model_validator(mode='after')
-#    def validate_peak_energies(self):
-#        """Validate the specified index of the XRF peak with the
-#        highest amplitude against the number of peak energies.
-#
-#        :return: Validated energy calibration configuration class.
-#        :rtype: MCAEnergyCalibrationConfig
-#        """
         if self.peak_energies is None:
             raise ValueError('peak_energies is required')
         if not 0 <= self.max_peak_index < len(self.peak_energies):
@@ -847,44 +748,6 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     quadratic_energy_calibration: Optional[bool] = False
     tth_initial_guess: Optional[
         confloat(gt=0, allow_inf_nan=False)] = Field(None, exclude=True)
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_mcatthcalibrationconfig_before(cls, data):
-        #print(f'\nMCATthCalibrationConfig before\n')
-#        if isinstance(data, dict):
-#            print(f'data {type(data)}')
-#            pprint(data)
-#            print()
-        return data
-
-    @model_validator(mode='after')
-    def validate_mcatthcalibrationconfig_after(self):
-#        """Validate the detector (energy) mask ranges.
-#
-#        :return: Updated tth calibration configuration class.
-#        :rtype: MCATthCalibrationConfig
-#        """
-        #print(f'\nMCATthCalibrationConfig after\n')
-#        pprint(self.model_dump())
-#        print('\n')
-#        if self.detectors is None:
-#            return self
-#        warning = False
-#        if self.mask_ranges:
-#            self.mask_ranges = None
-#            warning = True
-#        if self.detectors is not None:
-#            for detector in self.detectors:
-#                if detector.mask_ranges:
-#                    detector._energy_calibration_mask_ranges = deepcopy(
-#                        detector.mask_ranges)
-#                    detector.mask_ranges = None
-#                    warning = True
-#        if warning:
-#            print('Ignoring mask_ranges parameter for tth calibration')
-#        self.update_detectors()
-        return self
 
     def flux_file_energy_range(self):
         """Get the energy range in the flux corection file.
@@ -931,59 +794,6 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     skip_animation: Optional[bool] = False
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True
-
-    @model_validator(mode='before')
-    @classmethod
-    def validate_strainanalysisconfig_before(cls, data):
-        #print(f'\nStrainAnalysisConfig before\n')
-#        print(f'\ndata {type(data)}:')
-#        pprint(data)
-#        print('\n')
-        return data
-
-    @model_validator(mode='after')
-    def validate_strainanalysisconfig_after(self):
-        #print(f'\nStrainAnalysisConfig after\n')
-#        print(f'self {type(self)}:')
-#        pprint(self.model_dump())
-#        print('\n')
-        return self
-#        """Validate the detector (energy) mask ranges, set the defaults
-#        for `FitConfig` parameters `centers_range`, `fwhm_min` and
-#        `fwhm_max` and update any detector configuration parameters
-#        not superseded by their individual values.
-#
-#
-#        :return: Updated `centers_range`, `fwhm_min` and `fwhm_max`
-#            parameters.
-#
-#        :return: Updated strain analysis configuration class.
-#        :rtype: StrainAnalysisConfig
-#        """
-#        if self.centers_range is None:
-#            self.centers_range = 2.0
-#            self._default_centers_range = True
-#        if self.fwhm_min is None:
-#            self.fwhm_min = 0.25
-#            self._default_fwhm_min = True
-#        if self.fwhm_max is None:
-#            self.fwhm_max = 2.0
-#            self._default_fwhm_max = True
-#        if self.detectors is None:
-#            return self
-#        warning = False
-#        if self.mask_ranges:
-#            self.mask_ranges = None
-#            warning = True
-#        if self.detectors is not None:
-#            for detector in self.detectors:
-#                if detector.mask_ranges:
-#                    detector.mask_ranges = None
-#                    warning = True
-#        if warning:
-#            print('Ignoring mask_ranges parameter for strain analysis')
-#        self.update_detectors()
-#        return self
 
 # FIX tth_file/tth_map not updated
 #    @field_validator('detectors')

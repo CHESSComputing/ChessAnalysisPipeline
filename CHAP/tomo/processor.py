@@ -130,6 +130,9 @@ class TomoCHESSMapConverter(Processor):
         :return: NeXus style tomography input configuration.
         :rtype: nexusformat.nexus.NXroot
         """
+        # System modules
+        from copy import deepcopy
+
         # Third party modules
         # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
