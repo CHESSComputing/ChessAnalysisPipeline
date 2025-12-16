@@ -71,7 +71,7 @@ config:
   outputdir: output # Change as desired
                     # Path can be relative to root (line 2) or absolute
   interactive: true # Change as desired
-  log_level: INFO
+  log_level: info   # Set to debug, info, warning, or error
 
 pipeline:
 
@@ -86,40 +86,41 @@ pipeline:
             scan_numbers: 1
   - edd.MCAEnergyCalibrationProcessor:
       config:
-        mask_ranges: [[650, 850]]
         max_peak_index: 1
         peak_energies: [34.276, 34.717, 39.255, 40.231]
+        materials:  # Use default CeO2 properties when omitted
+          - material_name: CeO2
+            sgnum: 225
+            lattice_parameters: 5.41153
+      detector_config:
+        baseline: true
+        mask_ranges: [[650, 850]]
         detectors:  # Choose the detectors
                     # Use all available detector elements when omitted
           - id: 0
           - id: 11
           - id: 22
-        materials:  # Use default CeO2 properties when omitted
-          - material_name: CeO2
-            sgnum: 225
-            lattice_parameters: 5.41153
       save_figures: true
       schema: edd.models.MCAEnergyCalibrationConfig
 
   # Twotheta calibration
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.SpecReader:
-            config:
-              station: id3a # Change as needed
-              experiment_type: EDD
-              spec_scans: # Edit both SPEC log file path and EDD scan numbers
-                          # Path can be relative to inputdir (line 2) or absolute
-                - spec_file: <your_raw_ceria_data_directory>/spec.log
-                  scan_numbers: 1
+  - common.SpecReader:
+      config:
+        station: id3a # Change as needed
+        experiment_type: EDD
+        spec_scans: # Edit both SPEC log file path and EDD scan numbers
+                    # Path can be relative to inputdir (line 2) or absolute
+          - spec_file: <your_raw_ceria_data_directory>/spec.log
+            scan_numbers: 1
   - edd.MCATthCalibrationProcessor:
       config:
+        tth_initial_guess: 6.0
+      detector_config:
         energy_mask_ranges: [[81, 135]] # Change as needed
         detectors:  # The same as in the energy calibration when omitted
           - id: 0
           - id: 11
           - id: 22
-        tth_initial_guess: 6.0
       save_figures: true
 
   # Create a CHESS style map
@@ -128,10 +129,11 @@ pipeline:
       dataset_id: 1
       schema: common.models.map.MapConfig
   - common.MapProcessor:
-      detectors:  # Use available detector elements when omitted
-        - id: 0
-        - id: 11
-        - id: 22
+      detector_config:
+        detectors:  # Use available detector elements when omitted
+          - id: 0
+          - id: 11
+          - id: 22
 
   # Perform the strain analysis
   - pipeline.MultiplePipelineItem:
@@ -141,17 +143,18 @@ pipeline:
             schema: edd.models.MCATthCalibrationConfig
   - edd.StrainAnalysisProcessor:
       config:
-        detectors: # Edit: Do not leave this list empty!
-          - id: 0
-          - id: 11
-          - id: 22
-        energy_mask_ranges: [[77, 110]] # Change as desired
         materials:
           - material_name: Al
             sgnum: 225
             lattice_parameters: 4.046
         rel_height_cutoff: 0.05         # Change as desired
         skip_animation: false
+      detector_config:
+        energy_mask_ranges: [[77, 110]] # Change as desired
+        detectors: # # Use available detector elements when omitted
+          - id: 0
+          - id: 11
+          - id: 22
       save_figures: true
   - common.NexusWriter:
       filename: strain_map.nxs # Change as desired
