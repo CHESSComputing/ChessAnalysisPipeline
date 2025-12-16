@@ -98,7 +98,7 @@ config:
   outputdir: output # Change as desired
                     # Path can be relative to root (line 2) or absolute
   interactive: true # Change as desired
-  log_level: INFO
+  log_level: info   # Set to debug, info, warning, or error
 
 pipeline:
 
@@ -128,37 +128,38 @@ pipeline:
             units: mm
             data_type: smb_par
             name: ramsz # Change as needed
-      detectors:
-        - id: andor2 # Change as needed
+      detector_config:
+        detectors:
+          - id: andor2 # Change as needed
       schema: tomofields
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.SpecReader:
-            config:
-              station: id3a # Change as needed
-              experiment_type: TOMO
-              spec_scans: # Edit both SPEC log file path and tomography scan numbers
-                          # Path can be relative to inputdir (line 3) or absolute
-                - spec_file: <your_raw_data_directory>/spec.log
-                  scan_numbers: 1
-            detectors:
-              - id: andor2 # Change as needed
-            schema: darkfield
-        - common.SpecReader:
-            config:
-              station: id3a # Change as needed
-              experiment_type: TOMO
-              spec_scans: # Edit both SPEC log file path and tomography scan numbers
-                          # Path can be relative to inputdir (line 3) or absolute
-                - spec_file: <your_raw_data_directory>/spec.log
-                  scan_numbers: 2
-            detectors:
-              - id: andor2 # Change as needed
-            schema: brightfield
-        - common.YAMLReader:
-            filename: andor2.yaml # Detector config file
-                                  # Path can be relative to inputdir (line 3) or absolute
-            schema: tomo.models.Detector
+  - common.SpecReader:
+      config:
+        station: id3a # Change as needed
+        experiment_type: TOMO
+        spec_scans: # Edit both SPEC log file path and tomography scan numbers
+                    # Path can be relative to inputdir (line 3) or absolute
+          - spec_file: <your_raw_data_directory>/spec.log
+            scan_numbers: 1
+      detector_config:
+        detectors:
+          - id: andor2 # Change as needed
+        schema: darkfield
+  - common.SpecReader:
+      config:
+        station: id3a # Change as needed
+        experiment_type: TOMO
+        spec_scans: # Edit both SPEC log file path and tomography scan numbers
+                    # Path can be relative to inputdir (line 3) or absolute
+          - spec_file: <your_raw_data_directory>/spec.log
+            scan_numbers: 2
+      detector_config:
+        detectors:
+          - id: andor2 # Change as needed
+      schema: brightfield
+  - common.YAMLReader:
+      filename: andor2.yaml # Detector config file
+                            # Path can be relative to inputdir (line 3) or absolute
+      schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
 
   # Full tomography reconstruction
@@ -201,7 +202,7 @@ To perform the reconstruction:
       inputdir: <path_to_CHAP_clone_dir>/examples/tomo/config
       outputdir: hollow_pyramid
       interactive: true
-      log_level: INFO
+      log_level: info
 
     pipeline:
 
@@ -229,35 +230,35 @@ To perform the reconstruction:
                 units: mm
                 data_type: smb_par
                 name: ramsz
+        detector_config:
           detectors:
             - id: sim
           schema: tomofields
-      - pipeline.MultiplePipelineItem:
-          items:
-            - common.SpecReader:
-                config:
-                  station: id3a
-                  experiment_type: TOMO
-                  spec_scans:
-                    - spec_file: ../data/hollow_pyramid/spec.log
-                      scan_numbers: 1
-                detectors:
-                  - id: sim
-                schema: darkfield
-            - common.SpecReader:
-                inputdir: ../data/hollow_pyramid
-                config:
-                  station: id3a
-                  experiment_type: TOMO
-                  spec_scans:
-                    - spec_file: spec.log
-                      scan_numbers: 2
-                detectors:
-                  - id: sim
-                schema: brightfield
-            - common.YAMLReader:
-                filename: detector_pyramid.yaml
-                schema: tomo.models.Detector
+      - common.SpecReader:
+          config:
+            station: id3a
+            experiment_type: TOMO
+            spec_scans:
+              - spec_file: ../data/hollow_pyramid/spec.log
+                scan_numbers: 1
+          detector_config:
+            detectors:
+              - id: sim
+          schema: darkfield
+      - common.SpecReader:
+          config:
+            station: id3a
+            experiment_type: TOMO
+            spec_scans:
+              - spec_file: spec.log
+                scan_numbers: 2
+          detector_config:
+            detectors:
+              - id: sim
+          schema: brightfield
+      - common.YAMLReader:
+          filename: detector_pyramid.yaml
+          schema: tomo.models.Detector
       - tomo.TomoCHESSMapConverter
 
       # Full tomography reconstruction
