@@ -219,6 +219,15 @@ class FluxCorrectionProcessor(ExpressionProcessor):
         intensity = self.get_data(
             data, name='intensity',
         )
+        # nxfieldtable = {
+        #     'intensity': intensity,
+        #     'presample_intensity': presample_intensity,
+        #     'presample_intensity_reference_rate': NXfield(
+        #         name='presample_intensity_reference_rate',
+        #         values=presample_intensity_reference_rate
+        #     )
+        # }
+
         # Extend presample_intensity along last dim to have same shape
         # as intensity
         for dim in intensity.shape[presample_intensity.ndim:]:
@@ -236,7 +245,9 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             '(presample_intensity_reference_rate / presample_intensity)'
         )
         return self._process(
-            data, expression, symtable=symtable, nxprocess=nxprocess)
+            data, expression, symtable=symtable, nxprocess=nxprocess,
+            nxfieldtable={}
+        )
 
 
 class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
@@ -311,7 +322,9 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
             '* (presample_intensity_reference_rate / presample_intensity)'
         )
         return self._process(
-            data, expression, symtable=symtable, nxprocess=nxprocess)
+            data, expression, symtable=symtable, nxprocess=nxprocess,
+            nxfieldtable={}
+        )
 
 
 class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
@@ -430,7 +443,9 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             ')'
         )
         return self._process(
-            data, expression, symtable=symtable, nxprocess=nxprocess)
+            data, expression, symtable=symtable, nxprocess=nxprocess,
+            nxfieldtable={}
+        )
 
 
 class PyfaiIntegrationProcessor(Processor):
