@@ -58,8 +58,7 @@ convert:
         experiment_type: TOMO
         spec_scans:
         - spec_file: ../data/hollow_pyramid/spec.log
-          scan_numbers:
-          - 1
+          scan_numbers: 1
       detector_config:
         detectors:
           - id: sim
@@ -71,8 +70,7 @@ convert:
         experiment_type: TOMO
         spec_scans:
         - spec_file: spec.log
-          scan_numbers:
-          - 2
+          scan_numbers: 2
       detector_config:
         detectors:
           - id: sim
@@ -81,15 +79,15 @@ convert:
       filename: detector_pyramid.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-  - common.NexusWriter:
-      filename: chess_map_hollow_pyramid.nxs
-      force_overwrite: true
+#  - common.NexusWriter:
+#      filename: chess_map_hollow_pyramid.nxs
+#      force_overwrite: true
 
 recon:
 
   # Full tomography reconstruction
-  - common.NexusReader:
-      filename: chess_map_hollow_pyramid.nxs
+#  - common.NexusReader:
+#      filename: chess_map_hollow_pyramid.nxs
   - common.YAMLReader:
       filename: find_center_id3a.yaml
       schema: tomo.models.TomoFindCenterConfig

@@ -1,44 +1,21 @@
-did: null
 title: hollow_pyramid
 station: id3a
 experiment_type: TOMO
 sample:
   name: hollow_pyramid
-  description: ''
 spec_scans:
-- spec_file: /nfs/chess/user/rv43/repos/CHESSComputing/ChessAnalysisPipeline/examples/tomo/data/hollow_pyramid/spec.log
-  scan_numbers:
-  - 3
-  - 4
-  - 5
-  par_file: null
-scalar_data: []
+- spec_file: ../data/hollow_pyramid/spec.log
+  scan_numbers: [3, 4, 5]
 independent_dimensions:
 - label: rotation_angles
   units: degrees
   data_type: scan_column
   name: theta
-  ndigits: null
-  start: 0
-  end: null
-  step: 1
 - label: x_translation
   units: mm
   data_type: smb_par
   name: ramsx
-  ndigits: null
-  start: 0
-  end: null
-  step: 1
 - label: z_translation
   units: mm
   data_type: smb_par
   name: ramsz
-  ndigits: null
-  start: 0
-  end: null
-  step: 1
-presample_intensity: null
-dwell_time_actual: null
-postsample_intensity: null
-attrs: {}
