@@ -9,13 +9,14 @@ config:
 pipeline:
 
   # Convert the CHESS style map
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: map_id3b.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detectors:
-        - id: sim
+      detector_config:
+        detectors:
+          - id: sim
       schema: tomofields
   - common.SpecReader:
       config:
@@ -23,10 +24,10 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: ../data/hollow_cube/hollow_cube
-          scan_numbers:
-          - 1
-      detectors:
-        - id: sim
+          scan_numbers: 1
+      detector_config:
+        detectors:
+          - id: sim
       schema: darkfield
   - common.SpecReader:
       inputdir: ../data/hollow_cube
@@ -35,24 +36,24 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: hollow_cube
-          scan_numbers:
-          - 2
-      detectors:
-        - id: sim
+          scan_numbers: 2
+      detector_config:
+        detectors:
+          - id: sim
       schema: brightfield
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: detector.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
  
   # Full tomography reconstruction
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: reduce_data_id3b.yaml
       schema: tomo.models.TomoReduceConfig
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: find_center_id3b.yaml
       schema: tomo.models.TomoFindCenterConfig
-  - common.ConfigReader:
+  - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
   - tomo.TomoDataProcessor:
