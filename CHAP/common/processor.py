@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -11,153 +10,22 @@ Description: Module for Processors used in multiple experiment-specific
 # System modules
 from copy import deepcopy
 import os
+from typing import Optional
 
 # Third party modules
 import numpy as np
+from pydantic import (
+    Field,
+    conint,
+    field_validator,
+)
 
 # Local modules
 from CHAP import Processor
-
-
-#class AnimationProcessor(Processor):
-#    """A Processor to show and return an animation.
-#    """
-#    def process(
-#            self, data, num_frames, vmin=None, vmax=None, axis=None,
-#            interval=1000, blit=True, repeat=True, repeat_delay=1000,
-#            interactive=False):
-#        """Show and return an animation of image slices from a dataset
-#        contained in `data`.
-#
-#        :param data: Input data.
-#        :type data: list[PipelineData]
-#        :param num_frames: Number of frames for the animation.
-#        :type num_frames: int
-#        :param vmin: Minimum array value in image slice, defaults to
-#            `None`, which uses the actual minimum value in the slice.
-#        :type vmin: float
-#        :param vmax: Maximum array value in image slice, defaults to
-#            `None`, which uses the actual maximum value in the slice.
-#        :type vmax: float
-#        :param axis: Axis direction or name of the image slices,
-#            defaults to `0`
-#        :type axis: Union[int, str], optional
-#        :param interval: Delay between frames in milliseconds (only
-#            used when interactive=True), defaults to `1000`
-#        :type interval: int, optional
-#        :param blit: Whether blitting is used to optimize drawing,
-#            default to `True`
-#        :type blit: bool, optional
-#        :param repeat: Whether the animation repeats when the sequence
-#            of frames is completed (only used when interactive=True),
-#            defaults to `True`
-#        :type repeat: bool, optional
-#        :param repeat_delay: Delay in milliseconds between consecutive
-#            animation runs if repeat is `True` (only used when
-#            interactive=True), defaults to `1000`
-#        :type repeat_delay: int, optional
-#        :param interactive: Allows for user interactions, defaults to
-#            `False`.
-#        :type interactive: bool, optional
-#        :return: The matplotlib animation.
-#        :rtype: matplotlib.animation.ArtistAnimation
-#        """
-#        # Third party modules
-#        from matplotlib import animation
-#        import matplotlib.pyplot as plt
-#
-#        # Get the default Nexus NXdata object
-#        data = self.unwrap_pipelinedata(data)[0]
-#        try:
-#            nxdata = data.get_default()
-#        except Exception as exc:
-#            raise ValueError(
-#                f'Unable to find an NXdata object in ({data})') from exc
-#        if nxdata.nxclass != 'NXdata':
-#            raise ValueError(
-#                f'Invalid default pathway to an NXdata object in ({data})')
-#
-#        # Get the frames
-#        axes = nxdata.attrs.get('axes', None)
-#        title = f'{nxdata.nxpath}/{nxdata.signal}'
-#        if nxdata.nxsignal.ndim == 2:
-#            exit('AnimationProcessor not tested yet for a 2D dataset')
-#        elif nxdata.nxsignal.ndim == 3:
-#            if isinstance(axis, int):
-#                if not 0 <= axis < nxdata.nxsignal.ndim:
-#                    raise ValueError(f'axis index out of range ({axis} not in '
-#                                     f'[0, {nxdata.nxsignal.ndim-1}])')
-#            elif isinstance(axis, str):
-#                if axes is None or axis not in list(axes.nxdata):
-#                    raise ValueError(
-#                        f'Unable to match axis = {axis} in {nxdata.tree}')
-#                axes = list(axes.nxdata)
-#                axis = axes.index(axis)
-#            else:
-#                raise ValueError(f'Invalid parameter axis ({axis})')
-#            delta = int(nxdata.nxsignal.shape[axis]/(num_frames+1))
-#            indices = np.linspace(
-#                delta, nxdata.nxsignal.shape[axis]-delta, num_frames)
-#            if not axis:
-#                frames = [nxdata[nxdata.signal][int(index),:,:]
-#                          for index in indices]
-#            elif axis == 1:
-#                frames = [nxdata[nxdata.signal][:,int(index),:]
-#                          for index in indices]
-#            else:
-#                frames = [nxdata[nxdata.signal][:,:,int(index)]
-#                          for index in indices]
-#            if axes is None:
-#                axes = [i for i in range(3) if i != axis]
-#                row_coords = range(frames[0].shape[1])
-#                row_label = f'axis {axes[1]} index'
-#                column_coords = range(frames[0].shape[0])
-#                column_label = f'axis {axes[0]} index'
-#            else:
-#                axes.pop(axis)
-#                row_coords = nxdata[axes[1]].nxdata
-#                row_label = axes[1]
-#                if 'units' in nxdata[axes[1]].attrs:
-#                    row_label += f' ({nxdata[axes[1]].units})'
-#                column_coords = nxdata[axes[0]].nxdata
-#                column_label = axes[0]
-#                if 'units' in nxdata[axes[0]].attrs:
-#                    column_label += f' ({nxdata[axes[0]].units})'
-#        else:
-#            raise ValueError('Invalid data dimension (must be 2D or 3D)')
-#
-#        # Create the movie
-#        if vmin is None or vmax is None:
-#            a_max = frames[0].max()
-#            for n in range(1, num_frames):
-#                a_max = min(a_max, frames[n].max())
-#            a_max = float(a_max)
-#            if vmin is None:
-#                vmin = -a_max
-#            if vmax is None:
-#                vmax = a_max
-#        extent = (
-#            row_coords[0], row_coords[-1], column_coords[-1], column_coords[0])
-#        fig, ax = plt.subplots(figsize=(11, 8.5))
-#        ax.set_title(title, fontsize='xx-large', pad=20)
-#        ax.set_xlabel(row_label, fontsize='x-large')
-#        ax.set_ylabel(column_label, fontsize='x-large')
-#        fig.tight_layout()
-#        ims = [[plt.imshow(
-#                    frames[n], extent=extent, origin='lower',
-#                    vmin=vmin, vmax=vmax, cmap='gray',
-#                    animated=True)]
-#               for n in range(num_frames)]
-#        plt.colorbar()
-#        if interactive:
-#            ani = animation.ArtistAnimation(
-#                fig, ims, interval=interval, blit=blit, repeat=repeat,
-#                repeat_delay=repeat_delay)
-#            plt.show()
-#        else:
-#            ani = animation.ArtistAnimation(fig, ims, blit=blit)
-#
-#        return ani
+from CHAP.common.models.map import (
+    DetectorConfig,
+    MapConfig,
+)
 
 
 class AsyncProcessor(Processor):
@@ -210,7 +78,7 @@ class AsyncProcessor(Processor):
 
 class BinarizeProcessor(Processor):
     """A Processor to binarize a dataset."""
-    def process(self, data, config=None, interactive=False):
+    def process(self, data, config=None):
         """Plot and return a binarized dataset from a dataset contained
         in `data`. The dataset must either be `array-like` or a NeXus
         NXobject object with a default plottable data path or a
@@ -221,13 +89,10 @@ class BinarizeProcessor(Processor):
         :param config: Initialization parameters for an instance of
             CHAP.common.models.BinarizeProcessorConfig
         :type config: dict, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
         :return: The binarized dataset for an `array-like` input or
             a return type equal that of the input object with the
             binarized dataset added.
-        :rtype: typing.Union[numpy.ndarray, nexusformat.nexus.NXobject]
+        :rtype: Union[numpy.ndarray, nexusformat.nexus.NXobject]
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -271,8 +136,9 @@ class BinarizeProcessor(Processor):
                 dataset = self.unwrap_pipelinedata(data)[-1]
                 assert isinstance(dataset, np.ndarray)
                 data = dataset
-            except Exception:
-                raise ValueError('Unable the load a valid input data object')
+            except Exception as exc:
+                raise ValueError(
+                    'Unable the load a valid input data object') from exc
 
         if config.method == 'yen':
             min_ = data.min()
@@ -284,6 +150,7 @@ class BinarizeProcessor(Processor):
         centers = edges[:-1] + 0.5 * np.diff(edges)
 
         # Calculate the data cutoff threshold
+        # pylint: disable=no-name-in-module
         if config.method == 'CHAP':
             weights = np.cumsum(counts)
             means = np.cumsum(counts * centers)
@@ -311,6 +178,7 @@ class BinarizeProcessor(Processor):
             from skimage.filters import threshold_minimum
 
             threshold = threshold_minimum(hist=(counts, centers))
+        # pylint: enable=no-name-in-module
 
         # Apply the data cutoff threshold
         data = np.where(data < threshold, 0, 1).astype(np.ubyte)
@@ -359,20 +227,17 @@ class BinarizeProcessor(Processor):
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
     def process(
-            self, data, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6,
-            max_iter=20, interactive=False, save_figures=False):
+            self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
+            save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param x: Independent dimension (only used when interactive is
-            `True` of when filename is set).
+        :param x: Independent dimension (only used when running
+            interactively or when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
-        :param spans: List of index ranges for selecting the data to be
-            included in baseline construction.
-        :type spans: list[[int, int]], optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
@@ -383,9 +248,6 @@ class ConstructBaseline(Processor):
         :param max_iter: The maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
@@ -399,15 +261,13 @@ class ConstructBaseline(Processor):
                 f'The structure of {data} contains no valid data') from exc
 
         return self.construct_baseline(
-            data, x=x, mask=mask, spans=spans, tol=tol, lam=lam,
-            max_iter=max_iter, interactive=interactive,
+            data, x=x, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             return_buf=save_figures)
 
     @staticmethod
     def construct_baseline(
-            y, x=None, mask=None, spans=None, tol=1.e-6, lam=1.e6, max_iter=20,
-            title=None, xlabel=None, ylabel=None, interactive=False,
-            return_buf=False):
+            y, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20, title=None,
+            xlabel=None, ylabel=None, interactive=False, return_buf=False):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
@@ -419,9 +279,6 @@ class ConstructBaseline(Processor):
            construction.
         :type mask: array-like, optional
         :param tol: The convergence tolerence, defaults to `1.e-6`.
-        :param spans: List of index ranges for selecting the data to be
-            included in baseline construction.
-        :type spans: list[[int, int]], optional
         :type tol: float, optional
         :param lam: The &lambda (smoothness) parameter (the balance
             between the residual of the data and the baseline and the
@@ -437,8 +294,8 @@ class ConstructBaseline(Processor):
         :type xlabel: str, optional
         :param ylabel: Label for the y-axis of the displayed figure.
         :type ylabel: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
+        :param interactive: Allows for user interactions,
+            defaults to `False`.
         :type interactive: bool, optional
         :param return_buf: Return an in-memory object as a byte stream
             represention of the Matplotlib figure, defaults to `False`.
@@ -449,9 +306,8 @@ class ConstructBaseline(Processor):
         :rtype: numpy.array, dict, Union[io.BytesIO, None]
         """
         # Third party modules
-        if interactive or return_buf:
-            from matplotlib.widgets import TextBox, Button
-            import matplotlib.pyplot as plt
+        from matplotlib.widgets import TextBox, Button
+        import matplotlib.pyplot as plt
 
         # Local modules
         from CHAP.utils.general import (
@@ -489,8 +345,7 @@ class ConstructBaseline(Processor):
                 lambdas.pop()
                 lambdas.append(10**lam)
                 baseline, _, _, num_iter, error = get_baseline(
-                    y, mask=mask, spans=spans, tol=tol, lam=lambdas[-1],
-                    max_iter=max_iter)
+                    y, mask=mask, tol=tol, lam=lambdas[-1], max_iter=max_iter)
                 num_iters.pop()
                 num_iters.append(num_iter)
                 errors.pop()
@@ -506,8 +361,8 @@ class ConstructBaseline(Processor):
         def continue_iter(event):
             """Callback function for the "Continue" button."""
             baseline, _, w, n_iter, error = get_baseline(
-                y, mask=mask, spans=spans, w=weights[-1], tol=tol,
-                lam=lambdas[-1], max_iter=max_iter)
+                y, mask=mask, w=weights[-1], tol=tol, lam=lambdas[-1],
+                max_iter=max_iter)
             num_iters[-1] += n_iter
             errors.pop()
             errors.append(error)
@@ -525,15 +380,14 @@ class ConstructBaseline(Processor):
             plt.close()
 
         def get_baseline(
-                y, mask=None, spans=None, w=None, tol=1.e-6, lam=1.6,
-                max_iter=20, full_output=True):
+                y, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
             """Get a baseline."""
             return baseline_arPLS(
-                y, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+                y, mask=mask, w=w, tol=tol, lam=lam, max_iter=max_iter,
                 full_output=True)
 
         baseline, _, w, num_iter, error = get_baseline(
-            y, mask=mask, spans=spans, tol=tol, lam=lam, max_iter=max_iter)
+            y, mask=mask, tol=tol, lam=lam, max_iter=max_iter)
 
         if not interactive and not return_buf:
             config = {
@@ -581,6 +435,7 @@ class ConstructBaseline(Processor):
             change_fig_subtitle(maxed_out=True)
         fig.subplots_adjust(bottom=0.0, top=0.85)
 
+        lambda_box = None
         if interactive:
 
             fig.subplots_adjust(bottom=0.2)
@@ -644,10 +499,9 @@ class ImageProcessor(Processor):
     """A Processor to plot an image (slice) from a NeXus object."""
     def __init__(self):
         super().__init__()
-        self._figinfo = None
+        self._figconfig = None
 
-    def process(
-            self, data, config=None, save_figures=True, interactive=False):
+    def process(self, data, config=None, save_figures=True):
         """Plot and/or return image slices from a NeXus NXobject
         object with a default plottable data path.
 
@@ -660,16 +514,13 @@ class ImageProcessor(Processor):
             written to file downstream in the pipeline,
             defaults to `True`.
         :type save_figures: bool, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
         :return: The plottable image(s) (for save_figures = `True`)
             or the input default NeXus NXdata object
             (for save_figures = `False`).
         :rtype: Union[bytes, nexusformat.nexus.NXdata, numpy.ndarray]
         """
-        if not save_figures and not interactive:
-            return
+        if not save_figures and not self.interactive:
+            return None
 
         # Third party modules
         from nexusformat.nexus import nxsetconfig
@@ -679,10 +530,10 @@ class ImageProcessor(Processor):
         # Load the default data
         try:
             nxdata = self.get_data(data).get_default()
-        except Exception:
+        except Exception as exc:
             raise ValueError(
                 'Unable the load the default NXdata object from the input '
-                f'pipeline ({data})')
+                f'pipeline ({data})') from exc
 
         # Load the validated image processor configuration
         if config is None:
@@ -698,9 +549,9 @@ class ImageProcessor(Processor):
         # Get the axes info and image slice(s)
         try:
             data = nxdata.nxsignal
-        except Exception:
-            raise ValueError(
-                f'Unable the find the default signal in:\n({nxdata.tree})')
+        except Exception as exc:
+            raise ValueError('Unable the find the default signal in:\n'
+                             f'({nxdata.tree})') from exc
         axis = config.axis
         axes = nxdata.attrs.get('axes', None)
         if axes is not None:
@@ -815,10 +666,6 @@ class ImageProcessor(Processor):
 
         if len(axis_coords) == 1:
             # Create a figure for a single image slice
-
-            # System modules
-            from io import BytesIO
-
             if config.animation:
                 self.logger.warning(
                     'Ignoring animation parameter for a single image')
@@ -828,7 +675,7 @@ class ImageProcessor(Processor):
             else:
                 fileformat = config.fileformat
             fig, plt = self._create_figure(np.squeeze(data))
-            if interactive:
+            if self.interactive:
                 plt.show()
             if save_figures:
                 # Local modules
@@ -836,40 +683,42 @@ class ImageProcessor(Processor):
 
                 # Return a binary image of the figure
                 buf, fileformat = fig_to_iobuf(fig, fileformat=fileformat)
+            else:
+                buf = None
             plt.close()
-            return {'image_data': buf, 'fileformat': fileformat}
-        
-        else:
-
-            # Create an animation for a set of image slices
-            if interactive or config.animation:
-                ani = self._create_animation(data, interactive)
-
             if save_figures:
-                if config.animation:
-                    # Return the animation object
-                    if (config.fileformat is not None
-                            and config.fileformat != 'gif'):
-                        self.logger.warning(
-                            'Ignoring inconsistent file extension')
-                    fileformat = 'gif'
-                    image_data = ani
-                else:
-                    # Return the set of image slices as a tif stack
-                    if (config.fileformat is not None
-                            and config.fileformat != 'tif'):
-                        self.logger.warning(
-                            'Ignoring inconsistent file extension')
-                    fileformat = 'tif'
-                    data = 255.0*((data - vrange[0])/ 
-                                  (vrange[1] - vrange[0]))
-                    image_data = data.astype(np.uint8)
+                return {'image_data': buf, 'fileformat': fileformat}
+            return nxdata
+
+        # Create an animation for a set of image slices
+        if self.interactive or config.animation:
+            ani = self._create_animation(data)
+        else:
+            ani = None
 
         if save_figures:
+            if config.animation:
+                # Return the animation object
+                if (config.fileformat is not None
+                        and config.fileformat != 'gif'):
+                    self.logger.warning(
+                        'Ignoring inconsistent file extension')
+                fileformat = 'gif'
+                image_data = ani
+            else:
+                # Return the set of image slices as a tif stack
+                if (config.fileformat is not None
+                        and config.fileformat != 'tif'):
+                    self.logger.warning(
+                        'Ignoring inconsistent file extension')
+                fileformat = 'tif'
+                data = 255.0*((data - vrange[0])/
+                              (vrange[1] - vrange[0]))
+                image_data = data.astype(np.uint8)
             return {'image_data': image_data, 'fileformat': fileformat}
         return nxdata
 
-    def _create_animation(self, data, interactive):
+    def _create_animation(self, data):
         # Third party modules
         from functools import partial
         from matplotlib import animation
@@ -884,7 +733,7 @@ class ImageProcessor(Processor):
         ani = animation.FuncAnimation(
             fig, partial(animate, plt=plt, title=title), frames=data.shape[0],
             interval=50, blit=True)
-        if interactive:
+        if self.interactive:
             plt.show()
         plt.close()
 
@@ -919,75 +768,97 @@ class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
     NXentry object representing that map's metadata and any
     scalar-valued raw data requested by the supplied map configuration.
-    """
-    def process(
-            self, data, config=None, detectors=None, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
 
-        return self._process(
-            data, config=config, detectors=detectors,
-            placeholder_data=placeholder_data, num_proc=num_proc,
-            comm=comm, inputdir=inputdir)
+    :ivar config: Map configuration parameters to initialize an
+        instance of common.models.map.MapConfig. Any values in
+        `'config'` supplant their corresponding values obtained from
+        the pipeline data configuration.
+    :type config: Union[dict, common.models.map.MapConfig]
+    :ivar detector_config: Detector configurations of the detectors to
+        include raw data for in the returned NeXus NXentry object
+        (overruling detector info in the pipeline data, if present).
+    :type detector_config: Union[
+        dict, common.models.map.DetectorConfig]
+    :ivar num_proc: Number of processors used to read map,
+        defaults to `1`.
+    :type num_proc: int, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'common.models.map.MapConfig',
+            'detector_config': 'common.models.map.DetectorConfig'},
+        init_var=True)
+    config: MapConfig
+    detector_config: DetectorConfig
+    num_proc: Optional[conint(gt=0)] = 1
+
+    @field_validator('num_proc')
+    @classmethod
+    def validate_num_proc(cls, num_proc, info):
+        """Validate the number of processors.
+
+        :ivar num_proc: Number of processors used to read map,
+            defaults to `1`.
+        :type num_proc: int, optional
+        :return: Number of processors
+        :rtype: str
+        """
+        if num_proc > 1:
+            logger = info['logger']
+            try:
+                # Third party modules
+                from mpi4py import MPI
+
+                if num_proc > os.cpu_count():
+                    logger.warning(
+                        f'The requested number of processors ({num_proc}) '
+                        'exceeds the maximum number of processors '
+                        f'({os.cpu_count()}): reset it to {os.cpu_count()}')
+                    num_proc = os.cpu_count()
+            except Exception:
+                logger.warning('Unable to load mpi4py, running serially')
+                num_proc = 1
+            logger.debug(f'Number of processors: {num_proc}')
+        return num_proc
+
+    def process(
+            self, data, placeholder_data=False, comm=None):
+
+        return self._process(data, placeholder_data, comm)
 
 #    @profile
-    def _process(
-            self, data, config=None, detectors=None, placeholder_data=False,
-            num_proc=1, comm=None, inputdir=None):
-        """Process the output of a `Reader` that contains a map
-        configuration and returns a NeXus NXentry object representing
-        the map.
+    def _process(self, data, placeholder_data=False, comm=None):
+        """Process that takes a map configuration and returns a NeXus
+        NXentry object representing the map.
 
-        :param data: Result of `Reader.read` where at least one item
-            has the value `'common.models.map.MapConfig'` for the
-            `'schema'` key.
+        :param data: Pipeline data list with an optional item for the
+            map configuration parameters with
+            `'common.models.map.MapConfig'` as its `'schema'` key.
         :type data: list[PipelineData]
-        :param config: Initialization parameters for an instance of
-            common.models.map.MapConfig.
-        :type config: dict, optional
-        :param detectors: Detectors to include raw data for in the
-            returned NeXus NXentry object (overruling the detector
-            info in data, if present).
-        :type detectors: list[dict], optional
         :param placeholder_data: For SMB EDD maps only. Value to use
             for missing detector data frames, or `False` if missing
             data should raise an error, defaults to `False`.
         :type placeholder_data: object, optional
-        :param num_proc: Number of processors used to read map,
-            defaults to `1`.
-        :type num_proc: int, optional
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths.
-        :type inputdir: str, optional
         :return: Map data and metadata.
         :rtype: nexusformat.nexus.NXentry
         """
         # System modules
         import logging
-        from tempfile import NamedTemporaryFile
 
         # Third party modules
         import yaml
-
-        # Local modules
-        from CHAP.runner import RunConfig
-        from CHAP.utils.general import (
-            is_str_series,
-            string_to_list,
-        )
 
         # Check for available metadata
         metadata = {}
         if data:
             try:
-                for i, d in enumerate(data):
+                for d in data:
                     if d.get('schema') == 'metadata':
                         metadata = d.get('data')
-                        if remove:
-                            data.pop(i)
                         break
-            except:
+            except Exception:
                 pass
             if len(metadata) > 1:
                 raise ValueError(
@@ -995,84 +866,48 @@ class MapProcessor(Processor):
             if metadata:
                 metadata = self._get_metadata_config(metadata[0])
 
-        # Get the validated map configuration
-        map_config = self.get_config(
-            data=data, config=config, schema='common.models.map.MapConfig',
-            **metadata, inputdir=inputdir)
-
-        # Validate the detectors
-        try:
-            # Local modules
-            from CHAP.common.models.map import DetectorConfig
-
-            detector_config = DetectorConfig(detectors=detectors)
-        except:
-            try:
-                detector_config = self.get_config(
-                    data=data, schema='common.models.map.DetectorConfig',
-                    inputdir=inputdir)
-            except Exception as exc:
-                raise RuntimeError from exc
-
-        # Validate the number of processors
-        if not isinstance(num_proc, int):
-            self.logger.warning('Ignoring invalid parameter num_proc '
-                                f'({num_proc}), running serially')
-            num_proc = 1
-        elif num_proc > 1:
-            try:
-                # System modules
-                from os import cpu_count
-
-                # Third party modules
-                from mpi4py import MPI
-
-                if num_proc > cpu_count():
-                    self.logger.warning(
-                        f'The requested number of processors ({num_proc}) '
-                        'exceeds the maximum number of processors '
-                        f'({cpu_count()}): reset it to {cpu_count()}')
-                    num_proc = cpu_count()
-            except:
-                self.logger.warning('Unable to load mpi4py, running serially')
-                num_proc = 1
-        self.logger.debug(f'Number of processors: {num_proc}')
-
         # Create the sub-pipeline configuration for each processor
         # FIX: catered to EDD with one spec scan
-        assert len(map_config.spec_scans) == 1
-        spec_scans = map_config.spec_scans[0]
+        assert len(self.config.spec_scans) == 1
+        spec_scans = self.config.spec_scans[0]
         scan_numbers = spec_scans.scan_numbers
         num_scan = len(scan_numbers)
-        if num_scan < num_proc:
+        if num_scan < self.num_proc:
             self.logger.warning(
-                f'The requested number of processors ({num_proc}) exceeds '
+                f'Requested number of processors ({self.num_proc}) exceeds '
                 f'the number of scans ({num_scan}): reset it to {num_scan}')
-            num_proc = num_scan
-        if num_proc == 1:
+            self.num_proc = num_scan
+        if self.num_proc == 1:
             common_comm = comm
             offsets = [0]
         else:
-            scans_per_proc = num_scan//num_proc
+            # System modules
+            from tempfile import NamedTemporaryFile
+
+            # Local modules
+            from CHAP.models import RunConfig
+
+            raise NotImplementedError(
+                'MapProcessor needs testing for num_proc>1')
+            scans_per_proc = num_scan//self.num_proc
             num = scans_per_proc
-            if num_scan - scans_per_proc*num_proc > 0:
+            if num_scan - scans_per_proc*self.num_proc > 0:
                 num += 1
             spec_scans.scan_numbers = scan_numbers[:num]
             n_scan = num
             pipeline_config = []
             offsets = [0]
-            for n_proc in range(1, num_proc):
+            for n_proc in range(1, self.num_proc):
                 num = scans_per_proc
-                if n_proc < num_scan - scans_per_proc*num_proc:
+                if n_proc < num_scan - scans_per_proc*self.num_proc:
                     num += 1
-                config = map_config.model_dump()
+                config = self.config.model_dump()
                 config['spec_scans'][0]['scan_numbers'] = \
                     scan_numbers[n_scan:n_scan+num]
                 pipeline_config.append(
                     [{'common.MapProcessor': {
                         'config': config,
-                        'detectors': [
-                            d.model_dump() for d in detector_config.detectors],
+                        'detector_config': self.detector_config.model_dump(),
                      }}])
                 offsets.append(n_scan)
                 n_scan += num
@@ -1082,20 +917,24 @@ class MapProcessor(Processor):
                 log_level=logging.getLevelName(self.logger.level), spawn=1)
             tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
+                # pylint: disable=c-extension-no-member
                 fp_name = fp.name
                 tmp_names.append(fp_name)
                 with open(fp_name, 'w') as f:
                     yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
-                for n_proc in range(1, num_proc):
+                for n_proc in range(1, self.num_proc):
                     f_name = f'{fp_name}_{n_proc}'
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
+                            # FIX once comm is a field of RunConfig
+                            # {'config': run_config.model_dump(exclude='comm'),
                             {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc-1]},
                             f, sort_keys=False)
+                # pylint: disable=used-before-assignment
                 sub_comm = MPI.COMM_SELF.Spawn(
-                    'CHAP', args=[fp_name], maxprocs=num_proc-1)
+                    'CHAP', args=[fp_name], maxprocs=self.num_proc-1)
                 common_comm = sub_comm.Merge(False)
                 # Align with the barrier in RunConfig() on common_comm
                 # called from the spawned main() in common_comm
@@ -1105,27 +944,25 @@ class MapProcessor(Processor):
                 common_comm.barrier()
 
         if common_comm is None:
-            num_proc = 1
+            self.num_proc = 1
             rank = 0
         else:
-            num_proc = common_comm.Get_size()
+            self.num_proc = common_comm.Get_size()
             rank = common_comm.Get_rank()
-        if num_proc == 1:
+        if self.num_proc == 1:
             offset = 0
         else:
             num_scan = common_comm.bcast(num_scan, root=0)
             offset = common_comm.scatter(offsets, root=0)
 
         # Read the raw data
-        if map_config.experiment_type == 'EDD':
+        if self.config.experiment_type == 'EDD':
             data, independent_dimensions, all_scalar_data = \
                 self._read_raw_data_edd(
-                    map_config, detector_config, common_comm, num_scan,
-                    offset, placeholder_data)
+                    common_comm, num_scan, offset, placeholder_data)
         else:
             data, independent_dimensions, all_scalar_data = \
-                self._read_raw_data(
-                    map_config, detector_config, common_comm, num_scan, offset)
+                self._read_raw_data(common_comm, num_scan, offset)
         if not rank:
             self.logger.debug(f'Data shape: {data.shape}')
             if independent_dimensions is not None:
@@ -1138,7 +975,7 @@ class MapProcessor(Processor):
         if rank:
             return None
 
-        if num_proc > 1:
+        if self.num_proc > 1:
             # Reset the scan_numbers to the original full set
             spec_scans.scan_numbers = scan_numbers
             # Align with the barrier in main() on common_comm
@@ -1151,8 +988,7 @@ class MapProcessor(Processor):
 
         # Construct and return the NeXus NXroot object
         return self._get_nxroot(
-            map_config, detector_config, data, independent_dimensions,
-            all_scalar_data, placeholder_data)
+            data, independent_dimensions, all_scalar_data, placeholder_data)
 
     def _get_metadata_config(self, metadata):
         """Get experiment specific configurational data from the
@@ -1171,7 +1007,7 @@ class MapProcessor(Processor):
             if station == '3A':
                 station = 'id3a'
             else:
-                raise ValueError(f'Invalid beamline parameter ({beamline})')
+                raise ValueError(f'Invalid beamline parameter ({station})')
             config['station'] = station
             config['experiment_type'] = 'TOMO'
             config['sample'] = {'name': config['title'],
@@ -1185,14 +1021,10 @@ class MapProcessor(Processor):
         return config
 
     def _get_nxroot(
-            self, map_config, detector_config, data, independent_dimensions,
-            all_scalar_data, placeholder_data):
+            self, data, independent_dimensions, all_scalar_data,
+            placeholder_data):
         """Use a `MapConfig` to construct a NeXus NXroot object.
 
-        :param map_config: A valid map configuration.
-        :type map_config: common.models.map.MapConfig
-        :param detector_config: A valid detector configuration.
-        :type detector_config: common.models.map.DetectorConfig
         :param data: The map's raw data.
         :type data: numpy.ndarray
         :param independent_dimensions: The map's independent
@@ -1209,6 +1041,7 @@ class MapProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -1218,6 +1051,7 @@ class MapProcessor(Processor):
             NXsample,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules:
         from CHAP.common.models.map import PointByPointScanData
@@ -1244,33 +1078,33 @@ class MapProcessor(Processor):
 
         # Set up NeXus NXroot/NXentry and add CHESS-specific metadata
         nxroot = NXroot()
-        nxentry = NXentry(name=map_config.title)
+        nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
-        nxentry.map_config = map_config.model_dump_json()
-        nxentry.attrs['station'] = map_config.station
-        for k, v in map_config.attrs.items():
+        nxentry.map_config = self.config.model_dump_json()
+        nxentry.attrs['station'] = self.config.station
+        for k, v in self.config.attrs.items():
             nxentry.attrs[k] = v
         nxentry.spec_scans = NXcollection()
-        for scans in map_config.spec_scans:
+        for scans in self.config.spec_scans:
             nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
                         attrs={'spec_file': str(scans.spec_file)})
 
         # Add sample metadata
-        nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.model_dump())
+        nxentry[self.config.sample.name] = NXsample(
+            **self.config.sample.model_dump())
 
         # Set up independent dimensions NeXus NXdata group
         # (squeeze out constant dimensions)
         constant_dim = []
-        for i, dim in enumerate(map_config.independent_dimensions):
+        for i, dim in enumerate(self.config.independent_dimensions):
             unique = np.unique(independent_dimensions[i])
             if unique.size == 1:
                 constant_dim.append(i)
         nxentry.independent_dimensions = NXdata()
-        for i, dim in enumerate(map_config.independent_dimensions):
+        for i, dim in enumerate(self.config.independent_dimensions):
             if i not in constant_dim:
                 nxentry.independent_dimensions[dim.label] = NXfield(
                     independent_dimensions[i], dim.label,
@@ -1286,7 +1120,7 @@ class MapProcessor(Processor):
                 f'all_scalar_data.shape = {all_scalar_data.shape}\n\n')
         scalar_signals = []
         scalar_data = []
-        for i, dim in enumerate(map_config.all_scalar_data):
+        for i, dim in enumerate(self.config.all_scalar_data):
             scalar_signals.append(dim.label)
             scalar_data.append(NXfield(
                 value=all_scalar_data[i],
@@ -1294,7 +1128,7 @@ class MapProcessor(Processor):
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
                        'local_name': dim.name}))
-        if (map_config.experiment_type == 'EDD'
+        if (self.config.experiment_type == 'EDD'
                 and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
             scalar_data.append(NXfield(
@@ -1302,7 +1136,7 @@ class MapProcessor(Processor):
                 attrs={'description':
                     'Indicates whether placeholder data may be present for'
                     'the corresponding frames of detector data.'}))
-        for i, dim in enumerate(deepcopy(map_config.independent_dimensions)):
+        for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
                 scalar_data.append(NXfield(
@@ -1311,9 +1145,9 @@ class MapProcessor(Processor):
                            'long_name': f'{dim.label} ({dim.units})',
                            'data_type': dim.data_type,
                            'local_name': dim.name}))
-                map_config.all_scalar_data.append(
+                self.config.all_scalar_data.append(
                     PointByPointScanData(**dim.model_dump()))
-                map_config.independent_dimensions.remove(dim)
+                self.config.independent_dimensions.remove(dim)
         if scalar_signals:
             nxentry.scalar_data = NXdata()
             for k, v in zip(scalar_signals, scalar_data):
@@ -1330,31 +1164,26 @@ class MapProcessor(Processor):
         nxentry.data = nxdata
         nxentry.data.set_default()
         detector_ids = []
-        for k, v in map_config.attrs.items():
+        for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
         min_ = np.min(data, axis=tuple(range(1, data.ndim)))
         max_ = np.max(data, axis=tuple(range(1, data.ndim)))
-        for i, detector in enumerate(detector_config.detectors):
+        for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.id] = NXfield(
                 value=data[i],
                 attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
             detector_ids.append(detector.id)
         linkdims(nxdata, nxentry.independent_dimensions)
-        if len(detector_config.detectors) == 1:
-            nxdata.attrs['signal'] = detector_config.detectors[0].id
+        if len(self.detector_config.detectors) == 1:
+            nxdata.attrs['signal'] = self.detector_config.detectors[0].id
         nxentry.detector_ids = detector_ids
 
         return nxroot
 
     def _read_raw_data_edd(
-            self, map_config, detector_config, comm, num_scan, offset,
-            placeholder_data):
+            self, comm, num_scan, offset, placeholder_data):
         """Read the raw EDD data for a given map configuration.
 
-        :param map_config: A valid map configuration.
-        :type map_config: common.models.map.MapConfig
-        :param detector_config: A valid detector configuration.
-        :type detector_config: common.models.map.DetectorConfig
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :param num_scan: Number of scans in the map.
@@ -1373,44 +1202,38 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except:
+        except Exception:
             pass
 
         # Local modules
         from CHAP.utils.general import list_to_string
 
         if comm is None:
-            num_proc = 1
+            self.num_proc = 1
             rank = 0
         else:
-            num_proc = comm.Get_size()
+            self.num_proc = comm.Get_size()
             rank = comm.Get_rank()
         if not rank:
-            self.logger.debug(f'Number of processors: {num_proc}')
+            self.logger.debug(f'Number of processors: {self.num_proc}')
             self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
         # FIX: just one spec scan at this point
-        assert len(map_config.spec_scans) == 1
-        scan = map_config.spec_scans[0]
+        assert len(self.config.spec_scans) == 1
+        scan = self.config.spec_scans[0]
         scan_numbers = scan.scan_numbers
         scanparser = scan.get_scanparser(scan_numbers[0])
-        if detector_config.detectors[0].id == 'mca1':
-            if len(detector_config.detectors) != 1:
-                raise ValueError(
-                    'Multiple detectors not implemented for mca1 detector')
-            detector_ids = ['mca1']
-        else:
-            detector_ids = [int(d.id) for d in detector_config.detectors]
+        detector_ids = [int(d.id) for d in self.detector_config.detectors]
         ddata, placeholder_used = scanparser.get_detector_data(
             detector_ids, placeholder_data=placeholder_data)
         spec_scan_shape = scanparser.spec_scan_shape
         num_dim = np.prod(spec_scan_shape)
-        num_id = len(map_config.independent_dimensions)
-        num_sd = len(map_config.all_scalar_data)
+        num_id = len(self.config.independent_dimensions)
+        num_sd = len(self.config.all_scalar_data)
         if placeholder_data is not False:
             num_sd += 1
-        if num_proc == 1:
+        if self.num_proc == 1:
             assert num_scan == len(scan_numbers)
             data = np.empty((num_scan, *ddata.shape), dtype=ddata.dtype)
             independent_dimensions = np.empty(
@@ -1451,7 +1274,7 @@ class MapProcessor(Processor):
 
         # Read the raw data
         init = True
-        for scan in map_config.spec_scans:
+        for scan in self.config.spec_scans:
             for scan_number in scan.scan_numbers:
                 if init:
                     init = False
@@ -1461,15 +1284,14 @@ class MapProcessor(Processor):
                     ddata, placeholder_used = scanparser.get_detector_data(
                         detector_ids, placeholder_data=placeholder_data)
                 data[offset] = ddata
-                spec_scan_motor_mnes = scanparser.spec_scan_motor_mnes
                 start_dim = offset * num_dim
                 end_dim = start_dim + num_dim
-                for i, dim in enumerate(map_config.independent_dimensions):
+                for i, dim in enumerate(self.config.independent_dimensions):
                     independent_dimensions[i][start_dim:end_dim] = \
                         dim.get_value(
                             scan, scan_number, scan_step_index=-1,
                             relative=False)
-                for i, dim in enumerate(map_config.all_scalar_data):
+                for i, dim in enumerate(self.config.all_scalar_data):
                     all_scalar_data[i][start_dim:end_dim] = dim.get_value(
                         scan, scan_number, scan_step_index=-1,
                         relative=False)
@@ -1485,14 +1307,9 @@ class MapProcessor(Processor):
             independent_dimensions, all_scalar_data)
 
 #    @profile
-    def _read_raw_data(
-            self, map_config, detector_config, comm, num_scan, offset):
+    def _read_raw_data(self, comm, num_scan, offset):
         """Read the raw data for a given map configuration.
 
-        :param map_config: A valid map configuration.
-        :type map_config: common.models.map.MapConfig
-        :param detector_config: A valid detector configuration.
-        :type detector_config: common.models.map.DetectorConfig
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :param num_scan: Number of scans in the map.
@@ -1507,43 +1324,43 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except:
+        except Exception:
             pass
 
         # Local modules
         from CHAP.utils.general import list_to_string
 
         if comm is None:
-            num_proc = 1
+            self.num_proc = 1
             rank = 0
         else:
-            num_proc = comm.Get_size()
+            self.num_proc = comm.Get_size()
             rank = comm.Get_rank()
         if not rank:
-            self.logger.debug(f'Number of processors: {num_proc}')
+            self.logger.debug(f'Number of processors: {self.num_proc}')
             self.logger.debug(f'Number of scans: {num_scan}')
 
         # Create the shared data buffers
-        assert len(map_config.spec_scans) == 1
-        scans = map_config.spec_scans[0]
+        assert len(self.config.spec_scans) == 1
+        scans = self.config.spec_scans[0]
         scan_numbers = scans.scan_numbers
         scanparser = scans.get_scanparser(scan_numbers[0])
         #RV only correct for multiple detectors if the same image sizes
-        if len(detector_config.detectors) != 1:
+        if len(self.detector_config.detectors) != 1:
             raise ValueError('Multiple detectors not tested yet')
-        if map_config.experiment_type == 'TOMO':
+        if self.config.experiment_type == 'TOMO':
             dtype = np.float32
             ddata = scanparser.get_detector_data(
-                detector_config.detectors[0].id, dtype=dtype)
+                self.detector_config.detectors[0].id, dtype=dtype)
         else:
             dtype = None
             ddata = scanparser.get_detector_data(
-                detector_config.detectors[0].id)
-        num_det = len(detector_config.detectors)
+                self.detector_config.detectors[0].id)
+        num_det = len(self.detector_config.detectors)
         num_dim = ddata.shape[0]
-        num_id = len(map_config.independent_dimensions)
-        num_sd = len(map_config.all_scalar_data)
-        if num_proc == 1:
+        num_id = len(self.config.independent_dimensions)
+        num_sd = len(self.config.all_scalar_data)
+        if self.num_proc == 1:
             assert num_scan == len(scan_numbers)
             data = num_det*[num_scan*[None]]
             independent_dimensions = np.empty(
@@ -1586,12 +1403,14 @@ class MapProcessor(Processor):
                 all_scalar_data = np.ndarray(
                     buffer=buf_sd, dtype=np.float64,
                     shape=(num_scan, num_sd, num_dim))
+            else:
+                all_scalar_data = None
 
         # Read the raw data
         init = True
-        for scans in map_config.spec_scans:
+        for scans in self.config.spec_scans:
             for scan_number in scans.scan_numbers:
-                for i, detector in enumerate(detector_config.detectors):
+                for i in range(len((self.detector_config.detectors))):
                     if init:
                         init = False
                         data[i][offset] = ddata
@@ -1599,8 +1418,8 @@ class MapProcessor(Processor):
                     else:
                         scanparser = scans.get_scanparser(scan_number)
                         data[i][offset] = scanparser.get_detector_data(
-                            detector_config.detectors[i].id, dtype=dtype)
-                for i, dim in enumerate(map_config.independent_dimensions):
+                            self.detector_config.detectors[i].id, dtype=dtype)
+                for i, dim in enumerate(self.config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
                         independent_dimensions[offset,i] = dim.get_value(
@@ -1610,16 +1429,17 @@ class MapProcessor(Processor):
                                            'expression']:
                         independent_dimensions[offset,i] = dim.get_value(
                             scans, scan_number, scan_step_index=-1,
-                            relative=False, scalar_data=map_config.scalar_data)
+                            relative=False,
+                            scalar_data=self.config.scalar_data)
                     else:
                         raise RuntimeError(
                             f'{dim.data_type} in data_type not tested')
-                for i, dim in enumerate(map_config.all_scalar_data):
+                for i, dim in enumerate(self.config.all_scalar_data):
                     all_scalar_data[offset,i] = dim.get_value(
                         scans, scan_number, scan_step_index=-1,
                         relative=False)
                 offset += 1
-        if num_proc == 1:
+        if self.num_proc == 1:
             data = np.asarray(data)
         if num_sd:
             return (
@@ -1679,8 +1499,7 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
-    def process(self, data, config=None, sub_pipeline=None, inputdir=None,
-            outputdir=None, interactive=None, log_level=None):
+    def process(self, data, config=None, sub_pipeline=None):
         """Run a parallel generic sub-pipeline.
 
         :param data: Input data.
@@ -1690,17 +1509,6 @@ class MPIMapProcessor(Processor):
         :type config: dict, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths.
-        :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved.
-        :type outputdir: str, optional
-        :param interactive: Allows for user interactions.
-        :type interactive: bool, optional
-        :ivar log_level: Logger level (not case sensitive).
-        :type log_level: Literal[
-            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
@@ -1708,20 +1516,19 @@ class MPIMapProcessor(Processor):
         from mpi4py import MPI
 
         # Local modules
-        from CHAP.runner import (
-            RunConfig,
-            run,
-        )
+        from CHAP.models import RunConfig
+        from CHAP.runner import run
         from CHAP.common.models.map import SpecScans
 
+        raise NotImplementedError('MPIMapProcessor needs updating and testing')
+        # pylint: disable=c-extension-no-member
         comm = MPI.COMM_WORLD
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
 
         # Get the validated map configuration
         map_config = self.get_config(
-            data=data, config=config, schema='common.models.map.MapConfig',
-            inputdir=inputdir)
+            data=data, config=config, schema='common.models.map.MapConfig')
 
         # Create the spec reader configuration for each processor
         # FIX: catered to EDD with one spec scan
@@ -1747,8 +1554,8 @@ class MPIMapProcessor(Processor):
         # Get the run configuration to use for the sub-pipeline
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
-            'interactive': interactive, 'log_level': log_level}
+        run_config = {'inputdir': self.inputdir, 'outputdir': self.outputdir,
+            'interactive': self.interactive, 'log_level': self.log_level}
         run_config.update(sub_pipeline.get('config'))
         run_config = RunConfig(**run_config, comm=comm)
         pipeline_config = []
@@ -1774,8 +1581,7 @@ class MPISpawnMapProcessor(Processor):
     """
     def process(
             self, data, num_proc=1, root_as_worker=True, collect_on_root=False,
-            sub_pipeline=None, inputdir=None, outputdir=None, interactive=None,
-            log_level=None):
+            sub_pipeline=None):
         """Spawn workers running a parallel generic sub-pipeline.
 
         :param data: Input data.
@@ -1790,50 +1596,37 @@ class MPISpawnMapProcessor(Processor):
         :type collect_on_root: bool, optional
         :param sub_pipeline: The sub-pipeline.
         :type sub_pipeline: Pipeline, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
-        :param outputdir: Directory to which any output figures will
-            be saved, defaults to `'.'`.
-        :type outputdir: str, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :ivar log_level: Logger level (not case sensitive).
-        :type log_level: Literal[
-            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
         :return: The `data` field of the first item in the returned
            list of sub-pipeline items.
         """
-        # System modules
-        from tempfile import NamedTemporaryFile
-
         # Third party modules
-        try:
-            from mpi4py import MPI
-        except Exception as exc:
-            raise ImportError('Unable to import mpi4py') from exc
+        from mpi4py import MPI
         import yaml
 
         # Local modules
-        from CHAP.runner import (
-            RunConfig,
-            runner,
-        )
+        from CHAP.models import RunConfig
+        from CHAP.runner import runner
         from CHAP.common.models.map import SpecScans
 
+        raise NotImplementedError('MPIMapProcessor needs updating and testing')
         # Get the map configuration from data
         map_config = self.get_config(
-            data=data, schema='common.models.map.MapConfig', inputdir=inputdir)
+            data=data, schema='common.models.map.MapConfig')
 
         # Get the run configuration to use for the sub-pipeline
+        # Optionally include the root node as a worker node
         if sub_pipeline is None:
             sub_pipeline = {}
-        run_config = {'inputdir': inputdir, 'outputdir': outputdir,
-            'interactive': interactive, 'log_level': log_level}
+        run_config = {'inputdir': self.inputdir, 'outputdir': self.outputdir,
+            'interactive': self.interactive, 'log_level': self.log_level}
         run_config.update(sub_pipeline.get('config'))
-        run_config = RunConfig(**run_config, logger=self.logger)
+        if root_as_worker:
+            first_proc = 1
+            spawn = 1
+        else:
+            first_proc = 0
+            spawn = -1
+        run_config = RunConfig(**run_config, logger=self.logger, spawn=spawn)
 
         # Create the sub-pipeline configuration for each processor
         spec_scans = map_config.spec_scans[0]
@@ -1871,18 +1664,14 @@ class MPISpawnMapProcessor(Processor):
             pipeline_config.append(sub_pipeline_config)
             n_scan += num
 
-        # Optionally include the root node as a worker node
-        if root_as_worker:
-            first_proc = 1
-            run_config.spawn = 1
-        else:
-            first_proc = 0
-            run_config.spawn = -1
-
         # Spawn the workers to run the sub-pipeline
         if num_proc > first_proc:
+            # System modules
+            from tempfile import NamedTemporaryFile
+
             tmp_names = []
             with NamedTemporaryFile(delete=False) as fp:
+                # pylint: disable=c-extension-no-member
                 fp_name = fp.name
                 tmp_names.append(fp_name)
                 with open(fp_name, 'w') as f:
@@ -1894,9 +1683,12 @@ class MPISpawnMapProcessor(Processor):
                     tmp_names.append(f_name)
                     with open(f_name, 'w') as f:
                         yaml.dump(
+                            #FIX once comm is a field of RunConfig
+                            #{'config': run_config.model_dump(exclude='comm'),
                             {'config': run_config.model_dump(),
                              'pipeline': pipeline_config[n_proc]},
                             f, sort_keys=False)
+                # pylint: disable=used-before-assignment
                 sub_comm = MPI.COMM_SELF.Spawn(
                     'CHAP', args=[fp_name], maxprocs=num_proc-first_proc)
                 common_comm = sub_comm.Merge(False)
@@ -1967,235 +1759,13 @@ class NexusToNumpyProcessor(Processor):
 
         try:
             default_signal = default_data.attrs['signal']
-        except:
-            raise ValueError(f'The signal of {default_data} is unknown')
+        except Exception as exc:
+            raise ValueError(
+                f'The signal of {default_data} is unknown') from exc
 
         np_data = default_data[default_signal].nxdata
 
         return np_data
-
-
-#class NexusToTiffsprocessor(Processor):
-#    """A Processor to convert the default plottable data in a NeXus
-#    object into a set of tiff slices.
-#    """
-#    def process(self, data, config=None, save_figures=True, interactive=False):
-#        """Plot and/or save a set of image(s) (slices) from a NeXus
-#        NXdata object or a NXobject object reachable via a default data
-#        path in `data` and return (a set) of tiffs.
-#
-#        :param data: Input data.
-#        :type data: list[PipelineData]
-#        :param config: Initialization parameters for an instance of
-#            CHAP.common.models.ImageProcessorConfig
-#        :type config: dict, optional
-#        :param save_figures: Save .tifs of plots, defaults to `True`.
-#        :type save_figures: bool, optional
-#        :param interactive: Allows for user interactions, defaults to
-#            `False`.
-#        :type interactive: bool, optional
-#        :return: The set of tiffs.
-#        :rtype: nexusformat.nexus.NXdata
-#        """
-#        # Third party modules
-#        import matplotlib.pyplot as plt
-#        from nexusformat.nexus import (
-#            NXdata,
-#            NXentry,
-#            NXroot,
-#            nxsetconfig,
-#        )
-#
-##        self._save_figures = save_figures
-##        self._interactive = interactive
-#
-#        nxsetconfig(memory=100000)
-#
-#        # Load the default data
-#        try:
-#            nxdata = self.get_data(data).get_default()
-#        except Exception:
-#            raise ValueError(
-#                'Unable the load the default NXdata object from the input '
-#                f'pipeline ({data})')
-#
-#        # Load the validated image processor configuration
-#        if config is None:
-#            # Local modules
-#            from CHAP.common.models.common import ImageProcessorConfig
-#
-#            config = ImageProcessorConfig()
-#        else:
-#            config = self.get_config(
-#                data, config=config,
-#                schema='common.models.ImageProcessorConfig')
-#
-#        # Get the image slice(s)
-#        try:
-#            data = nxdata[nxdata.signal]
-#        except Exception:
-#            raise ValueError(
-#                f'Unable the find the default signal in:\n({nxdata.tree})')
-#        axis = config.axis
-#        axes = nxdata.attrs.get('axes', None)
-#        if axes is not None:
-#            axes = list(axes.nxdata)
-#        if nxdata.nxsignal.ndim == 2:
-#            exit('NexusToTiffsprocessor not yet implemented for a 2D dataset')
-#            if axis is not None:
-#                axis = None
-#                self.logger.warning('Ignoring parameter axis')
-#        elif nxdata.nxsignal.ndim == 3:
-#            if isinstance(axis, int):
-#                if not 0 <= axis < nxdata.nxsignal.ndim:
-#                    raise ValueError(f'axis index out of range ({axis} not in '
-#                                     f'[0, {nxdata.nxsignal.ndim-1}])')
-#            elif isinstance(axis, str):
-#                if axes is None or axis not in axes:
-#                    raise ValueError(
-#                        f'Unable to match axis = {axis} in {nxdata.tree}')
-#                axis = axes.index(axis)
-#            else:
-#                raise ValueError(f'Invalid parameter axis ({axis})')
-#            if axis:
-#                data = np.moveaxis(data, axis, 0)
-#            if axes is not None and hasattr(nxdata, axes[axis]):
-#                if axis == 1:
-#                    axes = [axes[1], axes[0], axes[2]]
-#                elif axis:
-#                    axes = [axes[2], axes[0], axes[1]]
-#                axis_name = axes[0]
-#                if 'units' in nxdata[axis_name].attrs:
-#                    axis_unit = f' ({nxdata[axis_name].units})'
-#                else:
-#                    axis_unit = ''
-##                row_label = axes[2]
-##                row_coords = nxdata[row_label].nxdata
-##                column_label = axes[1]
-##                column_coords = nxdata[column_label].nxdata
-##                if 'units' in nxdata[row_label].attrs:
-##                    row_label += f' ({nxdata[row_label].units})'
-##                if 'units' in nxdata[column_label].attrs:
-##                    column_label += f' ({nxdata[column_label].units})'
-#            else:
-#                exit('No axes attribute not tested yet')
-#                axes = [0, 1, 2]
-#                axes.pop(axis)
-#                axis_name = f'axis {axis}'
-#                axis_unit = ''
-##                row_label = f'axis {axis[1]}'
-##                row_coords = None
-##                column_label = f'axis {axis[0]}'
-##                column_coords = None
-#            axis_coords = nxdata[axis_name].nxdata
-#        else:
-#            raise ValueError('Invalid data dimension (must be 2D or 3D)')
-#        index_range = config.index_range
-#        if config.coord_range is not None:
-#            # Local modules
-#            from CHAP.utils.general import (
-#                index_nearest_down,
-#                index_nearest_up,
-#            )
-#
-#            if isinstance(config.coord_range, (int, float)):
-#                index_range = index_nearest_up(
-#                    axis_coords, config.coord_range)
-#            elif len(config.coord_range) == 2:
-#                index_range = [
-#                    index_nearest_up(axis_coords, config.coord_range[0]),
-#                    index_nearest_down(axis_coords, config.coord_range[1])]
-#            else:
-#                index_range = [
-#                    index_nearest_up(axis_coords, config.coord_range[0]),
-#                    index_nearest_down(axis_coords, config.coord_range[1]),
-#                    int(max(1, config.coord_range[2]/
-#                        ((axis_coords[-1]-axis_coords[0])/data.shape[0])))]
-#        if isinstance(index_range, int):
-#            data = data[index_range]
-#            axis_coords = [axis_coords[index_range]]
-#        elif index_range is not None:
-#            slice_ = slice(*tuple(index_range))
-#            data = data[slice_]
-#            axis_coords = axis_coords[slice_]
-#
-#        # Write the image slice(s) as a tiff (stack)
-#        if not config.animation:
-#            min_ = data.min()
-#            return ((data*255.0 - min_)/(data.max() - min_)).astype(np.uint8)
-#
-#        # Create an animation of the fit points
-##        if vmin is None:
-##            vmin = data.min()
-##        if vmax is None:
-##            vmax = data.max()
-##        if row_coords is None or column_coords is None:
-##            extent = None
-##            # MUST STILL FLIP to account for origin='lower'
-##        else:
-##            extent = (row_coords[0], row_coords[-1],
-##                      column_coords[0], column_coords[-1])
-##        if self._interactive or self._save_figures:
-##            fig, ax = plt.subplots()
-##            print(f'\t\t... plotting image {0}')
-##            img = plt.imshow(
-##                data[0], extent=extent, origin='lower', vmin=vmin,
-##                vmax=vmax, cmap='gray')
-##            title = ax.set_title(f'{axis_name} = {axis_coords[0]}{axis_unit}',
-##                fontsize='xx-large')#, pad=20)
-##            ax.set_xlabel(row_label, fontsize='x-large')
-##            ax.set_ylabel(column_label, fontsize='x-large')
-##            if save_figure:
-##                fig.savefig(filename)
-##            for i in range(1, 5):#data.shape[0]):
-##                if self._interactive:
-##                    plt.pause(2)
-##                img.set_data(data[20*i])
-##                title.set_text(f'{axis_name} = {axis_coords[20*i]}{axis_unit}')
-##                print(f'\t\t... plotting image {20*i}')
-##                if self._interactive:
-##                    fig.canvas.draw()
-##                if save_figure:
-##                    fig.savefig(filename)
-##            if self._interactive:
-##                plt.pause(1)
-##            plt.close()
-#
-##            self._create_animation(
-##                nxdata, data, axis_name, axis_coords, axis_unit, column_label,
-##                row_label, extent, vmin, vmax)
-#
-#        return nxdata
-#
-#    def _create_animation(
-#            self, nxdata, data, axis_name, axis_coords, axis_unit, row_label,
-#            column_label, extent, vmin, vmax):
-#        """Create an animation of the fit results."""
-#        # Third party modules
-#        from matplotlib import animation
-#        import matplotlib.pyplot as plt
-#
-#        def animate(i):
-#            im.set_array(data[30+i])
-#            return im,
-#
-#        fig, ax = plt.subplots()
-#        im = plt.imshow(#data[30], animated=True)
-#            data[30], extent=extent, origin='lower', vmin=vmin, vmax=vmax,
-#            cmap='gray', animated=True)
-##        ax.set_title(slice_label, fontsize='xx-large')#, pad=20)
-#        ax.set_xlabel(row_label, fontsize='x-large')
-#        ax.set_ylabel(column_label, fontsize='x-large')
-#
-#        ani = animation.FuncAnimation(
-#            fig, animate, frames=20, interval=50, blit=True)
-#
-##        if self._save_figures:
-##            ani.save(os.path.join(self._outputdir, 'movie.gif'))
-#        ani.save(os.path.join(self._outputdir, 'movie.gif'))
-#        if self._interactive:
-#            plt.show()
-#        plt.close()
 
 
 class NexusToXarrayProcessor(Processor):
@@ -2232,8 +1802,9 @@ class NexusToXarrayProcessor(Processor):
 
         try:
             default_signal = default_data.attrs['signal']
-        except:
-            raise ValueError(f'The signal of {default_data} is unknown')
+        except Exception as exc:
+            raise ValueError(
+                f'The signal of {default_data} is unknown') from exc
         signal_data = default_data[default_signal].nxdata
 
         axes = default_data.attrs['axes']
@@ -2416,7 +1987,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
     """
     def process(
             self, data, poni_file, npt, mask_file=None,
-            integrate1d_kwargs=None, inputdir='.'):
+            integrate1d_kwargs=None):
         """Azimuthally integrate the detector data provided and return
         the result as a dictionary of numpy arrays containing the
         values of the radial coordinate of the result, the intensities
@@ -2438,10 +2009,6 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
             arguments to use with
             [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d).
         :type integrate1d_kwargs: Optional[dict]
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
         :returns: Azimuthal integration results as a dictionary of
             numpy arrays.
         """
@@ -2449,7 +2016,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         from pyFAI import load
 
         if not os.path.isabs(poni_file):
-            poni_file = os.path.join(inputdir, poni_file)
+            poni_file = os.path.join(self.inputdir, poni_file)
         ai = load(poni_file)
 
         if mask_file is None:
@@ -2459,12 +2026,12 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
             import fabio
 
             if not os.path.isabs(mask_file):
-                mask_file = os.path.join(inputdir, mask_file)
+                mask_file = os.path.join(self.inputdir, mask_file)
             mask = fabio.open(mask_file).data
 
         try:
             det_data = self.unwrap_pipelinedata(data)[0]
-        except:
+        except Exception:
             det_data = data
 
         if integrate1d_kwargs is None:
@@ -2492,7 +2059,7 @@ class RawDetectorDataMapProcessor(Processor):
         :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
-        map_config = self.get_config()
+        map_config = self.get_config(data)
         nxroot = self.get_nxroot(map_config, detector_name, detector_shape)
 
         return nxroot
@@ -2518,8 +2085,7 @@ class RawDetectorDataMapProcessor(Processor):
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
-                    schema = item.get('schema')
-                    if schema == 'common.models.map.MapConfig':
+                    if item.get('schema') == 'common.models.map.MapConfig':
                         map_config = item.get('data')
 
         if not map_config:
@@ -2543,12 +2109,14 @@ class RawDetectorDataMapProcessor(Processor):
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
             NXinstrument,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         raise RuntimeError('Not updated for the new MapProcessor')
         nxroot = NXroot()
@@ -2752,7 +2320,7 @@ class SetupNXdataProcessor(Processor):
         self.data_points = data_points
         try:
             setup_params = self.unwrap_pipelinedata(data)[0]
-        except:
+        except Exception:
             setup_params = None
         if isinstance(setup_params, dict):
             for a in ('coords', 'signals', 'attrs', 'data_points'):
@@ -2902,17 +2470,18 @@ class UnstructuredToStructuredProcessor(Processor):
 
         try:
             nxobject = self.get_data(data)
-        except:
+        except Exception:
             nxobject = self.unwrap_pipelinedata(data)[0]
         if isinstance(nxobject, NXdata):
             return self.convert_nxdata(nxobject)
-        elif nxpath is not None:
+        if nxpath is not None:
             # Local modules
 #            from CHAP.utils.general import nxcopy
             try:
                 nxobject = nxobject[nxpath]
-            except:
-                raise ValueError(f'Invalid parameter nxpath ({nxpath})')
+            except Exception as exc:
+                raise ValueError(
+                    f'Invalid parameter nxpath ({nxpath})') from exc
         else:
             raise ValueError(f'Invalid input data ({data})')
         return self.convert_nxdata(nxobject)
@@ -3003,7 +2572,7 @@ class UnstructuredToStructuredProcessor(Processor):
             data_point_shape = data_point_shape[0]
         else:
             data_point_shape = []
-        for dim in data_point_shape:
+        for _ in data_point_shape:
             for k, v in nxdata.items():
                 if (isinstance(v, NXfield) and k not in axes
                         and v.shape == data_point_shape):
@@ -3072,7 +2641,7 @@ class UpdateNXvalueProcessor(Processor):
           nxfilename: /reduceddata/samplename/data.nxs
     ```
     """
-    def process(self, data, nxfilename, data_points=None, inputdir=None):
+    def process(self, data, nxfilename, data_points=None):
         """Write new data values to an existing NeXus object
         representing an unstructured dataset in a NeXus file.
         Return the list of data points used to update the dataset.
@@ -3089,18 +2658,12 @@ class UpdateNXvalueProcessor(Processor):
             whose keys are the names of the nxpath, the index of the
             data point in the dataset, and the data value.
         :type data_points: Optional[list[dict[str, object]]]
-        :param inputdir: Input directory, used only if `nxfilename` is
-            not an absolute paths.
-        :type inputdir: str, optional
         :returns: Complete list of data points used to update the
             dataset.
         :rtype: list[dict[str, object]]
         """
         # Third party modules
         from nexusformat.nexus import NXFile
-
-        # Local modules
-        from CHAP.utils.general import list_to_string
 
         if data_points is None:
             data_points = []
@@ -3111,8 +2674,8 @@ class UpdateNXvalueProcessor(Processor):
             data_points.extend(ddata_points)
         self.logger.info(f'Updating a total of {len(data_points)} data points')
 
-        if inputdir is not None and not os.path.isabs(nxfilename):
-            nxfilename = os.path.join(inputdir, nxfilename)
+        if not os.path.isabs(nxfilename):
+            nxfilename = os.path.join(self.inputdir, nxfilename)
         nxfile = NXFile(nxfilename, 'rw')
 
         indices = []
@@ -3123,8 +2686,9 @@ class UpdateNXvalueProcessor(Processor):
                     data_point['index'])
                 indices.append(data_point['index'])
             except Exception as exc:
-                self.logger.error(f'Error updating {data_point["nxpath"]} for '
-                                  f'data point {data_point["index"]}: {exc}')
+                self.logger.error(
+                    f'Error updating {data_point["nxpath"]} for data point '
+                    f'{data_point["index"]}: {exc}')
             else:
                 self.logger.debug(f'Updated data point {data_point}')
 
@@ -3158,7 +2722,7 @@ class UpdateNXdataProcessor(Processor):
     """
     def process(
             self, data, nxfilename, nxdata_path, data_points=None,
-            allow_approximate_coordinates=False, inputdir=None):
+            allow_approximate_coordinates=False):
         """Write new data points to the signal fields of an existing
         NeXus NXdata object representing a structued dataset in a NeXus
         file. Return the list of data points used to update the
@@ -3201,8 +2765,8 @@ class UpdateNXdataProcessor(Processor):
             data_points.extend(_data_points)
         self.logger.info(f'Updating {len(data_points)} data points total')
 
-        if inputdir is not None and not os.path.isabs(nxfilename):
-            nxfilename = os.path.join(inputdir, nxfilename)
+        if not os.path.isabs(nxfilename):
+            nxfilename = os.path.join(self.inputdir, nxfilename)
         nxfile = NXFile(nxfilename, 'rw')
         nxdata = nxfile.readfile()[nxdata_path]
         axes_names = [a.nxname for a in nxdata.nxaxes]
@@ -3224,7 +2788,7 @@ class UpdateNXdataProcessor(Processor):
             try:
                 index = tuple(np.where(a.nxdata == d[a.nxname])[0][0]
                               for a in nxdata.nxaxes)
-            except:
+            except Exception:
                 if allow_approximate_coordinates:
                     try:
                         index = tuple(
@@ -3235,7 +2799,7 @@ class UpdateNXdataProcessor(Processor):
                             ', '.join(
                                 [f'{a.nxname}={a[_i]}'
                                  for _i, a in zip(index, nxdata.nxaxes)]))
-                    except:
+                    except Exception:
                         self.logger.error(
                             f'Cannot get the index of data point {i}. '
                             'Skipping.')
@@ -3351,7 +2915,7 @@ class XarrayToNexusProcessor(Processor):
         """Return `data` represented as a NeXus NXdata object.
 
         :param data: The input `xarray` structure.
-        :type data: typing.Union[xarray.DataArray, xarray.Dataset]
+        :type data: Union[xarray.DataArray, xarray.Dataset]
         :return: The data and metadata in `data`.
         :rtype: nexusformat.nexus.NXdata
         """

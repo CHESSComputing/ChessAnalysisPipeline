@@ -2,105 +2,150 @@
 """
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Writers used in multiple experiment-specific
+Description: Module for Readers used in multiple experiment-specific
              workflows.
 """
 
 # System modules
-from os.path import (
-    isabs,
-    isfile,
-    join,
-    splitext,
+from typing import (
+    Optional,
+    Union,
 )
-from sys import modules
 
 # Third party modules
 import numpy as np
+from pydantic import (
+    PrivateAttr,
+    conint,
+    conlist,
+    constr,
+    model_validator,
+)
 
 # Local modules
 from CHAP import Reader
+from CHAP.reader import validate_reader_model
+from CHAP.common.models.map import (
+    DetectorConfig,
+    SpecConfig,
+)
+
+def validate_model(model_instance):
+    if model_instance.filename is not None:
+        validate_reader_model(model_instance)
+    return model_instance
 
 
 class BinaryFileReader(Reader):
     """Reader for binary files."""
-    def read(self, filename):
+    def read(self):
         """Return a content of a given binary file.
 
-        :param filename: The name of the binary file to read from.
-        :type filename: str
-        :return: The file content.
+        :return: File content.
         :rtype: binary
         """
-        with open(filename, 'rb') as file:
+        with open(self.filename, 'rb') as file:
             data = file.read()
+        return data
+
+
+class ConfigReader(Reader):
+    """Reader for YAML files that optionally implements and verifies it
+    agaist its Pydantic configuration schema.
+    """
+    def read(self):
+        """Return an optionally verified dictionary from the contents
+        of a yaml file.
+        """
+        data = YAMLReader(**self.model_dump()).read()
+        #print(f'\nConfigReader.read start data {type(data)}:')
+        raise RuntimeError(
+            'FIX ConfigReader downstream validators do not like a pydantic '
+            'class as output of a reader, but returning data.model_dict() '
+            'instead screws up default value identification')
+        #pprint(data)
+        if self.get_schema() is not None:
+            data = self.get_config(config=data, schema=self.get_schema())
+        self.status = 'read'
+        #print(f'\nConfigReader.read end data {type(data)}:')
+        #pprint(data)
         return data
 
 
 class FabioImageReader(Reader):
     """Reader for images using the python package
     [`fabio`](https://fabio.readthedocs.io/en/main/).
+    :ivar frame: Index of a specific frame to read from the file(s),
+        defaults to `None`.
+    :type frame: int, optional
+
     """
-    def read(self, filename, frame=None):
+    frame: Optional[conint(ge=0)] = None
+
+    def read(self):
         """Return the data from the image file(s) provided.
 
-        :param filename: The image filename, or glob pattern for image
-            filenames, to read.
-        :type filename: str
-        :param frame: The index of a specific frame to read from the
-            file(s), defaults to `None`.
-        :type filename: int, optional
         :returns: Image data as a numpy array (or list of numpy
             arrays, if a glob pattern matching more than one file was
             provided).
+        :rtype: Union[numpy.ndarray, list[numpy.ndarray]]
         """
         # Third party modules
         from glob import glob
         import fabio
 
-        filenames = glob(filename)
+        filenames = glob(self.filename)
         data = []
         for f in filenames:
-            image = fabio.open(f, frame=frame)
+            image = fabio.open(f, frame=self.frame)
             data.append(image.data)
             image.close()
         return data
 
 
 class H5Reader(Reader):
-    """Reader for h5 files."""
-    def read(self, filename, h5path='/', idx=None):
+    """Reader for h5 files.
+
+    :ivar h5path: Path to a specific location in the h5 file to read
+        data from, defaults to `'/'`.
+    :type h5path: str, optional
+    :ivar idx: Data slice to read from the object at the specified
+        location in the h5 file.
+    :type idx: list[int], optional
+
+    """
+    h5path: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
+    idx: Optional[conlist(min_length=1, max_length=3, item_type=int)] = None
+
+    def read(self):
         """Return the data object stored at `h5path` in an h5-file.
 
-        :param filename: The name of the h5-file to read from.
-        :type filename: str
-        :param h5path: The path to a specific location in the h5 file
-            to read data from, defaults to `'/'`.
-        :type h5path: str, optional
-        :return: The object indicated by `filename` and `h5path`.
+        :return: Object indicated by `filename` and `h5path`.
         :rtype: object
         """
         # Third party modules
         from h5py import File
 
-        data = File(filename, 'r')[h5path]
-        if idx is not None:
-            data = data[tuple(idx)]
+        data = File(self.filename, 'r')[self.h5path]
+        if self.idx is not None:
+            data = data[tuple(self.idx)]
         return data
 
 
 class LinkamReader(Reader):
     """Reader for loading Linkam load frame .txt files as an
     `NXdata`.
+
+    :ivar columns: Column names to read in, defaults to None
+        (read in all columns)
+    :type columns: list[str], optional
     """
-    def read(self, filename, columns=None, inputdir=None):
+    columns: Optional[conlist(
+        item_type=constr(strip_whitespace=True, min_length=1))] = None
+
+    def read(self):
         """Read specified columns from the given Linkam file.
 
-        :param filename: Name of Linkam .txt file
-        :type filename: str
-        :param columns: Column names to read in, defaults to None
-            (read in all columns)
-        :type columns: list[str], optional
         :returns: Linkam data represented in an `NXdata` object
         :rtype: nexusformat.nexus.NXdata
         """
@@ -111,16 +156,16 @@ class LinkamReader(Reader):
         )
 
         # Parse .txt file
-        start_time, metadata, data = self.__class__.parse_file(
-            filename, self.logger)
+        start_time, metadata, data = LinkamReader.parse_file(
+            self.filename, self.logger)
 
         # Get list of actual data column names and corresponding
         # signal nxnames (same as user-supplied column names)
         signal_names = []
-        if columns is None:
+        if self.columns is None:
             signal_names = [(col, col) for col in data.keys() if col != 'Time']
         else:
-            for col in columns:
+            for col in self.columns:
                 col_actual = col
                 if col == 'Distance':
                     col_actual = 'Force V Distance_X'
@@ -132,7 +177,8 @@ class LinkamReader(Reader):
                         # column name has both _X and _Y components
                         col_actual = f'{col}_Y'
                     else:
-                        self.logger.warning(f'{col} not present in {filename}')
+                        self.logger.warning(
+                            f'{col} not present in {self.filename}')
                         continue
                 signal_names.append((col_actual, col))
         self.logger.info(f'Using (column name, signal name): {signal_names}')
@@ -157,8 +203,6 @@ class LinkamReader(Reader):
         """Return start time, metadata, and data stored in the
         provided Linkam .txt file.
 
-        :param filename: Name of Linkam .txt file
-        :type filename: str
         :returns:
         :rtype: tuple(float, dict[str, str], dict[str, list[float]])
         """
@@ -177,7 +221,7 @@ class LinkamReader(Reader):
             dt = datetime.strptime(datetime_str, '%d-%m-%y_%H-%M-%S-%f')
             start_time = dt.timestamp()
         else:
-            logger.warning('Datetime not found in filename')
+            logger.warning(f'Datetime not found in {filename}')
 
         # Get data add metadata from file contents
         metadata = {}
@@ -194,9 +238,10 @@ class LinkamReader(Reader):
                     for val, col in zip(values, list(data.keys())):
                         try:
                             val = float(val)
-                        except:
+                        except Exception as exc:
                             logger.warning(
-                                f'Cannot convert {col} value to float: {val}')
+                                f'Cannot convert {col} value to float: {val} '
+                                f'({exc})')
                             continue
                         else:
                             data[col].append(val)
@@ -236,175 +281,43 @@ class LinkamReader(Reader):
         return start_time, metadata, data
 
 
-
-class MapReader(Reader):
-    """Reader for CHESS sample maps."""
-    def read(
-            self, filename=None, map_config=None, detector_names=None,
-            inputdir=None):
-        """Take a map configuration dictionary and return a
-        representation of the map as a NeXus NXentry object. The
-        NXentry's default data group will contain the raw data
-        collected over the course of the map.
-
-        :param filename: The name of a file with the map configuration
-            to read and pass onto the constructor of
-            `CHAP.common.models.map.MapConfig`.
-        :type filename: str, optional
-        :param map_config: A map configuration to be passed directly to
-            the constructor of `CHAP.common.models.map.MapConfig`.
-        :type map_config: dict, optional
-        :param detector_names: Detector prefixes to include raw data
-            for in the returned NeXus NXentry object.
-        :type detector_names: list[str], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
-        :return: Data from the provided map configuration.
-        :rtype: nexusformat.nexus.NXentry
-        """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXcollection,
-            NXdata,
-            NXentry,
-            NXfield,
-            NXsample,
-        )
-
-        # Local modules
-        from CHAP.common.models.map import MapConfig
-
-        raise RuntimeError('MapReader is obsolete, use MapProcessor')
-
-        if filename is not None:
-            if map_config is not None:
-                raise RuntimeError('Specify either filename or map_config '
-                                   'in common.MapReader, not both')
-            # Read the map configuration from file
-            if not isfile(filename):
-                raise OSError(f'input file does not exist ({filename})')
-            extension = splitext(filename)[1]
-            if extension in ('.yml', '.yaml'):
-                reader = YAMLReader()
-            else:
-                raise RuntimeError('input file has a non-implemented '
-                                   f'extension ({filename})')
-            map_config = reader.read(filename)
-        elif not isinstance(map_config, dict):
-            raise RuntimeError('Invalid parameter map_config in '
-                               f'common.MapReader ({map_config})')
-
-        # Validate the map configuration provided by constructing a
-        # MapConfig
-        map_config = MapConfig(**map_config, inputdir=inputdir)
-
-        # Set up NXentry and add misc. CHESS-specific metadata
-        nxentry = NXentry(name=map_config.title)
-        nxentry.attrs['station'] = map_config.station
-        nxentry.map_config = map_config.model_dump_json()
-        nxentry.spec_scans = NXcollection()
-        for scans in map_config.spec_scans:
-            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
-                NXfield(value=scans.scan_numbers,
-                        attrs={'spec_file': str(scans.spec_file)})
-
-        # Add sample metadata
-        nxentry[map_config.sample.name] = NXsample(
-            **map_config.sample.model_dump())
-
-        # Set up default data group
-        nxentry.data = NXdata()
-        if map_config.map_type == 'structured':
-            nxentry.data.attrs['axes'] = map_config.dims
-        for dim in map_config.independent_dimensions:
-            nxentry.data[dim.label] = NXfield(
-                value=map_config.coords[dim.label],
-                units=dim.units,
-                attrs={'long_name': f'{dim.label} ({dim.units})',
-                       'data_type': dim.data_type,
-                       'local_name': dim.name})
-
-        # Create empty NXfields for all scalar data present in the
-        # provided map configuration
-        signal = False
-        auxilliary_signals = []
-        for data in map_config.all_scalar_data:
-            nxentry.data[data.label] = NXfield(
-                value=np.zeros(map_config.shape),
-                units=data.units,
-                attrs={'long_name': f'{data.label} ({data.units})',
-                       'data_type': data.data_type,
-                       'local_name': data.name})
-            if not signal:
-                signal = data.label
-            else:
-                auxilliary_signals.append(data.label)
-        if signal:
-            nxentry.data.attrs['signal'] = signal
-            nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
-
-        # Create empty NXfields of appropriate shape for raw
-        # detector data
-        if detector_names is None:
-            detector_names = []
-        for detector_name in detector_names:
-            if not isinstance(detector_name, str):
-                detector_name = str(detector_name)
-            detector_data = map_config.get_detector_data(
-                detector_name, (0,) * len(map_config.shape))
-            nxentry.data[detector_name] = NXfield(value=np.zeros(
-                (*map_config.shape, *detector_data.shape)),
-                dtype=detector_data.dtype)
-
-        # Read and fill in maps of raw data
-        if len(map_config.all_scalar_data) > 0 or detector_names:
-            for map_index in np.ndindex(map_config.shape):
-                for data in map_config.all_scalar_data:
-                    nxentry.data[data.label][map_index] = map_config.get_value(
-                        data, map_index)
-                for detector_name in detector_names:
-                    if not isinstance(detector_name, str):
-                        detector_name = str(detector_name)
-                    nxentry.data[detector_name][map_index] = \
-                        map_config.get_detector_data(detector_name, map_index)
-
-        return nxentry
-
-
 class NexusReader(Reader):
-    """Reader for NeXus files."""
-    def read(self, filename, nxpath='/', nxmemory=2000):
+    """Reader for NeXus files.
+
+    :ivar nxpath: Path to a specific location in the NeXus file tree
+        to read from, defaults to `'/'`.
+    :type nxpath: str, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
+    """
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
+    nxmemory: Optional[conint(gt=0)] = None
+
+    def read(self):
         """Return the NeXus object stored at `nxpath` in a NeXus file.
 
-        :param filename: The name of the NeXus file to read from.
-        :type filename: str
-        :param nxpath: The path to a specific location in the NeXus
-            file tree to read from, defaults to `'/'`.
-        :type nxpath: str, optional
         :raises nexusformat.nexus.NeXusError: If `filename` is not a
             NeXus file or `nxpath` is not in its tree.
-        :return: The NeXus object indicated by `filename` and `nxpath`.
+        :return: NeXus object indicated by `filename` and `nxpath`.
         :rtype: nexusformat.nexus.NXobject
         """
         # Third party modules
-        from nexusformat.nexus import nxload
-        from nexusformat.nexus.tree import NX_CONFIG
+        from nexusformat.nexus import (
+            nxload,
+            nxsetconfig,
+        )
 
-        NX_CONFIG['memory'] = nxmemory
-
-        return nxload(filename)[nxpath]
+        if self.nxmemory is not None:
+            nxsetconfig(memory=self.nxmemory)
+        return nxload(self.filename)[self.nxpath]
 
 
 class NXdataReader(Reader):
     """Reader for constructing an NXdata object from components."""
-    def read(
-            self, name, nxfield_params, signal_name, axes_names, attrs=None,
-            inputdir='.'):
+    def read(self, name, nxfield_params, signal_name, axes_names, attrs=None):
         """Return a basic NXdata object constructed from components.
 
-        :param name: The name of the NXdata group.
+        :param name: NXdata group name.
         :type name: str
         :param nxfield_params: List of sets of parameters for
             `NXfieldReader` specifying the NXfields belonging to the
@@ -420,10 +333,6 @@ class NXdataReader(Reader):
         :param attrs: Dictionary of additional attributes for the
             NXdata.
         :type attrs: dict, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
         :returns: A new NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
@@ -431,7 +340,7 @@ class NXdataReader(Reader):
         from nexusformat.nexus import NXdata
 
         # Read in NXfields
-        nxfields = [NXfieldReader().read(**params, inputdir=inputdir)
+        nxfields = [NXfieldReader().read(**params, inputdir=self.inputdir)
                     for params in nxfield_params]
         nxfields = {nxfield.nxname: nxfield for nxfield in nxfields}
 
@@ -470,16 +379,11 @@ class NXdataReader(Reader):
 class NXfieldReader(Reader):
     """Reader for an NXfield with options to modify certain attributes.
     """
-    def read(
-            self, filename, nxpath, nxname=None, update_attrs=None,
-            slice_params=None, inputdir='.'):
+    def read(self, nxpath, nxname=None, update_attrs=None, slice_params=None):
         """Return a copy of the indicated NXfield from the file. Name
         and attributes of the returned copy may be modified with the
         `nxname` and `update_attrs` keyword arguments.
 
-        :param filename: Name of the NeXus file containing the NXfield
-            to read.
-        :type filename: str
         :param nxpath: Path in `nxfile` pointing to the NXfield to
            read.
         :type nxpath: str
@@ -496,10 +400,6 @@ class NXfieldReader(Reader):
             `"step"` -- `1`. The order of the list must correspond to
             the order of the field's axes.
         :type slice_params: list[dict[str, int]], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
         :returns: A copy of the indicated NXfield (with name and
             attributes optionally modified).
         :rtype: nexusformat.nexus.NXfield
@@ -510,9 +410,7 @@ class NXfieldReader(Reader):
             nxload,
         )
 
-        if not isabs(filename):
-            filename = join(inputdir, filename)
-        nxroot = nxload(filename)
+        nxroot = nxload(self.filename)
         nxfield = nxroot[nxpath]
 
         if nxname is None:
@@ -545,33 +443,57 @@ class NXfieldReader(Reader):
 
 
 class SpecReader(Reader):
-    """Reader for CHESS SPEC scans."""
-    def read(
-            self, filename=None, config=None, detectors=None,
-            inputdir=None):
-        """Take a SPEC configuration filename or dictionary and return
-        the raw data as a Nexus NXentry object.
+    """Reader for CHESS SPEC scans.
 
-        :param filename: The name of file with the SPEC configuration
-            to read from to pass onto the constructor of
-            `CHAP.common.models.map.SpecConfig`.
-        :type filename: str, optional
-        :param config: A SPEC configuration to be passed directly
-            to the constructor of `CHAP.common.models.map.SpecConfig`.
-        :type config: dict, optional
-        :param detectors: Detector configurations of the detectors
-            to include raw data for in the returned NeXus output,
-            defaults to None (only a valid input for EDD).
-        :type detectors: CHAP.common.models.map.DetectorConfig,
-            optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str
-        :return: The data from the provided SPEC configuration.
+    :ivar config: SPEC configuration to be passed directly to the
+        constructor of `CHAP.common.models.map.SpecConfig`.
+    :type config: dict, optional
+    :ivar detectors: Detector configurations of the detectors to
+        include raw data for in the returned NeXus NXroot object,
+        defaults to None (only a valid input for EDD).
+    :type detectors: Union[
+        dict, common.models.map.DetectorConfig], optional
+    :ivar filename: Name of file to read from.
+    :type filename: str, optional
+    """
+    config: Optional[Union[dict, SpecConfig]] = None
+    detector_config: Optional[DetectorConfig] = None
+    filename: Optional[str] = None
+
+    _mapping_filename: PrivateAttr(default=None)
+
+    _validate_filename = model_validator(mode="after")(validate_model)
+
+    @model_validator(mode='after')
+    def validate_specreader_after(self):
+        """Validate the `SpecReader` configuration.
+
+        :return: The validated configuration.
+        :rtype: PipelineItem
+        """
+        if self.filename is not None:
+            if self.config is not None:
+                raise ValueError('Specify either filename or config in '
+                       'common.SpecReader, not both')
+            self.config = YAMLReader(**self.model_dump()).read()
+        self.config = self.get_config(
+            config=self.config, schema='common.models.map.SpecConfig')
+        if self.detector_config is None:
+            if self.config.experiment_type != 'EDD':
+                raise RuntimeError(
+                    'Missing parameter detector_config for experiment type '
+                    f'{self.config.experiment_type}')
+        return self
+
+    def read(self):
+        """Take a SPEC configuration filename or dictionary and return
+        the raw data as a NeXus NXentry object.
+
+        :return: Data from the provided SPEC configuration.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
+        # pylint: disable=no-name-in-module
         from json import dumps
         from nexusformat.nexus import (
             NXcollection,
@@ -580,105 +502,78 @@ class SpecReader(Reader):
             NXfield,
             NXroot,
         )
+        # pylint: enable=no-name-in-module
 
         # Local modules
-        from CHAP.common.models.map import (
-            Detector,
-            DetectorConfig,
-            SpecConfig,
-        )
+        from CHAP.common.models.map import Detector
 
-        if filename is not None:
-            if config is not None:
-                raise RuntimeError('Specify either filename or config '
-                                   'in common.SpecReader, not both')
-            # Read the map configuration from file
-            if not isfile(filename):
-                raise OSError(f'input file does not exist ({filename})')
-            extension = splitext(filename)[1]
-            if extension in ('.yml', '.yaml'):
-                reader = YAMLReader()
-            else:
-                raise RuntimeError('input file has a non-implemented '
-                                   f'extension ({filename})')
-            config = reader.read(filename)
-        elif not isinstance(config, dict):
-            raise RuntimeError('Invalid parameter config in '
-                               f'common.SpecReader ({config})')
-
-        # Validate the SPEC configuration provided by constructing a
-        # SpecConfig
-        config = SpecConfig(**config, inputdir=inputdir)
-
-        # Validate the detector configuration
-        if detectors is None:
-            if config.experiment_type != 'EDD':
-                raise RuntimeError('Missing parameter detectors for '
-                                   f'experiment type {config.experiment_type}')
-        else:
-            detectors = DetectorConfig(detectors=detectors)
+        #print(f'\n\nSpecReader.read\nself.config:')
+        #pprint(self.config)
+        #print(f'\n\ndetector_config:')
+        #pprint(self.detector_config)
+        #print(f'\n\n')
 
         # Create the NXroot object
         nxroot = NXroot()
-        nxentry = NXentry(name=config.experiment_type)
+        nxentry = NXentry(name=self.config.experiment_type)
         nxroot[nxentry.nxname] = nxentry
         nxentry.set_default()
 
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the
         # detector info and raw detector data
-        nxentry.config = config.model_dump_json()
-        nxentry.attrs['station'] = config.station
-        if config.experiment_type == 'EDD':
-            if detectors is None:
-                detectors_ids = None
-            else:
-                try:
-                    detectors_ids = [int(d.id) for d in detectors.detectors]
-                except:
-                    detectors_ids = [d.id for d in detectors.detectors]
+        nxentry.config = self.config.model_dump_json()
+        nxentry.attrs['station'] = self.config.station
         nxentry.spec_scans = NXcollection()
 #        nxpaths = []
-        if config.experiment_type == 'EDD':
+        if self.config.experiment_type == 'EDD':
             detector_data_format = None
-        for scans in config.spec_scans:
+        for scans in self.config.spec_scans:
             nxscans = NXcollection()
             nxentry.spec_scans[f'{scans.scanparsers[0].scan_name}'] = nxscans
             nxscans.attrs['spec_file'] = str(scans.spec_file)
             nxscans.attrs['scan_numbers'] = scans.scan_numbers
             for scan_number in scans.scan_numbers:
                 scanparser = scans.get_scanparser(scan_number)
-                if config.experiment_type == 'EDD':
+                if self.config.experiment_type == 'EDD':
                     if detector_data_format is None:
                         detector_data_format = scanparser.detector_data_format
                     elif (scanparser.detector_data_format !=
                             detector_data_format):
-                        raise ValueError(
-                        'Mixing `spec` and `h5` data formats not implemented')
+                        raise NotImplementedError(
+                            'Mixing `spec` and `h5` data formats')
+                    if self.detector_config is None:
+                        detectors_ids = None
+                    elif detector_data_format == 'spec':
+                        raise NotImplementedError(
+                            'detector_data_format = "spec"')
+                    else:
+                        detectors_ids = [
+                            int(d.id) for d in self.detector_config.detectors]
                 nxscans[scan_number] = NXcollection()
                 try:
                     nxscans[scan_number].spec_motors = dumps(
                         {k:float(v) for k,v
                          in scanparser.spec_positioner_values.items()})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].scan_columns = dumps(
                         {k:list(v) for k,v
                          in scanparser.spec_scan_data.items() if len(v)})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].smb_pars = dumps(
                         {k:v for k,v in scanparser.pars.items()})
-                except:
+                except Exception:
                     pass
                 try:
                     nxscans[scan_number].spec_scan_motor_mnes = dumps(
                         scanparser.spec_scan_motor_mnes)
-                except:
+                except Exception:
                     pass
-                if config.experiment_type == 'EDD':
+                if self.config.experiment_type == 'EDD':
                     nxdata = NXdata()
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
@@ -686,7 +581,7 @@ class SpecReader(Reader):
                     nxdata.data = NXfield(
                         value=scanparser.get_detector_data(detectors_ids)[0])
                 else:
-                    if config.experiment_type == 'TOMO':
+                    if self.config.experiment_type == 'TOMO':
                         dtype = np.float32
                     else:
                         dtype = None
@@ -694,21 +589,19 @@ class SpecReader(Reader):
                     nxscans[scan_number].data = nxdata
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
-                    for detector in detectors.detectors:
+                    for detector in self.detector_config.detectors:
                         nxdata[detector.id] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.id, dtype=dtype))
 
-        if detectors is None and config.experiment_type == 'EDD':
+        if (self.config.experiment_type == 'EDD' and
+                self.detector_config is None):
             if detector_data_format == 'spec':
-                detectors = DetectorConfig(
-                    detectors=[Detector(id='mca1')
-                               for i in range(nxdata.data.shape[1])])
-            else:
-                detectors = DetectorConfig(
-                    detectors=[
-                        Detector(id=i) for i in range(nxdata.data.shape[1])])
-        nxentry.detectors = detectors.model_dump_json()
+                raise NotImplementedError('detector_data_format = "spec"')
+            self.detector_config = DetectorConfig(
+                detectors=[
+                    Detector(id=i) for i in range(nxdata.data.shape[1])])
+        nxentry.detectors = self.detector_config.model_dump_json()
 
         #return nxroot, nxpaths
         return nxroot
@@ -720,14 +613,14 @@ class URLReader(Reader):
         """Make an HTTPS request to the provided URL and return the
         results. Headers for the request are optional.
 
-        :param url: The URL to read.
+        :param url: URL to read.
         :type url: str
         :param headers: Headers to attach to the request.
         :type headers: dict, optional
         :param timeout: Timeout for the HTTPS request,
             defaults to `10`.
         :type timeout: int
-        :return: The content of the response.
+        :return: Content of the response.
         :rtype: object
         """
         # System modules
@@ -745,19 +638,17 @@ class URLReader(Reader):
 
 class YAMLReader(Reader):
     """Reader for YAML files."""
-    def read(self, filename):
+    def read(self):
         """Return a dictionary from the contents of a yaml file.
 
-        :param filename: The name of the YAML file to read from.
-        :type filename: str
-        :return: The contents of the file.
+        :return: Contents of the file.
         :rtype: dict
         """
         # Third party modules
         import yaml
 
-        with open(filename) as file:
-            data = yaml.safe_load(file)
+        with open(self.filename) as f:
+            data = yaml.safe_load(f)
         return data
 
 

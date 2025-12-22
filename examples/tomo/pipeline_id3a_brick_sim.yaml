@@ -9,7 +9,7 @@ config:
 pipeline:
 
   # Create a simulated stack of tomography images
-  - common.YAMLReader:
+  - common.ConfigReader:
       filename: tomo_sim_id3a_brick.yaml
       schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor:

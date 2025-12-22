@@ -677,7 +677,7 @@ def select_material_params_gui(
         x, y, tth, preselected_materials, label, on_complete, interactive)
 
     if return_buf:
-        materials, fig_to_iobuf(figure)
+        return materials, fig_to_iobuf(figure)
     return materials, None
 
 
@@ -1276,7 +1276,8 @@ def get_rolling_sum_spectra(
     return ry
 
 
-def get_spectra_fits(spectra, energies, peak_locations, detector):
+def get_spectra_fits(
+        spectra, energies, peak_locations, detector, **kwargs):
     """Return twenty arrays of fit results for the map of spectra
     provided: uniform centers, uniform center errors, uniform
     amplitudes, uniform amplitude errors, uniform sigmas, uniform
@@ -1319,7 +1320,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     # Local modules
     from CHAP.utils.fit import FitProcessor
 
-    num_proc = detector.num_proc
+    num_proc = kwargs.get('num_proc', 1)
     rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
     nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))
@@ -1357,7 +1358,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     }
 
     # Perform uniform fit
-    fit = FitProcessor()
+    fit = FitProcessor(**kwargs)
     uniform_fit = fit.process(nxdata, config)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:

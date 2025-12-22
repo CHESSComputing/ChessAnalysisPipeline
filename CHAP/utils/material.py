@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : general.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -170,6 +169,8 @@ class Material:
         """Use HeXRD to get material properties when a materials file
         is provided. Use xrayutilities otherwise.
         """
+        # pylint: disable=possibly-used-before-assignment
+        lattice_parameters = None
         if not isinstance(material_name, str):
             raise ValueError(
                 f'Illegal material_name: {material_name} '

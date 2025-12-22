@@ -238,43 +238,44 @@ class IntegrationConfig(CHAPBaseModel):
             f'Invalid azimuthal units: {azimuthal_units}. '
             f'Must be one of {", ".join(AZIMUTHAL_UNITS.keys())}')
 
-    def validate_range_max(range_name):
-        """Validate the maximum value of an integration range.
-
-        :param range_name: The name of the integration range
-            (e.g. radial, azimuthal).
-        :type range_name: str
-        :return: The callable that performs the validation.
-        :rtype: callable
-        """
-        def _validate_range_max(cls, range_max, info):
-            """Check if the maximum value of the integration range is
-            greater than its minimum value.
-
-            :param range_max: The maximum value of the integration
-                range.
-            :type range_max: float
-            :param info: Pydantic validator info object.
-            :type info: pydantic_core._pydantic_core.ValidationInfo
-            :raises ValueError: If the maximum value of the
-                integration range is not greater than its minimum
-                value.
-            :return: The validated maximum range value.
-            :rtype: float
-            """
-            range_min = info.data.get(f'{range_name}_min')
-            if range_min < range_max:
-                return range_max
-            raise ValueError(
-                'Maximum value of integration range must be '
-                'greater than minimum value of integration range '
-                f'({range_name}_min={range_min}).')
-        return _validate_range_max
-
-    _validate_radial_max = field_validator(
-        'radial_max')(validate_range_max('radial'))
-    _validate_azimuthal_max = field_validator(
-        'azimuthal_max')(validate_range_max('azimuthal'))
+# FIX
+#    def validate_range_max(self, range_name):
+#        """Validate the maximum value of an integration range.
+#
+#        :param range_name: The name of the integration range
+#            (e.g. radial, azimuthal).
+#        :type range_name: str
+#        :return: The callable that performs the validation.
+#        :rtype: callable
+#        """
+#        def _validate_range_max(cls, range_max, info):
+#            """Check if the maximum value of the integration range is
+#            greater than its minimum value.
+#
+#            :param range_max: The maximum value of the integration
+#                range.
+#            :type range_max: float
+#            :param info: Pydantic validator info object.
+#            :type info: pydantic_core._pydantic_core.ValidationInfo
+#            :raises ValueError: If the maximum value of the
+#                integration range is not greater than its minimum
+#                value.
+#            :return: The validated maximum range value.
+#            :rtype: float
+#            """
+#            range_min = info.data.get(f'{range_name}_min')
+#            if range_min < range_max:
+#                return range_max
+#            raise ValueError(
+#                'Maximum value of integration range must be '
+#                'greater than minimum value of integration range '
+#                f'({range_name}_min={range_min}).')
+#        return _validate_range_max
+#
+#    _validate_radial_max = field_validator(
+#        'radial_max')(validate_range_max('radial'))
+#    _validate_azimuthal_max = field_validator(
+#        'azimuthal_max')(validate_range_max('azimuthal'))
 
     def validate_for_map_config(self, map_config):
         """Validate the existence of the detector data file for all
@@ -398,7 +399,7 @@ class IntegrationConfig(CHAPBaseModel):
         """
         # Handle idiosyncracies of azimuthal ranges in pyFAI Adjust
         # chi ranges to get a continuous range of iintegrated data
-        chi_min, chi_max, *adjust = self.get_azimuthal_adjustments()
+        chi_min, chi_max, _, _ = self.get_azimuthal_adjustments()
         # Perform radial integration on a detector-by-detector basis.
         intensity_each_detector = []
         variance_each_detector = []
@@ -515,6 +516,7 @@ class IntegrationConfig(CHAPBaseModel):
                 radial_npt=self.radial_npt,
                 azimuthal_range=(self.azimuthal_min, self.azimuthal_max),
                 azimuthal_npt=self.azimuthal_npt)
+        return None
 
     @property
     def integrated_data_dims(self):

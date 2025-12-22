@@ -3,7 +3,7 @@ Python thread pool, see
 http://code.activestate.com/recipes/577187-python-thread-pool/
 Author: Valentin Kuznetsov <vkuznet [AT] gmail [DOT] com>
 """
-from builtins import range, object
+from builtins import range
 
 # System modules
 import time
@@ -100,7 +100,7 @@ class UidSet():
 class Worker(threading.Thread):
     """Thread executing worker from a given tasks queue."""
     def __init__(self, name, taskq, pidq, uidq, logger=None):
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger() if logger is None else logger
         threading.Thread.__init__(self, name=name)
         self.exit = 0
         self.tasks = taskq

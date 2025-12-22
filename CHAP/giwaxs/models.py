@@ -10,7 +10,6 @@ from typing import (
 )
 
 # Third party modules
-import numpy as np
 from pydantic import (
     FilePath,
     PrivateAttr,
@@ -49,7 +48,7 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_root(cls, data):
+    def validate_azimuthalintegratorconfig_before(cls, data):
         if isinstance(data, dict):
             inputdir = data.get('inputdir')
             mask_file = data.get('mask_file')
@@ -72,7 +71,7 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         return data
 
     @model_validator(mode='after')
-    def validate_ai(self):
+    def validate_azimuthalintegratorconfig_after(self):
         """Set the default azimuthal integrator.
 
         :return: Validated configuration class.
@@ -333,7 +332,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_integration_params(cls, data):
+    def validate_pyfaiintegratorconfig_before(cls, data):
         """Validate the integration parameters.
 
         :param data: Pydantic validator data object.
@@ -353,7 +352,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         return data
 
     @model_validator(mode='after')
-    def validate_config(self):
+    def validate_pyfaiintegratorconfig_after(self):
         """Choose the integration_params type depending on the
         `integration_method` value.
 
@@ -463,7 +462,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_pyfaiintegrationconfig_before(cls, data):
         """Ensure that a valid configuration was provided and finalize
         PONI filepaths.
 

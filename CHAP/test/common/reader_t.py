@@ -18,6 +18,9 @@ from CHAP.common import (
 )
 
 
+#FIX
+# pylint: disable=too-many-function-args
+# pylint: disable=unexpected-keyword-arg
 class BinaryFileReaderTest(unittest.TestCase):
     """Unit test for CHAP.common.BinaryFileReader class"""
 
@@ -67,7 +70,6 @@ class URLReaderTest(unittest.TestCase):
 
     def testReader(self):
         """Unit test to test reader"""
-        pass
         # data = self.reader.read(self.url)
         # self.assertIsInstance(data, bytes)
 

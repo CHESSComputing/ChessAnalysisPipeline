@@ -10,7 +10,6 @@ import os
 from typing import (
     Literal,
     Optional,
-    Union,
 )
 
 # Third party modules
@@ -63,7 +62,7 @@ class Detector(CHAPBaseModel):
     def validate_attrs(cls, attrs):
         """Validate any additional detector configuration attributes.
 
-        :param attrs: Any additional attributes to `DetectorConfig`.
+        :param attrs: Any additional attributes to `Detector`.
         :type attrs: dict
         :raises ValueError: Invalid attribute.
         :return: The validated field for `attrs`.
@@ -82,7 +81,7 @@ class Detector(CHAPBaseModel):
 class DetectorConfig(CHAPBaseModel):
     """Class representing a detector configuration.
 
-    :ivar detectors: The detector list.
+    :ivar detectors: Detector list.
     :type detectors: list[Detector]
     """
     detectors: conlist(item_type=Detector, min_length=1)
@@ -271,6 +270,7 @@ def get_scanparser(spec_file, scan_number, par_file=None):
     :param par_file: Path to a SMB par file.
     :type par_file: str, optional
     """
+    # pylint: disable=undefined-variable
     if scan_number not in get_available_scan_numbers(spec_file):
         return None
     if par_file is None:
@@ -341,7 +341,7 @@ class PointByPointScanData(CHAPBaseModel):
         if ((not issubclass(cls,CorrectionsData))
                 and label in CorrectionsData.reserved_labels()):
             raise ValueError(
-                f'{cls.__name__}.label may not be any of the following '
+                f'{cls.__class__.__name__}.label may not be any of the following '
                 f'reserved values: {CorrectionsData.reserved_labels()}')
         return label
 
@@ -422,7 +422,7 @@ class PointByPointScanData(CHAPBaseModel):
         for label in ('round', 'np', 'numpy'):
             try:
                 labels.remove(label)
-            except:
+            except Exception:
                 pass
         for l in labels:
             if l in ('round', 'np', 'numpy'):
@@ -491,8 +491,7 @@ class PointByPointScanData(CHAPBaseModel):
                 spec_scans.spec_file, scan_number, self.name)
             if scan_step_index >= 0:
                 return timestamps[scan_step_index]
-            else:
-                return timestamps
+            return timestamps
         return None
 
 @cache
@@ -662,8 +661,7 @@ def validate_data_source_for_map_config(data_source, info):
     :return: The validated `data_source` instance.
     :rtype: PointByPointScanData
     """
-    def _validate_data_source_for_map_config(
-            data_source, info):
+    def _validate_data_source_for_map_config(data_source, info):
         if isinstance(data_source, list):
             return [_validate_data_source_for_map_config(d_s, info)
                     for d_s in data_source]
@@ -790,7 +788,7 @@ class SpecConfig(CHAPBaseModel):
 
     :ivar station: The name of the station at which the data was
         collected.
-    :type station: Literal['id1a3', 'id3a', 'id3b']
+    :type station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     :ivar spec_scans: A list of the SPEC scans that compose the set.
     :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
@@ -804,7 +802,7 @@ class SpecConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_specconfig_before(cls, data):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
@@ -941,7 +939,7 @@ class MapConfig(CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_mapconfig_before(cls, data, info):
         """Ensure that a valid configuration was provided and finalize
         spec_file filepaths.
 
@@ -971,17 +969,18 @@ class MapConfig(CHAPBaseModel):
                     {'spec_file': spec_file, 'scan_numbers': scan_numbers,
                      'par_file': par_file}]
         else:
-            inputdir = data.get('inputdir')
             spec_scans = data.get('spec_scans')
-            for i, scans in enumerate(deepcopy(spec_scans)):
-                if isinstance(scans, SpecScans):
-                    scans = scans.model_dump()
-                spec_file = scans['spec_file']
-                if inputdir is not None and not os.path.isabs(spec_file):
-                    spec_scans[i]['spec_file'] = os.path.join(
-                        inputdir, spec_file)
             if 'spec_scans' in data:
-                spec_scans[i] = SpecScans(**scans, **data)
+                inputdir = data.get('inputdir')
+                if inputdir is None and info.data is not None:
+                    inputdir = info.data.get('inputdir')
+                for i, scans in enumerate(deepcopy(spec_scans)):
+                    if isinstance(scans, SpecScans):
+                        scans = scans.model_dump()
+                    spec_file = scans['spec_file']
+                    if inputdir is not None and not os.path.isabs(spec_file):
+                        scans['spec_file'] = os.path.join(inputdir, spec_file)
+                    spec_scans[i] = SpecScans(**scans, **data)
             data['spec_scans'] = spec_scans
         return data
 
@@ -1084,7 +1083,7 @@ class MapConfig(CHAPBaseModel):
                 scanparser = scans.get_scanparser(scan_number)
                 try:
                     values.append(scanparser.pars[name])
-                except:
+                except Exception:
 #                    print(
 #                        f'Warning: No value found for .par file value "{name}"'
 #                        f' on scan {scan_number} in spec file '
@@ -1234,7 +1233,6 @@ class MapConfig(CHAPBaseModel):
         :rtype: tuple[SpecScans, int, int]
         """
         raise RuntimeError('get_scan_step_index not implemented')
-        scan_type = self.attrs.get('scan_type', -1)
         fly_axis_labels = self.attrs.get('fly_axis_labels', [])
         if self.map_type == 'structured':
             map_coords = self.get_coords(map_index)
@@ -1284,6 +1282,7 @@ def import_scanparser(station, experiment):
         'EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF', 'HDRM']
     """
     # Third party modules
+    # pylint: disable=import-error
     from chess_scanparsers import choose_scanparser
 
     globals()['ScanParser'] = choose_scanparser(station, experiment)
