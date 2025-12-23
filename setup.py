@@ -56,7 +56,7 @@ setuptools.setup(
         'CHAP.tomo',
         'CHAP.utils',
         'CHAP.foxden',
-        'MLaaS'
+        'MLaaS',
     ],
     package_dir={
         'CHAP': 'CHAP',
@@ -70,13 +70,13 @@ setuptools.setup(
         'CHAP.tomo': 'CHAP/tomo',
         'CHAP.foxden': 'CHAP/foxden',
         'CHAP.utils': 'CHAP/utils',
-        'MLaaS': 'MLaaS'
+        'MLaaS': 'MLaaS',
     },
     package_data={
-        'examples': data_files
+        'examples': data_files,
     },
     entry_points={
-        'console_scripts': ['CHAP = CHAP.runner:main']
+        'console_scripts': ['CHAP = CHAP.runner:main'],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -85,8 +85,8 @@ setuptools.setup(
     ],
     python_requires='>=3.9',
     install_requires=[
-        'pyyaml==6.0.2',
+        'numpy==1.26.4',
         'pydantic==2.7.3',
-        'numpy==1.26.4'
+        'pyyaml==6.0.2',
     ],
 )
