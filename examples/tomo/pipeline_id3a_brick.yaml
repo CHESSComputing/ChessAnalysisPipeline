@@ -14,8 +14,9 @@ pipeline:
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       num_proc: 1
-      detectors:
-        - id: sim
+      detector_config:
+        detectors:
+          - id: sim
       schema: tomofields
   - common.SpecReader:
       config:
@@ -23,10 +24,10 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: ../data/hollow_brick/spec.log
-          scan_numbers:
-          - 1
-      detectors:
-        - id: sim
+          scan_numbers: 1
+      detector_config:
+        detectors:
+          - id: sim
       schema: darkfield
   - common.SpecReader:
       inputdir: ../data/hollow_brick
@@ -35,10 +36,10 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: spec.log
-          scan_numbers:
-          - 2
-      detectors:
-        - id: sim
+          scan_numbers: 2
+      detector_config:
+        detectors:
+          - id: sim
       schema: brightfield
   - common.YAMLReader:
       filename: detector.yaml

@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: data/hollow_pyramid
   interactive: true
-  log_level: info
+  log_level: debug
   profile: false
 
 pipeline:
@@ -19,10 +19,11 @@ pipeline:
       schema: tomo.models.TomoDarkField
   # Create the bright field for the simulation
   - tomo.TomoBrightFieldProcessor:
-      schema: tomo.models.TomoBrightField
       num_image: 10
+      schema: tomo.models.TomoBrightField
   # Create the SPEC file for the simulation
-  - tomo.TomoSpecProcessor:
-      scan_numbers: [1, 2, 3, 4, 5]
+  - tomo.TomoSpecProcessor
+#  - tomo.TomoSpecProcessor:
+#      scan_numbers: [1, 2, 3, 4, 5]
   - common.FileTreeWriter:
       force_overwrite: true

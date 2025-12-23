@@ -6,9 +6,12 @@ config:
   log_level: info
   profile: false
 
-pipeline:
+map:
 
   # Convert the CHESS style map
+  - common.YAMLReader:
+      filename: detector_id3a_pyramid.yaml
+      schema: common.models.map.DetectorConfig
   - common.YAMLReader:
       filename: map_id3a_pyramid.yaml
       schema: common.models.map.MapConfig
@@ -35,9 +38,19 @@ pipeline:
 #          units: mm
 #          data_type: smb_par
 #          name: ramsz
+#      detector_config:
+#        detectors:
+#          - id: sim
       num_proc: 1
-      detectors:
-        - id: sim
+      schema: tomofields
+  - common.NexusWriter:
+      filename: map_hollow_pyramid.nxs
+      force_overwrite: true
+
+convert:
+
+  - common.NexusReader:
+      filename: map_hollow_pyramid.nxs
       schema: tomofields
   - common.SpecReader:
       config:
@@ -45,10 +58,10 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: ../data/hollow_pyramid/spec.log
-          scan_numbers:
-          - 1
-      detectors:
-        - id: sim
+          scan_numbers: 1
+      detector_config:
+        detectors:
+          - id: sim
       schema: darkfield
   - common.SpecReader:
       inputdir: ../data/hollow_pyramid
@@ -57,10 +70,10 @@ pipeline:
         experiment_type: TOMO
         spec_scans:
         - spec_file: spec.log
-          scan_numbers:
-          - 2
-      detectors:
-        - id: sim
+          scan_numbers: 2
+      detector_config:
+        detectors:
+          - id: sim
       schema: brightfield
   - common.YAMLReader:
       filename: detector_pyramid.yaml

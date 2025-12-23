@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : general.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -11,17 +10,11 @@ Description: A collection of general modules
 
 # System modules
 from ast import literal_eval
+import collections.abc
 from logging import getLogger
-from os import path as os_path
-from os import (
-    access,
-    makedirs,
-    R_OK,
-)
-from re import compile as re_compile
-from re import split as re_split
-from re import sub as re_sub
-from sys import float_info
+import os
+import re
+import sys
 
 # Third party modules
 import numpy as np
@@ -32,7 +25,9 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+# pylint: disable=no-member
 tiny = np.finfo(np.float64).resolution
+# pylint: enable=no-member
 
 def gformat(val, length=11):
     """
@@ -94,6 +89,34 @@ def unwrap_tuple(_tuple):
         _tuple = unwrap_tuple(*_tuple)
     return _tuple
 
+
+def all_any(l, key):
+    """Check for a common key in a list of dictionaries, looping
+    at maximum only once over the entire list.
+
+    :param l: Input list.
+    :type l: list[dict]
+    :param key: The common dictionary key.
+    :type key: Any
+    :return: `1` if `all(l, key)`, `0` if `not any(l, key)`, or `-1`
+        otherwise. Return `None` for a zero length input list.
+    :rtype: Union[None, int]
+    """
+    ret = None
+    for d in l:
+        if key in d:
+            if ret == 0:
+                ret = -1
+                break
+            elif ret is None:
+                ret = 1
+        else:
+            if ret == 1:
+                ret = -1
+                break
+            elif ret is None:
+                ret = 0
+    return ret
 
 def illegal_value(value, name, location=None, raise_error=False, log=True):
     """Print illegal value message and/or raise error."""
@@ -260,6 +283,7 @@ def _is_int_or_num(
     if ge is None and gt is None and le is None and lt is None:
         return True
     error = False
+    error_msg = ''
     if ge is not None and v < ge:
         error = True
         error_msg = f'Value {v} out of range: {v} !>= {ge}'
@@ -395,6 +419,17 @@ def is_str_series(t_or_l, raise_error=False, log=True):
         return False
     return True
 
+def is_str_or_str_series(t_or_l, raise_error=False, log=True):
+    """Value is a string ot a tuple or list of strings."""
+    if isinstance(t_or_l, str):
+        return True
+    if (not isinstance(t_or_l, (tuple, list))
+            or any(not isinstance(s, str) for s in t_or_l)):
+        illegal_value(
+            t_or_l, 't_or_l', 'is_str_or_str_series', raise_error, log)
+        return False
+    return True
+
 
 def is_dict_series(t_or_l, raise_error=False, log=True):
     """Value is a tuple or list of dictionaries."""
@@ -467,7 +502,7 @@ def index_nearest(a, value):
         raise ValueError(
             f'Invalid array dimension for parameter a ({a.ndim}, {a})')
     # Round up for .5
-    value *= 1.0+float_info.epsilon
+    value *= 1.0 + sys.float_info.epsilon
     return (int)(np.argmin(np.abs(a-value)))
 
 
@@ -576,7 +611,7 @@ def string_to_list(
     if not s:
         return []
     try:
-        list1 = re_split(r'\s+,\s+|\s+,|,\s+|\s+|,', s.strip())
+        list1 = re.split(r'\s+,\s+|\s+,|,\s+|\s+|,', s.strip())
     except (ValueError, TypeError, SyntaxError, MemoryError,
             RecursionError) as e:
         if not raise_error:
@@ -588,7 +623,7 @@ def string_to_list(
             for v in list1:
                 list2 = [
                     literal_eval(x)
-                    for x in re_split(r'\s+-\s+|\s+-|-\s+|\s+|-', v)]
+                    for x in re.split(r'\s+-\s+|\s+-|-\s+|\s+|-', v)]
                 if len(list2) == 1:
                     l_of_i += list2
                 elif len(list2) == 2 and list2[1] > list2[0]:
@@ -629,7 +664,7 @@ def list_to_string(a):
 
 def get_trailing_int(string):
     """Get the trailing integer in a string."""
-    index_regex = re_compile(r'\d+$')
+    index_regex = re.compile(r'\d+$')
     match = index_regex.search(string)
     if match is None:
         return None
@@ -831,9 +866,8 @@ def _input_int_or_num_list(
         _list = string_to_list(input(), split_on_dash, remove_duplicates, sort)
     except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
         _list = None
-    except:
-        print('Unexpected error')
-        raise
+    except Exception as exc:
+        raise Exception('Unexpected error') from exc
     if (not isinstance(_list, list)
             or (num_max is not None and len(_list) > num_max)
             or any(
@@ -919,9 +953,8 @@ def input_menu(items, default=None, header=None):
                 raise ValueError
     except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
         choice = None
-    except:
-        print('Unexpected error')
-        raise
+    except Exception as exc:
+        raise Exception('Unexpected error') from exc
     if choice is None:
         print(f'Invalid choice, enter a number between 1 and {len(items)}')
         choice = input_menu(items, default)
@@ -1005,9 +1038,9 @@ def assert_no_duplicate_attr_in_list_of_objs(_list, attr, raise_error=False):
 
 def file_exists_and_readable(f):
     """Check if a file exists and is readable."""
-    if not os_path.isfile(f):
+    if not os.path.isfile(f):
         raise ValueError(f'{f} is not a valid file')
-    if not access(f, R_OK):
+    if not os.access(f, os.R_OK):
         raise ValueError(f'{f} is not accessible for reading')
     return f
 
@@ -1060,10 +1093,7 @@ def rolling_average(
     elif not is_int(end, gt=start, le=size):
         raise ValueError(f'Invalid "end" parameter ({end})')
     if use_convolve is None:
-        if len(y_shape) == 1:
-            use_convolve = True
-        else:
-            use_convolve = False
+        use_convolve = bool(len(y_shape) == 1)
     if use_convolve and (start or end < size):
         y = np.take(y, range(start, end), axis=1)
         if x is not None:
@@ -1224,7 +1254,7 @@ def baseline_arPLS(
     error = 1
     num_iter = 0
 
-    exp_max = int(np.log(float_info.max))
+    exp_max = int(np.log(sys.float_info.max))
     while error > tol and num_iter < max_iter:
         z = linalg.spsolve(W + H, W * y)
         d = y - z
@@ -1298,13 +1328,13 @@ def save_iobuf_fig(buf, filename, force_overwrite=False):
     exts = {ex for ex, f in exts.items() if f in Image.SAVE}
 
     # Validate filename and extension
-    basename, ext = os_path.splitext(filename)
+    _, ext = os.path.splitext(filename)
     if not ext or ext not in exts:
         raise ValueError(f'Invalid file format {ext[1:]}')
-    filedir = os_path.dirname(filename)
-    if not os_path.isdir(filedir):
-        makedirs(filedir)
-    if os_path.isfile(filename) and not force_overwrite:
+    filedir = os.path.dirname(filename)
+    if not os.path.isdir(filedir):
+        os.makedirs(filedir)
+    if os.path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
     # Write image to file
@@ -1358,10 +1388,8 @@ def select_mask_1d(
         and the list of selected index ranges.
     :rtype: Union[io.BytesIO, None], numpy.ndarray, list[list[int, int]]
     """
-    # System modules
-    from copy import deepcopy
-
     # Third party modules
+    # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
         from matplotlib.patches import Patch
         from matplotlib.widgets import Button, SpanSelector
@@ -1515,14 +1543,16 @@ def select_mask_1d(
         if not isinstance(preselected_index_ranges, list):
             raise ValueError('Invalid parameter preselected_index_ranges '
                              f'({preselected_index_ranges})')
-        index_ranges = []
-        for i, v in enumerate(preselected_index_ranges):
-            if not is_num_pair(v):
-                raise ValueError('Invalid parameter preselected_index_ranges '
-                                 f'({preselected_index_ranges})')
-            index_ranges.append(
-                (max(0, int(v[0])), min(num_data, int(v[1])-1)))
-        preselected_index_ranges = index_ranges
+        if interactive or filename is not None or return_buf:
+            index_ranges = []
+            for v in preselected_index_ranges:
+                if not is_num_pair(v):
+                    raise ValueError(
+                        'Invalid parameter preselected_index_ranges '
+                        f'({preselected_index_ranges})')
+                index_ranges.append(
+                    (max(0, int(v[0])), min(num_data, int(v[1])-1)))
+            preselected_index_ranges = index_ranges
 
     # Setup the preselected mask and index ranges if provided
     if preselected_mask is not None:
@@ -1721,6 +1751,7 @@ def select_roi_2d(
     :rtype: Union[io.BytesIO, None], tuple(int, int, int, int)
     """
     # Third party modules
+    # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
         from matplotlib.widgets import Button, RectangleSelector
 
@@ -1934,6 +1965,8 @@ def select_image_indices(
     # Third party modules
     from matplotlib.widgets import TextBox, Button
 
+    index_input = None
+
     def change_fig_title(title):
         if fig_title:
             fig_title[0].remove()
@@ -1973,20 +2006,19 @@ def select_image_indices(
             raise ValueError(
                 f'Exceeding maximum number of selected {row_column}s, click '
                 'either "Reset" or "Confirm"')
-        elif (indices and min_range is not None
+        if (indices and min_range is not None
                 and abs(max(index, *indices) - min(index, *indices))
                     < min_range):
             raise ValueError(
                 f'Selected {row_column} range is smaller than required '
                 'minimal range of {min_range}: ignoring last selection')
+        indices.append(index)
+        if not axis:
+            for ax in axs:
+                lines.append(ax.axhline(indices[-1], c='r', lw=2))
         else:
-            indices.append(index)
-            if not axis:
-                for ax in axs:
-                    lines.append(ax.axhline(indices[-1], c='r', lw=2))
-            else:
-                for ax in axs:
-                    lines.append(ax.axvline(indices[-1], c='r', lw=2))
+            for ax in axs:
+                lines.append(ax.axvline(indices[-1], c='r', lw=2))
 
     def select_index(expression):
         """Callback function for the "Select row/column index" TextBox.
@@ -2010,8 +2042,8 @@ def select_image_indices(
             try:
                 add_index(index)
                 get_selected_indices(change_error_text)
-            except ValueError as e:
-                change_error_text(e)
+            except ValueError as exc:
+                change_error_text(exc)
         index_input.set_val('')
         for ax in axs:
             ax.get_figure().canvas.draw()
@@ -2224,7 +2256,7 @@ def quick_imshow(
         plt.show(block=block)
     if save_fig:
         if name is None:
-            title = re_sub(r'\s+', '_', title)
+            title = re.sub(r'\s+', '_', title)
             if path is None:
                 path = title
             else:
@@ -2234,7 +2266,7 @@ def quick_imshow(
                 path = name
             else:
                 path = f'{path}/{name}'
-        if (os_path.splitext(path)[1]
+        if (os.path.splitext(path)[1]
                 not in plt.gcf().canvas.get_supported_filetypes()):
             path += '.png'
         plt.savefig(path)
@@ -2291,7 +2323,7 @@ def quick_plot(
     if title is None:
         title = 'quick plot'
     if name is None:
-        ttitle = re_sub(r'\s+', '_', title)
+        ttitle = re.sub(r'\s+', '_', title)
         if path is None:
             path = f'{ttitle}.png'
         else:
@@ -2428,25 +2460,25 @@ def nxcopy(
 
     # Loop over all nxobject's children
     for k, v in nxobject.items():
-        nxpath = os_path.join(nxpath_prefix, k)
-        nxpathabs = os_path.join(nxpathabs_prefix, nxpath)
+        nxpath = os.path.join(nxpath_prefix, k)
+        nxpathabs = os.path.join(nxpathabs_prefix, nxpath)
         if nxpath in exclude_nxpaths:
             if 'default' in nxobject_copy.attrs and nxobject_copy.default == k:
                 nxobject_copy.attrs.pop('default')
             continue
         if isinstance(v, NXlinkgroup):
             if nxpathabs == v.nxpath and not any(
-                    v.nxtarget.startswith(os_path.join(nxpathabs_prefix, p))
+                    v.nxtarget.startswith(os.path.join(nxpathabs_prefix, p))
                     for p in exclude_nxpaths):
                 nxobject_copy[k] = NXlink(v.nxtarget)
             else:
                 nxobject_copy[k] = nxcopy(
                     v, exclude_nxpaths=exclude_nxpaths,
                     nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
-                    nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
+                    nxpath_copy_abspath=os.path.join(nxpath_copy_abspath, k))
         elif isinstance(v, NXlink):
             if nxpathabs == v.nxpath and not any(
-                    v.nxtarget.startswith(os_path.join(nxpathabs_prefix, p))
+                    v.nxtarget.startswith(os.path.join(nxpathabs_prefix, p))
                     for p in exclude_nxpaths):
                 nxobject_copy[k] = v
             else:
@@ -2458,12 +2490,166 @@ def nxcopy(
             nxobject_copy[k] = nxcopy(
                 v, exclude_nxpaths=exclude_nxpaths,
                 nxpath_prefix=nxpath, nxpathabs_prefix=nxpathabs_prefix,
-                nxpath_copy_abspath=os_path.join(nxpath_copy_abspath, k))
+                nxpath_copy_abspath=os.path.join(nxpath_copy_abspath, k))
         else:
             nxobject_copy[k] = v.nxdata
             for kk, vv in v.attrs.items():
                 nxobject_copy[k].attrs[kk] = vv
-            if nxpathabs != os_path.join(nxpath_copy_abspath, k):
+            if nxpathabs != os.path.join(nxpath_copy_abspath, k):
                 nxobject_copy[k].attrs.pop('target', None)
 
     return nxobject_copy
+
+
+def dictionary_update(target, source, merge_key_paths=None, sort=False):
+    """Recursively updates a target dictionary with values from a source
+    dictionary. Source values superseed target values for identical keys
+    unless both values are lists of dictionaries in which case they are
+    merged according to the merge_key_paths parameter.
+
+    :param target: Target dictionary.
+    :type target: collections.abc.Mapping
+    :param source: Source dictionary.
+    :type target: collections.abc.Mapping
+    :param merge_key_paths: List key paths to merge dictionary lists,
+        only used if items in the target and source dictionary trees
+        are lists of dictionaries.
+    :type merge_key_paths: Union[str, list[str]]
+    :param sort: Sort dictionary lists on the key.
+    :type sort: bool, optional
+    :return: The updated target directory.
+    :rtype: collections.abc.Mapping
+    """
+    if not isinstance(target, dict):
+        raise ValueError(
+            'Invalid parameter type "target" ({type(target)})')
+    if not isinstance(source, dict):
+        raise ValueError(
+            'Invalid parameter type "source" ({type(source)})')
+    for k, v in source.items():
+        if (isinstance(v, collections.abc.Mapping)
+                and isinstance(target.get(k), collections.abc.Mapping)):
+            if merge_key_paths is not None:
+                raise NotImplementedError(
+                    f'"merge_key_paths" ({type(merge_key_paths)}) '
+                    'for source and target dictionaries not yet implemented')
+#            merge_key_path = None
+#            if '/' in merge_key_paths:
+#                print(f'"/" in merge_key_path')
+#                merge_key_path = merge_key_paths.split('/', 1)[1:]
+#            elif is_str_series(merge_key_paths):
+#                print(f'merge_key_path is string series')
+#                merge_key_path = [
+#                    vv[1] for vv in [
+#                        v for v in [merge_key_paths.split('/', 1)
+#                                    for s in sss]]
+#                    if (vv[0]==k and len(vv)>1)]
+#            print(f'---> merge_key_path: {merge_key_path}')
+            target[k] = dictionary_update(target.get(k, {}), v)
+        elif (is_dict_series(v, log=False)
+                and is_dict_series(target.get(k), log=False)):
+            if isinstance(merge_key_paths, str):
+                merge_key_path = merge_key_paths
+                merge_key_type = None
+            elif isinstance(merge_key_paths, dict):
+                merge_key_path = merge_key_paths.get('key_path')
+                merge_key_type = merge_key_paths.get('type')
+            elif merge_key_path is not None:
+                raise NotImplementedError(
+                    'Invalid/unimplemeted  parameter type "merge_key_path" '
+                    f'({type(merge_key_pathsource)}) for source and target '
+                    'lists of dictionaries')
+            merge_key = l[1] if len(
+                l:=merge_key_path.split('/')) == 2 else None
+#            if '/' in merge_key_paths:
+#                merge_key_paths = [merge_key_paths]
+#            if is_str_series(merge_key_paths):
+#                paths = paths if len(
+#                    paths:=[l[1] for path in merge_key_paths
+#                            if (l:=path.split('/', 1))[0] == k and len(l)>1]
+#                    ) else [None]
+#                if len(paths) > 1:
+#                    raise ValueError(
+#                        'Ambiguous parameter merge_key_paths '
+#                        f'({merge_key_paths}) while trying to merge '
+#                        f'{source} with {target}')
+#                merge_path = paths[0]
+#            else:
+#                merge_path = None
+            target[k] = list_dictionary_update(
+                target.get(k), v, key=merge_key, key_type=merge_key_type,
+                sort=sort)
+        else:
+            target[k] = v
+    return target
+
+
+def list_dictionary_update(
+        target, source, key=None, key_type=None, sort=False):
+    """Recursively updates a target list of dictionaries with values
+    from a source list of dictionaries. Each list item is updated item
+    by item based on the key if given and equal to a key that is shared
+    among all sets of source and target list item keys. Otherwise the
+    target list appended to the source list is returned.
+
+    :param target: Target list.
+    :type target: list
+    :param source: Source list.
+    :type source: list
+    :param key: Selected key to merge the lists of dictionaries.
+    :type key: str, optional
+    :param key_type: Key type to enforce.
+    :type key_type: type, optional
+    :param sort: Sort the returned list on the key.
+    :type sort: bool, optional
+    :return: The updated list.
+    :rtype: list
+    """
+    if not isinstance(target, list):
+        raise ValueError(
+            'Invalid parameter type "target" ({type(target)})')
+    if not isinstance(source, list):
+        raise ValueError(
+            'Invalid parameter type "source" ({type(source)})')
+    if key is None:
+        return source + target
+    if not isinstance(key, str) or '/' in key:
+        raise ValueError('Invalid parameter "key" ({key}, {type(key)})')
+    if not (key_type is None or isinstance(key_type, type)):
+        raise ValueError(
+            'Invalid parameter "key_type" ({key_type}, {type(key_type)})')
+    all_any_source =  all_any(source, key)
+    if all_any_source < 0:
+        raise ValueError(
+            f'Partially shared key ({key}) while trying to merge {source} '
+            f'with {target}')
+    all_any_target =  all_any(target, key)
+    if all_any_target < 0 or all_any_source != all_any_target:
+        raise ValueError(
+            f'Partially shared key ({key}) while trying to merge {source} '
+            f'with {target}')
+    if not all_any_source and not all_any_target:
+        return source + target
+    merged = []
+    for target_dict in target:
+        value = target_dict[key]
+        if key_type is not None:
+            value = key_type(value)
+        for i, source_dict in enumerate(source):
+            vvalue = source_dict[key]
+            if key_type is not None:
+                vvalue = key_type(vvalue)
+            if value == vvalue:
+                merged.append(dictionary_update(
+                    target_dict, source_dict, sort=sort))
+                source.pop(i)
+                break
+        else:
+            merged.append(target_dict)
+    merged.extend(source)
+    if sorted:
+        if key_type is None:
+            merged.sort(key=lambda x: x[key])
+        else:
+            merged.sort(key=lambda x: key_type(x[key]))
+    return merged

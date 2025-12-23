@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -52,8 +51,8 @@ class FoxdenDoiWriter(Writer):
 #            raise ValueError(f'Invalid "data" parameter ({data})')
         draft_str = 'on' if draft else ''
         publish_meta = 'on' if publishMetadata else ''
-        form_data = {
-            'did': did,
+        payload = {
+#            'did': did,
             'provider': provider.lower(),
             'draft': draft_str,
             'metadata': publish_meta,
@@ -61,7 +60,7 @@ class FoxdenDoiWriter(Writer):
         }
         if verbose:
             self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, form_data, method='POST', scope='write')
+        response = HttpRequest(rurl, payload, method='POST', scope='write')
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')

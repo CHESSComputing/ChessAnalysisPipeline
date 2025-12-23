@@ -36,10 +36,10 @@ from CHAP.common.processor import (
 )
 from CHAP.common.reader import (
     BinaryFileReader,
+    ConfigReader,
     FabioImageReader,
     H5Reader,
     LinkamReader,
-    MapReader,
     NexusReader,
     NXdataReader,
     NXfieldReader,
