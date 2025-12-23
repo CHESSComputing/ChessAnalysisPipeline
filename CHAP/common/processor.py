@@ -496,7 +496,8 @@ class ConvertStructuredProcessor(Processor):
 
 
 class ImageProcessor(Processor):
-    """A Processor to plot an image (slice) from a NeXus object."""
+    """A Processor to perform various visualization operations on
+    images (slices) selected from a NeXus object."""
     def __init__(self):
         super().__init__()
         self._figconfig = None
