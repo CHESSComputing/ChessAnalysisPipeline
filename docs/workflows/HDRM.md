@@ -15,7 +15,7 @@ conda activate CHAP_hdrm
 ### From a local CHAP clone
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
-1. Install a local version of the CHAP package according to the [instructions](/docs/installation.md)
+1. Install a local version of the CHAP package according to the {ref}`installation instructions <installation>`.
 1. Create the HDRM conda environment:
    ```bash
    mamba env create -f <path_to_CHAP_clone_dir>/CHAP/hdrm/environment.yml
@@ -49,7 +49,7 @@ Any of the optional output figures can be viewed directly by any PNG image viewe
 
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the [instructions](/docs/pipeline.md). A generic pipeline input file is as follows (note that spaces and indentation are important in `.yaml` files):
+Create a workflow `pipeline.yaml` file according to the {ref}`CHAP pipeline instructions <CHAP-pipeline>`. A generic pipeline input file is as follows (note that spaces and indentation are important in `.yaml` files):
 ```
 config:
   root: .            # Change as desired
