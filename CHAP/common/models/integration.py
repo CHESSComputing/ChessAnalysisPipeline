@@ -320,15 +320,15 @@ class IntegrationConfig(CHAPBaseModel):
             self.azimuthal_min, self.azimuthal_max)
 
     def get_azimuthal_integrators(self):
-        """Get a list of `AzimuthalIntegrator`s that correspond to the
+        """Get a list of AzimuthalIntegrator`\ s that correspond to the
         detector configurations in this instance of
         `IntegrationConfig`.
 
-        The returned `AzimuthalIntegrator`s are (if need be)
+        The returned `AzimuthalIntegrator`\ s are (if need be)
         artificially rotated in the azimuthal direction to achieve a
         continuous range of integration in the azimuthal direction.
 
-        :returns: A list of `AzimuthalIntegrator`s appropriate for use
+        :returns: A list of `AzimuthalIntegrator`\ s appropriate for use
             by this `IntegrationConfig` tool.
         :rtype: list[pyFAI.azimuthalIntegrator.AzimuthalIntegrator]
         """
@@ -347,8 +347,8 @@ class IntegrationConfig(CHAPBaseModel):
         poni_files = tuple([detector.poni_file for detector in self.detectors])
         radial_range = (self.radial_min, self.radial_max)
         azimuthal_range = (self.azimuthal_min, self.azimuthal_max)
-        return get_multi_geometry_integrator(poni_files, self.radial_units,
-                                             radial_range, azimuthal_range)
+        return get_multi_geometry_integrator(
+            poni_files, self.radial_units, radial_range, azimuthal_range)
 
     def get_azimuthally_integrated_data(
             self, spec_scans, scan_number, scan_step_index):
@@ -602,11 +602,9 @@ def get_multi_geometry_integrator(
     :type poni_files: tuple
     :param radial_unit: Unit to use for radial integration range.
     :type radial_unit: str
-    :param radial_range: Tuple describing the range for radial
-        integration.
+    :param radial_range: Radial integration range.
     :type radial_range: tuple[float, float]
-    :param azimuthal_range:Tuple describing the range for azimuthal
-        integration.
+    :param azimuthal_range: Azimuthal integration range.
     :type azimuthal_range: tuple[float, float]
     :return: `MultiGeometry` instance that can be used for azimuthal
         or cake integration.

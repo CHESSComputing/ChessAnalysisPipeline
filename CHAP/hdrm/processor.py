@@ -104,9 +104,9 @@ class HdrmOrmfinderProcessor(Processor):
         if len(ais) > 1:
             raise RuntimeError(
                 'More than one azimuthal integrator not yet implemented')
-        if f'{ais[0].id}_peaks' not in nxdata:
+        if f'{ais[0].get_id()}_peaks' not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxdata.tree}')
+                               f'{ais[0].get_id()} in {nxdata.tree}')
 
         # Create the NXdata object to store the ORM data
         nxprocess.data = NXdata()
@@ -121,7 +121,7 @@ class HdrmOrmfinderProcessor(Processor):
         # Find ORM and add the data to the NXprocess object
         nxentry = nxroot[nxroot.default]
         nxprocess.results = NXcollection()
-        ais = {ai.id: ai.ai for ai in ais}
+        ais = {ai.get_id(): ai.ai for ai in ais}
         detector_ids = [d if isinstance(d, str) else d.decode()
                         for d in nxentry.detector_ids.nxdata]
         for detector_id in detector_ids:

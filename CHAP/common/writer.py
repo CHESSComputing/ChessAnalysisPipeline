@@ -2,8 +2,7 @@
 """
 File       : writer.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Writers used in multiple experiment-specific
-             workflows.
+Description: Module for Writers used in multiple experiment-specific workflows.
 """
 
 # System modules
@@ -24,10 +23,10 @@ from CHAP.pipeline import PipelineItem
 from CHAP.writer import validate_writer_model
 
 
-def validate_model(model_instance):
-    if model_instance.filename is not None:
-        validate_writer_model(model_instance)
-    return model_instance
+def validate_model(model):
+    if model.filename is not None:
+        validate_writer_model(model)
+    return model
 
 
 def write_matplotlibfigure(data, filename, savefig_kw, force_overwrite=False):
@@ -257,13 +256,13 @@ class ExtractArchiveWriter(Writer):
 
 class FileTreeWriter(PipelineItem):
     """Writer for a file tree in NeXus format.
+
     :ivar force_overwrite: Flag to allow data to be overwritten if it
         already exists, defaults to `False`. Note that the existence
         of files prior to executing the pipeline is not possible since
         the filename(s) of the data are unknown during pipeline
         validation.
     :type force_overwrite: bool, optional
-
     """
     force_overwrite: Optional[bool] = False
 

@@ -532,22 +532,8 @@ class SetupNXdataReader(Reader):
     collection to an approporiate input argument for
     `CHAP.common.SetupNXdataProcessor`.
 
-    Example of use in a `Pipeline` configuration:
-    ```yaml
-    config:
-      inputdir: /rawdata/samplename
-      outputdir: /reduceddata/samplename
-    pipeline:
-      - edd.SetupNXdataReader:
-          filename: SpecInput.txt
-          dataset_id: 1
-      - common.SetupNXdataProcessor:
-          nxname: samplename_dataset_1
-      - common.NexusWriter:
-          filename: data.nxs
-    ```
     :ivar dataset_id: Dataset ID value in the .txt file to return 
-        `CHAP.common.SetupNXdataProcessor.process arguments for.
+        `CHAP.common.SetupNXdataProcessor.process` arguments for.
     :type dataset_id: int
     :ivar detectors: Detector list.
     :type detectors: Union[
@@ -675,7 +661,7 @@ class SetupNXdataReader(Reader):
         # Add each MCA channel to the list of signals
         for d in self.detectors:
             signals.append(
-                {'name': d.id, 'attrs': d.attrs, 'dtype': 'uint64',
+                {'name': d.get_id(), 'attrs': d.attrs, 'dtype': 'uint64',
                  'shape': d.attrs.get('shape', (4096,))})
 
         # Attributes to attach for use by edd.StrainAnalysisProcessor:
@@ -814,19 +800,6 @@ class UpdateNXdataReader(Reader):
     an `NXdata` constructed by `edd.SetupNXdataReader` and
     `common.SetupNXdataProcessor` can be updated live as individual
     scans in an EDD dataset are completed.
-
-    Example of use in a `Pipeline` configuration:
-    ```yaml
-    config:
-      inputdir: /rawdata/samplename
-    pipeline:
-      - edd.UpdateNXdataReader:
-          spec_file: spec.log
-          scan_number: 1
-      - common.SetupNXdataProcessor:
-          nxfilename: /reduceddata/samplename/data.nxs
-          nxdata_path: /entry/samplename_dataset_1
-    ```
  
     :ivar detector_ids: Detector IDs for the raw data.
     :type detector_ids: Union(int, list[int], str), optional
@@ -928,21 +901,6 @@ class NXdataSliceReader(Reader):
     """Reader for returning a sliced verison of an `NXdata` (which
     represents a full EDD dataset) that contains data from just a
     single SPEC scan.
-
-    Example of use in a `Pipeline` configuration:
-    ```yaml
-    config:
-      inputdir: /rawdata/samplename
-      outputdir: /reduceddata/samplename
-    pipeline:
-      - edd.NXdataSliceReader:
-          filename: /reduceddata/samplename/data.nxs
-          nxpath: /path/to/nxdata
-          spec_file: spec.log
-          scan_number: 1
-      - common.NexusWriter:
-          filename: scan_1.nxs
-    ```
  
     :ivar nxpath: Path to the existing full EDD dataset's NXdata
         group in `filename`.

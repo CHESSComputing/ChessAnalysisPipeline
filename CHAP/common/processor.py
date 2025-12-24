@@ -3,8 +3,7 @@
 """
 File       : processor.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Processors used in multiple experiment-specific
-             workflows.
+Description: Module for Processors used in multiple experiment-specific workflows.
 """
 
 # System modules
@@ -1170,13 +1169,13 @@ class MapProcessor(Processor):
         min_ = np.min(data, axis=tuple(range(1, data.ndim)))
         max_ = np.max(data, axis=tuple(range(1, data.ndim)))
         for i, detector in enumerate(self.detector_config.detectors):
-            nxdata[detector.id] = NXfield(
+            nxdata[detector.get_id()] = NXfield(
                 value=data[i],
                 attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
-            detector_ids.append(detector.id)
+            detector_ids.append(detector.get_id())
         linkdims(nxdata, nxentry.independent_dimensions)
         if len(self.detector_config.detectors) == 1:
-            nxdata.attrs['signal'] = self.detector_config.detectors[0].id
+            nxdata.attrs['signal'] = self.detector_config.detectors[0].get_id()
         nxentry.detector_ids = detector_ids
 
         return nxroot
@@ -1225,7 +1224,8 @@ class MapProcessor(Processor):
         scan = self.config.spec_scans[0]
         scan_numbers = scan.scan_numbers
         scanparser = scan.get_scanparser(scan_numbers[0])
-        detector_ids = [int(d.id) for d in self.detector_config.detectors]
+        detector_ids = [
+                int(d.get_id()) for d in self.detector_config.detectors]
         ddata, placeholder_used = scanparser.get_detector_data(
             detector_ids, placeholder_data=placeholder_data)
         spec_scan_shape = scanparser.spec_scan_shape
@@ -1352,11 +1352,11 @@ class MapProcessor(Processor):
         if self.config.experiment_type == 'TOMO':
             dtype = np.float32
             ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].id, dtype=dtype)
+                self.detector_config.detectors[0].get_id(), dtype=dtype)
         else:
             dtype = None
             ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].id)
+                self.detector_config.detectors[0].get_id())
         num_det = len(self.detector_config.detectors)
         num_dim = ddata.shape[0]
         num_id = len(self.config.independent_dimensions)
@@ -1419,7 +1419,8 @@ class MapProcessor(Processor):
                     else:
                         scanparser = scans.get_scanparser(scan_number)
                         data[i][offset] = scanparser.get_detector_data(
-                            self.detector_config.detectors[i].id, dtype=dtype)
+                            self.detector_config.detectors[i].get_id(),
+                            dtype=dtype)
                 for i, dim in enumerate(self.config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
@@ -1998,17 +1999,14 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         :param data: Detector data to integrate.
         :type data: Union[PipelineData, list[np.ndarray]]
         :param poni_file: Name of the [pyFAI PONI file]
-            (https://pyfai.readthedocs.io/en/v2023.1/glossary.html?highlight=poni%20file#poni-file)
-        containing the detector properties pyFAI needs to perform
-        azimuthal integration.
+            containing the detector properties pyFAI needs to perform
+            azimuthal integration.
         :type poni_file: str
         :param npt: Number of points in the output pattern.
         :type npt: int
         :param mask_file: A file to use for masking the input data.
         :type mask_file: str, optional
-        :param integrate1d_kwargs: Optional dictionary of keyword
-            arguments to use with
-            [`pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d`](https://pyfai.readthedocs.io/en/v2023.1/api/pyFAI.html#pyFAI.azimuthalIntegrator.AzimuthalIntegrator.integrate1d).
+        :param integrate1d_kwargs: Optional dictionary of keywords
         :type integrate1d_kwargs: Optional[dict]
         :returns: Azimuthal integration results as a dictionary of
             numpy arrays.
@@ -2170,71 +2168,14 @@ class SetupNXdataProcessor(Processor):
     """Processor to set up and return an "empty" NeXus representation
     of a structured dataset. This representation will be an instance
     of a NeXus NXdata object that has:
-    1. A NeXus NXfield entry for every coordinate/signal specified.
-    1. `nxaxes` that are the NeXus NXfield entries for the coordinates
-       and contain the values provided for each coordinate.
-    1. NeXus NXfield entries of appropriate shape, but containing all
-       zeros, for every signal.
-    1. Attributes that define the axes, plus any additional attributes
-       specified by the user.
+    A NeXus NXfield entry for every coordinate/signal specified.
+    `nxaxes` that are the NeXus NXfield entries for the coordinates and contain the values provided for each coordinate.
+    NeXus NXfield entries of appropriate shape, but containing all zeros, for every signal.
+    Attributes that define the axes, plus any additional attributes specified by the user.
 
-    This `Processor` is most useful as a "setup" step for
-    constucting a representation of / container for a complete dataset
-    that will be filled out in pieces later by
-    `UpdateNXdataProcessor`.
-
-    Examples of use in a `Pipeline` configuration:
-    - With inputs from a previous `PipelineItem` specifically written
-      to provide inputs to this `Processor`:
-      ```yaml
-      config:
-        inputdir: /rawdata/samplename
-        outputdir: /reduceddata/samplename
-      pipeline:
-        - edd.SetupNXdataReader:
-            filename: SpecInput.txt
-            dataset_id: 1
-        - common.SetupNXdataProcessor:
-            nxname: samplename_dataset_1
-        - common.NexusWriter:
-            filename: data.nxs
-      ```
-     - With inputs provided directly though the optional arguments:
-       ```yaml
-      config:
-        outputdir: /reduceddata/samplename
-      pipeline:
-        - common.SetupNXdataProcessor:
-            nxname: your_dataset_name
-            coords:
-              - name: x
-                values: [0.0, 0.5, 1.0]
-                attrs:
-                  units: mm
-                  yourkey: yourvalue
-              - name: temperature
-                values: [200, 250, 275]
-                attrs:
-                  units: Celsius
-                  yourotherkey: yourothervalue
-            signals:
-              - name: raw_detector_data
-                shape: [407, 487]
-                attrs:
-                  local_name: PIL11
-                  foo: bar
-              - name: presample_intensity
-                shape: []
-                attrs:
-                   local_name: a3ic0
-                   zebra: fish
-            attrs:
-              arbitrary: metadata
-              from: users
-              goes: here
-        - common.NexusWriter:
-            filename: data.nxs
-       ```
+    This `Processor` is most useful as a "setup" step for constucting
+    a representation of / container for a complete dataset that will
+    be filled out in pieces later by `UpdateNXdataProcessor`.
     """
     def process(
             self, data, nxname='data', coords=None, signals=None, attrs=None,
@@ -2247,7 +2188,7 @@ class SetupNXdataProcessor(Processor):
         the `coords`, `signals`, `attrs`, and/or `data_points`
         arguments. If any of the latter are used, their values will
         completely override any values for these parameters found from
-        `data.`
+        `data`.
 
         :param data: Data from the previous item in a `Pipeline`.
         :type data: list[PipelineData]
@@ -2629,18 +2570,6 @@ class UpdateNXvalueProcessor(Processor):
     most easy to use in a `Pipeline` immediately after another
     `PipelineItem` designed specifically to return a value that can
     be used as input to this `Processor`.
-
-    Example of use in a `Pipeline` configuration:
-    ```yaml
-    config:
-      inputdir: /rawdata/samplename
-    pipeline:
-      - edd.UpdateNXdataReader:
-          spec_file: spec.log
-          scan_number: 1
-      - common.UpdateNXvalueProcessor:
-          nxfilename: /reduceddata/samplename/data.nxs
-    ```
     """
     def process(self, data, nxfilename, data_points=None):
         """Write new data values to an existing NeXus object
@@ -2707,19 +2636,6 @@ class UpdateNXdataProcessor(Processor):
     most easy to use in a `Pipeline` immediately after another
     `PipelineItem` designed specifically to return a value that can
     be used as input to this `Processor`.
-
-    Example of use in a `Pipeline` configuration:
-    ```yaml
-    config:
-      inputdir: /rawdata/samplename
-    pipeline:
-      - edd.UpdateNXdataReader:
-          spec_file: spec.log
-          scan_number: 1
-      - common.UpdateNXdataProcessor:
-          nxfilename: /reduceddata/samplename/data.nxs
-          nxdata_path: /entry/samplename_dataset_1
-    ```
     """
     def process(
             self, data, nxfilename, nxdata_path, data_points=None,
@@ -2842,36 +2758,6 @@ class NXdataToDataPointsProcessor(Processor):
     coordinate space of the dataset (in the case of signals -- this
     means that values for signals may be any shape, depending on the
     shape of the signal itself).
-
-    Example of use in a pipeline configuration:
-    ```yaml
-    config:
-      inputdir: /reduceddata/samplename
-    - common.NXdataReader:
-        name: data
-        axes_names:
-          - x
-          - y
-        signal_name: z
-        nxfield_params:
-          - filename: data.nxs
-            nxpath: entry/data/x
-            slice_params:
-              - step: 2
-          - filename: data.nxs
-            nxpath: entry/data/y
-            slice_params:
-              - step: 2
-          - filename: data.nxs
-            nxpath: entry/data/z
-            slice_params:
-              - step: 2
-              - step: 2
-    - common.NXdataToDataPointsProcessor
-    - common.UpdateNXdataProcessor:
-        nxfilename: /reduceddata/samplename/sparsedata.nxs
-        nxdata_path: /entry/data
-    ```
     """
     def process(self, data):
         """Return a list of dictionaries representing the coordinate

@@ -21,17 +21,17 @@ from pydantic import model_validator
 from CHAP.pipeline import PipelineItem
 
 
-def validate_writer_model(model_instance):
-    model_instance.filename = os.path.normpath(os.path.realpath(
-        os.path.join(model_instance.outputdir, model_instance.filename)))
-    if (not model_instance.force_overwrite
-            and os.path.isfile(model_instance.filename)):
+def validate_writer_model(writer):
+    writer.filename = os.path.normpath(os.path.realpath(
+        os.path.join(writer.outputdir, writer.filename)))
+    if (not writer.force_overwrite
+            and os.path.isfile(writer.filename)):
         raise ValueError(
             'Writing to an existing file without overwrite permission. '
-            f'permission. Remove {model_instance.filename} or set '
+            f'permission. Remove {writer.filename} or set '
             '"force_overwrite" in pipeline configuration for '
-            f'{model_instance.name}')
-    return model_instance
+            f'{writer.name}')
+    return writer
 
 
 class Writer(PipelineItem):

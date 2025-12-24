@@ -170,20 +170,21 @@ class BaseEddProcessor(Processor):
                     energies, mean_data, hkls, ds, tth,
                     preselected_bin_ranges=detector.get_mask_ranges(),
                     preselected_hkl_indices=detector.hkl_indices,
-                    detector_id=detector.id, ref_map=nxdata.nxsignal.nxdata,
+                    detector_id=detector.get_id(),
+                    ref_map=nxdata.nxsignal.nxdata,
                     calibration_bin_ranges=calibration_bin_ranges,
                     label='Sum of the spectra in the map',
                     interactive=self.interactive,
                     return_buf=self.save_figures)
             if self.save_figures:
-                self._figures.append((buf, f'{detector.id}_{basename}'))
+                self._figures.append((buf, f'{detector.get_id()}_{basename}'))
             detector.hkl_indices = hkl_indices
             detector.convert_mask_ranges(mask_ranges)
             self.logger.debug(
-                f'energy mask_ranges for detector {detector.id}:'
+                f'energy mask_ranges for detector {detector.get_id()}:'
                 f' {detector.energy_mask_ranges}')
             self.logger.debug(
-                f'hkl_indices for detector {detector.id}:'
+                f'hkl_indices for detector {detector.get_id()}:'
                 f' {detector.hkl_indices}')
             if not detector.energy_mask_ranges:
                 raise ValueError(
@@ -244,7 +245,7 @@ class BaseEddProcessor(Processor):
                 detector.energy_calibration_coeffs = [
                     0.0, max_energy_kev/(num_bins-1.0), 0.0]
             self._energies.append(detector.energies)
-            index = int(available_detector_ids.index(detector.id))
+            index = int(available_detector_ids.index(detector.get_id()))
             nxdata_det = NXdata(
                 NXfield(raw_data[:,index,:], 'detector_data'),
                 (NXfield(scans, 'scans')))
@@ -301,12 +302,13 @@ class BaseEddProcessor(Processor):
                         mean_data, x=x, tol=detector.baseline.tol,
                         lam=detector.baseline.lam,
                         max_iter=detector.baseline.max_iter,
-                        title=f'Baseline for detector {detector.id}',
+                        title=f'Baseline for detector {detector.get_id()}',
                         xlabel=xlabel, ylabel='Intensity (counts)',
                         interactive=self.interactive,
                         return_buf=self.save_figures)
                 if self.save_figures:
-                    self._figures.append((buf, f'{detector.id}_{basename}'))
+                    self._figures.append(
+                        (buf, f'{detector.get_id()}_{basename}'))
 
                 baselines.append(baseline)
                 detector.baseline.lam = baseline_config['lambda']
@@ -429,7 +431,7 @@ class BaseStrainProcessor(BaseEddProcessor):
                 for detector in self.detector_config.detectors:
                     self._nxdata_detectors.append(
                         self._get_sum_axes_data(
-                            nxobject, detector.id,
+                            nxobject, detector.get_id(),
                             sum_axes=strain_analysis_config.sum_axes))
                 have_raw_detector_data = True
         if not have_raw_detector_data:
@@ -437,7 +439,8 @@ class BaseStrainProcessor(BaseEddProcessor):
             axes = get_axes(nxobject)
             for detector in self.detector_config.detectors:
                 nxdata_det = NXdata(
-                    NXfield(nxobject[detector.id].nxdata, 'detector_data'),
+                    NXfield(
+                        nxobject[detector.get_id()].nxdata, 'detector_data'),
                     tuple([
                         NXfield(
                             nxobject[a].nxdata, a, attrs=nxobject[a].attrs)
@@ -461,7 +464,7 @@ class BaseStrainProcessor(BaseEddProcessor):
             self._energies.append(detector.energies)
         self.logger.debug(
             'data shape: '
-            f'{nxobject[self.detector_config.detectors[0].id].nxdata.shape}')
+            f'{nxobject[self.detector_config.detectors[0].get_id()].nxdata.shape}')
         self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
@@ -530,7 +533,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
 
         # Validate the detector configuration
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        raw_detector_ids = [d.id for d in raw_detector_config.detectors]
+        raw_detector_ids = [d.get_id() for d in raw_detector_config.detectors]
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
                 MCADetectorDiffractionVolumeLength(
@@ -541,9 +544,9 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             skipped_detectors = []
             detectors = []
             for detector in self.detector_config.detectors:
-                if detector.id in raw_detector_ids:
+                if detector.get_id() in raw_detector_ids:
                     raw_detector = raw_detector_config.detectors[
-                        int(raw_detector_ids.index(detector.id))]
+                        int(raw_detector_ids.index(detector.get_id()))]
                     for k, v in raw_detector.attrs.items():
                         if k not in detector.attrs:
                             if isinstance(v, list):
@@ -553,7 +556,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     detector.energy_mask_ranges = None
                     detectors.append(detector)
                 else:
-                    skipped_detectors.append(detector.id)
+                    skipped_detectors.append(detector.get_id())
             if len(skipped_detectors) == 1:
                 self.logger.warning(
                     f'Skipping detector {skipped_detectors[0]} '
@@ -626,15 +629,15 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             # calibration
             buf, _, detector.mask_ranges = select_mask_1d(
                 mean_data, preselected_index_ranges=detector.mask_ranges,
-                title=f'Mask for detector {detector.id}',
+                title=f'Mask for detector {detector.get_id()}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
                 min_num_index_ranges=1, interactive=self.interactive,
                 return_buf=self.save_figures)
             if self.save_figures:
-                self._figures.append((buf, f'{detector.id}_dvl_mask'))
+                self._figures.append((buf, f'{detector.get_id()}_dvl_mask'))
             self.logger.debug(
-                f'mask_ranges for detector {detector.id}:'
+                f'mask_ranges for detector {detector.get_id()}:'
                 f' {detector.mask_ranges}')
             if not detector.mask_ranges:
                 raise ValueError(
@@ -692,7 +695,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                 self._masks, self._nxdata_detectors,
                 self.detector_config.detectors):
 
-            self.logger.info(f'Measuring DVL for detector {detector.id}')
+            self.logger.info(f'Measuring DVL for detector {detector.get_id()}')
 
             masked_data = nxdata.nxsignal.nxdata[:,mask]
             masked_max = np.max(masked_data, axis=1).astype(float)
@@ -757,7 +760,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                 import matplotlib.pyplot as plt
 
                 fig, ax = plt.subplots()
-                ax.set_title(f'Diffraction Volume ({detector.id})')
+                ax.set_title(f'Diffraction Volume ({detector.get_id()})')
                 ax.set_xlabel('Beam direction (offset from scan "center")')
                 ax.set_ylabel('Normalized intensity (-)')
                 ax.plot(x, masked_sum, label='Sum of masked data')
@@ -778,7 +781,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                 if self.save_figures:
                     fig.tight_layout(rect=(0, 0, 1, 0.95))
                     self._figures.append((
-                        fig_to_iobuf(fig), f'{detector.id}_dvl'))
+                        fig_to_iobuf(fig), f'{detector.get_id()}_dvl'))
                 if self.interactive:
                     plt.show()
                 plt.close()
@@ -874,7 +877,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         calibration_detectors = [
             MCADetectorCalibration(**d)
             for d in calibration_detector_config.get('detectors', [])]
-        calibration_detector_ids = [d.id for d in calibration_detectors]
+        calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
         # Check for available raw detector data and for the available 
         # calibration data
@@ -888,29 +891,30 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         sskipped_detectors = []
         detectors = []
         for detector in self.detector_config.detectors:
-            if detector.id not in nxdata:
-                skipped_detectors.append(detector.id)
-            elif detector.id not in calibration_detector_ids:
-                sskipped_detectors.append(detector.id)
+            detector_id = detector.get_id()
+            if detector_id not in nxdata:
+                skipped_detectors.append(detector_id)
+            elif detector_id not in calibration_detector_ids:
+                sskipped_detectors.append(detector_id)
             else:
-                raw_detector_data = nxdata[detector.id].nxdata
+                raw_detector_data = nxdata[detector_id].nxdata
                 if raw_detector_data.ndim != 2:
                     self.logger.warning(
-                        f'Skipping detector {detector.id} (Illegal data shape '
+                        f'Skipping detector {detector_id} (Illegal data shape '
                         f'{raw_detector_data.shape})')
                 elif raw_detector_data.sum():
-                    for k, v in nxdata[detector.id].attrs.items():
+                    for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
                     detector.add_calibration(
                         calibration_detectors[
-                            int(calibration_detector_ids.index(detector.id))])
+                            int(calibration_detector_ids.index(detector_id))])
                     detectors.append(detector)
                 else:
                     self.logger.warning(
-                        f'Skipping detector {detector.id} (zero intensity)')
+                        f'Skipping detector {detector_id} (zero intensity)')
         if len(skipped_detectors) == 1:
             self.logger.warning(
                 f'Skipping detector {skipped_detectors[0]} '
@@ -986,7 +990,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
                     lattice_parameters.append([m.lattice_parameters])
             if self.save_figures:
                 self._figures.append((
-                    buf, f'{detector.id}_lp_refinement_material_config'))
+                    buf, f'{detector.get_id()}_lp_refinement_material_config'))
         refined_materials = []
         for name, sgnum, lat_params in zip(names, sgnums, lattice_parameters):
             if lat_params:
@@ -1035,7 +1039,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 #
 #            fig, ax = plt.subplots(figsize=(11, 8.5))
 #            ax.set_title(
-#                f'Detector {detector.id}: Lattice Parameter Refinement')
+#                f'Detector {detector.get_id()}: Lattice Parameter Refinement')
 #            ax.set_xlabel('Detector energy (keV)')
 #            ax.set_ylabel('Mean intensity (counts)')
 #            ax.plot(energies, mean_intensity, 'k.', label='MCA data')
@@ -1052,7 +1056,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 #            if save_figures:
 #                fig.tight_layout()#rect=(0, 0, 1, 0.95))
 #                figfile = os.path.join(
-#                    outputdir, f'{detector.id}_lat_param_fits')
+#                    outputdir, f'{detector.get_id()}_lat_param_fits')
 #                plt.savefig(figfile)
 #                self.logger.info(f'Saved figure to {figfile}')
 #            if interactive:
@@ -1134,7 +1138,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         # Check for available detectors and validate the raw detector
         # configuration
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        raw_detector_ids = [d.id for d in raw_detector_config.detectors]
+        raw_detector_ids = [d.get_id() for d in raw_detector_config.detectors]
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
                 MCADetectorCalibration(
@@ -1146,7 +1150,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             detectors = []
             for detector in self.detector_config.detectors:
                 for raw_detector in raw_detector_config.detectors:
-                    if detector.id == raw_detector.id:
+                    if detector.get_id() == raw_detector.get_id():
                         for k, v in raw_detector.attrs.items():
                             if k not in detector.attrs:
                                 if isinstance(v, list):
@@ -1157,7 +1161,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                         detectors.append(detector)
                         break
                 else:
-                    skipped_detectors.append(detector.id)
+                    skipped_detectors.append(detector.get_id())
             if len(skipped_detectors) == 1:
                 self.logger.warning(
                     f'Skipping detector {skipped_detectors[0]} '
@@ -1225,17 +1229,17 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             # calibration
             buf, _, detector.mask_ranges = select_mask_1d(
                 mean_data, preselected_index_ranges=detector.mask_ranges,
-                title=f'Mask for detector {detector.id}',
+                title=f'Mask for detector {detector.get_id()}',
                 xlabel='Detector Channel (-)',
                 ylabel='Intensity (counts)',
                 min_num_index_ranges=1, interactive=self.interactive,
                 return_buf=self.save_figures)
             self.logger.debug(
-                f'mask_ranges for detector {detector.id}:'
+                f'mask_ranges for detector {detector.get_id()}:'
                 f' {detector.mask_ranges}')
             if self.save_figures:
                 self._figures.append((
-                    buf, f'{detector.id}_energy_calibration_mask'))
+                    buf, f'{detector.get_id()}_energy_calibration_mask'))
             if not detector.mask_ranges:
                 raise ValueError(
                     'No value provided for mask_ranges. Provide it in '
@@ -1270,7 +1274,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 self._energies, self._masks, self._mean_data,
                 self._mask_index_ranges, self.detector_config.detectors):
 
-            self.logger.info(f'Calibrating detector {detector.id}')
+            self.logger.info(f'Calibrating detector {detector.get_id()}')
 
             bins = low + np.arange(energies.size, dtype=np.int16)
 
@@ -1280,11 +1284,11 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             buf, initial_peak_indices = self._get_initial_peak_positions(
                 mean_data*np.asarray(mask).astype(np.int32), low,
                 detector.mask_ranges, input_indices, max_peak_index,
-                detector.id, return_buf=self.save_figures)
+                detector.get_id(), return_buf=self.save_figures)
             if self.save_figures:
                 self._figures.append(
                     (buf,
-                     f'{detector.id}'
+                     f'{detector.get_id()}'
                          '_energy_calibration_initial_peak_positions'))
 
             # Construct the fit model and perform the fit
@@ -1347,7 +1351,8 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
                 bins_masked = bins[mask]
                 fig, axs = plt.subplots(1, 2, figsize=(11, 4.25))
-                fig.suptitle(f'Detector {detector.id} energy calibration')
+                fig.suptitle(
+                    f'Detector {detector.get_id()} energy calibration')
                 # Left plot: raw MCA data & best fit of peaks
                 axs[0].set_title('MCA spectrum peak fit')
                 axs[0].set_xlabel('Detector Channel (-)')
@@ -1389,7 +1394,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 if self.save_figures:
                     self._figures.append(
                         (fig_to_iobuf(fig),
-                         f'{detector.id}_energy_calibration_fit'))
+                         f'{detector.get_id()}_energy_calibration_fit'))
                 if self.interactive:
                     plt.show()
                 plt.close()
@@ -1680,19 +1685,19 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         if not self.detector_config.detectors:
             raise RuntimeError('No calibrated detectors')
         raw_detector_config = DetectorConfig(**loads(str(nxentry.detectors)))
-        raw_detector_ids = [d.id for d in raw_detector_config.detectors]
+        raw_detector_ids = [d.get_id() for d in raw_detector_config.detectors]
         skipped_detectors = []
         detectors = []
         for detector in self.detector_config.detectors:
-            if detector.id in raw_detector_ids:
+            if detector.get_id() in raw_detector_ids:
                 raw_detector = raw_detector_config.detectors[
-                    int(raw_detector_ids.index(detector.id))]
+                    int(raw_detector_ids.index(detector.get_id()))]
                 for k, v in raw_detector.attrs.items():
                     if k not in detector.attrs:
                         detector.attrs[k] = v
                 detectors.append(detector)
             else:
-                skipped_detectors.append(detector.id)
+                skipped_detectors.append(detector.get_id())
         if len(skipped_detectors) == 1:
             self.logger.warning(
                 f'Skipping detector {skipped_detectors[0]} '
@@ -1705,7 +1710,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         skipped_detectors = []
         for i, detector in reversed(list(enumerate(detectors))):
             if detector.energy_calibration_coeffs is None:
-                skipped_detectors.append(detector.id)
+                skipped_detectors.append(detector.get_id())
                 detectors.pop(i)
             else:
                 detector.set_energy_calibration_mask_ranges()
@@ -1792,7 +1797,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 self._energies, self._masks, self._mean_data,
                 self._mask_index_ranges, self.detector_config.detectors):
 
-            self.logger.info(f'Calibrating detector {detector.id}')
+            self.logger.info(f'Calibrating detector {detector.get_id()}')
 
             tth = detector.tth_initial_guess
             bins = low + np.arange(energies.size, dtype=np.int16)
@@ -1827,7 +1832,8 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 raise ValueError(
                     f'calibration_method {calibration_method} not implemented')
             self.logger.info(
-                f'Fitting detector {detector.id} took {time()-t0:.3f} seconds')
+                f'Fitting detector {detector.get_id()} took '
+                f'{time()-t0:.3f} seconds')
             detector.tth_calibrated = results['tth']
             detector.energy_calibration_coeffs = \
                 results['energy_calibration_coeffs']
@@ -1845,7 +1851,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 # Create the figure
                 fig, axs = plt.subplots(2, 2, sharex='all', figsize=(11, 8.5))
                 fig.suptitle(
-                    f'Detector {detector.id} 'r'2$\theta$ Calibration')
+                    f'Detector {detector.get_id()} 'r'2$\theta$ Calibration')
 
                 # Upper left axes: best fit with calibrated peak centers
                 axs[0,0].set_title(r'2$\theta$ Calibration Fits')
@@ -1946,7 +1952,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 if self.save_figures:
                     self._figures.append((
                         fig_to_iobuf(fig),
-                        f'{detector.id}_tth_calibration_fit'))
+                        f'{detector.get_id()}_tth_calibration_fit'))
                 if self.interactive:
                     plt.show()
                 plt.close()
@@ -2229,12 +2235,12 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
             detector.tth_initial_guess, buf = select_tth_initial_guess(
                 energies, mean_data, hkls, ds, detector.tth_initial_guess,
-                detector.id, self.interactive, self.save_figures)
+                detector.get_id(), self.interactive, self.save_figures)
             if self.save_figures:
                 self._figures.append((
-                    buf, f'{detector.id}_tth_calibration_initial_guess'))
+                    buf, f'{detector.get_id()}_tth_calibration_initial_guess'))
             self.logger.debug(
-                f'tth_initial_guess for detector {detector.id}: '
+                f'tth_initial_guess for detector {detector.get_id()}: '
                 f'{detector.tth_initial_guess}')
 
 
@@ -2421,7 +2427,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         calibration_detectors = [
             MCADetectorCalibration(**d) 
             for d in calibration_detector_config.get('detectors', [])]
-        calibration_detector_ids = [d.id for d in calibration_detectors]
+        calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
         # Check for available raw detector data and for the available 
         # calibration data
@@ -2435,29 +2441,30 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         sskipped_detectors = []
         detectors = []
         for detector in self.detector_config.detectors:
-            if detector.id not in nxdata:
-                skipped_detectors.append(detector.id)
-            elif detector.id not in calibration_detector_ids:
-                sskipped_detectors.append(detector.id)
+            detector_id = detector.get_id()
+            if detector_id not in nxdata:
+                skipped_detectors.append(detector_id)
+            elif detector_id not in calibration_detector_ids:
+                sskipped_detectors.append(detector_id)
             else:
-                raw_detector_data = nxdata[detector.id].nxdata
+                raw_detector_data = nxdata[detector_id].nxdata
                 if raw_detector_data.ndim != 2:
                     self.logger.warning(
-                        f'Skipping detector {detector.id} (Illegal data shape '
+                        f'Skipping detector {detector_id} (Illegal data shape '
                         f'{raw_detector_data.shape})')
                 elif raw_detector_data.sum():
-                    for k, v in nxdata[detector.id].attrs.items():
+                    for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
                     if self.config.rel_height_cutoff is not None:
                         detector.rel_height_cutoff = \
                             self.config.rel_height_cutoff
                     detector.add_calibration(
                         calibration_detectors[
-                            int(calibration_detector_ids.index(detector.id))])
+                            int(calibration_detector_ids.index(detector_id))])
                     detectors.append(detector)
                 else:
                     self.logger.warning(
-                        f'Skipping detector {detector.id} (zero intensity)')
+                        f'Skipping detector {detector_id} (zero intensity)')
         if len(skipped_detectors) == 1:
             self.logger.warning(
                 f'Skipping detector {skipped_detectors[0]} '
@@ -2737,10 +2744,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
             # Setup the NXdetector object for the current detector
             self.logger.debug(
-                f'Setting up NXdetector group for {detector.id}')
+                f'Setting up NXdetector group for {detector.get_id()}')
             nxdetector = NXdetector()
-            nxprocess[detector.id] = nxdetector
-            nxdetector.local_name = detector.id
+            nxprocess[detector.get_id()] = nxdetector
+            nxdetector.local_name = detector.get_id()
             nxdetector.detector_config = detector.model_dump_json()
             nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
             det_nxdata = nxdetector.data
@@ -2874,7 +2881,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         if self.save_figures:
             self._figures.append((
                 buf,
-                f'{self.detector_config.detectors[0].id}_'
+                f'{self.detector_config.detectors[0].get_id()}_'
                     'strainanalysis_material_config'))
 
         # Setup the points list with the map axes values
@@ -2893,7 +2900,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 self._nxdata_detectors, self.detector_config.detectors):
 
             self.logger.debug(
-                f'Beginning strain analysis for {detector.id}')
+                f'Beginning strain analysis for {detector.get_id()}')
 
             # Get the spectra for this detector
             intensities = nxdata.nxsignal.nxdata.T[mask].T
@@ -2950,12 +2957,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             else:
                 self.logger.warning(
                     'No matching peaks with heights above the threshold, '
-                    f'skipping the fit for detector {detector.id}')
+                    f'skipping the fit for detector {detector.get_id()}')
                 return []
             hkls_fit = hkls_fit[use_peaks]
 
             # Perform the fit
-            self.logger.info(f'Fitting detector {detector.id} ...')
+            self.logger.info(f'Fitting detector {detector.get_id()} ...')
             uniform_results, unconstrained_results = get_spectra_fits(
                 np.squeeze(intensities), energies[mask],
                 peak_locations[use_peaks], detector,
@@ -2989,33 +2996,34 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
             for i, point in enumerate(points):
                 point.update({
-                    f'{detector.id}/data/intensity': intensities[i],
-                    f'{detector.id}/data/uniform_strain':
+                    f'{detector.get_id()}/data/intensity': intensities[i],
+                    f'{detector.get_id()}/data/uniform_strain':
                         uniform_strain[i],
-                    f'{detector.id}/data/unconstrained_strain':
+                    f'{detector.get_id()}/data/unconstrained_strain':
                         unconstrained_strain[i],
-                    f'{detector.id}/uniform_fit/results/best_fit':
+                    f'{detector.get_id()}/uniform_fit/results/best_fit':
                         uniform_results['best_fits'][i],
-                    f'{detector.id}/uniform_fit/results/residual':
+                    f'{detector.get_id()}/uniform_fit/results/residual':
                         uniform_results['residuals'][i],
-                    f'{detector.id}/uniform_fit/results/redchi':
+                    f'{detector.get_id()}/uniform_fit/results/redchi':
                         uniform_results['redchis'][i],
-                    f'{detector.id}/uniform_fit/results/success':
+                    f'{detector.get_id()}/uniform_fit/results/success':
                         uniform_results['success'][i],
-                    f'{detector.id}/unconstrained_fit/results/best_fit':
+                    f'{detector.get_id()}/unconstrained_fit/results/best_fit':
                         unconstrained_results['best_fits'][i],
-                    f'{detector.id}/unconstrained_fit/results/residual':
+                    f'{detector.get_id()}/unconstrained_fit/results/residual':
                         unconstrained_results['residuals'][i],
-                    f'{detector.id}/unconstrained_fit/results/redchi':
+                    f'{detector.get_id()}/unconstrained_fit/results/redchi':
                         unconstrained_results['redchis'][i],
-                    f'{detector.id}/unconstrained_fit/results/success':
+                    f'{detector.get_id()}/unconstrained_fit/results/success':
                         unconstrained_results['success'][i],
                 })
                 for j, hkl in enumerate(hkls_fit):
                     hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
-                    uniform_fit_path = f'{detector.id}/uniform_fit/{hkl_name}'
+                    uniform_fit_path = \
+                        f'{detector.get_id()}/uniform_fit/{hkl_name}'
                     unconstrained_fit_path = \
-                        f'{detector.id}/unconstrained_fit/{hkl_name}'
+                        f'{detector.get_id()}/unconstrained_fit/{hkl_name}'
                     centers = uniform_results['centers']
                     point.update({
                         f'{uniform_fit_path}/centers/values':
@@ -3049,7 +3057,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     and (self.interactive or self.save_figures)):
                 self._create_animation(
                     nxdata, energies[mask], intensities,
-                    unconstrained_results['best_fits'], detector.id)
+                    unconstrained_results['best_fits'], detector.get_id())
 
         return points
 
