@@ -16,7 +16,7 @@ project = 'ChessAnalysisPipeline'
 copyright = f'{date.today().year}, CHESSComputing'
 author = 'V. Kuznetsov, K. Soloway, R. Verberg'
 version = release = 'PACKAGE_VERSION'
-version = release = 'v0.0.18'
+#version = release = 'v0.0.18'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

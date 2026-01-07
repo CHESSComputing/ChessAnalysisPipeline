@@ -24,4 +24,4 @@ from CHAP.processor import Processor
 from CHAP.writer import Writer
 
 version = 'PACKAGE_VERSION'
-version = 'v0.0.18'
+#version = 'v0.0.18'
