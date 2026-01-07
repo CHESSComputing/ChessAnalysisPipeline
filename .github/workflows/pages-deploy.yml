@@ -24,10 +24,6 @@ jobs:
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
-        sed -i "s/PACKAGE_VERSION/v0.0.18/" setup.py
-        sed -i "s/PACKAGE_VERSION/v0.0.18/" CHAP/__init__.py
-        sed -i "s/PACKAGE_VERSION/v0.0.18/" docs/conf.py
-        sed -i "s/PACKAGE_VERSION/v0.0.18/" docs/installation.md
         cat setup.py
         cat CHAP/__init__.py
         cat docs/conf.py
