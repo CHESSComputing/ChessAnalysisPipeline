@@ -1,0 +1,95 @@
+CHAP package
+============
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   CHAP.common
+   CHAP.edd
+   CHAP.foxden
+   CHAP.giwaxs
+   CHAP.hdrm
+   CHAP.inference
+   CHAP.saxswaxs
+   CHAP.sin2psi
+   CHAP.test
+   CHAP.tomo
+   CHAP.utils
+
+Submodules
+----------
+
+CHAP.TaskManager module
+-----------------------
+
+.. automodule:: CHAP.TaskManager
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.models module
+------------------
+
+.. automodule:: CHAP.models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.pipeline module
+--------------------
+
+.. automodule:: CHAP.pipeline
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.processor module
+---------------------
+
+.. automodule:: CHAP.processor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.reader module
+------------------
+
+.. automodule:: CHAP.reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.runner module
+------------------
+
+.. automodule:: CHAP.runner
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.server module
+------------------
+
+.. automodule:: CHAP.server
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.writer module
+------------------
+
+.. automodule:: CHAP.writer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: CHAP
+   :members:
+   :show-inheritance:
+   :undoc-members:

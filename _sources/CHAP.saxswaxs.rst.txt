@@ -1,0 +1,37 @@
+CHAP.saxswaxs package
+=====================
+
+Submodules
+----------
+
+CHAP.saxswaxs.processor module
+------------------------------
+
+.. automodule:: CHAP.saxswaxs.processor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.saxswaxs.reader module
+---------------------------
+
+.. automodule:: CHAP.saxswaxs.reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.saxswaxs.writer module
+---------------------------
+
+.. automodule:: CHAP.saxswaxs.writer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: CHAP.saxswaxs
+   :members:
+   :show-inheritance:
+   :undoc-members:

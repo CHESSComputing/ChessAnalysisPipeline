@@ -1,0 +1,53 @@
+CHAP.foxden package
+===================
+
+Submodules
+----------
+
+CHAP.foxden.models module
+-------------------------
+
+.. automodule:: CHAP.foxden.models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.foxden.processor module
+----------------------------
+
+.. automodule:: CHAP.foxden.processor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.foxden.reader module
+-------------------------
+
+.. automodule:: CHAP.foxden.reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.foxden.utils module
+------------------------
+
+.. automodule:: CHAP.foxden.utils
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.foxden.writer module
+-------------------------
+
+.. automodule:: CHAP.foxden.writer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: CHAP.foxden
+   :members:
+   :show-inheritance:
+   :undoc-members:

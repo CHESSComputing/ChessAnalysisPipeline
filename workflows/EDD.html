@@ -1,0 +1,360 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDD subpackage (CHAP.edd) &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20855893"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tomography subpackage (CHAP.tomo)" href="Tomo.html" />
+    <link rel="prev" title="CHAP Pipeline" href="../pipeline.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">EDD subpackage (CHAP.edd)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tomo.html">Tomography subpackage (CHAP.tomo)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">EDD subpackage (CHAP.edd)</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="edd-subpackage-chap-edd">
+<h1>EDD subpackage (CHAP.edd)<a class="headerlink" href="#edd-subpackage-chap-edd" title="Link to this heading"></a></h1>
+<p>The EDD subpackage contains the modules that are unique to Energy Dispersive Diffraction (EDD) data processing workflows. This document describes how to run an detector energy calibration and strain analysis workflow in a Linux terminal.</p>
+<section id="processing-the-data">
+<h2>Processing the data<a class="headerlink" href="#processing-the-data" title="Link to this heading"></a></h2>
+<p>A standard strain analysis in CHAP consists of three steps:</p>
+<ul class="simple">
+<li><p>Performing the detector channel energy calibration. This is typically performed by fitting a set of fluorescence peak centers in an EDD experiment on a CeO2 sample and comparing the results to their known energy values.</p></li>
+<li><p>Fine tuning the detector channel energy calibration (and optionally the takeoff angle <span class="math notranslate nohighlight">\(2\theta\)</span>) by fitting a set of Bragg peak centers in an EDD experiment on typically the same CeO2 sample and comparing the results to their known energy values for a given channel energy calibration (and <span class="math notranslate nohighlight">\(2\theta\)</span> value).</p></li>
+<li><p>Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.</p></li>
+</ul>
+</section>
+<section id="activating-the-edd-conda-environment">
+<h2>Activating the EDD conda environment<a class="headerlink" href="#activating-the-edd-conda-environment" title="Link to this heading"></a></h2>
+<section id="from-the-chess-compute-farm">
+<h3>From the CHESS Compute Farm<a class="headerlink" href="#from-the-chess-compute-farm" title="Link to this heading"></a></h3>
+<p>Log in to the CHESS Compute Farm and activate the <code class="docutils literal notranslate"><span class="pre">CHAP_edd</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/nfs/chess/sw/miniforge3_chap/bin/activate
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_edd
+</pre></div>
+</div>
+</section>
+<section id="from-a-local-chap-clone">
+<h3>From a local CHAP clone<a class="headerlink" href="#from-a-local-chap-clone" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>Create and activate a base conda environent, e.g. with <a class="reference external" href="https://github.com/conda-forge/miniforge">Miniforge</a>.</p></li>
+<li><p>Install a local version of the CHAP package according to the <a class="reference internal" href="../installation.html#installation"><span class="std std-ref">installation instructions</span></a>.</p></li>
+<li><p>Create the EDD conda environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/CHAP/edd/environment.yml
+</pre></div>
+</div>
+</li>
+<li><p>Activate the <code class="docutils literal notranslate"><span class="pre">CHAP_edd</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_edd
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+<section id="running-an-edd-workflow">
+<h2>Running an EDD workflow<a class="headerlink" href="#running-an-edd-workflow" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Navigate to your work directory.</p></li>
+<li><p>Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files.</p></li>
+<li><p>Run the workflow:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CHAP<span class="w"> </span>&lt;pipelinefilename&gt;
+</pre></div>
+</div>
+</li>
+<li><p>Respond to any prompts that pop up if running interactively.</p></li>
+</ol>
+</section>
+<section id="inspecting-output">
+<h2>Inspecting output<a class="headerlink" href="#inspecting-output" title="Link to this heading"></a></h2>
+<p>The output consists of a single NeXus (<code class="docutils literal notranslate"><span class="pre">.nxs</span></code>) file containing the strain analysis data as well as all metadata pertaining to the analysis. Additionally, optional output figures (<code class="docutils literal notranslate"><span class="pre">.png</span></code>) may be saved to an output directory specified in the pipeline file.</p>
+<p>The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in <a class="reference external" href="https://nexpy.github.io/nexpy/">NeXpy</a>, a high-level python interface to HDF5 files, particularly those stored as <a class="reference external" href="http://www.nexusformat.org">NeXus data</a>:</p>
+<ol class="arabic">
+<li><p>Open the NeXpy GUI by entering in your terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nexpy<span class="w"> </span><span class="p">&amp;</span>
+</pre></div>
+</div>
+</li>
+<li><p>After the GUI pops up, click File-&gt; Open to navigate to the folder where your output <code class="docutils literal notranslate"><span class="pre">.nxs</span></code> file was saved, and select it.</p></li>
+<li><p>Navigate the filetree in the “NeXus Data” panel to inspect any output or metadata field.</p></li>
+</ol>
+</section>
+<section id="creating-the-pipeline-file">
+<h2>Creating the pipeline file<a class="headerlink" href="#creating-the-pipeline-file" title="Link to this heading"></a></h2>
+<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">:</span>
+  <span class="n">root</span><span class="p">:</span> <span class="o">.</span>           <span class="c1"># Change as desired</span>
+  <span class="n">inputdir</span><span class="p">:</span> <span class="o">.</span>       <span class="c1"># Change as desired</span>
+                    <span class="c1"># Path can be relative to root (line 2) or absolute</span>
+  <span class="n">outputdir</span><span class="p">:</span> <span class="n">output</span> <span class="c1"># Change as desired</span>
+                    <span class="c1"># Path can be relative to root (line 2) or absolute</span>
+  <span class="n">interactive</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># Change as desired</span>
+  <span class="n">log_level</span><span class="p">:</span> <span class="n">info</span>   <span class="c1"># Set to debug, info, warning, or error</span>
+
+<span class="n">pipeline</span><span class="p">:</span>
+
+  <span class="c1"># Energy calibration</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span> <span class="c1"># Change as needed</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">EDD</span>
+        <span class="n">spec_scans</span><span class="p">:</span> <span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
+                    <span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_ceria_data_directory</span><span class="o">&gt;/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">1</span>
+  <span class="o">-</span> <span class="n">edd</span><span class="o">.</span><span class="n">MCAEnergyCalibrationProcessor</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">max_peak_index</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">peak_energies</span><span class="p">:</span> <span class="p">[</span><span class="mf">34.276</span><span class="p">,</span> <span class="mf">34.717</span><span class="p">,</span> <span class="mf">39.255</span><span class="p">,</span> <span class="mf">40.231</span><span class="p">]</span>
+        <span class="n">materials</span><span class="p">:</span>  <span class="c1"># Use default CeO2 properties when omitted</span>
+          <span class="o">-</span> <span class="n">material_name</span><span class="p">:</span> <span class="n">CeO2</span>
+            <span class="n">sgnum</span><span class="p">:</span> <span class="mi">225</span>
+            <span class="n">lattice_parameters</span><span class="p">:</span> <span class="mf">5.41153</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">baseline</span><span class="p">:</span> <span class="n">true</span>
+        <span class="n">mask_ranges</span><span class="p">:</span> <span class="p">[[</span><span class="mi">650</span><span class="p">,</span> <span class="mi">850</span><span class="p">]]</span>
+        <span class="n">detectors</span><span class="p">:</span>  <span class="c1"># Choose the detectors</span>
+                    <span class="c1"># Use all available detector elements when omitted</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">0</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">11</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">22</span>
+      <span class="n">save_figures</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">edd</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">MCAEnergyCalibrationConfig</span>
+
+  <span class="c1"># Twotheta calibration</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span> <span class="c1"># Change as needed</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">EDD</span>
+        <span class="n">spec_scans</span><span class="p">:</span> <span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
+                    <span class="c1"># Path can be relative to inputdir (line 2) or absolute</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_ceria_data_directory</span><span class="o">&gt;/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">1</span>
+  <span class="o">-</span> <span class="n">edd</span><span class="o">.</span><span class="n">MCATthCalibrationProcessor</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">tth_initial_guess</span><span class="p">:</span> <span class="mf">6.0</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">energy_mask_ranges</span><span class="p">:</span> <span class="p">[[</span><span class="mi">81</span><span class="p">,</span> <span class="mi">135</span><span class="p">]]</span> <span class="c1"># Change as needed</span>
+        <span class="n">detectors</span><span class="p">:</span>  <span class="c1"># The same as in the energy calibration when omitted</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">0</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">11</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">22</span>
+      <span class="n">save_figures</span><span class="p">:</span> <span class="n">true</span>
+
+  <span class="c1"># Create a CHESS style map</span>
+  <span class="o">-</span> <span class="n">edd</span><span class="o">.</span><span class="n">EddMapReader</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_data_directory</span><span class="o">&gt;/</span><span class="n">id1a3</span><span class="o">-</span><span class="n">wbmapscan</span><span class="o">-</span><span class="n">s23</span><span class="o">-</span><span class="nb">map</span><span class="o">-</span><span class="mf">1.</span><span class="n">par</span>
+      <span class="n">dataset_id</span><span class="p">:</span> <span class="mi">1</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">common</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">map</span><span class="o">.</span><span class="n">MapConfig</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">MapProcessor</span><span class="p">:</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>  <span class="c1"># Use available detector elements when omitted</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">0</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">11</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">22</span>
+
+  <span class="c1"># Perform the strain analysis</span>
+  <span class="o">-</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">MultiplePipelineItem</span><span class="p">:</span>
+      <span class="n">items</span><span class="p">:</span>
+        <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">YAMLReader</span><span class="p">:</span>
+            <span class="n">filename</span><span class="p">:</span> <span class="n">tth_calibration_result</span><span class="o">.</span><span class="n">yaml</span>
+            <span class="n">schema</span><span class="p">:</span> <span class="n">edd</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">MCATthCalibrationConfig</span>
+  <span class="o">-</span> <span class="n">edd</span><span class="o">.</span><span class="n">StrainAnalysisProcessor</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">materials</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">material_name</span><span class="p">:</span> <span class="n">Al</span>
+            <span class="n">sgnum</span><span class="p">:</span> <span class="mi">225</span>
+            <span class="n">lattice_parameters</span><span class="p">:</span> <span class="mf">4.046</span>
+        <span class="n">rel_height_cutoff</span><span class="p">:</span> <span class="mf">0.05</span>         <span class="c1"># Change as desired</span>
+        <span class="n">skip_animation</span><span class="p">:</span> <span class="n">false</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">energy_mask_ranges</span><span class="p">:</span> <span class="p">[[</span><span class="mi">77</span><span class="p">,</span> <span class="mi">110</span><span class="p">]]</span> <span class="c1"># Change as desired</span>
+        <span class="n">detectors</span><span class="p">:</span> <span class="c1"># # Use available detector elements when omitted</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">0</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">11</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="mi">22</span>
+      <span class="n">save_figures</span><span class="p">:</span> <span class="n">true</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">NexusWriter</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="n">strain_map</span><span class="o">.</span><span class="n">nxs</span> <span class="c1"># Change as desired</span>
+                               <span class="c1"># will be placed in &#39;outdutdir&#39; (line 3)</span>
+      <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># Do not set to false!</span>
+                            <span class="c1"># Rename an existing file if you want to prevent</span>
+                            <span class="c1"># it from being overwritten</span>
+</pre></div>
+</div>
+<p>The “config” block defines the CHAP generic configuration parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">root</span></code>: The work directory, defaults to the current directory (where <code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">&lt;pipelinefilename&gt;</span></code> is executed). Must be an absolute path or relative to the current directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inputdir</span></code>: The default directory for files read by any CHAP reader (must have read access), defaults to <code class="docutils literal notranslate"><span class="pre">root</span></code>. Must be an absolute path or relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">outputdir</span></code>: The default directory for files written by any CHAP writter (must have write access, will be created if not existing), defaults to <code class="docutils literal notranslate"><span class="pre">root</span></code>. Must be an absolute path or relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">interactive</span></code>: Allows for user interactions, defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code>: The <a class="reference external" href="https://docs.python.org/3/library/logging.html#levels">Python logging level</a>.</p></li>
+</ul>
+<p>The “pipeline” block creates the actual workflow pipeline, in this example it consists of nine toplevel processes that get executed successively:</p>
+<ul class="simple">
+<li><p>The EDD/XRF energy calibration consists of two processes:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.SpecReader</span></code>: A processor that reads the raw detector data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">edd.MCAEnergyCalibrationProcessor</span></code>: A processor that performs the detector channel energy calibration.</p></li>
+</ul>
+</li>
+<li><p>The EDD <span class="math notranslate nohighlight">\(2\theta\)</span> calibration consists of two processes:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.SpecReader</span></code> under <code class="docutils literal notranslate"><span class="pre">pipeline.MultiplePipelineItem</span></code>: A processor that reads the raw detector data and adds it to the energy calibration info that gets passed along directly from the previous processor in the pipeline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">edd.MCATthCalibrationProcessor</span></code>: A processor that performs the <span class="math notranslate nohighlight">\(2\theta\)</span> calibration.</p></li>
+</ul>
+</li>
+<li><p>The following two processors read the strain analysis sample’s raw detector data and create a CHESS style map:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">edd.EddMapReader</span></code>: A processor that reads the sample’s raw detector data using a CHESS style experiment par-file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.MapProcessor</span></code>: A processor that creates a CHESS style map for the raw detector data.</p></li>
+</ul>
+</li>
+<li><p>The last three processors perform the actual strain analysis and write the output to a Nexus file:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.YAMLReader</span></code> under <code class="docutils literal notranslate"><span class="pre">pipeline.MultiplePipelineItem</span></code>: A processor that reads the energy/<span class="math notranslate nohighlight">\(2\theta\)</span> calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">edd.StrainAnalysisProcessor</span></code>: A processor that perfroms the actual strain analysis and creates a single Nexus object with the strain analysis results as well as all metadata pertaining to the workflow.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.NexusWriter</span></code>: A processor that writes the strain analysis results to a NeXus file.</p></li>
+</ul>
+</li>
+</ul>
+<p>Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first four processes in the pipeline and read the detector channel energy calibration info in what is now the third item in the pipeline.</p>
+</section>
+<section id="additional-notes-on-energy-calibration">
+<h2>Additional notes on energy calibration<a class="headerlink" href="#additional-notes-on-energy-calibration" title="Link to this heading"></a></h2>
+<p>As mentioned above a standard EDD experiment needs calibration of the detector channel energies. Experiments have shown that the channel energies <span class="math notranslate nohighlight">\(E_j\)</span> vary linearly with the channel index <span class="math notranslate nohighlight">\(j\)</span> within the energy range of typical EDD experiments: <span class="math notranslate nohighlight">\(E_j = mj+b\)</span>, where the slope <span class="math notranslate nohighlight">\(m\)</span> and intercept <span class="math notranslate nohighlight">\(b\)</span> can be determined in one or a combination of two experiments:</p>
+<ol class="arabic simple">
+<li><p>With an XRF experiment by fitting a set of flueorescence peak centers at known energies:</p></li>
+</ol>
+<p>This uniquely determines <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> within the statistical errors of the experiment without having to know the actual takeoff angle <span class="math notranslate nohighlight">\(2\theta\)</span>.</p>
+<ol class="arabic simple">
+<li><p>With a diffraction experiment by fitting a set of Bragg peak centers corresponding to known lattice spacings <span class="math notranslate nohighlight">\(d_{hkl}\)</span>:</p></li>
+</ol>
+<p>Given Bragg’s law, <span class="math notranslate nohighlight">\(\lambda = 2d\sin(\theta)\)</span>, with <span class="math notranslate nohighlight">\(E = hc/\lambda\)</span>, the Bragg peaks appear at channels with energies <span class="math notranslate nohighlight">\(E_{hkl} = hc / (2d_{hkl}\sin(\theta)\)</span>. Rearranging this with the detector channel energy calibration relation gives:</p>
+<div class="math notranslate nohighlight">
+\[
+\frac{1}{d_{hkl}} = \frac{2m\sin(\theta)}{hc} j_{hkl} + \frac{2b\sin(\theta)}{hc} = m'j_{hkl}+b'
+\]</div>
+<p>which says that given a set of known Bragg peaks corresponding to lattice spacings <span class="math notranslate nohighlight">\(d_{hkl}\)</span> occuring at channel indices <span class="math notranslate nohighlight">\(j_{hkl}\)</span>, a linear fit will uniquely determine <span class="math notranslate nohighlight">\(m'\)</span> and <span class="math notranslate nohighlight">\(b'\)</span>. For a known takeoff angle <span class="math notranslate nohighlight">\(2\theta\)</span>, this uniquely determines <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> as well. Note that this also implies that without an accurately known value of <span class="math notranslate nohighlight">\(2`theta\)</span>, one <em>cannot</em> uniquely determine <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> from Bragg diffraction alone!</p>
+<p>This leads to the above mentioned two-step detector channel energy calibration procedure:</p>
+<ol class="arabic simple">
+<li><p>Get nominal values for <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span>, by performing an EDD/XRF experiment on a Ce02 sample and fitting a set of fluorescence peak centers with known energies vs detector channel index.</p></li>
+<li><p>Fine tuning the calibration by fitting a set of Bragg peak centers in an EDD experiment on (typically) the same CeO2 sample, where the channel indices for the initial Bragg peak positions are obtained from the known Bragg peak energies and the nominal values for <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span>:</p>
+<ul class="simple">
+<li><p>If <span class="math notranslate nohighlight">\(2\theta\)</span> is known with sufficient accuracy, one can fit the peak centers vs detector channel index to get <span class="math notranslate nohighlight">\(m'\)</span> and <span class="math notranslate nohighlight">\(b'\)</span> and thus with the known <span class="math notranslate nohighlight">\(2\theta\)</span> convert those directly to fine tuned values for <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span> over the entire energy range of interest.</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(2\theta\)</span> is not known with sufficient accuracy, one can fit the Bragg peak centers vs detector channel index to get <span class="math notranslate nohighlight">\(m\)</span>, <span class="math notranslate nohighlight">\(b\)</span> and <span class="math notranslate nohighlight">\(2\theta\)</span> in a way that minimizes the RMS error between the fitted peak centers for a given fit parameter set <span class="math notranslate nohighlight">\((m, b, 2\theta)\)</span> and those obtained from Bragg’s law given their <span class="math notranslate nohighlight">\(d_{hkl}\)</span>’s. The latter will still need a sufficently decent initial guess for <span class="math notranslate nohighlight">\(2\theta\)</span>, which can be given as an input to the CHAP <span class="math notranslate nohighlight">\(2\theta\)</span> calibration processor or picked interactively.</p></li>
+</ul>
+</li>
+</ol>
+<p>The choice between the latter two apporaches is set by the <code class="docutils literal notranslate"><span class="pre">calibration_method</span></code> field in the <span class="math notranslate nohighlight">\(2\theta\)</span> processor configuration in the pipeline yaml input file. Set <code class="docutils literal notranslate"><span class="pre">calibration_method</span></code> to <code class="docutils literal notranslate"><span class="pre">direct_fit_bragg</span></code> (default) to use a fixed given value of <span class="math notranslate nohighlight">\(2\theta\)</span>, or set it to <code class="docutils literal notranslate"><span class="pre">direct_fit_tth_ecc</span></code> to fit for the unknown <span class="math notranslate nohighlight">\(2\theta\)</span> and the energy calibration coefficients <span class="math notranslate nohighlight">\(m\)</span> and <span class="math notranslate nohighlight">\(b\)</span>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../pipeline.html" class="btn btn-neutral float-left" title="CHAP Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Tomo.html" class="btn btn-neutral float-right" title="Tomography subpackage (CHAP.tomo)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

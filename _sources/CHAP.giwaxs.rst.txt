@@ -1,0 +1,45 @@
+CHAP.giwaxs package
+===================
+
+Submodules
+----------
+
+CHAP.giwaxs.models module
+-------------------------
+
+.. automodule:: CHAP.giwaxs.models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.giwaxs.processor module
+----------------------------
+
+.. automodule:: CHAP.giwaxs.processor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.giwaxs.reader module
+-------------------------
+
+.. automodule:: CHAP.giwaxs.reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.giwaxs.writer module
+-------------------------
+
+.. automodule:: CHAP.giwaxs.writer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: CHAP.giwaxs
+   :members:
+   :show-inheritance:
+   :undoc-members:

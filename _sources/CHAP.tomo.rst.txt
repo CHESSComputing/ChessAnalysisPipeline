@@ -1,0 +1,45 @@
+CHAP.tomo package
+=================
+
+Submodules
+----------
+
+CHAP.tomo.models module
+-----------------------
+
+.. automodule:: CHAP.tomo.models
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.tomo.processor module
+--------------------------
+
+.. automodule:: CHAP.tomo.processor
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.tomo.reader module
+-----------------------
+
+.. automodule:: CHAP.tomo.reader
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+CHAP.tomo.writer module
+-----------------------
+
+.. automodule:: CHAP.tomo.writer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Module contents
+---------------
+
+.. automodule:: CHAP.tomo
+   :members:
+   :show-inheritance:
+   :undoc-members:

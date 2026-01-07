@@ -1,0 +1,362 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHAP &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=20855893"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="CHAP package" href="CHAP.html" />
+    <link rel="prev" title="Tomography subpackage (CHAP.tomo)" href="workflows/Tomo.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="workflows/EDD.html">EDD subpackage (CHAP.edd)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/Tomo.html">Tomography subpackage (CHAP.tomo)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">CHAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html">CHAP package</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CHAP</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="chap">
+<h1>CHAP<a class="headerlink" href="#chap" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="CHAP.html">CHAP package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.common.html">CHAP.common package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#chap-common-processor-module">CHAP.common.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#chap-common-reader-module">CHAP.common.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#chap-common-utils-module">CHAP.common.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#chap-common-writer-module">CHAP.common.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.common.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html">CHAP.edd package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-models-module">CHAP.edd.models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-processor-module">CHAP.edd.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-reader-module">CHAP.edd.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-select-material-params-gui-module">CHAP.edd.select_material_params_gui module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-utils-module">CHAP.edd.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#chap-edd-writer-module">CHAP.edd.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.foxden.html">CHAP.foxden package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#chap-foxden-models-module">CHAP.foxden.models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#chap-foxden-processor-module">CHAP.foxden.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#chap-foxden-reader-module">CHAP.foxden.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#chap-foxden-utils-module">CHAP.foxden.utils module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#chap-foxden-writer-module">CHAP.foxden.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.foxden.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.giwaxs.html">CHAP.giwaxs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#chap-giwaxs-models-module">CHAP.giwaxs.models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#chap-giwaxs-processor-module">CHAP.giwaxs.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#chap-giwaxs-reader-module">CHAP.giwaxs.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#chap-giwaxs-writer-module">CHAP.giwaxs.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.giwaxs.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.saxswaxs.html">CHAP.saxswaxs package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.processor">CHAP.saxswaxs.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.reader">CHAP.saxswaxs.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.writer">CHAP.saxswaxs.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.saxswaxs.html#module-CHAP.saxswaxs">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html">CHAP.tomo package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#chap-tomo-models-module">CHAP.tomo.models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#chap-tomo-processor-module">CHAP.tomo.processor module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#chap-tomo-reader-module">CHAP.tomo.reader module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#chap-tomo-writer-module">CHAP.tomo.writer module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.utils.html">CHAP.utils package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-converters-module">CHAP.utils.converters module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-fit-module">CHAP.utils.fit module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-general-module">CHAP.utils.general module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-material-module">CHAP.utils.material module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-models-module">CHAP.utils.models module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#chap-utils-parfile-module">CHAP.utils.parfile module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.utils.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.TaskManager">CHAP.TaskManager module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.StoppableThread"><code class="docutils literal notranslate"><span class="pre">StoppableThread</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.StoppableThread.running"><code class="docutils literal notranslate"><span class="pre">StoppableThread.running()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.StoppableThread.stop"><code class="docutils literal notranslate"><span class="pre">StoppableThread.stop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.StoppableThread.stopped"><code class="docutils literal notranslate"><span class="pre">StoppableThread.stopped()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager"><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.clear"><code class="docutils literal notranslate"><span class="pre">TaskManager.clear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.is_alive"><code class="docutils literal notranslate"><span class="pre">TaskManager.is_alive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.joinall"><code class="docutils literal notranslate"><span class="pre">TaskManager.joinall()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.nworkers"><code class="docutils literal notranslate"><span class="pre">TaskManager.nworkers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.quit"><code class="docutils literal notranslate"><span class="pre">TaskManager.quit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.remove"><code class="docutils literal notranslate"><span class="pre">TaskManager.remove()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.spawn"><code class="docutils literal notranslate"><span class="pre">TaskManager.spawn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.TaskManager.status"><code class="docutils literal notranslate"><span class="pre">TaskManager.status()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.UidSet"><code class="docutils literal notranslate"><span class="pre">UidSet</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.UidSet.add"><code class="docutils literal notranslate"><span class="pre">UidSet.add()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.UidSet.discard"><code class="docutils literal notranslate"><span class="pre">UidSet.discard()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.UidSet.get"><code class="docutils literal notranslate"><span class="pre">UidSet.get()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.Worker"><code class="docutils literal notranslate"><span class="pre">Worker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.Worker.force_exit"><code class="docutils literal notranslate"><span class="pre">Worker.force_exit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.Worker.run"><code class="docutils literal notranslate"><span class="pre">Worker.run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.genkey"><code class="docutils literal notranslate"><span class="pre">genkey()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.set_thread_name"><code class="docutils literal notranslate"><span class="pre">set_thread_name()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.TaskManager.start_new_thread"><code class="docutils literal notranslate"><span class="pre">start_new_thread()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.models">CHAP.models module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.dict"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.model_config"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.model_dump"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.model_dump()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.model_dump_json"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.model_dump_json()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel.model_fields"><code class="docutils literal notranslate"><span class="pre">CHAPBaseModel.model_fields</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig"><code class="docutils literal notranslate"><span class="pre">RunConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.inputdir"><code class="docutils literal notranslate"><span class="pre">RunConfig.inputdir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.interactive"><code class="docutils literal notranslate"><span class="pre">RunConfig.interactive</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.log_level"><code class="docutils literal notranslate"><span class="pre">RunConfig.log_level</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">RunConfig.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.model_config"><code class="docutils literal notranslate"><span class="pre">RunConfig.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.model_fields"><code class="docutils literal notranslate"><span class="pre">RunConfig.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.model_post_init"><code class="docutils literal notranslate"><span class="pre">RunConfig.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.outputdir"><code class="docutils literal notranslate"><span class="pre">RunConfig.outputdir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.profile"><code class="docutils literal notranslate"><span class="pre">RunConfig.profile</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.root"><code class="docutils literal notranslate"><span class="pre">RunConfig.root</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.spawn"><code class="docutils literal notranslate"><span class="pre">RunConfig.spawn</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.validate_log_level"><code class="docutils literal notranslate"><span class="pre">RunConfig.validate_log_level()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.models.RunConfig.validate_runconfig_before"><code class="docutils literal notranslate"><span class="pre">RunConfig.validate_runconfig_before()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.pipeline">CHAP.pipeline module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline"><code class="docutils literal notranslate"><span class="pre">Pipeline</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.args"><code class="docutils literal notranslate"><span class="pre">Pipeline.args</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.execute"><code class="docutils literal notranslate"><span class="pre">Pipeline.execute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.logger"><code class="docutils literal notranslate"><span class="pre">Pipeline.logger</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.mmcs"><code class="docutils literal notranslate"><span class="pre">Pipeline.mmcs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">Pipeline.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.model_config"><code class="docutils literal notranslate"><span class="pre">Pipeline.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.model_fields"><code class="docutils literal notranslate"><span class="pre">Pipeline.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.model_post_init"><code class="docutils literal notranslate"><span class="pre">Pipeline.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.Pipeline.validate_pipeline_after"><code class="docutils literal notranslate"><span class="pre">Pipeline.validate_pipeline_after()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData"><code class="docutils literal notranslate"><span class="pre">PipelineData</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem"><code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.execute"><code class="docutils literal notranslate"><span class="pre">PipelineItem.execute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.get_args"><code class="docutils literal notranslate"><span class="pre">PipelineItem.get_args()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.get_config"><code class="docutils literal notranslate"><span class="pre">PipelineItem.get_config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.get_data"><code class="docutils literal notranslate"><span class="pre">PipelineItem.get_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.get_default_nxentry"><code class="docutils literal notranslate"><span class="pre">PipelineItem.get_default_nxentry()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.get_schema"><code class="docutils literal notranslate"><span class="pre">PipelineItem.get_schema()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.has_filename"><code class="docutils literal notranslate"><span class="pre">PipelineItem.has_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.logger"><code class="docutils literal notranslate"><span class="pre">PipelineItem.logger</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.method"><code class="docutils literal notranslate"><span class="pre">PipelineItem.method</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.method_type"><code class="docutils literal notranslate"><span class="pre">PipelineItem.method_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">PipelineItem.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.model_config"><code class="docutils literal notranslate"><span class="pre">PipelineItem.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.model_fields"><code class="docutils literal notranslate"><span class="pre">PipelineItem.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.model_post_init"><code class="docutils literal notranslate"><span class="pre">PipelineItem.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.name"><code class="docutils literal notranslate"><span class="pre">PipelineItem.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.run_config"><code class="docutils literal notranslate"><span class="pre">PipelineItem.run_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.schema_"><code class="docutils literal notranslate"><span class="pre">PipelineItem.schema_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.set_args"><code class="docutils literal notranslate"><span class="pre">PipelineItem.set_args()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.status"><code class="docutils literal notranslate"><span class="pre">PipelineItem.status</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.unwrap_pipelinedata"><code class="docutils literal notranslate"><span class="pre">PipelineItem.unwrap_pipelinedata()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem.validate_pipelineitem_after"><code class="docutils literal notranslate"><span class="pre">PipelineItem.validate_pipelineitem_after()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.processor">CHAP.processor module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.processor.OptionParser"><code class="docutils literal notranslate"><span class="pre">OptionParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor"><code class="docutils literal notranslate"><span class="pre">Processor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">Processor.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.model_config"><code class="docutils literal notranslate"><span class="pre">Processor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.model_fields"><code class="docutils literal notranslate"><span class="pre">Processor.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.model_post_init"><code class="docutils literal notranslate"><span class="pre">Processor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.process"><code class="docutils literal notranslate"><span class="pre">Processor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.processor.Processor.validate_processor_before"><code class="docutils literal notranslate"><span class="pre">Processor.validate_processor_before()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.processor.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.reader">CHAP.reader module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.reader.OptionParser"><code class="docutils literal notranslate"><span class="pre">OptionParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.filename"><code class="docutils literal notranslate"><span class="pre">Reader.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">Reader.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.model_config"><code class="docutils literal notranslate"><span class="pre">Reader.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.model_fields"><code class="docutils literal notranslate"><span class="pre">Reader.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.model_post_init"><code class="docutils literal notranslate"><span class="pre">Reader.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.reader.Reader.read"><code class="docutils literal notranslate"><span class="pre">Reader.read()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.reader.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.reader.validate_reader_model"><code class="docutils literal notranslate"><span class="pre">validate_reader_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.runner">CHAP.runner module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.runner.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.runner.parser"><code class="docutils literal notranslate"><span class="pre">parser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.runner.run"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.runner.runner"><code class="docutils literal notranslate"><span class="pre">runner()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.runner.set_logger"><code class="docutils literal notranslate"><span class="pre">set_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#chap-server-module">CHAP.server module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP.writer">CHAP.writer module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.writer.OptionParser"><code class="docutils literal notranslate"><span class="pre">OptionParser</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer"><code class="docutils literal notranslate"><span class="pre">Writer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.filename"><code class="docutils literal notranslate"><span class="pre">Writer.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.force_overwrite"><code class="docutils literal notranslate"><span class="pre">Writer.force_overwrite</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.model_computed_fields"><code class="docutils literal notranslate"><span class="pre">Writer.model_computed_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.model_config"><code class="docutils literal notranslate"><span class="pre">Writer.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.model_fields"><code class="docutils literal notranslate"><span class="pre">Writer.model_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.model_post_init"><code class="docutils literal notranslate"><span class="pre">Writer.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.remove"><code class="docutils literal notranslate"><span class="pre">Writer.remove</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.html#CHAP.writer.Writer.write"><code class="docutils literal notranslate"><span class="pre">Writer.write()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.writer.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.html#CHAP.writer.validate_writer_model"><code class="docutils literal notranslate"><span class="pre">validate_writer_model()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.html#module-CHAP">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workflows/Tomo.html" class="btn btn-neutral float-left" title="Tomography subpackage (CHAP.tomo)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="CHAP.html" class="btn btn-neutral float-right" title="CHAP package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

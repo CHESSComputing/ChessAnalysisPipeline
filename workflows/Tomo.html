@@ -1,0 +1,442 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tomography subpackage (CHAP.tomo) &mdash; CHESS Analysis Pipeline</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/center_fig_only.css?v=f6684a39" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=20855893"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CHAP" href="../api_documentation.html" />
+    <link rel="prev" title="EDD subpackage (CHAP.edd)" href="EDD.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ChessAnalysisPipeline
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Pipeline</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pipeline.html">CHAP Pipeline</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="EDD.html">EDD subpackage (CHAP.edd)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tomography subpackage (CHAP.tomo)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api_documentation.html">CHAP</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ChessAnalysisPipeline</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Tomography subpackage (CHAP.tomo)</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="tomography-subpackage-chap-tomo">
+<h1>Tomography subpackage (CHAP.tomo)<a class="headerlink" href="#tomography-subpackage-chap-tomo" title="Link to this heading"></a></h1>
+<p>The tomography subpackage contains the modules that are unique to tomography data processing workflows. This document describes how to run a tomography reconstruction workflow in a Linux terminal.</p>
+<section id="tomographic-reconstruction">
+<h2>Tomographic reconstruction<a class="headerlink" href="#tomographic-reconstruction" title="Link to this heading"></a></h2>
+<p>Tomography is a type of 3D imaging that uses some type of penetrative wave (an X-ray beam at CHESS). Tomographic reconstruction refers to the process of recovering 3D spatial information on an object from a set of projected images acquired under different angles after transmission of the beam through the sample.</p>
+<figure class="center-img-only align-default" id="tomo-figure">
+<img alt="../_images/Tomographic_fig1.png" src="../_images/Tomographic_fig1.png" />
+<figcaption>
+<p><span class="caption-text">Illustration of tomographic reconstruction (https://en.wikipedia.org/wiki/Tomographic_reconstruction). The projected image on the detector results from transmission of the beam through the sample at a given angle at varying locations. The intensity at the detector depends on the amount of scattering and absorption in the sample or on, what is often called, its linear attenuation coefficient. Spatial variations in for example density can lead to spatial variations of the local attenuation coefficient. The intensity on the detector is basically a measure of its line integral along a path <span class="math notranslate nohighlight">\(AB\)</span> at a projected sample position <span class="math notranslate nohighlight">\(r\)</span>. We can then obtain full 3D reconstruction of the spatial variation from a set of 2D images at varying angles <span class="math notranslate nohighlight">\(\theta\)</span> by a mathematical inversion technique called the inverse Radon transform  (https://en.wikipedia.org/wiki/Radon_transform).</span><a class="headerlink" href="#tomo-figure" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="the-input-data">
+<h2>The input data<a class="headerlink" href="#the-input-data" title="Link to this heading"></a></h2>
+<p>A standard tomographic experiment at CHESS (and other similar institutions) consist of a set of X-ray transmission measurements captured on a 2D area detector. It typically involves two (sets of) measurements without a sample in the beam, one with the beam stop in place (the dark image), and one with the beam stop open (the bright image). Followed by a measurement of a stack of images (a tomographic image series) at varying rotation angle (over 180 or a full 360 degrees of rotation) with the sample in the beam secured to a rotating sample holder. Note that if the sample is larger than the beam cross section, this may require multiple image stacks at various sample positions in the plane perpendicular to the X-ray beam.</p>
+</section>
+<section id="processing-the-data">
+<h2>Processing the data<a class="headerlink" href="#processing-the-data" title="Link to this heading"></a></h2>
+<p>A standard tomographic reconstruction in CHAP consists of three steps:</p>
+<ul class="simple">
+<li><p>Reducing the data, i.e., correcting the raw detector images for background and non-uniformities in the beam intensity profile using dark and bright fields collected separately from the tomography image series.</p></li>
+<li><p>Finding the calibrated rotation axis. Accurate reconstruction relies on accurately knowing the center of rotation at each data plane perpendicular to the rotation axis (the sinogram). This rotation axis is calibrated by selecting two data planes, one near the top and one near the bottom of the sample or beam, and visually or automatically picking the optimal center location.</p></li>
+<li><p>Reconstructing the reduced data for the calibrated rotation axis. For samples taller than the height of the beam, this last step can consist of two parts:</p>
+<ul>
+<li><p>reconstruction of each individual stack of images, and</p></li>
+<li><p>combining the individual stacks into one 3D reconstructed data set.</p></li>
+</ul>
+</li>
+</ul>
+<p>Note that combining stacks with a horizontal displacement for samples wider than the width of the beam is not yet implemented.</p>
+</section>
+<section id="activating-the-tomography-conda-environment">
+<h2>Activating the tomography conda environment<a class="headerlink" href="#activating-the-tomography-conda-environment" title="Link to this heading"></a></h2>
+<section id="from-the-chess-compute-farm">
+<h3>From the CHESS Compute Farm<a class="headerlink" href="#from-the-chess-compute-farm" title="Link to this heading"></a></h3>
+<p>Log in to the CHESS Compute Farm and activate the <code class="docutils literal notranslate"><span class="pre">CHAP_tomo</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>/nfs/chess/sw/miniforge3_chap/bin/activate
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_tomo
+</pre></div>
+</div>
+</section>
+<section id="from-a-local-chap-clone">
+<h3>From a local CHAP clone<a class="headerlink" href="#from-a-local-chap-clone" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>Create and activate a base conda environent, e.g. with <a class="reference external" href="https://github.com/conda-forge/miniforge">Miniforge</a>.</p></li>
+<li><p>Install a local version of the CHAP package according to the <a class="reference internal" href="../installation.html#installation"><span class="std std-ref">installation instructions</span></a>.</p></li>
+<li><p>Create the tomography conda environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/CHAP/tomo/environment.yml
+</pre></div>
+</div>
+</li>
+<li><p>Activate the <code class="docutils literal notranslate"><span class="pre">CHAP_tomo</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_tomo
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+<section id="running-a-tomography-reconstruction">
+<h2>Running a tomography reconstruction<a class="headerlink" href="#running-a-tomography-reconstruction" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Navigate to your work directory.</p></li>
+<li><p>Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. This typically includes at a minimum the detector configuration <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> file with the detector image size information. For example, for the andor2 detector (<code class="docutils literal notranslate"><span class="pre">andor2.yaml</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">prefix</span><span class="p">:</span> <span class="n">andor2</span>
+<span class="n">rows</span><span class="p">:</span> <span class="mi">2160</span>
+<span class="n">columns</span><span class="p">:</span> <span class="mi">2560</span>
+<span class="n">pixel_size</span><span class="p">:</span>
+<span class="o">-</span> <span class="mf">0.0065</span>
+<span class="o">-</span> <span class="mf">0.0065</span>
+<span class="n">lens_magnification</span><span class="p">:</span> <span class="mf">5.0</span>
+</pre></div>
+</div>
+<p>Here, the prefix field must equal a detector ID field in the <code class="docutils literal notranslate"><span class="pre">detectors</span></code> list in the pipeline input file.</p>
+</li>
+<li><p>Run the reconstruction:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CHAP<span class="w"> </span>&lt;pipelinefilename&gt;
+</pre></div>
+</div>
+</li>
+<li><p>Respond to any prompts that pop up if running interactively.</p></li>
+</ol>
+</section>
+<section id="inspecting-output">
+<h2>Inspecting output<a class="headerlink" href="#inspecting-output" title="Link to this heading"></a></h2>
+<p>The output consists of a single NeXus (<code class="docutils literal notranslate"><span class="pre">.nxs</span></code>) file containing the reconstructed data set and a metadata record that can be processed and saved or uploaded to an external metadata service downstream in the pipeline file. Additionally, optional output figures (<code class="docutils literal notranslate"><span class="pre">.png</span></code>) may be saved to an output directory specified in the pipeline file.</p>
+<p>The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in <a class="reference external" href="https://nexpy.github.io/nexpy/">NeXpy</a>, a high-level python interface to HDF5 files, particularly those stored as <a class="reference external" href="http://www.nexusformat.org">NeXus data</a>:</p>
+<ol class="arabic">
+<li><p>Open the NeXpy GUI by entering in your terminal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nexpy<span class="w"> </span><span class="p">&amp;</span>
+</pre></div>
+</div>
+</li>
+<li><p>After the GUI pops up, click File -&gt; Open to navigate to the folder where your output <code class="docutils literal notranslate"><span class="pre">.nxs</span></code> file was saved, and select it.</p></li>
+<li><p>Double click on the base level <code class="docutils literal notranslate"><span class="pre">NXroot</span></code> field in the leftmost “NeXus Data” panel to view the reconstruction. Note that the <code class="docutils literal notranslate"><span class="pre">NXroot</span></code> name is always the basename of the output file.</p></li>
+<li><p>Or navigate the filetree in the “NeXus Data” panel to inspect any other output or metadata field. Note that the latest data set in any tomography reconstruction workflow is always available under the “data” <code class="docutils literal notranslate"><span class="pre">NXdata</span></code> field among the default <code class="docutils literal notranslate"><span class="pre">NXentry</span></code>’s fields (it is this data set that is opened in the viewer panel when double clicking the <code class="docutils literal notranslate"><span class="pre">NXroot</span></code> field). The default <code class="docutils literal notranslate"><span class="pre">NXentry</span></code> name is always the “title” field in the workflow’s map configuration.</p></li>
+</ol>
+</section>
+<section id="creating-the-pipeline-file">
+<h2>Creating the pipeline file<a class="headerlink" href="#creating-the-pipeline-file" title="Link to this heading"></a></h2>
+<p>Create a workflow <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file according to the <a class="reference internal" href="../pipeline.html#chap-pipeline"><span class="std std-ref">CHAP pipeline instructions</span></a>. A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">:</span>
+  <span class="n">root</span><span class="p">:</span> <span class="o">.</span>           <span class="c1"># Change as desired</span>
+  <span class="n">inputdir</span><span class="p">:</span> <span class="o">.</span>       <span class="c1"># Change as desired</span>
+                    <span class="c1"># Path can be relative to root (line 2) or absolute</span>
+  <span class="n">outputdir</span><span class="p">:</span> <span class="n">output</span> <span class="c1"># Change as desired</span>
+                    <span class="c1"># Path can be relative to root (line 2) or absolute</span>
+  <span class="n">interactive</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># Change as desired</span>
+  <span class="n">log_level</span><span class="p">:</span> <span class="n">info</span>   <span class="c1"># Set to debug, info, warning, or error</span>
+
+<span class="n">pipeline</span><span class="p">:</span>
+
+  <span class="c1"># Create the map</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">MapProcessor</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">title</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_BTR</span><span class="o">&gt;</span> <span class="c1"># Change as desired, typically BTR</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span> <span class="c1"># Change as needed</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">sample</span><span class="p">:</span>
+          <span class="n">name</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_sample_name</span><span class="o">&gt;</span> <span class="c1"># Change as desired</span>
+                                   <span class="c1"># typically the sample name</span>
+        <span class="n">spec_scans</span><span class="p">:</span> <span class="c1"># Edit both SPEC log file path and tomography scan numbers</span>
+                    <span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_data_directory</span><span class="o">&gt;/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="n">independent_dimensions</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">rotation_angles</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">degrees</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">scan_column</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">theta</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">x_translation</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">mm</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">smb_par</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">ramsx</span> <span class="c1"># Change as needed</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">z_translation</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">mm</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">smb_par</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">ramsz</span> <span class="c1"># Change as needed</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">andor2</span> <span class="c1"># Change as needed</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">tomofields</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span> <span class="c1"># Change as needed</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">spec_scans</span><span class="p">:</span> <span class="c1"># Edit both SPEC log file path and tomography scan numbers</span>
+                    <span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_data_directory</span><span class="o">&gt;/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">1</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">andor2</span> <span class="c1"># Change as needed</span>
+        <span class="n">schema</span><span class="p">:</span> <span class="n">darkfield</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span> <span class="c1"># Change as needed</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">spec_scans</span><span class="p">:</span> <span class="c1"># Edit both SPEC log file path and tomography scan numbers</span>
+                    <span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">your_raw_data_directory</span><span class="o">&gt;/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">2</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">andor2</span> <span class="c1"># Change as needed</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">brightfield</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">YAMLReader</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="n">andor2</span><span class="o">.</span><span class="n">yaml</span> <span class="c1"># Detector config file</span>
+                            <span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">tomo</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Detector</span>
+  <span class="o">-</span> <span class="n">tomo</span><span class="o">.</span><span class="n">TomoCHESSMapConverter</span>
+
+  <span class="c1"># Full tomography reconstruction</span>
+  <span class="o">-</span> <span class="n">tomo</span><span class="o">.</span><span class="n">TomoDataProcessor</span><span class="p">:</span>
+      <span class="n">reduce_data</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">find_center</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">reconstruct_data</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">combine_data</span><span class="p">:</span> <span class="n">true</span>    <span class="c1"># Only needed for a stack of tomography image sets</span>
+      <span class="n">save_figures</span><span class="p">:</span> <span class="n">true</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">NexusWriter</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="n">reconstructed_sample</span><span class="o">.</span><span class="n">nxs</span> <span class="c1"># Change as desired</span>
+                                         <span class="c1"># will be placed in &#39;outdutdir&#39; (line 5)</span>
+      <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># Do not set to false!</span>
+                            <span class="c1"># Rename an existing file if you want to prevent</span>
+                            <span class="c1"># it from being overwritten</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">ImageWriter</span><span class="p">:</span>
+      <span class="n">outputdir</span><span class="p">:</span> <span class="n">figures</span> <span class="c1"># Change as desired, unless an absolute path</span>
+                         <span class="c1"># this will appear under &#39;outdutdir&#39; (line 5)</span>
+      <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># Do not set to false!</span>
+                            <span class="c1"># Rename an existing file if you want to prevent</span>
+                            <span class="c1"># it from being overwritten</span>
+</pre></div>
+</div>
+</section>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h2>
+<p>The CHAP tomography subpackage comes with several workflow examples, one of them for an CHESS ID3A beamline style experiment of a truncated hollow four sided pyramid made from a single homogeneous material.</p>
+<p>This example uses simulated raw imaging data that needs to be available in a specific location ahead of the reconstruction. If you are logged in on the CHESS Compute Farm, replace <code class="docutils literal notranslate"><span class="pre">&lt;path_to_CHAP_clone_dir&gt;</span></code> below with <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/ChessAnalysisPipeline</span></code>, the path to the CHAP repository administrated by the CHAP developers. If not, replace it with the path to your local CHAP repository. In the later case, you will also need to create the raw data once, since it is not part of the cloned repository. To do so, create and activate your local CHAP_tomo conda environment as instructed above, navigate to your local CHAP repository, and execute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CHAP<span class="w"> </span>examples/tomo/pipeline_id3a_pyramid_sim.yaml
+</pre></div>
+</div>
+<p>To perform the reconstruction:</p>
+<ol class="arabic">
+<li><p>Create a work directory in your own user space.</p></li>
+<li><p>Within the work directory, create a plain text file, named <code class="docutils literal notranslate"><span class="pre">pipeline_id3a_pyramid.yaml</span></code>, with the following content (note that spaces and indentation are important in <code class="docutils literal notranslate"><span class="pre">.yaml</span></code> files):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">:</span>
+  <span class="n">root</span><span class="p">:</span> <span class="o">.</span>
+  <span class="n">inputdir</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">path_to_CHAP_clone_dir</span><span class="o">&gt;/</span><span class="n">examples</span><span class="o">/</span><span class="n">tomo</span><span class="o">/</span><span class="n">config</span>
+  <span class="n">outputdir</span><span class="p">:</span> <span class="n">hollow_pyramid</span>
+  <span class="n">interactive</span><span class="p">:</span> <span class="n">true</span>
+  <span class="n">log_level</span><span class="p">:</span> <span class="n">info</span>
+
+<span class="n">pipeline</span><span class="p">:</span>
+
+  <span class="c1"># Create the map</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">MapProcessor</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">title</span><span class="p">:</span> <span class="n">hollow_pyramid</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">sample</span><span class="p">:</span>
+          <span class="n">name</span><span class="p">:</span> <span class="n">hollow_pyramid</span>
+        <span class="n">spec_scans</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">../</span><span class="n">data</span><span class="o">/</span><span class="n">hollow_pyramid</span><span class="o">/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="n">independent_dimensions</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">rotation_angles</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">degrees</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">scan_column</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">theta</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">x_translation</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">mm</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">smb_par</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">ramsx</span>
+          <span class="o">-</span> <span class="n">label</span><span class="p">:</span> <span class="n">z_translation</span>
+            <span class="n">units</span><span class="p">:</span> <span class="n">mm</span>
+            <span class="n">data_type</span><span class="p">:</span> <span class="n">smb_par</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">ramsz</span>
+    <span class="n">detector_config</span><span class="p">:</span>
+      <span class="n">detectors</span><span class="p">:</span>
+        <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">sim</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">tomofields</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">spec_scans</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="o">../</span><span class="n">data</span><span class="o">/</span><span class="n">hollow_pyramid</span><span class="o">/</span><span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">1</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">sim</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">darkfield</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">SpecReader</span><span class="p">:</span>
+      <span class="n">config</span><span class="p">:</span>
+        <span class="n">station</span><span class="p">:</span> <span class="n">id3a</span>
+        <span class="n">experiment_type</span><span class="p">:</span> <span class="n">TOMO</span>
+        <span class="n">spec_scans</span><span class="p">:</span>
+          <span class="o">-</span> <span class="n">spec_file</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">log</span>
+            <span class="n">scan_numbers</span><span class="p">:</span> <span class="mi">2</span>
+      <span class="n">detector_config</span><span class="p">:</span>
+        <span class="n">detectors</span><span class="p">:</span>
+          <span class="o">-</span> <span class="nb">id</span><span class="p">:</span> <span class="n">sim</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">brightfield</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">YAMLReader</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="n">detector_pyramid</span><span class="o">.</span><span class="n">yaml</span>
+      <span class="n">schema</span><span class="p">:</span> <span class="n">tomo</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Detector</span>
+  <span class="o">-</span> <span class="n">tomo</span><span class="o">.</span><span class="n">TomoCHESSMapConverter</span>
+
+  <span class="c1"># Full tomography reconstruction</span>
+  <span class="o">-</span> <span class="n">tomo</span><span class="o">.</span><span class="n">TomoDataProcessor</span><span class="p">:</span>
+      <span class="n">reduce_data</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">find_center</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">reconstruct_data</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">combine_data</span><span class="p">:</span> <span class="n">true</span>
+      <span class="n">outputdir</span><span class="p">:</span> <span class="n">saved_figs</span>
+      <span class="n">save_figs</span><span class="p">:</span> <span class="s1">&#39;only&#39;</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">NexusWriter</span><span class="p">:</span>
+      <span class="n">filename</span><span class="p">:</span> <span class="n">combined_hollow_pyramid</span><span class="o">.</span><span class="n">nxs</span>
+      <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">true</span>
+  <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">ImageWriter</span><span class="p">:</span>
+      <span class="n">outputdir</span><span class="p">:</span> <span class="n">figures</span>
+      <span class="n">force_overwrite</span><span class="p">:</span> <span class="n">true</span>
+</pre></div>
+</div>
+</li>
+<li><p>Execute</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CHAP<span class="w"> </span>pipeline_id3a_pyramid.yaml
+</pre></div>
+</div>
+</li>
+<li><p>Follow the interactive prompts or replace <code class="docutils literal notranslate"><span class="pre">true</span></code> with <code class="docutils literal notranslate"><span class="pre">false</span></code> on line 5 in <code class="docutils literal notranslate"><span class="pre">pipeline_id3a_pyramid.yaml</span></code> (<code class="docutils literal notranslate"><span class="pre">interactive:</span> <span class="pre">false</span></code>) and run the workflow non-interactively.</p></li>
+<li><p>Inspect the results:</p>
+<ul class="simple">
+<li><p>In NeXpy, as instructed above, navigate to <code class="docutils literal notranslate"><span class="pre">&lt;your_work_directory&gt;/hollow_pyramid</span></code> and open <code class="docutils literal notranslate"><span class="pre">combined_hollow_pyramid.nxs</span></code></p></li>
+<li><p>By displaying the output figures in <code class="docutils literal notranslate"><span class="pre">&lt;your_work_directory&gt;/hollow_pyramid/figures</span></code></p></li>
+</ul>
+</li>
+</ol>
+<p>The “config” block defines the CHAP generic configuration parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">root</span></code>: The work directory, defaults to the current directory (where <code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">&lt;pipelinefilename&gt;</span></code> is executed). Must be an absolute path or relative to the current directory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inputdir</span></code>: The default directory for files read by any CHAP reader (must have read access), defaults to <code class="docutils literal notranslate"><span class="pre">root</span></code>. Must be an absolute path or relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">outputdir</span></code>: The default directory for files written by any CHAP writter (must have write access, will be created if not existing), defaults to <code class="docutils literal notranslate"><span class="pre">root</span></code>. Must be an absolute path or relative to <code class="docutils literal notranslate"><span class="pre">root</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">interactive</span></code>: Allows for user interactions, defaults to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code>: The <a class="reference external" href="https://docs.python.org/3/library/logging.html#levels">Python logging level</a>.</p></li>
+</ul>
+<p>The “pipeline” block creates the actual workflow pipeline, it this example it consists of six toplevel processes that get executed successively:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">common.MapProcessor</span></code>: A processor that creates a CHESS style map.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pipeline.MultiplePipelineItem</span></code>: A processor that executes (in this case reads) three items and passes the inputs on to the next item in the pipeline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tomo.TomoCHESSMapConverter</span></code>: A processor that converts the inputs to a CHESS style map.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tomo.TomoDataProcessor</span></code>: The actual tomographic reconstruction processor that creates a single NeXus object with the reconstructed data as well as all metadata pertaining to the reconstruction and passes it on to the next item in the pipeline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.NexusWriter</span></code>: A processor that writes the reconstructed data to a NeXus file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">common.ImageWriter</span></code>: A pocessor that writes any output figures created by <code class="docutils literal notranslate"><span class="pre">tomo.TomoDataProcessor</span></code> to a directory <code class="docutils literal notranslate"><span class="pre">figures</span></code> underneath the workflow output directory.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="EDD.html" class="btn btn-neutral float-left" title="EDD subpackage (CHAP.edd)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api_documentation.html" class="btn btn-neutral float-right" title="CHAP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
