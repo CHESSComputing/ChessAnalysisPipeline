@@ -4,6 +4,7 @@ sphinx-rtd-theme
 asteval
 astra-toolbox
 certif-pyspec
+chess_scanparsers
 fabio
 flask
 lmfit
