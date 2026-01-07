@@ -18,16 +18,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Update docs configuration with version (tag) name
-      run: |
+#    - name: Update docs configuration with version (tag) name
+#      run: |
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
 #        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
-        cat setup.py
-        cat CHAP/__init__.py
-        cat docs/conf.py
-
+#
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -35,6 +32,9 @@ jobs:
 
     - name: Install dependencies
       run: |
+        cat setup.py
+        cat CHAP/__init__.py
+        cat docs/conf.py
         python -m pip install --upgrade pip
         pip install sphinx
         pip install sphinx-math-dollar # Allow LaTeX math in RST using $$
