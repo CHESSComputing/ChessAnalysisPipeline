@@ -43,7 +43,7 @@ jobs:
 #      run: pip install -e .
 #
     - name: Generate .rst files with sphinx-apidoc
-      run: sphinx-apidoc --tocfile api_documentation -o docs src
+      run: sphinx-apidoc --tocfile api_documentation -o docs CHAP
 
     - name: Build Sphinx HTML documentation
       run: |
