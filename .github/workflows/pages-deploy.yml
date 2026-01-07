@@ -39,9 +39,9 @@ jobs:
         pip install sphinx-rtd-theme # Read the Docs theme
         pip install -r requirements.txt
 
-    - name: Install package
-      run: pip install -e .
-
+#    - name: Install package
+#      run: pip install -e .
+#
     - name: Generate .rst files with sphinx-apidoc
       run: sphinx-apidoc --tocfile api_documentation -o docs src
 
