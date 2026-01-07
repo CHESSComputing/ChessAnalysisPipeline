@@ -18,13 +18,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Update docs configuration with version (tag) name
-      run: |
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
-
+#    - name: Update docs configuration with version (tag) name
+#      run: |
+#        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
+#        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
+#        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
+#        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
+#
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -39,9 +39,9 @@ jobs:
         pip install sphinx-rtd-theme # Read the Docs theme
         pip install -r requirements.txt
 
-#    - name: Install package
-#      run: pip install -e .
-#
+    - name: Install package
+      run: pip install -e .
+
     - name: Generate .rst files with sphinx-apidoc
       run: sphinx-apidoc --tocfile api_documentation -o docs CHAP
 
