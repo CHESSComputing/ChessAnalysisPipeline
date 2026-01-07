@@ -39,12 +39,12 @@ class Detector(CHAPBaseModel):
     :ivar attrs: Additional detector configuration attributes.
     :type attrs: dict, optional
     """
-    id: constr(min_length=1)
+    id_: constr(min_length=1) = Field(alias='id')
     attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 
-    @field_validator('id', mode='before')
+    @field_validator('id_', mode='before')
     @classmethod
-    def validate_id(cls, id):
+    def validate_id(cls, id_):
         """Validate the detector id.
 
         :param id: The detector id (e.g. name or channel index).
@@ -52,9 +52,9 @@ class Detector(CHAPBaseModel):
         :return: The detector id.
         :rtype: str
         """
-        if isinstance(id, int):
-            return str(id)
-        return id
+        if isinstance(id_, int):
+            return str(id_)
+        return id_
 
     #RV maybe better to use model_validator, see v2 docs?
     @field_validator('attrs')
@@ -76,6 +76,9 @@ class Detector(CHAPBaseModel):
             elif not isinstance(name, str):
                 raise ValueError
         return attrs
+
+    def get_id(self):
+        return self.id_
 
 
 class DetectorConfig(CHAPBaseModel):

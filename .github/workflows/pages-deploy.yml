@@ -1,34 +1,68 @@
 name: Deploy Sphinx documentation to Pages
 
-#on:
-#  push:
-#    tags:
-#    - v*.*.*
 on:
   push:
-    branches:
-    - docs
+    tags:
+    - v*.*.*
+#on:
+#  push:
+#    branches:
+#    - docs
 
 jobs:
-  pages:
-    runs-on: ubuntu-20.04
+  build_and_deploy:
+    runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Update docs configuration with version (tag) name
       run: |
+        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
+        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
         sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
 
-    - name: Build and deploy docs
-      id: deployment
-      uses: sphinx-notes/pages@v3
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        checkout: false
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        cat setup.py
+        cat CHAP/__init__.py
+        cat docs/conf.py
+        python -m pip install --upgrade pip
+        pip install sphinx
+        pip install sphinx-math-dollar # Allow LaTeX math in RST using $$
+        pip install myst-parser # Allow adding Markdown (.md) files
+        pip install sphinx-rtd-theme # Read the Docs theme
+        pip install -r requirements.txt
+
+    - name: Install package
+      run: pip install -e .
+
+    - name: Generate .rst files with sphinx-apidoc
+      run: sphinx-apidoc --tocfile api_documentation -o docs CHAP
+
+    - name: Build Sphinx HTML documentation
+      run: |
+        make clean
+        make html
+      working-directory: ./docs
+
+    - name: List generated files
+      run: |
+        pwd
+        ls -lha
+        find ./docs/_build/html -type f
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/_build/html # The directory where Sphinx outputted the HTML files
+

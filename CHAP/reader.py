@@ -24,27 +24,27 @@ from pydantic import (
 from CHAP.pipeline import PipelineItem
 
 
-def validate_reader_model(model_instance):
-    model_instance._mapping_filename = model_instance.filename
+def validate_reader_model(reader):
+    reader._mapping_filename = reader.filename
     filename = os.path.normpath(os.path.realpath(
-        os.path.join(model_instance.inputdir, model_instance.filename)))
+        os.path.join(reader.inputdir, reader.filename)))
     if (not os.path.isfile(filename)
-            and not os.path.dirname(model_instance.filename)):
-        model_instance.logger.warning(
-            f'Unable to find {model_instance.filename} in '
-            f'{model_instance.inputdir}, looking in '
-            f'{model_instance.outputdir}')
+            and not os.path.dirname(reader.filename)):
+        reader.logger.warning(
+            f'Unable to find {reader.filename} in '
+            f'{reader.inputdir}, looking in '
+            f'{reader.outputdir}')
         filename = os.path.normpath(os.path.realpath(
-            os.path.join(model_instance.outputdir, model_instance.filename)))
-    # Note that model_instance.filename has str type instead of FilePath
+            os.path.join(reader.outputdir, reader.filename)))
+    # Note that reader.filename has str type instead of FilePath
     # since its existence is not yet gueranteed (it can be writen
     # over the course of the pipeline's execution). So postpone
     # validation until the entire pipeline gets validated.
     if not os.path.isfile(filename):
-        model_instance.logger.warning(
-            f'Unable to find {model_instance.filename} during validation')
-    model_instance.filename = filename
-    return model_instance
+        reader.logger.warning(
+            f'Unable to find {reader.filename} during validation')
+    reader.filename = filename
+    return reader
 
 
 class Reader(PipelineItem):

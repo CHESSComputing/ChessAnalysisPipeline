@@ -2,8 +2,7 @@
 """
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Readers used in multiple experiment-specific
-             workflows.
+Description: Module for Readers used in multiple experiment-specific workflows.
 """
 
 # System modules
@@ -30,10 +29,10 @@ from CHAP.common.models.map import (
     SpecConfig,
 )
 
-def validate_model(model_instance):
-    if model_instance.filename is not None:
-        validate_reader_model(model_instance)
-    return model_instance
+def validate_model(model):
+    if model.filename is not None:
+        validate_reader_model(model)
+    return model
 
 
 class BinaryFileReader(Reader):
@@ -73,12 +72,11 @@ class ConfigReader(Reader):
 
 
 class FabioImageReader(Reader):
-    """Reader for images using the python package
-    [`fabio`](https://fabio.readthedocs.io/en/main/).
+    """Reader for images using the python package.
+
     :ivar frame: Index of a specific frame to read from the file(s),
         defaults to `None`.
     :type frame: int, optional
-
     """
     frame: Optional[conint(ge=0)] = None
 
@@ -549,7 +547,8 @@ class SpecReader(Reader):
                             'detector_data_format = "spec"')
                     else:
                         detectors_ids = [
-                            int(d.id) for d in self.detector_config.detectors]
+                            int(d.get_id())
+                            for d in self.detector_config.detectors]
                 nxscans[scan_number] = NXcollection()
                 try:
                     nxscans[scan_number].spec_motors = dumps(
@@ -590,9 +589,9 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in self.detector_config.detectors:
-                        nxdata[detector.id] = NXfield(
+                        nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
-                               detector.id, dtype=dtype))
+                               detector.get_id(), dtype=dtype))
 
         if (self.config.experiment_type == 'EDD' and
                 self.detector_config is None):

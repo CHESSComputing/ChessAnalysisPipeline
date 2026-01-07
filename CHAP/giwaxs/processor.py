@@ -130,9 +130,9 @@ class GiwaxsConversionProcessor(Processor):
         if len(ais) > 1:
             raise RuntimeError(
                 'More than one azimuthal integrator not yet implemented')
-        if ais[0].id not in nxdata:
+        if ais[0].get_id() not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxentry.tree}')
+                               f'{ais[0].get_id()} in {nxentry.tree}')
         if not isinstance(nxdata.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
@@ -140,10 +140,10 @@ class GiwaxsConversionProcessor(Processor):
         # Collect the raw giwaxs images
         if config.scan_step_indices is None:
             thetas = nxdata[nxdata.attrs['axes']]
-            giwaxs_data = nxdata[ais[0].id]
+            giwaxs_data = nxdata[ais[0].get_id()]
         else:
             thetas = nxdata[nxdata.attrs['axes']][config.scan_step_indices]
-            giwaxs_data = nxdata[ais[0].id][config.scan_step_indices]
+            giwaxs_data = nxdata[ais[0].get_id()][config.scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
@@ -614,10 +614,10 @@ class PyfaiIntegrationProcessor(Processor):
                 skipped_detectors = []
                 ais = []
                 for ai in config.azimuthal_integrators:
-                    if ai.id in converted_ids:
+                    if ai.get_id() in converted_ids:
                         ais.append(ai)
                     else:
-                        skipped_detectors.append(ai.id)
+                        skipped_detectors.append(ai.get_id())
                 if skipped_detectors:
                     self.logger.warning(
                         f'Skipping detector(s) {skipped_detectors} '
@@ -632,9 +632,9 @@ class PyfaiIntegrationProcessor(Processor):
                 raise RuntimeError('More than one independent dimension '
                                    'not yet implemented')
             axes = axes[0]
-            independent_dims[config.azimuthal_integrators[0].id] = \
+            independent_dims[config.azimuthal_integrators[0].get_id()] = \
                 nxcopy(nxdata[axes])
-            data[config.azimuthal_integrators[0].id] = np.flip(
+            data[config.azimuthal_integrators[0].get_id()] = np.flip(
                 nxdata.converted.nxdata, axis=1)
         except Exception as exc:
             experiment_type = loads(
@@ -657,14 +657,14 @@ class PyfaiIntegrationProcessor(Processor):
             skipped_detectors = []
             ais = []
             for ai in config.azimuthal_integrators:
-                if ai.id in nxdata:
-                    if nxdata[ai.id].ndim != 3:
+                if ai.get_id() in nxdata:
+                    if nxdata[ai.get_id()].ndim != 3:
                         raise RuntimeError(
                             'Inconsistent raw data dimension '
-                            f'{nxdata[ai.id].ndim}') from exc
+                            f'{nxdata[ai.get_id()].ndim}') from exc
                     ais.append(ai)
                 else:
-                    skipped_detectors.append(ai.id)
+                    skipped_detectors.append(ai.get_id())
             if skipped_detectors:
                 self.logger.warning('Skipping detector(s) '
                                     f'{skipped_detectors} (no raw data)')
@@ -674,13 +674,14 @@ class PyfaiIntegrationProcessor(Processor):
             config.azimuthal_integrators = ais
             if 'unstructured_axes' in nxdata.attrs:
                 axes = nxdata.attrs['unstructured_axes']
-                independent_dims[ais[0].id] = [nxcopy(nxdata[a]) for a in axes]
+                independent_dims[ais[0].get_id()] = [
+                    nxcopy(nxdata[a]) for a in axes]
             elif 'axes' in nxdata.attrs:
                 axes = nxdata.attrs['axes']
-                independent_dims[ais[0].id] = nxcopy(nxdata[axes])
+                independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
             else:
                 self.logger.warning('Unable to find independent_dimensions')
-            data[ais[0].id] = nxdata[ais[0].id]
+            data[ais[0].get_id()] = nxdata[ais[0].get_id()]
 
         # Select the images to integrate
         if False and config.scan_step_indices is not None:
@@ -702,15 +703,16 @@ class PyfaiIntegrationProcessor(Processor):
             try:
                 with fabio.open(ai.mask_file) as f:
                     mask = f.data
-                    self.logger.debug(f'mask shape for {ai.id}: {mask.shape}')
-                    masks[ai.id] = mask
+                    self.logger.debug(
+                        f'mask shape for {ai.get_id()}: {mask.shape}')
+                    masks[ai.get_id()] = mask
             except Exception:
-                self.logger.debug('No mask file found for {ai.id}')
+                self.logger.debug('No mask file found for {ai.get_id()}')
         if not masks:
             masks = None
 
         # Perform integration(s)
-        ais = {ai.id: ai.ai for ai in config.azimuthal_integrators}
+        ais = {ai.get_id(): ai.ai for ai in config.azimuthal_integrators}
         for integration in config.integrations:
 
             # Add a NXprocess object(s) to the NXroot
