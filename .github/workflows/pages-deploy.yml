@@ -30,19 +30,25 @@ jobs:
       with:
         python-version: '3.10.19'
 
-    - name: Install dependencies
+    - name: Install package
       run: |
         grep version setup.py
         python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Install dependencies
+      run: |
+        pwd
+        pip install -r sphinx_requirements.txt
+        pip install -r requirements.txt
         # hexrd not available over pip, needs hexrd channel
+        conda config --show channels
         conda config --add channels hexrd
         conda install hexrd
         conda config --remove channels hexrd
-        pip install -r sphinx_requirements.txt
-        pip install -r requirements.txt
-
-    - name: Install package
-      run: pip install -e .
+        # tomopy conflicts over pip
+        conda config --show channels
+        conda install tomopy
 
     - name: Generate .rst files with sphinx-apidoc
       run: sphinx-apidoc --tocfile api_documentation -o docs CHAP
