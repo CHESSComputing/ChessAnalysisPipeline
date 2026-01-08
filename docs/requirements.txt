@@ -3,7 +3,7 @@ pydantic==2.7.3
 pyyaml==6.0.3
 asteval==1.0.8
 astra-toolbox==2.4.1
-certif-pyspec1.5.3
+certif-pyspec==1.5.3
 chess_scanparsers==2025.5.2
 fabio==2025.10.0
 flask==3.1.2

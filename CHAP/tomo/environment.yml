@@ -18,7 +18,7 @@ dependencies:
   - pydantic==2.7.3
   - requests==2.32.5
   - sympy==1.14.0
-  - tomopy
+  - tomopy==1.15.3
   - pip:
     - certif-pyspec==1.5.3
     - chess-scanparsers
