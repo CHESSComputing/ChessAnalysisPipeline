@@ -39,8 +39,8 @@ jobs:
     - name: Install dependencies
       run: |
         pwd
-        pip install -r sphinx_requirements.txt
-        pip install -r requirements.txt
+        pip install -r docs/sphinx_requirements.txt
+        pip install -r docs/requirements.txt
         # hexrd not available over pip, needs hexrd channel
         conda config --show channels
         conda config --add channels hexrd
