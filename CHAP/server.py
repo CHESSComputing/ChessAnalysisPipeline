@@ -7,14 +7,11 @@ Description: Python server with thread pool and CHAP pipeline
 
 ### Client side:
 cat /tmp/chap.json
-{
-  "pipeline": [{"common.PrintProcessor": {}}],
-  "input": 1
-}
+{"pipeline": [{"common.PrintProcessor": {}}], "input": 1}
 
 ### curl call to the server with our CHAP pipeline
 curl -X POST -H "Content-type: application/json" -d@/tmp/chap.json http://localhost:5000/pipeline
-{"pipeline":[{"common.PrintProcessor":{}}],"status":"ok"}
+{"pipeline": [{"common.PrintProcessor":{}}], "status":"ok"}
 
 ### Server side:
 flask --app server run
@@ -75,14 +72,14 @@ task_queue = Queue()
 
 @app.route("/")
 def index_route():
-    """
-    Server main end-point
-    """
+    """Server main end-point."""
+
     return "CHAP daemon"
 
 @app.route("/run")
 def run_route():
     """Server main end-point."""
+
     ttask = request.args.get('task')
     task_queue.put(ttask)
     return f'Execute {ttask}'
@@ -90,6 +87,7 @@ def run_route():
 @app.route("/pipeline", methods=["POST"])
 def pipeline_route():
     """Server /pipeline end-point."""
+
     content = request.json
     if 'pipeline' in content:
         # spawn new pipeline task
@@ -101,6 +99,7 @@ def pipeline_route():
 
 def task(*args, **kwds):
     """Helper function to execute CHAP pipeline."""
+
     log_level = 'INFO'
     logger, log_handler = set_logger(log_level)
     logger.info(f'call pipeline args={args} kwds={kwds}')
@@ -110,6 +109,7 @@ def task(*args, **kwds):
 
 def daemon(name, queue, interval):
     """Daemon example based on Queue."""
+
     print(f'Daemon {name}')
     while True:
         if queue.qsize() == 0:

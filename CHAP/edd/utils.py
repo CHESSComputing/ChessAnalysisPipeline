@@ -336,6 +336,7 @@ def select_material_params(
 
     # Third party modules
     from hexrd.material import Material
+#    from CHAP.utils.material import Material
     import matplotlib.pyplot as plt
     from matplotlib.widgets import (
         Button,

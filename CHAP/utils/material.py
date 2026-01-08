@@ -28,6 +28,10 @@ if HAVE_HEXRD:
         from hexrd.valunits import valWUnit
     except ImportError:
         HAVE_HEXRD = False
+#from xrayutilities import materials
+#from xrayutilities import simpack
+#HAVE_XU = True
+#HAVE_HEXRD = False
 
 POEDER_INTENSITY_CUTOFF = 1.e-8
 
@@ -197,7 +201,8 @@ class Material:
                     or pos is None):
                 raise ValueError(
                     'Valid inputs for sgnum, lattice_parameters_angstroms and '
-                    'pos are required if materials file is not specified')
+                    'pos are required if materials file is not specified'
+                    f' {sgnum} {lattice_parameters_angstroms} {pos}')
             if isinstance(pos, str):
                 pos = [pos]
             use_xu = True

@@ -22,10 +22,17 @@ class CHAPBaseModel(BaseModel):
     """Base CHAP configuration class implementing robust
     serialization tools.
     """
+
     def dict(self, *args, **kwargs):
         return self.model_dump(*args, **kwargs)
 
     def model_dump(self, *args, **kwargs):
+        """Dump the class implemention to a dictionary
+
+        :return: Class implementation.
+        :rtype: dict
+        """
+
         if hasattr(self, '_exclude'):
             kwargs['exclude'] = self._merge_exclude(
                 None if kwargs is None else kwargs.get('exclude'))
@@ -34,6 +41,12 @@ class CHAPBaseModel(BaseModel):
         return self._serialize(super().model_dump(*args, **kwargs))
 
     def model_dump_json(self, *args, **kwargs):
+        """Dump the class implemention to a JSON string
+
+        :return: Class implementation.
+        :rtype: str
+        """
+
         # Third party modules
         from json import dumps
 
@@ -90,6 +103,7 @@ class RunConfig(CHAPBaseModel):
     :type log_level: Literal[
         'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
     """
+
     root: Optional[DirectoryPath] = os.getcwd()
     inputdir: Optional[DirectoryPath] = None
     outputdir: Optional[DirectoryPath] = None
@@ -127,6 +141,7 @@ class RunConfig(CHAPBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
+
         if isinstance(data, dict):
             # System modules
             from tempfile import NamedTemporaryFile
@@ -192,11 +207,13 @@ class RunConfig(CHAPBaseModel):
     @classmethod
     def validate_log_level(cls, log_level):
         """Capitalize log_level."""
+
         return log_level.upper()
 
     @property
     def profile(self):
         """Return the profiling flag."""
+
         if hasattr(self, '_profile'):
             return self._profile
         return False
@@ -204,6 +221,7 @@ class RunConfig(CHAPBaseModel):
     @property
     def spawn(self):
         """Return the spawned worker flag."""
+
         if hasattr(self, '_spawn'):
             return self._spawn
         return 0
