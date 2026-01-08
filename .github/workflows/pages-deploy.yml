@@ -38,16 +38,17 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pwd
         pip install -r docs/sphinx_requirements.txt
         pip install -r docs/requirements.txt
         # hexrd not available over pip, needs hexrd channel
-        conda config --show channels
         conda config --add channels hexrd
+        conda config --show channels
+        conda list
         conda install hexrd
         conda config --remove channels hexrd
         # tomopy conflicts over pip
         conda config --show channels
+        conda list
         conda install tomopy
 
     - name: Generate .rst files with sphinx-apidoc
