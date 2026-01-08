@@ -13,6 +13,7 @@ from typing import (
 # Third party modules
 import numpy as np
 from hexrd.material import Material
+#from CHAP.utils.material import Material
 from pydantic import (
     Field,
     FilePath,
@@ -210,9 +211,15 @@ class MaterialConfig(CHAPBaseModel):
         """
         # Local modules
         from CHAP.edd.utils import make_material
+#        from CHAP.utils.material import Material
 
         self._material = make_material(
             self.material_name, self.sgnum, self.lattice_parameters)
+#        self._material = Material.make_material(
+#            self.material_name, sgnum=self.sgnum,
+#            lattice_parameters_angstroms=self.lattice_parameters,
+#            pos=['4a', '8c'])
+            #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
         self.lattice_parameters = list([
             x.getVal('angstrom') if x.isLength() else x.getVal('radians')
             for x in self._material._lparms])
@@ -688,8 +695,8 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     :type max_peak_index: int, optional
     """
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
-    max_peak_index: Optional[conint(ge=0)] = Field(
-        default=None, validate_default=True)
+    max_peak_index: Optional[
+        Annotated[conint(ge=0), Field(validate_default=True)]] = None
 
     @model_validator(mode='before')
     @classmethod

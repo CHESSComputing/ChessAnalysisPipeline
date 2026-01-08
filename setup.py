@@ -13,6 +13,7 @@ import setuptools
 
 # [set version]
 version = 'PACKAGE_VERSION'
+#version = 'v0.0.17'
 # [version set]
 
 def datafiles(idir, pattern=None):
@@ -87,6 +88,6 @@ setuptools.setup(
     install_requires=[
         'numpy==1.26.4',
         'pydantic==2.7.3',
-        'pyyaml==6.0.2',
+        'pyyaml==6.0.3',
     ],
 )

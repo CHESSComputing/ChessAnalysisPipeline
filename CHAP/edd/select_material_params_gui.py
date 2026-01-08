@@ -121,6 +121,7 @@ class MaterialParamSelector:
     def update_material(self):
         # Local modules
         from CHAP.edd.utils import make_material
+#        from CHAP.utils.material import Material
 
         if self.selected_material is None:
             return
@@ -138,6 +139,13 @@ class MaterialParamSelector:
             # propagate any other updates required by the material's
             # symmetries
             _material = make_material(name, sgnum, lattice_parameters)
+#            _material = Material.make_material(
+#                name, sgnum=sgnum,
+#                lattice_parameters_angstroms=lattice_parameters,
+#                pos=['4a', '8c'])
+#                #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
+            self.material_name, sgnum=self.sgnum,
+            lattice_parameters_angstroms=self.lattice_parameters)
             material.material_name = name
             material.sgnum = _material.sgnum
             material.lattice_parameters = [
