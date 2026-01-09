@@ -1,0 +1,27 @@
+name: sphinx
+channels:
+  - conda-forge
+  - hexrd
+dependencies:
+  - python>=3.9,<3.11
+  - numpy
+  - pydantic
+  - pyyaml
+  - asteval
+  - astra-toolbox
+  - fabio
+  - flask
+  - hexrd
+  - lmfit
+  - matplotlib
+  - mpi4py
+  - nexpy
+  - pip
+  - pyfai
+  - scikit-image
+  - scipy
+  - sympy
+  - tomopy
+  - pip:
+    - certif-pyspec
+    - chess-scanparsers
