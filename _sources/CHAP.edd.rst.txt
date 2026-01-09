@@ -9,53 +9,53 @@ CHAP.edd.models module
 
 .. automodule:: CHAP.edd.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.edd.processor module
 -------------------------
 
 .. automodule:: CHAP.edd.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.edd.reader module
 ----------------------
 
 .. automodule:: CHAP.edd.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.edd.select\_material\_params\_gui module
 ---------------------------------------------
 
 .. automodule:: CHAP.edd.select_material_params_gui
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.edd.utils module
 ---------------------
 
 .. automodule:: CHAP.edd.utils
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.edd.writer module
 ----------------------
 
 .. automodule:: CHAP.edd.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.edd
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

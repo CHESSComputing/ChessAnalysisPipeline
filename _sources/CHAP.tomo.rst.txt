@@ -9,37 +9,37 @@ CHAP.tomo.models module
 
 .. automodule:: CHAP.tomo.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.tomo.processor module
 --------------------------
 
 .. automodule:: CHAP.tomo.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.tomo.reader module
 -----------------------
 
 .. automodule:: CHAP.tomo.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.tomo.writer module
 -----------------------
 
 .. automodule:: CHAP.tomo.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.tomo
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

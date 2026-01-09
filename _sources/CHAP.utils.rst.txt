@@ -9,53 +9,53 @@ CHAP.utils.converters module
 
 .. automodule:: CHAP.utils.converters
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.utils.fit module
 ---------------------
 
 .. automodule:: CHAP.utils.fit
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.utils.general module
 -------------------------
 
 .. automodule:: CHAP.utils.general
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.utils.material module
 --------------------------
 
 .. automodule:: CHAP.utils.material
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.utils.models module
 ------------------------
 
 .. automodule:: CHAP.utils.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.utils.parfile module
 -------------------------
 
 .. automodule:: CHAP.utils.parfile
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.utils
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

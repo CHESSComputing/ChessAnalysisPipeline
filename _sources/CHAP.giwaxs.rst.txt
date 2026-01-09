@@ -9,37 +9,37 @@ CHAP.giwaxs.models module
 
 .. automodule:: CHAP.giwaxs.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.giwaxs.processor module
 ----------------------------
 
 .. automodule:: CHAP.giwaxs.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.giwaxs.reader module
 -------------------------
 
 .. automodule:: CHAP.giwaxs.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.giwaxs.writer module
 -------------------------
 
 .. automodule:: CHAP.giwaxs.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.giwaxs
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

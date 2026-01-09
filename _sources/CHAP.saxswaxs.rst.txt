@@ -9,29 +9,29 @@ CHAP.saxswaxs.processor module
 
 .. automodule:: CHAP.saxswaxs.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.saxswaxs.reader module
 ---------------------------
 
 .. automodule:: CHAP.saxswaxs.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.saxswaxs.writer module
 ---------------------------
 
 .. automodule:: CHAP.saxswaxs.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.saxswaxs
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

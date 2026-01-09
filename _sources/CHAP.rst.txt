@@ -27,69 +27,69 @@ CHAP.TaskManager module
 
 .. automodule:: CHAP.TaskManager
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.models module
 ------------------
 
 .. automodule:: CHAP.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.pipeline module
 --------------------
 
 .. automodule:: CHAP.pipeline
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.processor module
 ---------------------
 
 .. automodule:: CHAP.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.reader module
 ------------------
 
 .. automodule:: CHAP.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.runner module
 ------------------
 
 .. automodule:: CHAP.runner
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.server module
 ------------------
 
 .. automodule:: CHAP.server
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.writer module
 ------------------
 
 .. automodule:: CHAP.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

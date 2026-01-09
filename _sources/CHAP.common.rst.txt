@@ -17,37 +17,37 @@ CHAP.common.processor module
 
 .. automodule:: CHAP.common.processor
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.common.reader module
 -------------------------
 
 .. automodule:: CHAP.common.reader
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.common.utils module
 ------------------------
 
 .. automodule:: CHAP.common.utils
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.common.writer module
 -------------------------
 
 .. automodule:: CHAP.common.writer
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.common
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:

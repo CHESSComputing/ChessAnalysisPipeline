@@ -9,29 +9,29 @@ CHAP.common.models.common module
 
 .. automodule:: CHAP.common.models.common
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.common.models.integration module
 -------------------------------------
 
 .. automodule:: CHAP.common.models.integration
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 CHAP.common.models.map module
 -----------------------------
 
 .. automodule:: CHAP.common.models.map
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: CHAP.common.models
    :members:
-   :show-inheritance:
    :undoc-members:
+   :show-inheritance:
