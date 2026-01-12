@@ -11,7 +11,7 @@ dependencies:
   - astra-toolbox
   - fabio
   - flask
-  - hexrd
+  - hexrd==0.9.4
   - lmfit
   - matplotlib
   - mpi4py

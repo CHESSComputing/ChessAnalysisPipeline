@@ -46,6 +46,7 @@ jobs:
         pip install sphinx-math-dollar
         pip install sphinx-rtd-theme
         pip install myst-parser
+        #pip install autodoc_pydantic
 
     - name: Install package
       run: |
@@ -54,7 +55,7 @@ jobs:
 
     - name: Generate .rst files with sphinx-apidoc
       run: |
-        sphinx-apidoc --tocfile api_documentation -o docs CHAP
+        sphinx-apidoc --tocfile api_documentation -o docs CHAP CHAP/hdrm CHAP/inference CHAP/sin2psi CHAP/test
 
     - name: Build Sphinx HTML documentation
       run: |

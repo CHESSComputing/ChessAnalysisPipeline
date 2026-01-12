@@ -718,7 +718,8 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         """
         if self.peak_energies is None:
             raise ValueError('peak_energies is required')
-        if not 0 <= self.max_peak_index < len(self.peak_energies):
+        if (self.max_peak_index is not None
+                and not 0 <= self.max_peak_index < len(self.peak_energies)):
             raise ValueError('max_peak_index out of bounds')
         return self
 

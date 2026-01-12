@@ -254,76 +254,83 @@ class GiwaxsConversionProcessor(Processor):
         data_curved, q_par, q_perp, q_par_rect, q_perp_rect,
         return_maps=False, normalize=True):
         """
-        data_rect = curved_to_rect(...):
-            distributes counts from a curvilinear grid (data_curved),
-            e.g. x-ray data collected in angular space, into a
-            rectilinear grid (reciprocal space). 
+        ::
+
+            data_rect = curved_to_rect(...):
+                distributes counts from a curvilinear grid
+                (data_curved), e.g. x-ray data collected in angular
+                space, into a rectilinear grid (reciprocal space). 
         
-        data_rect, norm, xmap, ymap, xwid, ywid =
-                curved_to_rect(..., return_maps=True):
-            distributes counts from a curvilinear grid (data_curved),
-            e.g. x-ray data collected in angular space, into a
-            rectilinear grid (reciprocal space). 
+            data_rect, norm, xmap, ymap, xwid, ywid =
+                    curved_to_rect(..., return_maps=True):
+                distributes counts from a curvilinear grid
+                (data_curved), e.g. x-ray data collected in angular
+                space, into a rectilinear grid (reciprocal space). 
  
-        q_par, q_perp, and data_curved are M x N following the normal
-            convention where the the first & second index corrspond to
-            the vertical (y) and horizontal (x) locations of the
-            scattering pattern.
-        q_par, q_perp represent the q coordinates of the center of
-            pixels whose intensities are stored in data_curved.
-            Reiterating the convention above, q_par and q_perp vary
-            primarilly along the 2nd and 1st index, respectively.
-        q_par_rect and q_perp_rect are evenly-spaced, monotonically
-            increasing, arrays determining the new grid.
+            q_par, q_perp, and data_curved are M x N following the
+                normal convention where the the first & second index
+                corrspond to the vertical (y) and horizontal (x)
+                locations of the scattering pattern.
+            q_par, q_perp represent the q coordinates of the center of
+                pixels whose intensities are stored in data_curved.
+                Reiterating the convention above, q_par and q_perp vary
+                primarilly along the 2nd and 1st index, respectively.
+            q_par_rect and q_perp_rect are evenly-spaced, monotonically
+                increasing, arrays determining the new grid.
            
-        data_rect : the new matrix with intensity from data_curved
-                    disctributed into a regular grid defined by
-                    q_par_rect, q_perp_rect.
-        norm : a matrix with the same shape of data_rect representing
-               the area of the pixel in the original angular units. 
-               It should be used to normalize the resulting array as
-               norm_z = data_rect / norm.
+            data_rect : the new matrix with intensity from data_curved
+                        disctributed into a regular grid defined by
+                        q_par_rect, q_perp_rect.
+            norm : a matrix with the same shape of data_rect
+                   representing the area of the pixel in the original
+                   angular units. It should be used to normalize the
+                   resulting array as norm_z = data_rect / norm.
 
-        Algorithm:
-           Step 1 : Compute xmap, ymap, which containt the values of
-                    q_par and q_perp, but represented in pixel units of
-                    the target coordinates q_par_rect, q_perp_rect.
-                    In other words, xmap(i,j) = 3.4 means that
-                    q_par(i,j) lands 2/5 of the q_distance between
-                    q_par_rect(3) and q_par_rect(4). Intensity in
-                    qpar(i,j) should thus be distributed in a 2:3 ratio
-                    among neighboring mini-columns of pixels 3 and 4.
-           Step 2 : Use the procedure described by Barna et al
-                    (RSI v.70, p. 2927, 1999) to distribute intensity
-                    from each source pixel i,j into each of 9
-                    destination pixels around the xmap(i,j) and
-                    ymap(i,j). Keep track of how many source "pixels"
-                    are placed into each bin in the variable, "norm".
-                    Note also that if xmap(i,j)-floor(xmap(i,j)) > 0.5,
-                    the "center" pixel of the 9 destination pixels is
-                    floor(xmap+0.5).
-           (Outside this function): The normalized intensity in each
-               new pixel can be obtained asI = data_rect./norm, but
-               with the caveat that zero values of "norm" should be
-               changed to ones first, norm(data_rect == 0) = 1.0.
+            Algorithm:
+               Step 1 : Compute xmap, ymap, which containt the values
+                        of q_par and q_perp, but represented in pixel
+                        units of the target coordinates q_par_rect,
+                        q_perp_rect.
+                        In other words, xmap(i,j) = 3.4 means that
+                        q_par(i,j) lands 2/5 of the q_distance between
+                        q_par_rect(3) and q_par_rect(4). Intensity in
+                        qpar(i,j) should thus be distributed in a 2:3
+                        ratio among neighboring mini-columns of pixels
+                        3 and 4.
+               Step 2 : Use the procedure described by Barna et al
+                        (RSI v.70, p. 2927, 1999) to distribute
+                        intensity from each source pixel i,j into each
+                        of 9 destination pixels around the xmap(i,j)
+                        and ymap(i,j). Keep track of how many source
+                        "pixels" are placed into each bin in the
+                        variable, "norm". Note also that if
+                        xmap(i,j)-floor(xmap(i,j)) > 0.5,
+                        the "center" pixel of the 9 destination pixels
+                        is floor(xmap+0.5).
+               (Outside this function): The normalized intensity in
+                   each new pixel can be obtained as
+                   I = data_rect./norm, but with the caveat that zero
+                   values of "norm" should be changed to ones first,
+                   norm(data_rect == 0) = 1.0.
 
-        Example Usage: 
-            1. Compute the values of q_par and q_perp for each pixel in
-               the image z (according to scattering geometry).
-            2. Set or determing a good target grid, e.g.:        
-               min_qpar, max_qpar = q_par.mix(), q_par.max()
-               min_qperp, max_qperp = q_perp.mix(), q_perp.max()
-               q_par_rect, q_par_step = np.linspace(min_qpar ,
-                   max_qpar, image_dim[1], retstep=True)
-               q_perp_rect, q_perp_step = np.linspace(min_qperp,
-                   max_qperp, image_dim[0], retstep=True)
-           3. data_rect = curved_to_rect(data_curved, q_par, q_perp,
-                  q_par_rect, q_perp_rect)
-           4. plt.imshow(data_rect, extent = [
-                  q_par_rect[0], q_par_rect[-1],
-                  q_perp_rect[-1], q_perp_rect[0]])
-              xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
-              ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
+            Example Usage: 
+                1. Compute the values of q_par and q_perp for each
+                   pixel in the image z (according to scattering
+                   geometry).
+                2. Set or determing a good target grid, e.g.:        
+                   min_qpar, max_qpar = q_par.mix(), q_par.max()
+                   min_qperp, max_qperp = q_perp.mix(), q_perp.max()
+                   q_par_rect, q_par_step = np.linspace(min_qpar ,
+                       max_qpar, image_dim[1], retstep=True)
+                   q_perp_rect, q_perp_step = np.linspace(min_qperp,
+                       max_qperp, image_dim[0], retstep=True)
+               3. data_rect = curved_to_rect(data_curved, q_par,
+                      q_perp, q_par_rect, q_perp_rect)
+               4. plt.imshow(data_rect, extent = [
+                      q_par_rect[0], q_par_rect[-1],
+                      q_perp_rect[-1], q_perp_rect[0]])
+                  xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
+                  ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
         """
         out_width, out_height = q_par_rect.size, q_perp_rect.size
 

@@ -16,7 +16,6 @@ project = 'ChessAnalysisPipeline'
 copyright = f'{date.today().year}, CHESSComputing'
 author = 'V. Kuznetsov, K. Soloway, R. Verberg'
 version = release = 'PACKAGE_VERSION'
-#version = release = 'v0.0.17'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -24,11 +23,12 @@ version = release = 'PACKAGE_VERSION'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
-    'sphinx.ext.mathjax',
     'sphinx.ext.githubpages',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
     'sphinx_math_dollar',
     'myst_parser',
+#    'sphinxcontrib.autodoc_pydantic',
 ]
 exclude_patterns = [
     '_build',

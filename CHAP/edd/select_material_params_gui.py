@@ -145,7 +145,8 @@ class MaterialParamSelector:
 #                pos=['4a', '8c'])
 #                #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
             self.material_name, sgnum=self.sgnum,
-            lattice_parameters_angstroms=self.lattice_parameters)
+            # lattice_parameters_angstroms = lattice_parameters FIX?
+            lattice_parameters_angstroms = self.lattice_parameters
             material.material_name = name
             material.sgnum = _material.sgnum
             material.lattice_parameters = [
