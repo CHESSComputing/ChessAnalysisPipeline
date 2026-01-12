@@ -5,48 +5,53 @@ File       : server.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Python server with thread pool and CHAP pipeline
 
-### Client side:
+===========
+Client side
+===========
 cat /tmp/chap.json
 {"pipeline": [{"common.PrintProcessor": {}}], "input": 1}
 
-### curl call to the server with our CHAP pipeline
+==========================================
+Curl call to the server with CHAP pipeline
+==========================================
 curl -X POST -H "Content-type: application/json" -d@/tmp/chap.json http://localhost:5000/pipeline
 {"pipeline": [{"common.PrintProcessor":{}}], "status":"ok"}
 
-### Server side:
+===========
+Server side
+===========
 flask --app server run
- * Serving Flask app 'server'
- * Debug mode: off
+
+* Serving Flask app 'server'
+* Debug mode: off
+
 WARNING: This is a development server. Do not use it in a production
 deployment. Use a production WSGI server instead.
- * Running on http://127.0.0.1:5000
+
+* Running on http://127.0.0.1:5000
+
 Press CTRL+C to quit
-...
 
-CHAP.server         : Call pipeline args=()
-    kwds={'pipeline': [{'common.PrintProcessor': {}}]}
-CHAP.server         : pipeline [{'common.PrintProcessor': {}}]
-CHAP.server         : Loaded
-    <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
-CHAP.server         : Loaded
-    <CHAP.pipeline.Pipeline object at 0x10e0f1f10> with 1 items
+CHAP output::
 
-CHAP.server         : Calling "execute" on <CHAP.pipeline.Pipeline
-    object at 0x10e0f1f10>
-Pipeline            : Executing "execute"
-
-Pipeline            : Calling "process" on
-    <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
-PrintProcessor      : Executing "process" with
-    type(data)=<class 'NoneType'>
-PrintProcessor data :
-None
-PrintProcessor      : Finished "process" in 0.000 seconds
-
-Pipeline            : Executed "execute" in 0.000 seconds
-127.0.0.1 - - [07/Apr/2023 09:11:22] "POST /pipeline HTTP/1.1" 200 -
+    CHAP.server         : Call pipeline args=()
+        kwds={'pipeline': [{'common.PrintProcessor': {}}]}
+    CHAP.server         : pipeline [{'common.PrintProcessor': {}}]
+    CHAP.server         : Loaded
+        <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
+    CHAP.server         : Loaded
+        <CHAP.pipeline.Pipeline object at 0x10e0f1f10> with 1 items
+    CHAP.server         : Calling "execute" on <CHAP.pipeline.Pipeline
+        object at 0x10e0f1f10>
+    Pipeline            : Executing "execute"
+    Pipeline            : Calling "process" on
+        <CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0>
+    PrintProcessor      : Executing "process" with
+        type(data)=<class 'NoneType'>
+    PrintProcessor data : None
+    PrintProcessor      : Finished "process" in 0.000 seconds
+    Pipeline            : Executed "execute" in 0.000 seconds
 """
-
 # System modules
 import time
 from queue import Queue

@@ -14,7 +14,7 @@ import subprocess
 import json
 
 # Third party modules
-import pkg_resources
+from importlib.metadata import distributions
 
 def osinfo():
     """Helper function to provide osinfo."""
@@ -58,8 +58,9 @@ def environments():
     # Check for Virtualenv (excluding Conda)
     elif hasattr(sys, 'real_prefix') or os.getenv('VIRTUAL_ENV'):
         venv_name = os.path.basename(os.getenv('VIRTUAL_ENV', 'unknown-venv'))
-        packages = [{'name': pkg.key, 'version': pkg.version}
-                    for pkg in pkg_resources.working_set]
+        packages = [{'name': pkg.metadata['Name'],
+                     'version': pkg.version}
+                    for pkg in distributions()]
         environments_.append({
             'name': venv_name,
             'version': sys.version.split()[0],
@@ -71,8 +72,9 @@ def environments():
 
     # System Python (not inside Conda or Virtualenv)
     else:
-        packages = [{'name': pkg.key, 'version': pkg.version}
-                    for pkg in pkg_resources.working_set]
+        packages = [{'name': pkg.metadata['Name'],
+                     'version': pkg.version}
+                    for pkg in distributions()]
         environments_.append({
             'name': 'system-python',
             'version': sys.version.split()[0],
