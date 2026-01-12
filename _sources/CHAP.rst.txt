@@ -11,11 +11,7 @@ Subpackages
    CHAP.edd
    CHAP.foxden
    CHAP.giwaxs
-   CHAP.hdrm
-   CHAP.inference
    CHAP.saxswaxs
-   CHAP.sin2psi
-   CHAP.test
    CHAP.tomo
    CHAP.utils
 
