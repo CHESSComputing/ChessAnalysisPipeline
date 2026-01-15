@@ -17,14 +17,17 @@ from typing import Optional
 from json import loads
 import numpy as np
 from pydantic import (
+    Field,
     conint,
     conlist,
     field_validator,
+    model_validator,
 )
 
 # Local modules
 from CHAP.common.models.map import MapConfig
 from CHAP.processor import Processor
+from CHAP.tomo.models import TomoSimConfig
 from CHAP.utils.general import (
     fig_to_iobuf,
     input_int,
@@ -155,11 +158,8 @@ class TomoCHESSMapConverter(Processor):
         nxsetconfig(memory=100000)
 
         # Load and validate the tomography fields
-        tomofields = self.get_data(data, schema='tomofields')
-        if isinstance(tomofields, NXroot):
-            tomofields = tomofields[tomofields.default]
-        if not isinstance(tomofields, NXentry):
-            raise ValueError(f'Invalid parameter tomofields {tomofields})')
+        tomofields = self.get_default_nxentry(
+            self.get_data(data, schema='tomofields'))
         detector_prefix = str(tomofields.detector_ids)
         tomo_stacks = tomofields.data[detector_prefix].nxdata
         tomo_stack_shape = tomo_stacks.shape
@@ -213,10 +213,7 @@ class TomoCHESSMapConverter(Processor):
             if data_darkfield is None:
                 self.logger.warning(f'Unable to load dark field')
         else:
-            if isinstance(darkfield, NXroot):
-                darkfield = darkfield[darkfield.default]
-            if not isinstance(darkfield, NXentry):
-                raise ValueError(f'Invalid parameter darkfield ({darkfield})')
+            darkfield = self.get_default_nxentry(darkfield)
 
         # Load and validate bright field (FIX look upstream and
         # downstream # in the SPEC log file)
@@ -235,11 +232,7 @@ class TomoCHESSMapConverter(Processor):
             else:
                 raise ValueError(f'Unable to load bright field')
         else:
-            if isinstance(brightfield, NXroot):
-                brightfield = brightfield[brightfield.default]
-            if not isinstance(brightfield, NXentry):
-                raise ValueError(
-                    f'Invalid parameter brightfield ({brightfield})')
+            brightfield = self.get_default_nxentry(brightfield)
 
         # Load and validate detector config if supplied
         try:
@@ -302,7 +295,6 @@ class TomoCHESSMapConverter(Processor):
         # Construct base NXentry and add to NXroot
         nxentry = NXentry(name=map_config.title)
         nxroot[nxentry.nxname] = nxentry
-        nxentry.set_default()
 
         # Add configuration fields
         nxentry.definition = 'NXtomo'
@@ -337,7 +329,7 @@ class TomoCHESSMapConverter(Processor):
                 'pixel_size': detector_config.pixel_size,
                 'lens_magnification': detector_config.lens_magnification}
         pixel_size = detector_attrs['pixel_size']
-        if isinstance(pixel_size, (int, float)):
+        if is_num(pixel_size):
             pixel_size = [pixel_size]
         if len(pixel_size) == 1:
             nxdetector.row_pixel_size = \
@@ -714,7 +706,7 @@ class TomoDataProcessor(Processor):
         nxroot = self.get_data(data)
 
         # Generate metadata
-        map_config = loads(str(nxroot[nxroot.default].map_config))
+        map_config = loads(str(self.get_default_nxentry(nxroot).map_config))
         try:
             btr = map_config['did'].split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
@@ -925,11 +917,7 @@ class Tomo(Processor):
         self.logger.info('Generate the reduced tomography images')
 
         # Validate input parameter
-        if isinstance(nxroot, NXroot):
-            nxentry = nxroot[nxroot.default]
-        else:
-            raise ValueError(
-                f'Invalid parameter nxroot {type(nxroot)}:\n{nxroot}')
+        nxentry = self.get_default_nxentry(nxroot)
         if tool_config is None:
             # Local modules:
             from CHAP.tomo.models import TomoReduceConfig
@@ -1036,7 +1024,7 @@ class Tomo(Processor):
         nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
         # Add the reduced data NXprocess
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(nxroot)
         nxentry.reduced_data = reduced_data
 
         if 'data' not in nxentry:
@@ -1095,10 +1083,7 @@ class Tomo(Processor):
                 datetime.now())
             return None
 
-        if isinstance(nxroot, NXroot):
-            nxentry = nxroot[nxroot.default]
-        else:
-            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+        nxentry = self.get_default_nxentry(nxroot)
 
         # Check if reduced data is available
         if 'reduced_data' not in nxentry:
@@ -1251,10 +1236,7 @@ class Tomo(Processor):
 
         self.logger.info('Reconstruct the tomography data')
 
-        if isinstance(nxroot, NXroot):
-            nxentry = nxroot[nxroot.default]
-        else:
-            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+        nxentry = self.get_default_nxentry(nxroot)
         if not isinstance(center_info, TomoFindCenterConfig):
             raise ValueError(
                 f'Invalid parameter center_info ({type(center_info)})')
@@ -1488,7 +1470,7 @@ class Tomo(Processor):
         nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
         # Add the reconstructed data NXprocess to the new NeXus object
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(nxroot)
         nxentry.reconstructed_data = nxprocess
         if 'data' not in nxentry:
             nxentry.data = NXdata()
@@ -1538,10 +1520,7 @@ class Tomo(Processor):
 
         self.logger.info('Combine the reconstructed tomography stacks')
 
-        if isinstance(nxroot, NXroot):
-            nxentry = nxroot[nxroot.default]
-        else:
-            raise ValueError(f'Invalid parameter nxroot ({nxroot})')
+        nxentry = self.get_default_nxentry(nxroot)
 
         # Check if reconstructed image data is available
         if 'reconstructed_data' not in nxentry:
@@ -1728,7 +1707,7 @@ class Tomo(Processor):
         nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_items)
 
         # Add the combined data NXprocess to the new NeXus object
-        nxentry = nxroot[nxroot.default]
+        nxentry = self.get_default_nxentry(nxroot)
         nxentry.combined_data = nxprocess
         if 'data' not in nxentry:
             nxentry.data = NXdata()
@@ -1777,9 +1756,8 @@ class Tomo(Processor):
 
         # Remove dark field intensities above the cutoff
         tdf_cutoff = tdf.min() + 2 * (np.median(tdf)-tdf.min())
-        self.logger.debug(f'tdf_cutoff = {tdf_cutoff}')
         if tdf_cutoff is not None:
-            if not isinstance(tdf_cutoff, (int, float)) or tdf_cutoff < 0:
+            if not is_num(tdf_cutoff) or tdf_cutoff < 0:
                 self.logger.warning(
                     f'Ignoring illegal value of tdf_cutoff {tdf_cutoff}')
             else:
@@ -2667,7 +2645,7 @@ class Tomo(Processor):
         # Reconstruct the planes
         # tomo_planes axis data order: (row,)theta,column
         # thetas in radians
-        if isinstance(center_offset, (int, float)):
+        if is_num(center_offset):
             tomo_planes = np.expand_dims(tomo_planes, 0)
             center_offset = center_offset + tomo_planes.shape[2]/2
         elif is_num_series(center_offset):
@@ -3123,6 +3101,10 @@ class TomoSimFieldProcessor(Processor):
     a `nexusformat.nexus.NXroot` object containing the simulated
     tomography detector images.
     """
+    pipeline_fields: dict = Field(
+        default = {'config': 'tomo.models.TomoSimConfig'}, init_var=True)
+    config: TomoSimConfig
+
     def process(self, data):
         """Process the input configuration and return a
         `nexusformat.nexus.NXroot` object with the simulated
@@ -3146,35 +3128,33 @@ class TomoSimFieldProcessor(Processor):
         )
         # pylint: enable=no-name-in-module
 
-        # Get and validate the relevant configuration object in data
-        config = self.get_config(data=data, schema='tomo.models.TomoSimConfig')
-
-        station = config.station
-        sample_type = config.sample_type
-        sample_size = config.sample_size
+        station = self.config.station
+        sample_type = self.config.sample_type
+        sample_size = self.config.sample_size
         if len(sample_size) == 1:
             sample_size = (sample_size[0], sample_size[0])
         if sample_type == 'hollow_pyramid' and len(sample_size) != 3:
             raise ValueError('Invalid combindation of sample_type '
                              f'({sample_type}) and sample_size ({sample_size}')
-        wall_thickness = config.wall_thickness
-        mu = config.mu
-        theta_step = config.theta_step
-        beam_intensity = config.beam_intensity
-        background_intensity = config.background_intensity
-        slit_size = config.slit_size
-        pixel_size = config.detector.pixel_size
+        wall_thickness = self.config.wall_thickness
+        mu = self.config.mu
+        theta_step = self.config.theta_step
+        beam_intensity = self.config.beam_intensity
+        background_intensity = self.config.background_intensity
+        slit_size = self.config.slit_size
+        detector = self.config.detector
+        pixel_size = detector.pixel_size
         if len(pixel_size) == 1:
             pixel_size = (
-                pixel_size[0]/config.detector.lens_magnification,
-                pixel_size[0]/config.detector.lens_magnification,
+                pixel_size[0]/detector.lens_magnification,
+                pixel_size[0]/detector.lens_magnification,
             )
         else:
             pixel_size = (
-                pixel_size[0]/config.detector.lens_magnification,
-                pixel_size[1]/config.detector.lens_magnification,
+                pixel_size[0]/detector.lens_magnification,
+                pixel_size[1]/detector.lens_magnification,
             )
-        detector_size = (config.detector.rows, config.detector.columns)
+        detector_size = (detector.rows, detector.columns)
         if slit_size-0.5*pixel_size[0] > detector_size[0]*pixel_size[0]:
             raise ValueError(
                 f'Slit size ({slit_size}) larger than detector height '
@@ -3358,7 +3338,7 @@ class TomoSimFieldProcessor(Processor):
         nxinstrument.source.slit_size = slit_size
         nxdetector = NXdetector()
         nxinstrument.detector = nxdetector
-        nxdetector.local_name = config.detector.prefix
+        nxdetector.local_name = detector.prefix
         nxdetector.row_pixel_size = pixel_size[0]
         nxdetector.column_pixel_size = pixel_size[1]
         nxdetector.row_pixel_size.units = 'mm'
@@ -3850,7 +3830,6 @@ class TomoSpecProcessor(Processor):
 
         nxroot = NXroot()
         nxroot[sample_type] = nxentry
-        nxroot[sample_type].set_default()
 
         return nxroot
 

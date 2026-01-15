@@ -79,15 +79,15 @@ convert:
       filename: detector_pyramid.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
-#  - common.NexusWriter:
-#      filename: chess_map_hollow_pyramid.nxs
-#      force_overwrite: true
+  - common.NexusWriter:
+      filename: chess_map_hollow_pyramid.nxs
+      force_overwrite: true
 
 recon:
 
   # Full tomography reconstruction
-#  - common.NexusReader:
-#      filename: chess_map_hollow_pyramid.nxs
+  - common.NexusReader:
+      filename: chess_map_hollow_pyramid.nxs
   - common.YAMLReader:
       filename: find_center_id3a.yaml
       schema: tomo.models.TomoFindCenterConfig

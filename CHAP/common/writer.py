@@ -285,26 +285,8 @@ class FileTreeWriter(PipelineItem):
         )
 
         data = self.unwrap_pipelinedata(data)[-1]
-        if isinstance(data, NXroot):
-            if 'default' in data.attrs:
-                nxentry = data[data.attrs['default']]
-            else:
-                nxentry = [v for v in data.values()
-                           if isinstance(data, NXentry)]
-                if len(nxentry) == 1:
-                    nxentry = nxentry[0]
-                else:
-                    raise TypeError('Cannot write object of type '
-                                    f'{type(data).__name__} as a file tree '
-                                    'to disk.')
-        elif isinstance(data, NXentry):
-            nxentry = data
-        else:
-            raise TypeError('Cannot write object of type '
-                            f'{type(data).__name__} as a file tree to disk.')
-
+        nxentry = self.get_default_nxentry(data)
         write_filetree(nxentry, self.outputdir, self.force_overwrite)
-
         return data
 
 

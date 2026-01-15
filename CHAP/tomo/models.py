@@ -196,7 +196,7 @@ class TomoSimConfig(CHAPBaseModel):
     :type slit_size: float, optional
     """
     station: Literal['id1a3', 'id3a', 'id3b']
-    detector: Detector.model_construct()
+    detector: Detector
     sample_type: Literal[
         'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick',
         'hollow_pyramid']

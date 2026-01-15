@@ -3,7 +3,7 @@ config:
   inputdir: config
   outputdir: data/hollow_pyramid
   interactive: true
-  log_level: debug
+  log_level: info
   profile: false
 
 pipeline:

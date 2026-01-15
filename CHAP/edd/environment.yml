@@ -20,4 +20,4 @@ dependencies:
   - sympy==1.14.0
   - pip:
     - certif-pyspec==1.5.3
-    - chess-scanparsers
+    - chess-scanparsers==2025.5.2
