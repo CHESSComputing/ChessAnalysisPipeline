@@ -4,7 +4,6 @@
 from copy import deepcopy
 import os
 from typing import (
-    Dict,
     Literal,
     Optional,
     Union,
@@ -608,9 +607,8 @@ class MCACalibrationConfig(CHAPBaseModel):
     peak_energies: Optional[conlist(
         min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))] = [
             34.279, 34.720, 39.258, 40.233]
-    scan_step_indices: Optional[Annotated[conlist(
-        min_length=1, item_type=conint(ge=0)),
-        Field(validate_default=True)]] = None
+    scan_step_indices: Optional[
+        conlist(min_length=1, item_type=conint(ge=0))] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -695,8 +693,7 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     :type max_peak_index: int, optional
     """
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
-    max_peak_index: Optional[
-        Annotated[conint(ge=0), Field(validate_default=True)]] = None
+    max_peak_index: Optional[conint(ge=0)] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -795,8 +792,7 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     """
     find_peaks: Optional[bool] = True
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
-    oversampling: Optional[
-        Annotated[Dict, Field(validate_default=True)]] = {'num': 10}
+    oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[
         confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False

@@ -1080,7 +1080,6 @@ class MapProcessor(Processor):
         nxroot = NXroot()
         nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
-        nxentry.set_default()
         nxentry.map_config = self.config.model_dump_json()
         nxentry.attrs['station'] = self.config.station
         for k, v in self.config.attrs.items():
