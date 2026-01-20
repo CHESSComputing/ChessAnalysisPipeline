@@ -27,6 +27,25 @@ from CHAP import CHAPBaseModel
 from CHAP.common.models.map import Detector
 
 
+@model_validator(mode='before')
+def validate_azimuthal_integrators_before(cls, data, info):
+    ais = data['azimuthal_integrators']
+    inputdir = info.data['inputdir']
+    for i, ai in enumerate(deepcopy(ais)):
+        if isinstance(ai, AzimuthalIntegratorConfig):
+            ai = ai.model_dump()
+        if 'mask_file' in ai:
+            mask_file = ai['mask_file']
+            if not os.path.isabs(mask_file):
+                ai['mask_file'] = os.path.join(inputdir, mask_file)
+        if 'poni_file' in ai:
+            poni_file = ai['poni_file']
+            if not os.path.isabs(poni_file):
+                ai['poni_file'] = os.path.join(inputdir, poni_file)
+        ais[i] = ai
+    data['azimuthal_integrators'] = ais
+    return data
+
 class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     """Azimuthal integrator configuration class to represent a single
     detector used in the experiment.
@@ -48,26 +67,16 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_azimuthalintegratorconfig_before(cls, data):
+    def validate_azimuthalintegratorconfig_before(cls, data, info):
         if isinstance(data, dict):
-            inputdir = data.get('inputdir')
-            mask_file = data.get('mask_file')
             params = data.get('params')
             poni_file = data.get('poni_file')
-            if mask_file is not None:
-                if inputdir is not None and not os.path.isabs(mask_file):
-                    data['mask_file'] = mask_file
-            if params is not None:
-                if poni_file is not None:
-                    print(
-                        'Specify either poni_file or params, not both, '
-                        'ignoring poni_file')
-                    poni_file = None
-            elif poni_file is not None:
-                if inputdir is not None and not os.path.isabs(poni_file):
-                    data['poni_file'] = poni_file
-            else:
+            if params is None and poni_file is None:
                 raise ValueError('Specify either poni_file or params')
+            elif params is not None and poni_file is not None:
+                print('Specify either poni_file or params, not both, '
+                      'ignoring poni_file')
+                data['poni_file'] = None
         return data
 
     @model_validator(mode='after')
@@ -122,6 +131,8 @@ class GiwaxsConversionConfig(CHAPBaseModel):
     scan_step_indices: Optional[
         conlist(min_length=1, item_type=conint(ge=0))] = None
     save_raw_data: Optional[bool] = False
+
+    _validate_filename = validate_azimuthal_integrators_before
 
     @field_validator('scan_step_indices', mode='before')
     @classmethod
@@ -389,7 +400,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                                    f'each azimuthal integrator ({npts})')
             npts = npts[0]
             if self.multi_geometry is None:
-                id = list(ais.keys())[0]
+                ai_id = list(ais.keys())[0]
                 ai = list(ais.values())[0]
                 integration_method = getattr(ai, self.integration_method)
                 integration_params = self.integration_params.model_dump()
@@ -398,7 +409,8 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 del integration_params['attrs']
                 results = [
                     integration_method(
-                        data[id][i], mask=masks[id], **integration_params)
+                        data[ai_id][i], mask=masks[ai_id],
+                        **integration_params)
                     for i in range(npts)
                 ]
 #                import matplotlib.pyplot as plt
@@ -460,32 +472,4 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
     #sum_axes: Optional[
     #    Union[bool, conlist(min_length=1, item_type=str)]] = False
 
-    @model_validator(mode='before')
-    @classmethod
-    def validate_pyfaiintegrationconfig_before(cls, data):
-        """Ensure that a valid configuration was provided and finalize
-        PONI filepaths.
-
-        :param data: Pydantic validator data object.
-        :type data: GiwaxsConversionConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
-        :rtype: dict
-        """
-        if isinstance(data, dict):
-            inputdir = data.get('inputdir')
-            if inputdir is not None and 'azimuthal_integrators' in data:
-                ais = data.get('azimuthal_integrators')
-                for i, ai in enumerate(deepcopy(ais)):
-                    if isinstance(ai, dict):
-                        poni_file = ai['poni_file']
-                        if not os.path.isabs(poni_file):
-                            ais[i]['poni_file'] = os.path.join(
-                                inputdir, poni_file)
-                    else:
-                        poni_file = ai.poni_file
-                        if not os.path.isabs(poni_file):
-                            ais[i].poni_file = os.path.join(
-                                inputdir, poni_file)
-                data['azimuthal_integrators'] = ais
-        return data
+    _validate_filename = validate_azimuthal_integrators_before

@@ -10,6 +10,7 @@ import os
 from typing import (
     Literal,
     Optional,
+    Union,
 )
 
 # Third party modules
@@ -40,7 +41,7 @@ class Detector(CHAPBaseModel):
     :type attrs: dict, optional
     """
     id_: constr(min_length=1) = Field(alias='id')
-    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
+    attrs: dict = {}
 
     @field_validator('id_', mode='before')
     @classmethod
@@ -113,7 +114,8 @@ class SpecScans(CHAPBaseModel):
     :type par_file: str, optional
     """
     spec_file: FilePath
-    scan_numbers: conlist(item_type=conint(gt=0), min_length=1)
+    scan_numbers: Union[
+        constr(min_length=1), conlist(item_type=conint(gt=0), min_length=1)]
     par_file: Optional[FilePath] = None
 
     @field_validator('spec_file')
@@ -923,7 +925,7 @@ class MapConfig(CHAPBaseModel):
     presample_intensity: Optional[PresampleIntensity] = None
     dwell_time_actual: Optional[DwellTimeActual] = None
     postsample_intensity: Optional[PostsampleIntensity] = None
-    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
+    attrs: dict = {}
 #    _coords: dict = PrivateAttr()
     _dims: tuple = PrivateAttr()
 #    _scan_step_indices: list = PrivateAttr()
@@ -1019,6 +1021,14 @@ class MapConfig(CHAPBaseModel):
                 f'{", ".join(allowed_experiment_types)}. '
                 f'Supplied experiment type {experiment_type} is not allowed.')
         return experiment_type
+
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_before(cls, data):
+        if data.get('attrs') is None:
+            data['attrs'] = {}
+        return data
 
     #RV maybe better to use model_validator, see v2 docs?
     @field_validator('attrs')

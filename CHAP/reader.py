@@ -31,9 +31,8 @@ def validate_reader_model(reader):
     if (not os.path.isfile(filename)
             and not os.path.dirname(reader.filename)):
         reader.logger.warning(
-            f'Unable to find {reader.filename} in '
-            f'{reader.inputdir}, looking in '
-            f'{reader.outputdir}')
+            f'Unable to find {reader.filename} in {reader.inputdir}, looking '
+            f'in {reader.outputdir}')
         filename = os.path.normpath(os.path.realpath(
             os.path.join(reader.outputdir, reader.filename)))
     # Note that reader.filename has str type instead of FilePath
@@ -63,8 +62,7 @@ class Reader(PipelineItem):
 
     _mapping_filename: PrivateAttr(default=None)
 
-    _validate_filename = model_validator(mode="after")(
-        validate_reader_model)
+    _validate_filename = model_validator(mode='after')(validate_reader_model)
 
     def read(self):
         """Read and return the contents of `filename` as text.

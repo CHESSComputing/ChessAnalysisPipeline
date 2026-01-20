@@ -460,7 +460,7 @@ class SpecReader(Reader):
 
     _mapping_filename: PrivateAttr(default=None)
 
-    _validate_filename = model_validator(mode="after")(validate_model)
+    _validate_filename = model_validator(mode='after')(validate_model)
 
     @model_validator(mode='after')
     def validate_specreader_after(self):
@@ -505,17 +505,10 @@ class SpecReader(Reader):
         # Local modules
         from CHAP.common.models.map import Detector
 
-        #print(f'\n\nSpecReader.read\nself.config:')
-        #pprint(self.config)
-        #print(f'\n\ndetector_config:')
-        #pprint(self.detector_config)
-        #print(f'\n\n')
-
         # Create the NXroot object
         nxroot = NXroot()
         nxentry = NXentry(name=self.config.experiment_type)
         nxroot[nxentry.nxname] = nxentry
-        nxentry.set_default()
 
         # Set up NXentry and add misc. CHESS-specific metadata as well
         # as all spec_motors, scan_columns, and smb_pars, and the

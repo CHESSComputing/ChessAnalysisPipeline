@@ -15,6 +15,7 @@ from logging import getLogger
 import os
 import re
 import sys
+from typing import Union
 
 # Third party modules
 import numpy as np
@@ -29,6 +30,11 @@ logger = getLogger(__name__)
 tiny = np.finfo(np.float64).resolution
 # pylint: enable=no-member
 
+Int = Union[int, np.integer]
+Float = Union[float, np.floating]
+Num = Union[int, np.integer, float, np.floating]
+Bool = Union[bool, np.bool]
+
 def gformat(val, length=11):
     """
     Format a number with '%g'-like format, while:
@@ -38,7 +44,7 @@ def gformat(val, length=11):
       - trailing zeros will not be trimmed
     """
     # Code taken from lmfit library
-    if val is None or isinstance(val, bool):
+    if val is None or isinstance(val, Bool):
         return f'{repr(val):>{length}s}'
     try:
         expon = int(np.log10(abs(val)))
@@ -66,9 +72,9 @@ def getfloat_attr(obj, attr, length=11):
     val = getattr(obj, attr, None)
     if val is None:
         return 'unknown'
-    if isinstance(val, int):
+    if isinstance(val, Int):
         return f'{val}'
-    if isinstance(val, float):
+    if isinstance(val, Float):
         return gformat(val, length=length).strip()
     return repr(val)
 
@@ -264,14 +270,14 @@ def _is_int_or_num(
         v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
         log=True):
     if type_str == 'int':
-        if not isinstance(v, int):
+        if not isinstance(v, Int):
             illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
             return False
         if not test_ge_gt_le_lt(
                 ge, gt, le, lt, is_int, '_is_int_or_num', raise_error, log):
             return False
     elif type_str == 'num':
-        if not isinstance(v, (int, float)):
+        if not isinstance(v, Num):
             illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
             return False
         if not test_ge_gt_le_lt(
@@ -334,14 +340,13 @@ def _is_int_or_num_pair(
         log=True):
     if type_str == 'int':
         if not (isinstance(v, (tuple, list)) and len(v) == 2
-                and isinstance(v[0], int) and isinstance(v[1], int)):
+                and isinstance(v[0], Int) and isinstance(v[1], Int)):
             illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
             return False
         func = is_int
     elif type_str == 'num':
         if not (isinstance(v, (tuple, list)) and len(v) == 2
-                and isinstance(v[0], (int, float))
-                and isinstance(v[1], (int, float))):
+                and isinstance(v[0], Num) and isinstance(v[1], Num)):
             illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
             return False
         func = is_num
@@ -462,7 +467,7 @@ def is_index(v, ge=0, lt=None, raise_error=False, log=True):
     """Value is an array index in range ge <= v < lt. NOTE lt IS NOT
     included!
     """
-    if isinstance(lt, int):
+    if isinstance(lt, Int):
         if lt <= ge:
             illegal_combination(
                 ge, 'ge', lt, 'lt', 'is_index', raise_error, log)
@@ -732,7 +737,7 @@ def _input_int_or_num(
         default_string = ''
     if inset is not None:
         if (not isinstance(inset, (tuple, list))
-                or any(not isinstance(i, int) for i in inset)):
+                or any(not isinstance(i, Int) for i in inset)):
             illegal_value(
                 inset, 'inset', '_input_int_or_num', raise_error, log)
             return None
@@ -1079,7 +1084,7 @@ def rolling_average(
         raise ValueError(f'Invalid "stride" parameter ({stride})')
     if num is not None and not is_int(num, ge=1):
         raise ValueError(f'Invalid "num" parameter ({num})')
-    if not isinstance(average, bool):
+    if not isinstance(average, Bool):
         raise ValueError(f'Invalid "average" parameter ({average})')
     if mode not in ('valid', 'full'):
         raise ValueError(f'Invalid "mode" parameter ({mode})')
@@ -1233,7 +1238,7 @@ def baseline_arPLS(
         raise ValueError(f'Invalid lam parameter ({lam})')
     if not is_int(max_iter, gt=0):
         raise ValueError(f'Invalid max_iter parameter ({max_iter})')
-    if not isinstance(full_output, bool):
+    if not isinstance(full_output, Bool):
         raise ValueError(f'Invalid full_output parameter ({max_iter})')
     y = np.asarray(y)
     if mask is not None:
@@ -1512,11 +1517,11 @@ def select_mask_1d(
                     selected_index_ranges.append(i)
             else:
                 if (selected_index_ranges
-                        and isinstance(selected_index_ranges[-1], int)):
+                        and isinstance(selected_index_ranges[-1], Int)):
                     selected_index_ranges[-1] = \
                         (selected_index_ranges[-1], i-1)
         if (selected_index_ranges
-                and isinstance(selected_index_ranges[-1], int)):
+                and isinstance(selected_index_ranges[-1], Int)):
             selected_index_ranges[-1] = (selected_index_ranges[-1], num_data-1)
         return selected_index_ranges
 
@@ -2217,13 +2222,13 @@ def quick_imshow(
         raise ValueError(f'Invalid parameter title ({title})')
     if path is not None and not isinstance(path, str):
         raise ValueError(f'Invalid parameter path ({path})')
-    if not isinstance(show_fig, bool):
+    if not isinstance(show_fig, Bool):
         raise ValueError(f'Invalid parameter show_fig ({show_fig})')
-    if not isinstance(save_fig, bool):
+    if not isinstance(save_fig, Bool):
         raise ValueError(f'Invalid parameter save_fig ({save_fig})')
-    if not isinstance(return_fig, bool):
+    if not isinstance(return_fig, Bool):
         raise ValueError(f'Invalid parameter return_fig ({return_fig})')
-    if block is not None and not isinstance(block, bool):
+    if block is not None and not isinstance(block, Bool):
         raise ValueError(f'Invalid parameter block ({block})')
     if not title:
         title = 'quick imshow'
@@ -2308,16 +2313,16 @@ def quick_plot(
     if path is not None and not isinstance(path, str):
         illegal_value(path, 'path', 'quick_plot')
         return
-    if not isinstance(show_grid, bool):
+    if not isinstance(show_grid, Bool):
         illegal_value(show_grid, 'show_grid', 'quick_plot')
         return
-    if not isinstance(save_fig, bool):
+    if not isinstance(save_fig, Bool):
         illegal_value(save_fig, 'save_fig', 'quick_plot')
         return
-    if not isinstance(save_only, bool):
+    if not isinstance(save_only, Bool):
         illegal_value(save_only, 'save_only', 'quick_plot')
         return
-    if not isinstance(block, bool):
+    if not isinstance(block, Bool):
         illegal_value(block, 'block', 'quick_plot')
         return
     if title is None:
@@ -2351,7 +2356,7 @@ def quick_plot(
         else:
             plt.errorbar(*args, xerr=xerr, yerr=yerr, **kwargs)
     if vlines is not None:
-        if isinstance(vlines, (int, float)):
+        if isinstance(vlines, Num):
             vlines = [vlines]
         for v in vlines:
             plt.axvline(v, color='r', linestyle='--', **kwargs)

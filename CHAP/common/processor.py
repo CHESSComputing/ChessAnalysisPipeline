@@ -1080,7 +1080,6 @@ class MapProcessor(Processor):
         nxroot = NXroot()
         nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
-        nxentry.set_default()
         nxentry.map_config = self.config.model_dump_json()
         nxentry.attrs['station'] = self.config.station
         for k, v in self.config.attrs.items():
@@ -2140,8 +2139,7 @@ class RawDetectorDataMapProcessor(Processor):
             self.logger.debug(
                 f'Adding data to nxroot for map point {map_index}')
             nxdata.raw[map_index] = scanparser.get_detector_data(
-                detector_name,
-                scan_step_index)
+                detector_name, scan_step_index)
 
         nxentry.data.makelink(
             nxdata.raw,
