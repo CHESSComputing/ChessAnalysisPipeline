@@ -2139,8 +2139,7 @@ class RawDetectorDataMapProcessor(Processor):
             self.logger.debug(
                 f'Adding data to nxroot for map point {map_index}')
             nxdata.raw[map_index] = scanparser.get_detector_data(
-                detector_name,
-                scan_step_index)
+                detector_name, scan_step_index)
 
         nxentry.data.makelink(
             nxdata.raw,

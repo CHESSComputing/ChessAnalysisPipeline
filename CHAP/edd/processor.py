@@ -22,10 +22,7 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import Processor
-from CHAP.pipeline import PipelineData
 from CHAP.common.models.map import DetectorConfig
-from CHAP.utils.general import fig_to_iobuf
 from CHAP.edd.models import (
     MCADetectorCalibration,
     MCADetectorDiffractionVolumeLength,
@@ -36,6 +33,9 @@ from CHAP.edd.models import (
     MCATthCalibrationConfig,
     StrainAnalysisConfig,
 )
+from CHAP.pipeline import PipelineData
+from CHAP.processor import Processor
+from CHAP.utils.general import fig_to_iobuf
 
 FLOAT_MIN = float_info.min
 

@@ -460,7 +460,7 @@ class SpecReader(Reader):
 
     _mapping_filename: PrivateAttr(default=None)
 
-    _validate_filename = model_validator(mode="after")(validate_model)
+    _validate_filename = model_validator(mode='after')(validate_model)
 
     @model_validator(mode='after')
     def validate_specreader_after(self):

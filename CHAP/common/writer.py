@@ -340,7 +340,7 @@ class ImageWriter(PipelineItem):
     force_overwrite: Optional[bool] = False
     remove: Optional[bool] = True
 
-    _validate_filename = model_validator(mode="after")(validate_model)
+    _validate_filename = model_validator(mode='after')(validate_model)
 
     def write(self, data):
         """Write the image(s) contained in `data` to file.

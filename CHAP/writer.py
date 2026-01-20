@@ -55,8 +55,7 @@ class Writer(PipelineItem):
     force_overwrite: Optional[bool] = False
     remove: Optional[bool] = False
 
-    _validate_filename = model_validator(mode="after")(
-        validate_writer_model)
+    _validate_filename = model_validator(mode='after')(validate_writer_model)
 
     def write(self, data):
         """Write the last `CHAP.pipeline.PipelineData` item in `data`
