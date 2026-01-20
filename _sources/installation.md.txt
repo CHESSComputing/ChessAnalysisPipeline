@@ -31,7 +31,7 @@ conda install -c conda-forge chessanalysispipeline
    ```
    with
    ```python
-   version = 'v0.0.17.dev8'
+   version = 'v0.0.18'
    ```
 1. Create the virtual environment:
    ```bash
