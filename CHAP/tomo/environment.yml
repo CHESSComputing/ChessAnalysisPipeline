@@ -22,4 +22,4 @@ dependencies:
   - tomopy==1.15.3
   - pip:
     - certif-pyspec==1.5.3
-    - chess-scanparsers==2025.5.2
+    - chess-scanparsers

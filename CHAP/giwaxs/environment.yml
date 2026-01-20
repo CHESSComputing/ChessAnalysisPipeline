@@ -12,4 +12,4 @@ dependencies:
   - pydantic==2.12.5
   - pip:
     - certif-pyspec==1.5.3
-    - chess-scanparsers==2025.5.2
+    - chess-scanparsers
