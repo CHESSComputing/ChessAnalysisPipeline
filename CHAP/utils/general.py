@@ -33,7 +33,6 @@ tiny = np.finfo(np.float64).resolution
 Int = Union[int, np.integer]
 Float = Union[float, np.floating]
 Num = Union[int, np.integer, float, np.floating]
-Bool = Union[bool, np.bool]
 
 def gformat(val, length=11):
     """
@@ -44,7 +43,7 @@ def gformat(val, length=11):
       - trailing zeros will not be trimmed
     """
     # Code taken from lmfit library
-    if val is None or isinstance(val, Bool):
+    if val is None or isinstance(val, bool):
         return f'{repr(val):>{length}s}'
     try:
         expon = int(np.log10(abs(val)))
@@ -1084,7 +1083,7 @@ def rolling_average(
         raise ValueError(f'Invalid "stride" parameter ({stride})')
     if num is not None and not is_int(num, ge=1):
         raise ValueError(f'Invalid "num" parameter ({num})')
-    if not isinstance(average, Bool):
+    if not isinstance(average, bool):
         raise ValueError(f'Invalid "average" parameter ({average})')
     if mode not in ('valid', 'full'):
         raise ValueError(f'Invalid "mode" parameter ({mode})')
@@ -1238,7 +1237,7 @@ def baseline_arPLS(
         raise ValueError(f'Invalid lam parameter ({lam})')
     if not is_int(max_iter, gt=0):
         raise ValueError(f'Invalid max_iter parameter ({max_iter})')
-    if not isinstance(full_output, Bool):
+    if not isinstance(full_output, bool):
         raise ValueError(f'Invalid full_output parameter ({max_iter})')
     y = np.asarray(y)
     if mask is not None:
@@ -2222,13 +2221,13 @@ def quick_imshow(
         raise ValueError(f'Invalid parameter title ({title})')
     if path is not None and not isinstance(path, str):
         raise ValueError(f'Invalid parameter path ({path})')
-    if not isinstance(show_fig, Bool):
+    if not isinstance(show_fig, bool):
         raise ValueError(f'Invalid parameter show_fig ({show_fig})')
-    if not isinstance(save_fig, Bool):
+    if not isinstance(save_fig, bool):
         raise ValueError(f'Invalid parameter save_fig ({save_fig})')
-    if not isinstance(return_fig, Bool):
+    if not isinstance(return_fig, bool):
         raise ValueError(f'Invalid parameter return_fig ({return_fig})')
-    if block is not None and not isinstance(block, Bool):
+    if block is not None and not isinstance(block, bool):
         raise ValueError(f'Invalid parameter block ({block})')
     if not title:
         title = 'quick imshow'
@@ -2313,16 +2312,16 @@ def quick_plot(
     if path is not None and not isinstance(path, str):
         illegal_value(path, 'path', 'quick_plot')
         return
-    if not isinstance(show_grid, Bool):
+    if not isinstance(show_grid, bool):
         illegal_value(show_grid, 'show_grid', 'quick_plot')
         return
-    if not isinstance(save_fig, Bool):
+    if not isinstance(save_fig, bool):
         illegal_value(save_fig, 'save_fig', 'quick_plot')
         return
-    if not isinstance(save_only, Bool):
+    if not isinstance(save_only, bool):
         illegal_value(save_only, 'save_only', 'quick_plot')
         return
-    if not isinstance(block, Bool):
+    if not isinstance(block, bool):
         illegal_value(block, 'block', 'quick_plot')
         return
     if title is None:
