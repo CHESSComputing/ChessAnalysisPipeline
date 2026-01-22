@@ -18,6 +18,7 @@ import numpy as np
 from pydantic import (
     Field,
     PrivateAttr,
+    confloat,
     model_validator,
 )
 
@@ -2244,6 +2245,177 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 f'{detector.tth_initial_guess}')
 
 
+class ReducedDataProcessor(BaseStrainProcessor):
+    """Processor that takes a map of MCA data and returns a map of
+    reduced data.
+    """
+    lower_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 25
+    upper_cutoff: Optional[confloat(gt=0, allow_inf_nan=False)] = 200
+
+    def process(self, data):
+        """Map the raw data onto the tth/energy calibration axes.
+
+        :param data: Input data containing configurations for a map and
+            a completed energy/tth calibration.
+        :type data: list[PipelineData]
+        :return: The reduced data.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXdetector,
+            NXentry,
+            NXfield,
+            NXprocess,
+            NXroot,
+        )
+
+        # Local modules
+        from CHAP.utils.general import nxcopy
+
+        # Load the detector data
+        nxentry = self.get_default_nxentry(self.get_data(data))
+
+        # Load the validated calibration configuration
+        calibration_config = self.get_data(
+            data, schema='edd.models.MCATthCalibrationConfig')
+        calibration_detectors = [
+            MCADetectorCalibration(**d) 
+            for d in calibration_config.get('detectors', [])]
+        calibration_config = MCATthCalibrationConfig(**calibration_config)
+
+        # Create the NXroot object and add a NXprocess to store the
+        # reduced data
+        nxroot = NXroot()
+        nxroot[nxentry.nxname] = nxentry
+        nxroot[f'{nxentry.nxname}_reduced_data'] = NXprocess()
+        nxprocess = nxroot[f'{nxentry.nxname}_reduced_data']
+        nxprocess.calibration_config = calibration_config.model_dump_json()
+        nxdata = nxroot[nxentry.nxname][nxentry.default]
+
+        # Check for available calibration data and compute the detector
+        # bin energies
+        for detector in calibration_detectors:
+            detector_id = detector.get_id()
+            if detector_id not in nxdata:
+                self.logger.warning(
+                    f'Skipping detector {detector_id} (no raw data)')
+                continue
+            num_bins = nxdata[detector_id].shape[-1]
+            if detector.num_bins is None:
+                detector.num_bins = num_bins
+            elif detector.num_bins != num_bins:
+                raise ValueError(
+                    'Inconsistent number of MCA detector channels between '
+                    'the raw data and the detector configuration for '
+                    f'detector {detector_id} ({num_bins} vs '
+                    f'{detector.num_bins})')
+            if detector.energy_calibration_coeffs is None:
+                raise ValueError('Missing energy calibration coefficients for '
+                                 f'detector {detector_id}')
+
+            # Setup the NXdetector object for the current detector
+            self.logger.debug(
+                f'Setting up NXdetector group for {detector_id}')
+            nxdetector = NXdetector()
+            nxprocess[detector_id] = nxdetector
+            nxdetector.local_name = detector_id
+            nxdetector.detector_config = detector.model_dump_json()
+
+            # Get the energy mask
+            energies = detector.energies
+            energy_mask = np.where(energies >= self.lower_cutoff, 1, 0)
+            energy_mask = np.where(
+                energies <= self.upper_cutoff, energy_mask, 0)
+            # Also blank out the last channel, which has shown to be
+            # troublesome
+            energy_mask[-1] = 0
+
+            # Add the channel and detector data
+            nxdetector.data = NXdata()
+            det_nxdata = nxdetector.data
+            det_nxdata.set_default()
+            det_nxdata.intensity = NXfield(
+                value=nxdata[detector_id].nxdata * energy_mask.astype(
+                    nxdata[detector_id].dtype),
+                attrs={'units': 'counts'})
+            self._linkdims(det_nxdata, nxdata)
+            if 'axes' in det_nxdata.attrs:
+                if isinstance(det_nxdata.attrs['axes'], str):
+                    det_nxdata.attrs['axes'] = [
+                        det_nxdata.attrs['axes'], 'energy']
+                else:
+                    det_nxdata.attrs['axes'].append('energy')
+            else:
+                det_nxdata.attrs['axes'] = ['energy']
+            det_nxdata.energy = NXfield(
+                value=energies, attrs={'units': 'keV'})
+            det_nxdata.attrs['signal'] = 'intensity'
+
+        return nxroot
+
+    def _linkdims(
+            self, nxgroup, nxdata_source, add_field_dims=None,
+            skip_field_dims=None, oversampling_axis=None):
+        """Link the dimensions for a 'nexusformat.nexus.NXgroup`
+        object.
+        """
+        # Third party modules
+        from nexusformat.nexus import NXfield
+        from nexusformat.nexus.tree import NXlinkfield
+
+        if skip_field_dims is None:
+            skip_field_dims = []
+        if oversampling_axis is None:
+            oversampling_axis = {}
+        if 'axes' in nxdata_source.attrs:
+            axes = nxdata_source.attrs['axes']
+            if isinstance(axes, str):
+                axes = [axes]
+        else:
+            axes = []
+        axes = [a for a in axes if a not in skip_field_dims]
+        if 'unstructured_axes' in nxdata_source.attrs:
+            unstructured_axes = nxdata_source.attrs['unstructured_axes']
+            if isinstance(unstructured_axes, str):
+                unstructured_axes = [unstructured_axes]
+        else:
+            unstructured_axes = []
+        link_axes = axes + unstructured_axes
+        for dim in link_axes:
+            if dim in oversampling_axis:
+                bin_name = dim.replace('fly_', 'bin_')
+                axes[axes.index(dim)] = bin_name
+                exit('FIX replace in both axis and unstructured_axes')
+                nxgroup[bin_name] = NXfield(
+                    value=oversampling_axis[dim],
+                    units=nxdata_source[dim].units,
+                    attrs={
+                        'long_name':
+                            f'oversampled {nxdata_source[dim].long_name}',
+                        'data_type': nxdata_source[dim].data_type,
+                        'local_name': 'oversampled '
+                                      f'{nxdata_source[dim].local_name}'})
+            else:
+                if isinstance(nxdata_source[dim], NXlinkfield):
+                    nxgroup[dim] = nxdata_source[dim]
+                else:
+                    nxgroup.makelink(nxdata_source[dim])
+                if f'{dim}_indices' in nxdata_source.attrs:
+                    nxgroup.attrs[f'{dim}_indices'] = \
+                        nxdata_source.attrs[f'{dim}_indices']
+        if add_field_dims is None:
+            if axes:
+                nxgroup.attrs['axes'] = axes
+            if unstructured_axes:
+                nxgroup.attrs['unstructured_axes'] = unstructured_axes
+        else:
+            nxgroup.attrs['axes'] = axes + add_field_dims
+        if unstructured_axes:
+            nxgroup.attrs['unstructured_axes'] = unstructured_axes
+
+
 class StrainAnalysisProcessor(BaseStrainProcessor):
     """Processor that takes a map of MCA data and returns a map of
     sample strains.
@@ -2389,7 +2561,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             raise RuntimeError('Illegal combination of setup and update')
         if not self.update:
             if self.interactive:
-                self.logger.warning('Ineractive option disabled during setup')
+                self.logger.warning('Interactive option disabled during setup')
                 self.interactive = False
             if self.save_figures:
                 self.logger.warning(
@@ -2751,6 +2923,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxdetector.detector_config = detector.model_dump_json()
             nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
             det_nxdata = nxdetector.data
+            det_nxdata.set_default()
             if 'axes' in det_nxdata.attrs:
                 if isinstance(det_nxdata.attrs['axes'], str):
                     det_nxdata.attrs['axes'] = [

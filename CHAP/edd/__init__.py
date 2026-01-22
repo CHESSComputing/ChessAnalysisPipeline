@@ -7,6 +7,7 @@ from CHAP.edd.processor import (
     LatticeParameterRefinementProcessor,
     MCAEnergyCalibrationProcessor,
     MCATthCalibrationProcessor,
+    ReducedDataProcessor,
     StrainAnalysisProcessor,
 )
 from CHAP.edd.reader import (
