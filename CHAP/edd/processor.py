@@ -2335,7 +2335,6 @@ class ReducedDataProcessor(BaseStrainProcessor):
             # Add the channel and detector data
             nxdetector.data = NXdata()
             det_nxdata = nxdetector.data
-            det_nxdata.set_default()
             det_nxdata.intensity = NXfield(
                 value=nxdata[detector_id].nxdata * energy_mask.astype(
                     nxdata[detector_id].dtype),
@@ -2923,7 +2922,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxdetector.detector_config = detector.model_dump_json()
             nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
             det_nxdata = nxdetector.data
-            det_nxdata.set_default()
             if 'axes' in det_nxdata.attrs:
                 if isinstance(det_nxdata.attrs['axes'], str):
                     det_nxdata.attrs['axes'] = [
