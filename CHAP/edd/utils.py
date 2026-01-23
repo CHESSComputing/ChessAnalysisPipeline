@@ -458,7 +458,8 @@ def select_material_params(
     ax.set_xlabel('Energy (keV)', fontsize='large')
     ax.set_ylabel('Intensity (counts)', fontsize='large')
     ax.set_xlim(x[0], x[-1])
-    ax.plot(x, y)
+    if y is not None:
+        ax.plot(x, y)
 
     # Add materials
     if preselected_materials is None:
@@ -1293,7 +1294,7 @@ def get_spectra_fits(
     :type spectra: numpy.ndarray
     :param energies: Bin energies for the spectra provided.
     :type energies: numpy.ndarray
-    :param peak_locations: Initial guesses for peak ceneters to use
+    :param peak_locations: Initial guesses for peak centers to use
         for the uniform fit.
     :type peak_locations: list[float]
     :param detector: A single MCA detector element configuration.

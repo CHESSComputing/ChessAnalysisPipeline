@@ -30,6 +30,7 @@ from CHAP.edd.models import (
     MCADetectorStrainAnalysis,
     MCADetectorConfig,
     DiffractionVolumeLengthConfig,
+    MCACalibrationConfig,
     MCAEnergyCalibrationConfig,
     MCATthCalibrationConfig,
     StrainAnalysisConfig,
@@ -59,7 +60,14 @@ def get_axes(nxdata, skip_axes=None):
 
 
 class BaseEddProcessor(Processor):
-    """Base processor for the EDD processors."""
+    """Base processor for the EDD processors.
+
+    :ivar save_figures: Save .pngs of plots for checking inputs &
+        outputs of this Processor, defaults to `False`.
+    :type save_figures: bool, optional
+    """
+    save_figures: Optional[bool] = False
+
     _energies: list = PrivateAttr(default=[])
     _figures: list = PrivateAttr(default=[])
     _masks: list = PrivateAttr(default=[])
@@ -465,7 +473,7 @@ class BaseStrainProcessor(BaseEddProcessor):
             self._energies.append(detector.energies)
         self.logger.debug(
             'data shape: '
-            f'{nxobject[self.detector_config.detectors[0].get_id()].nxdata.shape}')
+            f'{nxobject[self.detector_config.detectors[0].get_id()].shape}')
         self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
@@ -481,9 +489,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         CHAP.edd.models.MCADetectorConfig. Defaults to the detector
         configuration of the raw detector data.
     :type detector_config: dict, optional
-    :ivar save_figures: Save .pngs of plots for checking inputs &
-        outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
     """
     pipeline_fields: dict = Field(
             default = {
@@ -498,7 +503,6 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
     config: Optional[
         DiffractionVolumeLengthConfig] = DiffractionVolumeLengthConfig()
     detector_config: MCADetectorConfig
-    save_figures: Optional[bool] = False
 
     @model_validator(mode='before')
     @classmethod
@@ -602,7 +606,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         # Calculate or manually select the diffraction volume lengths
         self._measure_dvl(scanned_vals)
 
-        # Combine the adiffraction volume length and detector
+        # Combine the diffraction volume length and detector
         # configuration and move default detector fields to the
         # detector attrs
         for d in self.detector_config.detectors:
@@ -792,6 +796,82 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             schema='common.write.ImageWriter')
 
 
+class HKLProcessor(BaseStrainProcessor):
+    """Processor that plots the HKLs for a given material against the
+    calibrated energy channels.
+
+    :ivar config: Initialization parameters for an instance of
+        CHAP.edd.models.MCACalibrationConfig. Only the materials field
+        is actually used, the others are ignored.
+    :type config: dict
+    :ivar detector_config: Initialization parameters for an instance of
+        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
+        configuration of the energy/2&theta calibration step.
+    :type detector_config: dict, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'edd.models.MCACalibrationConfig',
+            'detector_config': {
+                'schema': ['edd.models.MCAEnergyCalibrationConfig',
+                           'edd.models.MCATthCalibrationConfig',
+                           'edd.models.MCADetectorConfig'],
+                'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
+        },
+        init_var=True)
+    config: Optional[MCACalibrationConfig] = MCACalibrationConfig()
+    detector_config: MCADetectorConfig
+    lower_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 25
+    upper_cutoff: Optional[confloat(gt=0, allow_inf_nan=False)] = 200
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_mcatthcalibrationprocessor_before(cls, data):
+        if isinstance(data, dict):
+            detector_config = data.pop('detector_config', {})
+            detector_config['processor_type'] = 'calibration'
+            data['detector_config'] = detector_config
+        return data
+
+    def process(self, data):
+        """Plot the HKLs for a given material against the calibrated
+        energy channels.
+
+        :param data: Input data containing a completed energy/tth
+            calibration configuration.
+        :type data: list[PipelineData]
+        :return: List of byte stream representions of Matplotlib
+            figures.
+        :rtype: PipelineData
+        """
+        # Check for available detectors
+        if not self.detector_config.detectors:
+            raise RuntimeError('No calibrated detectors')
+
+        # Compute the detector bin energies and plot the HKLs
+        self._mean_data = len(self.detector_config.detectors) * [None]
+        for i, detector in enumerate(self.detector_config.detectors):
+            detector_id = detector.get_id()
+            if detector.energy_calibration_coeffs is None:
+                raise ValueError('Missing energy calibration coefficients for '
+                                 f'detector {detector_id}')
+
+            # Get the energies
+            self._energies.append(detector.energies)
+
+            # Adjust material properties as needed and plot the HKLs
+            _, buf =  self._adjust_material_props(
+                self.config.materials, i)
+            if self.save_figures:
+                self._figures.append((
+                    buf, f'{detector_id}_material_hkls'))
+
+        return (PipelineData(
+            name=self.__name__, data=self._figures,
+            schema='common.write.ImageWriter'),)
+
+
+
 class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     """Processor to get a refined estimate for a sample's lattice
     parameters.
@@ -802,10 +882,8 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     :ivar detector_config: Initialization parameters for an instance of
         CHAP.edd.models.MCADetectorConfig. Defaults to the detector
         configuration of the raw detector data merged with that of the
-        2&theta calibration step..
-    :ivar save_figures: Save .pngs of plots for checking inputs &
-        outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+        energy/2&theta calibration step.
+    :type detector_config: dict, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -817,7 +895,6 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         init_var=True)
     config: Optional[StrainAnalysisConfig] = StrainAnalysisConfig()
     detector_config: MCADetectorConfig
-    save_figures: Optional[bool] = False
 
     @model_validator(mode='before')
     @classmethod
@@ -1084,9 +1161,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         CHAP.edd.models.MCADetectorConfig. Defaults to the detector
         configuration of the raw detector data.
     :type detector_config: dict, optional
-    :ivar save_figures: Save .pngs of plots for checking inputs &
-        outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -1099,7 +1173,6 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         init_var=True)
     config: Optional[MCAEnergyCalibrationConfig] = MCAEnergyCalibrationConfig()
     detector_config: MCADetectorConfig
-    save_figures: Optional[bool] = False
 
     @model_validator(mode='before')
     @classmethod
@@ -1629,9 +1702,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         CHAP.edd.models.MCADetectorConfig. Defaults to the detector
         configuration of the raw detector data merged with that of the
         energy calibration step..
-    :ivar save_figures: Save .pngs of plots for checking inputs &
-        outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+    :type detector_config: dict, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -1646,7 +1717,6 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         init_var=True)
     config: Optional[MCATthCalibrationConfig] = MCATthCalibrationConfig()
     detector_config: MCADetectorConfig
-    save_figures: Optional[bool] = False
 
     @model_validator(mode='before')
     @classmethod
@@ -2425,10 +2495,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     :ivar detector_config: Initialization parameters for an instance of
         CHAP.edd.models.MCADetectorConfig. Defaults to the detector
         configuration of the raw detector data merged with that of the
-        2&theta calibration step..
-    :ivar save_figures: Save .pngs of plots for checking inputs &
-        outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+        energy/2&theta calibration step..
+    :type detector_config: dict, optional
     :ivar setup: Setup the strain analysis
         `nexusformat.nexus.NXroot` object, defaults to `True`.
     :type setup: bool, optional
@@ -2447,7 +2515,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         init_var=True)
     config: Optional[StrainAnalysisConfig] = StrainAnalysisConfig()
     detector_config: MCADetectorConfig
-    save_figures: Optional[bool] = False
     setup: Optional[bool] = True
     update: Optional[bool] = True
 
@@ -2779,7 +2846,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
 
     def _create_animation(
-            self, nxdata, energies, intensities, best_fits, detector_id):
+            self, nxdata, energies, intensities, intensity_norms, best_fits,
+            detector_id):
         """Create an animation of the fit results."""
         # Third party modules
         from matplotlib import animation
@@ -2787,7 +2855,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
         def animate(i):
             data = intensities[i]
-            max_ = data.max()
+            max_ = intensity_norms[i]
             norm = max(1.0, max_)
             intensity.set_ydata(data / norm)
             best_fit.set_ydata(best_fits[i] / norm)
@@ -2810,11 +2878,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         axes = get_axes(nxdata)
         if 'energy' in axes:
             axes.remove('energy')
-        norm_all_data = max(1.0, intensities.max())
+        norm_all_data = max(1.0, intensity_norms.max())
 
         fig, ax = plt.subplots()
         data = intensities[0]
-        norm = max(1.0, data.max())
+        norm = max(1.0, intensity_norms[0])
         intensity, = ax.plot(energies, data / norm, 'b.', label='data')
         best_fit, = ax.plot(energies, best_fits[0] / norm, 'k-', label='fit')
         ax.set(
@@ -2932,6 +3000,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 det_nxdata.attrs['axes'] = ['energy']
             det_nxdata.energy = NXfield(
                 value=energies[mask], attrs={'units': 'keV'})
+            det_nxdata.norm = NXfield(
+                dtype=np.float64,
+                shape=(num_points,))
             det_nxdata.tth = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
@@ -3075,6 +3146,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
             # Get the spectra for this detector
             intensities = nxdata.nxsignal.nxdata.T[mask].T
+            intensity_norms = intensities.max(axis=intensities.ndim-1)
 
             # Get the unique HKLs and lattice spacings for the strain
             # analysis materials
@@ -3168,6 +3240,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             for i, point in enumerate(points):
                 point.update({
                     f'{detector.get_id()}/data/intensity': intensities[i],
+                    f'{detector.get_id()}/data/norm': intensity_norms[i],
                     f'{detector.get_id()}/data/uniform_strain':
                         uniform_strain[i],
                     f'{detector.get_id()}/data/unconstrained_strain':
@@ -3227,7 +3300,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             if (not self.config.skip_animation
                     and (self.interactive or self.save_figures)):
                 self._create_animation(
-                    nxdata, energies[mask], intensities,
+                    nxdata, energies[mask], intensities, intensity_norms,
                     unconstrained_results['best_fits'], detector.get_id())
 
         return points
