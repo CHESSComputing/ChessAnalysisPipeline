@@ -771,10 +771,13 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     """Class representing input parameters required to perform a
     strain analysis.
 
-    :ivar find_peaks: Exclude peaks where the average spectrum is
-        below the `rel_height_cutoff` cutoff relative to the
-        maximum value of the average spectrum, defaults to `True`.
-    :type find_peaks: bool, optional
+    :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
+        peaks for all spectra for a given detector and user specified
+        mask. A particular HKL peak is removed from the set of HKLs,
+        when its mean peak height is  below `find_peak_cutoff` times
+        the maximum mean intensity for that detector. Defaults to `0`
+        in which case this step is ignored.
+    :type find_peak_cutoff: float, optional
     :ivar oversampling: FIX
     :type oversampling: FIX
     :ivar rel_height_cutoff: Used to excluded peaks based on the
@@ -790,11 +793,11 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         for EDD scan types not 0, defaults to `True`.
     :type sum_axes: Union[bool, list[str]], optional
     """
-    find_peaks: Optional[bool] = True
+    find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
     oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[
-        confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
+        confloat(gt=0.0, lt=1.0, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True

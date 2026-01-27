@@ -74,6 +74,7 @@ class BaseEddProcessor(Processor):
     _mask_index_ranges: list = PrivateAttr(default=[])
     _mean_data: list = PrivateAttr(default=[])
     _nxdata_detectors: list = PrivateAttr(default=[])
+    _peak_fit_info: list = PrivateAttr(default=[])
 
     def _apply_combined_mask(self, calibration_method=None):
         """Apply the combined mask over the combined included energy
@@ -1832,11 +1833,12 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
 
         # Combine the calibration and detector configuration
         # and move default detector fields to the detector attrs
-        for d in self.detector_config.detectors:
+        for d, p in zip(self.detector_config.detectors, self._peak_fit_info):
             d.attrs['default_fields'] = {
                 k:v.default for k, v in d.model_fields.items()
                 if (k != 'attrs' and (k not in d.model_fields_set
                                       or v.default == getattr(d, k)))}
+            d.attrs['peak_fit_info'] = p
         configs = {
             **self.config.model_dump(),
             'detectors': [d.model_dump(exclude_defaults=True)
@@ -1887,6 +1889,9 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             hkls  = np.asarray([hkls[i] for i in detector.hkl_indices])
             ds  = np.asarray([ds[i] for i in detector.hkl_indices])
             e_bragg = get_peak_locations(ds, tth)
+            self._peak_fit_info.append({
+                'hkls': ["".join(map(str, hkl)) for hkl in hkls],
+                'nominal_peak_centers': e_bragg.tolist()})
 
             # Perform the fit
             t0 = time()
@@ -2952,6 +2957,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         )
         # pylint: enable=no-name-in-module
 
+        # Third party modules
+        from json import dumps
+
         # Local modules
         from CHAP.edd.utils import get_unique_hkls_ds
         from CHAP.utils.general import nxcopy
@@ -2973,9 +2981,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             self.config.model_dump_json()
 
         # Loop over the detectors to fill in the nxprocess
-        for energies, mask, nxdata, detector in zip(
+        for energies, mask, nxdata, detector, peak_fit_info in zip(
                 self._energies, self._masks, self._nxdata_detectors,
-                self.detector_config.detectors):
+                self.detector_config.detectors, self._peak_fit_info):
 
             # Get the current data object
             data = nxdata.nxsignal
@@ -2988,6 +2996,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxprocess[detector.get_id()] = nxdetector
             nxdetector.local_name = detector.get_id()
             nxdetector.detector_config = detector.model_dump_json()
+            nxdetector.peak_fit_info = dumps(peak_fit_info)
             nxdetector.data = nxcopy(nxdata, exclude_nxpaths='detector_data')
             det_nxdata = nxdetector.data
             if 'axes' in det_nxdata.attrs:
@@ -3162,16 +3171,21 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 ds_fit, detector.tth_calibrated)
 
             # Find initial peak estimates
-            if (not self.config.find_peaks
+            if (not self.config.find_peak_cutoff
                     or detector.rel_height_cutoff is None):
                 use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
                 from scipy.signal import find_peaks as find_peaks_scipy
 
+                if not self.setup:
+                    self.logger.warning(
+                        'Using find_peaks not well defined yet for '
+                        'incremental update')
+
                 peaks = find_peaks_scipy(
                     mean_data, width=5,
-                    height=detector.rel_height_cutoff*mean_data.max())
+                    height=self.config.find_peak_cutoff*mean_data.max())
                 #heights = peaks[1]['peak_heights']
                 widths = peaks[1]['widths']
                 centers = [energies[v] for v in peaks[0]]
@@ -3202,7 +3216,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     'No matching peaks with heights above the threshold, '
                     f'skipping the fit for detector {detector.get_id()}')
                 return []
-            hkls_fit = hkls_fit[use_peaks]
+            self._peak_fit_info.append({
+                'hkls': ["".join(map(str, hkl)) for hkl in hkls_fit],
+                'nominal_peak_centers': peak_locations.tolist(),
+                'use_peaks': use_peaks.tolist()})
 
             # Perform the fit
             self.logger.info(f'Fitting detector {detector.get_id()} ...')
@@ -3262,7 +3279,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     f'{detector.get_id()}/unconstrained_fit/results/success':
                         unconstrained_results['success'][i],
                 })
-                for j, hkl in enumerate(hkls_fit):
+                for j, hkl in enumerate(hkls_fit[use_peaks]):
                     hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
                     uniform_fit_path = \
                         f'{detector.get_id()}/uniform_fit/{hkl_name}'
