@@ -10,6 +10,7 @@ from CHAP.saxswaxs.processor import (
     PyfaiIntegrationProcessor,
     SetupResultsProcessor,
     SetupProcessor,
+    UnstructuredToStructuredProcessor,
     UpdateValuesProcessor,
 )
 # from CHAP.saxswaxs.reader import ()
