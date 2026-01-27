@@ -730,6 +730,8 @@ class UnstructuredToStructuredProcessor(Processor):
 
         signals, axes, common_axes = self.structure_signal_values(
             signals, axes, common_axes)
+        if attrs is None:
+            attrs = {}
         attrs.update({'axes': common_axes})
 
         return NXdata(
