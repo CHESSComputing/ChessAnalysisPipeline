@@ -3024,12 +3024,21 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             det_nxdata.uniform_strain = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
-                attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
+                attrs={'long_name': 'Strain from uniform fit (\u03B5)'})
+                #attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
             det_nxdata.unconstrained_strain = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
                 attrs={'long_name':
-                           'Strain from unconstrained fit (\u03BC\u03B5)'})
+                           'Strain from unconstrained fit (\u03B5)'})
+                           #'Strain from unconstrained fit (\u03BC\u03B5)'})
+            det_nxdata.unconstrained_strain_stdev = NXfield(
+                dtype=np.float64,
+                shape=(num_points,),
+                attrs={'long_name':
+                           'Standard deviation in strain from unconstrained '
+                           'fit (\u03B5)'})
+                           #'fit (\u03BC\u03B5)'})
 
             # Add the detector data
             det_nxdata.intensity = NXfield(
@@ -3266,14 +3275,17 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map)
                  for d0, use_peak in zip(ds_fit, use_peaks) if use_peak])
-            uniform_strains = np.log(
-                nominal_centers / uniform_results['centers'])
+            uniform_centers = np.asarray(uniform_results['centers'])
+            uniform_strains = np.log(nominal_centers / uniform_centers)
             uniform_strain = np.mean(uniform_strains, axis=0)
             uniform_amplitudes_vary = np.moveaxis(
                 uniform_results['amplitudes_vary'], -1, 0)
+            unconstrained_centers = np.asarray(
+                unconstrained_results['centers'])
             unconstrained_strains = np.log(
-                nominal_centers / unconstrained_results['centers'])
+                nominal_centers / unconstrained_centers)
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
+            unconstrained_strain_stdev = np.std(unconstrained_strains, axis=0)
             unconstrained_amplitudes_vary = np.moveaxis(
                 unconstrained_results['amplitudes_vary'], -1, 0)
 
@@ -3295,6 +3307,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         uniform_strain[i],
                     f'{detector.get_id()}/data/unconstrained_strain':
                         unconstrained_strain[i],
+                    f'{detector.get_id()}/data/unconstrained_strain_stdev':
+                        unconstrained_strain_stdev[i],
                     f'{detector.get_id()}/uniform_fit/results/best_fit':
                         uniform_results['best_fits'][i],
                     f'{detector.get_id()}/uniform_fit/results/included_peaks':
@@ -3322,10 +3336,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         f'{detector.get_id()}/uniform_fit/{hkl_name}'
                     unconstrained_fit_path = \
                         f'{detector.get_id()}/unconstrained_fit/{hkl_name}'
-                    centers = uniform_results['centers']
                     point.update({
                         f'{uniform_fit_path}/centers/values':
-                            uniform_results['centers'][j][i],
+                            uniform_centers[j][i],
                         f'{uniform_fit_path}/centers/errors':
                             uniform_results['centers_errors'][j][i],
                         f'{uniform_fit_path}/amplitudes/values':
@@ -3337,7 +3350,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         f'{uniform_fit_path}/sigmas/errors':
                             uniform_results['sigmas_errors'][j][i],
                         f'{unconstrained_fit_path}/centers/values':
-                            unconstrained_results['centers'][j][i],
+                            unconstrained_centers[j][i],
                         f'{unconstrained_fit_path}/centers/errors':
                             unconstrained_results['centers_errors'][j][i],
                         f'{unconstrained_fit_path}/amplitudes/values':
