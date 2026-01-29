@@ -3180,8 +3180,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 ds_fit, detector.tth_calibrated)
 
             # Find initial peak estimates
-            if (not self.config.find_peak_cutoff
-                    or detector.rel_height_cutoff is None):
+            if not self.config.find_peak_cutoff:
                 use_peaks = np.ones((peak_locations.size)).astype(bool)
             else:
                 # Third party modules
