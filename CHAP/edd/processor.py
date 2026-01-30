@@ -454,7 +454,7 @@ class BaseStrainProcessor(BaseEddProcessor):
                 np.mean(
                     nxdata.nxsignal.nxdata[
                         [i for i in range(0, nxdata.nxsignal.shape[0])
-                         if nxdata[i].nxsignal.nxdata.sum()]],
+                         if nxdata.nxsignal.nxdata[i].sum()]],
                     axis=tuple(i for i in range(0, nxdata.nxsignal.ndim-1)))
                 for nxdata in self._nxdata_detectors]
         else:
@@ -465,6 +465,7 @@ class BaseStrainProcessor(BaseEddProcessor):
         self.logger.debug(
             'data shape: '
             f'{nxobject[self.detector_config.detectors[0].get_id()].nxdata.shape}')
+
         self.logger.debug(
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
