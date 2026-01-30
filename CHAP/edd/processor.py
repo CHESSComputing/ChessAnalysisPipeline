@@ -2903,9 +2903,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             for nxdata in self._nxdata_detectors:
                 nxdata.attrs['axes'] = axes
                 nxdata.index = NXfield(
-                    np.asarray(
-                        [i for i in range(
-                            np.prod(nxdata_ref.nxsignal.shape[:-1]))]),
+                    np.arange(np.prod(nxdata_ref.nxsignal.shape[:-1])),
                     'index')
 
         # Loop over the detectors to fill in the nxprocess
