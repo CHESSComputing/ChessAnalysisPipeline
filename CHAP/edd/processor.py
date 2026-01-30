@@ -2867,6 +2867,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
     def _strain_analysis(self):
         """Perform the strain analysis on the full or partial map."""
+        # Third party modules
+        from nexusformat.nexus import NXfield
+
         # Local modules
         from CHAP.edd.utils import (
             get_peak_locations,
@@ -2893,7 +2896,17 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 {a: nxdata_ref[a].nxdata[i] for a in axes}
                 for i in range(nxdata_ref[axes[0]].size)]
         else:
-            points = [{}]
+            axes = ['index']
+            points = [
+                {'index': i}
+                for i in range(np.prod(nxdata_ref.nxsignal.shape[:-1]))]
+            for nxdata in self._nxdata_detectors:
+                nxdata.attrs['axes'] = axes
+                nxdata.index = NXfield(
+                    np.asarray(
+                        [i for i in range(
+                            np.prod(nxdata_ref.nxsignal.shape[:-1]))]),
+                    'index')
 
         # Loop over the detectors to fill in the nxprocess
         for energies, mask, mean_data, nxdata, detector in zip(
