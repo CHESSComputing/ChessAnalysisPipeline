@@ -1103,14 +1103,18 @@ class MapProcessor(Processor):
             if unique.size == 1:
                 constant_dim.append(i)
         nxentry.independent_dimensions = NXdata()
-        for i, dim in enumerate(self.config.independent_dimensions):
-            if i not in constant_dim:
-                nxentry.independent_dimensions[dim.label] = NXfield(
-                    independent_dimensions[i], dim.label,
-                    attrs={'units': dim.units,
-                           'long_name': f'{dim.label} ({dim.units})',
-                           'data_type': dim.data_type,
-                           'local_name': dim.name})
+        if len(constant_dim) < len(self.config.independent_dimensions):
+            for i, dim in enumerate(self.config.independent_dimensions):
+                if i not in constant_dim:
+                    nxentry.independent_dimensions[dim.label] = NXfield(
+                        independent_dimensions[i], dim.label,
+                        attrs={'units': dim.units,
+                               'long_name': f'{dim.label} ({dim.units})',
+                               'data_type': dim.data_type,
+                               'local_name': dim.name})
+        else:
+            nxentry.independent_dimensions.index = NXfield(
+                np.arange(independent_dimensions[0].size), 'index')
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
