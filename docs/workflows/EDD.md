@@ -12,19 +12,7 @@ A standard strain analysis in CHAP consists of three steps:
 
 - Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.
 
-## Activating the EDD conda environment
-
-### From the CHESS Compute Farm
-
-Log in to the CHESS Compute Farm and activate the `CHAP_edd` environment:
-```bash
-source /nfs/chess/sw/miniforge3_chap/bin/activate
-```
-```bash
-conda activate CHAP_edd
-```
-
-### From a local CHAP clone
+## Activating the EDD conda environment from a local CHAP clone
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
 1. Install a local version of the CHAP package according to the {ref}`installation instructions <installation>`.
@@ -41,9 +29,17 @@ conda activate CHAP_edd
 
 1. Navigate to your work directory.
 1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. 
-1. Run the workflow:
+1. Run the workflow using your own `CHAP_edd` conda environment:
    ```bash
    CHAP <pipelinefilename>
+   ```
+   or run the workflow using the latest production release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd <pipelinefilename>
+   ```
+   or the latest development release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd <pipelinefilename>
    ```
 1. Respond to any prompts that pop up if running interactively.
 
@@ -55,7 +51,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
-   nexpy &
+   /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
    ```
 1. After the GUI pops up, click File-> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
 1. Navigate the filetree in the "NeXus Data" panel to inspect any output or metadata field.
@@ -109,14 +105,14 @@ pipeline:
         station: id3a # Change as needed
         experiment_type: EDD
         spec_scans: # Edit both SPEC log file path and EDD scan numbers
-                    # Path can be relative to inputdir (line 2) or absolute
+                    # Path can be relative to inputdir (line 3) or absolute
           - spec_file: <your_raw_ceria_data_directory>/spec.log
             scan_numbers: 1
   - edd.MCATthCalibrationProcessor:
       config:
-        tth_initial_guess: 6.0
+        tth_initial_guess: 6.0 # Set to the initial tth angle from detector setup
       detector_config:
-        energy_mask_ranges: [[81, 135]] # Change as needed
+        energy_mask_ranges: [[65, 155]] # Change as needed
         detectors:  # The same as in the energy calibration when omitted
           - id: 0
           - id: 11
@@ -136,21 +132,20 @@ pipeline:
           - id: 22
 
   # Perform the strain analysis
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.YAMLReader:
-            filename: tth_calibration_result.yaml
-            schema: edd.models.MCATthCalibrationConfig
+  - common.YAMLReader:
+      filename: tth_calibration_result.yaml
+      schema: edd.models.MCATthCalibrationConfig
   - edd.StrainAnalysisProcessor:
       config:
+        find_peak_cutoff: 0.02          # Change as desired
         materials:
           - material_name: Al
             sgnum: 225
             lattice_parameters: 4.046
-        rel_height_cutoff: 0.05         # Change as desired
+        rel_height_cutoff: 0.02         # Change as desired
         skip_animation: false
       detector_config:
-        energy_mask_ranges: [[77, 110]] # Change as desired
+        energy_mask_ranges: [[75, 140]] # Change as desired
         detectors: # # Use available detector elements when omitted
           - id: 0
           - id: 11
@@ -158,7 +153,21 @@ pipeline:
       save_figures: true
   - common.NexusWriter:
       filename: strain_map.nxs # Change as desired
-                               # will be placed in 'outdutdir' (line 3)
+                               # will be placed in 'outdutdir' (line 5)
+      force_overwrite: true # Do not set to false!
+                            # Rename an existing file if you want to prevent
+                            # it from being overwritten
+  - common.ImageWriter:
+      # Write the figures to file
+      outputdir: saved_figures # Change as desired
+                               # Relative to outputdir (line 5) or absolute
+      force_overwrite: true # Do not set to false!
+                            # Rename an existing file if you want to prevent
+                            # it from being overwritten
+  - common.ImageWriter:
+      # Write the animation to file
+      outputdir: saved_figures # Change as desired
+                               # Relative to outputdir (line 5) or absolute
       force_overwrite: true # Do not set to false!
                             # Rename an existing file if you want to prevent
                             # it from being overwritten
@@ -186,7 +195,7 @@ The "pipeline" block creates the actual workflow pipeline, in this example it co
 
 - The EDD $2\theta$ calibration consists of two processes:
 
-    - `common.SpecReader` under `pipeline.MultiplePipelineItem`: A processor that reads the raw detector data and adds it to the energy calibration info that gets passed along directly from the previous processor in the pipeline.
+    - `common.SpecReader`: A processor that reads the raw detector data and adds it to the energy calibration info that gets passed along directly from the previous processor in the pipeline.
 
     - `edd.MCATthCalibrationProcessor`: A processor that performs the $2\theta$ calibration.
 
@@ -198,11 +207,13 @@ The "pipeline" block creates the actual workflow pipeline, in this example it co
 
 - The last three processors perform the actual strain analysis and write the output to a Nexus file:
 
-    - `common.YAMLReader` under `pipeline.MultiplePipelineItem`: A processor that reads the energy/$2\theta$ calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.
+    - `common.YAMLReader`: A processor that reads the energy/$2\theta$ calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.
 
     - `edd.StrainAnalysisProcessor`: A processor that perfroms the actual strain analysis and creates a single Nexus object with the strain analysis results as well as all metadata pertaining to the workflow.
 
     - `common.NexusWriter`: A processor that writes the strain analysis results to a NeXus file.
+
+    - `common.ImageWriter: A processor that writes a (set of) figure(s) or an animation to file.
 
 Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first four processes in the pipeline and read the detector channel energy calibration info in what is now the third item in the pipeline.
 

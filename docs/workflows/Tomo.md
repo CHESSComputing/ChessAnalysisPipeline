@@ -32,19 +32,7 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 
 Note that combining stacks with a horizontal displacement for samples wider than the width of the beam is not yet implemented.
 
-## Activating the tomography conda environment
-
-### From the CHESS Compute Farm
-
-Log in to the CHESS Compute Farm and activate the `CHAP_tomo` environment:
-```bash
-source /nfs/chess/sw/miniforge3_chap/bin/activate
-```
-```bash
-conda activate CHAP_tomo
-```
-
-### From a local CHAP clone
+## Activating the tomography conda environment a local CHAP clone
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
 1. Install a local version of the CHAP package according to the {ref}`installation instructions <installation>`.
@@ -71,9 +59,17 @@ conda activate CHAP_tomo
     lens_magnification: 5.0
     ``` 
     Here, the prefix field must equal a detector ID field in the `detectors` list in the pipeline input file.
-1. Run the reconstruction:
+1. Run the reconstruction using your own `CHAP_tomo` conda environment:
    ```bash
    CHAP <pipelinefilename>
+   ```
+   or run the workflow using the latest production release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo <pipelinefilename>
+   ```
+   or the latest development release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/dev/CHAP_tomo <pipelinefilename>
    ```
 1. Respond to any prompts that pop up if running interactively.
 
@@ -85,7 +81,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
-   nexpy &
+   /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
    ```
 1. After the GUI pops up, click File -> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
 1. Double click on the base level `NXroot` field in the leftmost "NeXus Data" panel to view the reconstruction. Note that the `NXroot` name is always the basename of the output file.
@@ -191,7 +187,7 @@ pipeline:
 
 The CHAP tomography subpackage comes with several workflow examples, one of them for an CHESS ID3A beamline style experiment of a truncated hollow four sided pyramid made from a single homogeneous material.
 
-This example uses simulated raw imaging data that needs to be available in a specific location ahead of the reconstruction. If you are logged in on the CHESS Compute Farm, replace `<path_to_CHAP_clone_dir>` below with `/nfs/chess/sw/ChessAnalysisPipeline`, the path to the CHAP repository administrated by the CHAP developers. If not, replace it with the path to your local CHAP repository. In the later case, you will also need to create the raw data once, since it is not part of the cloned repository. To do so, create and activate your local CHAP_tomo conda environment as instructed above, navigate to your local CHAP repository, and execute:
+This example uses simulated raw imaging data that needs to be available in a specific location ahead of the reconstruction. If you are logged in on the CHESS Compute Farm, replace `<path_to_CHAP_clone_dir>` below with `/nfs/chess/sw/ChessAnalysisPipeline`, the path to the CHAP repository administrated by the CHAP developers. If not, replace it with the path to your local CHAP repository. In the later case, you will also need to create the raw data once, since it is not part of the cloned repository. To do so, create a clone and activate your local `CHAP_tomo` conda environment as instructed above, navigate to your local CHAP repository, and execute:
 ```bash
 CHAP examples/tomo/pipeline_id3a_pyramid_sim.yaml
 ```
@@ -271,8 +267,7 @@ To perform the reconstruction:
           find_center: true
           reconstruct_data: true
           combine_data: true
-          outputdir: saved_figs
-          save_figs: 'only'
+          save_figures: true
       - common.NexusWriter:
           filename: combined_hollow_pyramid.nxs
           force_overwrite: true
@@ -301,11 +296,13 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The "pipeline" block creates the actual workflow pipeline, it this example it consists of six toplevel processes that get executed successively:
+The "pipeline" block creates the actual workflow pipeline, it this example it consists of seven toplevel processes that get executed successively:
 
 - `common.MapProcessor`: A processor that creates a CHESS style map.
 
-- `pipeline.MultiplePipelineItem`: A processor that executes (in this case reads) three items and passes the inputs on to the next item in the pipeline.
+- `common.SpecReader`: A processors that reads a SPEC file, in this case called twice, once to read the dark field and a second time to read the bright field.
+
+- `common.YAMLReader`: A processor that reads a yml/yaml file, in this case the file with the detector info.
 
 - `tomo.TomoCHESSMapConverter`: A processor that converts the inputs to a CHESS style map.
 
