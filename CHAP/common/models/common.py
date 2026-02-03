@@ -75,6 +75,8 @@ class ImageProcessorConfig(CHAPBaseModel):
     :type fileformat: Literal['gif', 'jpeg', 'png', 'tif'], optional
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
+        Specify as [None, float] or [float, None] to set only the upper
+        or lower limit of the value range.
     :type vrange: list[float, float]
     """
     animation: Optional[bool] = False
@@ -90,7 +92,7 @@ class ImageProcessorConfig(CHAPBaseModel):
     fileformat: Optional[Literal['gif', 'jpeg', 'png', 'tif']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
-                item_type=confloat(allow_inf_nan=False))] = None
+                item_type=Union[None, confloat(allow_inf_nan=False)])] = None
 
     @field_validator('index_range', mode='before')
     @classmethod
@@ -120,5 +122,10 @@ class ImageProcessorConfig(CHAPBaseModel):
         :rtype: list[float, float]
         """
         if isinstance(vrange, (list, tuple)) and len(vrange) == 2:
-            return [min(vrange), max(vrange)]
+            if vrange[0] == 'None':
+                vrange[0] = None
+            if vrange[1] == 'None':
+                vrange[1] = None
+            if None not in vrange:
+                return [min(vrange), max(vrange)]
         return vrange
