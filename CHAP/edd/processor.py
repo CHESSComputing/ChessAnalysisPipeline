@@ -2777,12 +2777,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     schema='common.write.ImageWriter'))
         return tuple(ret)
 
-    def _add_fit_nxcollection(self, nxdetector, fit_type, hkls):
+    def _add_fit_nxcollection(self, nxdetector, fit_type, hkls, peak_fit_info):
         """Add the fit collection as a `nexusformat.nexus.NXcollection`
         object.
         """
         # Third party modules
         # pylint: disable=no-name-in-module
+        from json import dumps
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -2803,6 +2804,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxdata = nxcollection.results
         self._linkdims(nxdata, det_nxdata)
         nxdata.best_fit = NXfield(shape=shape, dtype=np.float64)
+        nxdata.included_peaks = NXfield(
+            shape=[shape[0], len(hkls)], dtype=bool)
+        nxdata.included_peaks.attrs['hkls'] = dumps(peak_fit_info['hkls'])
+        nxdata.included_peaks.attrs['use_peaks'] = peak_fit_info['use_peaks']
         nxdata.residual = NXfield(shape=shape, dtype=np.float64)
         nxdata.redchi = NXfield(shape=[shape[0]], dtype=np.float64)
         nxdata.success = NXfield(shape=[shape[0]], dtype='bool')
@@ -3044,10 +3049,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
 
             # Add the uniform fit nxcollection
-            self._add_fit_nxcollection(nxdetector, 'uniform', hkls_fit)
+            self._add_fit_nxcollection(
+                nxdetector, 'uniform', hkls_fit, peak_fit_info)
 
             # Add the unconstrained fit nxcollection
-            self._add_fit_nxcollection(nxdetector, 'unconstrained', hkls_fit)
+            self._add_fit_nxcollection(
+                nxdetector, 'unconstrained', hkls_fit, peak_fit_info)
 
             # Add the strain fields
             tth_map = detector.get_tth_map((num_points,))
@@ -3262,9 +3269,24 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             uniform_strains = np.log(
                 nominal_centers / uniform_results['centers'])
             uniform_strain = np.mean(uniform_strains, axis=0)
+            uniform_amplitudes_vary = np.moveaxis(
+                uniform_results['amplitudes_vary'], -1, 0)
             unconstrained_strains = np.log(
                 nominal_centers / unconstrained_results['centers'])
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
+            unconstrained_amplitudes_vary = np.moveaxis(
+                unconstrained_results['amplitudes_vary'], -1, 0)
+
+            # Insert the peaks omitted from the fit due to find_peak_cutoff
+            insert_peak_indices = [
+                vv-ii for ii, vv in enumerate(
+                    i for i, v in enumerate(use_peaks) if not v)]
+            uniform_amplitudes_vary = np.insert(
+                uniform_amplitudes_vary, insert_peak_indices, [False],
+                axis=-1)
+            unconstrained_amplitudes_vary = np.insert(
+                unconstrained_amplitudes_vary, insert_peak_indices, [False],
+                axis=-1)
             for i, point in enumerate(points):
                 point.update({
                     f'{detector.get_id()}/data/intensity': intensities[i],
@@ -3275,6 +3297,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         unconstrained_strain[i],
                     f'{detector.get_id()}/uniform_fit/results/best_fit':
                         uniform_results['best_fits'][i],
+                    f'{detector.get_id()}/uniform_fit/results/included_peaks':
+                        uniform_amplitudes_vary[i],
                     f'{detector.get_id()}/uniform_fit/results/residual':
                         uniform_results['residuals'][i],
                     f'{detector.get_id()}/uniform_fit/results/redchi':
@@ -3283,6 +3307,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         uniform_results['success'][i],
                     f'{detector.get_id()}/unconstrained_fit/results/best_fit':
                         unconstrained_results['best_fits'][i],
+                    f'{detector.get_id()}/unconstrained_fit/results/'
+                        'included_peaks': unconstrained_amplitudes_vary[i],
                     f'{detector.get_id()}/unconstrained_fit/results/residual':
                         unconstrained_results['residuals'][i],
                     f'{detector.get_id()}/unconstrained_fit/results/redchi':

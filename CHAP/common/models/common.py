@@ -122,10 +122,7 @@ class ImageProcessorConfig(CHAPBaseModel):
         :rtype: list[float, float]
         """
         if isinstance(vrange, (list, tuple)) and len(vrange) == 2:
-            if vrange[0] == 'None':
-                vrange[0] = None
-            if vrange[1] == 'None':
-                vrange[1] = None
             if None not in vrange:
                 return [min(vrange), max(vrange)]
-        return vrange
+        return [None if isinstance(i, str) and i.lower() == 'none' else i
+                for i in index_range]
