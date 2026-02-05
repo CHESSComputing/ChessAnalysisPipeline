@@ -1350,7 +1350,7 @@ def get_spectra_fits(
          'centers_range': detector.centers_range,
          'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
     config = {
-#        'code': 'lmfit',
+        'code': 'lmfit',
         'models': models,
 #        'plot': True,
         'num_proc': num_proc,
