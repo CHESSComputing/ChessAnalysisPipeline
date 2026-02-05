@@ -15,12 +15,14 @@ from typing import Optional
 import numpy as np
 from pydantic import (
     Field,
+    PrivateAttr,
     conint,
     field_validator,
 )
 
 # Local modules
 from CHAP import Processor
+from CHAP.common.models.common import ImageProcessorConfig
 from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
@@ -496,30 +498,35 @@ class ConvertStructuredProcessor(Processor):
 
 class ImageProcessor(Processor):
     """A Processor to perform various visualization operations on
-    images (slices) selected from a NeXus object."""
-    def __init__(self):
-        super().__init__()
-        self._figconfig = None
+    images (slices) selected from a NeXus object.
 
-    def process(self, data, config=None, save_figures=True):
+    :ivar config: Initialization parameters for an instance of
+        CHAP.common.models.ImageProcessorConfig
+    :type config: dict, optional
+    :ivar save_figures: Return the plottable image(s) to be written
+        to file downstream in the pipeline, defaults to `True`.
+    :type save_figures: bool, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'common.models.map.ImageProcessorConfig'}, init_var=True)
+    config: ImageProcessorConfig
+    save_figures: Optional[bool] = True
+
+    _figconfig: dict = PrivateAttr(default={})
+
+    def process(self, data):
         """Plot and/or return image slices from a NeXus NXobject
         object with a default plottable data path.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param config: Initialization parameters for an instance of
-            CHAP.common.models.ImageProcessorConfig
-        :type config: dict, optional
-        :param save_figures: Return the plottable image(s) to be
-            written to file downstream in the pipeline,
-            defaults to `True`.
-        :type save_figures: bool, optional
         :return: The plottable image(s) (for save_figures = `True`)
             or the input default NeXus NXdata object
             (for save_figures = `False`).
         :rtype: Union[bytes, nexusformat.nexus.NXdata, numpy.ndarray]
         """
-        if not save_figures and not self.interactive:
+        if not self.save_figures and not self.interactive:
             return None
 
         # Third party modules
@@ -535,27 +542,16 @@ class ImageProcessor(Processor):
                 'Unable the load the default NXdata object from the input '
                 f'pipeline ({data})') from exc
 
-        # Load the validated image processor configuration
-        if config is None:
-            # Local modules
-            from CHAP.common.models.common import ImageProcessorConfig
-
-            config = ImageProcessorConfig()
-        else:
-            config = self.get_config(
-                data, config=config,
-                schema='common.models.ImageProcessorConfig')
-
         # Get the axes info and image slice(s)
         try:
             data = nxdata.nxsignal
         except Exception as exc:
             raise ValueError('Unable the find the default signal in:\n'
                              f'({nxdata.tree})') from exc
-        axis = config.axis
+        axis = self.config.axis
         axes = nxdata.attrs.get('axes', None)
-        if axes is not None:
-            axes = list(axes.nxdata)
+        if isinstance(axes, str):
+            axes = [axes]
         if nxdata.nxsignal.ndim == 2:
             exit('ImageProcessor not tested yet for a 2D dataset')
             if axis is not None:
@@ -612,8 +608,8 @@ class ImageProcessor(Processor):
             axis_coords = nxdata[axis_name].nxdata
         else:
             raise ValueError('Invalid data dimension (must be 2D or 3D)')
-        if config.coord_range is None:
-            index_range = config.index_range
+        if self.config.coord_range is None:
+            index_range = self.config.index_range
         else:
             # Local modules
             from CHAP.utils.general import (
@@ -621,20 +617,22 @@ class ImageProcessor(Processor):
                 index_nearest_up,
             )
 
-            if config.index_range is not None:
+            if self.config.index_range is not None:
                 self.logger.warning('Ignoring parameter index_range')
-            if isinstance(config.coord_range, (int, float)):
+            if isinstance(self.config.coord_range, (int, float)):
                 index_range = index_nearest_up(
-                    axis_coords, config.coord_range)
-            elif len(config.coord_range) == 2:
+                    axis_coords, self.config.coord_range)
+            elif len(self.config.coord_range) == 2:
                 index_range = [
-                    index_nearest_up(axis_coords, config.coord_range[0]),
-                    index_nearest_down(axis_coords, config.coord_range[1])]
+                    index_nearest_up(axis_coords, self.config.coord_range[0]),
+                    index_nearest_down(
+                        axis_coords, self.config.coord_range[1])]
             else:
                 index_range = [
-                    index_nearest_up(axis_coords, config.coord_range[0]),
-                    index_nearest_down(axis_coords, config.coord_range[1]),
-                    int(max(1, config.coord_range[2] /
+                    index_nearest_up(axis_coords, self.config.coord_range[0]),
+                    index_nearest_down(
+                        axis_coords, self.config.coord_range[1]),
+                    int(max(1, self.config.coord_range[2] /
                         ((axis_coords[-1]-axis_coords[0])/data.shape[0])))]
         if index_range == -1:
             index_range = nxdata.nxsignal.shape[axis] // 2
@@ -645,10 +643,14 @@ class ImageProcessor(Processor):
             slice_ = slice(*tuple(index_range))
             data = data[slice_]
             axis_coords = axis_coords[slice_]
-        if config.vrange is None:
-            vrange = (data.min(), data.max())
+        if self.config.vrange is None:
+            vrange = (float(data.min()), float(data.max()))
         else:
-            vrange = config.vrange
+            vrange = self.config.vrange
+        if vrange[0] is None:
+            vrange[0] = float(data.min())
+        if vrange[1] is None:
+            vrange[1] = float(data.max())
 
         # Create the figure configuration
         self._figconfig = {
@@ -666,18 +668,18 @@ class ImageProcessor(Processor):
 
         if len(axis_coords) == 1:
             # Create a figure for a single image slice
-            if config.animation:
+            if self.config.animation:
                 self.logger.warning(
                     'Ignoring animation parameter for a single image')
                 fileformat = 'png'
-            if config.fileformat is None:
+            if self.config.fileformat is None:
                 fileformat = 'png'
             else:
-                fileformat = config.fileformat
+                fileformat = self.config.fileformat
             fig, plt = self._create_figure(np.squeeze(data))
             if self.interactive:
                 plt.show()
-            if save_figures:
+            if self.save_figures:
                 # Local modules
                 from CHAP.utils.general import fig_to_iobuf
 
@@ -686,29 +688,29 @@ class ImageProcessor(Processor):
             else:
                 buf = None
             plt.close()
-            if save_figures:
+            if self.save_figures:
                 return {'image_data': buf, 'fileformat': fileformat}
             return nxdata
 
         # Create an animation for a set of image slices
-        if self.interactive or config.animation:
+        if self.interactive or self.config.animation:
             ani = self._create_animation(data)
         else:
             ani = None
 
-        if save_figures:
-            if config.animation:
+        if self.save_figures:
+            if self.config.animation:
                 # Return the animation object
-                if (config.fileformat is not None
-                        and config.fileformat != 'gif'):
+                if (self.config.fileformat is not None
+                        and self.config.fileformat != 'gif'):
                     self.logger.warning(
                         'Ignoring inconsistent file extension')
                 fileformat = 'gif'
                 image_data = ani
             else:
                 # Return the set of image slices as a tif stack
-                if (config.fileformat is not None
-                        and config.fileformat != 'tif'):
+                if (self.config.fileformat is not None
+                        and self.config.fileformat != 'tif'):
                     self.logger.warning(
                         'Ignoring inconsistent file extension')
                 fileformat = 'tif'
@@ -1103,14 +1105,18 @@ class MapProcessor(Processor):
             if unique.size == 1:
                 constant_dim.append(i)
         nxentry.independent_dimensions = NXdata()
-        for i, dim in enumerate(self.config.independent_dimensions):
-            if i not in constant_dim:
-                nxentry.independent_dimensions[dim.label] = NXfield(
-                    independent_dimensions[i], dim.label,
-                    attrs={'units': dim.units,
-                           'long_name': f'{dim.label} ({dim.units})',
-                           'data_type': dim.data_type,
-                           'local_name': dim.name})
+        if len(constant_dim) < len(self.config.independent_dimensions):
+            for i, dim in enumerate(self.config.independent_dimensions):
+                if i not in constant_dim:
+                    nxentry.independent_dimensions[dim.label] = NXfield(
+                        independent_dimensions[i], dim.label,
+                        attrs={'units': dim.units,
+                               'long_name': f'{dim.label} ({dim.units})',
+                               'data_type': dim.data_type,
+                               'local_name': dim.name})
+        else:
+            nxentry.independent_dimensions.index = NXfield(
+                np.arange(independent_dimensions[0].size), 'index')
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
