@@ -254,8 +254,50 @@ CHESS data in, .zarr data out
 #### Example
 
 ## Notes on corrections calculations
-Take from saxswaxsworkflow wiki
+There are currently three convenience tools available for performing corrections: `saxswaxs.FluxCorrectionProcessor`, `saxswaxs.FluxAbsorptionCorrectionProcessor`, and `saxswaxs.FluxAbsorptionBackrgroundCorrectionProcessor`. The exact calculations that each ones performs are detailed below.
 
+### Definitions
+- $I_{uncorrected}$ is the uncorrected, integrated dataset. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: intensity`.
+- $I_{incident}$ is the presample intensity dataset. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: presample_intensity`.
+- $I_{transmitted}$ is the postsample intensity dataset. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: postsample_intensity`.
+- $t_{dwell}$ is the scan's dwell time at each point in the map configuration to which the correction tool is applied.  When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: dwell_time_actual`.
+- $I_{background}$ is the background integrated detector data. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: background_intensity`.
+- $I_{incident, background}$ is the background presample intensity. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: background_presample_intensity`.
+- $I_{transmitted, background}$ is the background postsample intensity. When reading this data as input for a `saxswaxs.*CorrectionProcessor`, use `name: background_postsample_intensity`.
+- $\phi_{reference}$ is `presample_intensity_reference_rate` in the correction tool's own parameters. However, if `presample_intensity_reference_rate` was not given in the tool's configuration, a value for this quantity will be calculated with:
+```math
+\phi_{reference} = \frac{\overline{I_{incident}}}{\overline{t_{dwell}}}
+```
+- $T = \frac{I_{transmitted}}{I_{incident}} / \frac{I_{transmitted, background}}{I_{incident, background}}$
+- $t$ is the sample thickness in $cm$. This quantity only appears in `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`. The value of this parameter can be set in one of two ways:
+  1. Use the `sample_thickness_cm` parameter of `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`, OR
+  2. Use the `sample_mu_inv_cm` ("$\mu$") parameter of `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`. $\mu$ is known as the the linear attenuation coefficient of the sample, and is related to the _mass_ attenuation coefficient, $(\mu/\rho)$ [cm$^2$/g], by the sample density. Tabulated values of the $(\mu/\rho)(E)$ for each element are available here: https://physics.nist.gov/PhysRefData/XrayMassCoef/tab3.html. For our purposes:
+    ```math
+    t = \frac{-\ln{T}}{\mu}
+    ```
+  - NB: When using `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`, do not use both the `sample_thickness_cm` _and_ `sample_mu_inv_cm` parameters at the same time. Specifying both parameters makes the definition of the sample thickness ambiguous. The Processor will raise an error if both parameters are supplied.
+- $C_f$ is the scalar factor for putting flux, absorption, background, and thickness corrected data into absolute intensity units. Taken directly from the `absolute_intensity_scalar` parameter from the correction tool config file.
+
+### `saxswaxs.FluxCorrectionProcessor`
+```math
+I_{corrected} = I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+```
+### `saxswaxs.FluxAbsorptionCorrectionProcessor`
+```math
+I_{corrected} = \frac{1}{T} * I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+```
+### `saxswaxs.FluxAbsoprtionBackgroundCorrectionProcessor`
+
+This tool functions differently depending on what parameters are provided:
+
+- If neither `sample_thickness_cm` or `sample_mu_inv_cm` are provided:
+```math
+I_{corrected} = (I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})
+```
+- If either `sample_thickness_cm` or `sample_mu_inv_cm` are provided:
+```math
+I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})]
+```
 
 ## Configuring a pipeline
 
