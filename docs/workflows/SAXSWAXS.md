@@ -7,6 +7,7 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
 
 ### General overview
 
+#### Setup
 #. Setup a container for the complete raw and processed dataset
    First, we set up a container to hold the raw and processed datasets before any processing begins. This step needs the following information to allocate an appropriate amount of space:
    #. Dataset size
@@ -52,7 +53,7 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
        force_overwrite: true   
    ```
    
-
+#### Update
 #. Fill container with processed data
    Next, we read in the raw data and perform the configured integration(s). To get the best performance for large datasets, this step should be performed across multiple pipeline processes runnning in parallel. Each process will handle reading, processing, and writing just one part of the whole dataset -- exactly _one chunk_ of each array in the container set up previously, to be precise. To fill the container from the previous step with processed data, each parallel process will need to know the following information:
    #. The spec file for the scan whose data will be processed
@@ -96,6 +97,7 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
        filename: data.zarr
    ```
 
+#### Finalize
 #. Perform final user adjustments
    These "final adjustments" are all optional, but they can include the following:
    - converting from .zarr format to NeXus file format
@@ -300,16 +302,111 @@ I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{refe
 ```
 
 ## Configuring a pipeline
-
-### PyfaiIntegrationProcessorConfig examples
-
-### Pipeline examples
+Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. *Both* these configurations will need to be read in to the pipeline for [the setup step](#setup) and every [update step](#update).
+#. `map_config.yaml` (configuraing a `CHAP.common.models.map.MapConfig`)
+   This configuration contains everything `CHAP` needs to know about the location, format, and size of the raw input dataset.
+   Example `map_config.yaml`:
+   ```yaml
+   validate_data_present: false
+   title: spec_file_012
+   station: id3b
+   experiment_type: SAXSWAXS
+   sample:
+     name: spec_file
+   spec_scans:
+   - spec_file: spec_file
+     scan_numbers:
+     - 12
+   independent_dimensions:
+   - label: samx
+     units: unknown units
+     data_type: spec_motor
+     name: samx
+   - label: samz
+     units: unknown units
+     data_type: spec_motor
+     name: samz
+   dwell_time_actual:
+     data_type: scan_column
+     name: mcs0
+   presample_intensity:
+     data_type: scan_column
+     name: ic3
+   scalar_data: []
+   postsample_intensity:
+     data_type: scan_column
+     name: diode
+   ```
+#. `pyfai_integration_procesor_config.yaml` (configuring a `CHAP.common.models.integration.PyFaiIntegrationProcessorConfig`)
+   This configuration contains the instructions for performing one or more kinds of integrations on the raw input dataset.
+   Example `pyfai_integration_processor_config.yaml`:
+   ```yaml
+   azimuthal_integrators:
+   - id: PIL9
+     poni_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/LaB6_PIL9_10.30.2024.poni
+     mask_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/PIL9_mask.tif
+   - id: PIL11
+     poni_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/LaB6_PIL11_10.30.2024.poni
+     mask_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/PIL11_mask.tif
+   integrations:
+   - name: waxs_azimuthal
+     multi_geometry:
+       ais:
+       - PIL9
+       - PIL11
+       unit: q_A^-1
+       radial_range:
+       - 0.6
+       - 4.1
+       azimuth_range:
+       - -180.0
+       - 180.0
+     integration_method: integrate1d
+     integration_params:
+       npt: 200
+       method: bbox_csr_cython
+   - name: waxs_cake
+     multi_geometry:
+       ais:
+       - PIL9
+       - PIL11
+       unit: q_A^-1
+       radial_range:
+       - 0.6
+       - 4.1
+       azimuth_range:
+       - -180.0
+       - 180.0
+     integration_method: integrate2d
+     integration_params:
+       npt_rad: 180
+       npt_azim: 360
+       method: bbox_csr_cython
+   - name: waxs_radial
+     integration_method: integrate_radial
+     integration_params:
+       ais:
+       - PIL9
+       - PIL11
+       npt: 360
+       npt_rad: 300
+       radial_range:
+       - 0.6
+       - 4.1
+       azimuth_range:
+       - -180.0
+       - 180.0
+       unit: chi_deg
+       radial_unit: q_A^-1
+       method: bbox_csr_cython
+   ```
 
 
 ## Running a workflow
 
 ### At CLASSE
 Use environment: `source /nfs/chess/sw/miniforge3_chap/bin/activate; conda activate CHAP_saxswaxs`
+And/or add this to your ~/.bashrc: `alias CHAP_saxswaxs='/nfs/chess/sw/miniforge3_chap/envs/CHAP_saxswaxs/bin/CHAP'`
 
 ### Batch jobs
 Drop in & replace: PyfaiIntegrationProcessorConfig
