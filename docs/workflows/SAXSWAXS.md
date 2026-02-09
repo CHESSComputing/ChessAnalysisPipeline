@@ -274,9 +274,9 @@ There are currently three convenience tools available for performing corrections
 - $t$ is the sample thickness in $cm$. This quantity only appears in `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`. The value of this parameter can be set in one of two ways:
   1. Use the `sample_thickness_cm` parameter of `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`, OR
   2. Use the `sample_mu_inv_cm` ("$\mu$") parameter of `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`. $\mu$ is known as the the linear attenuation coefficient of the sample, and is related to the _mass_ attenuation coefficient, $(\mu/\rho)$ [cm$^2$/g], by the sample density. Tabulated values of the $(\mu/\rho)(E)$ for each element are available here: https://physics.nist.gov/PhysRefData/XrayMassCoef/tab3.html. For our purposes:
-    ```math
-    t = \frac{-\ln{T}}{\mu}
-    ```
+```math
+t = \frac{-\ln{T}}{\mu}
+```
   - NB: When using `saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor`, do not use both the `sample_thickness_cm` _and_ `sample_mu_inv_cm` parameters at the same time. Specifying both parameters makes the definition of the sample thickness ambiguous. The Processor will raise an error if both parameters are supplied.
 - $C_f$ is the scalar factor for putting flux, absorption, background, and thickness corrected data into absolute intensity units. Taken directly from the `absolute_intensity_scalar` parameter from the correction tool config file.
 
