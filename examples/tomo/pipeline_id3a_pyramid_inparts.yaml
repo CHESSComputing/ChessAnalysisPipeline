@@ -1,0 +1,150 @@
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: hollow_pyramid_in_parts
+  interactive: false
+  log_level: INFO
+  profile: false
+
+map:
+
+  # Convert the CHESS style map
+  - common.MapProcessor:
+      config:
+        title: hollow_pyramid
+        station: id3a
+        experiment_type: TOMO
+        sample:
+          name: hollow_pyramid
+        spec_scans:
+        - spec_file: ../data/hollow_pyramid/spec.log
+          scan_numbers: [3, 4, 5]
+        independent_dimensions:
+        - label: rotation_angles
+          units: degrees
+          data_type: scan_column
+          name: theta
+        - label: x_translation
+          units: mm
+          data_type: smb_par
+          name: ramsx
+        - label: z_translation
+          units: mm
+          data_type: smb_par
+          name: ramsz
+      detector_config:
+        detectors:
+          - id: sim
+      num_proc: 1
+      schema: tomofields
+#  - common.NexusWriter:
+#      filename: map_hollow_pyramid.nxs
+#      force_overwrite: true
+  - common.SpecReader:
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: ../data/hollow_pyramid/spec.log
+          scan_numbers: 1
+      detector_config:
+        detectors:
+          - id: sim
+      schema: darkfield
+  - common.SpecReader:
+      inputdir: ../data/hollow_pyramid
+      config:
+        station: id3a
+        experiment_type: TOMO
+        spec_scans:
+        - spec_file: spec.log
+          scan_numbers: 2
+      detector_config:
+        detectors:
+          - id: sim
+      schema: brightfield
+  - common.YAMLReader:
+      filename: detector_pyramid.yaml
+      schema: tomo.models.Detector
+  - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: chess_map_hollow_pyramid.nxs
+      force_overwrite: true
+
+reduce:
+
+  # Reduce tomography images
+  - common.NexusReader:
+      filename: chess_map_hollow_pyramid.nxs
+  - tomo.TomoDataProcessor:
+      reduce_data: true
+      save_figures: true
+  - common.NexusWriter:
+      filename: reduced_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+findcenter:
+
+  # Find rotation axis centers for the tomography stacks
+  - common.NexusReader:
+      filename: reduced_hollow_pyramid.nxs
+  - common.YAMLReader:
+      filename: find_center_id3a.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - tomo.TomoDataProcessor:
+      save_figures: true
+  - common.YAMLWriter:
+      filename: centers.yaml
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+reconstruct:
+
+  # Reconstruct tomography stacks
+  - common.NexusReader:
+      filename: reduced_hollow_pyramid.nxs
+  - common.YAMLReader:
+      filename: centers.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - common.YAMLReader:
+      filename: reconstruct_data.yaml
+      schema: tomo.models.TomoReconstructConfig
+  - tomo.TomoDataProcessor:
+      save_figures: true
+  - common.NexusWriter:
+      filename: reconstructed_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+combine:
+
+  # Combine reconstructed tomography stacks
+  - common.NexusReader:
+      filename: reconstructed_hollow_pyramid.nxs
+  - common.YAMLReader:
+      filename: combine_data_id3a.yaml
+      schema: tomo.models.TomoCombineConfig
+  - tomo.TomoDataProcessor:
+      save_figures: true
+  - common.NexusWriter:
+      filename: combined_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+#foxden:
+#
+#  - foxden.FoxdenMetadataProcessor
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'

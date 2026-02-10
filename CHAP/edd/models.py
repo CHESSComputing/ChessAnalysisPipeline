@@ -3,9 +3,7 @@
 # System modules
 from copy import deepcopy
 import os
-from pathlib import PosixPath
 from typing import (
-    Dict,
     Literal,
     Optional,
     Union,
@@ -14,8 +12,8 @@ from typing import (
 # Third party modules
 import numpy as np
 from hexrd.material import Material
+#from CHAP.utils.material import Material
 from pydantic import (
-    DirectoryPath,
     Field,
     FilePath,
     PrivateAttr,
@@ -82,11 +80,11 @@ class FitConfig(CHAPBaseModel):
     :type energy_mask_ranges: list[[float, float]], optional
     :ivar fwhm_min: Minimum FWHM for peak fitting (in MCA channels
         for calibration or keV for strain analysis). Defaults to `3`
-        for calibration and `0.25` for analysis.
+        for calibration and `0.25` for strain analysis.
     :type fwhm_min: float, optional
     :ivar fwhm_max: Maximum FWHM for peak fitting (in MCA channels
         for calibration or keV for strain analysis). Defaults to `25`
-        for calibration and `2.0` for analysis.
+        for calibration and `2.0` for strain analysis.
     :type fwhm_max: float, optional
     :ivar mask_ranges: List of MCA channel bin ranges for selecting
         the data to be included in the energy calibration after
@@ -100,15 +98,15 @@ class FitConfig(CHAPBaseModel):
     background: Optional[conlist(item_type=constr(
         strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
-    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     energy_mask_ranges: Optional[conlist(
         min_length=1,
         item_type=conlist(
             min_length=2,
             max_length=2,
             item_type=confloat(allow_inf_nan=False)))] = None
-    fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = None
-    fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 3
+    fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 25
     mask_ranges: Optional[conlist(
         min_length=1,
         item_type=conlist(
@@ -116,10 +114,6 @@ class FitConfig(CHAPBaseModel):
             max_length=2,
             item_type=conint(ge=0)))] = None
     backgroundpeaks: Optional[Multipeak] = None
-
-    _default_centers_range: bool = PrivateAttr(default=False)
-    _default_fwhm_min: bool = PrivateAttr(default=False)
-    _default_fwhm_max: bool = PrivateAttr(default=False)
 
     @field_validator('background', mode='before')
     @classmethod
@@ -183,19 +177,6 @@ class FitConfig(CHAPBaseModel):
             return sorted([sorted(v) for v in mask_ranges])
         return mask_ranges
 
-    def get_privateattr(self, field):
-        """Return the default value for a model field if it has an
-        associated default private attribute. 
-
-        :ivar field: Model field name.
-        :type field: str
-        :return: Associated default private attribute if defined,
-            otherwise `None`.
-        :rtype: Any
-        """
-        if hasattr(self, f'_default_{field}'):
-            return getattr(self, f'_default_{field}')
-        return None
 
 # Material configuration class
 
@@ -221,17 +202,23 @@ class MaterialConfig(CHAPBaseModel):
     _material: Optional[Material]
 
     @model_validator(mode='after')
-    def validate_material(self):
+    def validate_materialconfig_after(self):
         """Create and validate the private attribute _material.
 
         :return: The validated list of class properties.
-        :rtype: dict
+        :rtype: MaterialConfig
         """
         # Local modules
         from CHAP.edd.utils import make_material
+#        from CHAP.utils.material import Material
 
         self._material = make_material(
             self.material_name, self.sgnum, self.lattice_parameters)
+#        self._material = Material.make_material(
+#            self.material_name, sgnum=self.sgnum,
+#            lattice_parameters_angstroms=self.lattice_parameters,
+#            pos=['4a', '8c'])
+            #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
         self.lattice_parameters = list([
             x.getVal('angstrom') if x.isLength() else x.getVal('radians')
             for x in self._material._lparms])
@@ -240,9 +227,9 @@ class MaterialConfig(CHAPBaseModel):
 
 # Detector configuration classes
 
-class MCAElementConfig(Detector, FitConfig):
+class MCADetectorCalibration(Detector, FitConfig):
     """Class representing metadata required to configure a single MCA
-    detector element.
+    detector element to perform detector calibration.
 
     :ivar energy_calibration_coeffs: Detector channel index to energy
         polynomial conversion coefficients ([a, b, c] with
@@ -262,6 +249,7 @@ class MCAElementConfig(Detector, FitConfig):
         the global one in MCATthCalibrationConfig.
     :type tth_initial_guess: float, optional
     """
+    processor_type: Literal['calibration']
     energy_calibration_coeffs: Optional[conlist(
         min_length=3, max_length=3,
         item_type=confloat(allow_inf_nan=False))] = None
@@ -279,40 +267,21 @@ class MCAElementConfig(Detector, FitConfig):
             item_type=conint(ge=0))) = PrivateAttr()
     _hkl_indices: list = PrivateAttr()
 
-    @model_validator(mode='after')
-    def validate_fitconfig(self):
-        """Set the defaults for `FitConfig` parameters `centers_range`,
-        `fwhm_min` and `fwhm_max`.
-
-        :return: Updated `centers_range`, `fwhm_min` and `fwhm_max`
-            parameters.
-        :rtype: MCAEnergyCalibrationConfig
-        """
-        if self.centers_range is None:
-            self.centers_range = 20
-            self._default_centers_range = True
-        if self.fwhm_min is None:
-            self.fwhm_min = 3
-            self._default_fwhm_min = True
-        if self.fwhm_max is None:
-            self.fwhm_max = 25
-            self._default_fwhm_max = True
-        return self
-
-    def add_calibration(self, calibration):
-        """Finalize values for some fields using a calibration
-        MCAElementConfig corresponding to the same detector.
-
-        :param calibration: Existing calibration configuration.
-        :type calibration: MCAElementConfig
-        """
-        for field in ['energy_calibration_coeffs', 'num_bins',
-                      '_energy_calibration_mask_ranges']:
-            setattr(self, field, deepcopy(getattr(calibration, field)))
-        if self.tth_calibrated is not None:
-            self.logger.warning(
-                'Ignoring tth_calibrated in calibration configuration')
-            self.tth_calibrated = None
+#    def add_calibration(self, calibration):
+#        """Finalize values for some fields using a calibration
+#        MCADetectorCalibration corresponding to the same detector.
+#
+#        :param calibration: Existing calibration configuration.
+#        :type calibration: MCADetectorCalibration
+#        """
+#        raise RuntimeError('To do')
+#        for field in ['energy_calibration_coeffs', 'num_bins',
+#                      '_energy_calibration_mask_ranges']:
+#            setattr(self, field, deepcopy(getattr(calibration, field)))
+#        if self.tth_calibrated is not None:
+#            self.logger.warning(
+#                'Ignoring tth_calibrated in calibration configuration')
+#            self.tth_calibrated = None
 
     @property
     def energies(self):
@@ -387,8 +356,11 @@ class MCAElementConfig(Detector, FitConfig):
                 np.logical_and(channel_bins >= min_, channel_bins <= max_))
         return mask
 
+    def set_energy_calibration_mask_ranges(self):
+        self._energy_calibration_mask_ranges = deepcopy(self.mask_ranges)
 
-class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
+
+class MCADetectorDiffractionVolumeLength(MCADetectorCalibration):
     """Class representing metadata required to perform a diffraction
     volume length measurement for a single MCA detector element.
 
@@ -401,18 +373,26 @@ class MCAElementDiffractionVolumeLengthConfig(MCAElementConfig):
     :ivar fit_sigma: Sigma of the Gaussian fit.
     :type fit_sigma: float, optional
     """
+    processor_type: Literal['diffractionvolumelength']
     dvl: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     fit_amplitude: Optional[float] = None
     fit_center: Optional[float] = None
     fit_sigma: Optional[float] = None
 
 
-class MCAElementStrainAnalysisConfig(MCAElementConfig):
+class MCADetectorStrainAnalysis(MCADetectorCalibration):
     """Class representing metadata required to perform a strain
     analysis.
 
-    :ivar num_proc: Number of processors used for peak fitting.
-    :type num_proc: int, optional
+    :ivar centers_range: Peak centers range for peak fitting.
+        The allowed range for the peak centers will be the initial
+        values &pm; `centers_range` (in keV), defaults to `2.0`.
+    :type centers_range: float, optional
+    :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),
+        defaults to `0.25`.
+    :type fwhm_min: float, optional
+    :ivar fwhm_max: Maximum FWHM for peak fitting (in keV),
+        defaults to `2.0`.
     :ivar peak_models: Peak model for peak fitting,
         defaults to `'gaussian'`.
     :type peak_models: Literal['gaussian', 'lorentzian']],
@@ -427,7 +407,10 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
     :ivar tth_map: Map of the 2&theta values.
     :type tth_map: numpy.ndarray, optional
     """
-    num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
+    centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 2
+    fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.25
+    fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
+    processor_type: Literal['strainanalysis']
     peak_models: Union[
         conlist(min_length=1, item_type=Literal['gaussian', 'lorentzian']),
         Literal['gaussian', 'lorentzian']] = 'gaussian'
@@ -445,11 +428,11 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
 
     def add_calibration(self, calibration):
         """Finalize values for some fields using a tth calibration
-        MCAElementConfig corresponding to the same detector.
+        MCADetectorStrainAnalysis corresponding to the same detector.
 
         :param calibration: Existing calibration configuration to use
             by MCAElementStrainAnalysisConfig.
-        :type calibration: MCAElementConfig
+        :type calibration: MCADetectorStrainAnalysis
         """
         for field in ['energy_calibration_coeffs', 'num_bins',
                       'tth_calibrated']:
@@ -497,6 +480,62 @@ class MCAElementStrainAnalysisConfig(MCAElementConfig):
         return np.full(map_shape, self.tth_calibrated)
 
 
+MCADetector = Annotated[
+    Union[
+        MCADetectorCalibration,
+        MCADetectorDiffractionVolumeLength,
+        MCADetectorStrainAnalysis],
+    Field(discriminator='processor_type')
+]
+
+
+class MCADetectorConfig(FitConfig):
+    """Class representing metadata required to configure a full MCA
+    detector.
+
+    :ivar detectors: List of individual MCA detector elements.
+    :type detectors: list[MCADetector], optional
+    """
+    processor_type: Literal[
+        'calibration', 'diffractionvolumelength', 'strainanalysis']
+    detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
+
+    _exclude = set(vars(FitConfig()).keys())
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_mcadetectorconfig_before(cls, data):
+        if isinstance(data, dict):
+            processor_type = data.get('processor_type').lower()
+            if 'detectors' in data:
+                detectors = data.pop('detectors')
+                for d in detectors:
+                    d['processor_type'] = processor_type
+                    attrs = d.pop('attrs', {})
+                    if 'default_fields' in attrs:
+                        attrs.pop('default_fields')
+                    if attrs:
+                        d['attrs'] = attrs
+                data['detectors'] = detectors
+        return data
+
+    @model_validator(mode='after')
+    def validate_mcadetectorconfig_after(self):
+        if self.detectors:
+            self.update_detectors()
+        return self
+
+    def update_detectors(self):
+        """Update individual detector parameters with any non-default
+        values from the global detector configuration.
+        """
+        for k, v in self:
+            if k in self.model_fields_set:
+                for d in self.detectors:
+                    if hasattr(d, k):
+                        setattr(d, k, deepcopy(v))
+
+
 # Processor configuration classes
 
 class DiffractionVolumeLengthConfig(FitConfig):
@@ -504,9 +543,6 @@ class DiffractionVolumeLengthConfig(FitConfig):
     volume length calculation for an EDD setup using a steel-foil
     raster scan.
 
-    :ivar detectors: List of individual MCA detector element
-        DVL measurement configurations.
-    :type detectors: list[MCAElementDiffractionVolumeLengthConfig]
     :ivar max_energy_kev: Maximum channel energy of the MCA in
         keV, defaults to `200.0`.
     :type max_energy_kev: float, optional
@@ -524,58 +560,30 @@ class DiffractionVolumeLengthConfig(FitConfig):
         gaussian fit to the measured DVL, defaults to `3.5`.
     :type sigma_to_dvl_factor: Literal[2.0, 3.5, 4.0], optional
     """
-    detectors: Optional[
-        conlist(item_type=MCAElementDiffractionVolumeLengthConfig)] = None
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
-    sample_thickness: confloat(gt=0, allow_inf_nan=False)
+    sample_thickness: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     sigma_to_dvl_factor: Optional[Literal[2.0, 3.5, 4.0]] = 3.5
 
     _exclude = set(vars(FitConfig()).keys())
 
     @model_validator(mode='after')
-    def validate_config(self):
+    def validate_diffractionvolumelengthconfig_after(self):
         """Update the configuration with costum defaults after the
         normal native pydantic validation.
 
         :return: Updated energy calibration configuration class.
         :rtype: DiffractionVolumeLengthConfig
         """
-        if self.detectors is not None:
-            warning = False
-            if self.energy_mask_ranges:
-                self.energy_mask_ranges = None
-                warning = True
-            for detector in self.detectors:
-                if detector.energy_mask_ranges:
-                    detector.energy_mask_ranges = None
-                    warning = True
-            if warning:
-                print('Ignoring energy_mask_ranges parameter for energy '
-                      'calibration')
-            self.update_detectors()
         if self.measurement_mode == 'manual':
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
 
-#    def update_detectors(self):
-#        """Update any detector configuration parameters not superseded
-#        by individual detector values.
-#        """
-#        if self.detectors is not None:
-#            for detector in self.detectors:
-#                for k in self.__dict__:
-#                    if hasattr(detector, k) and getattr(detector, k) is None:
-#                        setattr(detector, k, deepcopy(getattr(self, k)))
 
-
-class MCACalibrationConfig(FitConfig):
+class MCACalibrationConfig(CHAPBaseModel):
     """Base class representing metadata required to perform an energy
     or 2&theta calibration of an MCA detector.
 
-    :ivar inputdir: Input directory, used only if any file in the
-        configuration is not an absolute path.
-    :type inputdir: str, optional
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
     :type flux_file: str, optional
@@ -593,21 +601,18 @@ class MCACalibrationConfig(FitConfig):
     Note: Fluorescence data:
         https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
     """
-    inputdir: Optional[DirectoryPath] = Field(None, exclude=True)
     flux_file: Optional[FilePath] = None
     materials: Optional[conlist(item_type=MaterialConfig)] = [MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)]
     peak_energies: Optional[conlist(
-        min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))] = None
-    scan_step_indices: Optional[Annotated[conlist(
-        min_length=1, item_type=conint(ge=0)),
-        Field(validate_default=True)]] = None
-
-    _exclude = set(vars(FitConfig()).keys())
+        min_length=2, item_type=confloat(gt=0, allow_inf_nan=False))] = [
+            34.279, 34.720, 39.258, 40.233]
+    scan_step_indices: Optional[
+        conlist(min_length=1, item_type=conint(ge=0))] = None
 
     @model_validator(mode='before')
     @classmethod
-    def validate_config(cls, data):
+    def validate_mcacalibrationconfig_before(cls, data):
         """Ensure that a valid configuration was provided and finalize
         flux_file filepath.
 
@@ -674,42 +679,33 @@ class MCACalibrationConfig(FitConfig):
         interpolation_function = interp1d(energies, relative_intensities)
         return interpolation_function
 
-    def update_detectors(self):
-        """Update any detector configuration parameters not superseded
-        by individual detector values.
-        """
-        for detector in self.detectors:
-            for k in self.__dict__:
-                if hasattr(detector, k):
-                    v = getattr(self, k)
-                    have_default = detector.get_privateattr(k)
-                    if have_default is None and v is not None:
-                        setattr(detector, k, deepcopy(v))
-                    elif have_default and v is not None:
-                        setattr(detector, k, deepcopy(v))
-                        detector._default_centers_range = False
-
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     """Base class representing metadata required to perform an energy
     calibration of an MCA detector.
 
-    :ivar detectors: List of individual MCA detector element
-        calibration configurations.
-    :type detectors: list[MCAElementConfig], optional
     :ivar max_energy_kev: Maximum channel energy of the MCA in
         keV, defaults to `200.0`.
     :type max_energy_kev: float, optional
     :ivar max_peak_index: Index of the peak in `peak_energies`
-        with the highest amplitude.
-    :type max_peak_index: int
+        with the highest amplitude, defaults to `1` (the second peak)
+        for CeO2 calibration. Required for any other materials.
+    :type max_peak_index: int, optional
     """
-    detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
-    max_peak_index: conint(ge=0)
+    max_peak_index: Optional[conint(ge=0)] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_mcaenergycalibrationconfig_before(cls, data):
+        if isinstance(data, dict):
+            detectors = data.pop('detectors', None)
+            if detectors is not None:
+                data['detector_config'] = {'detectors': detectors}
+        return data
 
     @model_validator(mode='after')
-    def validate_detectors(self):
+    def validate_mcaenergycalibrationconfig_after(self):
         """Validate the detector (energy) mask ranges and update any
         detector configuration parameters not superseded by their
         individual values.
@@ -717,37 +713,23 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         :return: Updated energy calibration configuration class.
         :rtype: MCAEnergyCalibrationConfig
         """
-        if self.detectors is None:
-            return self
-        warning = False
-        if self.energy_mask_ranges:
-            self.energy_mask_ranges = None
-            warning = True
-        if self.detectors is not None:
-            for detector in self.detectors:
-                if detector.energy_mask_ranges:
-                    detector.energy_mask_ranges = None
-                    warning = True
-        if warning:
-            print('Ignoring energy_mask_ranges parameter for energy '
-                  'calibration')
-        self.update_detectors()
-        return self
-
-    @model_validator(mode='after')
-    def validate_peak_energies(self):
-        """Validate the specified index of the XRF peak with the
-        highest amplitude against the number of peak energies.
-
-        :return: Validated energy calibration configuration class.
-        :rtype: MCAEnergyCalibrationConfig
-        """
         if self.peak_energies is None:
             raise ValueError('peak_energies is required')
-        if not 0 <= self.max_peak_index < len(self.peak_energies):
+        if (self.max_peak_index is not None
+                and not 0 <= self.max_peak_index < len(self.peak_energies)):
             raise ValueError('max_peak_index out of bounds')
         return self
 
+    @field_validator('max_peak_index', mode='before')
+    @classmethod
+    def validate_max_peak_index(cls, max_peak_index, info):
+        if max_peak_index is None:
+            materials = info.data.get('materials', [])
+            if len(materials) != 1 or materials[0].material_name != 'CeO2':
+                raise ValueError('max_peak_index is required unless the '
+                                 'calibration material is CeO2')
+            max_peak_index = 1
+        return max_peak_index
 
 class MCATthCalibrationConfig(MCACalibrationConfig):
     """Class representing metadata required to perform a 2&theta
@@ -759,7 +741,6 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
         Literal['direct_fit_bragg', 'direct_fit_tth_ecc'], optional
     :ivar detectors: List of individual MCA detector element
         calibration configurations.
-    :type detectors: list[MCAElementConfig], optional
     :ivar quadratic_energy_calibration: Adds a quadratic term to
         the detector channel index to energy conversion, defaults
         to `False` (linear only).
@@ -769,35 +750,9 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     """
     calibration_method: Optional[Literal[
         'direct_fit_bragg', 'direct_fit_tth_ecc']] = 'direct_fit_bragg'
-    detectors: Optional[conlist(item_type=MCAElementConfig)] = None
     quadratic_energy_calibration: Optional[bool] = False
     tth_initial_guess: Optional[
         confloat(gt=0, allow_inf_nan=False)] = Field(None, exclude=True)
-
-    @model_validator(mode='after')
-    def validate_detectors(self):
-        """Validate the detector (energy) mask ranges.
-
-        :return: Updated tth calibration configuration class.
-        :rtype: MCATthCalibrationConfig
-        """
-        if self.detectors is None:
-            return self
-        warning = False
-        if self.mask_ranges:
-            self.mask_ranges = None
-            warning = True
-        if self.detectors is not None:
-            for detector in self.detectors:
-                if detector.mask_ranges:
-                    detector._energy_calibration_mask_ranges = deepcopy(
-                        detector.mask_ranges)
-                    detector.mask_ranges = None
-                    warning = True
-        if warning:
-            print('Ignoring mask_ranges parameter for tth calibration')
-        self.update_detectors()
-        return self
 
     def flux_file_energy_range(self):
         """Get the energy range in the flux corection file.
@@ -816,16 +771,21 @@ class StrainAnalysisConfig(MCACalibrationConfig):
     """Class representing input parameters required to perform a
     strain analysis.
 
-    :ivar detectors: List of individual detector element strain
-        analysis configurations, defaults to `None` (use all).
-    :type detectors: list[MCAElementStrainAnalysisConfig], optional
-    :ivar find_peaks: Exclude peaks where the average spectrum
-        is below the `rel_height_cutoff` (in the detector
-        configuration) cutoff relative to the maximum value of the
-        average spectrum, defaults to `True`.
-    :type find_peaks: bool, optional
+    :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
+        peaks for all spectra for a given detector and user specified
+        mask. A particular HKL peak is removed from the set of HKLs,
+        when its mean peak height is  below `find_peak_cutoff` times
+        the maximum mean intensity for that detector. Defaults to `0`
+        in which case this step is ignored.
+    :type find_peak_cutoff: float, optional
     :ivar oversampling: FIX
     :type oversampling: FIX
+    :ivar rel_height_cutoff: Used to excluded peaks based on the
+        `find_peak` parameter as well as for peak fitting exclusion
+        of the individual detector spectra (see the strain detector
+        configuration `CHAP.edd.models.MCADetectorStrainAnalysis).
+        Defaults to `None`.
+    :type rel_height_cutoff: float, optional
     :ivar skip_animation: Skip the animation and plotting of
         the strain analysis fits, defaults to `False`.
     :type skip_animation: bool, optional
@@ -833,53 +793,14 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         for EDD scan types not 0, defaults to `True`.
     :type sum_axes: Union[bool, list[str]], optional
     """
-    detectors: Optional[conlist(
-        min_length=1, item_type=MCAElementStrainAnalysisConfig)] = None
-    find_peaks: Optional[bool] = True
-    oversampling: Optional[
-        Annotated[Dict, Field(validate_default=True)]] = {'num': 10}
+    find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
+    num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
+    oversampling: dict = {'num': 10}
+    rel_height_cutoff: Optional[
+        confloat(gt=0.0, lt=1.0, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False
     sum_axes: Optional[
         Union[bool, conlist(min_length=1, item_type=str)]] = True
-
-    @model_validator(mode='after')
-    def validate_detectors(self):
-        """Validate the detector (energy) mask ranges, set the defaults
-        for `FitConfig` parameters `centers_range`, `fwhm_min` and
-        `fwhm_max` and update any detector configuration parameters
-        not superseded by their individual values.
-
-
-        :return: Updated `centers_range`, `fwhm_min` and `fwhm_max`
-            parameters.
-
-        :return: Updated strain analysis configuration class.
-        :rtype: StrainAnalysisConfig
-        """
-        if self.centers_range is None:
-            self.centers_range = 2.0
-            self._default_centers_range = True
-        if self.fwhm_min is None:
-            self.fwhm_min = 0.25
-            self._default_fwhm_min = True
-        if self.fwhm_max is None:
-            self.fwhm_max = 2.0
-            self._default_fwhm_max = True
-        if self.detectors is None:
-            return self
-        warning = False
-        if self.mask_ranges:
-            self.mask_ranges = None
-            warning = True
-        if self.detectors is not None:
-            for detector in self.detectors:
-                if detector.mask_ranges:
-                    detector.mask_ranges = None
-                    warning = True
-        if warning:
-            print('Ignoring mask_ranges parameter for strain analysis')
-        self.update_detectors()
-        return self
 
 # FIX tth_file/tth_map not updated
 #    @field_validator('detectors')

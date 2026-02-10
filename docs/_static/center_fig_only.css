@@ -1,0 +1,15 @@
+/* Target the figure container */
+.center-img-only {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important; /* Centers items horizontally */
+}
+
+/* Target the caption specifically to keep it left-aligned */
+.center-img-only figcaption, 
+.center-img-only .caption {
+    align-self: flex-start !important; /* Forces caption back to the left */
+    text-align: left !important;
+    width: 100%;
+}
+

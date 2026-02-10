@@ -22,40 +22,37 @@ def convert_sparse_dense(data):
     import numpy as np
     import scipy.sparse as sp
     import xarray as xr
-    
+
     if isinstance(data, np.ndarray):
         return sp.csr_matrix(data)  # Convert dense NumPy array to sparse
 
-    elif sp.issparse(data):
+    if sp.issparse(data):
         return data.toarray()  # Convert sparse matrix to dense NumPy array
 
-    elif isinstance(data, xr.DataArray):
+    if isinstance(data, xr.DataArray):
         # Convert DataArray values while preserving metadata
         if sp.issparse(data.data):
             return xr.DataArray(
                 data.data.toarray(), dims=data.dims,
                 coords=data.coords, attrs=data.attrs)
-        else:
-            return xr.DataArray(
-                sp.csr_matrix(data.data), dims=data.dims,
-                coords=data.coords, attrs=data.attrs)
+        return xr.DataArray(
+            sp.csr_matrix(data.data), dims=data.dims,
+            coords=data.coords, attrs=data.attrs)
 
-    elif isinstance(data, xr.Dataset):
+    if isinstance(data, xr.Dataset):
         # Convert each variable in the Dataset
         def convert_var(var):
             if sp.issparse(var.data):
                 return xr.DataArray(var.data.toarray(), dims=var.dims,
                                     coords=var.coords, attrs=var.attrs)
-            else:
-                return xr.DataArray(sp.csr_matrix(var.data), dims=var.dims,
-                                    coords=var.coords, attrs=var.attrs)
+            return xr.DataArray(sp.csr_matrix(var.data), dims=var.dims,
+                                coords=var.coords, attrs=var.attrs)
 
         return data.map(convert_var)
 
-    else:
-        raise TypeError(f'Unsupported data type: {type(data)}'
-                        + 'Input must be a NumPy array, SciPy sparse matrix, '
-                        + 'xarray DataArray, or xarray Dataset.')
+    raise TypeError(f'Unsupported data type: {type(data)}. '
+                    'Input must be a NumPy array, SciPy sparse matrix, '
+                    'xarray DataArray, or xarray Dataset.')
 
 
 def convert_xarray_nexus(data):
@@ -71,7 +68,7 @@ def convert_xarray_nexus(data):
     """
     import xarray as xr
     from nexusformat.nexus import NXdata, NXfield
-  
+
     if isinstance(data, xr.DataArray):
         return NXdata(
             value=data.values,
@@ -85,7 +82,7 @@ def convert_xarray_nexus(data):
                 )
                 for dim in data.dims),
         )
-    elif isinstance(data, xr.Dataset):
+    if isinstance(data, xr.Dataset):
         return NXdata(
             **{var:
                NXfield(
@@ -104,7 +101,7 @@ def convert_xarray_nexus(data):
                 )
                 for dim in data.dims),
         )
-    elif isinstance(data, NXdata):
+    if isinstance(data, NXdata):
         nxaxes = data.nxaxes
         if nxaxes is None:
             if 'unstructured_axes' in data.attrs:
@@ -131,18 +128,16 @@ def convert_xarray_nexus(data):
                 for axis in nxaxes
             },
             attrs=data.attrs,
-        )    
-    else:
-        raise TypeError(f'Unsupported data type: {type(data)}'
-                        + '. Must be xarray.DataArray, xarray.Dataset, or '
-                        + 'NXdata.')
+        )
+    raise TypeError(f'Unsupported data type: {type(data)}. '
+                    'Must be xarray.DataArray, xarray.Dataset, or NXdata.')
 
 
 def convert_structured_unstructured(data):
     from copy import deepcopy
     from nexusformat.nexus import NXdata, NXfield
     import numpy as np
-    
+
     if isinstance(data, NXdata):
         if 'unstructured_axes' in data.attrs:
             # Convert unstructured to structured
@@ -170,7 +165,7 @@ def convert_structured_unstructured(data):
                     value=structured_signals[s],
                     name=s,
                     attrs=data[s].attrs,
-                )},
+                ) for s in signals},
                 name=data.nxname,
                 attrs=attrs,
                 axes=tuple(
@@ -185,9 +180,8 @@ def convert_structured_unstructured(data):
             )
             return structured_data
 
-        elif 'axes' in data.attrs:
-            # Convert structured to unstructured
+        if 'axes' in data.attrs:
+            # Convert structued to unstructured
             raise NotImplementedError(
                 'Conversion from structured to unstructured not implemented.')
-    else:
-         raise TypeError(f'Unsupported data type: {type(data)}')       
+    raise TypeError(f'Unsupported data type: {type(data)}')

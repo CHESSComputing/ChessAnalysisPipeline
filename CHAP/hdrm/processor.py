@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Rolf Verberg
@@ -44,10 +43,8 @@ class HdrmOrmfinderProcessor(Processor):
         :return: Orientation matrix.
         :rtype: nexusformat.nexus.NXroot
         """
-        # System modules
-        from json import loads
-
         # Third party modules
+        # pylint: disable=no-name-in-module
         from nexusformat.nexus import (
             NXcollection,
             NXdata,
@@ -58,9 +55,7 @@ class HdrmOrmfinderProcessor(Processor):
             NXroot,
             nxsetconfig,
         )
-
-        # Local modules
-        from CHAP.giwaxs.models import AzimuthalIntegratorConfig
+        # pylint: enable=no-name-in-module
 
         nxsetconfig(memory=100000)
 
@@ -109,9 +104,9 @@ class HdrmOrmfinderProcessor(Processor):
         if len(ais) > 1:
             raise RuntimeError(
                 'More than one azimuthal integrator not yet implemented')
-        if f'{ais[0].id}_peaks' not in nxdata:
+        if f'{ais[0].get_id()}_peaks' not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxentry.tree}')
+                               f'{ais[0].get_id()} in {nxdata.tree}')
 
         # Create the NXdata object to store the ORM data
         nxprocess.data = NXdata()
@@ -126,7 +121,7 @@ class HdrmOrmfinderProcessor(Processor):
         # Find ORM and add the data to the NXprocess object
         nxentry = nxroot[nxroot.default]
         nxprocess.results = NXcollection()
-        ais = {ai.id: ai.ai for ai in ais}
+        ais = {ai.get_id(): ai.ai for ai in ais}
         detector_ids = [d if isinstance(d, str) else d.decode()
                         for d in nxentry.detector_ids.nxdata]
         for detector_id in detector_ids:
@@ -144,6 +139,7 @@ class HdrmOrmfinderProcessor(Processor):
             num_peak = len(peaks)
             self.logger.info(f'Loaded {num_peak} peak points from file')
 
+            peaks_prelim = None
             prelim_flag = 0
             if num_peak > 75:
                 peaks_prelim = peaks[30:]
@@ -154,7 +150,7 @@ class HdrmOrmfinderProcessor(Processor):
 
             self._calcB(config.materials[0].lattice_parameters)
 
-            if (prelim_flag):
+            if prelim_flag:
                 euler1, chisq1, _ = self._fit_peaks(
                     peaks_prelim, x0=[0.2, 0.2, 0.2], T=0.002)
                 self.logger.info(f'Euler angles: {euler1}, chisq: {chisq1}')
@@ -195,7 +191,7 @@ class HdrmOrmfinderProcessor(Processor):
         b3 = 2.0 * np.pi * a1 * a2 * np.sin(alpha3)/V
         betanum = np.cos(alpha2) * np.cos(alpha3) - np.cos(alpha1)
         betaden = np.sin(alpha2) * np.sin(alpha3)
-        beta1 = np.arccos(betanum / betaden)
+        #beta1 = np.arccos(betanum / betaden)
         betanum = np.cos(alpha1) * np.cos(alpha3) - np.cos(alpha2)
         betaden = np.sin(alpha1) * np.sin(alpha3)
         beta2 = np.arccos(betanum / betaden)
@@ -208,14 +204,19 @@ class HdrmOrmfinderProcessor(Processor):
             [0.0, 0.0, -b3]])
 
     def _fit_peaks(
-            self, peaks, x0=[0, 0, 0], T=1.0, stepsize=0.5, niter=100,
+            self, peaks, x0=(0, 0, 0), T=1.0, stepsize=0.5, niter=100,
             seed=None, method='BFGS'):
         # Third party modules
         from scipy.spatial.transform import Rotation as R
         from scipy.optimize import basinhopping
 
         # Local modules
+        # pylint: disable=import-error
+        # pylint: disable=no-name-in-module
         from CHAP.hdrm.hkl import Calc_HKL
+        # pylint: enable=import-error
+        # pylint: disable=no-name-in-module
+
         def calcUB(eu):
             r = R.from_euler('zxz', eu)
             return np.matmul(r.as_matrix(), self._B)
@@ -270,10 +271,9 @@ class HdrmPeakfinderProcessor(Processor):
             NXroot,
             nxsetconfig,
         )
+        # pylint: disable=no-name-in-module
         from skimage.feature import peak_local_max
-
-        # Local modules
-        from CHAP.common.map_utils import get_axes
+        # pylint: enable=no-name-in-module
 
         nxsetconfig(memory=100000)
 
@@ -321,7 +321,6 @@ class HdrmPeakfinderProcessor(Processor):
         nxprocess.peakfinder_config = config.model_dump_json()
 
         # Create the NXdata object to store the peaks data
-        axes = get_axes(nxdata)
         nxprocess.data = NXdata()
         if 'axes' in nxdata.attrs:
             nxprocess.data.attrs['axes'] = nxdata.attrs['axes']
@@ -338,7 +337,6 @@ class HdrmPeakfinderProcessor(Processor):
         # Find peaks and add the data to the NXprocess object
         for detector_id in detector_ids:
             intensity = nxdata[detector_id].nxdata
-            detector_attrs = nxdata[detector_id].attrs
             if 'max' in nxdata[detector_id].attrs:
                 peak_cutoff = \
                     config.peak_cutoff * nxdata[detector_id].attrs['max']

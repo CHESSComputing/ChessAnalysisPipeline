@@ -669,7 +669,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
         """
-        ais = {ai.id: ai for ai in self.azimuthal_integrators}
+        ais = {ai.get_id(): ai for ai in self.azimuthal_integrators}
         for integration in self.integrations:
             integration.init_placeholder_results(ais)
         tree = {

@@ -1,24 +1,26 @@
+(installation)=
 # Installation
 
 
 ## Using `pip`
-CHAP is available over PyPI. Run
+CHAP is available over PyPI and can be installed with:
 ```bash
 pip install ChessAnalysisPipeline
 ```
-to install.
 
 ## Using `conda`
-CHAP is available over conda-forge. Run
+CHAP is also available over conda-forge, allowing installation with, e.g.:
 ```bash
-conda install chessanalysispipeline
+conda install -c conda-forge chessanalysispipeline
 ```
-to install.
 
 ## From source
-1. Clone the CHAP repository.
+1. Clone the CHAP repository:
    ```bash
    git clone https://github.com/CHESSComputing/ChessAnalysisPipeline.git
+   ```
+1. Change to the CHAP repository directory:
+   ```bash
    cd ChessAnalysisPipeline
    ```
 1. Set a valid version number. In `setup.py`, replace:
@@ -31,39 +33,59 @@ to install.
    ```python
    version = 'PACKAGE_VERSION'
    ```
-1. Setup a local installation prefix for your version of python
+1. Create the virtual environment:
    ```bash
-   mkdir -p install/lib/python<yourpythonversion>/site-packages
-   export PYTHONPATH=$PWD/install/lib/python<yourpythonversion>/site-packages
+   python -m venv venv
    ```
-1. Use the setup script to install the package
+1. Activate the virtual environment:
    ```bash
-   python setup.py install --prefix=$PWD/install
+   source venv/bin/activate
    ```
-1. Try running
+1. Use the setup script to install the package:
+   ```bash
+   python setup.py install
+   ```
+1. Try running:
    ```bash
    install/bin/CHAP --help
    ```
    to confirm the package was installed correctly.
-1. If you need to install it in your local installation area via pip please
-   follow the following steps:
-```
-# install wheel package
-pip install wheel
 
-# build your local package
-python setup.py clean sdist bdist_wheel
+If you need to install it in your local installation area via pip, run
+steps 1 to 3 from above and then run the following steps:
 
-# look-up your local package in dist area
-ls -1 dist
-ChessAnalysisPipeline-0.0.16-py3-none-any.whl
-ChessAnalysisPipeline-0.0.16-py3.11.egg
-ChessAnalysisPipeline-0.0.16.tar.gz
+1. Install the wheel package:
+   ```bash
+   pip install wheel
+   ```
+1. Build your local package:
+   ```bash
+   python setup.py clean sdist bdist_wheel
+   ```
+1. Look-up your local package in dist area:
+   ```bash
+   ls -1 dist
+   ```
+   which should return:
+   ```bash
+   ChessAnalysisPipeline-0.0.16-py3-none-any.whl
+   ChessAnalysisPipeline-0.0.16.tar.gz
+   ```
+1. Install your package from the local dist area:
+   ```bash
+   pip install --no-index --find-links=dist/ ChessAnalysisPipeline
+   ```
+1. Verify that you package is installed:
+   ```bash
+   pip list | grep Chess
+   ```
+   which should return:
+   ```bash
+   ChessAnalysisPipeline 0.0.16
+   ```
+1. Try running:
+   ```bash
+   install/bin/CHAP --help
+   ```
+   to confirm the package was installed correctly.
 
-# install your package from local dist area
-pip install --no-index --find-links=dist/ ChessAnalysisPipeline
-
-# verify that you package is installed
-pip list | grep Chess
-ChessAnalysisPipeline 0.0.16
-```

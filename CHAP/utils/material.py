@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : general.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -29,6 +28,10 @@ if HAVE_HEXRD:
         from hexrd.valunits import valWUnit
     except ImportError:
         HAVE_HEXRD = False
+#from xrayutilities import materials
+#from xrayutilities import simpack
+#HAVE_XU = True
+#HAVE_HEXRD = False
 
 POEDER_INTENSITY_CUTOFF = 1.e-8
 
@@ -170,6 +173,8 @@ class Material:
         """Use HeXRD to get material properties when a materials file
         is provided. Use xrayutilities otherwise.
         """
+        # pylint: disable=possibly-used-before-assignment
+        lattice_parameters = None
         if not isinstance(material_name, str):
             raise ValueError(
                 f'Illegal material_name: {material_name} '
@@ -196,7 +201,8 @@ class Material:
                     or pos is None):
                 raise ValueError(
                     'Valid inputs for sgnum, lattice_parameters_angstroms and '
-                    'pos are required if materials file is not specified')
+                    'pos are required if materials file is not specified'
+                    f' {sgnum} {lattice_parameters_angstroms} {pos}')
             if isinstance(pos, str):
                 pos = [pos]
             use_xu = True

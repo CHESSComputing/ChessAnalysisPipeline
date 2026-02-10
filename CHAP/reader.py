@@ -10,10 +10,40 @@ Define a generic `Reader` object.
 # System modules
 import argparse
 import logging
+import os
 from sys import modules
+
+# Third party modules
+from pydantic import (
+    PrivateAttr,
+    constr,
+    model_validator,
+)
 
 # Local modules
 from CHAP.pipeline import PipelineItem
+
+
+def validate_reader_model(reader):
+    reader._mapping_filename = reader.filename
+    filename = os.path.normpath(os.path.realpath(
+        os.path.join(reader.inputdir, reader.filename)))
+    if (not os.path.isfile(filename)
+            and not os.path.dirname(reader.filename)):
+        reader.logger.warning(
+            f'Unable to find {reader.filename} in {reader.inputdir}, looking '
+            f'in {reader.outputdir}')
+        filename = os.path.normpath(os.path.realpath(
+            os.path.join(reader.outputdir, reader.filename)))
+    # Note that reader.filename has str type instead of FilePath
+    # since its existence is not yet gueranteed (it can be writen
+    # over the course of the pipeline's execution). So postpone
+    # validation until the entire pipeline gets validated.
+    if not os.path.isfile(filename):
+        reader.logger.warning(
+            f'Unable to find {reader.filename} during validation')
+    reader.filename = filename
+    return reader
 
 
 class Reader(PipelineItem):
@@ -24,23 +54,31 @@ class Reader(PipelineItem):
     its own disrupts the flow of data in a `Pipeline` -- it does not
     receive or pass along any data returned by the previous
     `PipelineItem`.
+
+    :ivar filename: Name of file to read from.
+    :type filename: str
     """
-    def read(self, filename):
+    filename: constr(strip_whitespace=True, min_length=1)
+
+    _mapping_filename: PrivateAttr(default=None)
+
+    _validate_filename = model_validator(mode='after')(validate_reader_model)
+
+    def read(self):
         """Read and return the contents of `filename` as text.
 
-        :param filename: Name of file to read from.
-        :type filename: str
-        :return: Entire contents of the file.
+        :return: The file content.
         :rtype: str
         """
-
-        if not filename:
+        if not self.filename:
             self.logger.warning(
-                'No file name is given, will skip read operation')
+                'No file name is given, skipping read operation')
             return None
-
-        with open(filename) as file:
-            data = file.read()
+        try:
+            with open(self.filename) as f:
+                data = f.read()
+        except Exception:
+            return None
         return data
 
 
@@ -77,7 +115,6 @@ def main(opt_parser=OptionParser):
         '{name:20}: {message}', style='{'))
     reader.logger.addHandler(log_handler)
     data = reader.read(filename=opts.filename)
-
     print(f'Reader {reader} reads from {opts.filename}, data {data}')
 
 

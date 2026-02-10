@@ -5,10 +5,10 @@ processing workflows.
 from CHAP.edd.processor import (
     DiffractionVolumeLengthProcessor,
     LatticeParameterRefinementProcessor,
+    HKLProcessor,
     MCAEnergyCalibrationProcessor,
     MCATthCalibrationProcessor,
-#    MCADataProcessor,
-#    MCACalibratedDataPlotter,
+    ReducedDataProcessor,
     StrainAnalysisProcessor,
 )
 from CHAP.edd.reader import (

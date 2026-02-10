@@ -25,7 +25,9 @@ import numpy as np
 from CHAP.models import CHAPBaseModel
 from CHAP.utils.general import not_zero, tiny
 
+# pylint: disable=no-member
 tiny = np.finfo(np.float64).resolution
+# pylint: enable=no-member
 s2pi = np.sqrt(2*np.pi)
 
 #def constant(x, c=0.5):
@@ -89,25 +91,60 @@ def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
 def rectangle(
         x, amplitude=1.0, center1=0.0, sigma1=1.0, center2=1.0,
         sigma2=1.0, form='linear'):
-    """Return a rectangle function.
+    r"""
+    Return a rectangle function.
 
-    Starts at 0.0, rises to `amplitude` (at `center1` with width
-    `sigma1`), then drops to 0.0 (at `center2` with width `sigma2`)
-    with `form`:
-    - `'linear'` (default) = ramp_up + ramp_down
-    - `'atan'`, `'arctan`' = amplitude*(atan(arg1) + atan(arg2))/pi
-    - `'erf'`              = amplitude*(erf(arg1) + erf(arg2))/2.
-    - `'logisitic'`        = amplitude*[1 - 1/(1 + exp(arg1)) -
-                             1/(1+exp(arg2))]
+    Starts at 0.0, rises to ``amplitude`` (at ``center1`` with width
+    ``sigma1``), then drops to 0.0 (at ``center2`` with width
+    ``sigma2``)
 
-    where ``arg1 = (x - center1)/sigma1`` and
-    ``arg2 = -(x - center2)/sigma2``.
+    :param x: Input values where the function is evaluated.
+    :type x: float or numpy.ndarray
+    :param amplitude: Maximum height of the rectangle, defaults to 1.0.
+    :type amplitude: float, optional
+    :param center1: Location of the rising edge, defaults to 0.0.
+    :type center1: float, optional
+    :param sigma1: Width or smoothness of the rising edge,
+        defaults to 1.0.
+    :type sigma1: float, optional
+    :param center2: Location of the falling edge, defaults to 1.0.
+    :type center2: float, optional
+    :param sigma2: Width or smoothness of the falling edge,
+        defaults to 1.0.
+    :type sigma2: float, optional
+    :param form: Shape type of the transition edges:
+
+        - ``'linear'``: Simple ramp-up and ramp-down.
+        - ``'atan'`` or ``'arctan'``: Inverse tangent transitions.
+        - ``'erf'``: Error function (Gaussian-like) transitions.
+        - ``'logistic'``: Sigmoidal (logistic function) transitions.
+    :type form: str, optional
+
+    :returns: The evaluated rectangle function values.
+    :rtype: float or numpy.ndarray
+
+    .. note::
+        The output is calculated based on the selected ``form``:
+
+        - **atan**: $\frac{A}{\pi} [ \arctan(arg_1) + \arctan(arg_2) ]$
+        - **erf**:
+          $\frac{1}{2} A [ \text{erf}(arg_1) + \text{erf}(arg_2) ]$
+        - **logistic**:
+          $A [ \frac{1}{1 + \exp(-arg_1)} +
+          \frac{1}{1 + \exp(-arg_2)} - 1 ]$
+
+        The function is constructed using normalized arguments for the
+        rising and falling edges:
+        $arg_1 = \frac{x - center_1}{\sigma_1}$
+        and
+        $arg_2 = \frac{center_2 - x}{\sigma_2}$
     """
     arg1 = (x - center1)/max(tiny, sigma1)
     arg2 = (center2 - x)/max(tiny, sigma2)
 
     if form == 'erf':
         # Third party modules
+        # pylint: disable=no-name-in-module
         from scipy.special import erf
 
         rect = 0.5*(erf(arg1) + erf(arg2))

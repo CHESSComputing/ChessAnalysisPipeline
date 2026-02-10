@@ -336,6 +336,7 @@ def select_material_params(
 
     # Third party modules
     from hexrd.material import Material
+#    from CHAP.utils.material import Material
     import matplotlib.pyplot as plt
     from matplotlib.widgets import (
         Button,
@@ -457,7 +458,8 @@ def select_material_params(
     ax.set_xlabel('Energy (keV)', fontsize='large')
     ax.set_ylabel('Intensity (counts)', fontsize='large')
     ax.set_xlim(x[0], x[-1])
-    ax.plot(x, y)
+    if y is not None:
+        ax.plot(x, y)
 
     # Add materials
     if preselected_materials is None:
@@ -677,7 +679,7 @@ def select_material_params_gui(
         x, y, tth, preselected_materials, label, on_complete, interactive)
 
     if return_buf:
-        materials, fig_to_iobuf(figure)
+        return materials, fig_to_iobuf(figure)
     return materials, None
 
 
@@ -1276,36 +1278,39 @@ def get_rolling_sum_spectra(
     return ry
 
 
-def get_spectra_fits(spectra, energies, peak_locations, detector):
+def get_spectra_fits(
+        spectra, energies, peak_locations, detector, **kwargs):
     """Return twenty arrays of fit results for the map of spectra
     provided: uniform centers, uniform center errors, uniform
-    amplitudes, uniform amplitude errors, uniform sigmas, uniform
-    sigma errors, uniform best fit, uniform residuals, uniform reduced
-    chi, uniform success codes, unconstrained centers, unconstrained
-    center errors, unconstrained amplitudes, unconstrained amplitude
-    errors, unconstrained sigmas, unconstrained sigma errors,
-    unconstrained best fit, unconstrained residuals, unconstrained
-    reduced chi, and unconstrained success codes.
+    amplitudes, uniform amplitude errors, uniform amplitude vary,
+    uniform sigmas, uniform sigma errors, uniform best fit,
+    uniform residuals, uniform reduced chi, uniform success codes,
+    unconstrained centers, unconstrained center errors,
+    unconstrained amplitudes, unconstrained amplitude
+    errors, unconstrained amplitude vary, unconstrained sigmas,
+    unconstrained sigma errors, unconstrained best fit,
+    unconstrained residuals, unconstrained reduced chi, and
+    unconstrained success codes.
 
     :param spectra: Array of intensity spectra to fit.
     :type spectra: numpy.ndarray
     :param energies: Bin energies for the spectra provided.
     :type energies: numpy.ndarray
-    :param peak_locations: Initial guesses for peak ceneters to use
+    :param peak_locations: Initial guesses for peak centers to use
         for the uniform fit.
     :type peak_locations: list[float]
     :param detector: A single MCA detector element configuration.
     :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
-    :returns: Uniform and unconstrained centers, amplitdues, sigmas
-        (and errors for all three), best fits, residuals between the
-        best fits and the input spectra, reduced chi, and fit success
-        statuses.
+    :returns: Uniform and unconstrained centers, amplitudes, sigmas
+        (and errors for all three and vary for amplitudes),
+        best fits, residuals between the best fits and the input
+        spectra, reduced chi, and fit success statuses.
     :rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
-        numpy.ndarray]
+        numpy.ndarray, numpy.ndarray, numpy.ndarray]
     """
     # System modules
     from os import getpid
@@ -1319,7 +1324,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     # Local modules
     from CHAP.utils.fit import FitProcessor
 
-    num_proc = detector.num_proc
+    num_proc = kwargs.get('num_proc', 1)
     rel_height_cutoff = detector.rel_height_cutoff
     num_peak = len(peak_locations)
     nxdata = NXdata(NXfield(spectra, 'y'), NXfield(energies, 'x'))
@@ -1345,7 +1350,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
          'centers_range': detector.centers_range,
          'fwhm_min': detector.fwhm_min, 'fwhm_max': detector.fwhm_max})
     config = {
-#        'code': 'lmfit',
+        'code': 'lmfit',
         'models': models,
 #        'plot': True,
         'num_proc': num_proc,
@@ -1357,7 +1362,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
     }
 
     # Perform uniform fit
-    fit = FitProcessor()
+    fit = FitProcessor(**kwargs)
     uniform_fit = fit.process(nxdata, config)
     uniform_success = uniform_fit.success
     if spectra.ndim == 1:
@@ -1370,8 +1375,10 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                     uniform_fit.best_values['amplitude']]
                 uniform_fit_amplitudes_errors = [
                     uniform_fit.best_errors['amplitude']]
+                uniform_fit_amplitudes_vary = [
+                    uniform_fit.best_vary['amplitude']]
                 uniform_fit_sigmas = [uniform_fit.best_values['sigma']]
-                uniform_fit_centers_errors = [uniform_fit.best_errors['sigma']]
+                uniform_fit_sigmas_errors = [uniform_fit.best_errors['sigma']]
             else:
                 uniform_fit_centers = [
                     uniform_fit.best_values[
@@ -1385,6 +1392,9 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                 uniform_fit_amplitudes_errors = [
                     uniform_fit.best_errors[
                         f'peak{i+1}_amplitude'] for i in range(num_peak)]
+                uniform_fit_amplitudes_vary = [
+                    uniform_fit.best_vary[
+                        f'peak{i+1}_amplitude'] for i in range(num_peak)]
                 uniform_fit_sigmas = [
                     uniform_fit.best_values[
                         f'peak{i+1}_sigma'] for i in range(num_peak)]
@@ -1396,6 +1406,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
             uniform_fit_centers_errors = [0]
             uniform_fit_amplitudes = [0]
             uniform_fit_amplitudes_errors = [0]
+            uniform_fit_amplitudes_vary = [False]
             uniform_fit_sigmas = [0]
             uniform_fit_sigmas_errors = [0]
     else:
@@ -1411,6 +1422,9 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                     uniform_fit.best_parameters().index('amplitude')]]
             uniform_fit_amplitudes_errors = [
                 uniform_fit.best_errors[
+                    uniform_fit.best_parameters().index('amplitude')]]
+            uniform_fit_amplitudes_vary = [
+                uniform_fit.best_vary[
                     uniform_fit.best_parameters().index('amplitude')]]
             uniform_fit_sigmas = [
                 uniform_fit.best_values[
@@ -1434,6 +1448,11 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
                 for i in range(num_peak)]
             uniform_fit_amplitudes_errors = [
                 uniform_fit.best_errors[
+                    uniform_fit.best_parameters().index(
+                        f'peak{i+1}_amplitude')]
+                for i in range(num_peak)]
+            uniform_fit_amplitudes_vary = [
+                uniform_fit.best_vary[
                     uniform_fit.best_parameters().index(
                         f'peak{i+1}_amplitude')]
                 for i in range(num_peak)]
@@ -1461,6 +1480,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
              'centers_errors': uniform_fit_centers_errors,
              'amplitudes': uniform_fit_amplitudes,
              'amplitudes_errors': uniform_fit_amplitudes_errors,
+             'amplitudes_vary': uniform_fit_amplitudes_vary,
              'sigmas': uniform_fit_sigmas,
              'sigmas_errors': uniform_fit_sigmas_errors,
              'best_fits': uniform_fit.best_fit,
@@ -1471,6 +1491,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
              'centers_errors': uniform_fit_centers_errors,
              'amplitudes': uniform_fit_amplitudes,
              'amplitudes_errors': uniform_fit_amplitudes_errors,
+             'amplitudes_vary': uniform_fit_amplitudes_vary,
              'sigmas': uniform_fit_sigmas,
              'sigmas_errors': uniform_fit_sigmas_errors,
              'best_fits': uniform_fit.best_fit,
@@ -1496,6 +1517,9 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
             unconstrained_fit_amplitudes_errors = [
                 unconstrained_fit.best_errors[
                     f'peak{i+1}_amplitude'] for i in range(num_peak)]
+            unconstrained_fit_amplitudes_vary = [
+                unconstrained_fit.best_vary[
+                    f'peak{i+1}_amplitude'] for i in range(num_peak)]
             unconstrained_fit_sigmas = [
                 unconstrained_fit.best_values[
                     f'peak{i+1}_sigma'] for i in range(num_peak)]
@@ -1507,6 +1531,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
             unconstrained_fit_centers_errors = [0]
             unconstrained_fit_amplitudes = [0]
             unconstrained_fit_amplitudes_errors = [0]
+            unconstrained_fit_amplitudes_vary = [False]
             unconstrained_fit_sigmas = [0]
             unconstrained_fit_sigmas_errors = [0]
     else:
@@ -1525,6 +1550,11 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
             for i in range(num_peak)]
         unconstrained_fit_amplitudes_errors = [
             unconstrained_fit.best_errors[
+                unconstrained_fit.best_parameters().index(
+                    f'peak{i+1}_amplitude')]
+            for i in range(num_peak)]
+        unconstrained_fit_amplitudes_vary = [
+            unconstrained_fit.best_vary[
                 unconstrained_fit.best_parameters().index(
                     f'peak{i+1}_amplitude')]
             for i in range(num_peak)]
@@ -1552,6 +1582,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
          'centers_errors': uniform_fit_centers_errors,
          'amplitudes': uniform_fit_amplitudes,
          'amplitudes_errors': uniform_fit_amplitudes_errors,
+         'amplitudes_vary': uniform_fit_amplitudes_vary,
          'sigmas': uniform_fit_sigmas,
          'sigmas_errors': uniform_fit_sigmas_errors,
          'best_fits': uniform_fit.best_fit,
@@ -1562,6 +1593,7 @@ def get_spectra_fits(spectra, energies, peak_locations, detector):
          'centers_errors': unconstrained_fit_centers_errors,
          'amplitudes': unconstrained_fit_amplitudes,
          'amplitudes_errors': unconstrained_fit_amplitudes_errors,
+         'amplitudes_vary': unconstrained_fit_amplitudes_vary,
          'sigmas': unconstrained_fit_sigmas,
          'sigmas_errors': unconstrained_fit_sigmas_errors,
          'best_fits': unconstrained_fit.best_fit,

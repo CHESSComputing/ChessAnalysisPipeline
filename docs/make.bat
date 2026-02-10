@@ -2,13 +2,14 @@
 
 pushd %~dp0
 
-REM Command file for Sphinx documentation
+::Command file for Sphinx documentation
 
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
-set SOURCEDIR=source
+set SOURCEDIR=.
 set BUILDDIR=build
+::set SPHINXOPTS=-W
 
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (

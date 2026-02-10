@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : processor.py
 Author     : Rolf Verberg
@@ -9,21 +8,45 @@ Description: Module for Processors used only by GIWAXS experiments
 # System modules
 from json import loads
 import os
+from typing import Optional
 
 # Third party modules
 import numpy as np
+from pydantic import (
+    Field,
+    PrivateAttr,
+)
 
 # Local modules
+from CHAP.giwaxs.models import (
+    GiwaxsConversionConfig,
+    PyfaiIntegrationConfig,
+)
+from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
+from CHAP.utils.general import fig_to_iobuf
 
 
 class GiwaxsConversionProcessor(Processor):
     """A processor for converting GIWAXS images from curved to
     rectangular coordinates.
+
+    :ivar config: Initialization parameters for an instance of
+        CHAP.giwaxs.models.GiwaxsConversionConfig
+    :type config: dict, optional
+    :ivar save_figures: Save .pngs of plots for checking inputs &
+        outputs of this Processor, defaults to `False`.
+    :type save_figures: bool, optional
     """
-    def process(
-            self, data, config, save_figures=False, interactive=False,
-            inputdir='.'):
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'giwaxs.models.GiwaxsConversionConfig'}, init_var=True)
+    config: GiwaxsConversionConfig
+    save_figures: Optional[bool] = True
+
+    _figures: list = PrivateAttr(default=[])
+
+    def process(self, data):
         """Process the GIWAXS input images & configuration and returns
         a map of the images in rectangular coordinates as a
         `nexusformat.nexus.NXroot` object.
@@ -31,19 +54,6 @@ class GiwaxsConversionProcessor(Processor):
         :param data: Results of `common.MapProcessor` containing the
             map of GIWAXS input images.
         :type data: list[PipelineData]
-        :param config: Initialization parameters for an instance of
-            giwaxs.models.GiwaxsConversionConfig.
-        :type config: dict
-        :param save_figures: Save .pngs of plots for checking inputs &
-            outputs of this Processor, defaults to `False`.
-        :type save_figures: bool, optional
-        :param interactive: Allows for user interactions, defaults to
-            `False`.
-        :type interactive: bool, optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -64,7 +74,6 @@ class GiwaxsConversionProcessor(Processor):
             elif isinstance(nxobject, NXentry):
                 nxroot = NXroot()
                 nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
             else:
                 raise ValueError(
                     f'Invalid nxobject in data pipeline ({type(nxobject)}')
@@ -72,25 +81,26 @@ class GiwaxsConversionProcessor(Processor):
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
 
-        # Load the validated GIWAXS conversion configuration
-        giwaxs_config = self.get_config(
-            data=data, config=config, inputdir=inputdir,
-            schema='giwaxs.models.GiwaxsConversionConfig')
+        nxroot = self.convert_q_rect(nxroot)
+        if self._figures:
+            return (
+                nxroot,
+                PipelineData(
+                    name=self.__name__, data=self._figures,
+                    schema='common.write.ImageWriter'))
+        return nxroot
 
-        return self.convert_q_rect(nxroot, giwaxs_config)
 
-    def convert_q_rect(self, nxroot, config):
+    def convert_q_rect(self, nxroot):
         """Return NXroot containing the converted GIWAXS images.
 
         :param nxroot: GIWAXS map with the raw detector data.
         :type nxroot: nexusformat.nexus.NXroot
-        :param config: GIWAXS conversion configuration.
-        :type config: CHAP.giwaxs.models.GiwaxsConversionConfig
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
-        if self._interactive or self._save_figures:
+        if self.interactive or self.save_figures:
             import matplotlib.pyplot as plt
         from nexusformat.nexus import (
             NXdata,
@@ -115,28 +125,30 @@ class GiwaxsConversionProcessor(Processor):
             # FIX fix this in nexus reader
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        nxprocess.conversion_config = config.model_dump_json()
+        nxprocess.conversion_config = self.config.model_dump_json()
 
         # Validate the azimuthal integrators and independent dimensions
-        nxdata = nxroot.get_default()
-        ais = config.azimuthal_integrators
+        nxentry = nxroot[nxroot.default]
+        nxdata = nxentry[nxentry.default]
+        ais = self.config.azimuthal_integrators
         if len(ais) > 1:
             raise RuntimeError(
                 'More than one azimuthal integrator not yet implemented')
-        if ais[0].id not in nxdata:
+        if ais[0].get_id() not in nxdata:
             raise RuntimeError('Unable to find detector data for '
-                               f'{ais[0].id} in {nxdata.tree}')
+                               f'{ais[0].get_id()} in {nxentry.tree}')
         if not isinstance(nxdata.attrs['axes'], str):
             raise RuntimeError(
                 'More than one independent dimension not yet implemented')
 
         # Collect the raw giwaxs images
-        if config.scan_step_indices is None:
+        scan_step_indices = self.config.scan_step_indices
+        if scan_step_indices is None:
             thetas = nxdata[nxdata.attrs['axes']]
-            giwaxs_data = nxdata[ais[0].id]
+            giwaxs_data = nxdata[ais[0].get_id()]
         else:
-            thetas = nxdata[nxdata.attrs['axes']][config.scan_step_indices]
-            giwaxs_data = nxdata[ais[0].id][config.scan_step_indices]
+            thetas = nxdata[nxdata.attrs['axes']][scan_step_indices]
+            giwaxs_data = nxdata[ais[0].get_id()][scan_step_indices]
         self.logger.debug(f'giwaxs_data.shape: {giwaxs_data.shape}')
         effective_map_shape = giwaxs_data.shape[:-2]
         self.logger.debug(f'effective_map_shape: {effective_map_shape}')
@@ -164,7 +176,6 @@ class GiwaxsConversionProcessor(Processor):
         giwaxs_data_rect = []
 #        q_par_rect = []
 #        q_perp_rect = []
-        num_digit = len(str(len(thetas)))
         for i, theta in enumerate(thetas):
 #            q_perp_min_index = np.argmin(np.abs(q_perp[i,:,0]))
 #            q_par_rect.append(np.linspace(
@@ -181,7 +192,7 @@ class GiwaxsConversionProcessor(Processor):
                     giwaxs_data[i], q_par, q_perp, q_par_rect,
                     q_perp_rect))
 
-            if self._interactive or self._save_figures:
+            if self.interactive or self.save_figures:
                 vmax = giwaxs_data[i].max()/10
                 fig, ax = plt.subplots(1,2, figsize=(10, 5))
                 fig.suptitle(
@@ -210,16 +221,15 @@ class GiwaxsConversionProcessor(Processor):
                 fig.subplots_adjust(right=0.85)
                 cbar_ax = fig.add_axes([0.9, 0.15, 0.025, 0.7])
                 fig.colorbar(im, cax=cbar_ax)
-
-                if self._save_figures:
-                    if config.scan_step_indices is None:
-                        index = str(i)
+                fig.suptitle(f'theta: {theta:.4f}')
+                if self.save_figures:
+                    if scan_step_indices is None:
+                        basename = 'converted'
                     else:
-                        index = str(config.scan_step_indices[i])
-                    figures.append((
-                        fig_to_iobuf(fig),
-                        f'{ais[0].id}_converted_{index.zfill(num_digit)}'))
-                if self._interactive:
+                        basename = f'converted_{scan_step_indices[i]}'
+                    self._figures.append(
+                        (fig_to_iobuf(fig), f'{basename}_{i}'))
+                if self.interactive:
                     plt.show()
                 plt.close()
 
@@ -277,76 +287,83 @@ class GiwaxsConversionProcessor(Processor):
         data_curved, q_par, q_perp, q_par_rect, q_perp_rect,
         return_maps=False, normalize=True):
         """
-        data_rect = curved_to_rect(...):
-            distributes counts from a curvilinear grid (data_curved),
-            e.g. x-ray data collected in angular space, into a
-            rectilinear grid (reciprocal space). 
+        ::
+
+            data_rect = curved_to_rect(...):
+                distributes counts from a curvilinear grid
+                (data_curved), e.g. x-ray data collected in angular
+                space, into a rectilinear grid (reciprocal space). 
         
-        data_rect, norm, xmap, ymap, xwid, ywid =
-                curved_to_rect(..., return_maps=True):
-            distributes counts from a curvilinear grid (data_curved),
-            e.g. x-ray data collected in angular space, into a
-            rectilinear grid (reciprocal space). 
+            data_rect, norm, xmap, ymap, xwid, ywid =
+                    curved_to_rect(..., return_maps=True):
+                distributes counts from a curvilinear grid
+                (data_curved), e.g. x-ray data collected in angular
+                space, into a rectilinear grid (reciprocal space). 
  
-        q_par, q_perp, and data_curved are M x N following the normal
-            convention where the the first & second index corrspond to
-            the vertical (y) and horizontal (x) locations of the
-            scattering pattern.
-        q_par, q_perp represent the q coordinates of the center of
-            pixels whose intensities are stored in data_curved.
-            Reiterating the convention above, q_par and q_perp vary
-            primarilly along the 2nd and 1st index, respectively.
-        q_par_rect and q_perp_rect are evenly-spaced, monotonically
-            increasing, arrays determining the new grid.
+            q_par, q_perp, and data_curved are M x N following the
+                normal convention where the the first & second index
+                corrspond to the vertical (y) and horizontal (x)
+                locations of the scattering pattern.
+            q_par, q_perp represent the q coordinates of the center of
+                pixels whose intensities are stored in data_curved.
+                Reiterating the convention above, q_par and q_perp vary
+                primarilly along the 2nd and 1st index, respectively.
+            q_par_rect and q_perp_rect are evenly-spaced, monotonically
+                increasing, arrays determining the new grid.
            
-        data_rect : the new matrix with intensity from data_curved
-                    disctributed into a regular grid defined by
-                    q_par_rect, q_perp_rect.
-        norm : a matrix with the same shape of data_rect representing
-               the area of the pixel in the original angular units. 
-               It should be used to normalize the resulting array as
-               norm_z = data_rect / norm.
+            data_rect : the new matrix with intensity from data_curved
+                        disctributed into a regular grid defined by
+                        q_par_rect, q_perp_rect.
+            norm : a matrix with the same shape of data_rect
+                   representing the area of the pixel in the original
+                   angular units. It should be used to normalize the
+                   resulting array as norm_z = data_rect / norm.
 
-        Algorithm:
-           Step 1 : Compute xmap, ymap, which containt the values of
-                    q_par and q_perp, but represented in pixel units of
-                    the target coordinates q_par_rect, q_perp_rect.
-                    In other words, xmap(i,j) = 3.4 means that
-                    q_par(i,j) lands 2/5 of the q_distance between
-                    q_par_rect(3) and q_par_rect(4). Intensity in
-                    qpar(i,j) should thus be distributed in a 2:3 ratio
-                    among neighboring mini-columns of pixels 3 and 4.
-           Step 2 : Use the procedure described by Barna et al
-                    (RSI v.70, p. 2927, 1999) to distribute intensity
-                    from each source pixel i,j into each of 9
-                    destination pixels around the xmap(i,j) and
-                    ymap(i,j). Keep track of how many source "pixels"
-                    are placed into each bin in the variable, "norm".
-                    Note also that if xmap(i,j)-floor(xmap(i,j)) > 0.5,
-                    the "center" pixel of the 9 destination pixels is
-                    floor(xmap+0.5).
-           (Outside this function): The normalized intensity in each
-               new pixel can be obtained asI = data_rect./norm, but
-               with the caveat that zero values of "norm" should be
-               changed to ones first, norm(data_rect == 0) = 1.0.
+            Algorithm:
+               Step 1 : Compute xmap, ymap, which containt the values
+                        of q_par and q_perp, but represented in pixel
+                        units of the target coordinates q_par_rect,
+                        q_perp_rect.
+                        In other words, xmap(i,j) = 3.4 means that
+                        q_par(i,j) lands 2/5 of the q_distance between
+                        q_par_rect(3) and q_par_rect(4). Intensity in
+                        qpar(i,j) should thus be distributed in a 2:3
+                        ratio among neighboring mini-columns of pixels
+                        3 and 4.
+               Step 2 : Use the procedure described by Barna et al
+                        (RSI v.70, p. 2927, 1999) to distribute
+                        intensity from each source pixel i,j into each
+                        of 9 destination pixels around the xmap(i,j)
+                        and ymap(i,j). Keep track of how many source
+                        "pixels" are placed into each bin in the
+                        variable, "norm". Note also that if
+                        xmap(i,j)-floor(xmap(i,j)) > 0.5,
+                        the "center" pixel of the 9 destination pixels
+                        is floor(xmap+0.5).
+               (Outside this function): The normalized intensity in
+                   each new pixel can be obtained as
+                   I = data_rect./norm, but with the caveat that zero
+                   values of "norm" should be changed to ones first,
+                   norm(data_rect == 0) = 1.0.
 
-        Example Usage: 
-            1. Compute the values of q_par and q_perp for each pixel in
-               the image z (according to scattering geometry).
-            2. Set or determing a good target grid, e.g.:        
-               min_qpar, max_qpar = q_par.mix(), q_par.max()
-               min_qperp, max_qperp = q_perp.mix(), q_perp.max()
-               q_par_rect, q_par_step = np.linspace(min_qpar ,
-                   max_qpar, image_dim[1], retstep=True)
-               q_perp_rect, q_perp_step = np.linspace(min_qperp,
-                   max_qperp, image_dim[0], retstep=True)
-           3. data_rect = curved_to_rect(data_curved, q_par, q_perp,
-                  q_par_rect, q_perp_rect)
-           4. plt.imshow(data_rect, extent = [
-                  q_par_rect[0], q_par_rect[-1],
-                  q_perp_rect[-1], q_perp_rect[0]])
-              xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
-              ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
+            Example Usage: 
+                1. Compute the values of q_par and q_perp for each
+                   pixel in the image z (according to scattering
+                   geometry).
+                2. Set or determing a good target grid, e.g.:        
+                   min_qpar, max_qpar = q_par.mix(), q_par.max()
+                   min_qperp, max_qperp = q_perp.mix(), q_perp.max()
+                   q_par_rect, q_par_step = np.linspace(min_qpar ,
+                       max_qpar, image_dim[1], retstep=True)
+                   q_perp_rect, q_perp_step = np.linspace(min_qperp,
+                       max_qperp, image_dim[0], retstep=True)
+               3. data_rect = curved_to_rect(data_curved, q_par,
+                      q_perp, q_par_rect, q_perp_rect)
+               4. plt.imshow(data_rect, extent = [
+                      q_par_rect[0], q_par_rect[-1],
+                      q_perp_rect[-1], q_perp_rect[0]])
+                  xlabel(r'q$_\parallel$'' [\u212b$^{-1}$]')
+                  ylabel(r'q$_\perp$'' [\u212b$^{-1}$]')
         """
         out_width, out_height = q_par_rect.size, q_perp_rect.size
 
@@ -557,8 +574,18 @@ class GiwaxsConversionProcessor(Processor):
 
 
 class PyfaiIntegrationProcessor(Processor):
-    """A processor for azimuthally integrating images."""
-    def process(self, data, config, inputdir='.'):
+    """A processor for azimuthally integrating images.
+
+    :ivar config: Initialization parameters for an instance of
+        CHAP.giwaxs.models.GiwaxsConversionConfig
+    :type config: dict, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {
+            'config': 'giwaxs.models.PyfaiIntegrationConfig'}, init_var=True)
+    config: PyfaiIntegrationConfig
+
+    def process(self, data):
         """Process the input images & configuration and return a map of
         the azimuthally integrated images.
 
@@ -566,13 +593,6 @@ class PyfaiIntegrationProcessor(Processor):
             preprocessor of the raw detector data containing the map of
             input images.
         :type data: list[PipelineData]
-        :param config: Initialization parameters for an instance of
-            common.models.integration.PyfaiIntegrationConfig.
-        :type config: dict
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
         :return: Integrated images.
         :rtype: nexusformat.nexus.NXroot
         """
@@ -610,11 +630,6 @@ class PyfaiIntegrationProcessor(Processor):
             raise RuntimeError(
                 'No valid detector data in input pipeline data') from exc
 
-        # Load the validated integration configuration
-        config = self.get_config(
-            data=data, config=config, inputdir=inputdir,
-            schema='common.models.integration.PyfaiIntegrationConfig')
-
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
         data = {}
@@ -626,23 +641,22 @@ class PyfaiIntegrationProcessor(Processor):
             if len(converted_ais) > 1:
                 raise RuntimeError(
                     'More than one detector not yet implemented')
-            if config.azimuthal_integrators is None:
+            if self.config.azimuthal_integrators is None:
                 # Local modules
                 from CHAP.common.models.integration import (
                     AzimuthalIntegratorConfig,
                 )
 
-                config.azimuthal_integrators = [
-                    AzimuthalIntegratorConfig(**converted_ais[0])]
+                ais = [AzimuthalIntegratorConfig(**converted_ais[0])]
             else:
                 converted_ids = [ai['id'] for ai in converted_ais]
                 skipped_detectors = []
                 ais = []
-                for ai in config.azimuthal_integrators:
-                    if ai.id in converted_ids:
+                for ai in self.config.azimuthal_integrators:
+                    if ai.get_id() in converted_ids:
                         ais.append(ai)
                     else:
-                        skipped_detectors.append(ai.id)
+                        skipped_detectors.append(ai.get_id())
                 if skipped_detectors:
                     self.logger.warning(
                         f'Skipping detector(s) {skipped_detectors} '
@@ -650,101 +664,147 @@ class PyfaiIntegrationProcessor(Processor):
                 if not ais:
                     raise RuntimeError(
                         'No matching azimuthal integrators found')
-                config.azimuthal_integrators = ais
-            try:
-                nxdata = nxprocess_converted.get_default()
-                data[config.azimuthal_integrators[0].id] = np.flip(
-                    nxdata.nxsignal.nxdata, axis=1)
-            except Exception as exc:
-                raise RuntimeError('No default converted data found')
-            if not axes:
-                raise RuntimeError('No axes found')
-            elif len(axes) != 3:
+            nxdata = nxprocess_converted.data
+            axes = nxdata.attrs['axes']
+            if len(nxdata.attrs['axes']) != 3:
                 raise RuntimeError('More than one independent dimension '
-                                   'not yet tested/implemented')
+                                   'not yet implemented')
+            axes = axes[0]
+            independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
+            data[ais[0].get_id()] = np.flip(nxdata.converted.nxdata, axis=1)
         except Exception as exc:
             experiment_type = loads(
                 str(nxroot[nxroot.default].map_config))['experiment_type']
             if experiment_type == 'GIWAXS':
                 self.logger.warning(
                     'No converted data found, use raw data for integration')
-            if config.azimuthal_integrators is None:
-                raise ValueError(
-                    'Missing azimuthal_integrators parameter in '
-                    f'PyfaiIntegrationProcessor.config ({config})')
-            nxdata = nxroot.get_default()
+            nxentry = nxroot[nxroot.default]
+            detector_ids = [
+                #str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
+                str(id) for id in nxentry.detector_ids.nxdata]
+            if len(detector_ids) > 1:
+                raise RuntimeError(
+                    'More than one detector not yet implemented') from exc
+            if self.config.azimuthal_integrators is None:
+                raise ValueError('Missing azimuthal_integrators parameter in '
+                                 f'PyfaiIntegrationProcessor.config '
+                                 f'({self.config})') from exc
+            nxdata = nxentry[nxentry.default]
             skipped_detectors = []
             ais = []
-            for ai in config.azimuthal_integrators:
-                if ai.id in nxdata:
-                    if nxdata[ai.id].ndim != 3:
+            for ai in self.config.azimuthal_integrators:
+                if ai.get_id() in nxdata:
+                    if nxdata[ai.get_id()].ndim != 3:
                         raise RuntimeError(
                             'Inconsistent raw data dimension '
-                            f'{nxdata[ai.id].ndim}')
+                            f'{nxdata[ai.get_id()].ndim}') from exc
                     ais.append(ai)
                     data[ai.id] = nxdata[ai.id].nxdata
                 else:
-                    skipped_detectors.append(ai.id)
+                    skipped_detectors.append(ai.get_id())
             if skipped_detectors:
                 self.logger.warning('Skipping detector(s) '
                                     f'{skipped_detectors} (no raw data)')
             if not ais:
-                raise RuntimeError('No matching raw detector data found')
-            config.azimuthal_integrators = ais
-            axes = get_axes(nxdata)
-            if not axes:
-                raise RuntimeError('No axes found')
-            elif len(axes) != 1:
-                raise RuntimeError('More than one independent dimension '
-                                   'not yet tested/implemented')
+                raise RuntimeError(
+                    'No matching raw detector data found') from exc
+            if 'unstructured_axes' in nxdata.attrs:
+                axes = nxdata.attrs['unstructured_axes']
+                independent_dims[ais[0].get_id()] = [
+                    nxcopy(nxdata[a]) for a in axes]
+            elif 'axes' in nxdata.attrs:
+                axes = nxdata.attrs['axes']
+                independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
+            else:
+                self.logger.warning('Unable to find independent_dimensions')
+            data[ais[0].get_id()] = nxdata[ais[0].get_id()]
 
         # Select the images to integrate
-        if False and config.scan_step_indices is not None:
+        if False and self.config.scan_step_indices is not None:
             #FIX
-            data = data[config.scan_step_indices]
+            independent_dims = independent_dims[self.config.scan_step_indices]
+            data = data[self.config.scan_step_indices]
         self.logger.debug(
             f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
-        if config.sum_axes:
-            data = {k:np.sum(v, axis=0)[None,:,:]
+        if self.config.sum_axes:
+            data = {k:np.sum(v.nxdata, axis=0)[None,:,:]
                     for k, v in data.items()}
             self.logger.debug('data shape(s) after summing: '
                               f'{[(k, v.shape) for k, v in data.items()]}')
 
+        # Read the mask(s)
+        # FIX read at validation, like the poni file
+        masks = {}
+        for ai in ais:
+            self.logger.debug(f'Reading {ai.mask_file}')
+            try:
+                with fabio.open(ai.mask_file) as f:
+                    mask = f.data
+                    self.logger.debug(
+                        f'mask shape for {ai.get_id()}: {mask.shape}')
+                    masks[ai.get_id()] = mask
+            except Exception:
+                self.logger.debug('No mask file found for {ai.get_id()}')
+        if not masks:
+            masks = None
+
         # Perform integration(s)
-        ais = {ai.id: ai for ai in config.azimuthal_integrators}
-        for integration in config.integrations:
+        ais_pyfai = {ai.get_id(): ai.ai for ai in ais}
+        for integration in self.config.integrations:
 
             # Add a NXprocess object(s) to the NXroot
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except Exception as exc:
+            except Exception:
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
             nxprocess.integration_config = integration.model_dump_json()
             nxprocess.azimuthal_integrators = [
-                ai.model_dump_json() for ai in config.azimuthal_integrators]
+                ai.model_dump_json() for ai in ais]
 
             # Integrate the data
-            results = integration.integrate(ais, data)
+            results = integration.integrate(ais_pyfai, data, masks)
 
             # Create the NXdata object with the integrated data
             intensities = results['intensities']
-            coords = [] if config.sum_axes else [nxdata[axes[0]]]
-            for i, (k, v) in enumerate(results['coords'].items()):
-                if k.startswith('chi') and integration.right_handed:
-                    values = -np.flip(v['data'])
-                    intensities = np.flip(intensities, i)
-                else:
-                    values = v['data']
-                axes.append(k)
-                coords.append(NXfield(values, k, attrs=v['attributes']))
-            nxdata = NXdata(NXfield(intensities, 'I'), tuple(coords))
-            if config.sum_axes:
-                del nxdata.attrs['signal']
+            if self.config.sum_axes:
+                coords = []
+            elif isinstance(axes, str):
+                coords = [
+                    v for k, v in independent_dims.items() if k in ais_pyfai]
+            else:
+                coords = [i for k, v in independent_dims.items()
+                          for i in v if k in ais_pyfai]
+            if ('azimuthal' in results
+                    and results['azimuthal']['unit'] == 'chi_deg'):
+                chi = results['azimuthal']['coords']
+                if integration.right_handed:
+                    chi = -np.flip(chi)
+                    intensities = np.flip(intensities, (len(coords)))
+                coords.append(NXfield(chi, 'chi', attrs={'units': 'deg'}))
+            if results['radial']['unit'] == 'q_A^-1':
+                unit = Unit.INV_ANGSTROM.symbol
+                coords.append(
+                    NXfield(
+                        results['radial']['coords'], 'q',
+                        attrs={'units': unit}))
+            else:
+                coords.append(
+                    NXfield(
+                        results['radial']['coords'], 'r'))#,
+#                        attrs={'units': '\u212b'}))
+                self.logger.warning(
+                    f'Unknown radial unit: {results["radial"]["unit"]}')
+            nxdata = NXdata(NXfield(intensities, 'integrated'), tuple(coords))
+            if not isinstance(axes, str):
+                nxdata.attrs['unstructured_axes'] = nxdata.attrs['axes'][:-1]
+                del nxdata.attrs['axes']
             nxprocess.data = nxdata
             nxprocess.default = 'data'
+
+        self.config.azimuthal_integrators = ais
 
         return nxroot
 

@@ -42,7 +42,7 @@ class MaterialParamSelector:
         self.remove_material_button = tk.Button(
             root, text='Remove Material', command=self.remove_material)
         self.remove_material_button.grid(row=1, column=2)
- 
+
         # Parameter fields
         self.fields = {}
         for i, field in enumerate(
@@ -85,7 +85,8 @@ class MaterialParamSelector:
         self.root.protocol('WM_DELETE_WINDOW', self.on_close)
 
     def plot_reference_data(self):
-        # Plot reference data as a simple sine wave for illustration
+        if self.ref_data_y is None:
+            return
         handle = self.ax.plot(
             self.ref_data_x, self.ref_data_y, label=self.ref_data_label)
         self.legend_handles = handle
@@ -121,10 +122,11 @@ class MaterialParamSelector:
     def update_material(self):
         # Local modules
         from CHAP.edd.utils import make_material
+#        from CHAP.utils.material import Material
 
         if self.selected_material is None:
             return
- 
+
         material = self.materials[self.selected_material]
         try:
             # Retrieve values from fields
@@ -136,8 +138,14 @@ class MaterialParamSelector:
             ]
             # Make a hexrd material from those values so we can
             # propagate any other updates required by the material's
-            # symmetries            
+            # symmetries
             _material = make_material(name, sgnum, lattice_parameters)
+#            _material = Material.make_material(
+#                name, sgnum=sgnum,
+#                lattice_parameters_angstroms=lattice_parameters,
+#                pos=['4a', '8c'])
+#                #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
+            lattice_parameters_angstroms = lattice_parameters
             material.material_name = name
             material.sgnum = _material.sgnum
             material.lattice_parameters = [
@@ -155,7 +163,7 @@ class MaterialParamSelector:
             for i, key in enumerate(('a', 'b', 'c', 'alpha', 'beta', 'gamma')):
                 self.fields[key].insert(
                     0, str(_material.latticeParameters[i].value))
- 
+
             # Update the listbox name display
             self.material_listbox.delete(self.selected_material)
             self.material_listbox.insert(
@@ -248,14 +256,14 @@ def run_material_selector(
     """
     # Initialize the main application window
     root = tk.Tk()
- 
+
     # Create the material parameter selection GUI within the main
     # window
     # This GUI allows the user to adjust and visualize lattice
     # parameters and space group
     app = MaterialParamSelector(
         root, x, y, tth, preselected_materials, label, on_complete)
- 
+
     if interactive:
         # If interactive mode is enabled, start the GUI event loop to
         # allow user interaction
@@ -324,18 +332,17 @@ if __name__ == '__main__':
     # Local modules
     from CHAP.edd.models import MaterialConfig
 
-    x = np.linspace(40, 100, 100)
-    y = np.sin(x)
-    tth = 5
-    preselected_materials = [
+    xx = np.linspace(40, 100, 100)
+    yy = np.sin(xx)
+    ttth = 5
+    ppreselected_materials = [
         MaterialConfig(
             material_name='Ti64_orig',
             sgnum=194,
             lattice_parameters=[2.9217, 4.66027]
         )
     ]
-    materials = select_material_params(
-        x, y, tth, preselected_materials=preselected_materials,
-        interactive=True, filename=None,
-    )
-    print(f'Returned materials: {materials}')
+    mmaterials = select_material_params(
+        xx, yy, ttth, preselected_materials=ppreselected_materials,
+        interactive=True)
+    print(f'Returned materials: {mmaterials}')

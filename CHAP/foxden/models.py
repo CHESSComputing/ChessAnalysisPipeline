@@ -2,7 +2,7 @@
 
 # System modules
 from typing import (
-    Literal,
+#    Literal,
     Optional,
 )
 
@@ -10,7 +10,7 @@ from typing import (
 from pydantic import (
     conint,
     constr,
-    field_validator,
+#    field_validator,
 )
 
 # Local modules
@@ -20,25 +20,23 @@ from CHAP import CHAPBaseModel
 class FoxdenRequestConfig(CHAPBaseModel):
     """FOXDEN HTTP request base configuration class.
 
-    :param url: URL of service.
-    :type url: str
     :param did: FOXDEN dataset identifier (did).
     :type did: string, optional
+    :param limit: Maximum number of returned records,
+        defaults to `10`.
+    :type limit: int, optional
     :param query: FOXDEN query.
     :type query: string, optional
-    :param method: HTTP request method (not case sensitive),
-        defaults to `'POST'`.
-    :type method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional
+    :param verbose: Verbose output flag, defaults to `False`.
+    :type verbose: bool, optional
+    """
+#    :param method: HTTP request method (not case sensitive),
+#        defaults to `'POST'`.
+#    :type method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional
 #    :param scope: FOXDEN scope (not case sensitive).
 #    :type scope: Literal['read', 'write'], optional
 #    :param idx: Ask Valentin, currently it's ignored
 #    :type idx: int, optional
-    :param limit: Maximum number of returned records,
-        defaults to `10`.
-    :type limit: int, optional
-    :param verbose: Verbose output flag, defaults to `False`.
-    :type verbose: bool, optional
-    """
     # Mimics golib.services.data.ServiceQuery
     did: Optional[constr(
         strict=True, strip_whitespace=True, to_lower=True)] = None

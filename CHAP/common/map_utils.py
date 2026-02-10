@@ -70,8 +70,7 @@ class MapSliceProcessor(Processor):
 
         # Get the validated map configuration
         map_config = self.get_config(
-            data=data, config=config, schema='common.models.map.MapConfig',
-            inputdir=inputdir)
+            data=data, config=config, schema='common.models.map.MapConfig')
 
         # Validate the detectors
         try:
@@ -80,8 +79,7 @@ class MapSliceProcessor(Processor):
         except:
             try:
                 detector_config = self.get_config(
-                    data=data, schema='common.models.map.DetectorConfig',
-                    inputdir=inputdir)
+                    data=data, schema='common.models.map.DetectorConfig')
             except Exception as exc:
                 raise RuntimeError from exc
 
@@ -132,9 +130,9 @@ class MapSliceProcessor(Processor):
         data_points.extend(
             [
                 {
-                    'path': f'{map_config.title}/data/{det.id}',
+                    'path': f'{map_config.title}/data/{det.get_id()}',
                     'data': np.asarray([
-                        scan.get_detector_data(det.id, i)
+                        scan.get_detector_data(det.get_id(), i)
                         for i in scan_indices
                     ]),
                     'idx': map_indices

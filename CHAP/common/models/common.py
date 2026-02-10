@@ -1,7 +1,6 @@
 """Common Pydantic model classes."""
 
 # System modules
-import os
 from typing import (
     Literal,
     Optional,
@@ -10,14 +9,11 @@ from typing import (
 
 # Third party modules
 from pydantic import (
-    DirectoryPath,
-    Field,
     confloat,
     conint,
     conlist,
     constr,
     field_validator,
-    model_validator,
 )
 #from typing_extensions import Annotated
 
@@ -50,27 +46,28 @@ class BinarizeConfig(CHAPBaseModel):
     remove_original_data: Optional[bool] = False
 
 
-class ImageConfig(CHAPBaseModel):
+class ImageProcessorConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.
 
     :param animation: Create an animation for an image stack
         (ignored for a single image), defaults to `False`.
     :type animation: bool, optional
-    :param axis: Axis direction or name of the image slice(s),
+    :param axis: Axis direction or name for the image slice(s),
         defaults to `0`.
     :type axis: Union[int, str], optional
     :param coord_range: Coordinate value range of the selected image
-        slice(s), up to three floats (start, end, step),
-        defaults to `None`, which enables index_range to select the
-        image slice(s). Include only `coord_range` or
+        slice(s), up to three floating point numbers (start, end,
+        step), defaults to `None`, which enables index_range to select
+        the image slice(s). Include only `coord_range` or
         `index_range`, not both.
     :type coord_range: Union[float, list[float]], optional
     :param index_range: Array index range of the selected image
         slice(s), up to three integers (start, end, step).
-        Set index_range to -1 to select the center image of an
-        image stack. Only used when coord_range = `None`.
-        Defaults to `None`, which will include all slices.
+        Set index_range to -1 to select the center image slice
+        of an image stack in the `axis` direction. Only used when
+        coord_range = `None`. Defaults to `None`, which will include
+        all slices.
     :type index_range: Union[int, list[int]], optional
     :ivar fileformat: Image (stack) return file type, defaults to
         'png' for a single image, 'tif' for an image stack, or
@@ -78,9 +75,9 @@ class ImageConfig(CHAPBaseModel):
     :type fileformat: Literal['gif', 'jpeg', 'png', 'tif'], optional
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
+        Specify as [None, float] or [float, None] to set only the upper
+        or lower limit of the value range.
     :type vrange: list[float, float]
-    :type vmax: float
-
     """
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
@@ -95,7 +92,7 @@ class ImageConfig(CHAPBaseModel):
     fileformat: Optional[Literal['gif', 'jpeg', 'png', 'tif']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
-                item_type=confloat(allow_inf_nan=False))] = None
+                item_type=Union[None, confloat(allow_inf_nan=False)])] = None
 
     @field_validator('index_range', mode='before')
     @classmethod
@@ -125,8 +122,10 @@ class ImageConfig(CHAPBaseModel):
         :rtype: list[float, float]
         """
         if isinstance(vrange, (list, tuple)) and len(vrange) == 2:
-            return [min(vrange), max(vrange)]
-        return vrange
+            if None not in vrange:
+                return [min(vrange), max(vrange)]
+        return [None if isinstance(i, str) and i.lower() == 'none' else i
+                for i in index_range]
 
 
 class UnstructuredToStructuredConfig(CHAPBaseModel):

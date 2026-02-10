@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : reader.py
 Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
@@ -10,15 +9,12 @@ Description: FOXDEN readers
 # System modules
 import json
 
-# Third party modules
-import requests
-
 # Local modules
+from CHAP.pipeline import PipelineItem
 from CHAP.foxden.utils import HttpRequest
-from CHAP.reader import Reader
 
 
-class FoxdenDataDiscoveryReader(Reader):
+class FoxdenDataDiscoveryReader(PipelineItem):
     """Reader for the FOXDEN Data Discovery service."""
     def read(self, config):
         """Read records from the FOXDEN Data Discovery service based on
@@ -68,7 +64,7 @@ class FoxdenDataDiscoveryReader(Reader):
         return result
 
 
-class FoxdenMetadataReader(Reader):
+class FoxdenMetadataReader(PipelineItem):
     """Reader for the FOXDEN Metadata service."""
     def read(self, config):
         """Read records from the FOXDEN Metadata service based on did
@@ -114,7 +110,7 @@ class FoxdenMetadataReader(Reader):
         return result
 
 
-class FoxdenProvenanceReader(Reader):
+class FoxdenProvenanceReader(PipelineItem):
     """Reader for FOXDEN Provenance data from a specific FOXDEN
     Provenance service.
     """
@@ -168,14 +164,14 @@ class FoxdenProvenanceReader(Reader):
         return result
 
 
-class FoxdenSpecScansReader(Reader):
+class FoxdenSpecScansReader(PipelineItem):
     """Reader for FOXDEN SpecScans data from a specific FOXDEN
     SpecScans service.
     """
     def read(
-            self, url, data, did='', query='', spec=None, method='POST', #'GET',
+            self, url, data, did='', query='', spec=None, method='POST', # 'GET',
             verbose=False):
-#TODO FIX
+# TODO FIX
         """Read and return data from a specific FOXDEN SpecScans
         service.
 

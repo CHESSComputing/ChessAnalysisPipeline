@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-#pylint: disable=
 """
 File       : fit.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
@@ -10,7 +9,6 @@ Description: General curve fitting module
 # System modules
 from collections import Counter
 from copy import deepcopy
-from logging import getLogger
 from os import (
     cpu_count,
     mkdir,
@@ -42,7 +40,6 @@ from CHAP.utils.general import (
     quick_plot,
 )
 
-logger = getLogger(__name__)
 FLOAT_MIN = float_info.min
 FLOAT_MAX = float_info.max
 FLOAT_EPS = float_info.epsilon
@@ -90,7 +87,8 @@ class FitProcessor(Processor):
         )
 
         # Unwrap the PipelineData if called as a Pipeline Processor
-        if not isinstance(data, (Fit, FitMap)) and not isinstance(data, NXdata):
+        if (not isinstance(data, (Fit, FitMap))
+                and not isinstance(data, NXdata)):
             data = self.unwrap_pipelinedata(data)[0]
 
         if isinstance(data, (Fit, FitMap)):
@@ -147,14 +145,14 @@ class FitProcessor(Processor):
 
             # Instantiate the Fit or FitMap object and fit the data
             if np.squeeze(nxdata.nxsignal).ndim == 1:
-                fit = Fit(nxdata, fit_config)
+                fit = Fit(nxdata, fit_config, self.logger)
                 fit.fit()
                 if fit_config.print_report:
                     fit.print_fit_report()
                 if fit_config.plot:
                     fit.plot(skip_init=True)
             else:
-                fit = FitMap(nxdata, fit_config)
+                fit = FitMap(nxdata, fit_config, self.logger)
                 fit.fit(
                     rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
@@ -175,7 +173,6 @@ class FitProcessor(Processor):
         models = []
         num_peak = len(model_config.centers)
         if num_peak == 1 and model_config.fit_type == 'uniform':
-            logger.debug('Ignoring fit_type input for fitting one peak')
             model_config.fit_type = 'unconstrained'
 
         sig_min = FLOAT_MIN
@@ -193,11 +190,10 @@ class FitProcessor(Processor):
                 ast(f'fwhm = {model_config.fwhm_max}')
                 sig_max = ast(fwhm_factor[model_config.peak_models])
 
+        prefix = ''
         if model_config.fit_type == 'uniform':
             parameters.append(FitParameter(
                 name='scale_factor', value=1.0, min=FLOAT_MIN))
-            if num_peak == 1:
-                prefix = ''
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -209,8 +205,6 @@ class FitProcessor(Processor):
                          {'name': 'center', 'expr': f'scale_factor*{cen}'},
                          {'name': 'sigma', 'min': sig_min, 'max': sig_max}]))
         else:
-            if num_peak == 1:
-                prefix = ''
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
@@ -376,7 +370,7 @@ class ModelResult():
             try:
                 self.covar = self.redchi * np.linalg.inv(
                     np.dot(result.jac.T, result.jac))
-            except:
+            except Exception:
                 self.covar = None
 
         # Update the fit parameters with the fit result
@@ -460,6 +454,7 @@ class ModelResult():
             defaults to `False`.
         :type show_correl: bool, optional
         """
+        # FIX add show_correl option
         # Local modules
         from CHAP.utils.general import (
             getfloat_attr,
@@ -521,7 +516,7 @@ class Fit:
     """
     Wrapper class for scipy/lmfit.
     """
-    def __init__(self, nxdata, config):
+    def __init__(self, nxdata, config, logger):
         """Initialize Fit."""
         self._code = config.code
         for model in config.models:
@@ -535,6 +530,7 @@ class Fit:
         else:
             # Third party modules
             from lmfit import Parameters
+        self._logger = logger
         self._mask = None
         self._method = config.method
         self._model = None
@@ -649,6 +645,15 @@ class Fit:
                 if name != 'tmp_normalization_offset_c'}
 
     @property
+    def best_vary(self):
+        """Return vary parameter for the best fit parameters."""
+        if self._result is None:
+            return None
+        return {name:self._result.params[name].vary
+                for name in sorted(self._result.params)
+                if name != 'tmp_normalization_offset_c'}
+
+    @property
     def chisqr(self):
         """Return the chisqr value of the best fit."""
         if self._result is None:
@@ -663,7 +668,8 @@ class Fit:
 
         components = {}
         if self._result is None:
-            logger.warning('Unable to collect components in Fit.components')
+            self._logger.warning(
+                'Unable to collect components in Fit.components')
             return components
         for component in self._result.components:
             if 'tmp_normalization_offset_c' in component.param_names:
@@ -788,7 +794,7 @@ class Fit:
         if self._result is None:
             return None
         if not self._result.success:
-            logger.warning(
+            self._logger.warning(
                 f'ier = {self._result.ier}: {self._result.message}')
             if (self._code == 'lmfit' and self._result.ier
                     and self._result.ier != 5):
@@ -830,11 +836,11 @@ class Fit:
             raise KeyError(f'Invalid "expr" key in parameter {parameter}')
         name = parameter['name']
         if not parameter['vary']:
-            logger.warning(
+            self._logger.warning(
                 f'Ignoring min in parameter {name} in '
                 f'Fit.add_parameter (vary = {parameter["vary"]})')
             parameter['min'] = -np.inf
-            logger.warning(
+            self._logger.warning(
                 f'Ignoring max in parameter {name} in '
                 f'Fit.add_parameter (vary = {parameter["vary"]})')
             parameter['max'] = np.inf
@@ -846,6 +852,7 @@ class Fit:
 
     def add_model(self, model, prefix):
         """Add a model component to the fit model."""
+        # pylint: disable=possibly-used-before-assignment
         if self._code == 'lmfit':
             from lmfit.models import (
                 ConstantModel,
@@ -1061,15 +1068,15 @@ class Fit:
                     max=parameter.max, vary=parameter.vary)
             else:
                 if parameter.value is not None:
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "value" for expression parameter'
                         f'{name} = {parameter.expr}')
                 if not np.isinf(parameter.min):
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "min" for expression parameter'
                         f'{name} = {parameter.expr}')
                 if not np.isinf(parameter.max):
-                    logger.warning(
+                    self._logger.warning(
                         'Ignoring input "max" for expression parameter'
                         f'{name} = {parameter.expr}')
                 self._parameters[name].set(
@@ -1088,7 +1095,7 @@ class Fit:
 
         # Check input parameters
         if self._model is None:
-            logger.error('Undefined fit model')
+            self._logger.error('Undefined fit model')
             return None
         self._mask = kwargs.pop('mask', None)
         guess = kwargs.pop('guess', False)
@@ -1097,7 +1104,7 @@ class Fit:
                 f'Invalid value of keyword argument guess ({guess})')
         if self._result is not None:
             if guess:
-                logger.warning(
+                self._logger.warning(
                     'Ignoring input parameter guess during refitting')
                 guess = False
 #        if 'try_linear_fit' in kwargs:
@@ -1108,7 +1115,7 @@ class Fit:
 #                    'Invalid value of keyword argument try_linear_fit '
 #                    f'({try_linear_fit})')
 #            if not self._try_linear_fit:
-#                logger.warning(
+#                self._logger.warning(
 #                    'Ignore superfluous keyword argument "try_linear_fit" '
 #                    '(not yet supported for callable models)')
 #            else:
@@ -1120,7 +1127,7 @@ class Fit:
         # Check if model is linear
         try:
             linear_model = self._check_linearity_model()
-        except:
+        except Exception:
             linear_model = False
         if kwargs.get('check_only_linearity') is not None:
             return linear_model
@@ -1138,7 +1145,7 @@ class Fit:
                     self._fit_linear_model(
                         self._x[~self._mask],
                         np.asarray(self._y_norm)[~self._mask])
-            except:
+            except Exception:
                 linear_model = False
         if not linear_model:
             self._result = self._fit_nonlinear_model(
@@ -1173,9 +1180,9 @@ class Fit:
             mask = self._mask
         if y is not None:
             if not isinstance(y, (tuple, list, np.ndarray)):
-                logger.warning('Ignorint invalid parameter y ({y}')
+                self._logger.warning('Ignorint invalid parameter y ({y}')
             if len(y) != len(self._x):
-                logger.warning(
+                self._logger.warning(
                     'Ignoring parameter y in plot (wrong dimension)')
                 y = None
         if y is not None:
@@ -1232,18 +1239,18 @@ class Fit:
         x = np.asarray(x)
         y = np.asarray(y)
         if len(x) != len(y):
-            logger.error(
+            print(
                 f'Invalid x and y lengths ({len(x)}, {len(y)}), '
                 'skip initial guess')
             return None, None, None
         if isinstance(center_guess, (int, float)):
             if args:
-                logger.warning(
+                print(
                     'Ignoring additional arguments for single center_guess '
                     'value')
         elif isinstance(center_guess, (tuple, list, np.ndarray)):
             if len(center_guess) == 1:
-                logger.warning(
+                print(
                     'Ignoring additional arguments for single center_guess '
                     'value')
                 if not isinstance(center_guess[0], (int, float)):
@@ -1407,7 +1414,7 @@ class Fit:
                 # Try with the build-in lmfit guess method
                 # (only implemented for a single model)
                 self._parameters = self._model.guess(yy, x=xx)
-            except:
+            except Exception:
                 # Third party modules
                 from asteval import Interpreter
                 from lmfit.models import GaussianModel
@@ -1517,6 +1524,8 @@ class Fit:
                     self._best_values, scale_factor_index, 0)
                 self._best_errors = np.delete(
                     self._best_errors, scale_factor_index, 0)
+                self._best_vary = np.delete(
+                    self._best_vary, scale_factor_index, 0)
             for par in parameters:
                 name = par.name
                 if name not in self._parameters:
@@ -1577,7 +1586,7 @@ class Fit:
         from sympy import diff
 
 #        if not self._try_linear_fit:
-#            logger.info(
+#            self._logger.info(
 #                'Skip linearity check (not yet supported for callable models)')
 #            return False
         free_parameters = \
@@ -1635,6 +1644,9 @@ class Fit:
             simplify,
         )
 
+        # FIX self._parameter_norms
+        # pylint: disable=no-member
+        raise RuntimeError
         # Construct the matrix and the free parameter vector
         free_parameters = \
             [name for name, par in self._parameters.items() if par.vary]
@@ -1862,7 +1874,7 @@ class Fit:
                     [v['max'] for v in self._parameter_bounds.values()])
                 if self._method in ('lm', 'leastsq'):
                     self._method = 'trf'
-                    logger.debug(
+                    self._logger.debug(
                         f'Fit method changed to {self._method} for fit with '
                         'bounds')
             else:
@@ -2079,13 +2091,14 @@ class Fit:
 
 class FitMap(Fit):
     """Wrapper to the Fit class to fit data on a N-dimensional map."""
-    def __init__(self, nxdata, config):
+    def __init__(self, nxdata, config, logger):
         """Initialize FitMap."""
-        super().__init__(None, config)
+        super().__init__(None, config, logger)
         self._best_errors = None
         self._best_fit = None
         self._best_parameters = None
         self._best_values = None
+        self._best_vary = None
         self._inv_transpose = None
         self._max_nfev = None
         self._memfolder = config.memfolder
@@ -2128,7 +2141,9 @@ class FitMap(Fit):
         if True: #self._mask is None:
             ymap_min = float(self._ymap_norm.min())
             ymap_max = float(self._ymap_norm.max())
-#        else:
+        else:
+            ymap_min = None
+            ymap_max = None
 #            self._mask = np.asarray(self._mask).astype(bool)
 #            if self._x.size != self._mask.size:
 #                raise ValueError(
@@ -2165,9 +2180,14 @@ class FitMap(Fit):
         return self._best_values
 
     @property
+    def best_vary(self):
+        """Return values of the best fit parameters."""
+        return self._best_vary
+
+    @property
     def chisqr(self):
         """Return the chisqr value of each best fit."""
-        logger.warning('Undefined property chisqr')
+        self._logger.warning('Undefined property chisqr')
 
     @property
     def components(self):
@@ -2177,7 +2197,7 @@ class FitMap(Fit):
 
         components = {}
         if self._result is None:
-            logger.warning(
+            self._logger.warning(
                 'Unable to collect components in FitMap.components')
             return components
         for component in self._result.components:
@@ -2221,7 +2241,7 @@ class FitMap(Fit):
     def covar(self):
         """Return the covarience matrices of the best fit parameters.
         """
-        logger.warning('Undefined property covar')
+        self._logger.warning('Undefined property covar')
 
     @property
     def max_nfev(self):
@@ -2273,12 +2293,12 @@ class FitMap(Fit):
         """Return the variable names for the covarience matrix
         property.
         """
-        logger.warning('Undefined property var_names')
+        self._logger.warning('Undefined property var_names')
 
     @property
     def y(self):
         """Return the input y-array."""
-        logger.warning('Undefined property y')
+        self._logger.warning('Undefined property y')
 
     @property
     def ymap(self):
@@ -2293,7 +2313,7 @@ class FitMap(Fit):
                 or len(dims) != len(self._map_shape)):
             raise ValueError('Invalid parameter dims ({dims})')
         if self.best_values is None or self.best_errors is None:
-            logger.warning(
+            self._logger.warning(
                 f'Unable to obtain best parameter values for dims = {dims}')
             return {}
         # Create current parameters
@@ -2323,8 +2343,8 @@ class FitMap(Fit):
             return
         try:
             rmtree(self._memfolder)
-        except:
-            logger.warning('Could not clean-up automatically.')
+        except Exception:
+            self._logger.warning('Could not clean-up automatically.')
 
     def plot(
             self, dims=None, y_title=None, plot_residual=False,
@@ -2341,7 +2361,7 @@ class FitMap(Fit):
         dims = tuple(dims)
         if (self._result is None or self.best_fit is None
                 or self.best_values is None):
-            logger.warning(
+            self._logger.warning(
                 f'Unable to plot fit for dims = {dims}')
             return
         if y_title is None or not isinstance(y_title, str):
@@ -2400,7 +2420,7 @@ class FitMap(Fit):
         """Fit the model to the input data."""
         # Check input parameters
         if self._model is None:
-            logger.error('Undefined fit model')
+            self._logger.error('Undefined fit model')
         num_proc_max = max(1, cpu_count())
         if config is None:
             num_proc = kwargs.pop('num_proc', num_proc_max)
@@ -2419,24 +2439,24 @@ class FitMap(Fit):
             self._plot = config.plot
 #            self._skip_init = config.skip_init
         if num_proc > 1 and not HAVE_JOBLIB:
-            logger.warning(
+            self._logger.warning(
                 'Missing joblib in the conda environment, running serially')
             num_proc = 1
         if num_proc > num_proc_max:
-            logger.warning(
+            self._logger.warning(
                 f'The requested number of processors ({num_proc}) exceeds the '
                 'maximum allowed number of processors, num_proc reduced to '
                 f'{num_proc_max}')
             num_proc = num_proc_max
-        logger.debug(f'Using {num_proc} processors to fit the data')
+        self._logger.debug(f'Using {num_proc} processors to fit the data')
         self._redchi_cutoff *= self._y_range**2
 
         # Setup the fit
         self._setup_fit(config)
 
         # Create the best parameter list, consisting of all varying
-        #     parameters plus the expression parameters in order to
-        #     collect their errors
+        # parameters plus the expression parameters in order to collect
+        # their errors
         if self._result is None:
             # Initial fit
             assert self._best_parameters is None
@@ -2456,7 +2476,7 @@ class FitMap(Fit):
         num_best_parameters = len(self._best_parameters)
 
         # Flatten and normalize the best values of the previous fit,
-        #     remove the remaining results of the previous fit
+        # remove the remaining results of the previous fit
         if self._result is not None:
             self._out_of_bounds = None
             self._max_nfev = None
@@ -2465,6 +2485,7 @@ class FitMap(Fit):
             self._success = None
             self._best_fit = None
             self._best_errors = None
+            self._best_vary = None
             assert self._best_values is not None
             assert self._best_values.shape[0] == num_best_parameters
             assert self._best_values.shape[1:] == self._map_shape
@@ -2477,10 +2498,11 @@ class FitMap(Fit):
                         self._best_values[i] /= self._norm[1]
 
         # Normalize the initial parameters
-        #     (and best values for a refit)
+        # (and best values for a refit)
         self._normalize()
 
-        # Prevent initial values from sitting at boundaries
+        # Initialize parameter bounds and check to prevent initial
+        # values at boundaries
         self._parameter_bounds = {
             name:{'min': par.min, 'max': par.max}
             for name, par in self._parameters.items() if par.vary}
@@ -2507,6 +2529,9 @@ class FitMap(Fit):
                 (self._map_dim, x_size), dtype=self._ymap_norm.dtype)
             self._best_errors_flat = [
                 np.zeros(self._map_dim, dtype=np.float64)
+                for _ in range(num_best_parameters+num_new_parameters)]
+            self._best_vary_flat = [
+                np.zeros(self._map_dim, dtype=bool)
                 for _ in range(num_best_parameters+num_new_parameters)]
             if self._result is None:
                 self._best_values_flat = [
@@ -2551,6 +2576,13 @@ class FitMap(Fit):
                     self._memfolder, f'best_errors_memmap_{i}')
                 self._best_errors_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
+                              shape=self._map_dim, mode='w+'))
+            self._best_vary_flat = []
+            for i in range(num_best_parameters+num_new_parameters):
+                filename_memmap = path.join(
+                    self._memfolder, f'best_errors_memmap_{i}')
+                self._best_vary_flat.append(
+                    np.memmap(filename_memmap, dtype=bool,
                               shape=self._map_dim, mode='w+'))
             self._best_values_flat = []
             for i in range(num_best_parameters):
@@ -2604,7 +2636,7 @@ class FitMap(Fit):
                 # Perform the remaining fits in parallel
                 num_fit = self._map_dim-1
                 if num_proc > num_fit:
-                    logger.warning(
+                    self._logger.warning(
                         f'The requested number of processors ({num_proc}) '
                         'exceeds the number of fits, num_proc reduced to '
                         f'{num_fit}')
@@ -2666,6 +2698,8 @@ class FitMap(Fit):
             par, list(self._map_shape)) for par in self._best_values_flat])
         self._best_errors = np.asarray([np.reshape(
             par, list(self._map_shape)) for par in self._best_errors_flat])
+        self._best_vary = np.asarray([np.reshape(
+            par, list(self._map_shape)) for par in self._best_vary_flat])
         if self._inv_transpose is not None:
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
@@ -2681,6 +2715,8 @@ class FitMap(Fit):
                 self._best_values, [0] + [i+1 for i in self._inv_transpose])
             self._best_errors = np.transpose(
                 self._best_errors, [0] + [i+1 for i in self._inv_transpose])
+            self._best_vary = np.transpose(
+                self._best_vary, [0] + [i+1 for i in self._inv_transpose])
         del self._out_of_bounds_flat
         del self._max_nfev_flat
         del self._num_func_eval_flat
@@ -2689,6 +2725,7 @@ class FitMap(Fit):
         del self._best_fit_flat
         del self._best_values_flat
         del self._best_errors_flat
+        del self._best_vary_flat
 
         # Restore parameter bounds and renormalize the parameters
         for name, par in self._parameter_bounds.items():
@@ -2723,7 +2760,7 @@ class FitMap(Fit):
         if (y_max == 0.0
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
-            logger.debug(f'Skipping fit for n = {n} (rel norm = {y_max:.5f})')
+            self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 from CHAP.utils.fit import ModelResult
 
@@ -2751,7 +2788,7 @@ class FitMap(Fit):
             heights = []
             names = []
             for component in result.components:
-                if isinstance(component, (GaussianModel, LorentzianModel)):
+                if component._name in ('gaussian', 'lorentzian'):
                     for name in component.param_names:
                         if 'height' in name:
                             heights.append(result.params[name].value)
@@ -2760,6 +2797,7 @@ class FitMap(Fit):
                 refit = False
                 max_height = max(heights)
                 parameters_save = deepcopy(self._parameters)
+                parameters_bounds_save = deepcopy(self._parameter_bounds)
                 for i, (name, height) in enumerate(zip(names, heights)):
                     if height < self._rel_height_cutoff*max_height:
                         self._parameters[
@@ -2777,6 +2815,7 @@ class FitMap(Fit):
                         n, current_best_values, **kwargs)
                     # Reset fixed amplitudes back to default
                     self._parameters = deepcopy(parameters_save)
+                    self._parameter_bounds = deepcopy(parameters_bounds_save)
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
@@ -2798,7 +2837,7 @@ class FitMap(Fit):
                 errortxt += f'\n\t{result.lmdif_message}'
             if hasattr(result, 'message'):
                 errortxt += f'\n\t{result.message}'
-            logger.warning(f'{errortxt}')
+            self._logger.warning(f'{errortxt}')
 
         # Renormalize the data and results
         self._renormalize(n, result)
@@ -2903,6 +2942,8 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_vary_flat[i][n] = (
+                    result.params[name].vary and result.success)
             if result.success:
                 self._best_fit_flat[n] = result.best_fit
         else:
@@ -2933,6 +2974,8 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_vary_flat[i][n] = (
+                    result.params[name].stderr and result.success)
             if result.success:
                 self._best_fit_flat[n] = (
                     result.best_fit*self._norm[1] + self._norm[0])

@@ -6,6 +6,7 @@ from typing import (
     Optional,
 )
 from pydantic import (
+    ConfigDict,
     conint,
     conlist,
     confloat,
@@ -40,7 +41,7 @@ class Detector(CHAPBaseModel):
     pixel_size: conlist(
         item_type=confloat(gt=0, allow_inf_nan=False),
         min_length=1, max_length=2)
-    lens_magnification: confloat(gt=0, allow_inf_nan=False) = 1.0
+    lens_magnification: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
 
 
 class TomoReduceConfig(CHAPBaseModel):
@@ -195,7 +196,7 @@ class TomoSimConfig(CHAPBaseModel):
     :type slit_size: float, optional
     """
     station: Literal['id1a3', 'id3a', 'id3b']
-    detector: Detector.model_construct()
+    detector: Detector
     sample_type: Literal[
         'square_rod', 'square_pipe', 'hollow_cube', 'hollow_brick',
         'hollow_pyramid']
@@ -208,3 +209,5 @@ class TomoSimConfig(CHAPBaseModel):
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     slit_size: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
