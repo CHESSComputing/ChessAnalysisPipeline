@@ -7,8 +7,9 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
 
 ### General overview
 
-#### Setup
-#. Setup a container for the complete raw and processed dataset
+1. Setup
+   
+   Setup a container for the complete raw and processed dataset
    First, we set up a container to hold the raw and processed datasets before any processing begins. This step needs the following information to allocate an appropriate amount of space:
    #. Dataset size
    #. Detector size(s)
@@ -53,8 +54,8 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
        force_overwrite: true   
    ```
    
-#### Update
-#. Fill container with processed data
+1. Fill container with processed data
+
    Next, we read in the raw data and perform the configured integration(s). To get the best performance for large datasets, this step should be performed across multiple pipeline processes runnning in parallel. Each process will handle reading, processing, and writing just one part of the whole dataset -- exactly _one chunk_ of each array in the container set up previously, to be precise. To fill the container from the previous step with processed data, each parallel process will need to know the following information:
    #. The spec file for the scan whose data will be processed
    #. The scan number for the scan whose data will be processed
@@ -97,11 +98,11 @@ The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS process
        filename: data.zarr
    ```
 
-#### Finalize
-#. Perform final user adjustments
+1. Perform final user adjustments
+
    These "final adjustments" are all optional, but they can include the following:
-   - converting from .zarr format to NeXus file format
-   - performing flux, absorption, and / or background corrections
+   - converting from .zarr format to NeXus format
+   - performing flux, absorption, and / or background corrections on integrated data
    - inserting links to coordinate axes next to processed data arrays
    - reshaping the dataset from an "unstructured" to a "structured" representation
 
@@ -303,7 +304,8 @@ I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{refe
 
 ## Configuring a pipeline
 Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. *Both* these configurations will need to be read in to the pipeline for [the setup step](#setup) and every [update step](#update).
-#. `map_config.yaml` (configuraing a `CHAP.common.models.map.MapConfig`)
+1. `map_config.yaml` (configuraing a `CHAP.common.models.map.MapConfig`)
+   
    This configuration contains everything `CHAP` needs to know about the location, format, and size of the raw input dataset.
    Example `map_config.yaml`:
    ```yaml
@@ -337,35 +339,203 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
      data_type: scan_column
      name: diode
    ```
-#. `pyfai_integration_procesor_config.yaml` (configuring a `CHAP.common.models.integration.PyFaiIntegrationProcessorConfig`)
+
+   Annotated `map_config.yaml` template:
+    ```yaml
+    # General  metadata ####################################################
+
+    # A title for this map. Recommended: use snake_case.
+    title:
+
+    # The station at which this map's data were taken. Choices: id1a3,
+    # id3a, or id3b.
+    station: 
+
+    # Do not change this value!
+    experiment_type: SAXSWAXS
+
+    ########################################################################
+
+
+    # Sample metadata ######################################################
+
+    sample:
+      # A name for the sample. 
+      name: 
+
+      # Optional: a free-text description of the sample.
+      description: 
+
+    ########################################################################
+
+    # Location of SPEC scans that make up the map ##########################
+
+    # true or false. Use false for processing live data.
+    validate_data_present: false
+
+
+    # There must be at least one item in this list. There is no maximum
+    # number of items that can be in this list.
+    spec_scans:
+
+    # This is the first item in the list (required):
+    - 
+      # The full path to a spec file containing scans for this map.
+      spec_file: /nfs/chess/raw/<cycle>/<station>/<BTR>/<spec_file>
+
+      # A list of scan numbers from the above spec file that are part of
+      # this map.
+      scan_numbers: []
+
+    # This is another additional item in the list (optional):
+    - spec_file:
+      scan_numbers: []
+
+    ########################################################################
+
+
+    # Location of data that represent each axis of the map #################
+
+    # There must be at least one item in this list. There is no maximum
+    # number of items that can be in this list.
+    independent_dimensions:
+
+    # This is the first item in the list (required):
+    - 
+      # A label for this axis. Recommended: use snake_case
+      label: 
+
+      # How values were recorded in the raw data files. Choices:
+      # spec_motor, scan_column, smb_par, expression (for expressions
+      # involving values from one or more of the data streams configured
+      # in scalar_data), or scan_start_time. smb_par is only a valid
+      # choice if data for this map was collected at station id1a3 or
+      # station id3a.
+      data_type:
+
+      # The units in which values were recorded. If data_type is
+      # scan_start_time, this field is optional and any value provided for
+      # it will be ignored.
+      units:
+
+      # For data_type == spec_motor: the SPEC motor's mnemonic.
+      # For data_type == scan_column: the SPEC data column label.
+      # For data_type == smb_par: the name of the .par file column (found
+      # in the corresponding .json file).
+      # For data_type == expression: a mathematical expression that may
+      # use the labels of any items in the scalar_data field (found below)
+      # the built-in python function, `round()`, and any numpy function
+      # (for example: `np.round` or `numpy.round`. Example usage: an
+      # independent dimension of a map is the sum of two spec motors'
+      # values. Both spec motors are configured as items in scalar_data
+      # for the map, and have labels m1 and m2. Here, name could be:
+      # round(m1 + m2, 4)
+      # For data_type == scan_start_time: this field is optional and any
+      # value provided for it will be ignored.
+      name: 
+
+    # This is an additional item in the list (optional):
+    - label: 
+      units: 
+      data_type: 
+      name: 
+
+    ########################################################################
+
+
+    # Location of data that will be used in corrections ####################
+
+    # Required for all types of corrections:
+    presample_intensity: 
+      # How values were recorded in the raw data files. Choices:
+      # scan_column, smb_par, or expression. smb_par is only a valid
+      # choice if data for this map was collected at station id1a3 or
+      # station id3a.
+      data_type:
+
+      # For data_type == spec_motor: the SPEC motor's mnemonic.
+      # For data_type == scan_column: the SPEC data column label.
+      # For data_type == smb_par: the name of the .par file column (found
+      # in the corresponding .json file).
+      # For data_type == expression: a mathematical expression that may
+      # use the labels of any items in the scalar_data field (found below)
+      # and the built-in python function, `round()`. Example usage: an
+      # independent dimension of a map is the sum of two spec motors'
+      # values. Both spec motors are configured as items in scalar_data
+      # for the map, and have labels m1 and m2. Here, name could be:
+      # round(m1 + m2, 4)
+      name:
+
+    # Required for all types of corrections:
+    dwell_time_actual:
+      data_type: 
+      name: 
+
+    # Required for absorption corrections:
+    postsample_intensity:
+      data_type: 
+      name: 
+
+    ########################################################################
+
+
+    # Optional: location of any extra scalar values to include in the ######
+    # nexus representation #################################################
+    scalar_data:
+
+    # This is the first item in the list:
+    - 
+      # Your label for the dataset here. Recommended: use snake_case
+      label: 
+
+      # The units in which values were recorded
+      units: 
+
+      # How values were recorded in the raw data files. Choices:
+      # spec_motor, scan_column, smb_par, or expression (for expressions
+      # involving values from one or more of the data streams configured
+      # in scalar_data). smb_par is only a valid choice if data for this
+      # map was collected at station id1a3 or station id3a.
+      data_type:
+
+      # For data_type == spec_motor: the SPEC motor's mnemonic.
+      # For data_type == scan_column: the SPEC data column label.
+      # For data_type == smb_par: the name of the .par file column (found
+      # in the corresponding .json file).
+      # For data_type == expression: a mathematical expression that may
+      # use the labels of any items in the scalar_data field (found below)
+      # and the built-in python function, `round()`. Example usage: an
+      # independent dimension of a map is the sum of two spec motors'
+      # values. Both spec motors are configured as items in scalar_data
+      # for the map, and have labels m1 and m2. Here, name could be:
+      # round(m1 + m2, 4)
+      name: 
+
+    # This is another item in the list:
+    - label: 
+      units:
+      data_type:
+      name:
+
+    ```
+1. `pyfai_integration_procesor_config.yaml` (configuring a `CHAP.common.models.integration.PyFaiIntegrationProcessorConfig`)
+
    This configuration contains the instructions for performing one or more kinds of integrations on the raw input dataset.
    Example `pyfai_integration_processor_config.yaml`:
    ```yaml
    azimuthal_integrators:
    - id: PIL9
-     poni_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/LaB6_PIL9_10.30.2024.poni
-     mask_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/PIL9_mask.tif
+     poni_file: LaB6_PIL9_10.30.2024.poni
+     mask_file: PIL9_mask.tif
    - id: PIL11
-     poni_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/LaB6_PIL11_10.30.2024.poni
-     mask_file: /nfs/chess/aux/reduced_data/cycles/2024-3/id3b/koerner-4187-a/setup/PIL11_mask.tif
+     poni_file: LaB6_PIL11_10.30.2024.poni
+     mask_file: PIL11_mask.tif
    integrations:
    - name: waxs_azimuthal
-     multi_geometry:
-       ais:
-       - PIL9
-       - PIL11
-       unit: q_A^-1
-       radial_range:
-       - 0.6
-       - 4.1
-       azimuth_range:
-       - -180.0
-       - 180.0
      integration_method: integrate1d
      integration_params:
        npt: 200
        method: bbox_csr_cython
-   - name: waxs_cake
      multi_geometry:
        ais:
        - PIL9
@@ -377,11 +547,23 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
        azimuth_range:
        - -180.0
        - 180.0
+   - name: waxs_cake
      integration_method: integrate2d
      integration_params:
        npt_rad: 180
        npt_azim: 360
        method: bbox_csr_cython
+     multi_geometry:
+       ais:
+       - PIL9
+       - PIL11
+       unit: q_A^-1
+       radial_range:
+       - 0.6
+       - 4.1
+       azimuth_range:
+       - -180.0
+       - 180.0
    - name: waxs_radial
      integration_method: integrate_radial
      integration_params:
@@ -399,6 +581,53 @@ Before constructing a `CHAP` pipeline configuration to run a complete SAXS/WAXS 
        unit: chi_deg
        radial_unit: q_A^-1
        method: bbox_csr_cython
+   ```
+   Annotated `pyfai_integration_processor_config.yaml`:
+   ```yaml
+   # List of detectors whose data will be processed
+   azimuthal_integrators:
+   - # The detector "indentifier" for filenames, usually the EPICS PV prefix
+     id: PIL5
+     # A PONI file containing the detetcor calibration data
+     poni_file: PIL5_AgBe.poni
+     # A file containing a mask to apply to every frame of this detetor's data before processing
+     mask_file: PIL5_mask.tif
+   - # Another detector may be configured here...
+
+   # List of integrations to perform
+   integrations:
+   - # A unique name / title for this processed dataset
+     name: saxs_azimuthal
+
+     # Choose one of: integrate1d, integrate2d, or integrate_radial
+     #   integrate1d -- PyFAI method is: https://pyfai.readthedocs.io/en/stable/api/pyFAI.html#pyFAI.multi_geometry.MultiGeometry.integrate1d
+     #   integrate2d -- PyFAI method is: https://pyfai.readthedocs.io/en/stable/api/pyFAI.html#pyFAI.multi_geometry.MultiGeometry.integrate2d
+     #   integrate_radial -- PyFAI method is: https://pyfai.readthedocs.io/en/stable/api/pyFAI.html#pyFAI.integrator.azimuthal.AzimuthalIntegrator.integrate_radial
+     integration_method: integrate1d
+
+     # Dictionary of initialization arguments for the PyFAI.multi_geometry.MultiGeometry integrator.
+     # Required _only_ if `integration_method` is _not_ `integrate_radial`.
+     # Go to https://pyfai.readthedocs.io/en/stable/api/pyFAI.html#pyFAI.multi_geometry.MultiGeometry.__init__
+     # to see what parameters are accepted.
+     multi_geometry:
+       ais:
+       # List of integrator objects can be passed by just referring to their detectors' "id"s,
+       # configured in "azimuthal_integrators".
+       - PIL5
+       unit: q_A^-1
+       radial_range:
+       - 0.6
+       - 4.1
+       azimuth_range:
+       - -180.0
+       - 180.0
+     # Dictionary of parameters for the pyFAI method chosen with `integration_method`
+     # Go to the link corresponding to your chosen value of integration_method above
+     # to see what parameters your chosen method accepts.
+     integration_params:
+       npt: 200
+       method: bbox_csr_cython
+   - # Another integration may be configured here...
    ```
 
 
