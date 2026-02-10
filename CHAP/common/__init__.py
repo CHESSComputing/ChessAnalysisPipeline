@@ -51,6 +51,7 @@ from CHAP.common.reader import (
     SpecReader,
     URLReader,
     YAMLReader,
+    ZarrReader,
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,

@@ -917,6 +917,44 @@ class YAMLReader(Reader):
             data = yaml.safe_load(file)
         return data
 
+class ZarrReader(Reader):
+    """Reader for Zarr stores."""
+
+    def read(self, filename, path='/', idx=None, mode='r'):
+        """Return the Zarr object stored at `path` in a Zarr store.
+
+        :param filename: Path or URL to the Zarr store.
+        :type filename: str
+        :param path: Path to a specific location in the Zarr hierarchy
+            to read from, defaults to `'/'`.
+        :type path: str, optional
+        :param idx: Optional index or slice to apply to the returned object.
+        :type idx: int, slice, tuple, optional
+        :param mode: Store access mode, defaults to `'r'`.
+            Common values: `'r'`, `'r+'`, `'a'`, `'w'`.
+        :type mode: str, optional
+        :raises KeyError: If `path` does not exist in the store.
+        :return: The Zarr array or group indicated by `filename` and `path`.
+        :rtype: zarr.core.Array or zarr.hierarchy.Group
+        """
+        import zarr
+
+        # Open the Zarr store (directory, zip, or URL)
+        root = zarr.open(filename, mode=mode)
+
+        # Normalize path handling
+        if path == '/' or path == '':
+            data = root
+        else:
+            # Remove leading slash for Zarr traversal
+            data = root[path.lstrip('/')]
+
+        # Optional indexing (arrays only)
+        if idx is not None:
+            data = data[idx]
+
+        return data
+
 
 if __name__ == '__main__':
     # Local modules
