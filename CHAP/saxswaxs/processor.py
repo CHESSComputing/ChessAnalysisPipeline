@@ -11,6 +11,7 @@ from pydantic import (
     conint,
     conlist,
     Field,
+    FilePath,
 )
 import numpy as np
 
@@ -1060,24 +1061,30 @@ class UpdateValuesProcessor(Processor):
     """Processes a slice of data for updating values in an existing
     container for a SAXS/WAXS experiment.
 
-    :ivar spec_file:
-    :type spec_file:
-    :ivar scan_number:
-    :type scan_number:
-    :ivar detectors:
-    :type detectors:
-    :ivar config:
-    :type config:
+    :ivar map_config: Map Configuration.
+    :type map_config: CHAP.common.models.map.MapConfig
+    :ivar pyfai_config: PyFAI integration configuration.
+    :type pyfai_config: CHAP.common.models.integration.PyfaiIntegrationConfig
+    :ivar spec_file: SPEC file containing scan from which to read and
+        process a slice of raw data.
+    :type spec_file: str
+    :ivar scan_number: Number of scan from which to read and process a
+        slice of raw data.
+    :type scan_number: int
+    :ivar detectors: List of detector configurations.
+    :type detectors: list[Detector]
     """
     pipeline_fields: dict = Field(
         default={
-            'config': 'common.models.integration.PyfaiIntegrationConfig'
+            'map_config': 'common.models.map.MapConfig',
+            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
         },
         init_var=True)
-    spec_file: PosixPath
+    map_config: MapConfig
+    pyfai_config: PyfaiIntegrationConfig
+    spec_file: FilePath
     scan_number: conint(gt=0)
     detectors: conlist(item_type=Detector, min_length=1)
-    config: PyfaiIntegrationConfig
 
     def process(self, data, idx_slice={'start': 0, 'step': 1}):
         # Get updates with MapSliceProcessor
@@ -1105,10 +1112,13 @@ class UpdateValuesProcessor(Processor):
 
         # Read in slice of raw data
         raw_values = set_logger(
-            MapSliceProcessor()).process(
-                data, self.spec_file, self.scan_number, idx_slice=idx_slice,
-                detectors=self.detectors, config=self.config
+            MapSliceProcessor(
+                map_config=self.map_config,
+                detectors=self.detectors,
+                spec_file=str(self.spec_file),
+                scan_number=self.scan_number,
             )
+        ).process(None, idx_slice=idx_slice)
 
         def get_detector_data(values, name):
             for v in values:
@@ -1117,17 +1127,17 @@ class UpdateValuesProcessor(Processor):
             return None
 
         # Use raw detector data as input to integration
-        for d in detectors:
+        for d in self.detectors:
             data.append(
                 PipelineData(
                     name=d.get_id(),
-                    data=get_detector_data(raw_values, d.get_id(),
+                    data=get_detector_data(raw_values, d.get_id()),
                 )
             )
         # Get integrated data
         processed_values = set_logger(
             PyfaiIntegrationProcessor(
-                config=self.config,
+                config=self.pyfai_config,
             )
         ).process(data, idx_slices=[idx_slice])
 
