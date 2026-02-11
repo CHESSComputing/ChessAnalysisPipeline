@@ -1,10 +1,26 @@
 #!/usr/bin/env python
 """Processors used only by SAXSWAXS experiments."""
 
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
+
+from pydantic import (
+    conint,
+    conlist,
+    Field,
+)
 import numpy as np
 
 from CHAP import Processor
 from CHAP.common import ExpressionProcessor
+from CHAP.common.models.map import (
+    Detector,
+    MapConfig,
+)
+from CHAP.common.models.integration import PyfaiIntegrationConfig
 
 
 class CfProcessor(Processor):
@@ -449,18 +465,24 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
 
 
 class PyfaiIntegrationProcessor(Processor):
-    """Processor for performing pyFAI integrations."""
-    def process(self, data, config=None, inputdir='.',
+    """Processor for performing pyFAI integrations.
+
+    :ivar config: PyfaiIntegrationConfig
+    :type config: CHAP.common.models.integration.PyfaiIntegrationConfig
+    """
+    pipeline_fields: dict = Field(
+        default={
+            'config': 'common.models.integration.PyfaiIntegrationConfig'
+        },
+        init_var=True)
+    config: PyfaiIntegrationConfig
+
+    def process(self, data,
                 idx_slices=[{'start':0, 'step': 1}]):
         """Perform a set of integrations on 2D detector data.
 
         :param data: input 2D detector data
         :type data: list[PipelineData]
-        :param config: Configuration parameters for a
-            `saxswaxs.models.PyfaiIntegrationProcessorConfig` object
-            (_or_ the configuration may be supplied as an item in the
-            input `data` list), optional
-        :type config: dict, defaults to `None`.
         :param idx_slices: List of dicionaries identifying the sliced
             index at which the output data should be written in a
             dataset. Optional.
@@ -473,18 +495,10 @@ class PyfaiIntegrationProcessor(Processor):
         """
         import time
 
-        # Get config for PyfaiIntegrationProcessor from data or config
-        config = self.get_config(
-            data=data,
-            config=config,
-            inputdir=inputdir,
-            schema='common.models.integration.PyfaiIntegrationConfig'
-        )
-
         # Organize input for integrations
         input_data = {d['name']: d['data']
             for d in [d for d in data if isinstance(d['data'], np.ndarray)]}
-        ais = {ai.id: ai for ai in config.azimuthal_integrators}
+        ais = {ai.get_id(): ai for ai in self.config.azimuthal_integrators}
 
         # Finalize idx slice for results
         idx = tuple(slice(idx_slice.get('start'),
@@ -494,7 +508,7 @@ class PyfaiIntegrationProcessor(Processor):
         # Perform integration(s), package results for ZarrResultsWriter
         results = []
         nframes = len(input_data[list(input_data.keys())[0]])
-        for integration in config.integrations:
+        for integration in self.config.integrations:
             t0 = time.time()
             self.logger.info(f'Integrating {integration.name}...')
             result = integration.integrate(ais, input_data)
@@ -518,48 +532,52 @@ class SetupResultsProcessor(Processor):
     """Processor for creating an intital zarr structure with empty datasets
     for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
     `common.ZarrValuesWriter`.
+
+    :ivar dataset_shape: Shape of the completed dataset that will
+        be processed later on (shape of the measurement itself,
+        _not_ including the dimensions of any signals collected at
+        each point in that measurement).
+    :type dataset_shape: Union[int, list[int]]
+    :ivar dataset_chunks: Extent of chunks along each dimension
+        of the completed dataset / measurement. Choose this
+        according to how you will process your data -- for
+        example, if your `dataset_shape` is `[m, n]`, and you are
+        planning to process each of the `m` rows as chunks,
+        `dataset_chunks` should be `[1, n]`. But if you plan to
+        process each of the `n` columns as chunks,
+        `dataset_chunks` should be `[m, 1]`.
+    :type dataset_chunks: Union[list[int], Literal["auto"]]
     """
-    def process(self, data, dataset_shape, dataset_chunks='auto',
-                config=None, inputdir='.'):
+    pipeline_fields: dict = Field(
+        default={
+            'config': 'common.models.integration.PyfaiIntegrationConfig'
+        },
+        init_var=True)
+    config: PyfaiIntegrationConfig
+    dataset_shape: conlist(item_type=conint(gt=0), min_length=1)
+    dataset_chunks: Optional[
+        Union[
+            Literal['auto'],
+            conlist(item_type=conint(gt=0), min_length=1)
+        ]] = 'auto'
+
+    def process(self, data):
         """Return a `zarr.group` to hold processed SAXS/WAXS data
         processed by `saxswaxs.PyfaiIntegrationProcessor`.
 
-        :param data:
-        `'saxswaxs.models.PyfaiIntegrationProcessorConfig`
-        configuration which will be used to process the data later on.
+        :param data: Input data (configurations).
         :type data: list[PipelineData]
-        :param dataset_shape: Shape of the completed dataset that will
-            be processed later on (shape of the measurement itself,
-            _not_ including the dimensions of any signals collected at
-            each point in that measurement).
-        :type dataset_shape: Union[int, list[int]]
-        :param dataset_chunks: Extent of chunks along each dimension
-            of the completed dataset / measurement. Choose this
-            according to how you will process your data -- for
-            example, if your `dataset_shape` is `[m, n]`, and you are
-            planning to process each of the `m` rows as chunks,
-            `dataset_chunks` should be `[1, n]`. But if you plan to
-            process each of the `n` columns as chunks,
-            `dataset_chunks` should be `[m, 1]`.
-        :type dataset_chunks: Union[int, list[int]]
         :return: Empty structure for filling in SAXS/WAXS data
         :rtype: zarr.group
         """
-        # Get PyfaiIntegrationProcessorConfig
-        config = self.get_config(
-            data=data,
-            config=config,
-            inputdir=inputdir,
-            schema='common.models.integration.PyfaiIntegrationConfig'
-        )
 
         # Get zarr tree as dict from the
-        # PyfaiIntegrationProcessorConfig
-        if isinstance(dataset_shape, int):
-            dataset_shape = [dataset_shape]
-        if isinstance(dataset_chunks, int):
-            dataset_chunks = [dataset_chunks]
-        tree = config.zarr_tree(dataset_shape, dataset_chunks)
+        # PyfaiIntegrationConfig
+        if isinstance(self.dataset_shape, int):
+            self.dataset_shape = [self.dataset_shape]
+        if isinstance(self.dataset_chunks, int):
+            self.dataset_chunks = [self.dataset_chunks]
+        tree = self.config.zarr_tree(self.dataset_shape, self.dataset_chunks)
 
         # Construct & return the root zarr.group
         return self.zarr_setup(tree)
@@ -608,16 +626,53 @@ class SetupResultsProcessor(Processor):
 class SetupProcessor(Processor):
     """Convenience Processor for setting up a container for SAXS/WAXS
     experiments.
+
+    :ivar detectors: List of basic detector configuration parameters.
+    :type detectors: `CHAP.common.models.map.DetectorConfig`
+    :ivar dataset_shape: Shape of the completed dataset that will
+        be processed later on (shape of the measurement itself,
+        _not_ including the dimensions of any signals collected at
+        each point in that measurement).
+    :type dataset_shape: Union[int, list[int]]
+    :ivar dataset_chunks: Extent of chunks along each dimension
+        of the completed dataset / measurement. Choose this
+        according to how you will process your data -- for
+        example, if your `dataset_shape` is `[m, n]`, and you are
+        planning to process each of the `m` rows as chunks,
+        `dataset_chunks` should be `[1, n]`. But if you plan to
+        process each of the `n` columns as chunks,
+        `dataset_chunks` should be `[m, 1]`.
+    :type dataset_chunks: Union[list[int], Literal["auto"]]
+    :ivar num_chunk: Used only if `dataset_chunks` is
+        `"auto"`. Preferred number of chunks in the dataset. Defaults
+        to `1`.
+    :type num_chunk: int, optional
     """
-    def process(
-            self, data, detectors, dataset_shape=None, dataset_chunks='auto',
-            num_chunk=1, inputdir='.'):
+    pipeline_fields: dict = Field(
+        default={
+            'map_config': 'common.models.map.MapConfig',
+            'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
+        },
+        init_var=True)
+    map_config: MapConfig
+    pyfai_config: PyfaiIntegrationConfig
+    detectors: conlist(item_type=Detector, min_length=1)
+    dataset_shape: conlist(item_type=conint(gt=0), min_length=1)
+    dataset_chunks: Optional[
+        Union[
+            Literal['auto'],
+            conlist(item_type=conint(gt=0), min_length=1)
+        ]] = 'auto'
+    num_chunk: Optional[conint(gt=0)] = 1
+
+    def process(self, data):
         import asyncio
         import logging
         import zarr
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import MemoryStore
 
+        from CHAP.pipeline import PipelineData
         from CHAP.common import MapProcessor, NexusToZarrProcessor
         from CHAP.saxswaxs import SetupResultsProcessor
 
@@ -635,37 +690,54 @@ class SetupProcessor(Processor):
             return pipeline_item
 
         # Get NXroot container for raw data map
-        setup_map_processor = set_logger(MapProcessor())
-        ddata = setup_map_processor.execute(
-            data=data, detectors=detectors, fill_data=False, inputdir=inputdir)
+        setup_map_processor = set_logger(
+            MapProcessor(
+                config=self.map_config,
+                detector_config={'detectors': self.detectors},
+            )
+        )
+        ddata = [
+            PipelineData(
+                data=setup_map_processor.process(
+                    data=data, fill_data=False),
+            )
+        ]
 
-        if dataset_shape is None:
+        if self.dataset_shape is None:
             try:
                 nxroot = self.get_data(ddata, remove=False)
                 nxentry = self.get_default_nxentry(nxroot)
                 nxdata = nxentry[nxentry.default]
-                for detector in detectors:
-                    if dataset_shape is None:
-                        dataset_shape = nxdata[detector['id']].shape[:-2]
+                for detector in self.detectors:
+                    if self.dataset_shape is None:
+                        self.dataset_shape = nxdata[
+                            detector.get_id()].shape[:-2]
                     else:
                         assert (
-                            dataset_shape == nxdata[detector['id']].shape[:-2])
+                            self.dataset_shape == nxdata[
+                                detector.get_id()].shape[:-2]
+                        )
             except Exception as exc:
                 raise ValueError(
                     'Unable to get consistent dataset shape from map') from exc
-        if dataset_chunks == 'auto':
-            dataset_chunks = dataset_shape[0]//num_chunk
-            if num_chunk*dataset_chunks < dataset_shape[0]:
-                dataset_chunks += 1
+        if self.dataset_chunks == 'auto':
+            self.dataset_chunks = self.dataset_shape[0]//self.num_chunk
+            if self.num_chunk*self.dataset_chunks < self.dataset_shape[0]:
+                self.dataset_chunks += 1
 
         # Convert raw data map container to zarr format
         ddata_converter = set_logger(NexusToZarrProcessor())
-        zarr_map = ddata_converter.process(ddata, chunks=dataset_chunks)
+        zarr_map = ddata_converter.process(ddata, chunks=self.dataset_chunks)
 
         # Get zarr container for integration results
-        setup_results_processor = set_logger(SetupResultsProcessor())
-        zarr_results = setup_results_processor.process(
-            data, dataset_shape, dataset_chunks, inputdir=inputdir)
+        setup_results_processor = set_logger(
+            SetupResultsProcessor(
+                config=self.pyfai_config,
+                dataset_shape=self.dataset_shape,
+                dataset_chunks=self.dataset_chunks,
+            )
+        )
+        zarr_results = setup_results_processor.process(data)
 
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
@@ -987,10 +1059,27 @@ class UnstructuredToStructuredProcessor(Processor):
 class UpdateValuesProcessor(Processor):
     """Processes a slice of data for updating values in an existing
     container for a SAXS/WAXS experiment.
+
+    :ivar spec_file:
+    :type spec_file:
+    :ivar scan_number:
+    :type scan_number:
+    :ivar detectors:
+    :type detectors:
+    :ivar config:
+    :type config:
     """
-    def process(self, data, spec_file, scan_number,
-                idx_slice={'start': 0, 'step': 1},
-                detectors=None, config=None, inputdir='.'):
+    pipeline_fields: dict = Field(
+        default={
+            'config': 'common.models.integration.PyfaiIntegrationConfig'
+        },
+        init_var=True)
+    spec_file: PosixPath
+    scan_number: conint(gt=0)
+    detectors: conlist(item_type=Detector, min_length=1)
+    config: PyfaiIntegrationConfig
+
+    def process(self, data, idx_slice={'start': 0, 'step': 1}):
         # Get updates with MapSliceProcessor
         # Pass detector data to PyfaiIntegration processor
         # Concatenate & return results
@@ -1015,9 +1104,11 @@ class UpdateValuesProcessor(Processor):
             return pipeline_item
 
         # Read in slice of raw data
-        raw_values = set_logger(MapSliceProcessor()).process(
-            data, spec_file, scan_number, idx_slice=idx_slice,
-            detectors=detectors, config=config, inputdir=inputdir)
+        raw_values = set_logger(
+            MapSliceProcessor()).process(
+                data, self.spec_file, self.scan_number, idx_slice=idx_slice,
+                detectors=self.detectors, config=self.config
+            )
 
         def get_detector_data(values, name):
             for v in values:
@@ -1029,13 +1120,16 @@ class UpdateValuesProcessor(Processor):
         for d in detectors:
             data.append(
                 PipelineData(
-                    name=d['id'],
-                    data=get_detector_data(raw_values, d['id']),
+                    name=d.get_id(),
+                    data=get_detector_data(raw_values, d.get_id(),
                 )
             )
         # Get integrated data
-        processed_values = set_logger(PyfaiIntegrationProcessor()).process(
-            data, idx_slices=[idx_slice])
+        processed_values = set_logger(
+            PyfaiIntegrationProcessor(
+                config=self.config,
+            )
+        ).process(data, idx_slices=[idx_slice])
 
         return raw_values + processed_values
 
