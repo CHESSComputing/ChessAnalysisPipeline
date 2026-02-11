@@ -1,7 +1,18 @@
 """Common map data model functions and classes."""
 
+from pydantic import (
+    conint,
+    conlist,
+    Field,
+    FilePath,
+)
+
 # Local modules
 from CHAP import Processor
+from CHAP.common.models.map import (
+    Detector,
+    MapConfig,
+)
 
 def get_axes(nxdata, skip_axes=None):
     """Get the axes of an NXdata object used in EDD."""
@@ -26,12 +37,30 @@ class MapSliceProcessor(Processor):
     incomplete. Returned data is suitable for writing to an existing
     map structure with `common.NexusValuesWriter` or
     `common.ZarrValuesWriter`.
+
+    :ivar map_config: Map configuration.
+    :type map_config: CHAP.common.models.map.MapConfig
+    :ivar detectors: List os detector configurations.
+    :type detectors: list[CHAP.common.models.map.Detector]
+    :ivar spec_file: SPEC file containing scan from which to read a
+        slice of raw data.
+    :type spec_file: pydantic.FilePath
+    :ivar scan_number: Number of scan from which to read a slice of
+        raw data.
+    :type scan_number: int
     """
-    def process(self, data, spec_file, scan_number,
-                idx_slice={'start': 0, 'step': 1},
-                detectors=None,
-                config=None,
-                inputdir='.'):
+    pipeline_fields: dict = Field(
+        default={
+            'map_config': 'common.models.map.MapConfig',
+        },
+        init_var=True)
+    map_config: MapConfig
+    detectors: conlist(item_type=Detector, min_length=1)
+    spec_file: FilePath
+    scan_number: conint(gt=0)
+
+    def process(self, data, #spec_file, scan_number,
+                idx_slice={'start': 0, 'step': 1}):
         """Aggregate partial spec and detector data from one scan in a
         map, returning results in a format suitable for writing to the
         full map container with `common.NexusValuesWriter` or
@@ -41,23 +70,11 @@ class MapSliceProcessor(Processor):
             has the value `'common.models.map.MapConfig'` for the
             `'schema'` key.
         :type data: list[PipelineData]
-        :param spec_file: Name of spec file containing scan data to be
-            processed.
-        :type spec_file: str
-        :param scan_number: Number of scan containing data to be processed.
-        :type scan_number: int
         :type idx_slice: Parameters for the slice of the scan to
             process (slice parameters are the usual for the python
             `slice` object: `'start'`, `'stop'`, and
             `'step'`). Defaults to `{'start': 0, 'step': '1'}`.
         :type idx_slice: dict[str, int], optional
-        :param detectors: Detectors to include raw data for in the
-            returned NeXus NXentry object (overruling the detector
-            info in data, if present).
-        :type detectors: list[dict], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths.
-        :type inputdir: str, optional
         :return: Slice of map data, ready to be written to a map
              container.
         :rtype: list[dict[str, object]]
@@ -68,39 +85,22 @@ class MapSliceProcessor(Processor):
 
         from CHAP.common.models.map import SpecScans
 
-        # Get the validated map configuration
-        map_config = self.get_config(
-            data=data, config=config, schema='common.models.map.MapConfig')
-
-        # Validate the detectors
-        try:
-            from CHAP.common.models.map import DetectorConfig
-            detector_config = DetectorConfig(detectors=detectors)
-        except:
-            try:
-                detector_config = self.get_config(
-                    data=data, schema='common.models.map.DetectorConfig')
-            except Exception as exc:
-                raise RuntimeError from exc
-
-        if not os.path.isabs(spec_file):
-            spec_file = os.path.join(inputdir, spec_file)
-
         ScanParser = choose_scanparser(
-            map_config.station, map_config.experiment_type)
-        scans = SpecScans(spec_file=spec_file, scan_numbers=[scan_number])
-        scan = scans.get_scanparser(scan_number)
+            self.map_config.station, self.map_config.experiment_type)
+        scans = SpecScans(
+            spec_file=self.spec_file, scan_numbers=[self.scan_number])
+        scan = scans.get_scanparser(self.scan_number)
 
         # Get index offset for this data slice within the map
         npts_scan = int(scan.spec_scan_npts)
         nscans_prev = 0
-        for scans in map_config.spec_scans:
+        for scans in self.map_config.spec_scans:
             for scan_n in scans.scan_numbers:
-                if scans.spec_file == spec_file and scan_n == scan_number:
+                if (str(scans.spec_file) == str(self.spec_file)
+                    and scan_n == self.scan_number):
                     break
                 nscans_prev += 1
         index_offset = nscans_prev * npts_scan
-
         # Get spec scan indices to process
         scan_indices = range(npts_scan)[slice(
             idx_slice.get('start', 0),
@@ -116,28 +116,28 @@ class MapSliceProcessor(Processor):
 
         data_points = [
             {
-                'path': f'{map_config.title}/scalar_data/{s_d.label}',
+                'path': f'{self.map_config.title}/scalar_data/{s_d.label}',
                 'data': np.asarray([
                     s_d.get_value(
-                        scans, scan_number, i,
-                        scalar_data=map_config.scalar_data)
+                        scans, self.scan_number, i,
+                        scalar_data=self.map_config.scalar_data)
                     for i in scan_indices
                 ]),
                 'idx': map_indices
             }
-            for s_d in map_config.all_scalar_data
+            for s_d in self.map_config.all_scalar_data
         ]
         data_points.extend(
             [
                 {
-                    'path': f'{map_config.title}/data/{det.get_id()}',
+                    'path': f'{self.map_config.title}/data/{det.get_id()}',
                     'data': np.asarray([
                         scan.get_detector_data(det.get_id(), i)
                         for i in scan_indices
                     ]),
                     'idx': map_indices
                 }
-                for det in detector_config.detectors
+                for det in self.detectors
             ]
         )
         return data_points
