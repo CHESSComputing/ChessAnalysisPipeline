@@ -884,7 +884,7 @@ class ZarrWriter(Writer):
                     k, prototype=default_buffer_prototype())
                 await local_store.set(k, buf)
 
-        zarr_obj = self.unwrap_pipelinedata(data)[0]
+        zarr_obj = self.unwrap_pipelinedata(data)[-1]
         if isinstance(zarr_obj, Store):
             _zarr_store = zarr_obj
         elif isinstance(zarr_obj, (AsyncGroup, Group)):
