@@ -45,6 +45,21 @@ FLOAT_MIN = float_info.min
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
 
+def get_axes(nxdata, skip_axes=None):
+    """Get the axes of an NXdata object used in EDD."""
+    if skip_axes is None:
+        skip_axes = []
+    if 'unstructured_axes' in nxdata.attrs:
+        axes = nxdata.attrs['unstructured_axes']
+    elif 'axes' in nxdata.attrs:
+        axes = nxdata.attrs['axes']
+    else:
+        return []
+    if isinstance(axes, str):
+        axes = [axes]
+    return [str(a) for a in axes if a not in skip_axes]
+
+
 class BaseEddProcessor(Processor):
     """Base processor for the EDD processors.
 
