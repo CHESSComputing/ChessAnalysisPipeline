@@ -574,10 +574,6 @@ class SetupResultsProcessor(Processor):
 
         # Get zarr tree as dict from the
         # PyfaiIntegrationConfig
-        if isinstance(self.dataset_shape, int):
-            self.dataset_shape = [self.dataset_shape]
-        if isinstance(self.dataset_chunks, int):
-            self.dataset_chunks = [self.dataset_chunks]
         tree = self.config.zarr_tree(self.dataset_shape, self.dataset_chunks)
 
         # Construct & return the root zarr.group
@@ -658,7 +654,8 @@ class SetupProcessor(Processor):
     map_config: MapConfig
     pyfai_config: PyfaiIntegrationConfig
     detectors: conlist(item_type=Detector, min_length=1)
-    dataset_shape: conlist(item_type=conint(gt=0), min_length=1)
+    dataset_shape: Optional[
+        conlist(item_type=conint(gt=0), min_length=1)] = None
     dataset_chunks: Optional[
         Union[
             Literal['auto'],
@@ -725,6 +722,7 @@ class SetupProcessor(Processor):
             self.dataset_chunks = self.dataset_shape[0]//self.num_chunk
             if self.num_chunk*self.dataset_chunks < self.dataset_shape[0]:
                 self.dataset_chunks += 1
+            self.dataset_chunks = [self.dataset_chunks]
 
         # Convert raw data map container to zarr format
         ddata_converter = set_logger(NexusToZarrProcessor())
