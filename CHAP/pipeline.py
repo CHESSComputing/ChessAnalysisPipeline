@@ -406,7 +406,7 @@ class Pipeline(CHAPBaseModel):
                             #and self.filename in self._output_filenames):
                         raise ValueError(
                             'Writing to an existing file without overwrite '
-                            f'permission. Remove {self.filename} or set '
+                            f'permission. Remove {item.filename} or set '
                             '"force_overwrite" in the pipeline configuration '
                             f'for {item.name}')
             item.set_args(**args)
