@@ -651,7 +651,11 @@ class SetupProcessor(Processor):
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
         },
         init_var=True)
-    map_config: MapConfig
+    # map_config needs a default value because the map configuration
+    # may be created by an earlier item in the Pipeline. If this is
+    # the case, then map_config needs SOME value in order for the
+    # Pipeline to pass validation.
+    map_config: MapConfig = None
     pyfai_config: PyfaiIntegrationConfig
     detectors: conlist(item_type=Detector, min_length=1)
     dataset_shape: Optional[
@@ -1078,7 +1082,11 @@ class UpdateValuesProcessor(Processor):
             'pyfai_config': 'common.models.integration.PyfaiIntegrationConfig'
         },
         init_var=True)
-    map_config: MapConfig
+    # map_config needs a default value because the map configuration
+    # may be created by an earlier item in the Pipeline. If this is
+    # the case, then map_config needs SOME value in order for the
+    # Pipeline to pass validation.
+    map_config: MapConfig = None
     pyfai_config: PyfaiIntegrationConfig
     spec_file: FilePath
     scan_number: conint(gt=0)
