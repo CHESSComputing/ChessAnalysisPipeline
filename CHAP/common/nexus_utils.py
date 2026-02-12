@@ -8,7 +8,7 @@ class NexusMakeLinkProcessor(Processor):
     [`nexusformat.nexus.tree.NXgroup.makelink`](https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup.makelink)
     within a given `NXroot`"""
     def process(self, data, link_from, link_to,
-                name=None, abspath=False):
+                nxname=None, abspath=False):
         """Create links between Nexus objects within the given
         PipelineData.
 
@@ -30,10 +30,10 @@ class NexusMakeLinkProcessor(Processor):
             targets.  Can be a single path (str) or a list of paths.
         :type link_to: str | list[str]
 
-        :param name: Optional name to assign to the created link. If
+        :param nxname: Optional name to assign to the created link. If
             None, the default naming rules from `makelink` are
             applied.
-        :type name: str | None
+        :type nxname: str | None
 
         :param abspath: Whether to create an absolute link path (True)
             or a relative one (False). Defaults to False.
@@ -60,6 +60,6 @@ class NexusMakeLinkProcessor(Processor):
                 origin = root[_from]
                 target = root[_to]
                 self.logger.debug(f'linking to {_to} from {_from}')
-                origin.makelink(target, name=name, abspath=abspath)
+                origin.makelink(target, name=nxname, abspath=abspath)
 
         return root
