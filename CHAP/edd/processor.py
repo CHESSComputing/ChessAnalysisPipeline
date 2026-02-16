@@ -827,7 +827,7 @@ class HKLProcessor(BaseStrainProcessor):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_mcatthcalibrationprocessor_before(cls, data):
+    def validate_hklprocessor_before(cls, data):
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
@@ -1172,7 +1172,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
         },
         init_var=True)
-    config: Optional[MCAEnergyCalibrationConfig] = MCAEnergyCalibrationConfig()
+    config: MCAEnergyCalibrationConfig
     detector_config: MCADetectorConfig
 
     @model_validator(mode='before')
@@ -1716,7 +1716,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 'merge_key_paths': {'key_path': 'detectors/id', 'type': int}},
         },
         init_var=True)
-    config: Optional[MCATthCalibrationConfig] = MCATthCalibrationConfig()
+    config: MCATthCalibrationConfig
     detector_config: MCADetectorConfig
 
     @model_validator(mode='before')
@@ -1786,10 +1786,11 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 detectors.pop(i)
             else:
                 detector.set_energy_calibration_mask_ranges()
-                detector.tth_initial_guess = self.config.tth_initial_guess
-                if detector.energy_mask_ranges is None:
-                    raise ValueError('energy_mask_ranges is required for '
-                                     'all detectors')
+                if detector.tth_initial_guess is None:
+                    detector.tth_initial_guess = self.config.tth_initial_guess
+#                if detector.energy_mask_ranges is None:
+#                    raise ValueError('energy_mask_ranges is required for '
+#                                     'all detectors')
                 detector.mask_ranges = None
         if len(skipped_detectors) == 1:
             self.logger.warning(

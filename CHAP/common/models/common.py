@@ -81,6 +81,7 @@ class ImageProcessorConfig(CHAPBaseModel):
     """
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
+    # FIX convert to using CHAPSlice
     coord_range: Optional[Union[
         confloat(allow_inf_nan=False),
         conlist(min_length=2, max_length=3,
@@ -101,12 +102,12 @@ class ImageProcessorConfig(CHAPBaseModel):
 
         :ivar index_range: Array index range of the selected image
             slice(s), defaults to `None`..
-        :type index_range: Union[float, list[float]], optional
+        :type index_range: Union[int, list[int]], optional
         :return: Validated index_range.
         :rtype: list[int]
         """
         if isinstance(index_range, int):
-            return index_range
+            return [index_range]
         return [None if isinstance(i, str) and i.lower() == 'none' else i
                 for i in index_range]
 
