@@ -10,6 +10,7 @@ Description: A collection of general modules
 
 # System modules
 from ast import literal_eval
+from copy import deepcopy
 import collections.abc
 from logging import getLogger
 import os
@@ -2615,7 +2616,7 @@ def list_dictionary_update(
     if not isinstance(source, list):
         raise ValueError(
             'Invalid parameter type "source" ({type(source)})')
-    if key is None:
+    if not source or key is None:
         return source + target
     if not isinstance(key, str) or '/' in key:
         raise ValueError('Invalid parameter "key" ({key}, {type(key)})')
@@ -2635,22 +2636,23 @@ def list_dictionary_update(
     if not all_any_source and not all_any_target:
         return source + target
     merged = []
+    ssource = deepcopy(source)
     for target_dict in target:
         value = target_dict[key]
         if key_type is not None:
             value = key_type(value)
-        for i, source_dict in enumerate(source):
+        for i, source_dict in enumerate(ssource):
             vvalue = source_dict[key]
             if key_type is not None:
                 vvalue = key_type(vvalue)
             if value == vvalue:
                 merged.append(dictionary_update(
                     target_dict, source_dict, sort=sort))
-                source.pop(i)
+                ssource.pop(i)
                 break
         else:
             merged.append(target_dict)
-    merged.extend(source)
+    merged.extend(ssource)
     if sorted:
         if key_type is None:
             merged.sort(key=lambda x: x[key])

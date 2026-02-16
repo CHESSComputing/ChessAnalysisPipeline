@@ -112,6 +112,7 @@ class DetectorConfig(CHAPBaseModel):
     :ivar roi: Detector ROI.
     :type roi: list[CHAPSlice, CHAPSlice], optional
     """
+    # FIX ROI to make general, now just suited to and tested with TOMO
     detectors: conlist(item_type=Detector, min_length=1)
     roi: Optional[conlist(
         item_type=CHAPSlice, min_length=2, max_length=2)] = None
@@ -126,6 +127,8 @@ class DetectorConfig(CHAPBaseModel):
         :return: The validated detector ROI
         :rtype: list[CHAPSlice, CHAPSlice]
         """
+        if roi is None:
+            return roi
         return [CHAPSlice().model_dump() if v is None else v for v in roi]
 
 
