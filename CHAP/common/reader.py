@@ -875,12 +875,16 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in self.detector_config.detectors:
+                        if self.detector_config.roi is None:
+                            detector_roi = [None, None]
+                        else:
+                            detector_roi=[
+                               self.detector_config.roi[0].toslice(),
+                               self.detector_config.roi[1].toslice()]
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.get_id(),
-                               detector_roi=[
-                                   self.detector_config.roi[0].toslice(),
-                                   self.detector_config.roi[1].toslice()],
+                               detector_roi=detector_roi,
                                dtype=dtype))
 
         if (self.config.experiment_type == 'EDD' and

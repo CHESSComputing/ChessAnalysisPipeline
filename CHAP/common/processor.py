@@ -1502,12 +1502,13 @@ class MapProcessor(Processor):
         # in scanparser
         if self.config.experiment_type == 'TOMO':
             dtype = np.float32
+            if self.detector_config.roi is None:
+                detector_roi = [slice(None), slice(None)]
+            else:
+                detector_roi = self.detector_config.roi
             ddata = scanparser.get_detector_data(
                 self.detector_config.detectors[0].get_id(),
-                detector_roi=[
-                    self.detector_config.roi[0].toslice(),
-                    self.detector_config.roi[1].toslice()],
-                dtype=dtype)
+                detector_roi=detector_roi, dtype=dtype)
         else:
             dtype = None
             ddata = scanparser.get_detector_data(
@@ -1574,12 +1575,14 @@ class MapProcessor(Processor):
                     else:
                         scanparser = scans.get_scanparser(scan_number)
                         if self.config.experiment_type == 'TOMO':
+                            if self.detector_config.roi is None:
+                                detector_roi = [
+                                    slice(None), slice(None)]
+                            else:
+                                detector_roi = self.detector_config.roi
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[i].get_id(),
-                                detector_roi=[
-                                    self.detector_config.roi[0].toslice(),
-                                    self.detector_config.roi[1].toslice()],
-                                dtype=dtype)
+                                detector_roi=detector_roi, dtype=dtype)
                         else:
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[0].get_id())
