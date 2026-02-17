@@ -718,6 +718,7 @@ class NXfieldReader(Reader):
             if len(slice_params) > nxfield.ndim:
                 slice_params = slice_params[0:nxfield.ndim]
             slices = ()
+            # FIX convert to using CHAPSlice
             default_slice = {'start': 0, 'end': None, 'step': 1}
             for s in slice_params:
                 for k, v in default_slice.items():
@@ -876,7 +877,11 @@ class SpecReader(Reader):
                     for detector in self.detector_config.detectors:
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
-                               detector.get_id(), dtype=dtype))
+                               detector.get_id(),
+                               detector_roi=[
+                                   self.detector_config.roi[0].toslice(),
+                                   self.detector_config.roi[1].toslice()],
+                               dtype=dtype))
 
         if (self.config.experiment_type == 'EDD' and
                 self.detector_config is None):

@@ -226,15 +226,20 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
     ax.set_xlabel('Energy (keV)')
     ax.set_ylabel('Intensity (counts)')
     ax.set_xlim(x[0], x[-1])
-    peak_locations = get_peak_locations(ds, tth_initial_guess)
-    hkl_peaks = [i for i, loc in enumerate(peak_locations)
-                   if x[0] <= loc <= x[-1]]
-    hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
-                 for loc in peak_locations[hkl_peaks]]
-    hkl_lbls = [ax.text(loc, 1, str(hkl)[1:-1],
-                        ha='right', va='top', rotation=90,
-                        transform=ax.get_xaxis_transform())
-                for loc, hkl in zip(peak_locations[hkl_peaks], hkls)]
+    if tth_initial_guess is None:
+        hkl_peaks = []
+        hkl_lines = []
+        hkl_lbls = []
+    else:
+        peak_locations = get_peak_locations(ds, tth_initial_guess)
+        hkl_peaks = [i for i, loc in enumerate(peak_locations)
+                       if x[0] <= loc <= x[-1]]
+        hkl_lines = [ax.axvline(loc, c='k', ls='--', lw=1) \
+                     for loc in peak_locations[hkl_peaks]]
+        hkl_lbls = [ax.text(loc, 1, str(hkl)[1:-1],
+                            ha='right', va='top', rotation=90,
+                            transform=ax.get_xaxis_transform())
+                    for loc, hkl in zip(peak_locations[hkl_peaks], hkls)]
 
     if not interactive:
 

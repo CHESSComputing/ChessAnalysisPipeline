@@ -32,6 +32,28 @@ from typing_extensions import Annotated
 from CHAP.models import CHAPBaseModel
 
 
+class CHAPSlice(CHAPBaseModel):
+    """Class representing a slice configuration for any particular
+    dimension of a data set.
+
+    :ivar start: Starting index for slicing, defaults to `0`.
+    :type start: int, optional
+    :ivar end: Ending index for slicing, defaults to `-1`.
+    :type end: int, optional
+    :ivar step: Slicing step, defaults to `1`.
+    :type step: int, optional
+    """
+    start: Optional[int] = 0
+    end: Optional[int] = None
+    step: Optional[conint(gt=0)] = 1
+
+    def tolist(self):
+        return [self.start, self.end, self.step]
+
+    def toslice(self):
+        return slice(self.start, self.end, self.step)
+
+
 class Detector(CHAPBaseModel):
     """Class representing a single detector.
 
@@ -90,8 +112,27 @@ class DetectorConfig(CHAPBaseModel):
 
     :ivar detectors: Detector list.
     :type detectors: list[Detector]
+    :ivar roi: Detector ROI.
+    :type roi: list[CHAPSlice, CHAPSlice], optional
     """
+    # FIX ROI to make general, now just suited to and tested with TOMO
     detectors: conlist(item_type=Detector, min_length=1)
+    roi: Optional[conlist(
+        item_type=CHAPSlice, min_length=2, max_length=2)] = None
+
+    @field_validator('roi', mode='before')
+    @classmethod
+    def validate_roi(cls, roi):
+        """Validate the detector ROI.
+
+        :param roi: Detector ROI.
+        :type roi: list[CHAPSlice, CHAPSlice]
+        :return: The validated detector ROI
+        :rtype: list[CHAPSlice, CHAPSlice]
+        """
+        if roi is None:
+            return roi
+        return [CHAPSlice().model_dump() if v is None else v for v in roi]
 
 
 class Sample(CHAPBaseModel):
@@ -703,6 +744,7 @@ class IndependentDimension(PointByPointScanData):
         this axis, defaults to `1`.
     :type step: int, optional
     """
+    # FIX convert to using CHAPSlice
     start: Optional[conint(ge=0)] = 0
     end: Optional[int] = None
     step: Optional[conint(gt=0)] = 1

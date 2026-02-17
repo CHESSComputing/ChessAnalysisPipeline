@@ -1226,6 +1226,7 @@ class MapProcessor(Processor):
         nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.map_config = self.config.model_dump_json()
+        nxentry.detector_config = self.detector_config.model_dump_json()
         nxentry.attrs['station'] = self.config.station
         for k, v in self.config.attrs.items():
             nxentry.attrs[k] = v
@@ -1497,10 +1498,16 @@ class MapProcessor(Processor):
         #RV only correct for multiple detectors if the same image sizes
         if len(self.detector_config.detectors) != 1:
             raise ValueError('Multiple detectors not tested yet')
+        # FIX eliminate need for testing for self.config.experiment_type
+        # in scanparser
         if self.config.experiment_type == 'TOMO':
             dtype = np.float32
             ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].get_id(), dtype=dtype)
+                self.detector_config.detectors[0].get_id(),
+                detector_roi=[
+                    self.detector_config.roi[0].toslice(),
+                    self.detector_config.roi[1].toslice()],
+                dtype=dtype)
         else:
             dtype = None
             ddata = scanparser.get_detector_data(
@@ -1566,15 +1573,16 @@ class MapProcessor(Processor):
                         del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        if dtype is None:
+                        if self.config.experiment_type == 'TOMO':
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[i].get_id(),
-                            )
+                                detector_roi=[
+                                    self.detector_config.roi[0].toslice(),
+                                    self.detector_config.roi[1].toslice()],
+                                dtype=dtype)
                         else:
                             data[i][offset] = scanparser.get_detector_data(
-                                self.detector_config.detectors[i].get_id(),
-                                dtype=dtype
-                            )
+                                self.detector_config.detectors[0].get_id())
                 for i, dim in enumerate(self.config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
