@@ -154,7 +154,6 @@ def convert_structured_unstructured(data):
                 dtype=data[s].nxdata.dtype,
             ) for s in signals}
             npts = len(data[signals[0]].nxdata.tolist())
-            print(f'converting {npts} data points')
             indices = {
                 a: np.searchsorted(structured_axes[a], data[a].nxdata)
                 for a in nxaxes

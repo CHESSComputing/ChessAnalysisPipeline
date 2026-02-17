@@ -59,11 +59,14 @@ class Detector(CHAPBaseModel):
 
     :ivar id: The detector id (e.g. name or channel index).
     :type id: str
+    :ivar shape: Shape of detector's raw data.
+    :type shape: tuple[int,int]
     :ivar attrs: Additional detector configuration attributes.
     :type attrs: dict, optional
     """
     id_: constr(min_length=1) = Field(alias='id')
-    attrs: dict = {}
+    shape: Optional[tuple[int, int]] = None
+    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 
     @field_validator('id_', mode='before')
     @classmethod
@@ -719,7 +722,8 @@ def validate_data_source_for_map_config(data_source, info):
                 import_scanparser(
                     values['station'], values['experiment_type'])
                 data_source.validate_for_station(values['station'])
-                data_source.validate_for_spec_scans(values['spec_scans'])
+                if values['validate_data_present']:
+                    data_source.validate_for_spec_scans(values['spec_scans'])
         return data_source
 
     return _validate_data_source_for_map_config(data_source, info)
@@ -954,6 +958,7 @@ class MapConfig(CHAPBaseModel):
     :ivar attrs: Additional Map configuration attributes.
     :type attrs: dict, optional
     """
+    validate_data_present: bool = True
     did: Optional[constr(strip_whitespace=True)] = None
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']

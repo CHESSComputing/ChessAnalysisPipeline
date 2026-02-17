@@ -44,6 +44,7 @@ FLOAT_MIN = float_info.min
 # Current good detector channels for the 23 channel EDD detector:
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
+
 def get_axes(nxdata, skip_axes=None):
     """Get the axes of an NXdata object used in EDD."""
     if skip_axes is None:
