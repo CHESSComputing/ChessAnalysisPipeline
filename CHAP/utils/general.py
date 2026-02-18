@@ -2214,7 +2214,7 @@ def quick_imshow(
         a, title=None, row_label='row index', column_label='column index',
         path=None, name=None, show_fig=True, save_fig=False,
         return_fig=False, block=None, extent=None, show_grid=False,
-        grid_color='w', grid_linewidth=1, **kwargs):
+        grid_color='w', grid_linewidth=1, colorbar=False, **kwargs):
     """Display and or save a 2D image and or return an in-memory object
     as a byte stream represention.
     """
@@ -2251,10 +2251,12 @@ def quick_imshow(
         extent = (0, a.shape[1], a.shape[0], 0)
     plt.ioff()
     fig, ax = plt.subplots(figsize=(11, 8.5))
-    ax.imshow(a, extent=extent, **kwargs)
+    im = ax.imshow(a, extent=extent, **kwargs)
     ax.set_title(title, fontsize='xx-large')
     ax.set_xlabel(column_label, fontsize='x-large')
     ax.set_ylabel(row_label, fontsize='x-large')
+    if colorbar:
+        fig.colorbar(im, ax=ax)
     if show_grid:
         ax.grid(color=grid_color, linewidth=grid_linewidth)
     if show_fig:
