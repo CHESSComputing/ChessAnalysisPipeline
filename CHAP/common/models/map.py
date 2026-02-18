@@ -44,7 +44,7 @@ class CHAPSlice(CHAPBaseModel):
     :type step: int, optional
     """
     start: Optional[int] = 0
-    end: Optional[int] = None
+    end: Optional[int] = None # FIX allow stop as alias
     step: Optional[conint(gt=0)] = 1
 
     def tolist(self):
@@ -840,11 +840,11 @@ class SpecConfig(CHAPBaseModel):
     :ivar station: The name of the station at which the data was
         collected.
     :type station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
-    :ivar spec_scans: A list of the SPEC scans that compose the set.
-    :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
         'XRF', 'HDRM']
+    :ivar spec_scans: A list of the SPEC scans that compose the set.
+    :type spec_scans: list[SpecScans]
     """
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     experiment_type: Literal[
