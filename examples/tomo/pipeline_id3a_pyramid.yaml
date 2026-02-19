@@ -83,22 +83,74 @@ convert:
       filename: chess_map_hollow_pyramid.nxs
       force_overwrite: true
 
-recon:
+reduce:
 
-  # Full tomography reconstruction
+  # Data reduction
   - common.NexusReader:
       filename: chess_map_hollow_pyramid.nxs
+  - tomo.TomoReduceProcessor:
+      save_figures: true
+  - tomo.TomoWriter:
+      filename: reduced_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+find_center:
+
+  - common.NexusReader:
+      filename: reduced_hollow_pyramid.nxs
   - common.YAMLReader:
       filename: find_center_id3a.yaml
+      schema: tomo.models.TomoFindCenterConfig
+  - tomo.TomoFindCenterProcessor:
+#      config:
+#        gaussian_sigma: 0.05
+#        ring_width: 1
+      save_figures: true
+  - tomo.TomoWriter:
+      filename: center_hollow_pyramid.yaml
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+recon:
+
+  - common.NexusReader:
+      filename: reduced_hollow_pyramid.nxs
+  - common.YAMLReader:
+      filename: center_hollow_pyramid.yaml
       schema: tomo.models.TomoFindCenterConfig
   - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
+  - tomo.TomoReconstructProcessor:
+#      config:
+#        x_bounds: [15, 390]
+#        y_bounds: [25, 380]
+#        secondary_iters: 10
+#        ring_width: 1
+      save_figures: true
+  - tomo.TomoWriter:
+      filename: reconstructed_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
+
+combine:
+
+  - common.NexusReader:
+      filename: reconstructed_hollow_pyramid.nxs
   - common.YAMLReader:
       filename: combine_data_id3a.yaml
       schema: tomo.models.TomoCombineConfig
-  - tomo.TomoDataProcessor:
-      reduce_data: true
+  - tomo.TomoCombineProcessor:
+#      config:
+#        z_bounds: [2, 57]
       save_figures: true
   - tomo.TomoWriter:
       filename: combined_hollow_pyramid.nxs
