@@ -3296,10 +3296,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     i for i, v in enumerate(use_peaks) if not v)]
             uniform_amplitudes_vary = np.insert(
                 uniform_amplitudes_vary, insert_peak_indices, [False],
-                axis=-1)
+                axis=-2)
             unconstrained_amplitudes_vary = np.insert(
                 unconstrained_amplitudes_vary, insert_peak_indices, [False],
-                axis=-1)
+                axis=-2)
             for i, point in enumerate(points):
                 point.update({
                     f'{detector.get_id()}/data/intensity': intensities[i],
