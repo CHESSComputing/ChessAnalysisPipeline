@@ -5,7 +5,10 @@ processing workflows.
 from CHAP.tomo.processor import (
     TomoMetadataProcessor,
     TomoCHESSMapConverter,
-    TomoDataProcessor,
+    TomoReduceProcessor,
+    TomoFindCenterProcessor,
+    TomoReconstructProcessor,
+    TomoCombineProcessor,
     TomoSimFieldProcessor,
     TomoDarkFieldProcessor,
     TomoBrightFieldProcessor,
