@@ -391,11 +391,14 @@ class BaseStrainProcessor(BaseEddProcessor):
         mean_data = np.empty((unique_points.shape[1], data.shape[-1]))
         for i in range(unique_points.shape[1]):
             mean_data[i] = np.mean(data[sum_indices[i]], axis=0)
+        coords = []
+        for i, a in enumerate(axes):
+            coords.append(NXfield(unique_points[i], a, attrs=nxdata[a].attrs))
+            if len(unique_points[i]) != nxdata[a].size:
+                coords[-1].attrs.pop('target', None)
         nxdata_det = NXdata(
             NXfield(mean_data, 'detector_data'),
-            tuple([
-                NXfield(unique_points[i], a, attrs=nxdata[a].attrs)
-                for i, a in enumerate(axes)]))
+            tuple(coords))
         if len(axes) > 1:
             nxdata_det.attrs['unstructured_axes'] = \
                 nxdata_det.attrs.pop('axes')
