@@ -1123,10 +1123,13 @@ class MapProcessor(Processor):
                             det_shapes[detector.get_id()] = ddata_init.shape
             all_scalar_data = np.empty(
                 (len(self.config.all_scalar_data), map_len))
-            data = np.empty(
-                (len(self.detector_config.detectors),
-                 map_len,
-                 *det_shapes[self.detector_config.detectors[0].get_id()]))
+            if len(self.detector_config.detectors) > 0:
+                data = np.empty(
+                    (len(self.detector_config.detectors),
+                     map_len,
+                     *det_shapes[self.detector_config.detectors[0].get_id()]))
+            else:
+                data = None
             independent_dimensions = np.asarray(
                 [_independent_dimensions[dim.label]
                  for dim in self.config.independent_dimensions])
@@ -1315,8 +1318,9 @@ class MapProcessor(Processor):
         detector_ids = []
         for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
-        min_ = np.min(data, axis=tuple(range(1, data.ndim)))
-        max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+        if data is not None:
+            min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+            max_ = np.max(data, axis=tuple(range(1, data.ndim)))
         for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.get_id()] = NXfield(
                 value=data[i],

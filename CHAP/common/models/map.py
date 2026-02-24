@@ -116,7 +116,7 @@ class DetectorConfig(CHAPBaseModel):
     :type roi: list[CHAPSlice, CHAPSlice], optional
     """
     # FIX ROI to make general, now just suited to and tested with TOMO
-    detectors: conlist(item_type=Detector, min_length=1)
+    detectors: conlist(item_type=Detector)
     roi: Optional[conlist(
         item_type=CHAPSlice, min_length=2, max_length=2)] = None
 
