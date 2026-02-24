@@ -895,7 +895,7 @@ class MapProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig'},
         init_var=True)
     config: MapConfig
-    detector_config: DetectorConfig
+    detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
 
     @field_validator('num_proc')
