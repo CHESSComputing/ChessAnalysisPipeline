@@ -3275,6 +3275,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             self.logger.info('... done')
 
             # Add the fit results to the list of points
+            num_points = len(points)
             tth_map = detector.get_tth_map((nxdata.shape[0],))
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map)
@@ -3282,16 +3283,22 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             uniform_centers = np.asarray(uniform_results['centers'])
             uniform_strains = np.log(nominal_centers / uniform_centers)
             uniform_strain = np.mean(uniform_strains, axis=0)
-            uniform_amplitudes_vary = np.moveaxis(
-                uniform_results['amplitudes_vary'], -1, 0)
+            uniform_amplitudes_vary = np.asarray(
+                uniform_results['amplitudes_vary'])
+            if num_points > 1:
+                uniform_amplitudes_vary = np.moveaxis(
+                    uniform_amplitudes_vary, -1, 0)
             unconstrained_centers = np.asarray(
                 unconstrained_results['centers'])
             unconstrained_strains = np.log(
                 nominal_centers / unconstrained_centers)
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
             unconstrained_strain_stdev = np.std(unconstrained_strains, axis=0)
-            unconstrained_amplitudes_vary = np.moveaxis(
-                unconstrained_results['amplitudes_vary'], -1, 0)
+            unconstrained_amplitudes_vary = np.asarray(
+                unconstrained_results['amplitudes_vary'])
+            if num_points > 1:
+                unconstrained_amplitudes_vary = np.moveaxis(
+                    unconstrained_amplitudes_vary, -1, 0)
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
             insert_peak_indices = [
@@ -3299,10 +3306,10 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     i for i, v in enumerate(use_peaks) if not v)]
             uniform_amplitudes_vary = np.insert(
                 uniform_amplitudes_vary, insert_peak_indices, [False],
-                axis=-2)
+                axis=-1)
             unconstrained_amplitudes_vary = np.insert(
                 unconstrained_amplitudes_vary, insert_peak_indices, [False],
-                axis=-2)
+                axis=-1)
             for i, point in enumerate(points):
                 point.update({
                     f'{detector.get_id()}/data/intensity': intensities[i],
