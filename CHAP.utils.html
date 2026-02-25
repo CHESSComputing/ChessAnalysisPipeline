@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=76e2d817"></script>
+      <script src="_static/documentation_options.js?v=e0682aa5"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -245,6 +245,12 @@ Description: General curve fitting module</p>
 </dd></dl>
 
 <dl class="py property">
+<dt class="sig sig-object py" id="CHAP.utils.fit.Fit.best_vary">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">best_vary</span></span><a class="headerlink" href="#CHAP.utils.fit.Fit.best_vary" title="Link to this definition"></a></dt>
+<dd><p>Return vary parameter for the best fit parameters.</p>
+</dd></dl>
+
+<dl class="py property">
 <dt class="sig sig-object py" id="CHAP.utils.fit.Fit.chisqr">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">chisqr</span></span><a class="headerlink" href="#CHAP.utils.fit.Fit.chisqr" title="Link to this definition"></a></dt>
 <dd><p>Return the chisqr value of the best fit.</p>
@@ -388,6 +394,12 @@ property.</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="CHAP.utils.fit.FitMap.best_values">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">best_values</span></span><a class="headerlink" href="#CHAP.utils.fit.FitMap.best_values" title="Link to this definition"></a></dt>
+<dd><p>Return values of the best fit parameters.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="CHAP.utils.fit.FitMap.best_vary">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">best_vary</span></span><a class="headerlink" href="#CHAP.utils.fit.FitMap.best_vary" title="Link to this definition"></a></dt>
 <dd><p>Return values of the best fit parameters.</p>
 </dd></dl>
 
@@ -777,6 +789,24 @@ of integers.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="CHAP.utils.general.get_default_path">
+<span class="sig-name descname"><span class="pre">get_default_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nxobject</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.utils.general.get_default_path" title="Link to this definition"></a></dt>
+<dd><p>Return the relative path to the default plottable NXdata
+object within the parent NXobject provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nxobject</strong> (<em>nexusformat.nexus.NXobject</em>) – Parent NXobject containing plottable NXdata.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Path to default NXdata group.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="CHAP.utils.general.get_trailing_int">
 <span class="sig-name descname"><span class="pre">get_trailing_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.utils.general.get_trailing_int" title="Link to this definition"></a></dt>
 <dd><p>Get the trailing integer in a string.</p>
@@ -1084,7 +1114,7 @@ preserving the sign.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="CHAP.utils.general.nxcopy">
-<span class="sig-name descname"><span class="pre">nxcopy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nxobject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_nxpaths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpath_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpathabs_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpath_copy_abspath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.utils.general.nxcopy" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">nxcopy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nxobject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_nxpaths</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpath_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpathabs_prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxpath_copy_abspath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nxgroup_to_nxdata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.utils.general.nxcopy" title="Link to this definition"></a></dt>
 <dd><p>Function that returns a copy of a nexus object, optionally
 exluding certain child items.</p>
 <dl class="field-list simple">

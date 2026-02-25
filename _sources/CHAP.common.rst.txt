@@ -12,6 +12,22 @@ Subpackages
 Submodules
 ----------
 
+CHAP.common.map\_utils module
+-----------------------------
+
+.. automodule:: CHAP.common.map_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CHAP.common.nexus\_utils module
+-------------------------------
+
+.. automodule:: CHAP.common.nexus_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 CHAP.common.processor module
 ----------------------------
 
