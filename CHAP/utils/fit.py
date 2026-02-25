@@ -645,6 +645,15 @@ class Fit:
                 if name != 'tmp_normalization_offset_c'}
 
     @property
+    def best_vary(self):
+        """Return vary parameter for the best fit parameters."""
+        if self._result is None:
+            return None
+        return {name:self._result.params[name].vary
+                for name in sorted(self._result.params)
+                if name != 'tmp_normalization_offset_c'}
+
+    @property
     def chisqr(self):
         """Return the chisqr value of the best fit."""
         if self._result is None:
@@ -1515,6 +1524,8 @@ class Fit:
                     self._best_values, scale_factor_index, 0)
                 self._best_errors = np.delete(
                     self._best_errors, scale_factor_index, 0)
+                self._best_vary = np.delete(
+                    self._best_vary, scale_factor_index, 0)
             for par in parameters:
                 name = par.name
                 if name not in self._parameters:
@@ -2087,6 +2098,7 @@ class FitMap(Fit):
         self._best_fit = None
         self._best_parameters = None
         self._best_values = None
+        self._best_vary = None
         self._inv_transpose = None
         self._max_nfev = None
         self._memfolder = config.memfolder
@@ -2166,6 +2178,11 @@ class FitMap(Fit):
     def best_values(self):
         """Return values of the best fit parameters."""
         return self._best_values
+
+    @property
+    def best_vary(self):
+        """Return values of the best fit parameters."""
+        return self._best_vary
 
     @property
     def chisqr(self):
@@ -2438,8 +2455,8 @@ class FitMap(Fit):
         self._setup_fit(config)
 
         # Create the best parameter list, consisting of all varying
-        #     parameters plus the expression parameters in order to
-        #     collect their errors
+        # parameters plus the expression parameters in order to collect
+        # their errors
         if self._result is None:
             # Initial fit
             assert self._best_parameters is None
@@ -2459,7 +2476,7 @@ class FitMap(Fit):
         num_best_parameters = len(self._best_parameters)
 
         # Flatten and normalize the best values of the previous fit,
-        #     remove the remaining results of the previous fit
+        # remove the remaining results of the previous fit
         if self._result is not None:
             self._out_of_bounds = None
             self._max_nfev = None
@@ -2468,6 +2485,7 @@ class FitMap(Fit):
             self._success = None
             self._best_fit = None
             self._best_errors = None
+            self._best_vary = None
             assert self._best_values is not None
             assert self._best_values.shape[0] == num_best_parameters
             assert self._best_values.shape[1:] == self._map_shape
@@ -2480,10 +2498,11 @@ class FitMap(Fit):
                         self._best_values[i] /= self._norm[1]
 
         # Normalize the initial parameters
-        #     (and best values for a refit)
+        # (and best values for a refit)
         self._normalize()
 
-        # Prevent initial values from sitting at boundaries
+        # Initialize parameter bounds and check to prevent initial
+        # values at boundaries
         self._parameter_bounds = {
             name:{'min': par.min, 'max': par.max}
             for name, par in self._parameters.items() if par.vary}
@@ -2510,6 +2529,9 @@ class FitMap(Fit):
                 (self._map_dim, x_size), dtype=self._ymap_norm.dtype)
             self._best_errors_flat = [
                 np.zeros(self._map_dim, dtype=np.float64)
+                for _ in range(num_best_parameters+num_new_parameters)]
+            self._best_vary_flat = [
+                np.zeros(self._map_dim, dtype=bool)
                 for _ in range(num_best_parameters+num_new_parameters)]
             if self._result is None:
                 self._best_values_flat = [
@@ -2554,6 +2576,13 @@ class FitMap(Fit):
                     self._memfolder, f'best_errors_memmap_{i}')
                 self._best_errors_flat.append(
                     np.memmap(filename_memmap, dtype=np.float64,
+                              shape=self._map_dim, mode='w+'))
+            self._best_vary_flat = []
+            for i in range(num_best_parameters+num_new_parameters):
+                filename_memmap = path.join(
+                    self._memfolder, f'best_errors_memmap_{i}')
+                self._best_vary_flat.append(
+                    np.memmap(filename_memmap, dtype=bool,
                               shape=self._map_dim, mode='w+'))
             self._best_values_flat = []
             for i in range(num_best_parameters):
@@ -2669,6 +2698,8 @@ class FitMap(Fit):
             par, list(self._map_shape)) for par in self._best_values_flat])
         self._best_errors = np.asarray([np.reshape(
             par, list(self._map_shape)) for par in self._best_errors_flat])
+        self._best_vary = np.asarray([np.reshape(
+            par, list(self._map_shape)) for par in self._best_vary_flat])
         if self._inv_transpose is not None:
             self._out_of_bounds = np.transpose(
                 self._out_of_bounds, self._inv_transpose)
@@ -2684,6 +2715,8 @@ class FitMap(Fit):
                 self._best_values, [0] + [i+1 for i in self._inv_transpose])
             self._best_errors = np.transpose(
                 self._best_errors, [0] + [i+1 for i in self._inv_transpose])
+            self._best_vary = np.transpose(
+                self._best_vary, [0] + [i+1 for i in self._inv_transpose])
         del self._out_of_bounds_flat
         del self._max_nfev_flat
         del self._num_func_eval_flat
@@ -2692,6 +2725,7 @@ class FitMap(Fit):
         del self._best_fit_flat
         del self._best_values_flat
         del self._best_errors_flat
+        del self._best_vary_flat
 
         # Restore parameter bounds and renormalize the parameters
         for name, par in self._parameter_bounds.items():
@@ -2726,8 +2760,7 @@ class FitMap(Fit):
         if (y_max == 0.0
                 or (self._rel_height_cutoff is not None
                     and y_max < self._rel_height_cutoff)):
-            self._logger.debug(
-                f'Skipping fit for n = {n} (rel norm = {y_max:.5f})')
+            self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
                 from CHAP.utils.fit import ModelResult
 
@@ -2755,7 +2788,7 @@ class FitMap(Fit):
             heights = []
             names = []
             for component in result.components:
-                if isinstance(component, (GaussianModel, LorentzianModel)):
+                if component._name in ('gaussian', 'lorentzian'):
                     for name in component.param_names:
                         if 'height' in name:
                             heights.append(result.params[name].value)
@@ -2764,6 +2797,7 @@ class FitMap(Fit):
                 refit = False
                 max_height = max(heights)
                 parameters_save = deepcopy(self._parameters)
+                parameters_bounds_save = deepcopy(self._parameter_bounds)
                 for i, (name, height) in enumerate(zip(names, heights)):
                     if height < self._rel_height_cutoff*max_height:
                         self._parameters[
@@ -2781,6 +2815,7 @@ class FitMap(Fit):
                         n, current_best_values, **kwargs)
                     # Reset fixed amplitudes back to default
                     self._parameters = deepcopy(parameters_save)
+                    self._parameter_bounds = deepcopy(parameters_bounds_save)
 
         if result.redchi >= self._redchi_cutoff:
             result.success = False
@@ -2907,6 +2942,8 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_vary_flat[i][n] = (
+                    result.params[name].vary and result.success)
             if result.success:
                 self._best_fit_flat[n] = result.best_fit
         else:
@@ -2937,6 +2974,8 @@ class FitMap(Fit):
                     result.params[name].value)
                 self._best_errors_flat[i][n] = np.float64(
                     result.params[name].stderr)
+                self._best_vary_flat[i][n] = (
+                    result.params[name].stderr and result.success)
             if result.success:
                 self._best_fit_flat[n] = (
                     result.best_fit*self._norm[1] + self._norm[0])

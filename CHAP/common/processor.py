@@ -88,7 +88,7 @@ class BinarizeProcessor(Processor):
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.BinarizeProcessorConfig
+            CHAP.common.models.BinarizeConfig
         :type config: dict, optional
         :return: The binarized dataset for an `array-like` input or
             a return type equal that of the input object with the
@@ -108,16 +108,16 @@ class BinarizeProcessor(Processor):
 
         nxsetconfig(memory=100000)
 
-        # Load the validated binarize processor configuration
+        # Load the validated processor configuration
         if config is None:
             # Local modules
-            from CHAP.common.models.common import BinarizeProcessorConfig
+            from CHAP.common.models.common import BinarizeConfig
 
-            config = BinarizeProcessorConfig()
+            config = BinarizeConfig()
         else:
             config = self.get_config(
                 data, config=config,
-                schema='common.models.BinarizeProcessorConfig')
+                schema='common.models.BinarizeConfig')
 
         # Load the default data
         try:
@@ -496,6 +496,110 @@ class ConvertStructuredProcessor(Processor):
         return convert_structured_unstructured(data)
 
 
+class ExpressionProcessor(Processor):
+    """Processor to perform an arbitrary expression on input
+    data."""
+    def process(self, data, expression, symtable=None, nxprocess=False,
+                nxfieldtable=None, nxdata_name='data',
+                nxfield_name='result'):
+        """Return result of plugging input data into the given
+        mathematical expression.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param expression: Mathemetical expression. May use the
+            built-in function `round` and / or numpy functions with
+            `np.<function_name>` or `numpy.<function_name>.`
+        :type expression: str
+        :param symtable: Values to use for names in `expression` that
+            should not be obtained from input data. Defaults to `None`.
+        :type symtable: dict[str, (float, int)], optional.
+        :param nxprocess: Flag to indicate the results should be
+            retunred as an `NXprocess`. Defaults to `False`.
+        :type nxprocess: bool, optional
+        :param nxfieldtable: Used only if `nxprocess` is
+            `True`. Dictionary of additional `NXfield`s to include in
+            the `NXprocess` result object right next to the expression
+            result's `NXfield`. Dictionary keys become `NXfield` names
+            in the returned object. Defaults to `None`.
+        :type nxfieldtable: dict[str, NXfield], optional
+        :param nxdata_name: Used only if `nxprocess` is
+            `True`. Name for the `NXdata` group in the returned
+            `NXprocess` that contains actual result data. efaults to
+            `'data'`.
+        :type nxdata_name: str, optional
+        :param nxfield_name: Used only if `nxprocess` is
+            `True`. Name for the `NXfield` dataset that contains the
+            evaluated expression results. Defaults to `'result'`.
+        :type nxfield_name: str, optional
+        :returns: Result of evaluating the expression.
+        :rtype: object
+        """
+        return self._process(
+            data, expression, symtable=symtable, nxprocess=nxprocess,
+            nxfieldtable=nxfieldtable, nxdata_name=nxdata_name,
+            nxfield_name=nxfield_name
+        )
+
+    def _process(self, data, expression, symtable=None, nxprocess=False,
+                 nxfieldtable=None, nxdata_name='data',
+                 nxfield_name='result'):
+        import zarr
+        from ast import parse
+        from asteval import get_ast_names, Interpreter
+
+        if not isinstance(nxfieldtable, dict):
+            self.logger.warning('No usable nxfieldtable provided, using {}')
+            nxfieldtable = {}
+
+        names = get_ast_names(parse(expression))
+        if symtable is None:
+            symtable = {}
+        for name in names:
+            if name in symtable:
+                continue
+            elif name == 'round':
+                symtable[name] = round
+            elif name in ('np', 'numpy'):
+                symtable[name] = np
+            else:
+                symtable[name] = self.get_data(
+                    data, name=name, remove=False)
+        for k, v in symtable.items():
+            if isinstance(v, zarr.core.array.Array):
+                symtable[k] = v[()]
+        self.logger.debug(f'Asteval symtable: {symtable}')
+        aeval = Interpreter(symtable=symtable)
+        new_data = aeval(expression)
+
+        if not nxprocess:
+            return new_data
+
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+            NXprocess,
+        )
+        return NXprocess(
+            name=nxprocess,
+            entries={
+                nxdata_name: NXdata(
+                    signal=NXfield(
+                        name=nxfield_name,
+                        value=new_data,
+                        attrs={'expression': expression}
+                    ),
+                    **{
+                        name: nxfield
+                        for name, nxfield in nxfieldtable.items()
+                    },
+                    attrs={'expression': expression}
+                ),
+            }
+        )
+
+
 class ImageProcessor(Processor):
     """A Processor to perform various visualization operations on
     images (slices) selected from a NeXus object.
@@ -791,7 +895,7 @@ class MapProcessor(Processor):
             'detector_config': 'common.models.map.DetectorConfig'},
         init_var=True)
     config: MapConfig
-    detector_config: DetectorConfig
+    detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
 
     @field_validator('num_proc')
@@ -824,12 +928,13 @@ class MapProcessor(Processor):
         return num_proc
 
     def process(
-            self, data, placeholder_data=False, comm=None):
+            self, data, placeholder_data=False, fill_data=True, comm=None):
 
-        return self._process(data, placeholder_data, comm)
+        return self._process(data, placeholder_data, fill_data, comm)
 
 #    @profile
-    def _process(self, data, placeholder_data=False, comm=None):
+    def _process(
+            self, data, placeholder_data=False, fill_data=True, comm=None):
         """Process that takes a map configuration and returns a NeXus
         NXentry object representing the map.
 
@@ -841,6 +946,9 @@ class MapProcessor(Processor):
             for missing detector data frames, or `False` if missing
             data should raise an error, defaults to `False`.
         :type placeholder_data: object, optional
+        :param fill_data: Flag to indicate whether or not to fill out
+            datasets with real data; defaults to `True`.
+        :type fill_data: bool, optional
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :return: Map data and metadata.
@@ -868,125 +976,163 @@ class MapProcessor(Processor):
             if metadata:
                 metadata = self._get_metadata_config(metadata[0])
 
-        # Create the sub-pipeline configuration for each processor
-        # FIX: catered to EDD with one spec scan
-        assert len(self.config.spec_scans) == 1
-        spec_scans = self.config.spec_scans[0]
-        scan_numbers = spec_scans.scan_numbers
-        num_scan = len(scan_numbers)
-        if num_scan < self.num_proc:
-            self.logger.warning(
-                f'Requested number of processors ({self.num_proc}) exceeds '
-                f'the number of scans ({num_scan}): reset it to {num_scan}')
-            self.num_proc = num_scan
-        if self.num_proc == 1:
-            common_comm = comm
-            offsets = [0]
-        else:
-            # System modules
-            from tempfile import NamedTemporaryFile
+        if fill_data:
+            # Create the sub-pipeline configuration for each processor
+            # FIX: catered to EDD with one spec scan
+            assert len(self.config.spec_scans) == 1
+            spec_scans = self.config.spec_scans[0]
+            scan_numbers = spec_scans.scan_numbers
+            num_scan = len(scan_numbers)
+            if num_scan < self.num_proc:
+                self.logger.warning(
+                    f'Requested number of processors ({self.num_proc}) exceeds '
+                    f'the number of scans ({num_scan}): reset it to {num_scan}')
+                self.num_proc = num_scan
+            if self.num_proc == 1:
+                common_comm = comm
+                offsets = [0]
+            else:
+                # System modules
+                from tempfile import NamedTemporaryFile
 
-            # Local modules
-            from CHAP.models import RunConfig
+                # Local modules
+                from CHAP.models import RunConfig
 
-            raise NotImplementedError(
-                'MapProcessor needs testing for num_proc>1')
-            scans_per_proc = num_scan//self.num_proc
-            num = scans_per_proc
-            if num_scan - scans_per_proc*self.num_proc > 0:
-                num += 1
-            spec_scans.scan_numbers = scan_numbers[:num]
-            n_scan = num
-            pipeline_config = []
-            offsets = [0]
-            for n_proc in range(1, self.num_proc):
+                raise NotImplementedError(
+                    'MapProcessor needs testing for num_proc>1')
+                scans_per_proc = num_scan//self.num_proc
                 num = scans_per_proc
-                if n_proc < num_scan - scans_per_proc*self.num_proc:
+                if num_scan - scans_per_proc*self.num_proc > 0:
                     num += 1
-                config = self.config.model_dump()
-                config['spec_scans'][0]['scan_numbers'] = \
-                    scan_numbers[n_scan:n_scan+num]
-                pipeline_config.append(
-                    [{'common.MapProcessor': {
-                        'config': config,
-                        'detector_config': self.detector_config.model_dump(),
-                     }}])
-                offsets.append(n_scan)
-                n_scan += num
-
-            # Spawn the workers to run the sub-pipeline
-            run_config = RunConfig(
-                log_level=logging.getLevelName(self.logger.level), spawn=1)
-            tmp_names = []
-            with NamedTemporaryFile(delete=False) as fp:
-                # pylint: disable=c-extension-no-member
-                fp_name = fp.name
-                tmp_names.append(fp_name)
-                with open(fp_name, 'w') as f:
-                    yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
+                spec_scans.scan_numbers = scan_numbers[:num]
+                n_scan = num
+                pipeline_config = []
+                offsets = [0]
                 for n_proc in range(1, self.num_proc):
-                    f_name = f'{fp_name}_{n_proc}'
-                    tmp_names.append(f_name)
-                    with open(f_name, 'w') as f:
-                        yaml.dump(
-                            # FIX once comm is a field of RunConfig
-                            # {'config': run_config.model_dump(exclude='comm'),
-                            {'config': run_config.model_dump(),
-                             'pipeline': pipeline_config[n_proc-1]},
-                            f, sort_keys=False)
-                # pylint: disable=used-before-assignment
-                sub_comm = MPI.COMM_SELF.Spawn(
-                    'CHAP', args=[fp_name], maxprocs=self.num_proc-1)
-                common_comm = sub_comm.Merge(False)
-                # Align with the barrier in RunConfig() on common_comm
-                # called from the spawned main() in common_comm
+                    num = scans_per_proc
+                    if n_proc < num_scan - scans_per_proc*self.num_proc:
+                        num += 1
+                    config = self.config.model_dump()
+                    config['spec_scans'][0]['scan_numbers'] = \
+                        scan_numbers[n_scan:n_scan+num]
+                    pipeline_config.append(
+                        [{'common.MapProcessor': {
+                            'config': config,
+                            'detector_config': self.detector_config.model_dump(),
+                         }}])
+                    offsets.append(n_scan)
+                    n_scan += num
+
+                # Spawn the workers to run the sub-pipeline
+                run_config = RunConfig(
+                    log_level=logging.getLevelName(self.logger.level), spawn=1)
+                tmp_names = []
+                with NamedTemporaryFile(delete=False) as fp:
+                    # pylint: disable=c-extension-no-member
+                    fp_name = fp.name
+                    tmp_names.append(fp_name)
+                    with open(fp_name, 'w') as f:
+                        yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
+                    for n_proc in range(1, self.num_proc):
+                        f_name = f'{fp_name}_{n_proc}'
+                        tmp_names.append(f_name)
+                        with open(f_name, 'w') as f:
+                            yaml.dump(
+                                # FIX once comm is a field of RunConfig
+                                # {'config': run_config.model_dump(exclude='comm'),
+                                {'config': run_config.model_dump(),
+                                 'pipeline': pipeline_config[n_proc-1]},
+                                f, sort_keys=False)
+                    # pylint: disable=used-before-assignment
+                    sub_comm = MPI.COMM_SELF.Spawn(
+                        'CHAP', args=[fp_name], maxprocs=self.num_proc-1)
+                    common_comm = sub_comm.Merge(False)
+                    # Align with the barrier in RunConfig() on common_comm
+                    # called from the spawned main() in common_comm
+                    common_comm.barrier()
+                    # Align with the barrier in run() on common_comm
+                    # called from the spawned main()
+                    common_comm.barrier()
+
+            if common_comm is None:
+                self.num_proc = 1
+                rank = 0
+            else:
+                self.num_proc = common_comm.Get_size()
+                rank = common_comm.Get_rank()
+            if self.num_proc == 1:
+                offset = 0
+            else:
+                num_scan = common_comm.bcast(num_scan, root=0)
+                offset = common_comm.scatter(offsets, root=0)
+
+            # Read the raw data
+            if self.config.experiment_type == 'EDD':
+                data, independent_dimensions, all_scalar_data = \
+                    self._read_raw_data_edd(
+                        common_comm, num_scan, offset, placeholder_data)
+            else:
+                data, independent_dimensions, all_scalar_data = \
+                    self._read_raw_data(common_comm, num_scan, offset)
+            if not rank:
+                self.logger.debug(f'Data shape: {data.shape}')
+                if independent_dimensions is not None:
+                    self.logger.debug('Independent dimensions shape: '
+                                      f'{independent_dimensions.shape}')
+                if all_scalar_data is not None:
+                    self.logger.debug('Scalar data shape: '
+                                      f'{all_scalar_data.shape}')
+
+            if rank:
+                return None
+
+            if self.num_proc > 1:
+                # Reset the scan_numbers to the original full set
+                spec_scans.scan_numbers = scan_numbers
+                # Align with the barrier in main() on common_comm
+                # when disconnecting the spawned worker
                 common_comm.barrier()
-                # Align with the barrier in run() on common_comm
-                # called from the spawned main()
-                common_comm.barrier()
-
-        if common_comm is None:
-            self.num_proc = 1
-            rank = 0
+                # Disconnect spawned workers and cleanup temporary files
+                sub_comm.Disconnect()
+                for tmp_name in tmp_names:
+                    os.remove(tmp_name)
         else:
-            self.num_proc = common_comm.Get_size()
-            rank = common_comm.Get_rank()
-        if self.num_proc == 1:
-            offset = 0
-        else:
-            num_scan = common_comm.bcast(num_scan, root=0)
-            offset = common_comm.scatter(offsets, root=0)
-
-        # Read the raw data
-        if self.config.experiment_type == 'EDD':
-            data, independent_dimensions, all_scalar_data = \
-                self._read_raw_data_edd(
-                    common_comm, num_scan, offset, placeholder_data)
-        else:
-            data, independent_dimensions, all_scalar_data = \
-                self._read_raw_data(common_comm, num_scan, offset)
-        if not rank:
-            self.logger.debug(f'Data shape: {data.shape}')
-            if independent_dimensions is not None:
-                self.logger.debug('Independent dimensions shape: '
-                                  f'{independent_dimensions.shape}')
-            if all_scalar_data is not None:
-                self.logger.debug('Scalar data shape: '
-                                  f'{all_scalar_data.shape}')
-
-        if rank:
-            return None
-
-        if self.num_proc > 1:
-            # Reset the scan_numbers to the original full set
-            spec_scans.scan_numbers = scan_numbers
-            # Align with the barrier in main() on common_comm
-            # when disconnecting the spawned worker
-            common_comm.barrier()
-            # Disconnect spawned workers and cleanup temporary files
-            sub_comm.Disconnect()
-            for tmp_name in tmp_names:
-                os.remove(tmp_name)
+            # fill_data is False, just use empty arrays
+            map_len = 0
+            _independent_dimensions = {
+                dim.label: [] for dim in self.config.independent_dimensions}
+            det_shapes = False
+            for scans in self.config.spec_scans:
+                for scan_number in scans.scan_numbers:
+                    scanparser = scans.get_scanparser(scan_number)
+                    map_len += scanparser.spec_scan_npts
+                    for dim in self.config.independent_dimensions:
+                        val = dim.get_value(
+                            scans, scan_number, -1,
+                            self.config.scalar_data)
+                        if not isinstance(val, list):
+                            val = [val]
+                        _independent_dimensions[dim.label].extend(val)
+                    if not det_shapes:
+                        det_shapes = {}
+                        for detector in self.detector_config.detectors:
+                            ddata_init = scanparser.get_detector_data(
+                                detector.get_id(), 0)
+                            if isinstance(ddata_init, tuple):
+                                ddata_init = ddata_init[0].squeeze()
+                            det_shapes[detector.get_id()] = ddata_init.shape
+            all_scalar_data = np.empty(
+                (len(self.config.all_scalar_data), map_len))
+            if len(self.detector_config.detectors) > 0:
+                data = np.empty(
+                    (len(self.detector_config.detectors),
+                     map_len,
+                     *det_shapes[self.detector_config.detectors[0].get_id()]))
+            else:
+                data = None
+            independent_dimensions = np.asarray(
+                [_independent_dimensions[dim.label]
+                 for dim in self.config.independent_dimensions])
 
         # Construct and return the NeXus NXroot object
         return self._get_nxroot(
@@ -1083,6 +1229,7 @@ class MapProcessor(Processor):
         nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
         nxentry.map_config = self.config.model_dump_json()
+        nxentry.detector_config = self.detector_config.model_dump_json()
         nxentry.attrs['station'] = self.config.station
         for k, v in self.config.attrs.items():
             nxentry.attrs[k] = v
@@ -1171,8 +1318,9 @@ class MapProcessor(Processor):
         detector_ids = []
         for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
-        min_ = np.min(data, axis=tuple(range(1, data.ndim)))
-        max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+        if data is not None:
+            min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+            max_ = np.max(data, axis=tuple(range(1, data.ndim)))
         for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.get_id()] = NXfield(
                 value=data[i],
@@ -1354,10 +1502,17 @@ class MapProcessor(Processor):
         #RV only correct for multiple detectors if the same image sizes
         if len(self.detector_config.detectors) != 1:
             raise ValueError('Multiple detectors not tested yet')
+        # FIX eliminate need for testing for self.config.experiment_type
+        # in scanparser
         if self.config.experiment_type == 'TOMO':
             dtype = np.float32
+            if self.detector_config.roi is None:
+                detector_roi = [slice(None), slice(None)]
+            else:
+                detector_roi = self.detector_config.roi
             ddata = scanparser.get_detector_data(
-                self.detector_config.detectors[0].get_id(), dtype=dtype)
+                self.detector_config.detectors[0].get_id(),
+                detector_roi=detector_roi, dtype=dtype)
         else:
             dtype = None
             ddata = scanparser.get_detector_data(
@@ -1423,9 +1578,18 @@ class MapProcessor(Processor):
                         del ddata
                     else:
                         scanparser = scans.get_scanparser(scan_number)
-                        data[i][offset] = scanparser.get_detector_data(
-                            self.detector_config.detectors[i].get_id(),
-                            dtype=dtype)
+                        if self.config.experiment_type == 'TOMO':
+                            if self.detector_config.roi is None:
+                                detector_roi = [
+                                    slice(None), slice(None)]
+                            else:
+                                detector_roi = self.detector_config.roi
+                            data[i][offset] = scanparser.get_detector_data(
+                                self.detector_config.detectors[i].get_id(),
+                                detector_roi=detector_roi, dtype=dtype)
+                        else:
+                            data[i][offset] = scanparser.get_detector_data(
+                                self.detector_config.detectors[0].get_id())
                 for i, dim in enumerate(self.config.independent_dimensions):
                     if dim.data_type in ['scan_column',
                                          'detector_log_timestamps']:
@@ -1833,6 +1997,73 @@ class NexusToXarrayProcessor(Processor):
                          attrs=attrs)
 
 
+class NexusToZarrProcessor(Processor):
+    """Converter for NeXus to Zarr format."""
+    def process(self, data, chunks='auto'):
+        # Third party modules
+        from nexusformat.nexus import (
+            NXfield,
+            NXgroup,
+        )
+        import zarr
+        from zarr.storage import MemoryStore
+
+        nexus_group = self.get_data(data)
+        if isinstance(chunks, int):
+            chunks = [chunks]
+        zarr_group = zarr.create_group(store=MemoryStore({}))
+
+        def copy_group(nexus_group, zarr_group):
+            self.logger.info(f'Copying {nexus_group.nxpath}')
+            # Copy attributes
+            for attr_key, attr_value in nexus_group.attrs.items():
+                if isinstance(attr_value.nxvalue, np.ndarray):
+                    zarr_group.attrs[attr_key] = attr_value.nxvalue.tolist()
+                else:
+                    zarr_group.attrs[attr_key] = attr_value.nxvalue
+
+            # Copy datasets and sub-groups
+            for key, item in nexus_group.items():
+                if isinstance(item, NXfield):
+                    if isinstance(item.nxdata, np.ndarray):
+                        try:
+                            # Determine chunks
+                            if isinstance(chunks, list):
+                                if len(chunks) < len(item.nxdata.shape):
+                                    _chunks = (
+                                        *chunks,
+                                        *item.nxdata.shape[len(chunks):]
+                                    )
+                                elif len(chunks) > len(item.nxdata.shape):
+                                    _chunks = 'auto'
+                                else:
+                                    _chunks = chunks
+                            else:
+                                _chunks = chunks
+                            # Copy dataset
+                            zarr_dset = zarr_group.create_array(
+                                name=key,
+                                shape=item.nxdata.shape,
+                                dtype=item.nxdata.dtype,
+                                attributes={k: v.nxvalue
+                                            for k, v in item.attrs.items()},
+                                chunks=_chunks,
+                            )
+                            self.logger.info(f'Copying {item.nxpath}')
+                            zarr_dset[:] = item.nxdata
+                        except Exception as e:
+                            self.logger.error(f'{item.nxpath}: {e}')
+                    else:
+                        self.logger.warning(f'Ignoring {item.nxpath}')
+                elif isinstance(item, NXgroup):
+                    # Recursively copy subgroup
+                    zarr_subgroup = zarr_group.create_group(key)
+                    copy_group(item, zarr_subgroup)
+
+        copy_group(nexus_group, zarr_group)
+        return zarr_group
+
+
 class NormalizeNexusProcessor(Processor):
     """Processor for scaling one or more NXfields in the input nexus
     structure by the values of another NXfield in the same
@@ -1958,6 +2189,21 @@ class NormalizeMapProcessor(Processor):
         normalizer.logger = self.logger
         return normalizer.process(
             data, normalize_nxfields, normalize_by_nxfield)
+
+
+class PandasToXarrayProcessor(Processor):
+    """Converter for `pandas.DataFrame` to `xarray.DataArray` or
+    `xarray.Dataset`"""
+    def process(self, data):
+        """Return input dataframe converted to xarray.
+
+        :param data: Input `pandas.DataFrame`
+        :type data: list[PipelineData]
+        :returns: Input dataframe as xarray.
+        :rtype: Union[`xarray.DataArray`, `xarray.Dataset`]
+        """
+        dataframe = self.get_data(data)
+        return dataframe.to_xarray()
 
 
 class PrintProcessor(Processor):
@@ -2405,7 +2651,6 @@ class SetupNXdataProcessor(Processor):
         return tuple(c['values'].index(data_point[c['name']])
                      for c in self.coords)
 
-
 class UnstructuredToStructuredProcessor(Processor):
     """Processor to reshape data in an NXdata from an "unstructured"
     to a "structured" representation.
@@ -2842,28 +3087,52 @@ class XarrayToNumpyProcessor(Processor):
         return self.unwrap_pipelinedata(data)[-1].data
 
 
-#class SumProcessor(Processor):
-#    """A Processor to sum the data in a NeXus NXobject, given a set of
-#    nxpaths.
-#    """
-#    def process(self, data):
-#        """Return the summed data array
-#
-#        :param data:
-#        :type data:
-#        :return: The summed data.
-#        :rtype: numpy.ndarray
-#        """
-#        nxentry, nxpaths = self.unwrap_pipelinedata(data)[-1]
-#        if len(nxpaths) == 1:
-#            return nxentry[nxpaths[0]]
-#        sum_data = deepcopy(nxentry[nxpaths[0]])
-#        for nxpath in nxpaths[1:]:
-#            nxdata = nxentry[nxpath]
-#            for entry in nxdata.entries:
-#                sum_data[entry] += nxdata[entry]
-#
-#        return sum_data
+class ZarrToNexusProcessor(Processor):
+    """Processor for converting .zarr data to .nxs format."""
+    def process(self, data, zarr_filename, nexus_filename, inputdir='.'):
+        import zarr
+        import h5py
+
+        if not os.path.isabs(zarr_filename):
+            zarr_filename = os.path.join(inputdir, zarr_filename)
+        if not os.path.isabs(nexus_filename):
+            nexus_filename = os.path.join(inputdir, nexus_filename)
+
+        # Open the Zarr file
+        zarr_file = zarr.open(zarr_filename, mode='r')
+
+        # Create the Nexus file
+        with h5py.File(nexus_filename, 'w') as nexus_file:
+            # Recursively copy all datasets and attributes
+            def copy_group(zarr_group, nexus_group):
+                self.logger.info(f'Copying {zarr_group.path}')
+                # Copy attributes
+                for attr_key, attr_value in zarr_group.attrs.items():
+                    nexus_group.attrs[attr_key] = attr_value
+
+                # Copy datasets and sub-groups
+                for key, item in zarr_group.members():
+                    if isinstance(item, zarr.Array):
+                        self.logger.info(f'Copying {zarr_group.path}/{key}')
+                        # Copy dataset
+                        nexus_dset = nexus_group.create_dataset(
+                            name=key,
+                            data=item.__array__(),
+                            # chunks=item.chunks, # FIXME
+                            compression='gzip',
+                            compression_opts=4  # GZIP compression level
+                        )
+                        # Copy dataset attributes
+                        for attr_key, attr_value in item.attrs.items():
+                            nexus_dset.attrs[attr_key] = attr_value
+                    elif isinstance(item, zarr.Group):
+                        # Recursively copy subgroup
+                        nexus_subgroup = nexus_group.create_group(key)
+                        copy_group(item, nexus_subgroup)
+
+            # Start copying from the root group
+            copy_group(zarr_file, nexus_file)
+        return None
 
 
 if __name__ == '__main__':

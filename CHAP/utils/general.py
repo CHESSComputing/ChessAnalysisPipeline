@@ -10,6 +10,7 @@ Description: A collection of general modules
 
 # System modules
 from ast import literal_eval
+from copy import deepcopy
 import collections.abc
 from logging import getLogger
 import os
@@ -2384,7 +2385,8 @@ def quick_plot(
 
 def nxcopy(
         nxobject, exclude_nxpaths=None, nxpath_prefix=None,
-        nxpathabs_prefix=None, nxpath_copy_abspath=None):
+        nxpathabs_prefix=None, nxpath_copy_abspath=None,
+        nxgroup_to_nxdata=False):
     """Function that returns a copy of a nexus object, optionally
     exluding certain child items.
 
@@ -2408,6 +2410,7 @@ def nxcopy(
     """
     # Third party modules
     from nexusformat.nexus import (
+        NXdata,
         NXentry,
         NXfield,
         NXgroup,
@@ -2432,7 +2435,10 @@ def nxcopy(
         return nxobject_copy
     else:
         # Create a group with the same type/name as the nxobject
-        nxobject_copy = nxobject.__class__(name=nxobject.nxname)
+        if nxgroup_to_nxdata and isinstance(nxobject, NXgroup):
+            nxobject_copy = NXdata(name=nxobject.nxname)
+        else:
+            nxobject_copy = nxobject.__class__(name=nxobject.nxname)
 
     # Copy attributes
     if isinstance(nxobject, NXroot):
@@ -2447,11 +2453,9 @@ def nxcopy(
         exclude_nxpaths = []
     elif isinstance(exclude_nxpaths, str):
         exclude_nxpaths = [exclude_nxpaths]
-    for exclude_nxpath in exclude_nxpaths:
+    for i, exclude_nxpath in enumerate(exclude_nxpaths):
         if exclude_nxpath[0] == '/':
-            raise ValueError(
-                f'Invalid parameter in exclude_nxpaths ({exclude_nxpaths}), '
-                'excluded paths should be relative')
+            exclude_nxpaths[i] = exclude_nxpath[1:]
     if nxpath_prefix is None:
         nxpath_prefix = ''
     if nxpathabs_prefix is None:
@@ -2503,6 +2507,31 @@ def nxcopy(
                 nxobject_copy[k].attrs.pop('target', None)
 
     return nxobject_copy
+
+
+def get_default_path(nxobject):
+    """Return the relative path to the default plottable NXdata
+    object within the parent NXobject provided.
+    
+    :param nxobject: Parent NXobject containing plottable NXdata.
+    :type nxobject: nexusformat.nexus.NXobject
+    :returns: Path to default NXdata group.
+    :rtype: str
+    """
+    # Third party modules
+    from nexusformat.nexus import NXroot
+
+    if (isinstance(nxobject, NXroot) and 'default' not in nxobject.attrs
+            and len(nxobject.entries) == 1):
+        current = nxobject.keys()[0]
+        path = current.nxname
+    else:
+        path = ''
+        current = nxobject
+    while current.attrs.get('default') is not None:
+        path += '/' + current.attrs['default']
+        current = current[current.attrs['default']]
+    return path
 
 
 def dictionary_update(target, source, merge_key_paths=None, sort=False):
@@ -2615,7 +2644,7 @@ def list_dictionary_update(
     if not isinstance(source, list):
         raise ValueError(
             'Invalid parameter type "source" ({type(source)})')
-    if key is None:
+    if not source or key is None:
         return source + target
     if not isinstance(key, str) or '/' in key:
         raise ValueError('Invalid parameter "key" ({key}, {type(key)})')
@@ -2635,22 +2664,23 @@ def list_dictionary_update(
     if not all_any_source and not all_any_target:
         return source + target
     merged = []
+    ssource = deepcopy(source)
     for target_dict in target:
         value = target_dict[key]
         if key_type is not None:
             value = key_type(value)
-        for i, source_dict in enumerate(source):
+        for i, source_dict in enumerate(ssource):
             vvalue = source_dict[key]
             if key_type is not None:
                 vvalue = key_type(vvalue)
             if value == vvalue:
                 merged.append(dictionary_update(
                     target_dict, source_dict, sort=sort))
-                source.pop(i)
+                ssource.pop(i)
                 break
         else:
             merged.append(target_dict)
-    merged.extend(source)
+    merged.extend(ssource)
     if sorted:
         if key_type is None:
             merged.sort(key=lambda x: x[key])

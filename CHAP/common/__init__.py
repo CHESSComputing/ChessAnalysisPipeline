@@ -8,6 +8,7 @@ from CHAP.common.processor import (
     AsyncProcessor,
     BinarizeProcessor,
     ConvertStructuredProcessor,
+    ExpressionProcessor,
     ImageProcessor,
     MapProcessor,
     MPICollectProcessor,
@@ -16,8 +17,10 @@ from CHAP.common.processor import (
     NexusToNumpyProcessor,
 #    NexusToTiffsprocessor,
     NexusToXarrayProcessor,
+    NexusToZarrProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
+    PandasToXarrayProcessor,
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
     RawDetectorDataMapProcessor,
@@ -28,20 +31,24 @@ from CHAP.common.processor import (
     NXdataToDataPointsProcessor,
     XarrayToNexusProcessor,
     XarrayToNumpyProcessor,
-#    SumProcessor,
+    ZarrToNexusProcessor,
 )
 from CHAP.common.reader import (
     BinaryFileReader,
     ConfigReader,
+    DetectorDataReader,
     FabioImageReader,
     H5Reader,
     LinkamReader,
+    MapReader,
+    PandasReader,
     NexusReader,
     NXdataReader,
     NXfieldReader,
     SpecReader,
     URLReader,
     YAMLReader,
+    ZarrReader,
 )
 from CHAP.common.writer import (
     ExtractArchiveWriter,
@@ -51,7 +58,19 @@ from CHAP.common.writer import (
     MatplotlibAnimationWriter,
     MatplotlibFigureWriter,
     NexusWriter,
+    NexusValuesWriter,
     PyfaiResultsWriter,
     YAMLWriter,
     TXTWriter,
+    ZarrValuesWriter,
+    ZarrWriter,
+)
+
+from CHAP.common.map_utils import (
+    MapSliceProcessor,
+    SpecScanToMapConfigProcessor,
+)
+
+from CHAP.common.nexus_utils import (
+    NexusMakeLinkProcessor,
 )

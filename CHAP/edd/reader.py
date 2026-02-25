@@ -969,6 +969,7 @@ class NXdataSliceReader(Reader):
                 n_prior_dataset_scans * scanparser.spec_scan_npts
             self.logger.debug(
                 f'dataset_point_index_offset = {dataset_point_index_offset}')
+            # FIX convert to using CHAPslice
             slice_params = {
                 'start': dataset_point_index_offset,
                 'end':
@@ -992,6 +993,7 @@ class NXdataSliceReader(Reader):
                         self.logger.warning(
                             f'Nearest match for coordinate value {a.nxname}: '
                             f'{a.nxdata[index]} (actual value: {value})')
+                    # FIX convert to using CHAPslice
                     slice_params = {'start': index, 'end': index+1}
                 signal_slice_params.append(slice_params)
                 nxfield_params.append({

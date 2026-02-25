@@ -7,6 +7,7 @@ Description: Module for Readers used in multiple experiment-specific workflows.
 
 # System modules
 from typing import (
+    Literal,
     Optional,
     Union,
 )
@@ -71,8 +72,119 @@ class ConfigReader(Reader):
         return data
 
 
+class DetectorDataReader(Reader):
+    """Reader for detector data files. Glob filenames allowed. Mask
+    application and background correction available."""
+    def read(self, filename,
+             mask_file=None, mask_above=None, mask_below=None,
+             mask_value=np.nan,
+             data_scalar=None,
+             background_file=None, background_scalar=None,
+             ):
+        """Reads detector data, applies masking, scaling, and
+        background subtraction.
+
+        :param filename: Path to the primary data file.
+        :type filename: str
+        :param mask_file: Path to the mask file (optional).
+        :type mask_file: str, optional
+        :param mask_above: Mask values above this threshold (optional).
+        :type mask_above: float, optional
+        :param mask_below: Mask values below this threshold (optional).
+        :type mask_below: float, optional
+        :param data_scalar: Scalar to multiply the data (optional).
+        :type data_scalar: float, optional
+        :param background_file: Path to the background file (optional).
+        :type background_file: str, optional
+        :param background_scalar: Scalar to multiply the background
+            data (optional).
+        :type background_scalar: float, optional
+        :return: Processed detector data.
+        :rtype: numpy.ndarray
+        """
+        import glob
+        import os
+        import numpy as np
+
+        # Handle glob filenames
+        if not os.path.isfile(filename):
+            filenames = sorted(glob.glob(filename))
+            if not filenames:
+                raise ValueError(
+                    f'{filename} is not a file or glob that matches any files')
+        else:
+            filenames = [filename]
+
+        # Read the raw data files
+        self.logger.info(f'Reading {len(filenames)} raw data files')
+        raw_data = [self.get_data_from_file(f) for f in filenames]
+
+        # Initialize mask arary
+        self.logger.info(f'Initializing mask array')
+        mask_array = np.zeros_like(raw_data[0], dtype=bool)
+        if mask_file:
+            mask_array |= self.get_data_from_file(mask_file) != 0
+
+        # Initialize background data
+        self.logger.info('Initializing background data')
+        if background_file:
+            background_data = self.get_data_from_file(background_file)
+            if background_scalar:
+                background_data *= background_scalar
+        else:
+            background_data = None
+
+        # Handle mask_value of NaN
+        if isinstance(mask_value, str):
+            if mask_value.lower() == 'nan':
+                mask_value = np.nan
+
+        # Scale data, apply mask, subtract background
+        self.logger.info('Applying corrections to raw data')
+        corrected_data = self.correct_data(
+            np.array(raw_data),
+            mask_array, mask_above, mask_below, mask_value,
+            data_scalar, background_data)
+
+        return corrected_data
+
+    def get_data_from_file(self, filename):
+        import fabio
+
+        self.logger.debug(f'Reading {filename}')
+        with fabio.open(filename) as datafile:
+            data = datafile.data
+        return data
+
+    def correct_data(self, raw_data,
+                     mask_array, mask_above, mask_below, mask_value,
+                     data_scalar,
+                     background_data):
+        import numpy as np
+
+        # Scale raw data
+        corrected_data = raw_data
+        if data_scalar:
+            corrected_data *= data_scalar
+
+        # Apply mask
+        mask = mask_array != 0
+        if mask_above is not None:
+            mask |= corrected_data > mask_above
+        if mask_below is not None:
+            mask |= corrected_data < mask_below
+        corrected_data = np.where(mask, mask_value, raw_data)
+
+        # Subtract background
+        if background_data:
+            corrected_data -= background_data
+
+        return corrected_data
+
+
 class FabioImageReader(Reader):
     """Reader for images using the python package.
+    [`fabio`](https://fabio.readthedocs.io/en/main/).
 
     :ivar frame: Index of a specific frame to read from the file(s),
         defaults to `None`.
@@ -279,16 +391,194 @@ class LinkamReader(Reader):
         return start_time, metadata, data
 
 
+class MapReader(Reader):
+    """Reader for CHESS sample maps."""
+    def read(
+            self, filename=None, map_config=None, detector_names=None,
+            inputdir=None):
+        """Take a map configuration dictionary and return a
+        representation of the map as a NeXus NXentry object. The
+        NXentry's default data group will contain the raw data
+        collected over the course of the map.
+
+        :param filename: The name of a file with the map configuration
+            to read and pass onto the constructor of
+            `CHAP.common.models.map.MapConfig`.
+        :type filename: str, optional
+        :param map_config: A map configuration to be passed directly to
+            the constructor of `CHAP.common.models.map.MapConfig`.
+        :type map_config: dict, optional
+        :param detector_names: Detector prefixes to include raw data
+            for in the returned NeXus NXentry object.
+        :type detector_names: list[str], optional
+        :param inputdir: Input directory, used only if files in the
+            input configuration are not absolute paths,
+            defaults to `'.'`.
+        :type inputdir: str, optional
+        :return: Data from the provided map configuration.
+        :rtype: nexusformat.nexus.NXentry
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXcollection,
+            NXdata,
+            NXentry,
+            NXfield,
+            NXsample,
+        )
+
+        # Local modules
+        from CHAP.common.models.map import MapConfig
+
+        raise RuntimeError('MapReader is obsolete, use MapProcessor')
+
+        if filename is not None:
+            if map_config is not None:
+                raise RuntimeError('Specify either filename or map_config '
+                                   'in common.MapReader, not both')
+            # Read the map configuration from file
+            if not isfile(filename):
+                raise OSError(f'input file does not exist ({filename})')
+            extension = splitext(filename)[1]
+            if extension in ('.yml', '.yaml'):
+                reader = YAMLReader()
+            else:
+                raise RuntimeError('input file has a non-implemented '
+                                   f'extension ({filename})')
+            map_config = reader.read(filename)
+        elif not isinstance(map_config, dict):
+            raise RuntimeError('Invalid parameter map_config in '
+                               f'common.MapReader ({map_config})')
+
+        # Validate the map configuration provided by constructing a
+        # MapConfig
+        map_config = MapConfig(**map_config, inputdir=inputdir)
+
+        # Set up NXentry and add misc. CHESS-specific metadata
+        nxentry = NXentry(name=map_config.title)
+        nxentry.attrs['station'] = map_config.station
+        nxentry.map_config = map_config.model_dump_json()
+        nxentry.spec_scans = NXcollection()
+        for scans in map_config.spec_scans:
+            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
+                NXfield(value=scans.scan_numbers,
+                        attrs={'spec_file': str(scans.spec_file)})
+
+        # Add sample metadata
+        nxentry[map_config.sample.name] = NXsample(
+            **map_config.sample.model_dump())
+
+        # Set up default data group
+        nxentry.data = NXdata()
+        if map_config.map_type == 'structured':
+            nxentry.data.attrs['axes'] = map_config.dims
+        for dim in map_config.independent_dimensions:
+            nxentry.data[dim.label] = NXfield(
+                value=map_config.coords[dim.label],
+                units=dim.units,
+                attrs={'long_name': f'{dim.label} ({dim.units})',
+                       'data_type': dim.data_type,
+                       'local_name': dim.name})
+
+        # Create empty NXfields for all scalar data present in the
+        # provided map configuration
+        signal = False
+        auxilliary_signals = []
+        for data in map_config.all_scalar_data:
+            nxentry.data[data.label] = NXfield(
+                value=np.zeros(map_config.shape),
+                units=data.units,
+                attrs={'long_name': f'{data.label} ({data.units})',
+                       'data_type': data.data_type,
+                       'local_name': data.name})
+            if not signal:
+                signal = data.label
+            else:
+                auxilliary_signals.append(data.label)
+        if signal:
+            nxentry.data.attrs['signal'] = signal
+            nxentry.data.attrs['auxilliary_signals'] = auxilliary_signals
+
+        # Create empty NXfields of appropriate shape for raw
+        # detector data
+        if detector_names is None:
+            detector_names = []
+        for detector_name in detector_names:
+            if not isinstance(detector_name, str):
+                detector_name = str(detector_name)
+            detector_data = map_config.get_detector_data(
+                detector_name, (0,) * len(map_config.shape))
+            nxentry.data[detector_name] = NXfield(value=np.zeros(
+                (*map_config.shape, *detector_data.shape)),
+                dtype=detector_data.dtype)
+
+        # Read and fill in maps of raw data
+        if len(map_config.all_scalar_data) > 0 or detector_names:
+            for map_index in np.ndindex(map_config.shape):
+                for data in map_config.all_scalar_data:
+                    nxentry.data[data.label][map_index] = map_config.get_value(
+                        data, map_index)
+                for detector_name in detector_names:
+                    if not isinstance(detector_name, str):
+                        detector_name = str(detector_name)
+                    nxentry.data[detector_name][map_index] = \
+                        map_config.get_detector_data(detector_name, map_index)
+
+        return nxentry
+
+
+class PandasReader(Reader):
+    """Reader for files that can be read in with
+    (pandas)[https://pandas.pydata.org/docs/index.html]"""
+    def read(self, filename, method='read_csv', comment='#', kwargs=None):
+        """Return a `pandas.DataFrame` read from the given file.
+
+        :param filename: Name of file to read from.
+        :type filename: str
+        :param method: Name of `pandas` method to use for reading from
+            `filename`. Defaults to `'read_csv'`.
+        :type method: str, optional
+        :param comment: Character to identify comment lines in the
+            input file, defaults to `'#'`.
+        :type comment: str, optional
+        :param kwargs: Additional keyword arguments to supply to the
+            `pandas` reader.
+        :param kwargs: dict[str, object], optional.
+        :rtype: `pandas.DataFrame`
+        """
+        # Third party modules
+        import pandas as pd
+
+        reader = getattr(pd, method)
+        if not callable(reader):
+            raise ValueError(
+                f'{method} is not a callable pandas reader method')
+
+        if kwargs is None:
+            kwargs = {}
+        if not isinstance(kwargs, dict):
+            raise TypeError(
+                f'Invalid kwargs type ({type(kwargs)}, should be dict)')
+
+        return reader(filename, comment=comment, **kwargs)
+
+
 class NexusReader(Reader):
     """Reader for NeXus files.
 
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read from, defaults to `'/'`.
     :type nxpath: str, optional
+    :ivar idx: Index of array to select, defaults to `None`
+    :type idx: int, optional
+    :ivar mode: File mode, defaults to 'r'.
+    :type mode: Literal['r', 'rw', 'r+', 'w', 'a'], optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :type nxmemory: int, optional
     """
     nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
+    idx: Optional[conint(ge=0)] = None
+    mode: Literal['r', 'rw', 'r+', 'w', 'a'] = 'r'
     nxmemory: Optional[conint(gt=0)] = None
 
     def read(self):
@@ -307,7 +597,9 @@ class NexusReader(Reader):
 
         if self.nxmemory is not None:
             nxsetconfig(memory=self.nxmemory)
-        return nxload(self.filename)[self.nxpath]
+        if self.idx is not None:
+            return nxload(self.filename, mode=self.mode)[self.nxpath][self.idx]
+        return nxload(self.filename, mode=self.mode)[self.nxpath]
 
 
 class NXdataReader(Reader):
@@ -426,6 +718,7 @@ class NXfieldReader(Reader):
             if len(slice_params) > nxfield.ndim:
                 slice_params = slice_params[0:nxfield.ndim]
             slices = ()
+            # FIX convert to using CHAPSlice
             default_slice = {'start': 0, 'end': None, 'step': 1}
             for s in slice_params:
                 for k, v in default_slice.items():
@@ -582,9 +875,17 @@ class SpecReader(Reader):
 #                    nxpaths.append(
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in self.detector_config.detectors:
+                        if self.detector_config.roi is None:
+                            detector_roi = [None, None]
+                        else:
+                            detector_roi=[
+                               self.detector_config.roi[0].toslice(),
+                               self.detector_config.roi[1].toslice()]
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
-                               detector.get_id(), dtype=dtype))
+                               detector.get_id(),
+                               detector_roi=detector_roi,
+                               dtype=dtype))
 
         if (self.config.experiment_type == 'EDD' and
                 self.detector_config is None):
@@ -641,6 +942,44 @@ class YAMLReader(Reader):
 
         with open(self.filename) as f:
             data = yaml.safe_load(f)
+        return data
+
+class ZarrReader(Reader):
+    """Reader for Zarr stores."""
+
+    def read(self, filename, path='/', idx=None, mode='r'):
+        """Return the Zarr object stored at `path` in a Zarr store.
+
+        :param filename: Path or URL to the Zarr store.
+        :type filename: str
+        :param path: Path to a specific location in the Zarr hierarchy
+            to read from, defaults to `'/'`.
+        :type path: str, optional
+        :param idx: Optional index or slice to apply to the returned object.
+        :type idx: int, slice, tuple, optional
+        :param mode: Store access mode, defaults to `'r'`.
+            Common values: `'r'`, `'r+'`, `'a'`, `'w'`.
+        :type mode: str, optional
+        :raises KeyError: If `path` does not exist in the store.
+        :return: The Zarr array or group indicated by `filename` and `path`.
+        :rtype: zarr.core.Array or zarr.hierarchy.Group
+        """
+        import zarr
+
+        # Open the Zarr store (directory, zip, or URL)
+        root = zarr.open(filename, mode=mode)
+
+        # Normalize path handling
+        if path == '/' or path == '':
+            data = root
+        else:
+            # Remove leading slash for Zarr traversal
+            data = root[path.lstrip('/')]
+
+        # Optional indexing (arrays only)
+        if idx is not None:
+            data = data[idx]
+
         return data
 
 
