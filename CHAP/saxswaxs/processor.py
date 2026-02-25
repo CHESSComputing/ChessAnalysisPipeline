@@ -644,6 +644,10 @@ class SetupProcessor(Processor):
         `"auto"`. Preferred number of chunks in the dataset. Defaults
         to `1`.
     :type num_chunk: int, optional
+    :ivar raw_data: Flag to indicate wether or not space for raw
+        detector data should be included in the returned Zarr
+        structure; defaults to `True`.
+    :type raw_data: bool, optional
     """
     pipeline_fields: dict = Field(
         default={
@@ -666,6 +670,7 @@ class SetupProcessor(Processor):
             conlist(item_type=conint(gt=0), min_length=1)
         ]] = 'auto'
     num_chunk: Optional[conint(gt=0)] = 1
+    raw_data: Optional[bool] = True
 
     def process(self, data):
         import asyncio
@@ -692,10 +697,22 @@ class SetupProcessor(Processor):
             return pipeline_item
 
         # Get NXroot container for raw data map
+        map_processor_kwargs = {
+            'config': self.map_config
+        }
+        if self.raw_data:
+            map_processor_kwargs['detector_config'] = {
+                'detectors': self.detectors
+            }
+        else:
+            map_processor_kwargs['detector_config'] = {
+                'detectors': []
+            }
         setup_map_processor = set_logger(
             MapProcessor(
-                config=self.map_config,
-                detector_config={'detectors': self.detectors},
+                **map_processor_kwargs
+                # config=self.map_config,
+                # detector_config={'detectors': self.detectors},
             )
         )
         ddata = [
@@ -1075,6 +1092,10 @@ class UpdateValuesProcessor(Processor):
     :type scan_number: int
     :ivar detectors: List of detector configurations.
     :type detectors: list[Detector]
+    :ivar raw_data: Flag to indicate wether or not space for raw
+        detector data should be included in the values returned;
+        defaults to `True`.
+    :type raw_data: bool, optional
     """
     pipeline_fields: dict = Field(
         default={
@@ -1091,6 +1112,7 @@ class UpdateValuesProcessor(Processor):
     spec_file: FilePath
     scan_number: conint(gt=0)
     detectors: conlist(item_type=Detector, min_length=1)
+    raw_data: Optional[bool] = True
 
     def process(self, data, idx_slice={'start': 0, 'step': 1}):
         # Get updates with MapSliceProcessor
@@ -1147,7 +1169,9 @@ class UpdateValuesProcessor(Processor):
             )
         ).process(data, idx_slices=[idx_slice])
 
-        return raw_values + processed_values
+        if self.raw_data:
+            return raw_values + processed_values
+        return processed_values
 
 
 if __name__ == '__main__':
