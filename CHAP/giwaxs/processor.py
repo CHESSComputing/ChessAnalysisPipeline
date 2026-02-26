@@ -63,6 +63,9 @@ class GiwaxsConversionProcessor(Processor):
             NXroot,
         )
 
+        self._interactive = interactive
+        self._save_figures = save_figures
+
         # Load the detector data
         try:
             nxobject = self.get_data(data)
@@ -105,15 +108,21 @@ class GiwaxsConversionProcessor(Processor):
             NXprocess,
         )
 
+        # Local modules
+        if self._save_figures:
+            from CHAP.pipeline import PipelineData
+            from CHAP.utils.general import fig_to_iobuf
+
         # Add the NXprocess object to the NXroot
         nxprocess = NXprocess()
         try:
             nxroot[f'{nxroot.default}_converted'] = nxprocess
-        except Exception:
+        except Exception as exc:
             # Local imports
             from CHAP.utils.general import nxcopy
 
             # Copy nxroot if nxroot is read as read-only
+            # FIX fix this in nexus reader
             nxroot = nxcopy(nxroot)
             nxroot[f'{nxroot.default}_converted'] = nxprocess
         nxprocess.conversion_config = self.config.model_dump_json()
@@ -163,6 +172,7 @@ class GiwaxsConversionProcessor(Processor):
             q_par[q_perp_min_index,:].max(), image_dims[1])
         q_perp_rect = np.linspace(
             q_perp.min(), q_perp.max(), image_dims[0])
+        figures = []
         giwaxs_data_rect = []
 #        q_par_rect = []
 #        q_perp_rect = []
@@ -185,6 +195,9 @@ class GiwaxsConversionProcessor(Processor):
             if self.interactive or self.save_figures:
                 vmax = giwaxs_data[i].max()/10
                 fig, ax = plt.subplots(1,2, figsize=(10, 5))
+                fig.suptitle(
+                    f'Detector {ais[0].id}: 'r'$\theta$'f' = {theta}')
+                # Right plot: imaged transformed to rectangular coords
                 ax[1].imshow(
                     giwaxs_data_rect[i],
                     vmin=0, vmax=vmax,
@@ -195,6 +208,7 @@ class GiwaxsConversionProcessor(Processor):
                 ax[1].set_title('Transformed Image')
                 ax[1].set_xlabel(r'q$_\parallel$'+' [\u212b$^{-1}$]')
                 ax[1].set_ylabel(r'q$_\perp$'+' [\u212b$^{-1}$]')
+                # Left plot: raw image
                 im = ax[0].imshow(giwaxs_data[i], vmin=0, vmax=vmax)
                 ax[0].set_aspect('equal')
                 lhs = ax[0].get_position().extents
@@ -219,31 +233,53 @@ class GiwaxsConversionProcessor(Processor):
                     plt.show()
                 plt.close()
 
-        # Create the NXdata object with the converted images
-        if False: #RV len(thetas) == 1:
-            nxprocess.data = NXdata(
-                NXfield(np.asarray(giwaxs_data_rect[0]), 'converted'),
-                (NXfield(
-                     q_perp_rect[0], 'q_perp_rect',
-                     attrs={'units': '\u212b$^{-1}$'}),
-                 NXfield(
-                     q_par_rect[0], 'q_par_rect',
-                     attrs={'units': '\u212b$^{-1}$'})))
-            nxprocess.data.theta = NXfield(
-                thetas[0], 'thetas', attrs={'units': 'rad'})
-        else:
-            nxprocess.data = NXdata(
-                NXfield(np.asarray(giwaxs_data_rect), 'converted'),
-                (NXfield(
-                     thetas, 'thetas', attrs={'units': 'rad'}),
-                 NXfield(
-                     q_perp_rect, 'q_perp_rect',
-                     attrs={'units': '\u212b$^{-1}$'}),
-                 NXfield(
-                     q_par_rect, 'q_par_rect',
-                     attrs={'units': '\u212b$^{-1}$'})))
-        nxprocess.default = 'data'
+        # Create an animation of the figures
+        animation = []
+        if self._save_figures and not config.skip_animation:
+            # Third party modules
+            from matplotlib.animation import ArtistAnimation
 
+            frames = []
+            for (buf, _), _ in figures:
+                buf.seek(0)
+                frame = plt.imread(buf)
+                im = plt.imshow(frame, animated=True)
+                if not i:
+                    plt.imshow(frame)
+                frames.append([im])
+
+            ani = ArtistAnimation(
+                 plt.gcf(), frames, interval=1000, blit=False, repeat=False)
+            animation.append(((ani, 'gif'), f'{ais[0].id}_converted'))
+
+        # Create the NXdata object with the converted images
+        nxprocess.data = NXdata(
+            NXfield(
+                np.asarray(giwaxs_data_rect), f'{ais[0].id}_converted'),
+            (thetas,
+             NXfield(
+                 q_perp_rect, 'q_perp_rect',
+                 attrs={'units': '\u212b$^{-1}$'}),
+             NXfield(
+                 q_par_rect, 'q_par_rect',
+                 attrs={'units': '\u212b$^{-1}$'})))
+        nxprocess.attrs['default'] = 'data'
+
+        if self._save_figures:
+            if animation:
+                return (
+                    nxroot,
+                    PipelineData(
+                        name=self.__name__, data=figures,
+                        schema='common.write.ImageWriter'),
+                    PipelineData(
+                        name=self.__name__, data=animation,
+                        schema='common.write.ImageWriter'))
+            return (
+                nxroot,
+                PipelineData(
+                    name=self.__name__, data=figures,
+                    schema='common.write.ImageWriter'))
         return nxroot
 
     @staticmethod
@@ -573,6 +609,7 @@ class PyfaiIntegrationProcessor(Processor):
         from pyFAI.gui.utils.units import Unit
 
         # Local imports
+        from CHAP.common.map_utils import get_axes
         from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=100000)
@@ -596,7 +633,6 @@ class PyfaiIntegrationProcessor(Processor):
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
         data = {}
-        independent_dims = {}
         try:
             nxprocess_converted = nxroot[f'{nxroot.default}_converted']
             conversion_config = loads(
@@ -607,7 +643,9 @@ class PyfaiIntegrationProcessor(Processor):
                     'More than one detector not yet implemented')
             if self.config.azimuthal_integrators is None:
                 # Local modules
-                from CHAP.giwaxs.models import AzimuthalIntegratorConfig
+                from CHAP.common.models.integration import (
+                    AzimuthalIntegratorConfig,
+                )
 
                 ais = [AzimuthalIntegratorConfig(**converted_ais[0])]
             else:
@@ -661,6 +699,7 @@ class PyfaiIntegrationProcessor(Processor):
                             'Inconsistent raw data dimension '
                             f'{nxdata[ai.get_id()].ndim}') from exc
                     ais.append(ai)
+                    data[ai.id] = nxdata[ai.id].nxdata
                 else:
                     skipped_detectors.append(ai.get_id())
             if skipped_detectors:

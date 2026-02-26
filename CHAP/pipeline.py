@@ -202,8 +202,10 @@ class PipelineItem(RunConfig):
         `'schema'` key matches `schema`. Convert the value for that
         item's `'data'` key into the configuration's Pydantic model
         identified by `schema` and return it. If no item is found and
-        config is specified, validate it against the configuration's
-        Pydantic model identified by `schema` and return it.
+        `config` and `schema` are specified, validate `config`
+        against the configuration's Pydantic model identified by
+        `schema` and return it. Return `config` if no item is found
+        and `config` is specified, but `schema` is not.
 
         :param data: Input data from a previous `PipelineItem`.
         :type data: list[PipelineData], optional
@@ -295,7 +297,7 @@ class PipelineItem(RunConfig):
         """
         # Third party modules
         from nexusformat.nexus import NXobject
-
+        
         result = None
         if name is None and schema is None:
             for i, d in reversed(list(enumerate(data))):
@@ -400,11 +402,11 @@ class Pipeline(CHAPBaseModel):
                                 'path': item.filename, 'status': None}
                 elif item.method_type == 'write':
                     if (not item.force_overwrite
-                            and self.filename in output_filenames):
+                            and item.filename in output_filenames):
                             #and self.filename in self._output_filenames):
                         raise ValueError(
                             'Writing to an existing file without overwrite '
-                            f'permission. Remove {self.filename} or set '
+                            f'permission. Remove {item.filename} or set '
                             '"force_overwrite" in the pipeline configuration '
                             f'for {item.name}')
             item.set_args(**args)

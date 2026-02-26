@@ -387,8 +387,11 @@ class ImageWriter(PipelineItem):
             return ddata
 
         if isinstance(ddata, dict):
-            fileformat = ddata['fileformat']
             image_data = ddata['image_data']
+            fileformat = ddata['fileformat']
+        elif isinstance(ddata, tuple) and len(ddata) == 2:
+            image_data = ddata[0]
+            fileformat = ddata[1]
         else:
             image_data = ddata
         basename, ext = os.path.splitext(self.filename)
@@ -525,33 +528,114 @@ class NexusWriter(Writer):
                 nxroot.entry.set_default()
             write_nexus(nxroot, self.filename, self.force_overwrite)
         else:
-            nxfile = NXFile(self.filename, 'rw')
-            root = nxfile.readfile()
-            if nxfile.get(self.nxpath) is None:
-                if nxfile.get(os.path.dirname(self.nxpath)) is not None:
-                    self.nxpath, nxname = os.path.split(self.nxpath)
-                else:
-                    self.logger.warning(
-                        f'Path "{self.nxpath}" not present in {self.filename}. '
-                        f'Using {root.NXentry[0].nxpath} instead.')
-                    self.nxpath = root.NXentry[0].nxpath
-            full_nxpath = os.path.join(self.nxpath, nxname)
-            self.logger.debug(f'Full path for object to write: {full_nxpath}')
-            if nxfile.get(full_nxpath) is not None:
-                self.logger.debug(
-                    f'{full_nxpath} already exists in {self.filename}')
-                if self.force_overwrite:
-                    self.logger.warning(
-                        'Deleting existing NXobject at '
-                        f'{full_nxpath, nxname} in {self.filename}')
-                    del root[full_nxpath]
-            try:
-                root[full_nxpath] = nxobject
-            except Exception as exc:
-                nxfile.close()
-                raise exc
-            nxfile.close()
+            with NXFile(self.filename, 'rw') as nxfile:
+                self.logger.debug(f'nxfile.mode = {nxfile.mode}')
+                root = nxfile.readfile()
+                if nxfile.get(self.nxpath) is None:
+                    if nxfile.get(os.path.dirname(self.nxpath)) is not None:
+                        self.nxpath, nxname = os.path.split(self.nxpath)
+                    else:
+                        self.logger.warning(
+                            f'Path "{self.nxpath}" not present in {self.filename}. '
+                            f'Using {root.NXentry[0].nxpath} instead.')
+                        self.nxpath = root.NXentry[0].nxpath
+                full_nxpath = os.path.join(self.nxpath, nxname)
+                self.logger.debug(f'Full path for object to write: {full_nxpath}')
+                if nxfile.get(full_nxpath) is not None:
+                    self.logger.debug(
+                        f'{full_nxpath} already exists in {self.filename}')
+                    if self.force_overwrite:
+                        self.logger.warning(
+                            'Deleting existing NXobject at '
+                            f'{full_nxpath, nxname} in {self.filename}')
+                        del root[full_nxpath]
+                try:
+                    root[full_nxpath] = nxobject
+                except Exception as exc:
+                    raise exc
         return data
+
+
+class NexusValuesWriter(Writer):
+    """Writer for updating values in an existing NeXus file."""
+    def write(self, data, filename, path_prefix=''):
+        """Write new values specified in `data` to the exising NeXus
+        file `filename`.
+
+        :param data: List of dictionaries with the following entries
+        -- `'path'` identifying the location of the `NXfield` object
+        to which values will be written, `'data'` identifying the data
+        to be written, and `'idx'` identifying the index / indicies of
+        the `NXfield` to which the data will be written.
+        :type data: list[PipelineData]
+        :param filename: Name of an existing NeXus file to update.
+        :type filename: str
+        :param path_prefix: Prefix to use for all paths in input
+            `data`, defaults to `''`.
+        :type path_prefix: str, optional
+        :returns: Original contenst of `data`.
+        :rtype: list[dict[str, object]]
+        """
+        import os
+        from nexusformat.nexus import NXFile
+
+        data = self.unwrap_pipelinedata(data)[-1]
+
+        for d in data:
+            with NXFile(filename, 'a') as nxroot:
+                self.nxs_writer(
+                    nxroot=nxroot,
+                    path=os.path.join(path_prefix, d['path']),
+                    idx=d['idx'],
+                    data=d['data']
+                )
+
+        return data
+
+    def nxs_writer(self, nxroot, path, idx, data):
+        """Write data to a specific NeXus file.
+
+        This method writes `data` to a specified dataset within a NeXus
+        file at the given index (`idx`). If the dataset does not
+        exist, an error is raised. The method ensures that the shape
+        of `data` matches the shape of the target slice before
+        writing.
+
+        :param nxroot: NeXus root object.
+        :type nxroot: nexusformat.nexus.NXroot
+        :param path: Path to the dataset inside the NeXus file.
+        :type path: str
+        :param idx: Index or slice where the data should be written.
+        :type idx: tuple or int
+        :param data: Data to be written to the specified slice in the
+            dataset.
+        :type data: numpy.ndarray or compatible array-like object
+        :return: The written data.
+        :rtype: numpy.ndarray or compatible array-like object
+        :raises ValueError: If the specified dataset does not exist or
+            if the shape of `data` does not match the target slice.
+        """
+        import numpy as np
+        self.logger.info(f'Writing to {path} at {idx}')
+
+        # Check if the dataset exists
+        if path not in nxroot:
+            raise ValueError(
+                f'Dataset "{path}" does not exist in the NeXus file.')
+
+        # Access the specified dataset
+        dataset = nxroot[path]
+
+        # Check that the slice shape matches the data shape
+        data = np.asarray(data)
+        if dataset[idx].shape != data.shape:
+            raise ValueError(
+                f'Data shape {data.shape} does not match the target slice '
+                f'shape {dataset[idx].shape}.')
+
+        # Write the data to the specified slice
+        dataset[idx] = data
+        self.logger.info(f'Data written to "{path}" at slice {idx}.')
 
 
 class PyfaiResultsWriter(Writer):
@@ -703,6 +787,116 @@ class YAMLWriter(Writer):
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
         return data
+
+
+class ZarrValuesWriter(Writer):
+    """Writer for updating values in arrays of an existing Zarr
+    file.
+    """
+    def write(self, data, filename, path_prefix='', outputdir='.'):
+        """Write `data` (from `saxswaxs.PyfaiIntegrationProcessor`) to
+        the Zarr file `filename`.
+
+        :param data: Results from `saxswaxs.PyfaiIntegrationProcessor`.
+        :type data: list[PipelineData]
+        :param filename: Name of Zarr file to which to write.
+        :type filename: str
+        :returns: Original results from
+            `saxswaxs.PyfaiIntegrationProcessor`.
+        :rtype: list[dict[str, object]]
+        """
+        import os
+        import zarr
+
+        # Open file in append mode to allow modifications
+        zarrfile = zarr.open(filename, mode='a')
+
+        # Get list of PyfaiIntegrationProcessor results to write
+        data = self.unwrap_pipelinedata(data)[-1]
+        for d in data:
+            self.zarr_writer(
+                zarrfile=zarrfile,
+                path=os.path.join(path_prefix, d['path']),
+                idx=d['idx'],
+                data=d['data'])
+
+        return data
+
+    def zarr_writer(self, zarrfile, path, idx, data):
+        """Write data to a specific Zarr dataset.
+
+        This method writes `data` to a specified dataset within a Zarr
+        file at the given index (`idx`). If the dataset does not
+        exist, an error is raised. The method ensures that the shape
+        of `data` matches the shape of the target slice before
+        writing.
+
+        :param zarrfile: Path to the Zarr file.
+        :type zarrfile: zarr.core.group.Group
+        :param path: Path to the dataset inside the Zarr file.
+        :type path: str
+        :param idx: Index or slice where the data should be written.
+        :type idx: tuple or int
+        :param data: Data to be written to the specified slice in the
+            dataset.
+        :type data: numpy.ndarray or compatible array-like object
+        :return: The written data.
+        :rtype: numpy.ndarray or compatible array-like object
+        :raises ValueError: If the specified dataset does not exist or
+            if the shape of `data` does not match the target slice.
+        """
+        self.logger.info(f'Writing to {path} at {idx}')
+        # Check if the dataset exists
+        if path not in zarrfile:
+            raise ValueError(
+                f'Dataset "{path}" does not exist in the Zarr file.')
+
+        # Access the specified dataset
+        dataset = zarrfile[path]
+
+        # Check that the slice shape matches the data shape
+        if dataset[idx].shape != data.shape and data.shape[0] == 1:
+            data = np.squeeze(data, axis=0)
+        if dataset[idx].shape != data.shape:
+            raise ValueError(
+                f'Data shape {data.shape} does not match the target slice '
+                f'shape {dataset[idx].shape}.')
+
+        # Write the data to the specified slice
+        dataset[idx] = data
+        self.logger.info(f'Data written to "{path}" at slice {idx}.')
+
+
+class ZarrWriter(Writer):
+    """Writer for zarr groups."""
+    def write(self, data, filename, outputdir='.', force_overwrite=False):
+        import asyncio
+        from zarr.core.buffer import default_buffer_prototype
+        from zarr.storage import LocalStore
+        from zarr.abc.store import Store
+        from zarr.core.group import AsyncGroup, Group
+
+        async def copy_zarr_store_to_local_store(zarr_store, local_store):
+            async for k in zarr_store.list():
+                self.logger.info(f'Copying {k}')
+                buf = await zarr_store.get(
+                    k, prototype=default_buffer_prototype())
+                await local_store.set(k, buf)
+
+        zarr_obj = self.unwrap_pipelinedata(data)[-1]
+        if isinstance(zarr_obj, Store):
+            _zarr_store = zarr_obj
+        elif isinstance(zarr_obj, (AsyncGroup, Group)):
+            _zarr_store = zarr_obj.store
+        else:
+            raise TypeError(
+                'Expected zarr.abc.store.Store, zarr.core.group.AsyncGroup, '
+                f'or zarr.core.group.Group, got {type(zarr_obj)}'
+            )
+        _local_store = LocalStore(filename)
+        asyncio.run(copy_zarr_store_to_local_store(
+            _zarr_store, _local_store))
+        return _local_store
 
 
 if __name__ == '__main__':

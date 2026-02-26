@@ -3294,7 +3294,7 @@ class TomoSimFieldProcessor(Processor):
             num_dummy_end = 0
             starting_image_index = 345000
         else:
-            num_dummy_start = 1
+            num_dummy_start = 0
             num_dummy_end = 0
             starting_image_index = 0
         starting_image_offset = num_dummy_start
@@ -3440,7 +3440,7 @@ class TomoDarkFieldProcessor(Processor):
             num_dummy_start = 5
             starting_image_index = 123000
         else:
-            num_dummy_start = 1
+            num_dummy_start = 0
             starting_image_index = 0
         starting_image_offset = num_dummy_start
         self.num_image += num_dummy_start
@@ -3518,7 +3518,7 @@ class TomoBrightFieldProcessor(Processor):
             num_dummy_start = 5
             starting_image_index = 234000
         else:
-            num_dummy_start = 1
+            num_dummy_start = 0
             starting_image_index = 0
         starting_image_offset = num_dummy_start
 

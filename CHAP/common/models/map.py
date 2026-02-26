@@ -32,16 +32,41 @@ from typing_extensions import Annotated
 from CHAP.models import CHAPBaseModel
 
 
+class CHAPSlice(CHAPBaseModel):
+    """Class representing a slice configuration for any particular
+    dimension of a data set.
+
+    :ivar start: Starting index for slicing, defaults to `0`.
+    :type start: int, optional
+    :ivar end: Ending index for slicing, defaults to `-1`.
+    :type end: int, optional
+    :ivar step: Slicing step, defaults to `1`.
+    :type step: int, optional
+    """
+    start: Optional[int] = 0
+    end: Optional[int] = None
+    step: Optional[conint(gt=0)] = 1
+
+    def tolist(self):
+        return [self.start, self.end, self.step]
+
+    def toslice(self):
+        return slice(self.start, self.end, self.step)
+
+
 class Detector(CHAPBaseModel):
     """Class representing a single detector.
 
     :ivar id: The detector id (e.g. name or channel index).
     :type id: str
+    :ivar shape: Shape of detector's raw data.
+    :type shape: tuple[int,int]
     :ivar attrs: Additional detector configuration attributes.
     :type attrs: dict, optional
     """
     id_: constr(min_length=1) = Field(alias='id')
-    attrs: dict = {}
+    shape: Optional[tuple[int, int]] = None
+    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
 
     @field_validator('id_', mode='before')
     @classmethod
@@ -87,8 +112,27 @@ class DetectorConfig(CHAPBaseModel):
 
     :ivar detectors: Detector list.
     :type detectors: list[Detector]
+    :ivar roi: Detector ROI.
+    :type roi: list[CHAPSlice, CHAPSlice], optional
     """
-    detectors: conlist(item_type=Detector, min_length=1)
+    # FIX ROI to make general, now just suited to and tested with TOMO
+    detectors: conlist(item_type=Detector)
+    roi: Optional[conlist(
+        item_type=CHAPSlice, min_length=2, max_length=2)] = None
+
+    @field_validator('roi', mode='before')
+    @classmethod
+    def validate_roi(cls, roi):
+        """Validate the detector ROI.
+
+        :param roi: Detector ROI.
+        :type roi: list[CHAPSlice, CHAPSlice]
+        :return: The validated detector ROI
+        :rtype: list[CHAPSlice, CHAPSlice]
+        """
+        if roi is None:
+            return roi
+        return [CHAPSlice().model_dump() if v is None else v for v in roi]
 
 
 class Sample(CHAPBaseModel):
@@ -678,7 +722,8 @@ def validate_data_source_for_map_config(data_source, info):
                 import_scanparser(
                     values['station'], values['experiment_type'])
                 data_source.validate_for_station(values['station'])
-                data_source.validate_for_spec_scans(values['spec_scans'])
+                if values['validate_data_present']:
+                    data_source.validate_for_spec_scans(values['spec_scans'])
         return data_source
 
     return _validate_data_source_for_map_config(data_source, info)
@@ -699,6 +744,7 @@ class IndependentDimension(PointByPointScanData):
         this axis, defaults to `1`.
     :type step: int, optional
     """
+    # FIX convert to using CHAPSlice
     start: Optional[conint(ge=0)] = 0
     end: Optional[int] = None
     step: Optional[conint(gt=0)] = 1
@@ -912,6 +958,7 @@ class MapConfig(CHAPBaseModel):
     :ivar attrs: Additional Map configuration attributes.
     :type attrs: dict, optional
     """
+    validate_data_present: bool = True
     did: Optional[constr(strip_whitespace=True)] = None
     title: constr(strip_whitespace=True, min_length=1)
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
@@ -1054,7 +1101,8 @@ class MapConfig(CHAPBaseModel):
             if scan_type is not None:
                 attrs['scan_type'] = scan_type
             attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
-            dataset_id = cls.get_smb_par_attr(values, 'dataset_id')
+            dataset_id = cls.get_smb_par_attr(
+                values, 'dataset_id', unique=False)
             if dataset_id is not None:
                 attrs['dataset_id'] = dataset_id
             if attrs.get('scan_type') is None:
@@ -1070,7 +1118,8 @@ class MapConfig(CHAPBaseModel):
         return attrs
 
     @staticmethod
-    def get_smb_par_attr(class_fields, label, units='-', name=None):
+    def get_smb_par_attr(
+        class_fields, label, units='-', name=None, unique=True):
         """Read an SMB par file attribute.
 
         :param class_fields: The Map configuration class fields.
@@ -1103,10 +1152,12 @@ class MapConfig(CHAPBaseModel):
 #                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
-        if len(values) != 1:
-            raise ValueError(f'More than one {name} in map not allowed '
-                             f'({values})')
-        return values[0]
+        if len(values) == 1:
+            return values[0]
+        if unique:
+            raise ValueError(
+                f'More than one {name} in map not allowed ({values})')
+        return values
 
     @property
     def all_scalar_data(self):
