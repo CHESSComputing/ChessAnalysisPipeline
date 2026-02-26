@@ -5,7 +5,7 @@ The CHESS Analysis Pipeline (CHAP) is an object-oriented python framework for re
 analysis programs into modular pipelines composed of interchangeable, reusable code components. The basic
 blueprint for a `Pipeline` consists of a `Reader`, `Processor`, and `Writer`, as shown in the diagram below:
 
-<img src="docs/diagrams/chap-base.png" width="500" alt="CHAP base classes" align="center">
+<img src="diagrams/chap-base.png" width="500" alt="CHAP base classes" align="center">
 
 The `Reader` and `Writer` handle data input and output for the `Pipeline`. These base classes encapsulate
 the CHESS-specific logistics, such as file operations and data format conversions. Inherited subclasses are
@@ -21,7 +21,7 @@ Workflows are defined by CHAP configuration files written in YAML. Each file may
 `Pipeline`s that can be executed individually or all at once (sequentially). The  diagram below shows
 a schematic workflow with series of `Pipeline`s linked together in a single configuration file.
 
-![Schematic CHAP pipeline](docs/diagrams/chap-schematic.png)
+![Schematic CHAP pipeline](diagrams/chap-schematic.png)
 
 Workflows for specific X-ray techniques are constructed from concrete implementations of the CHAP base classes.
 For example, in the [EDD workflow](examples/edd/annotated_pipeline.yaml),
