@@ -1471,7 +1471,7 @@ class TomoFindCenterProcessor(Processor):
         self.logger.info('Find the calibrated center axis information')
 
         # Load the reduced tomography data
-        nxroot = self.get_data(data)
+        nxroot = self.get_data(data, remove=False)
         nxentry = self.get_default_nxentry(nxroot)
 
         # Check if reduced data is available
@@ -1606,7 +1606,7 @@ class TomoFindCenterProcessor(Processor):
                 schema='common.write.ImageWriter'),
             PipelineData(
                 name=self.name, data=self.config.model_dump(),
-                schema='tomodata'))
+                schema='tomo.models.TomoFindCenterConfig'))
 
     def _find_center_one_plane(
             self, tomo_stacks, stack_index, row, offset_row, thetas,
@@ -1633,28 +1633,6 @@ class TomoFindCenterProcessor(Processor):
         # Get the sinogram for the selected plane
         sinogram = tomo_stacks[stack_index,:,offset_row,:]
         center_offset_range = sinogram.shape[1]/2
-
-        #RV FIX
-        quick_imshow(
-            sinogram,
-            title='sinogram for current slice',
-            #cmap='viridis', interpolation='none',
-            cmap='gray',
-            colorbar=True,
-            block=True)
-
-#        print(f'\nthetas: {thetas}\n')
-#        center_offset = 0
-#        recon = self._reconstruct_planes(
-#            sinogram, center_offset, thetas, num_proc=12,
-#            gaussian_sigma=None, ring_width=5)
-#        quick_imshow(
-#            recon,
-#            title='current reconstructed slice',
-#            cmap='viridis', interpolation='none',
-#            colorbar=True,
-#            block=True)
-#        exit('Done')
 
         # Try Nghia Vo's method to find the center
         t0 = time()
@@ -2229,7 +2207,7 @@ class TomoReconstructProcessor(Processor):
                    'center_config': 'tomo.models.TomoFindCenterConfig'},
         init_var=True)
     config: Optional[TomoReconstructConfig] = TomoReconstructConfig()
-    center_config: TomoFindCenterConfig
+    center_config: Optional[TomoFindCenterConfig] = TomoFindCenterConfig()
     num_proc: Optional[conint(gt=0)] = 64
     save_figures: Optional[bool] = True
 
@@ -2257,7 +2235,6 @@ class TomoReconstructProcessor(Processor):
             NXfield,
             NXprocess,
         )
-        from CHAP.tomo.models import TomoFindCenterConfig
 
         self.logger.info('Reconstruct the tomography data')
 
