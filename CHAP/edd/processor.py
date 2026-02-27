@@ -2922,25 +2922,26 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             plt.close()
             plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
 
+            init = True
             frames = []
             for (buf, _), _ in self._figures[start_index:]:
                 buf.seek(0)
                 frame = plt.imread(buf)
                 im = plt.imshow(frame, animated=True)
-                if not i:
+                if init:
                     plt.imshow(frame)
+                    init = False
                 frames.append([im])
 
             ani = animation.ArtistAnimation(
-                 plt.gcf(), frames, interval=1000, blit=False,
-                 repeat=False)
+                 plt.gcf(), frames, interval=1000, blit=False, repeat=False)
 
         if self.interactive:
             plt.show()
 
         if self.save_figures:
-            self._animation.append((
-                (ani, 'gif'),
+            self._animation.append(
+                ((ani, 'gif'),
                 f'{detector_id}_strainanalysis_unconstrained_fits'))
         plt.close()
 
