@@ -6,7 +6,7 @@ config:
   log_level: info
   profile: false
 
-pipeline:
+map:
 
   # Convert the CHESS style map
   - common.YAMLReader:
@@ -45,19 +45,46 @@ pipeline:
       filename: detector.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: chess_map_hollow_brick.nxs
+      force_overwrite: true
+
+full_recon:
 
   # Full tomography reconstruction
+  - common.NexusReader:
+      filename: chess_map_hollow_brick.nxs
+  - tomo.TomoReduceProcessor:
+      save_figures: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
   - common.YAMLReader:
       filename: find_center_id3a.yaml
       schema: tomo.models.TomoFindCenterConfig
+  - tomo.TomoFindCenterProcessor:
+#      config:
+#        gaussian_sigma: 0.05
+#        ring_width: 1
+      save_figures: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
   - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
+  - tomo.TomoReconstructProcessor:
+      save_figures: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
   - common.YAMLReader:
       filename: combine_data_id3a.yaml
       schema: tomo.models.TomoCombineConfig
-  - tomo.TomoDataProcessor:
-      reduce_data: true
+  - tomo.TomoCombineProcessor:
       save_figures: true
   - tomo.TomoWriter:
       filename: combined_hollow_brick.nxs

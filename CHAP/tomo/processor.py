@@ -2102,7 +2102,7 @@ class TomoFindCenterProcessor(Processor):
         self.logger.info('Find the calibrated center axis information')
 
         # Load the reduced tomography data
-        nxroot = self.get_data(data)
+        nxroot = self.get_data(data, remove=False)
         nxentry = self.get_default_nxentry(nxroot)
 
         # Check if reduced data is available
@@ -2230,7 +2230,7 @@ class TomoFindCenterProcessor(Processor):
                 schema='common.write.ImageWriter'),
             PipelineData(
                 name=self.name, data=self.config.model_dump(),
-                schema='tomodata'))
+                schema='tomo.models.TomoFindCenterConfig'))
 
     def _find_center_gui(self, config):
         """Find calibrated center axis interactively
@@ -2275,7 +2275,7 @@ class TomoReconstructProcessor(Processor):
                    'center_config': 'tomo.models.TomoFindCenterConfig'},
         init_var=True)
     config: Optional[TomoReconstructConfig] = TomoReconstructConfig()
-    center_config: TomoFindCenterConfig
+    center_config: Optional[TomoFindCenterConfig] = TomoFindCenterConfig()
     num_proc: Optional[conint(gt=0)] = 64
     save_figures: Optional[bool] = True
 
@@ -2303,7 +2303,6 @@ class TomoReconstructProcessor(Processor):
             NXfield,
             NXprocess,
         )
-        from CHAP.tomo.models import TomoFindCenterConfig
 
         self.logger.info('Reconstruct the tomography data')
 
