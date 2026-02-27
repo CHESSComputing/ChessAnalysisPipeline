@@ -44,6 +44,7 @@ class GiwaxsConversionProcessor(Processor):
     config: GiwaxsConversionConfig
     save_figures: Optional[bool] = True
 
+    _animation: list = PrivateAttr(default=[])
     _figures: list = PrivateAttr(default=[])
 
     def process(self, data):
@@ -79,13 +80,20 @@ class GiwaxsConversionProcessor(Processor):
                 'No valid detector data in input pipeline data') from exc
 
         nxroot = self.convert_q_rect(nxroot)
+        if not (self._figures or self._animation):
+            return nxroot
+        ret = [nxroot]
         if self._figures:
-            return (
-                nxroot,
+            ret.append(
                 PipelineData(
                     name=self.__name__, data=self._figures,
                     schema='common.write.ImageWriter'))
-        return nxroot
+        if self._animation:
+            ret.append(
+                PipelineData(
+                    name=self.__name__, data=self._animation,
+                    schema='common.write.ImageWriter'))
+        return tuple(ret)
 
 
     def convert_q_rect(self, nxroot):
@@ -224,30 +232,33 @@ class GiwaxsConversionProcessor(Processor):
                         basename = 'converted'
                     else:
                         basename = f'converted_{scan_step_indices[i]}'
-                    self._figures.append(
+                    figures.append(
                         (fig_to_iobuf(fig), f'{basename}_{i}'))
                 if self.interactive:
                     plt.show()
                 plt.close()
 
         # Create an animation of the figures
-        animation = []
         if self.save_figures and not self.config.skip_animation:
             # Third party modules
             from matplotlib.animation import ArtistAnimation
 
+            init = True
             frames = []
             for (buf, _), _ in figures:
                 buf.seek(0)
                 frame = plt.imread(buf)
                 im = plt.imshow(frame, animated=True)
-                if not i:
+                if init:
                     plt.imshow(frame)
+                    init = False
                 frames.append([im])
 
             ani = ArtistAnimation(
                  plt.gcf(), frames, interval=1000, blit=False, repeat=False)
-            animation.append(((ani, 'gif'), f'{ais[0].get_id()}_converted'))
+            self._animation.append(
+                ((ani, 'gif'), f'{ais[0].get_id()}_converted'))
+            self._figures.extend(figures)
 
         # Create the NXdata object with the converted images
         nxprocess.data = NXdata(
@@ -262,21 +273,6 @@ class GiwaxsConversionProcessor(Processor):
                  attrs={'units': '\u212b$^{-1}$'})))
         nxprocess.attrs['default'] = 'data'
 
-        if self.save_figures:
-            if animation:
-                return (
-                    nxroot,
-                    PipelineData(
-                        name=self.__name__, data=figures,
-                        schema='common.write.ImageWriter'),
-                    PipelineData(
-                        name=self.__name__, data=animation,
-                        schema='common.write.ImageWriter'))
-            return (
-                nxroot,
-                PipelineData(
-                    name=self.__name__, data=figures,
-                    schema='common.write.ImageWriter'))
         return nxroot
 
     @staticmethod
@@ -426,7 +422,7 @@ class GiwaxsConversionProcessor(Processor):
                 + (q_perp - q_perp_rect_shift[highpx_y]) / rect_height)
 
         # Optionally, print out-of-bounds pixels
-        if np.any(out_of_bounds):
+        if False: #np.any(out_of_bounds):
             print(f'Warning: Found {out_of_bounds.sum()} source pixels that '
                   'are outside the target bounding box')
             # out_of_bounds_indices = np.transpose(np.where(out_of_bounds))
@@ -669,7 +665,7 @@ class PyfaiIntegrationProcessor(Processor):
                                    'not yet implemented')
             axes = axes[0]
             independent_dims[ais[0].get_id()] = nxcopy(nxdata[axes])
-            data[ais[0].get_id()] = np.flip(nxdata.converted.nxdata, axis=1)
+            data[ais[0].get_id()] = np.flip(nxdata.nxsignal.nxdata, axis=1)
         except Exception as exc:
             experiment_type = loads(
                 str(nxroot[nxroot.default].map_config))['experiment_type']
