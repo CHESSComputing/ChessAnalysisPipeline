@@ -1,4 +1,4 @@
-(CHAP-pipeline)=
+(chap_pipeline)=
 # CHAP Pipeline
 
 To do

@@ -29,9 +29,9 @@ conda install -c conda-forge chessanalysispipeline
    :start-after: '[set version]'
    :end-before: '[version set]'
    ```
-   with
+   with (pick the appropriate version string):
    ```python
-   version = 'PACKAGE_VERSION'
+   version = 'v1.1'
    ```
 1. Create the virtual environment:
    ```bash
