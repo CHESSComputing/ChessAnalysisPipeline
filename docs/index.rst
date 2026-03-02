@@ -24,6 +24,7 @@ Chess Analysis Pipeline (CHAP)
    :caption: Workflows
 
    workflows/EDD
+   workflows/SAXSWAXS
    workflows/Tomo
 
 .. toctree::

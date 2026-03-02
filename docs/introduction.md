@@ -5,7 +5,13 @@ The CHESS Analysis Pipeline (CHAP) is an object-oriented python framework for re
 analysis programs into modular pipelines composed of interchangeable, reusable code components. The basic
 blueprint for a `Pipeline` consists of a `Reader`, `Processor`, and `Writer`, as shown in the diagram below:
 
-<img src="diagrams/chap-base.png" width="500" alt="CHAP base classes" align="center">
+```{figure} diagrams/chap-base.png
+---
+figclass: center-img-only
+name: schematic_chap_pipeline_component
+---
+The basic blueprint of a CHAP pipeline component.
+```
 
 The `Reader` and `Writer` handle data input and output for the `Pipeline`. These base classes encapsulate
 the CHESS-specific logistics, such as file operations and data format conversions. Inherited subclasses are
@@ -21,9 +27,15 @@ Workflows are defined by CHAP configuration files written in YAML. Each file may
 `Pipeline`s that can be executed individually or all at once (sequentially). The  diagram below shows
 a schematic workflow with series of `Pipeline`s linked together in a single configuration file.
 
-![Schematic CHAP pipeline](diagrams/chap-schematic.png)
+```{figure} diagrams/chap-schematic.png
+---
+figclass: center-img-only
+name: schematic_chap_workflow
+---
+The basic blueprint of a CHAP workflow.
+```
 
 Workflows for specific X-ray techniques are constructed from concrete implementations of the CHAP base classes.
-For example, in the [EDD workflow](examples/edd/annotated_pipeline.yaml),
-"Pipeline 0" is for energy calibration with "Processor 0" being `MCAEnergyCalibrationProcessor`,
-"Pipeline 1" is for detector theta calibration with "Processor 1" being `MCATthCalibrationProcessor`, and so on.
+For example, in the [EDD workflow example pipeline file](edd_pipeline),
+"energy" is for energy calibration with "Processor 0" being `edd.MCAEnergyCalibrationProcessor`,
+"twotheta" is for detector theta calibration with "Processor 1" being `edd.MCATthCalibrationProcessor`, and so on.
