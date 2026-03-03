@@ -1,4 +1,5 @@
-# EDD subpackage (CHAP.edd)
+(edd_workflow)=
+# EDD subpackage (`CHAP.edd`)
 
 The EDD subpackage contains the modules that are unique to Energy Dispersive Diffraction (EDD) data processing workflows. This document describes how to run an detector energy calibration and strain analysis workflow in a Linux terminal.
 
@@ -8,26 +9,14 @@ A standard strain analysis in CHAP consists of three steps:
 
 - Performing the detector channel energy calibration. This is typically performed by fitting a set of fluorescence peak centers in an EDD experiment on a CeO2 sample and comparing the results to their known energy values.
 
-- Fine tuning the detector channel energy calibration (and optionally the takeoff angle $2\theta$) by fitting a set of Bragg peak centers in an EDD experiment on typically the same CeO2 sample and comparing the results to their known energy values for a given channel energy calibration (and $2\theta$ value).
+- Fine tuning the detector channel energy calibration (and optionally the takeoff angle $2\theta$) by fitting a set of Bragg peak centers in an EDD experiment on typically the same CeO2 sample and comparing the results to their known energy values for a given channel energy calibration and $2\theta$ value.
 
 - Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.
 
-## Activating the EDD conda environment
-
-### From the CHESS Compute Farm
-
-Log in to the CHESS Compute Farm and activate the `CHAP_edd` environment:
-```bash
-source /nfs/chess/sw/miniforge3_chap/bin/activate
-```
-```bash
-conda activate CHAP_edd
-```
-
-### From a local CHAP clone
+## Activating the EDD conda environment (requires a local CHAP clone)
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
-1. Install a local version of the CHAP package according to the {ref}`installation instructions <installation>`.
+1. Install a local version of the CHAP package according to the [installation instructions](installation).
 1. Create the EDD conda environment:
    ```bash
    mamba env create -f <path_to_CHAP_clone_dir>/CHAP/edd/environment.yml
@@ -41,9 +30,17 @@ conda activate CHAP_edd
 
 1. Navigate to your work directory.
 1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. 
-1. Run the workflow:
+1. Run the workflow using your own `CHAP_edd` conda environment:
    ```bash
    CHAP <pipelinefilename>
+   ```
+   or run the workflow using the latest production release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd <pipelinefilename>
+   ```
+   or the latest development release version:
+   ```bash
+   /nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd <pipelinefilename>
    ```
 1. Respond to any prompts that pop up if running interactively.
 
@@ -55,113 +52,152 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
-   nexpy &
+   /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
    ```
 1. After the GUI pops up, click File-> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
 1. Navigate the filetree in the "NeXus Data" panel to inspect any output or metadata field.
 
+(edd_pipeline)=
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the {ref}`CHAP pipeline instructions <CHAP-pipeline>`. A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in `.yaml` files):
-```
+Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file for an energy calibration and strain analysis workflow is as follows (note that spaces and indentation are important in `.yaml` files):
+```yaml
 config:
-  root: .           # Change as desired
-  inputdir: .       # Change as desired
-                    # Path can be relative to root (line 2) or absolute
-  outputdir: output # Change as desired
-                    # Path can be relative to root (line 2) or absolute
-  interactive: true # Change as desired
-  log_level: info   # Set to debug, info, warning, or error
+  root: .                   # Change as desired
+  inputdir: .               # Change as desired
+                            # Path can be relative to root (line 2) or absolute
+  outputdir: output         # Change as desired
+                            # Path can be relative to root (line 2) or absolute
+  interactive: true         # Change as desired
+  log_level: info           # Set to debug, info, warning, or error
 
-pipeline:
+energy:
 
   # Energy calibration
   - common.SpecReader:
       config:
-        station: id3a # Change as needed
+        station: id3a       # Change as needed
         experiment_type: EDD
-        spec_scans: # Edit both SPEC log file path and EDD scan numbers
-                    # Path can be relative to inputdir (line 3) or absolute
+        spec_scans:         # Edit both SPEC log file path and EDD scan numbers
+                            # Path can be relative to inputdir (line 3) or absolute
           - spec_file: <your_raw_ceria_data_directory>/spec.log
             scan_numbers: 1
   - edd.MCAEnergyCalibrationProcessor:
       config:
         max_peak_index: 1
         peak_energies: [34.276, 34.717, 39.255, 40.231]
-        materials:  # Use default CeO2 properties when omitted
+        materials:          # Optional, using default CeO2 properties when omitted
           - material_name: CeO2
             sgnum: 225
             lattice_parameters: 5.41153
       detector_config:
         baseline: true
         mask_ranges: [[650, 850]]
-        detectors:  # Choose the detectors
-                    # Use all available detector elements when omitted
+        detectors:          # Choose the detectors
+                            # Use all available detector elements when omitted
           - id: 0
           - id: 11
           - id: 22
       save_figures: true
       schema: edd.models.MCAEnergyCalibrationConfig
+  - common.YAMLWriter:
+                            # Energy calibration output filename, change as desired
+      filename: energy_calibration_result.yaml
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: figures    # Change as desired, unless an absolute path
+                            # this will appear under 'outdutdir' (line 5)
+      force_overwrite: true # Do not set to false!
+                            # Rename an existing file if you want to prevent
+                            # it from being overwritten
+
+twotheta:
 
   # Twotheta calibration
+  - common.YAMLReader:
+                            # Energy calibration info, same file as written to above
+      filename: energy_calibration_result.yaml
+      schema: edd.models.MCAEnergyCalibrationConfig
   - common.SpecReader:
       config:
-        station: id3a # Change as needed
+        station: id3a       # Change as needed
         experiment_type: EDD
-        spec_scans: # Edit both SPEC log file path and EDD scan numbers
-                    # Path can be relative to inputdir (line 2) or absolute
+        spec_scans:         # Edit both SPEC log file path and EDD scan numbers
+                            # Path can be relative to inputdir (line 3) or absolute
           - spec_file: <your_raw_ceria_data_directory>/spec.log
             scan_numbers: 1
   - edd.MCATthCalibrationProcessor:
       config:
-        tth_initial_guess: 6.0
+        tth_initial_guess: 5.2 # Set to the initial tth angle from detector setup
       detector_config:
-        energy_mask_ranges: [[81, 135]] # Change as needed
-        detectors:  # The same as in the energy calibration when omitted
+        energy_mask_ranges: [[65, 155]] # Change as needed
+        detectors:          # The same as in the energy calibration when omitted
           - id: 0
           - id: 11
           - id: 22
       save_figures: true
+  - common.YAMLWriter:
+                            # Twotheta calibration output filename, change as desired
+      filename: tth_calibration_result.yaml
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: figures    # Change as desired
+      force_overwrite: true # Do not set to false!
+
+map:
 
   # Create a CHESS style map
   - edd.EddMapReader:
-      filename: <your_raw_data_directory>/id1a3-wbmapscan-s23-map-1.par
-      dataset_id: 1
+      filename: <your_raw_data_directory>/<parfile_name> # The par-file name
+      dataset_id: 1         # The dataset ID, change as needed
       schema: common.models.map.MapConfig
   - common.MapProcessor:
       detector_config:
-        detectors:  # Use available detector elements when omitted
+        detectors:          # Use available detector elements when omitted
           - id: 0
           - id: 11
           - id: 22
+  - common.NexusWriter:
+      filename: map.nxs     # NeXus map output filename
+      force_overwrite: true
+
+strain:
 
   # Perform the strain analysis
-  - pipeline.MultiplePipelineItem:
-      items:
-        - common.YAMLReader:
-            filename: tth_calibration_result.yaml
-            schema: edd.models.MCATthCalibrationConfig
+  - common.NexusReader:
+      filename: map.nxs     # NeXus map, same file as written to above
+  - common.YAMLReader:
+                            # Twotheta calibration info, same file as written to above
+      filename: tth_calibration_result.yaml
+      schema: edd.models.MCATthCalibrationConfig
   - edd.StrainAnalysisProcessor:
       config:
+        find_peak_cutoff: 0.02          # Change as desired
         materials:
           - material_name: Al
             sgnum: 225
             lattice_parameters: 4.046
-        rel_height_cutoff: 0.05         # Change as desired
+        rel_height_cutoff: 0.02         # Change as desired
         skip_animation: false
       detector_config:
-        energy_mask_ranges: [[77, 110]] # Change as desired
-        detectors: # # Use available detector elements when omitted
+        energy_mask_ranges: [[75, 140]] # Change as desired
+        detectors:          # Use available detector elements when omitted
           - id: 0
           - id: 11
           - id: 22
       save_figures: true
   - common.NexusWriter:
-      filename: strain_map.nxs # Change as desired
-                               # will be placed in 'outdutdir' (line 3)
+      # Write the strain analysis result to file
+      filename: strain.nxs  # The NeXus output filename, change as desired
       force_overwrite: true # Do not set to false!
-                            # Rename an existing file if you want to prevent
-                            # it from being overwritten
+  - common.ImageWriter:
+      # Write the figures to file
+      outputdir: figures    # Change as desired
+      force_overwrite: true # Do not set to false!
+  - common.ImageWriter:
+      # Write the animation to file, omit when skip_animation is true
+      outputdir: figures    # Change as desired
+      force_overwrite: true # Do not set to false!
 ```
 
 The "config" block defines the CHAP generic configuration parameters:
@@ -176,35 +212,35 @@ The "config" block defines the CHAP generic configuration parameters:
 
 - `log_level`: The [Python logging level](https://docs.python.org/3/library/logging.html#levels).
 
-The "pipeline" block creates the actual workflow pipeline, in this example it consists of nine toplevel processes that get executed successively:
+The remainder of the file contains the actual workflow pipeline, in this example it consists of four blocks, `energy`, `tththeta`, `map`, and `strain`, which can be executed individually or all at once [as described here](chap_pipeline). In addition to the readers and writers of the intermediate results, nine toplevel processes get executed successively in the combined four pipeline blocks:
 
 - The EDD/XRF energy calibration consists of two processes:
 
-    - `common.SpecReader`: A processor that reads the raw detector data.
+    - `common.SpecReader`: A reader that reads the raw detector calibration data.
 
     - `edd.MCAEnergyCalibrationProcessor`: A processor that performs the detector channel energy calibration.
 
 - The EDD $2\theta$ calibration consists of two processes:
 
-    - `common.SpecReader` under `pipeline.MultiplePipelineItem`: A processor that reads the raw detector data and adds it to the energy calibration info that gets passed along directly from the previous processor in the pipeline.
+    - `common.SpecReader`: A reader that reads the raw detector calibration data.
 
     - `edd.MCATthCalibrationProcessor`: A processor that performs the $2\theta$ calibration.
 
 - The following two processors read the strain analysis sample's raw detector data and create a CHESS style map:
 
-    - `edd.EddMapReader`: A processor that reads the sample's raw detector data using a CHESS style experiment par-file.
+    - `edd.EddMapReader`: A reader that reads the sample's raw detector data using a CHESS style experiment par-file.
 
     - `common.MapProcessor`: A processor that creates a CHESS style map for the raw detector data.
 
 - The last three processors perform the actual strain analysis and write the output to a Nexus file:
 
-    - `common.YAMLReader` under `pipeline.MultiplePipelineItem`: A processor that reads the energy/$2\theta$ calibration results adds it to the raw data map that gets passed along directly from the previous processor in the pipeline.
-
     - `edd.StrainAnalysisProcessor`: A processor that perfroms the actual strain analysis and creates a single Nexus object with the strain analysis results as well as all metadata pertaining to the workflow.
 
-    - `common.NexusWriter`: A processor that writes the strain analysis results to a NeXus file.
+    - `common.NexusWriter`: A wrtiter that writes the strain analysis results to a NeXus file.
 
-Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first four processes in the pipeline and read the detector channel energy calibration info in what is now the third item in the pipeline.
+    - `common.ImageWriter: A wrtiter that writes a (set of) figure(s) or an animation to file (omit when `skip_animation` is set to `true`).
+
+Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first two blocks in the pipeline and read the detector channel energy/$2\theta$ calibration info in what is now the third block in the pipeline, labelled `map`.
 
 ## Additional notes on energy calibration
 

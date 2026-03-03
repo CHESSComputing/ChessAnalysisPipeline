@@ -14,14 +14,16 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=e0682aa5"></script>
+      <script src="../_static/documentation_options.js?v=f9d40b2e"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tomography subpackage (CHAP.tomo)" href="Tomo.html" />
+    <link rel="prev" title="EDD subpackage (CHAP.edd)" href="EDD.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,7 +45,11 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Installation</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 </ul>
@@ -52,9 +58,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../pipeline.html">CHAP Pipeline</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="EDD.html">EDD subpackage (CHAP.edd)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Tomo.html">Tomography subpackage (CHAP.tomo)</a></li>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Reference Guide</span></p>
 <ul>
@@ -85,7 +92,7 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="saxs-waxs-module-chap-saxswaxs">
-<h1>SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)<a class="headerlink" href="#saxs-waxs-module-chap-saxswaxs" title="Link to this heading"></a></h1>
+<span id="saxswaxs-workflow"></span><h1>SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)<a class="headerlink" href="#saxs-waxs-module-chap-saxswaxs" title="Link to this heading"></a></h1>
 <p>The <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code> module contains processing tools unique to SAXS/WAXS processing. This document describes how to use them in a pipeline configuration YAML file so that SAXS/WAXS workflows can be run from the terminal on the CLASSE Linux system.</p>
 <section id="workflow-description">
 <h2>Workflow description<a class="headerlink" href="#workflow-description" title="Link to this heading"></a></h2>
@@ -99,7 +106,7 @@ First, we set up a container to hold the raw and processed datasets before any p
 #. Detector size(s)
 #. Integrated data size(s)
 In practice, you should prepare <a class="reference internal" href="#related_configuration_objects"><span class="xref myst">two supplementary configuration files</span></a> in addition to the parameters for the tools involved in this step: one for a <code class="docutils literal notranslate"><span class="pre">MapConfig</span></code>, object, another for a <code class="docutils literal notranslate"><span class="pre">PyFaiIntegrationProcessorConfig</span></code> object.
-This step also sets the number of chunks for each data array in the container. <a class="reference internal" href="#Optimizing_performance"><span class="xref myst">Selecting the right number of chunks is important for optimizing performance</span></a> during the next step.</p>
+This step also sets the number of chunks for each data array in the container. <a class="reference internal" href="#optimizing_performance"><span class="xref myst">Selecting the right number of chunks is important for optimizing performance</span></a> during the next step.</p>
 <p>Example pipeline configuration:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
@@ -366,9 +373,10 @@ This step also sets the number of chunks for each data array in the container. <
 <li><p><span class="math notranslate nohighlight">\(I_{transmitted, background}\)</span> is the background postsample intensity. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_postsample_intensity</span></code>.</p></li>
 <li><p><span class="math notranslate nohighlight">\(\phi_{reference}\)</span> is <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> in the correction tool’s own parameters. However, if <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> was not given in the tool’s configuration, a value for this quantity will be calculated with:</p></li>
 </ul>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>\phi_{reference} = \frac{\overline{I_{incident}}}{\overline{t_{dwell}}}
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+\phi_{reference} = \frac{\overline{I_{incident}}}{\overline{t_{dwell}}}
+\]</div>
 <ul class="simple">
 <li><p><span class="math notranslate nohighlight">\(T = \frac{I_{transmitted}}{I_{incident}} / \frac{I_{transmitted, background}}{I_{incident, background}}\)</span></p></li>
 <li><p><span class="math notranslate nohighlight">\(t\)</span> is the sample thickness in <span class="math notranslate nohighlight">\(cm\)</span>. This quantity only appears in <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>. The value of this parameter can be set in one of two ways:</p>
@@ -378,9 +386,10 @@ This step also sets the number of chunks for each data array in the container. <
 </ol>
 </li>
 </ul>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>t = \frac{-\ln{T}}{\mu}
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+t = \frac{-\ln{T}}{\mu}
+\]</div>
 <ul class="simple">
 <li><p>NB: When using <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>, do not use both the <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> <em>and</em> <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> parameters at the same time. Specifying both parameters makes the definition of the sample thickness ambiguous. The Processor will raise an error if both parameters are supplied.</p></li>
 <li><p><span class="math notranslate nohighlight">\(C_f\)</span> is the scalar factor for putting flux, absorption, background, and thickness corrected data into absolute intensity units. Taken directly from the <code class="docutils literal notranslate"><span class="pre">absolute_intensity_scalar</span></code> parameter from the correction tool config file.</p></li>
@@ -388,15 +397,17 @@ This step also sets the number of chunks for each data array in the container. <
 </section>
 <section id="saxswaxs-fluxcorrectionprocessor">
 <h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxcorrectionprocessor" title="Link to this heading"></a></h3>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>I_{corrected} = I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+\]</div>
 </section>
 <section id="saxswaxs-fluxabsorptioncorrectionprocessor">
 <h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsorptioncorrectionprocessor" title="Link to this heading"></a></h3>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>I_{corrected} = \frac{1}{T} * I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = \frac{1}{T} * I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+\]</div>
 </section>
 <section id="saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor">
 <h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsoprtionBackgroundCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor" title="Link to this heading"></a></h3>
@@ -404,15 +415,17 @@ This step also sets the number of chunks for each data array in the container. <
 <ul class="simple">
 <li><p>If neither <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
 </ul>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>I_{corrected} = (I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = (I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})
+\]</div>
 <ul class="simple">
 <li><p>If either <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
 </ul>
-<div class="highlight-math notranslate"><div class="highlight"><pre><span></span>I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})]
-</pre></div>
-</div>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})]
+\]</div>
 </section>
 </section>
 <section id="configuring-a-pipeline">
@@ -763,7 +776,10 @@ Script for constructuing and / or sending off multiple update jobs in parallel</
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="EDD.html" class="btn btn-neutral float-left" title="EDD subpackage (CHAP.edd)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Tomo.html" class="btn btn-neutral float-right" title="Tomography subpackage (CHAP.tomo)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

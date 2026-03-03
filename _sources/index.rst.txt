@@ -3,6 +3,12 @@ Chess Analysis Pipeline (CHAP)
 
 .. toctree::
    :titlesonly:
+   :caption: Introduction
+
+   introduction
+
+.. toctree::
+   :titlesonly:
    :caption: Installation
 
    installation
@@ -18,6 +24,7 @@ Chess Analysis Pipeline (CHAP)
    :caption: Workflows
 
    workflows/EDD
+   workflows/SAXSWAXS
    workflows/Tomo
 
 .. toctree::
