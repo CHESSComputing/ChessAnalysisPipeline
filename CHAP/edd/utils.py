@@ -29,7 +29,7 @@ def get_peak_locations(ds, tth):
     return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
 
 
-def make_material(name, sgnum, lattice_parameters, dmin=0.6):
+def make_material(name, sgnum, lattice_parameters, dmin=0.35):
     """Return a hexrd.material.Material with the given properties.
 
     :param name: Material name.

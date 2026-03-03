@@ -189,6 +189,9 @@ class MaterialConfig(CHAPBaseModel):
     :type lattice_parameters: float, list[float], optional
     :ivar sgnum: Space group of the material.
     :type sgnum: int, optional
+    :ivar dmin: Minimum d-spacing for selecting the available hkls,
+        defaults to 0.35.
+    :type dmin: float, optional
     """
     #RV FIX create a getter for lattice_parameters that always returns a list?
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
@@ -198,6 +201,7 @@ class MaterialConfig(CHAPBaseModel):
             min_length=1, max_length=6,
             item_type=confloat(gt=0, allow_inf_nan=False))]] = None
     sgnum: Optional[conint(ge=0)] = None
+    dmin: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.35
 
     _material: Optional[Material]
 
@@ -213,7 +217,7 @@ class MaterialConfig(CHAPBaseModel):
 #        from CHAP.utils.material import Material
 
         self._material = make_material(
-            self.material_name, self.sgnum, self.lattice_parameters)
+            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
 #        self._material = Material.make_material(
 #            self.material_name, sgnum=self.sgnum,
 #            lattice_parameters_angstroms=self.lattice_parameters,
