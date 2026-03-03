@@ -544,7 +544,10 @@ class ExpressionProcessor(Processor):
     def _process(self, data, expression, symtable=None, nxprocess=False,
                  nxfieldtable=None, nxdata_name='data',
                  nxfield_name='result'):
-        import zarr
+        try:
+            import zarr
+        except:
+            pass
         from ast import parse
         from asteval import get_ast_names, Interpreter
 
@@ -566,8 +569,11 @@ class ExpressionProcessor(Processor):
                 symtable[name] = self.get_data(
                     data, name=name, remove=False)
         for k, v in symtable.items():
-            if isinstance(v, zarr.core.array.Array):
-                symtable[k] = v[()]
+            try:
+                if isinstance(v, zarr.core.array.Array):
+                    symtable[k] = v[()]
+            except:
+                pass
         self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
         new_data = aeval(expression)
