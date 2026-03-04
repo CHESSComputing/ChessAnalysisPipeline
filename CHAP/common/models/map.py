@@ -370,7 +370,7 @@ class PointByPointScanData(CHAPBaseModel):
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal[
         'spec_motor', 'spec_motor_absolute', 'spec_motor_static',
-        'scan_column', 'smb_par', 'expression',
+        'scan_column', 'scan_start_time', 'smb_par', 'expression',
         'detector_log_timestamps'
     ]
     name: constr(strip_whitespace=True, min_length=1)
@@ -531,6 +531,8 @@ class PointByPointScanData(CHAPBaseModel):
         if self.data_type == 'scan_column':
             return get_spec_counter_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name)
+        if self.data_type == 'scan_start_time':
+            return get_scan_start_time(spec_scans.spec_file, scan_number)
         if self.data_type == 'smb_par':
             return get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
@@ -655,6 +657,26 @@ def get_smb_par_value(spec_file, scan_number, par_name):
     """
     scanparser = get_scanparser(spec_file, scan_number)
     return scanparser.pars[par_name]
+
+@cache
+def get_scan_start_time(spec_file, scan_number):
+    """Return the start time of the indicated spec scan as the unix
+    epoch (in seconds).
+
+    :param spec_file: Location of a SPEC file.
+    :type spec_file: str
+    :param scan_number: The number of the scan.
+    :returns: The epoch at which the scan began.
+    :rtype: int
+    """
+    import datetime, zoneinfo
+    scan = get_scanparser(spec_file, scan_number).spec_scan
+    start_time = datetime.datetime.strptime(scan.date, '%c')
+    start_time = start_time.replace(
+        tzinfo=zoneinfo.ZoneInfo('America/New_York')
+    )
+    start_time = start_time.astimezone(tz=datetime.timezone.utc)
+    return start_time.timestamp()
 
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
