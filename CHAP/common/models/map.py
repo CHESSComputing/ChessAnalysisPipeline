@@ -549,7 +549,10 @@ class PointByPointScanData(CHAPBaseModel):
                 return timestamps[scan_step_index]
             return timestamps
         if self.data_type == 'scan_step_index':
-            return scan_step_index
+            if scan_step_index >= 0:
+                return scan_step_index
+            scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+            return [i for i in range(scanparser.spec_scan_npts)]
         return None
 
 @cache
