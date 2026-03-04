@@ -371,7 +371,7 @@ class PointByPointScanData(CHAPBaseModel):
     data_type: Literal[
         'spec_motor', 'spec_motor_absolute', 'spec_motor_static',
         'scan_column', 'scan_start_time', 'smb_par', 'expression',
-        'detector_log_timestamps'
+        'detector_log_timestamps', 'scan_step_index'
     ]
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
@@ -548,6 +548,8 @@ class PointByPointScanData(CHAPBaseModel):
             if scan_step_index >= 0:
                 return timestamps[scan_step_index]
             return timestamps
+        if self.data_type == 'scan_step_index':
+            return scan_step_index
         return None
 
 @cache
