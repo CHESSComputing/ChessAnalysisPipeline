@@ -116,7 +116,7 @@ class DetectorConfig(CHAPBaseModel):
     :type roi: list[CHAPSlice, CHAPSlice], optional
     """
     # FIX ROI to make general, now just suited to and tested with TOMO
-    detectors: conlist(item_type=Detector, min_length=1)
+    detectors: conlist(item_type=Detector)
     roi: Optional[conlist(
         item_type=CHAPSlice, min_length=2, max_length=2)] = None
 
@@ -1101,7 +1101,8 @@ class MapConfig(CHAPBaseModel):
             if scan_type is not None:
                 attrs['scan_type'] = scan_type
             attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
-            dataset_id = cls.get_smb_par_attr(values, 'dataset_id')
+            dataset_id = cls.get_smb_par_attr(
+                values, 'dataset_id', unique=False)
             if dataset_id is not None:
                 attrs['dataset_id'] = dataset_id
             if attrs.get('scan_type') is None:
@@ -1117,7 +1118,8 @@ class MapConfig(CHAPBaseModel):
         return attrs
 
     @staticmethod
-    def get_smb_par_attr(class_fields, label, units='-', name=None):
+    def get_smb_par_attr(
+        class_fields, label, units='-', name=None, unique=True):
         """Read an SMB par file attribute.
 
         :param class_fields: The Map configuration class fields.
@@ -1150,10 +1152,12 @@ class MapConfig(CHAPBaseModel):
 #                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
-        if len(values) != 1:
-            raise ValueError(f'More than one {name} in map not allowed '
-                             f'({values})')
-        return values[0]
+        if len(values) == 1:
+            return values[0]
+        if unique:
+            raise ValueError(
+                f'More than one {name} in map not allowed ({values})')
+        return values
 
     @property
     def all_scalar_data(self):

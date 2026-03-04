@@ -17,7 +17,7 @@ from pydantic import (
 )
 #from typing_extensions import Annotated
 
-# Local modules
+# Local modulesImageProcessorConfig
 from CHAP.models import CHAPBaseModel
 
 

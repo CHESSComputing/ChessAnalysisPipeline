@@ -391,11 +391,14 @@ class BaseStrainProcessor(BaseEddProcessor):
         mean_data = np.empty((unique_points.shape[1], data.shape[-1]))
         for i in range(unique_points.shape[1]):
             mean_data[i] = np.mean(data[sum_indices[i]], axis=0)
+        coords = []
+        for i, a in enumerate(axes):
+            coords.append(NXfield(unique_points[i], a, attrs=nxdata[a].attrs))
+            if len(unique_points[i]) != nxdata[a].size:
+                coords[-1].attrs.pop('target', None)
         nxdata_det = NXdata(
             NXfield(mean_data, 'detector_data'),
-            tuple([
-                NXfield(unique_points[i], a, attrs=nxdata[a].attrs)
-                for i, a in enumerate(axes)]))
+            tuple(coords))
         if len(axes) > 1:
             nxdata_det.attrs['unstructured_axes'] = \
                 nxdata_det.attrs.pop('axes')
@@ -2919,25 +2922,26 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             plt.close()
             plt.subplots_adjust(top=1, bottom=0, left=0, right=1)
 
+            init = True
             frames = []
             for (buf, _), _ in self._figures[start_index:]:
                 buf.seek(0)
                 frame = plt.imread(buf)
                 im = plt.imshow(frame, animated=True)
-                if not i:
+                if init:
                     plt.imshow(frame)
+                    init = False
                 frames.append([im])
 
             ani = animation.ArtistAnimation(
-                 plt.gcf(), frames, interval=1000, blit=False,
-                 repeat=False)
+                 plt.gcf(), frames, interval=1000, blit=False, repeat=False)
 
         if self.interactive:
             plt.show()
 
         if self.save_figures:
-            self._animation.append((
-                (ani, 'gif'),
+            self._animation.append(
+                ((ani, 'gif'),
                 f'{detector_id}_strainanalysis_unconstrained_fits'))
         plt.close()
 
@@ -3272,6 +3276,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             self.logger.info('... done')
 
             # Add the fit results to the list of points
+            num_points = len(points)
             tth_map = detector.get_tth_map((nxdata.shape[0],))
             nominal_centers = np.asarray(
                 [get_peak_locations(d0, tth_map)
@@ -3279,16 +3284,22 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             uniform_centers = np.asarray(uniform_results['centers'])
             uniform_strains = np.log(nominal_centers / uniform_centers)
             uniform_strain = np.mean(uniform_strains, axis=0)
-            uniform_amplitudes_vary = np.moveaxis(
-                uniform_results['amplitudes_vary'], -1, 0)
+            uniform_amplitudes_vary = np.asarray(
+                uniform_results['amplitudes_vary'])
+            if num_points > 1:
+                uniform_amplitudes_vary = np.moveaxis(
+                    uniform_amplitudes_vary, -1, 0)
             unconstrained_centers = np.asarray(
                 unconstrained_results['centers'])
             unconstrained_strains = np.log(
                 nominal_centers / unconstrained_centers)
             unconstrained_strain = np.mean(unconstrained_strains, axis=0)
             unconstrained_strain_stdev = np.std(unconstrained_strains, axis=0)
-            unconstrained_amplitudes_vary = np.moveaxis(
-                unconstrained_results['amplitudes_vary'], -1, 0)
+            unconstrained_amplitudes_vary = np.asarray(
+                unconstrained_results['amplitudes_vary'])
+            if num_points > 1:
+                unconstrained_amplitudes_vary = np.moveaxis(
+                    unconstrained_amplitudes_vary, -1, 0)
 
             # Insert the peaks omitted from the fit due to find_peak_cutoff
             insert_peak_indices = [
