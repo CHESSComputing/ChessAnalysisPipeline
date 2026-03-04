@@ -1512,15 +1512,10 @@ class TomoFindCenterGui(Processor):
         # Third party modules
         import matplotlib.pyplot as plt
 
-        if len(self._selected_rows) < 2:
-#            chane_error_text(f'Select at least 2 unique rows')
+        if len(self._selected_rows) < len(self.center_rows):
+#            change_error_text(f'Select at {len(self.center_rows)} unique rows')
             canvas.draw()
         else:
-            # Remove error texts and add selected indices if set
-#            if error_texts:
-#                error_texts[0].remove()
-#                error_texts.pop()
-#            self.get_selected_indices(change_fig_title)
             plt.close()
             self.center_rows = tuple(sorted(self._selected_rows))
             self._build_gui(
@@ -1534,15 +1529,11 @@ class TomoFindCenterGui(Processor):
         # Third party modules
         import matplotlib.pyplot as plt
 
-        self._plane_index += 1  #RV use len(self._center_offsets)
-        # Remove error texts and add selected indices if set
-#        if error_texts:
-#            error_texts[0].remove()
-#            error_texts.pop()
-#        get_selected_indices(change_fig_title)
         plt.close()
+        self._plane_index += 1  #RV use len(self._center_offsets)
         self._center_offsets.append(float(self._selected_offset.get()))
         if self._plane_index < len(self.center_rows):
+            canvas.draw()
             self._build_gui(
                 self._find_center_offset_one_plane,
                 self._on_confirm_find_center_offset_one_plane)
@@ -1573,22 +1564,23 @@ class TomoFindCenterGui(Processor):
                 error_texts.pop()
             error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
-#        def get_selected_indices(change_fnc=None):
-#            selected_indices = tuple(sorted(indices))
-#            if change_fnc is not None:
-#                num_indices = len(indices)
-#                if len(selected_indices) > 1:
-#                    text = f'Selected row indices: {selected_indices}'
-#                    change_fig_title(
-#                        'Click the "Reset" or "Confirm" botton to change or'
-#                        'confirm the selected row indices')
-#                elif selected_indices:
-#                    text = f'Selected row index: {selected_indices[0]}' + \
-#                           ', select one more'
-#                else:
-#                    text = 'Enter the first row index in "Select row index"'
-#                change_fnc(text)
-#            return selected_indices
+        def get_selected_rows(change_fnc=None):
+            selected_rows = tuple(sorted(self._selected_rows))
+            if change_fnc is not None:
+                num_rows = len(selected_rows)
+                num_rows_required = len(self.center_rows)
+                if num_rows == num_rows_required:
+                    text = f'Selected rows: {selected_rows}'
+                    change_fig_title(
+                        'Click the "Reset" or "Confirm" botton to change or '
+                        'confirm the selected rows')
+                elif selected_rows:
+                    text = f'Selected row(s): {selected_rows}' + \
+                           f', select {num_rows_required-num_rows} more'
+                else:
+                    text = 'Enter the first row index in "Select row"'
+                change_fnc(text)
+            return selected_rows
 
         def on_select_center_row(*args):
             """Callback function for the "Select center row" TextBox."""
@@ -1609,7 +1601,7 @@ class TomoFindCenterGui(Processor):
             else:
                 try:
                     add_center_row(center_row)
-#                    get_selected_indices(change_error_text)
+                    get_selected_rows(change_error_text)
                 except ValueError as exc:
                     change_error_text(exc)
             entry.delete(0, 'end')
@@ -1625,9 +1617,10 @@ class TomoFindCenterGui(Processor):
             self._selected_rows.clear()
             lines.clear()
             change_fig_title(
-                'Select two detector image row indices to find center axis '
-                f'(in range [{self.img_row_bounds[0]}, {self.img_row_bounds[1]-1}])')
-#            get_selected_indices(change_error_text)
+                f'Select {len(self.center_rows)} detector image rows to find '
+                f'center axis (in range ([{self.img_row_bounds[0]}, '
+                f'{self.img_row_bounds[1]-1}])')
+            get_selected_rows(change_error_text)
             canvas.draw()
 
         data = self.tomo_stacks[self.center_stack_index,0,:,:]
@@ -1671,14 +1664,11 @@ class TomoFindCenterGui(Processor):
             ax.set_xlim(extent[0], extent[1])
             ax.set_ylim(extent[2], extent[3])
         fig.subplots_adjust(bottom=0.0, top=0.85)
-        change_fig_title(
-            'Click the "Reset" or "Confirm" botton to change or confirm '
-            'the selected row indices')
 
-        # Setup the preselected indices
+        # Setup the preselected rows
         for center_row in sorted(list(self.center_rows)):
             add_center_row(center_row)
-        # get_selected_indices(change_error_text)
+        get_selected_rows(change_error_text)
 
         # Setup the figure canvas
         canvas = FigureCanvasTkAgg(fig, master=self._content)
@@ -1688,7 +1678,7 @@ class TomoFindCenterGui(Processor):
             row=0, column=0, rowspan=5, columnspan=4, sticky='nsew')
 
         # Setup selector
-        label_text = tk.StringVar(value='Select center row')
+        label_text = tk.StringVar(value='Select row')
         label = tk.Label(self._content, textvariable=label_text)
         label.grid(row=5, column=0, sticky='e', padx=5, pady=5)
         entry = tk.Entry(self._content)
