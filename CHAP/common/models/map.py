@@ -369,8 +369,10 @@ class PointByPointScanData(CHAPBaseModel):
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal[
-        'spec_motor', 'spec_motor_absolute', 'scan_column', 'smb_par',
-        'expression', 'detector_log_timestamps']
+        'spec_motor', 'spec_motor_absolute', 'spec_motor_static',
+        'scan_column', 'smb_par', 'expression',
+        'detector_log_timestamps'
+    ]
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -487,7 +489,7 @@ class PointByPointScanData(CHAPBaseModel):
 
     def get_value(
             self, spec_scans, scan_number, scan_step_index=0,
-            scalar_data=None, relative=True, ndigits=None):
+            scalar_data=None, relative=True, static=False, ndigits=None):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -518,11 +520,14 @@ class PointByPointScanData(CHAPBaseModel):
         if 'spec_motor' in self.data_type:
             if ndigits is None:
                 ndigits = self.ndigits
-            if 'absolute' in self.data_type:
+            if self.data_type.endswith('absolute'):
+                relative = False
+            if self.data_type.endswith('static'):
+                static = True
                 relative = False
             return get_spec_motor_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name,
-                relative, ndigits)
+                relative, static, ndigits)
         if self.data_type == 'scan_column':
             return get_spec_counter_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name)
@@ -546,7 +551,7 @@ class PointByPointScanData(CHAPBaseModel):
 @cache
 def get_spec_motor_value(
         spec_file, scan_number, scan_step_index, spec_mnemonic,
-        relative=True, ndigits=None):
+        relative=True, static=False, ndigits=None):
     """Return the value recorded for a SPEC motor at a specific scan
     step.
 
@@ -563,6 +568,10 @@ def get_spec_motor_value(
     :param relative: Whether to return a relative value or not,
         defaults to `True`.
     :type relative: bool, optional
+    :param static: Wether to return just a static motor postion even
+        if the motor is scanned (in which case: return the first
+        position of the motor in the scan); defaults to `False`.
+    :type static: bool, optional
     :params ndigits: Round SPEC motor values to the specified
         number of decimals if set.
     :type ndigits: int, optional
@@ -578,19 +587,26 @@ def get_spec_motor_value(
                 scan_step_index,
                 scanparser.spec_scan_shape,
                 order='F')
-            motor_value = \
-                scanparser.get_spec_scan_motor_vals(
-                    relative)[motor_i][scan_step[motor_i]]
+            if static:
+                motor_value = scanparser.get_spec_scan_motor_vals(
+                    relative)[motor_i][0]
+            else:
+                motor_value = \
+                    scanparser.get_spec_scan_motor_vals(
+                        relative)[motor_i][scan_step[motor_i]]
         else:
             motor_value = scanparser.get_spec_scan_motor_vals(
                 relative)[motor_i]
-            if len(scanparser.spec_scan_shape) == 2:
-                if motor_i == 0:
-                    motor_value = np.concatenate(
-                        [motor_value] * scanparser.spec_scan_shape[1])
-                else:
-                    motor_value = np.repeat(
-                        motor_value, scanparser.spec_scan_shape[0])
+            if static:
+                motor_value = [motor_value[0]] * scanparser.spec_scan_npts
+            else:
+                if len(scanparser.spec_scan_shape) == 2:
+                    if motor_i == 0:
+                        motor_value = np.concatenate(
+                            [motor_value] * scanparser.spec_scan_shape[1])
+                    else:
+                        motor_value = np.repeat(
+                            motor_value, scanparser.spec_scan_shape[0])
     else:
         motor_value = scanparser.get_spec_positioner_value(spec_mnemonic)
     if ndigits is not None:
