@@ -1609,8 +1609,8 @@ class MapProcessor(Processor):
                             relative=False,
                             scalar_data=self.config.scalar_data)
                     else:
-                        raise RuntimeError(
-                            f'{dim.data_type} in data_type not tested')
+                        independent_dimensions[offset,i] = dim.get_value(
+                            scans, scan_number, scan_step_index=-1)
                 for i, dim in enumerate(self.config.all_scalar_data):
                     all_scalar_data[offset,i] = dim.get_value(
                         scans, scan_number, scan_step_index=-1,
