@@ -17,6 +17,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     conint,
+    conlist,
     field_validator,
 )
 
@@ -3032,6 +3033,38 @@ class NumpyStackProcessor(Processor):
                 arrays = (*arrays, self.get_data(name=name))
 
         return np.stack(arrays, **self.kwargs)
+
+
+class NumpySumProcessor(Processor):
+    """Processor for summing an array of elements over a given axis.
+
+    Uses (`numpy.sum`)[https://numpy.org/doc/stable/reference/generated/numpy.sum.html].
+
+    :ivar kwargs: Dictionary of keyword arguments to
+        (`numpy.sum`)[https://numpy.org/doc/stable/reference/generated/numpy.sum.html]; defaults to `{}`.
+    :type kwargs: dict, optional
+    """
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+
+        _data = None
+        for d in data[::-1]:
+            try:
+                _data = np.asarray(d['data'])
+                break
+            except:
+                continue
+        if _data is None:
+            err = 'No array-like input data found.'
+            self.logger.error(err)
+            raise TypeError(err)
+
+        _data = np.asarray(_data)
+        self.logger.debug(f'_data.shape = {_data.shape}')
+
+        return np.sum(_data, **self.kwargs)
 
 
 class NXdataToDataPointsProcessor(Processor):

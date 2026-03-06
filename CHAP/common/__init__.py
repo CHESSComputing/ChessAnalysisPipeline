@@ -21,6 +21,7 @@ from CHAP.common.processor import (
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
     NumpyStackProcessor,
+    NumpySumProcessor,
     PandasToXarrayProcessor,
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
