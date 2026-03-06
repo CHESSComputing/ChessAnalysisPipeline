@@ -2998,6 +2998,42 @@ class UpdateNXdataProcessor(Processor):
         return data_points_used
 
 
+class NumpyStackProcessor(Processor):
+    """Processor for joining a sequence of arrays along a new axis.
+
+    Uses (`numpy.stack`)[https://numpy.org/doc/stable/reference/generated/numpy.stack.html].
+
+    :ivar stack_order: List of names of input data arrays to determine
+        order of stacking. If not specified, data arrays are stacked
+        in the exact order input to the Processor. Defaults to `None`.
+    :type stack_order: list[str], optional
+    :ivar kwargs: Dictionary of keyword arguments to
+        (`numpy.stack`)[https://numpy.org/doc/stable/reference/generated/numpy.stack.html]; defaults to `{}`
+    :type kwargs: dict, optional.
+    """
+    stack_order: Optional[conlist(item_type=str, min_length=1)] = None
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+
+        arrays = ()
+        if self.stack_order is None:
+            for d in data:
+                try:
+                    arrays = (*arrays, np.asarray(d['data']))
+                except:
+                    self.logger.warning(
+                        f'Omitting input data {d["name"]} '
+                        + f'(type: {type(d["data"])}).'
+                    )
+        else:
+            for name in self.stack_order:
+                arrays = (*arrays, self.get_data(name=name))
+
+        return np.stack(arrays, **self.kwargs)
+
+
 class NXdataToDataPointsProcessor(Processor):
     """Transform a NeXus NXdata object into a list of dictionaries.
     Each dictionary represents a single data point in the coordinate

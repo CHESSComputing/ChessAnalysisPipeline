@@ -20,6 +20,7 @@ from CHAP.common.processor import (
     NexusToZarrProcessor,
     NormalizeNexusProcessor,
     NormalizeMapProcessor,
+    NumpyStackProcessor,
     PandasToXarrayProcessor,
     PrintProcessor,
     PyfaiAzimuthalIntegrationProcessor,
