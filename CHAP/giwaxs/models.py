@@ -375,7 +375,7 @@ class Integrate2d_GI_Config(CHAPBaseModel):
             ais = info.data['ais']
             if ais == 'PIL5':
                 sample_orientation = 4
-            elif ais == 'EIG5':
+            elif ais == 'EIG1':
                 sample_orientation = 2
             else:
                 sample_orientation = 1

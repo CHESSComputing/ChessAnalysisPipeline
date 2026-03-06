@@ -129,14 +129,13 @@ class GiwaxsConversionProcessor(Processor):
         independent_dims[ai_id] = [
             nxcopy(nxdata[a]) for a in axes]
         data[ai_id] = nxdata[ai_id]
-        try:
-            thetas = nxdata[nxdata.attrs['axes']]
-        except:
-            assert len(independent_dims[ai_id]) == 1
-            thetas = independent_dims[ai_id][0]
-        theta_unit = thetas.attrs.get('units')
-        if 'deg' in theta_unit:
-            thetas = np.radians(thetas)
+        if axes[0] == 'theta':
+            thetas = nxdata['theta']
+            theta_unit = thetas.attrs.get('units')
+            if 'deg' in theta_unit:
+                thetas = np.radians(thetas)
+        else:
+            thetas = None
 
         # Read the mask(s)
         # FIX read at validation, like the poni file
