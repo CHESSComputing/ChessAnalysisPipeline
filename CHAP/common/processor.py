@@ -3067,6 +3067,45 @@ class NumpySumProcessor(Processor):
         return np.sum(_data, **self.kwargs)
 
 
+class NumpyToNXfieldProcessor(Processor):
+    """Processor for converting a numpy array into an `NXfield`.
+
+    :ivar value: Name of input data array to use as the field's
+        values. If unspecified, use the last array-like data object in
+        the input data list. Defaults to `None`.
+    :type value: str, optional
+    :ivar kwargs: Dictionary of keyword arguments to
+        [`nexusformat.nexus.tree.NXfield`](https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield); defaults to `{}`
+    :type kwargs: dict, optional
+    """
+    value: Optional[str] = None
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+        from nexusformat.nexus import NXfield
+
+        _data = None
+        if self.value is None:
+            for d in data[::-1]:
+                try:
+                    _data = np.asarray(d['data'])
+                    self.logger.debug(f'Using {d["name"]}')
+                    break
+                except:
+                    continue
+            if _data is None:
+                err = 'No array-like input data found.'
+                self.logger.error(err)
+                raise TypeError(err)
+        else:
+            _data = self.get_data(data, name=self.value)
+
+        self.logger.debug(f'_data.shape = {_data.shape}')
+
+        return NXfield(value=_data, **self.kwargs)
+
+
 class NXdataToDataPointsProcessor(Processor):
     """Transform a NeXus NXdata object into a list of dictionaries.
     Each dictionary represents a single data point in the coordinate
