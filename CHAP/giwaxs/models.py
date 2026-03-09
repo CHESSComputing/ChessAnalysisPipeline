@@ -335,6 +335,10 @@ class Integrate2d_GI_Config(CHAPBaseModel):
         orientation values, defaults to `2`, or `4` for `ais` equal to
         `EIG1` or `PIL5`, and `1` otherwise.
     :type sample_orientation: int, optional
+    :ivar unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+    :type unit_ip: str, optional
+    :ivar unit_oop: The out-of-plane unit, defaults to `qoop_A^-1`.
+    :type unit_oop: str, optional
     """
     ais: constr(strip_whitespace=True, min_length=1)
     # correctSolidAngle: true
@@ -355,15 +359,50 @@ class Integrate2d_GI_Config(CHAPBaseModel):
     # safe: None
     sample_orientation: Optional[conint(ge=1, le=8)] = None
     unit_ip: Optional[
-        constr(strip_whitespace=True, min_length=1)] = 'q_A^-1'
+        constr(strip_whitespace=True, min_length=1)] = 'qip_A^-1'
     unit_oop: Optional[
-        constr(strip_whitespace=True, min_length=1)] = 'q_A^-1'
+        constr(strip_whitespace=True, min_length=1)] = 'qoop_A^-1'
     # variance: None
     attrs: Optional[dict] = {}
 
+    @field_validator('unit_ip', mode='after')
+    @classmethod
+    def validate_unit_ip(cls, unit_ip, info):
+        """Validate the sample orientation.
+
+        :param unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+        :type unit_ip: str, optional
+        :return: The validated unit.
+        :rtype: int
+        """
+        # Third party modules
+        from pyFAI import units
+
+        assert unit_ip in units.ANY_FIBER_UNITS
+        return unit_ip
+
+
+    @field_validator('unit_oop', mode='after')
+    @classmethod
+    def validate_unit_oop(cls, unit_oop, info):
+        """Validate the sample orientation.
+
+        :param unit_oop: The out-of-plane unit,
+            defaults to `qoop_A^-1`.
+        :type unit_oop: str, optional
+        :return: The validated unit.
+        :rtype: int
+        """
+        # Third party modules
+        from pyFAI import units
+
+        assert unit_oop in units.ANY_FIBER_UNITS
+        return unit_oop
+
+
     @field_validator('sample_orientation', mode='after')
     @classmethod
-    def validate_ais(cls, sample_orientation, info):
+    def validate_sample_orientation(cls, sample_orientation, info):
         """Validate the sample orientation.
 
         :param sample_orientation: The sample orientation.
@@ -480,9 +519,6 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 if isinstance(self.integration_params, Integrate2d_GI_Config):
                     if thetas is not None:
                         assert len(thetas) == npts
-                    # units are currently not working in pyFAI
-                    unit_ip = integration_params.pop('unit_ip', None)
-                    unit_oop = integration_params.pop('unit_oop', None)
                 integration_method = getattr(ai, self.integration_method)
                 if thetas is not None:
                     results = [

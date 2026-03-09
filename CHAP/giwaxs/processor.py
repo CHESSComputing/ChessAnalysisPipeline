@@ -15,6 +15,7 @@ import numpy as np
 from pydantic import (
     Field,
     PrivateAttr,
+    constr,
 )
 
 # Local modules
@@ -34,6 +35,9 @@ class GiwaxsConversionProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.giwaxs.models.GiwaxsConversionConfig
     :type config: dict, optional
+    :ivar nxpath: Path to a specific location in the NeXus file tree
+        to read the intensity data from.
+    :type nxpath: str, optional
     :ivar save_figures: Save .pngs of plots for checking inputs &
         outputs of this Processor, defaults to `False`.
     :type save_figures: bool, optional
@@ -42,6 +46,7 @@ class GiwaxsConversionProcessor(Processor):
         default = {
             'config': 'giwaxs.models.GiwaxsConversionConfig'}, init_var=True)
     config: GiwaxsConversionConfig
+    nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = None
     save_figures: Optional[bool] = True
 
     _animation: list = PrivateAttr(default=[])
@@ -113,7 +118,10 @@ class GiwaxsConversionProcessor(Processor):
                         'Inconsistent raw data dimension '
                         f'{nxdata[ai_id].ndim}') from exc
                 ais.append(ai)
-                data[ai_id] = nxdata[ai_id].nxdata
+                if self.nxpath is None:
+                    data[ai_id] = nxdata[ai_id].nxdata
+                else:
+                    data[ai_id] = nxroot[self.nxpath]
             else:
                 skipped_detectors.append(ai_id)
         if skipped_detectors:
@@ -177,27 +185,29 @@ class GiwaxsConversionProcessor(Processor):
             intensities = results['intensities']
             coords = [i for k, v in independent_dims.items()
                       for i in v if k in ais_pyfai]
-            q_inplane = results['inplane']['coords']
-            if integration.integration_params.unit_ip == 'q_A^-1':
-                assert results['inplane']['unit'] == 'qip_nm^-1'
-                q_inplane *= 0.1
+            q_outofplane = results['outofplane']['coords']
+            if results['outofplane']['unit'] == 'qoop_A^-1':
                 unit = Unit.INV_ANGSTROM.symbol
+            elif results['outofplane']['unit'] == 'qoop_nm^-1':
+                unit = 'nm^-1'
+            else:
+                unit = results['outofplane']['unit']
+            if intensities.ndim == 2:
+                intensities = np.expand_dims(intensities, axis=0)
+            coords.append(
+                NXfield(
+                    q_outofplane, 'q_outofplane',
+                    attrs={'units': unit}))
+            q_inplane = results['inplane']['coords']
+            if results['inplane']['unit'] == 'qip_A^-1':
+                unit = Unit.INV_ANGSTROM.symbol
+            elif results['inplane']['unit'] == 'qip_nm^-1':
+                unit = 'nm^-1'
             else:
                 unit = results['inplane']['unit']
             coords.append(
                 NXfield(
                     q_inplane, 'q_inplane',
-                    attrs={'units': unit}))
-            q_outofplane = results['outofplane']['coords']
-            if integration.integration_params.unit_oop == 'q_A^-1':
-                assert results['outofplane']['unit'] == 'qoop_nm^-1'
-                q_outofplane *= 0.1
-                unit = Unit.INV_ANGSTROM.symbol
-            else:
-                unit = results['outofplane']['unit']
-            coords.append(
-                NXfield(
-                    q_outofplane, 'q_outofplane',
                     attrs={'units': unit}))
             nxdata = NXdata(NXfield(intensities, ai_id), tuple(coords))
             if len(axes) > 1:
