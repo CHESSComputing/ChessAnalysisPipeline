@@ -306,9 +306,9 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 
         T = self._process(
             data,
-            ('(postsample_intensity / presample_intensity) '
+            ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
-             '(background_postsample_intensity / background_presample_intensity))')
+             'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
         # Extend T along last dim to have same shape as intensity
         for dim in intensity.shape[T.ndim:]:
@@ -404,9 +404,9 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
 
         T = self._process(
             data,
-            ('(postsample_intensity / presample_intensity) '
+            ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
-             '(background_postsample_intensity / background_presample_intensity))')
+             'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
         # Extend T along last dim to have same shape as intensity
         for dim in intensity.shape[T.ndim:]:
