@@ -192,7 +192,7 @@ class GiwaxsConversionProcessor(Processor):
                 unit = 'nm^-1'
             else:
                 unit = results['outofplane']['unit']
-            if intensities.ndim == 2:
+            if np.asarray(intensities).ndim == 2:
                 intensities = np.expand_dims(intensities, axis=0)
             coords.append(
                 NXfield(
