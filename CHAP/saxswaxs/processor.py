@@ -1171,7 +1171,13 @@ class UpdateValuesProcessor(Processor):
 
         if self.raw_data:
             return raw_values + processed_values
-        return processed_values
+
+        detector_ids = [d.get_id() for d in self.detectors]
+        scalar_values = [
+            d for d in raw_values
+            if not os.path.basename(d['path']) in detector_ids
+        ]
+        return scalar_values + processed_values
 
 
 if __name__ == '__main__':
