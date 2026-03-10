@@ -21,10 +21,10 @@ from pydantic import (
     model_validator,
 )
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
+from pyFAI.integrator.fiber import FiberIntegrator
 
 # Local modules
 from CHAP import CHAPBaseModel
-from CHAP.common.models.integration import AzimuthalIntegratorConfig
 from CHAP.common.models.map import Detector
 
 
@@ -33,7 +33,7 @@ def validate_azimuthal_integrators_before(cls, data, info):
     ais = data['azimuthal_integrators']
     inputdir = info.data['inputdir']
     for i, ai in enumerate(deepcopy(ais)):
-        if isinstance(ai, AzimuthalIntegratorConfig):
+        if isinstance(ai, (AzimuthalIntegratorConfig, FiberIntegratorConfig)):
             ai = ai.model_dump()
         if 'mask_file' in ai:
             mask_file = ai['mask_file']
@@ -47,9 +47,9 @@ def validate_azimuthal_integrators_before(cls, data, info):
     data['azimuthal_integrators'] = ais
     return data
 
-class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
-    """Azimuthal integrator configuration class to represent a single
-    detector used in the experiment.
+class IntegratorConfig(Detector, CHAPBaseModel):
+    """Integrator configuration class to represent a single detector
+    used in the experiment.
 
     :param mask_file: Path to the mask file.
     :type mask_file: FilePath, optional
@@ -64,11 +64,9 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     params: Optional[dict] = None
     poni_file: Optional[FilePath] = None
 
-    _ai: AzimuthalIntegrator = PrivateAttr()
-
     @model_validator(mode='before')
     @classmethod
-    def validate_azimuthalintegratorconfig_before(cls, data, info):
+    def validate_integratorconfig_before(cls, data, info):
         if isinstance(data, dict):
             params = data.get('params')
             poni_file = data.get('poni_file')
@@ -79,6 +77,18 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
                       'ignoring poni_file')
                 data['poni_file'] = None
         return data
+
+    @property
+    def ai(self):
+        """Return the integrator."""
+        return self._ai
+
+
+class AzimuthalIntegratorConfig(IntegratorConfig):
+    """Azimuthal integrator configuration class to represent a single
+    detector used in the experiment.
+    """
+    _ai: AzimuthalIntegrator = PrivateAttr()
 
     @model_validator(mode='after')
     def validate_azimuthalintegratorconfig_after(self):
@@ -106,61 +116,39 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
             }
         return self
 
-    @property
-    def ai(self):
-        """Return the azimuthal integrator."""
-        return self._ai
 
-
-class GiwaxsConversionConfig(CHAPBaseModel):
-    """Class representing metadata required to locate GIWAXS image
-    files for a single scan to convert to q_par/q_perp coordinates.
-
-    :ivar azimuthal_integrators: List of azimuthal integrator
-        configurations.
-    :type azimuthal_integrators: list[
-        CHAP.giwaxs.models.AzimuthalIntegratorConfig]
-    :ivar scan_step_indices: Optional scan step indices to convert.
-        If not specified, all images will be converted.
-    :type scan_step_indices: Union(int, list[int], str), optional
-    :ivar save_raw_data: Save the raw data in the NeXus output,
-        defaults to `False`.
-    :type save_raw_data: bool, optional
-    :ivar skip_animation: Skip the animation (subject to `save_figures`
-        being `True`), defaults to `False`.
-    :type skip_animation: bool, optional
-
+class FiberIntegratorConfig(IntegratorConfig):
+    """Fiber?grazing incidence integrator configuration class to
+    represent a single detector used in the experiment.
     """
-    azimuthal_integrators: conlist(
-        min_length=1, item_type=AzimuthalIntegratorConfig)
-    scan_step_indices: Optional[
-        conlist(min_length=1, item_type=conint(ge=0))] = None
-    save_raw_data: Optional[bool] = False
-    skip_animation: Optional[bool] = False
+    _ai: FiberIntegrator = PrivateAttr()
 
-    _validate_filename = validate_azimuthal_integrators_before
+    @model_validator(mode='after')
+    def validate_fiberintegratorconfig_after(self):
+        """Set the default fiber/grazing incidence integrator.
 
-    @field_validator('scan_step_indices', mode='before')
-    @classmethod
-    def validate_scan_step_indices(cls, scan_step_indices):
-        """Ensure that a valid configuration was provided and finalize
-        PONI filepaths.
-
-        :param data: Pydantic validator data object.
-        :type data: GiwaxsConversionConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
-        :rtype: dict
+        :return: Validated configuration class.
+        :rtype: FiberIntegratorConfig
         """
-        if isinstance(scan_step_indices, int):
-            scan_step_indices = [scan_step_indices]
-        if isinstance(scan_step_indices, str):
-            # Local modules
-            from CHAP.utils.general import string_to_list
+        if self.params is not None:
+            self._ai = FiberIntegrator(**self.params)
+        elif self.poni_file is not None:
+            # Third party modules
+            from pyFAI import load
 
-            scan_step_indices = string_to_list(scan_step_indices)
-
-        return scan_step_indices
+            ai = load(str(self.poni_file))
+            self.params = {
+                'detector': ai.detector.name,
+                'dist': ai.dist,
+                'poni1': ai.poni1,
+                'poni2': ai.poni2,
+                'rot1': ai.rot1,
+                'rot2': ai.rot2,
+                'rot3': ai.rot3,
+                'wavelength': ai.wavelength,
+            }
+            self._ai = FiberIntegrator(**self.params)
+        return self
 
 
 class MultiGeometryConfig(CHAPBaseModel):
@@ -330,6 +318,109 @@ class Integrate2dConfig(CHAPBaseModel):
     attrs: Optional[dict] = {}
 
 
+class Integrate2d_GI_Config(CHAPBaseModel):
+    """Class with the input parameters to performs 2D grazing incidence
+    integration with `pyFAI`.
+
+    :ivar method:  IntegrationMethod instance or 3-tuple with
+        (splitting, algorithm, implementation)
+    :type method: IntegrationMethod, optional
+    :ivar npt_ip: Number of points along the in-plane axis direction,
+        defaults to 1000.
+    :type npt_ip: int, optional
+    :ivar npt_oop: Number of points along the out-of-plane axis
+        direction, defaults to 1000.
+    :type npt_oop: int, optional
+    :ivar sample_orientation: orientation of according to EXIF
+        orientation values, defaults to `2`, or `4` for `ais` equal to
+        `EIG1` or `PIL5`, and `1` otherwise.
+    :type sample_orientation: int, optional
+    :ivar unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+    :type unit_ip: str, optional
+    :ivar unit_oop: The out-of-plane unit, defaults to `qoop_A^-1`.
+    :type unit_oop: str, optional
+    """
+    ais: constr(strip_whitespace=True, min_length=1)
+    # correctSolidAngle: true
+    # dark: None
+    # filename: None
+    # flat: None
+    # mask: None
+    # metadata: None
+    method: Optional[
+        conlist(
+            min_length=3, max_length=3,
+            item_type=constr(strip_whitespace=True, min_length=1))
+        ] = ['no', 'histogram', 'cython']
+    # normalization_factor: None
+    npt_ip: Optional[conint(gt=0)] = 1000
+    npt_oop: Optional[conint(gt=0)] = 1000
+    # polarization_factor: None
+    # safe: None
+    sample_orientation: Optional[conint(ge=1, le=8)] = None
+    unit_ip: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'qip_A^-1'
+    unit_oop: Optional[
+        constr(strip_whitespace=True, min_length=1)] = 'qoop_A^-1'
+    # variance: None
+    attrs: Optional[dict] = {}
+
+    @field_validator('unit_ip', mode='after')
+    @classmethod
+    def validate_unit_ip(cls, unit_ip, info):
+        """Validate the sample orientation.
+
+        :param unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+        :type unit_ip: str, optional
+        :return: The validated unit.
+        :rtype: int
+        """
+        # Third party modules
+        from pyFAI import units
+
+        assert unit_ip in units.ANY_FIBER_UNITS
+        return unit_ip
+
+
+    @field_validator('unit_oop', mode='after')
+    @classmethod
+    def validate_unit_oop(cls, unit_oop, info):
+        """Validate the sample orientation.
+
+        :param unit_oop: The out-of-plane unit,
+            defaults to `qoop_A^-1`.
+        :type unit_oop: str, optional
+        :return: The validated unit.
+        :rtype: int
+        """
+        # Third party modules
+        from pyFAI import units
+
+        assert unit_oop in units.ANY_FIBER_UNITS
+        return unit_oop
+
+
+    @field_validator('sample_orientation', mode='after')
+    @classmethod
+    def validate_sample_orientation(cls, sample_orientation, info):
+        """Validate the sample orientation.
+
+        :param sample_orientation: The sample orientation.
+        :type sample_orientation: int
+        :return: The validated sample orientation.
+        :rtype: int
+        """
+        if sample_orientation is None:
+            ais = info.data['ais']
+            if ais == 'PIL5':
+                sample_orientation = 4
+            elif ais == 'EIG1':
+                sample_orientation = 2
+            else:
+                sample_orientation = 1
+        return sample_orientation
+
+
 class PyfaiIntegratorConfig(CHAPBaseModel):
     """Class representing the configuration for detector data
     integrater for `pyFAI`.
@@ -341,10 +432,11 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     """
     name: constr(strip_whitespace=True, min_length=1)
     integration_method: Literal[
-        'integrate1d', 'integrate2d', 'integrate_radial']
+        'integrate1d', 'integrate2d', 'integrate_radial',
+        'integrate2d_grazing_incidence']
     multi_geometry: Optional[MultiGeometryConfig] = None
-    integration_params: Optional[
-        Union[Integrate1dConfig, Integrate2dConfig]] = None
+    integration_params: Optional[Union[
+        Integrate1dConfig, Integrate2dConfig, Integrate2d_GI_Config]] = None
     right_handed: bool = True
 
     @model_validator(mode='before')
@@ -358,14 +450,20 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         :return: The currently validated list of class properties.
         :rtype: dict
         """
-        if 'multi_geometry' in data:
-            return data
-        mg = MultiGeometryConfig(**data['integration_params'])
-        if len(mg.ais) != 1:
-            raise ValueError('Invalid parameter integration_params["ais"] ',
-                             f'({mg.ais}, multiple detectors not allowed')
-        data['integration_params']['attrs'] = mg.model_dump(
-            include={'azimuth_range', 'radial_range',  'unit'})
+        integration_method = data['integration_method']
+        if integration_method == 'integrate2d_grazing_incidence':
+            if 'multi_geometry' in data:
+                raise ValueError('Invalid parameter multi_geometry ',
+                                 f'(invalid for {integration_method})')
+        else:
+            if 'multi_geometry' in data:
+                return data
+            mg = MultiGeometryConfig(**data['integration_params'])
+            if len(mg.ais) != 1:
+                raise ValueError('Invalid parameter integration_params["ais"]',
+                                 f' ({mg.ais}, multiple detectors not allowed')
+            data['integration_params']['attrs'] = mg.model_dump(
+                include={'azimuth_range', 'radial_range',  'unit'})
         return data
 
     @model_validator(mode='after')
@@ -391,12 +489,18 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             else:
                 self.integration_params = Integrate2dConfig(
                     **self.integration_params.model_dump())
+        elif self.integration_method == 'integrate2d_grazing_incidence':
+            if self.integration_params is None:
+                self.integration_params = Integrate2d_GI_Config()
+            else:
+                self.integration_params = Integrate2d_GI_Config(
+                    **self.integration_params.model_dump())
         else:
             raise ValueError('Invalid parameter integration_params '
                              f'({self.integration_params})')
         return self
 
-    def integrate(self, ais, data, masks=None):
+    def integrate(self, ais, data, masks=None, thetas=None):
         if self.integration_method == 'integrate_radial':
             raise NotImplementedError
         else:
@@ -408,21 +512,32 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
             if self.multi_geometry is None:
                 ai_id = list(ais.keys())[0]
                 ai = list(ais.values())[0]
-                integration_method = getattr(ai, self.integration_method)
                 integration_params = self.integration_params.model_dump()
                 integration_params = {
                     **integration_params, **integration_params['attrs']}
                 del integration_params['attrs']
-                results = [
-                    integration_method(
-                        data[ai_id][i], mask=masks[ai_id],
-                        **integration_params)
-                    for i in range(npts)
-                ]
-#                import matplotlib.pyplot as plt
-#                plt.figure()
-#                plt.plot(results[0].radial, results[0].intensity, label="XPD 2")
-#                plt.show()
+                if isinstance(self.integration_params, Integrate2d_GI_Config):
+                    if thetas is not None:
+                        assert len(thetas) == npts
+                integration_method = getattr(ai, self.integration_method)
+                if thetas is not None:
+                    results = [
+                        integration_method(
+                            data[ai_id][i],
+                            #mask=masks[ai_id],
+                            incident_angle=theta,
+                            tilt_angle=0,
+                            **integration_params)
+                        for i, theta in enumerate(thetas)
+                    ]
+                else:
+                    results = [
+                        integration_method(
+                            data[ai_id][i],
+                            #mask=masks[ai_id],
+                            **integration_params)
+                        for i in range(npts)
+                    ]
             else:
                 # Third party modules
                 from pyFAI.multi_geometry import MultiGeometry
@@ -457,6 +572,15 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 results = {
                     'intensities': intensities,
                     'radial': {'coords': results[0].radial, 'unit': unit}}
+            elif isinstance(self.integration_params, Integrate2d_GI_Config):
+                results = {
+                    'intensities': intensities,
+                    'inplane': {
+                        'coords': results[0].inplane,
+                        'unit': results[0].ip_unit.name},
+                    'outofplane': {
+                        'coords': results[0].outofplane,
+                        'unit': results[0].oop_unit.name}}
             else:
                 results = {
                     'intensities': intensities,
@@ -466,8 +590,59 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                     'azimuthal': {
                         'coords': results[0].azimuthal,
                         'unit': results[0].azimuthal_unit.name}}
-
         return results
+
+
+class GiwaxsConversionConfig(CHAPBaseModel):
+    """Class representing metadata required to locate GIWAXS image
+    files for a single scan to convert to q_par/q_perp coordinates.
+
+    :ivar azimuthal_integrators: List of azimuthal integrator
+        configurations.
+    :type azimuthal_integrators: list[
+        CHAP.giwaxs.models.FiberIntegratorConfig]
+    :ivar scan_step_indices: Optional scan step indices to convert.
+        If not specified, all images will be converted.
+    :type scan_step_indices: Union(int, list[int], str), optional
+    :ivar save_raw_data: Save the raw data in the NeXus output,
+        defaults to `False`.
+    :type save_raw_data: bool, optional
+    :ivar skip_animation: Skip the animation (subject to `save_figures`
+        being `True`), defaults to `False`.
+    :type skip_animation: bool, optional
+
+    """
+    azimuthal_integrators: conlist(
+        min_length=1, item_type=FiberIntegratorConfig)
+    integrations: conlist(min_length=1, item_type=PyfaiIntegratorConfig)
+    scan_step_indices: Optional[
+        conlist(min_length=1, item_type=conint(ge=0))] = None
+    save_raw_data: Optional[bool] = False
+    skip_animation: Optional[bool] = False
+
+    _validate_filename = validate_azimuthal_integrators_before
+
+    @field_validator('scan_step_indices', mode='before')
+    @classmethod
+    def validate_scan_step_indices(cls, scan_step_indices):
+        """Ensure that a valid configuration was provided and finalize
+        PONI filepaths.
+
+        :param data: Pydantic validator data object.
+        :type data: GiwaxsConversionConfig,
+            pydantic_core._pydantic_core.ValidationInfo
+        :return: The currently validated list of class properties.
+        :rtype: dict
+        """
+        if isinstance(scan_step_indices, int):
+            scan_step_indices = [scan_step_indices]
+        if isinstance(scan_step_indices, str):
+            # Local modules
+            from CHAP.utils.general import string_to_list
+
+            scan_step_indices = string_to_list(scan_step_indices)
+
+        return scan_step_indices
 
 
 class PyfaiIntegrationConfig(CHAPBaseModel):

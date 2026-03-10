@@ -306,9 +306,9 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 
         T = self._process(
             data,
-            ('(postsample_intensity / presample_intensity) '
+            ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
-             '(background_postsample_intensity / background_presample_intensity))')
+             'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
         # Extend T along last dim to have same shape as intensity
         for dim in intensity.shape[T.ndim:]:
@@ -404,9 +404,9 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
 
         T = self._process(
             data,
-            ('(postsample_intensity / presample_intensity) '
+            ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
-             '(background_postsample_intensity / background_presample_intensity))')
+             'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
         # Extend T along last dim to have same shape as intensity
         for dim in intensity.shape[T.ndim:]:
@@ -1171,7 +1171,13 @@ class UpdateValuesProcessor(Processor):
 
         if self.raw_data:
             return raw_values + processed_values
-        return processed_values
+
+        detector_ids = [d.get_id() for d in self.detectors]
+        scalar_values = [
+            d for d in raw_values
+            if not os.path.basename(d['path']) in detector_ids
+        ]
+        return scalar_values + processed_values
 
 
 if __name__ == '__main__':
