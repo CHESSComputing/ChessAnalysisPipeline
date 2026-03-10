@@ -532,7 +532,11 @@ class PointByPointScanData(CHAPBaseModel):
             return get_spec_counter_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name)
         if self.data_type == 'scan_start_time':
-            return get_scan_start_time(spec_scans.spec_file, scan_number)
+            start_time = get_scan_start_time(spec_scans.spec_file, scan_number)
+            if scan_step_index < 0:
+                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+                return np.array([start_time] * scanparser.spec_scan_npts)
+            return start_time
         if self.data_type == 'smb_par':
             return get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
