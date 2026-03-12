@@ -24,6 +24,18 @@ def parser():
         configured pipeline names against the string provided with the
         -p / --pipeline option.'''
     )
+    pparser.add_argument(
+        '--batch', action='store_true',
+        help='''Enables "batch mode" where every sub-pipeline is run
+        in a separate process, all at once. Log files for each
+        pipeline process will be created in the directory specified
+        with the `--logdir` option.'''
+    )
+    pparser.add_argument(
+        '--batch-logdir', default='./CHAP_logs', dest='logdir',
+        help='''Destination directory for individual pipeline log
+        files when running multiple pipelines in batch mode.'''
+    )
     return pparser
 
 def main():
@@ -76,22 +88,32 @@ def main():
     # Get the pipeline configurations
     sub_pipelines = args.pipeline
     pipeline_config = []
+    batch_pipelines = []
     if sub_pipelines is None:
-        for sub_pipeline in config.values():
+        for name, sub_pipeline in config.items():
             pipeline_config += sub_pipeline
+            batch_pipelines.append((name, sub_pipeline))
     else:
         for sub_pipeline in sub_pipelines:
             if sub_pipeline in config:
                 pipeline_config += config.get(sub_pipeline)
+                batch_pipelines.append(
+                    (sub_pipeline, config.get(sub_pipeline))
+                )
             elif args.regex_function:
                 match_func = getattr(re, args.regex_function)
                 pipeline_matches = [
-                    pipeline_item
-                    for p in config if match_func(sub_pipeline, p)
-                    for pipeline_item in config.get(p)
+                    p for p in config if match_func(sub_pipeline, p)
                 ]
                 if pipeline_matches:
-                    pipeline_config += pipeline_matches
+                    pipeline_config += [
+                        item
+                        for p in pipeline_matches
+                        for item in config.get(p)
+                    ]
+                    batch_pipelines += [
+                        (p, config.get(p)) for p in pipeline_matches
+                    ]
                 else:
                     raise ValueError(
                         f'No pipelines matching "{sub_pipeline}" found in the '
@@ -105,6 +127,10 @@ def main():
 
     # Run the pipeline with or without profiling
     if run_config.profile:
+        if args.batch:
+            raise NotImplementedError(
+                'Cannot use --batch mode when profile is True.'
+            )
         # System modules
         from cProfile import runctx  # python profiler
         from pstats import Stats     # profiler statistics
@@ -115,7 +141,34 @@ def main():
         info.sort_stats('cumulative')
         info.print_stats()
     else:
-        runner(run_config, pipeline_config, common_comm)
+        if args.batch:
+            import multiprocessing as mp
+            import os
+            from time import time
+
+            t0 = time()
+
+            print(f'Running {len(batch_pipelines)} pipelines in batch mode...')
+
+            os.makedirs(args.logdir, exist_ok=True)
+
+            procs = []
+            for name, _pipeline in batch_pipelines:
+                log_file = os.path.abspath(
+                    os.path.join(args.logdir, f'{name}.log')
+                )
+                p = mp.Process(
+                    target=batch_runner,
+                    args=(run_config, _pipeline, log_file)
+                )
+                p.start()
+                procs.append(p)
+
+            for p in procs:
+                p.join()
+            print(f'Done in {time()-t0:.3f} seconds.')
+        else:
+            runner(run_config, pipeline_config, common_comm)
 
     # Disconnect the spawned worker
     if have_mpi and run_config.spawn:
@@ -297,6 +350,31 @@ def run(
     if result:
         return result[0]['data']
     return result
+
+
+def batch_runner(run_config, pipeline_config, log_file):
+    """Function for runinng a pipeline in batch mode with logging to
+    file. Essentially a wrapper for the `CHAP.runner.runner` function.
+
+    :param run_config: CHAP run configuration.
+    :type run_config: CHAP.runner.RunConfig
+    :param pipeline_config: CHAP Pipeline configuration.
+    :type pipeline_config: dict
+    :param log file: Name of file for logging.
+    :type log_file: str
+    :rtype: None
+    """
+    import sys
+    import traceback
+
+    print(f'Logging to {log_file}')
+    with open(log_file, "w") as f:
+        sys.stdout = f
+        sys.stderr = f
+        try:
+            runner(run_config, pipeline_config, None)
+        except Exception:
+            traceback.print_exc()
 
 
 if __name__ == '__main__':
