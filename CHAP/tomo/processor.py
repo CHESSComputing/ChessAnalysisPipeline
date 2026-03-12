@@ -1446,14 +1446,17 @@ class TomoFindCenterGui(Processor):
     img_column_bounds: conlist(
         min_length=2, max_length=2, item_type=conint(ge=0))
     center_stack_index: conint(ge=0)
-    center_rows: conlist(item_type=conint(ge=0))
-    offset_centers: conlist(item_type=conint(ge=0))
+    center_rows: Optional[conlist(item_type=conint(ge=0))] = []
+    num_center_rows: Optional[conint(gt=0)] = 2
 
     _content: tk.Frame = PrivateAttr(default=None)
-    _plane_index: int = PrivateAttr(default=0)
     _center_offsets: list = PrivateAttr(default=[])
     _selected_rows: list = PrivateAttr(default=[])
     _selected_offset: tk.StringVar = PrivateAttr(default=None)
+    _recon_planes: list = PrivateAttr(default=[])
+
+    _fig_title: list = PrivateAttr(default=[])
+    _error_text: list = PrivateAttr(default=[])
 
     _exclude = {'tk_root'}
 
@@ -1463,7 +1466,10 @@ class TomoFindCenterGui(Processor):
     def center_offsets(self):
         return self._center_offsets
 
-#    def gui(self):#, tk_root=None, **kwargs):
+    @property
+    def recon_planes(self):
+        return self._recon_planes
+
     def __init__(self, tk_root=None, config=None):
         super().__init__(tk_root=tk_root, **config)
 
@@ -1474,12 +1480,45 @@ class TomoFindCenterGui(Processor):
 
         # Build initial content frame
         self._build_gui(
-            self._find_center_rows, self._on_confirm_find_center_rows)
+            self._find_center_rows, self._on_confirm_find_center_rows,
+            num_row=8, num_column=5)
 
         # Start the GUI event loop
         self.tk_root.mainloop()
 
-    def _build_gui(self, task, confirm_callback, num_row=6, num_column=5):
+    def _change_fig_title(self, title, plt, title_pos=None):
+        if title_pos is None:
+            title_pos = (0.5, 0.9)
+        title_props = {'fontsize': 'xx-large',
+                       'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        if self._fig_title:
+            self._fig_title[0].remove()
+            self._fig_title.pop()
+        self._fig_title.append(plt.figtext(*title_pos, title, **title_props))
+
+    def _change_error_text(self, error, plt, error_pos=None):
+        if error_pos is None:
+            error_pos = (0.5, 0.82)
+        error_props = {'fontsize': 'x-large',
+                       'horizontalalignment': 'center',
+                       'verticalalignment': 'bottom'}
+        if self._error_text:
+            self._error_text[0].remove()
+            self._error_text.pop()
+        self._error_text.append(plt.figtext(*error_pos, error, **error_props))
+
+    def _build_gui(self, task, confirm_callback, num_row=1, num_column=1):
+        # Third party modules
+        import matplotlib.pyplot as plt
+
+        # Clear out the old figure title and error text
+        if self._fig_title:
+            self._fig_title[0].remove()
+            self._fig_title.pop()
+        if self._error_text:
+            self._error_text[0].remove()
+            self._error_text.pop()
 
         # Clear out the old content frame
         if self._content:
@@ -1498,51 +1537,42 @@ class TomoFindCenterGui(Processor):
         # Setup the "Confirm" button
         confirm_text = tk.StringVar(value='Confirm')
         confirm_button = tk.Button(
-            self._content, textvariable=confirm_text,
-            command=lambda: confirm_callback())
-        confirm_button.grid(row=num_row-1, column=num_column-1, padx=5, pady=5)
+            self._content, textvariable=confirm_text, height=3,
+            command=lambda: confirm_callback(plt))
+        confirm_button.grid(row=num_row-3, column=num_column-1,
+                rowspan=3, padx=5, pady=5)
 
         # Run the task
-        task(confirm_text)
+        task(confirm_text, plt)
 
-    def _on_confirm_find_center_rows(self):
+    def _on_confirm_find_center_rows(self, plt):
         """Callback function for the "Confirm" button during
         `_find_center_rows`.
         """
-        # Third party modules
-        import matplotlib.pyplot as plt
-
-        if len(self._selected_rows) < len(self.center_rows):
-#            change_error_text(f'Select at {len(self.center_rows)} unique rows')
-            canvas.draw()
-        else:
+        if len(self._selected_rows) >= self.num_center_rows:
             plt.close()
             self.center_rows = tuple(sorted(self._selected_rows))
             self._build_gui(
                 self._find_center_offset_one_plane,
-                self._on_confirm_find_center_offset_one_plane)
+                self._on_confirm_find_center_offset_one_plane,
+                num_row=21, num_column=7)
 
-    def _on_confirm_find_center_offset_one_plane(self):
+    def _on_confirm_find_center_offset_one_plane(self, plt):
         """Callback function for the "Confirm" button during
         `_find_center_offset_one_plane`.
         """
-        # Third party modules
-        import matplotlib.pyplot as plt
-
         plt.close()
-        self._plane_index += 1  #RV use len(self._center_offsets)
         self._center_offsets.append(float(self._selected_offset.get()))
-        if self._plane_index < len(self.center_rows):
-            canvas.draw()
+        if len(self._center_offsets) < self.num_center_rows:
             self._build_gui(
                 self._find_center_offset_one_plane,
-                self._on_confirm_find_center_offset_one_plane)
+                self._on_confirm_find_center_offset_one_plane,
+                num_row=21, num_column=7)
         else:
             self.tk_root.destroy()  # Close the tkinter root window
 
-    def _find_center_rows(self, confirm_text):
+    def _find_center_rows(self, confirm_text, plt):
         # Third party modules
-        import matplotlib.pyplot as plt
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
         def add_center_row(center_row):
@@ -1552,97 +1582,81 @@ class TomoFindCenterGui(Processor):
             for ax in axs:
                 lines.append(ax.axhline(self._selected_rows[-1], c='r', lw=2))
 
-        def change_fig_title(title):
-            if fig_title:
-                fig_title[0].remove()
-                fig_title.pop()
-            fig_title.append(plt.figtext(*title_pos, title, **title_props))
-
-        def change_error_text(error):
-            if error_texts:
-                error_texts[0].remove()
-                error_texts.pop()
-            error_texts.append(plt.figtext(*error_pos, error, **error_props))
-
-        def get_selected_rows(change_fnc=None):
+        def get_selected_rows(plt, change_fnc):
             selected_rows = tuple(sorted(self._selected_rows))
-            if change_fnc is not None:
-                num_rows = len(selected_rows)
-                num_rows_required = len(self.center_rows)
-                if num_rows == num_rows_required:
-                    text = f'Selected rows: {selected_rows}'
-                    change_fig_title(
-                        'Click the "Reset" or "Confirm" botton to change or '
-                        'confirm the selected rows')
-                elif selected_rows:
-                    text = f'Selected row(s): {selected_rows}' + \
-                           f', select {num_rows_required-num_rows} more'
-                else:
-                    text = 'Enter the first row index in "Select row"'
-                change_fnc(text)
+            if len(selected_rows) == self.num_center_rows:
+                self._change_fig_title(
+                    'Click "Reset"/"Confirm" to change/confirm the selected '
+                    'rows', plt)
+                text = f'Selected rows: {selected_rows}'
+            elif selected_rows:
+                text = f'Selected row(s): {selected_rows}, select ' + \
+                       f'{self.num_center_rows-len(selected_rows)} more'
+            else:
+                text = 'Enter the first row index in "Select row"'
+            change_fnc(text, plt)
             return selected_rows
 
         def on_select_center_row(*args):
             """Callback function for the "Select center row" TextBox."""
-            if error_texts:
-                error_texts[0].remove()
-                error_texts.pop()
+            if self._error_text:
+                self._error_text[0].remove()
+                self._error_text.pop()
             input_str = entry.get()
+            err = f'Invalid center_row ({input_str}), enter an integer ' + \
+                f'between {self.img_row_bounds[0]} and ' + \
+                f'{self.img_row_bounds[1]-1}'
             try:
                 center_row = int(input_str)
                 if (center_row < self.img_row_bounds[0]
                         or center_row >= self.img_row_bounds[1]):
                     raise ValueError
+                if len(self._selected_rows) >= self.num_center_rows:
+                    err = f'Exceeding the number of required rows ' + \
+                        f'({self.num_center_rows}), click "Reset"/' + \
+                        '"Confirm" to change/confirm the selected rows'
+                    raise ValueError
             except ValueError:
-                change_error_text(
-                    f'Invalid center_row ({input_str}), enter an integer '
-                    f'between {self.img_row_bounds[0]} and '
-                    f'{self.img_row_bounds[1]-1}')
+                self._change_error_text(err, plt)
             else:
                 try:
                     add_center_row(center_row)
-                    get_selected_rows(change_error_text)
+                    get_selected_rows(plt, self._change_error_text)
                 except ValueError as exc:
-                    change_error_text(exc)
+                    self._change_error_text(exc, plt)
             entry.delete(0, 'end')
             canvas.draw()
 
         def on_reset():
             """Callback function for the "Reset" button."""
-            if error_texts:
-                error_texts[0].remove()
-                error_texts.pop()
+            if self._error_text:
+                self._error_text[0].remove()
+                self._error_text.pop()
             for line in reversed(lines):
                 line.remove()
             self._selected_rows.clear()
             lines.clear()
-            change_fig_title(
-                f'Select {len(self.center_rows)} detector image rows to find '
+            self._change_fig_title(
+                f'Select {self.num_center_rows} detector image rows to find '
                 f'center axis (in range ([{self.img_row_bounds[0]}, '
-                f'{self.img_row_bounds[1]-1}])')
-            get_selected_rows(change_error_text)
+                f'{self.img_row_bounds[1]-1}])', plt)
+            get_selected_rows(plt, self._change_error_text)
             canvas.draw()
+
+        lines = []
 
         data = self.tomo_stacks[self.center_stack_index,0,:,:]
         data_shape = data.shape
-        tbf_shape = self.tbf.shape
-        title_pos = (0.5, 0.95)
-        title_props = {'fontsize': 'xx-large',
-                       'horizontalalignment': 'center',
-                       'verticalalignment': 'bottom'}
-        error_pos = (0.5, 0.90)
-        error_props = {'fontsize': 'x-large',
-                       'horizontalalignment': 'center',
-                       'verticalalignment': 'bottom'}
-        fig_title = []
-        error_texts = []
-        lines = []
+        assert self.tbf.shape == data_shape
 
         # Create the figure
-        if data_shape[0] + tbf_shape[0] > max(data_shape[1], tbf_shape[1]):
-            fig, axs = plt.subplots(1, 2, figsize=(11, 8.5))
+        ratio = data_shape[0] / data_shape[1]
+        if ratio > 1:
+            fig, axs = plt.subplots(
+                1, 2, figsize=(ratio*8.5+2, 8.5))
         else:
-            fig, axs = plt.subplots(2, 1, figsize=(11, 8.5))
+            fig, axs = plt.subplots(
+                2, 1, figsize=(11, ratio*11+4))
         extent = (
             0, data_shape[1],
             self.img_row_bounds[0] + data_shape[0], self.img_row_bounds[0])
@@ -1652,7 +1666,7 @@ class TomoFindCenterGui(Processor):
             fontsize='xx-large')
         axs[1].imshow(self.tbf, extent=extent)
         axs[1].set_title('Bright field', fontsize='xx-large')
-        if data_shape[0]+tbf_shape[0] > max(data_shape[1], tbf_shape[1]):
+        if ratio > 1:
             axs[0].set_xlabel('column_label', fontsize='x-large')
             axs[0].set_ylabel('row_label', fontsize='x-large')
             axs[1].set_xlabel('column_label', fontsize='x-large')
@@ -1663,12 +1677,16 @@ class TomoFindCenterGui(Processor):
         for ax in axs:
             ax.set_xlim(extent[0], extent[1])
             ax.set_ylim(extent[2], extent[3])
-        fig.subplots_adjust(bottom=0.0, top=0.85)
+        fig.subplots_adjust(bottom=0.0, top=0.8)
 
         # Setup the preselected rows
         for center_row in sorted(list(self.center_rows)):
             add_center_row(center_row)
-        get_selected_rows(change_error_text)
+        self._change_fig_title(
+            f'Select {self.num_center_rows} detector image rows to find '
+            f'center axis (in range ([{self.img_row_bounds[0]}, '
+            f'{self.img_row_bounds[1]-1}])', plt)
+        get_selected_rows(plt, self._change_error_text)
 
         # Setup the figure canvas
         canvas = FigureCanvasTkAgg(fig, master=self._content)
@@ -1680,260 +1698,170 @@ class TomoFindCenterGui(Processor):
         # Setup selector
         label_text = tk.StringVar(value='Select row')
         label = tk.Label(self._content, textvariable=label_text)
-        label.grid(row=5, column=0, sticky='e', padx=5, pady=5)
+        label.grid(row=6, column=0, sticky='e', padx=5, pady=5)
         entry = tk.Entry(self._content)
-        entry.grid(row=5, column=1, sticky='w', padx=5, pady=5)
+        entry.grid(row=6, column=1, sticky='w', padx=5, pady=5)
         entry.bind('<Return>', on_select_center_row)
 
         # Setup the "Reset" button
         reset_button = tk.Button(
             self._content, text='Reset', command=on_reset)
-        reset_button.grid(row=0, column=4, padx=5, pady=5)
+        reset_button.grid(row=0, column=4, padx=5)
 
-    def _find_center_offset_one_plane(self, confirm_text):
+    def _find_center_offset_one_plane(self, confirm_text, plt):
+        # System modules
+        from copy import deepcopy
+
         # Third party modules
         from tomopy import find_center_vo
-        import matplotlib.pyplot as plt
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         from matplotlib.widgets import RectangleSelector
 
+        def draw_images(current_images):
+            imslices = np.asarray(current_images)[
+                    :,slice(*self._range_y),slice(*self._range_x)]
+            vmin = imslices.min()
+            vmax = imslices.max()
+            for i in range(num_plot+num_plot_extra):
+                axs[i].set_xlim(*self._zoom_window[0])
+                axs[i].set_ylim(*self._zoom_window[1])
+                ims[i].set_clim(vmin, vmax)
+            cbar[0].remove()
+            cbar.pop(0)
+            fig.subplots_adjust(bottom=0.0, top=0.88)
+            cbar.append(fig.colorbar(
+                ims[0], ax=axs, pad=0.03, shrink=0.5, location='bottom'))
+            canvas.draw()
+
         def on_rect_select(eclick, erelease):
             """Callback function for the RectangleSelector widget."""
-            range_x = [
+            self._range_x = (
                 max(0, int(eclick.xdata+1)),
-                min(recon_plane_shape[1], int(erelease.xdata)+1)]
-            range_y = [
+                min(image_shape[1], int(erelease.xdata)+1))
+            self._range_y = (
                 max(0, int(eclick.ydata+1)),
-                min(recon_plane_shape[0], int(erelease.ydata)+1)]
-            x1 = range_x[0]-0.5
-            x2 = range_x[1]-0.5
-            y1 = range_y[0]-0.5
-            y2 = range_y[1]-0.5
-            zoom_window = ((x1, x2), (y2, y1))
-            axs[0].set_xlim(*zoom_window[0])
-            axs[0].set_ylim(*zoom_window[1])
-            if len(rects) == 1:
-                imslice = images[0][
-                    range_y[0]:range_y[1],range_x[0]:range_x[1]]
-                ims[0].set_clim(imslice.min(), imslice.max())
-            else:
-                axs[1].set_xlim(*zoom_window[0])
-                axs[1].set_ylim(*zoom_window[1])
-                imslice1 = images[0][
-                    range_y[0]:range_y[1],range_x[0]:range_x[1]]
-                imslice2 = images[1][
-                    range_y[0]:range_y[1],range_x[0]:range_x[1]]
-                vmin = min(imslice1.min(), imslice2.min())
-                vmax = min(imslice1.max(), imslice2.max())
-                ims[0].set_clim(vmin, vmax)
-                ims[1].set_clim(vmin, vmax)
-            canvas.draw()
+                min(image_shape[0], int(erelease.ydata)+1))
+            self._zoom_window = ((self._range_x[0]-0.5, self._range_x[1]-0.5),
+                                 (self._range_y[1]-0.5, self._range_y[0]-0.5))
+            draw_images(images)
 
         def on_reset():
             """Callback function for the "Reset" button."""
-            #if error_texts:
-            #    error_texts[0].remove()
-            #    error_texts.pop()
-            #change_fig_title(
-            #    'Select two detector image row indices to find center axis '
-            #    f'(in range [{img_row_bounds[0]}, {img_row_bounds[1]-1}])')
-            if len(rects) == 2:
-                rects.pop(1)
-                rlabel.destroy()
-                del rlabel
-                rentry.destroy()
-                del rentry
-                offset_choices.pop(1)
-                zoom_buttons[1].destroy()
-                zoom_buttons.pop(1)
-            llabel_text.set('Select offset')
-            ims[1].remove()
-            ims.pop(1)
-            axs[1].remove()
-            axs.pop(1)
-            images[0] = recon_plane_vo
-            images[1] = sinogram
-            ims[0] = axs[0].imshow(images[0])
-            ax2 = fig.add_subplot(1, 2, 2)
-            axs.append(ax2)
-            im2 = axs[1].imshow(images[1])
-            ims.append(im2)
-            axs[0].set_title('Vo')
-            axs[1].set_title('sinogram')
-            cbar[0].remove()
-            cbar.pop(0)
-            fig.subplots_adjust(bottom=0.0, top=0.85)
-            cbar.append(fig.colorbar(
-                ims[0], ax=axs[0], location='bottom'))
-            offset_choices[0] = center_offset_vo_text
-            self._selected_offset.set(offset_choices[0])
-            zoom_buttons[0].configure(
-                text=center_offset_vo_text, value=center_offset_vo_text)
+            for i in range(num_plot+num_plot_extra):
+                offset_choices[i] = deepcopy(offset_choices_original[i])
+                images[i] = deepcopy(images_original[i])
+                ims[i] = axs[i].imshow(images[i])
+                if num_plot_extra and i == num_plot:
+                    axs[i].set_title(
+                        f'previous row: {previous_center_row}, '
+                        f'offset: {offset_choices[i]}')
+                else:
+                    axs[i].set_title(f'offset: {offset_choices[i]}')
+                    rb[i].configure(
+                        text=f'{float(offset_choices[i]):.1f}',
+                        value=offset_choices[i])
             on_zoom_out()
-            canvas.draw()
 
-        def on_select_index(*args):
-            """Callback function for the "Select offset" TextBox(es)."""
-            lstr = lentry.get()
-#            if error_texts:
-#                error_texts[0].remove()
-#                error_texts.pop()
+        def on_select(event):
+            """Callback function for the "Select offset" TextBoxes."""
             try:
-                lstr = f'{float(lstr):.1f}'
-                lvalue = float(lstr)
-                if not -center_offset_range < lvalue < center_offset_range:
+                index = entries.index(event.widget)
+                value = float(f'{float(event.widget.get()):.1f}')
+                if not -center_offset_range < value < center_offset_range:
                     raise ValueError
             except ValueError:
-                lvalue = None
-            if len(rects) == 2:
-                if lvalue is not None and lstr not in offset_choices:
-                    try:
-                        recon_plane = self._reconstruct_planes(
-                            sinogram, lvalue, np.radians(self.thetas))
-                        images[0] = recon_plane
-                        ims[0] = axs[0].imshow(images[0])
-                        axs[0].set_title(f'index: {lstr}')
-                        axs[0].set_xlim(*zoom_window[0])
-                        axs[0].set_ylim(*zoom_window[1])
-                        offset_choices[0] = lstr
-                        zoom_buttons[0].configure(
-                            text=lstr, value=lstr)
-                        self._selected_offset.set(offset_choices[1])
-                    except ValueError as exc:
-                        raise ValueError
-#                        change_error_text(exc)
-                rstr = rentry.get()
+                value = None
+            if value is not None and value not in offset_choices:
+                offset_choice_save = offset_choices[index]
+                image_save = images[index]
                 try:
-                    rstr = f'{float(rstr):.1f}'
-                    rvalue = float(rstr)
-                    if not -center_offset_range < rvalue < center_offset_range:
-                        raise ValueError
-                except ValueError:
-                    rvalue = None
-#                change_error_text(
-#                    f'Invalid row index ({entered_value}), enter an integer '
-#                    f'between {img_row_bounds[0]} and {img_row_bounds[1]-1}')
-                if rvalue is not None and rstr not in offset_choices:
-                    try:
-                        recon_plane = self._reconstruct_planes(
-                            sinogram, rvalue, np.radians(self.thetas))
-                        images[1] = recon_plane
-                        ims[1] = axs[1].imshow(images[1])
-                        axs[1].set_title(f'index: {rstr}')
-                        offset_choices[1] = rstr
-                        zoom_buttons[1].configure(
-                            text=rstr, value=rstr)
-                        self._selected_offset.set(offset_choices[0])
-                    except ValueError as exc:
-                        raise ValueError
-#                        change_error_text(exc)
-                vmin = min(images[0].min(), images[1].min())
-                vmax = max(images[0].max(), images[1].max())
-                ims[0].set_clim(vmin, vmax)
-                ims[1].set_clim(vmin, vmax)
-                cbar[0].remove()
-                cbar.pop(0)
-                fig.subplots_adjust(bottom=0.0, top=0.85)
-                cbar.append(fig.colorbar(
-                    ims[0], ax=axs, shrink=0.7, location='bottom'))
-                self.rentry.delete(0, 'end')
-            elif lvalue is not None and lstr not in offset_choices:
-                try:
-                    recon_plane = self._reconstruct_planes(
-                        sinogram, lvalue, np.radians(self.thetas))
-                    ims[1].remove()
-                    ims.pop(1)
-                    axs[1].remove()
-                    axs.pop(1)
-                    images[1] = recon_plane
-                    ax2 = fig.add_subplot(1, 2, 2)
-                    axs.append(ax2)
-                    im2 = axs[1].imshow(images[1])
-                    ims.append(im2)
-                    axs[1].set_title(f'index: {lstr}')
-                    vmin = min(images[0].min(), images[1].min())
-                    vmax = max(images[0].max(), images[1].max())
-                    ims[0].set_clim(vmin, vmax)
-                    ims[1].set_clim(vmin, vmax)
-                    cbar[0].remove()
-                    cbar.pop(0)
-                    fig.subplots_adjust(bottom=0.0, top=0.85)
-                    cbar.append(fig.colorbar(
-                        ims[0], ax=axs, shrink=0.7, location='bottom'))
-                    # Add the right figure to the "Zoom" selector
-                    rects.append(RectangleSelector(
-                        axs[1], on_rect_select, props=rect_props, useblit=True,
-                        minspanx=2, minspany=2))
-                    # Add an aditional selector for the right figure
-                    rlabel = tk.Label(
-                        self._content, text='Select offset right')
-                    rlabel.grid(
-                        row=5, column=2, sticky='e', padx=5, pady=5)
-                    rentry = tk.Entry(self._content)
-                    rentry.grid(
-                        row=5, column=3, sticky='w', padx=5, pady=5)
-                    rentry.bind('<Return>', on_select_index)
-                    # Add an offset choice radio button
-                    offset_choices.append(lstr)
-                    rb = tk.Radiobutton(
-                        self._content, text=lstr, variable=self._selected_offset,
-                        value=lstr, command=None)
-                    rb.grid(row=4, column=4, padx=5, pady=5)
-                    zoom_buttons.append(rb)
+                    offset_choices[index] = value
+                    images[index] = self.reconstruct_planes(
+                        sinogram, value, np.radians(self.thetas))
                 except ValueError as exc:
-                    raise ValueError
-#                     change_error_text(exc)
-            lentry.delete(0, 'end')
-            canvas.draw()
+                    self._change_error_text(exc, plt)
+                    offset_choices[index] = offset_choice_save
+                    images[index] = image_save
+                ims[index] = axs[index].imshow(images[index])
+                axs[index].set_title(f'offset: {offset_choices[index]}')
+                axs[index].set_xlim(*self._zoom_window[0])
+                axs[index].set_ylim(*self._zoom_window[1])
+                rb[index].configure(text=f'{float(value):.1f}', value=value)
+            draw_images(images)
+            event.widget.delete(0, 'end')
 
         def on_select_offset(*args):
-            confirm_text.set(f'Confirm  {self._selected_offset.get()}')
+            offset = self._selected_offset.get()
+            self._recon_planes[-1] = images[
+               offset_choices.index(float(offset))]
+            confirm_text.set(f'Confirm  {offset}')
 
         def on_zoom_out():
             """Callback function for the "Zoom Out" button."""
-            zoom_window = ((-0.5, recon_plane_shape[1]-0.5),
-                           (recon_plane_shape[0]-0.5, -0.5))
-            axs[0].set_xlim(*zoom_window[0])
-            axs[0].set_ylim(*zoom_window[1])
-            if len(rects) == 1:
-                ims[0].set_clim(images[0].min(), images[0].max())
-            else:
-                axs[1].set_xlim(*zoom_window[0])
-                axs[1].set_ylim(*zoom_window[1])
-                vmin = min(images[0].min(), images[1].min())
-                vmax = min(images[0].max(), images[1].max())
-                ims[0].set_clim(vmin, vmax)
-                ims[1].set_clim(vmin, vmax)
-            canvas.draw()
+            self._range_x = (0, image_shape[1])
+            self._range_y = (0, image_shape[0])
+            self._zoom_window = ((self._range_x[0]-0.5, self._range_x[1]-0.5),
+                                 (self._range_y[1]-0.5, self._range_y[0]-0.5))
+            draw_images(images)
+
+        num_plot = 5
 
         # Get the sinogram for the selected plane
+        current_center_row = self.center_rows[len(self._center_offsets)]
         sinogram = self.tomo_stacks[
-            self.center_stack_index,:,self.offset_centers[self._plane_index],:]
+            self.center_stack_index,:,
+            current_center_row-self.img_row_bounds[0],:]
         sinogram_shape = sinogram.shape
         center_offset_range = sinogram_shape[1]/2
 
+        # Get the sinogram for the previous plane:
+        if 0 < len(self._center_offsets) < self.num_center_rows:
+            num_plot_extra = 1
+            previous_center_row = self.center_rows[len(self._center_offsets)-1]
+            previous_sinogram = self.tomo_stacks[
+                self.center_stack_index,:,
+                previous_center_row-self.img_row_bounds[0],:]
+            previous_center_offset = self._center_offsets[-1]
+        else:
+            num_plot_extra = 0
+            previous_center_row = None
+            previous_sinogram = None
+            previous_center_offset = None
+
         # Create the figure
-        fig = plt.figure(figsize=(11, 8.5))
+        fig = plt.figure(figsize=(14, 10))
+        self._change_fig_title(
+            'Select the calibrated center axis offset for row '
+            f'{current_center_row}', plt, title_pos = (0.5, 0.95))
 
         # Setup the figure canvas
         canvas = FigureCanvasTkAgg(fig, master=self._content)
         canvas.draw()
         canvas_widget = canvas.get_tk_widget()
         canvas_widget.grid(
-            row=0, column=0, rowspan=5, columnspan=4, sticky='nsew')
+            row=0, column=0, rowspan=18, columnspan=6, sticky='nsew')
 
-        # Setup selector
-        llabel_text = tk.StringVar(value='Select offset')
-        llabel = tk.Label(self._content, textvariable=llabel_text)
-        llabel.grid(row=5, column=0, sticky='e', padx=5, pady=5)
-        lentry = tk.Entry(self._content)
-        lentry.grid(row=5, column=1, sticky='w', padx=5, pady=5)
-        lentry.bind('<Return>', on_select_index)
+        # Setup selectors
+        tk.Label(self._content, text='Change any of the offsets:').grid(
+            row=18, column=0, sticky='w', padx=5, pady=5)
+        labels = []
+        entries = []
+        places = ['Upper left:', 'Upper middle:', 'Upper right:',
+                  'Lower left:', 'Lower middle:']
+        for i in range(num_plot):
+            labels.append(tk.Label(self._content, text=places[i]))
+            labels[i].grid(
+                row=19+i//3, column=2*(i%3), sticky='e', padx=5, pady=5)
+            entries.append(tk.Entry(self._content))
+            entries[i].grid(
+                row=19+i//3, column=2*(i%3)+1, sticky='w', padx=5, pady=5)
+            entries[i].bind('<Return>', on_select)
+        entries[0].focus_set()
 
         # Setup the "Reset" button
         reset_button = tk.Button(
             self._content, text='Reset', command=on_reset)
-        reset_button.grid(row=0, column=4, padx=5, pady=5)
+        reset_button.grid(row=0, column=6, padx=5)
 
         # Try Nghia Vo's method to find the center
         t0 = time()
@@ -1941,77 +1869,98 @@ class TomoFindCenterGui(Processor):
 #            center_offset_min = -50
 #        if center_offset_max is None:
 #            center_offset_max = 50
-        num_proc = 1
-        if num_proc > NUM_CORE_TOMOPY_LIMIT:
-            self.logger.debug(
-                f'Running find_center_vo on {NUM_CORE_TOMOPY_LIMIT} '
-                'cores ...')
-            tomo_center = find_center_vo(
-                sinogram, ncore=NUM_CORE_TOMOPY_LIMIT,
-                smin=-50, smax=50)
-                #smin=center_offset_min, smax=center_offset_max)
-        else:
-            tomo_center = find_center_vo(
-                sinogram, ncore=num_proc,
-                smin=-50, smax=50)
-                #smin=center_offset_min, smax=center_offset_max)
+        # RV FIX num_proc
+        tomo_center = find_center_vo(
+            sinogram, ncore=min(1, NUM_CORE_TOMOPY_LIMIT),
+            smin=-50, smax=50)
+            #smin=center_offset_min, smax=center_offset_max)
         center_offset_vo = round(float(tomo_center-center_offset_range), 1)
         center_offset_vo_text = f'{center_offset_vo:.1f}'
-#        self.logger.info(
-#            f'Center at row {row} using Nghia Vo\'s method = '
-#            f'{center_offset_vo_text}')
 
         # Reconstruct the plane for Nghia Vo's center offset
-        recon_plane_vo = self._reconstruct_planes(
-            sinogram, center_offset_vo, np.radians(self.thetas))
+        thetas = np.radians(self.thetas)
+        recon_plane_vo = self.reconstruct_planes(
+            sinogram, center_offset_vo, thetas)
 #            num_proc=num_proc)
 #            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
-        recon_plane_shape = recon_plane_vo.shape
-        zoom_window = ((-0.5, recon_plane_shape[1]-0.5),
-                       (recon_plane_shape[0]-0.5, -0.5))
+        self._recon_planes.append(recon_plane_vo)
 
-        # Add the sinogram and Nghia Vo's result to the figure
-        images = [recon_plane_vo, sinogram]
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2)
-        axs = [ax1, ax2]
-        im1 = axs[0].imshow(images[0])
-        im2 = axs[1].imshow(images[1])
-        ims = [im1, im2]
-        axs[0].set_title('Vo')
-        axs[1].set_title('sinogram')
-        fig.subplots_adjust(bottom=0.0, top=0.85)
-        cbar = [fig.colorbar(ims[0], ax=axs[0], location='bottom')]
+        # Reconstruct plane for center offset on both sides of Vo's
+        delta = 1.0 # Could become an input parameter
+        offset_choices = [
+            center_offset_vo-2*delta, center_offset_vo-delta, center_offset_vo,
+            center_offset_vo+delta, center_offset_vo+2*delta]
+        images = []
+        for offset in offset_choices:
+            if offset == center_offset_vo:
+                images.append(recon_plane_vo)
+            else:
+                images.append(self.reconstruct_planes(
+                    sinogram, offset, thetas))
+        if num_plot_extra:
+            offset_choices.append(previous_center_offset)
+            images.append(self.reconstruct_planes(
+                previous_sinogram, previous_center_offset, thetas))
+        image_shape = images[0].shape
+        self._range_x = (0, image_shape[1])
+        self._range_y = (0, image_shape[0])
+        self._zoom_window = ((self._range_x[0]-0.5, self._range_x[1]-0.5),
+                             (self._range_y[1]-0.5, self._range_y[0]-0.5))
+        offset_choices_original = deepcopy(offset_choices)
+        images_original = deepcopy(images)
+
+        # Add the reconstructions to the figure
+        axs = []
+        ims = []
+        for i in range(num_plot+num_plot_extra):
+            axs.append(fig.add_subplot(2, 3, i+1))
+            ims.append(axs[i].imshow(images[i]))
+            if num_plot_extra and i == num_plot:
+                axs[i].set_title(
+                    f'previous row: {previous_center_row}, '
+                    f'offset: {offset_choices[i]}')
+            else:
+                axs[i].set_title(f'offset: {offset_choices[i]}')
+            axs[i].set_axis_off()
+        self._change_error_text(
+            f'Center axis offset obtained with Nghia Vo\'s method: '
+            f'{center_offset_vo}', plt, error_pos=(0.5, 0.91))
+        fig.subplots_adjust(bottom=0.0, top=0.88)
+        cbar = [fig.colorbar(
+            ims[0], ax=axs, pad=0.03, shrink=0.5, location='bottom')]
 
         # Setup the figure "Zoom" function
         rect_props = {
             'alpha': 0.5, 'facecolor': 'tab:blue', 'edgecolor': 'blue'}
-        rects = [
-            RectangleSelector(
-                axs[0], on_rect_select, props=rect_props, useblit=True,
-                minspanx=2, minspany=2)]
+        self._rects = []
+        for i in range(num_plot+num_plot_extra):
+            self._rects.append(
+                RectangleSelector(
+                    axs[i], on_rect_select, props=rect_props, useblit=True,
+                    minspanx=2, minspany=2))
 
         # Setup the "Zoom Out" button
         zoom_button = tk.Button(
             self._content, text='Zoom Out', command=on_zoom_out)
-        zoom_button.grid(row=1, column=4, padx=5, pady=5)
+        zoom_button.grid(row=1, column=6, padx=5)
 
         # Setup the selected offset radio buttons
-        self._selected_offset = tk.StringVar(value=center_offset_vo_text)
+        self._selected_offset = tk.StringVar(value=f'{center_offset_vo:.1f}')
         self._selected_offset.trace_add('write', on_select_offset)
-        offset_choices = [self._selected_offset.get()]
         choices_label = tk.Label(self._content, text='Choose offset:')
-        choices_label.grid(row=2, column=4, padx=5, pady=5)
-        rb = tk.Radiobutton(
-            self._content, text=offset_choices[0],
-            variable=self._selected_offset, value=offset_choices[0],
-            command=None)
-        rb.grid(row=3, column=4, padx=5, pady=5)
-        zoom_buttons = [rb]
-        confirm_text.set(f'Confirm  {center_offset_vo_text}')
+        choices_label.grid(row=3, column=6, padx=5, sticky='w')
+        rb = []
+        for i in range(num_plot):
+            rb.append(tk.Radiobutton(
+                self._content, text=f'{offset_choices[i]:.1f}',
+                variable=self._selected_offset, value=offset_choices[i],
+                command=None))
+            rb[i].grid(row=4+i, column=6, padx=5, sticky='w')
+        confirm_text.set(f'Confirm {center_offset_vo:.1f}')
 
-    def _reconstruct_planes(
-            self, tomo_planes, center_offset, thetas, num_proc=1,
+    @staticmethod
+    def reconstruct_planes(
+            tomo_planes, center_offset, thetas, num_proc=1,
             gaussian_sigma=None, ring_width=None):
         """Invert the sinogram for a single or multiple tomography
         planes using tomopy's recon routine."""
@@ -2138,9 +2087,9 @@ class TomoFindCenterProcessor(Processor):
             center_stack_index = self.config.center_stack_index
         else:
             center_stack_index = num_tomo_stacks//2
+        self.config.center_stack_index = center_stack_index
         if img_row_bounds[1] - img_row_bounds[0] == 1:
             center_rows = (0,)
-            offset_centers = (0,)
         else:
             center_rows = self.config.center_rows
             if center_rows is None:
@@ -2159,48 +2108,60 @@ class TomoFindCenterProcessor(Processor):
                     center_rows = (img_row_bounds[0], img_row_bounds[1]-1)
             elif center_rows[1] == img_row_bounds[1]:
                 center_rows = (center_rows[0], center_rows[1]-1)
-            offset_centers = (
-                center_rows[0] - img_row_bounds[0],
-                center_rows[1] - img_row_bounds[0])
+        self.config.center_rows = list(center_rows)
 
         # Calibrate the center axis
         if self.interactive:
             # Create the center finding GUI to allow the user to
-            # interactively find the optimal center axis
+            # interactively choose the center rows and find the
+            # optimal center axis
             gui_config = {
                 'tomo_stacks': nxentry.reduced_data.data.tomo_fields.nxdata,
-                'tbf': tbf[img_row_bounds[0]:img_row_bounds[1]],
+                'tbf': tbf[img_row_bounds[0]:img_row_bounds[1],
+                           img_column_bounds[0]:img_column_bounds[1]],
                 'thetas': thetas,
                 'img_row_bounds': img_row_bounds,
                 'img_column_bounds': img_column_bounds,
-                'center_stack_index': center_stack_index,
-                'center_rows': center_rows,
-                'offset_centers': offset_centers,
+                'center_stack_index': self.config.center_stack_index,
+                'center_rows':self.config.center_rows,
             }
-            self._find_center_gui(config=gui_config)
+            recon_planes = self._find_center_gui(config=gui_config)
+        else:
+            recon_planes = self._find_center(
+                nxentry.reduced_data.data.tomo_fields,
+                tbf[img_row_bounds[0]:img_row_bounds[1],
+                    img_column_bounds[0]:img_column_bounds[1]],
+                img_row_bounds[0],
+                np.radians(thetas))
 
-        elif self.save_figures:
-            # Create and save figure
-
-            # FIX Make figure here
-            raise RuntimeError()
-            self._figures.append((buf, 'center_finding_rows'))
-
-            buf, center_rows = select_image_indices(
+        if self.save_figures:
+            # Create and save center rows figure
+            buf, _ = select_image_indices(
                 nxentry.reduced_data.data.tomo_fields[
-                    center_stack_index,0,:,:],
+                    self.config.center_stack_index,0,:,:],
                 0,
                 b=tbf[img_row_bounds[0]:img_row_bounds[1],
-                      img_column_bounds[0]:img_column_bounds[1]],
-                preselected_indices=center_rows,
+                    img_column_bounds[0]:img_column_bounds[1]],
+                preselected_indices=self.config.center_rows,
                 axis_index_offset=img_row_bounds[0],
-                title='Select two detector image row indices to find '
-                    f'center axis (in range [{img_row_bounds[0]}, '
-                    f'{img_row_bounds[1]-1}])',
                 title_a=r'Tomography image at $\theta$ = '
                         f'{round(thetas[0], 2)+0}',
                 title_b='Bright field',
-                interactive=self.interactive, return_buf=self.save_figures)
+                interactive=False, return_buf=True)
+            self._figures.append((buf, 'center_finding_rows'))
+
+            # Create and save reconstructed plane figures
+            for row, offset, recon_plane in zip(
+                    self.config.center_rows, self.config.center_offsets,
+                    recon_planes):
+                self._figures.append(
+                    (quick_imshow(
+                        recon_plane,
+                        title=f'Reconstruction for row {row} and center '
+                              f'offset: {offset}',
+                        cmap='gray', colorbar=True, show_fig=False,
+                        return_fig=True),
+                    f'reconstruction_row_{row}_offset_{offset}'))
 
         # Add to metadata
         from datetime import datetime
@@ -2222,25 +2183,64 @@ class TomoFindCenterProcessor(Processor):
                 name=self.name, data=self.config.model_dump(),
                 schema='tomo.models.TomoFindCenterConfig'))
 
+    def _find_center(self, tomo_stack, tbf, row_offset, thetas):
+        """Find calibrated center axis using Nghia Vo's method
+
+        tomo_stacks data axes order: stack,theta,row,column
+        thetas in radians
+        """
+        # Third party modules
+        from tomopy import find_center_vo
+
+        # Use Nghia Vo's method to find the optimal center axis
+        recon_planes = []
+        self.config.center_offsets = []
+        for row in self.config.center_rows:
+            sinogram = tomo_stack[
+                self.config.center_stack_index,:,row-row_offset,:]
+            #RV FIX num_core
+            tomo_center = find_center_vo(
+                sinogram, ncore=min(1, NUM_CORE_TOMOPY_LIMIT),
+                smin=-50, smax=50)
+                #smin=center_offset_min, smax=center_offset_max)
+            offset_vo = round(float(tomo_center-sinogram.shape[1]/2), 1)
+            self.config.center_offsets.append(offset_vo)
+            if self.save_figures:
+                recon_planes.append(TomoFindCenterGui.reconstruct_planes(
+                    sinogram, offset_vo, thetas))
+#                    num_proc=num_proc)
+#                    gaussian_sigma=gaussian_sigma, ring_width=ring_width)
+        return recon_planes
+
     def _find_center_gui(self, config):
         """Find calibrated center axis interactively
 
         tomo_stacks data axes order: stack,theta,row,column
         thetas in radians
         """
-        # Initialize the main application window
-        tk_root = tk.Tk()
+        # System modules
+        from copy import deepcopy
 
-        # Create the center calibration GUI within the main window
-        app = TomoFindCenterGui(tk_root=tk_root, config=config)
+        config_save = deepcopy(config)
+        try:
+            # Initialize the main application window
+            tk_root = tk.Tk()
 
-        tk_root.mainloop()
+            # Create the center calibration GUI within the main window
+            app = TomoFindCenterGui(tk_root=tk_root, config=config_save)
 
-        self.config.center_stack_index = app.center_stack_index
-        self.config.center_rows = list(app.center_rows)
-        self.config.center_offsets = list(app.center_offsets)
-#        if save figs:
-#            save figs
+            tk_root.mainloop()
+            if len(app.center_offsets) < app.num_center_rows:
+                raise ValueError
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self._find_center_gui(config_save)
+        else:
+            self.config.center_stack_index = app.center_stack_index
+            self.config.center_rows = list(app.center_rows)
+            self.config.center_offsets = list(app.center_offsets)
+        return app.recon_planes
 
 
 class TomoReconstructProcessor(Processor):
