@@ -2860,11 +2860,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
             # Report HKL peak strains (unconstrained only)
-            nxcollection[hkl_name].strains = NXdata()
-            self._linkdims(
-                nxcollection[hkl_name].strains, det_nxdata,
-                skip_field_dims=['energy'])
             if fit_type == 'unconstrained':
+                nxcollection[hkl_name].strains = NXdata()
+                self._linkdims(
+                    nxcollection[hkl_name].strains, det_nxdata,
+                    skip_field_dims=['energy'])
                 values = np.full(shape=[shape[0]], fill_value=np.nan)
                 nxcollection[hkl_name].strains.values = NXfield(
                     value=values, shape=[shape[0]], dtype=np.float64)
@@ -2872,7 +2872,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     value=values, shape=[shape[0]], dtype=np.float64)
                 nxcollection[hkl_name].strains.residuals = NXfield(
                     value=values, shape=[shape[0]], dtype=np.float64)
-            nxcollection[hkl_name].strains.attrs['signal'] = 'values'
+                nxcollection[hkl_name].strains.attrs['signal'] = 'values'
 
 
     def _create_animation(
