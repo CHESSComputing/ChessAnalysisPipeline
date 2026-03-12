@@ -109,7 +109,7 @@ find_center:
 #        gaussian_sigma: 0.05
 #        ring_width: 1
       save_figures: true
-  - tomo.TomoWriter:
+  - common.YAMLWriter:
       filename: center_hollow_pyramid.yaml
       force_overwrite: true
   - common.ImageWriter:
