@@ -16,11 +16,20 @@ def parser():
         'config', action='store', default='', help='Input configuration file')
     pparser.add_argument(
         '-p', '--pipeline', nargs='*', help='Pipeline name(s)')
+    pparser.add_argument(
+        '--regex', nargs='?', default=False, const='match',
+        choices=['match', 'search', 'fullmatch'],
+        dest='regex_function', required=False,
+        help='''Name of Python regex function to use for matching
+        configured pipeline names against the string provided with the
+        -p / --pipeline option.'''
+    )
     return pparser
 
 def main():
     """Main function."""
     # System modules
+    import re
     from yaml import safe_load
 
     # Local modules
@@ -74,10 +83,25 @@ def main():
         for sub_pipeline in sub_pipelines:
             if sub_pipeline in config:
                 pipeline_config += config.get(sub_pipeline)
+            elif args.regex_function:
+                match_func = getattr(re, args.regex_function)
+                pipeline_matches = [
+                    pipeline_item
+                    for p in config if match_func(sub_pipeline, p)
+                    for pipeline_item in config.get(p)
+                ]
+                if pipeline_matches:
+                    pipeline_config += pipeline_matches
+                else:
+                    raise ValueError(
+                        f'No pipelines matching "{sub_pipeline}" found in the '
+                        f'pipeline configuration ({list(config.keys())})'
+                    )
             else:
                 raise ValueError(
                     f'Invalid pipeline option: \'{sub_pipeline}\' missing in '
-                    f'the pipeline configuration ({list(config.keys())})')
+                    f'the pipeline configuration ({list(config.keys())})'
+                )
 
     # Run the pipeline with or without profiling
     if run_config.profile:
