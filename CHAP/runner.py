@@ -29,7 +29,7 @@ def parser():
         help='''Enables "batch mode" where every sub-pipeline is run
         in a separate process, all at once. Log files for each
         pipeline process will be created in the directory specified
-        with the `--logdir` option.'''
+        with the `--batch-logdir` option.'''
     )
     pparser.add_argument(
         '--batch-logdir', default='./CHAP_logs', dest='logdir',
