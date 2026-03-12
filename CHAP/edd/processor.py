@@ -2829,16 +2829,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 self._linkdims(
                     nxcollection[hkl_name].center_initial_guess, det_nxdata,
                     skip_field_dims=['energy'])
-            # Report HKL peak centers
-            nxcollection[hkl_name].centers = NXdata()
-            self._linkdims(
-                nxcollection[hkl_name].centers, det_nxdata,
-                skip_field_dims=['energy'])
-            nxcollection[hkl_name].centers.values = NXfield(
-                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
-            nxcollection[hkl_name].centers.errors = NXfield(
-                shape=[shape[0]], dtype=np.float64)
-            nxcollection[hkl_name].centers.attrs['signal'] = 'values'
             # Report HKL peak amplitudes
             nxcollection[hkl_name].amplitudes = NXdata()
             self._linkdims(
@@ -2849,6 +2839,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxcollection[hkl_name].amplitudes.errors = NXfield(
                 shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].amplitudes.attrs['signal'] = 'values'
+            # Report HKL peak centers
+            nxcollection[hkl_name].centers = NXdata()
+            self._linkdims(
+                nxcollection[hkl_name].centers, det_nxdata,
+                skip_field_dims=['energy'])
+            nxcollection[hkl_name].centers.values = NXfield(
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
+            nxcollection[hkl_name].centers.errors = NXfield(
+                shape=[shape[0]], dtype=np.float64)
+            nxcollection[hkl_name].centers.attrs['signal'] = 'values'
             # Report HKL peak FWHM
             nxcollection[hkl_name].sigmas = NXdata()
             self._linkdims(
@@ -2859,6 +2859,21 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxcollection[hkl_name].sigmas.errors = NXfield(
                 shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
+            # Report HKL peak strains (unconstrained only)
+            if fit_type == 'unconstrained':
+                nxcollection[hkl_name].strains = NXdata()
+                self._linkdims(
+                    nxcollection[hkl_name].strains, det_nxdata,
+                    skip_field_dims=['energy'])
+                values = np.full(shape=[shape[0]], fill_value=np.nan)
+                nxcollection[hkl_name].strains.values = NXfield(
+                    value=values, shape=[shape[0]], dtype=np.float64)
+                nxcollection[hkl_name].strains.errors = NXfield(
+                    value=values, shape=[shape[0]], dtype=np.float64)
+                nxcollection[hkl_name].strains.residuals = NXfield(
+                    value=values, shape=[shape[0]], dtype=np.float64)
+                nxcollection[hkl_name].strains.attrs['signal'] = 'values'
+
 
     def _create_animation(
             self, nxdata, energies, intensities, intensity_norms, best_fits,
@@ -3349,31 +3364,48 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     unconstrained_fit_path = \
                         f'{detector.get_id()}/unconstrained_fit/{hkl_name}'
                     point.update({
-                        f'{uniform_fit_path}/centers/values':
-                            uniform_centers[j][i],
-                        f'{uniform_fit_path}/centers/errors':
-                            uniform_results['centers_errors'][j][i],
                         f'{uniform_fit_path}/amplitudes/values':
                             uniform_results['amplitudes'][j][i],
                         f'{uniform_fit_path}/amplitudes/errors':
                             uniform_results['amplitudes_errors'][j][i],
+                        f'{uniform_fit_path}/centers/values':
+                            uniform_centers[j][i],
+                        f'{uniform_fit_path}/centers/errors':
+                            uniform_results['centers_errors'][j][i],
                         f'{uniform_fit_path}/sigmas/values':
                             uniform_results['sigmas'][j][i],
                         f'{uniform_fit_path}/sigmas/errors':
                             uniform_results['sigmas_errors'][j][i],
-                        f'{unconstrained_fit_path}/centers/values':
-                            unconstrained_centers[j][i],
-                        f'{unconstrained_fit_path}/centers/errors':
-                            unconstrained_results['centers_errors'][j][i],
                         f'{unconstrained_fit_path}/amplitudes/values':
                             unconstrained_results['amplitudes'][j][i],
                         f'{unconstrained_fit_path}/amplitudes/errors':
                             unconstrained_results['amplitudes_errors'][j][i],
+                        f'{unconstrained_fit_path}/centers/values':
+                            unconstrained_centers[j][i],
+                        f'{unconstrained_fit_path}/centers/errors':
+                            unconstrained_results['centers_errors'][j][i],
                         f'{unconstrained_fit_path}/sigmas/values':
                             unconstrained_results['sigmas'][j][i],
                         f'{unconstrained_fit_path}/sigmas/errors':
                             unconstrained_results['sigmas_errors'][j][i],
                     })
+                    if unconstrained_centers[j][i]:
+                        point.update({
+                            f'{unconstrained_fit_path}/strains/values':
+                                unconstrained_strains[j][i],
+                            f'{unconstrained_fit_path}/strains/errors':
+                                unconstrained_results['centers_errors'][j][i] /
+                                unconstrained_centers[j][i],
+                            f'{unconstrained_fit_path}/strains/residuals':
+                                unconstrained_strain[i] -
+                                    unconstrained_strains[j][i],
+                        })
+                    else:
+                        point.update({
+                            f'{unconstrained_fit_path}/strains/values': np.nan,
+                            f'{unconstrained_fit_path}/strains/errors': np.nan,
+                            f'{unconstrained_fit_path}/strains/residuals': np.nan,
+                        })
 
             # Create an animation of the fit points
             if (not self.config.skip_animation
