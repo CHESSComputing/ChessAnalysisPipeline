@@ -869,7 +869,7 @@ class ZarrValuesWriter(Writer):
 
 class ZarrWriter(Writer):
     """Writer for zarr groups."""
-    def write(self, data, filename, outputdir='.', force_overwrite=False):
+    def write(self, data):
         import asyncio
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import LocalStore
@@ -893,7 +893,7 @@ class ZarrWriter(Writer):
                 'Expected zarr.abc.store.Store, zarr.core.group.AsyncGroup, '
                 f'or zarr.core.group.Group, got {type(zarr_obj)}'
             )
-        _local_store = LocalStore(filename)
+        _local_store = LocalStore(self.filename)
         asyncio.run(copy_zarr_store_to_local_store(
             _zarr_store, _local_store))
         return _local_store
