@@ -29,6 +29,7 @@ from CHAP.utils.general import not_zero, tiny
 tiny = np.finfo(np.float64).resolution
 # pylint: enable=no-member
 s2pi = np.sqrt(2*np.pi)
+s2ln2 = np.sqrt(2*np.log(2))
 
 #def constant(x, c=0.5):
 def constant(x, c=0.0):
@@ -86,6 +87,21 @@ def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
     """
     return ((amplitude/(1 + ((x-center)/max(tiny, sigma))**2))
             / max(tiny, (np.pi*sigma)))
+
+
+def pvoigt(x, amplitude=1.0, center=0.0, sigma=1.0, fraction=0.5):
+    """Return a 1-dimensional Lorentzian function.
+
+    pvoigt(x, amplitude, center, sigma, fraction) =
+        (1-fraction) * gaussian(x, amplitude, center, sigmag) +
+        fraction * lorentzian(x, amplitude, center, sigma) = 
+        (1-fraction) * (amplitude/(s2pi*sigmag)) * 
+                     exp(-(x-center)**2 / (2*sigmag**2)) +
+        fraction * (amplitude/(1 + ((1.0*x-center)/sigma)**2)) / (pi*sigma)
+    with sigmag = sigma/s2ln2
+    """
+    return ((1-fraction) * gaussian(x, amplitude, center, sigma/s2ln2) +
+        fraction * lorentzian(x, amplitude, center, sigma))
 
 
 def rectangle(
@@ -180,7 +196,7 @@ def validate_parameters(parameters, info):
         model = None
     if model is None or model == 'expression':
         return parameters
-    sig = dict(inspect.signature(models[model]).parameters.items())
+    sig = dict(inspect.signature(models[model]['name']).parameters.items())
     sig.pop('x')
 
     # Check input model parameter validity
@@ -466,6 +482,29 @@ class Lorentzian(CHAPBaseModel):
         'parameters')(validate_parameters)
 
 
+class PseudoVoigt(CHAPBaseModel):
+    """Class representing a PseudoVoigt model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :type model: Literal['pvoigt']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable), defaults to `[]`.
+    :type parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :type prefix: str, optional
+    """
+    model: Literal['pvoigt']
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
+    prefix: Optional[str] = ''
+
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
+
+
 class Rectangle(CHAPBaseModel):
     """Class representing a Rectangle model component.
 
@@ -533,7 +572,8 @@ class Multipeak(CHAPBaseModel):
     :ivar fwhm_max: Upper limit of the fwhm of the peaks.
     :type fwhm_max: float, optional
     :ivar peak_models: Type of peaks, defaults to `'gaussian'`.
-    :type peak_models: Literal['gaussian', 'lorentzian'], optional.
+    :type peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'],
+        optional.
     """
     model: Literal['multipeak']
     centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
@@ -541,17 +581,18 @@ class Multipeak(CHAPBaseModel):
     fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
-    peak_models: Literal['gaussian', 'lorentzian'] = 'gaussian'
+    peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'] = 'gaussian'
 
 
 models = {
-    'constant': constant,
-    'linear': linear,
-    'quadratic': quadratic,
-    'exponential': exponential,
-    'gaussian': gaussian,
-    'lorentzian': lorentzian,
-    'rectangle': rectangle,
+    'constant': {'name': constant, 'class': Constant},
+    'linear': {'name': linear, 'class': Linear},
+    'quadratic': {'name': quadratic, 'class': Quadratic},
+    'exponential': {'name': exponential, 'class': Exponential},
+    'gaussian': {'name': gaussian, 'class': Gaussian},
+    'lorentzian': {'name': lorentzian, 'class': Lorentzian},
+    'pvoigt': {'name': pvoigt, 'class': PseudoVoigt},
+    'rectangle': {'name': rectangle, 'class': Rectangle},
 }
 
 model_classes = (
@@ -561,6 +602,7 @@ model_classes = (
     Exponential,
     Gaussian,
     Lorentzian,
+    PseudoVoigt,
     Rectangle,
 )
 
@@ -577,7 +619,8 @@ class FitConfig(CHAPBaseModel):
     :type parameters: list[FitParameter], optional
     :ivar models: The component(s) of the (composite) fit model.
     :type models: Union[Constant, Linear, Quadratic, Exponential,
-        Gaussian, Lorentzian, Rectangle, Expression, Multipeak]
+        Gaussian, Lorentzian, PseudoVoigt, Rectangle, Expression,
+        Multipeak]
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
@@ -597,7 +640,7 @@ class FitConfig(CHAPBaseModel):
     parameters: conlist(item_type=FitParameter) = []
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        Rectangle, Expression, Multipeak], min_length=1)
+        PseudoVoigt, Rectangle, Expression, Multipeak], min_length=1)
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
     rel_height_cutoff: Optional[

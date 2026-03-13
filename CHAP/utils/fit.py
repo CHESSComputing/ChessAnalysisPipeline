@@ -50,7 +50,7 @@ fwhm_factor = {
     'lorentzian': '0.5*fwhm',
     'splitlorentzian': '0.5*fwhm',  # sigma = sigma_r
     'voight': '0.2776*fwhm',        # sigma = gamma
-    'pseudovoight': '0.5*fwhm',     # fraction = 0.5
+    'pvoigt': '0.5*fwhm',           # fraction = 0.5
 }
 
 # amplitude = height_factor*height*fwhm
@@ -59,7 +59,7 @@ height_factor = {
     'lorentzian': 'height*fwhm*0.5*pi',
     'splitlorentzian': 'height*fwhm*0.5*pi',  # sigma = sigma_r
     'voight': '3.334*height*fwhm',            # sigma = gamma
-    'pseudovoight': '1.268*height*fwhm',      # fraction = 0.5
+    'pvoigt': '1.268*height*fwhm',            # fraction = 0.5
 }
 
 
@@ -91,17 +91,18 @@ class FitProcessor(Processor):
                 and not isinstance(data, NXdata)):
             data = self.unwrap_pipelinedata(data)[0]
 
+        # Get the validated fit configuration
+        fit_config = None
+        if config is not None:
+            try:
+                fit_config = FitConfig(**config)
+            except Exception as exc:
+                raise RuntimeError from exc
+
         if isinstance(data, (Fit, FitMap)):
 
             # Refit/continue the fit with possibly updated parameters
             fit = data
-            fit_config = None
-            if config is not None:
-                try:
-                    fit_config = FitConfig(**config)
-                except Exception as exc:
-                    raise RuntimeError from exc
-
             if isinstance(data, FitMap):
                 fit.fit(config=fit_config)
             else:
@@ -112,7 +113,7 @@ class FitProcessor(Processor):
                     if fit_config.plot:
                         fit.plot(skip_init=True)
 
-        else:
+        elif isinstance(data, NXdata):
 
             # Get the default NXdata object
             try:
@@ -123,10 +124,6 @@ class FitProcessor(Processor):
                     raise ValueError(
                         'Invalid default pathway to an NXdata '
                         f'object in ({data})') from exc
-
-            # Get the validated fit configuration
-            fit_config = self.get_config(
-                data=data, config=config, schema='utils.models.FitConfig')
 
             # Expand multipeak model if present
             found_multipeak = False
@@ -157,6 +154,8 @@ class FitProcessor(Processor):
                     rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
                     print_report=fit_config.print_report)
+        else:
+            raise ValueError(f'Invalid input data ({type(data)}: {data})')
 
         return fit
 
@@ -166,11 +165,13 @@ class FitProcessor(Processor):
         # Local modules
         from CHAP.utils.models import (
             FitParameter,
-            Gaussian,
+            models,
         )
 
+        peak_model_name = model_config.peak_models
+        peak_model_class = models[peak_model_name]['class']
         parameters = []
-        models = []
+        peak_models = []
         num_peak = len(model_config.centers)
         if num_peak == 1 and model_config.fit_type == 'uniform':
             model_config.fit_type = 'unconstrained'
@@ -197,8 +198,8 @@ class FitProcessor(Processor):
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
-                models.append(Gaussian(
-                    model='gaussian',
+                peak_models.append(peak_model_class(
+                    model=peak_model_name,
                     prefix=prefix,
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -209,8 +210,8 @@ class FitProcessor(Processor):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
                 if model_config.centers_range == 0:
-                    models.append(Gaussian(
-                        model='gaussian',
+                    peak_models.append(peak_model_class(
+                        model=peak_model_name,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -224,8 +225,8 @@ class FitProcessor(Processor):
                     else:
                         cen_min = cen - model_config.centers_range
                         cen_max = cen + model_config.centers_range
-                    models.append(Gaussian(
-                        model='gaussian',
+                    peak_models.append(peak_model_class(
+                        model=peak_model_name,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -234,7 +235,7 @@ class FitProcessor(Processor):
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
 
-        return parameters, models
+        return parameters, peak_models
 
 
 class Component():
@@ -243,7 +244,7 @@ class Component():
         # Local modules
         from CHAP.utils.models import models
 
-        self.func = models[model.model]
+        self.func = models[model.model]['name']
         self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
         self.prefix = prefix
         self._name = model.model
@@ -862,6 +863,7 @@ class Fit:
                 ExponentialModel,
                 GaussianModel,
                 LorentzianModel,
+                PseudoVoigtModel,
                 ExpressionModel,
 #                StepModel,
                 RectangleModel,
@@ -940,6 +942,16 @@ class Fit:
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
             self._linear_parameters.append(f'{pprefix}amplitude')
+            self._nonlinear_parameters.append(f'{pprefix}center')
+            self._nonlinear_parameters.append(f'{pprefix}sigma')
+        elif model_name == 'pvoigt':
+            # Par: amplitude, center, sigma (fwhm, height), fraction
+            if self._code == 'lmfit':
+                newmodel = PseudoVoigtModel(prefix=prefix)
+                # parameter norms for height and fwhm are needed to
+                #   get correct errors
+            self._linear_parameters.append(f'{pprefix}amplitude')
+            self._linear_parameters.append(f'{pprefix}fraction')
             self._nonlinear_parameters.append(f'{pprefix}center')
             self._nonlinear_parameters.append(f'{pprefix}sigma')
 #        elif model_name == 'step':
