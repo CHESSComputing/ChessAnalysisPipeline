@@ -792,31 +792,36 @@ class YAMLWriter(Writer):
 class ZarrValuesWriter(Writer):
     """Writer for updating values in arrays of an existing Zarr
     file.
-    """
-    def write(self, data, filename, path_prefix='', outputdir='.'):
-        """Write `data` (from `saxswaxs.PyfaiIntegrationProcessor`) to
-        the Zarr file `filename`.
 
-        :param data: Results from `saxswaxs.PyfaiIntegrationProcessor`.
+    :ivar path_prefix: Prefix to prepend to all "path" fields in
+        `data` before writing. Defaults to `""`.
+    :type path_prefix: str, optional
+    """
+    path_prefix: Optional[str] = ''
+
+    def write(self, data):
+        """Write values to specific paths and slices in an existing
+        zarr file.
+
+        :param data: Data whose last item contains a list of
+            dictionaries that each have three keys: `"data"`,
+            `"path"`, `"idx"`.
         :type data: list[PipelineData]
-        :param filename: Name of Zarr file to which to write.
-        :type filename: str
-        :returns: Original results from
-            `saxswaxs.PyfaiIntegrationProcessor`.
+        :returns: Original supplied data to write.
         :rtype: list[dict[str, object]]
         """
         import os
         import zarr
 
         # Open file in append mode to allow modifications
-        zarrfile = zarr.open(filename, mode='a')
+        zarrfile = zarr.open(self.filename, mode='a')
 
         # Get list of PyfaiIntegrationProcessor results to write
         data = self.unwrap_pipelinedata(data)[-1]
         for d in data:
             self.zarr_writer(
                 zarrfile=zarrfile,
-                path=os.path.join(path_prefix, d['path']),
+                path=os.path.join(self.path_prefix, d['path']),
                 idx=d['idx'],
                 data=d['data'])
 
