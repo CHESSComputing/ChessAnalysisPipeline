@@ -3393,18 +3393,29 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                         point.update({
                             f'{unconstrained_fit_path}/strains/values':
                                 unconstrained_strains[j][i],
-                            f'{unconstrained_fit_path}/strains/errors':
-                                unconstrained_results['centers_errors'][j][i] /
-                                unconstrained_centers[j][i],
                             f'{unconstrained_fit_path}/strains/residuals':
                                 unconstrained_strain[i] -
                                     unconstrained_strains[j][i],
                         })
+                        if (unconstrained_results['centers_errors'][j][i]
+                                is None):
+                            point.update({
+                                f'{unconstrained_fit_path}/strains/errors':
+                                    None,
+                            })
+                        else:
+                            point.update({
+                                f'{unconstrained_fit_path}/strains/errors':
+                                    unconstrained_results[
+                                        'centers_errors'][j][i] /
+                                    unconstrained_centers[j][i],
+                            })
                     else:
                         point.update({
-                            f'{unconstrained_fit_path}/strains/values': np.nan,
-                            f'{unconstrained_fit_path}/strains/errors': np.nan,
-                            f'{unconstrained_fit_path}/strains/residuals': np.nan,
+                            f'{unconstrained_fit_path}/strains/values': None,
+                            f'{unconstrained_fit_path}/strains/errors': None,
+                            f'{unconstrained_fit_path}/strains/residuals':
+                                None,
                         })
 
             # Create an animation of the fit points
