@@ -216,6 +216,9 @@ def validate_parameters(parameters, info):
             par = FitParameter(name=sig_name)
         if sig_par.default != sig_par.empty:
             par._default = sig_par.default
+        if model == 'pvoigt' and sig_name == 'fraction':
+            par.min = 0.0
+            par.max = 1.0
         output_parameters.append(par)
 
     return output_parameters
