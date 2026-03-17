@@ -2054,7 +2054,7 @@ class Fit:
                 if 'fraction' in name:
                     nnorm = 1
                 else:
-                    nnorm *= self._norm[1]
+                    nnorm = self._norm[1]
                 if name in self._linear_parameters:
                     if 'fraction' in name:
                         norm_sq = nnorm
