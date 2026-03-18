@@ -27,6 +27,8 @@ class FoxdenRequestConfig(CHAPBaseModel):
     :type limit: int, optional
     :param query: FOXDEN query.
     :type query: string, optional
+    :param url: URL of service.
+    :type url: str
     :param verbose: Verbose output flag, defaults to `False`.
     :type verbose: bool, optional
     """
@@ -52,7 +54,7 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #    sql: Optional[constr(strict=True, strip_whitespace=True)] = None
 #    idx: Optional[conint(ge=0)] = 0
     url: constr(strict=True, strip_whitespace=True)
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = 'False'
 
 #    @field_validator('method', mode='before')
 #    @classmethod

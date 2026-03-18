@@ -26,6 +26,7 @@ from pydantic import (
     SkipValidation,
     conint,
     conlist,
+    constr,
     field_validator,
     model_validator,
 )
@@ -36,6 +37,7 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
+from CHAP.reader import validate_reader_model
 from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
 from CHAP.tomo.models import (
@@ -3658,8 +3660,11 @@ class TomoSpecProcessor(Processor):
     :ivar scan_numbers: List of SPEC scan numbers.
     :type scan_numbers: list[int], optional
     """
+    filename: constr(strip_whitespace=True, min_length=1)
     scan_numbers: Optional[
         conlist(min_length=1, item_type=conint(gt=0))] = None
+
+    _validate_filename = model_validator(mode='after')(validate_reader_model)
 
     @field_validator('scan_numbers', mode='before')
     @classmethod
@@ -3688,10 +3693,11 @@ class TomoSpecProcessor(Processor):
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
-        :rtype: list[str]
+        :rtype: Union[nexusformat.nexus.NXroot,
+            (PipelineData, PipelineData)]
         """
         # System modules
-        from json import dumps
+        from json import dumps, load
         from datetime import datetime
 
         from nexusformat.nexus import (
@@ -3723,7 +3729,7 @@ class TomoSpecProcessor(Processor):
                 if station != source.attrs.get('station'):
                     raise ValueError('Inconsistent station among scans')
             if sample_type is None:
-                sample_type = nxroot.entry.sample.sample_type
+                sample_type = str(nxroot.entry.sample.sample_type)
             else:
                 if sample_type != nxroot.entry.sample.sample_type:
                     raise ValueError('Inconsistent sample_type among scans')
@@ -3755,6 +3761,7 @@ class TomoSpecProcessor(Processor):
 
         # Create the output data structure in NeXus format
         nxentry = NXentry()
+        output_filenames = []
 
         # Create the SPEC file header
         spec_file = [f'#F {sample_type}']
@@ -3855,8 +3862,9 @@ class TomoSpecProcessor(Processor):
                     field_name = f'{field_type}_{scan_number:03d}'
                     nxentry[field_name] = nxroot.entry
                     nxentry[field_name].attrs['schema'] = 'h5'
-                    nxentry[field_name].attrs['filename'] = \
-                        f'{sample_type}_{prefix}_{scan_number:03d}.h5'
+                    filename = f'{sample_type}_{prefix}_{scan_number:03d}.h5'
+                    nxentry[field_name].attrs['filename'] = filename
+                    output_filenames.append(f'{field_name}/{filename}')
                 starting_image_indices.append(starting_image_index)
                 spec_file.append('')
                 num_scan += 1
@@ -3885,15 +3893,17 @@ class TomoSpecProcessor(Processor):
             nxentry.json = NXsubentry()
             nxentry.json.data = dumps(parfile_header)
             nxentry.json.attrs['schema'] = 'json'
-            nxentry.json.attrs['filename'] = \
-                f'{station}-tomo_sim-{sample_type}.json'
+            filename = f'{station}-tomo_sim-{sample_type}.json'
+            nxentry.json.attrs['filename'] = filename
+            output_filenames.append(filename)
 
             # Add the par file to output
             nxentry.par = NXsubentry()
             nxentry.par.data = par_file
             nxentry.par.attrs['schema'] = 'txt'
-            nxentry.par.attrs['filename'] = \
-                f'{station}-tomo_sim-{sample_type}.par'
+            filename = f'{station}-tomo_sim-{sample_type}.par'
+            nxentry.par.attrs['filename'] = filename
+            output_filenames.append(filename)
 
             # Add image files as individual tiffs to output
             for scan_number, image_set, starting_image_index in zip(
@@ -3905,8 +3915,9 @@ class TomoSpecProcessor(Processor):
                     nxsubentry[f'tiff_{n}'] = NXsubentry()
                     nxsubentry[f'tiff_{n}'].data = image_set[n]
                     nxsubentry[f'tiff_{n}'].attrs['schema'] = 'tif'
-                    nxsubentry[f'tiff_{n}'].attrs['filename'] = \
-                        f'nf_{(n+starting_image_index):06d}.tif'
+                    filename = f'nf_{(n+starting_image_index):06d}.tif'
+                    nxsubentry[f'tiff_{n}'].attrs['filename'] = filename
+                    output_filenames.append(f'{scan_number}/nf/{filename}')
         else:
 
             spec_filename = sample_type
@@ -3916,11 +3927,56 @@ class TomoSpecProcessor(Processor):
         nxentry.spec.data = spec_file
         nxentry.spec.attrs['schema'] = 'txt'
         nxentry.spec.attrs['filename'] = spec_filename
+        output_filenames.append(spec_filename)
 
         nxroot = NXroot()
         nxroot[sample_type] = nxentry
 
-        return nxroot
+        if station  != 'id1a3':
+            return nxroot
+
+        # Create a metadata record
+        with open(self.filename, 'r') as file:
+            metadata = load(file)
+        now = datetime.now()
+        beamline = metadata['beamline'][0]
+        btr = f'tomo-sim-{now.strftime("%H%M%S")}'
+        if now.month < 4:
+            cycle = f'{now.year}-1'
+        elif now.month < 8:
+            cycle = f'{now.year}-2'
+        else:
+            cycle = f'{now.year}-3'
+        did = f'/beamline={beamline.lower()}/btr={btr}/cycle={cycle}/' + \
+              f'sample_name={sample_type}'
+        metadata['btr'] = btr
+        metadata['cycle'] = cycle
+        metadata['data_location_meta'] = str(self.inputdir)
+        metadata['data_location_raw'] = str(self.outputdir)
+        metadata['did'] = did
+        metadata['sample_common_name'] = sample_type
+        metadata['sample_name'] = sample_type
+        metadata['schema'] = station.upper()
+
+        # Add metadata record to output
+        nxentry.metadata = NXsubentry()
+        #nxentry.metadata.data = dumps(metadata)
+        nxentry.metadata.data = dumps({'did': did})
+        nxentry.metadata.attrs['schema'] = 'json'
+        nxentry.metadata.attrs['filename'] = \
+            f'{station}-tomo_sim-{sample_type}_metadata.json'
+
+        # Create the provenance info
+        provenance = {
+            'did': did,
+            'input_files': [{'name': 'todo.fix: pipeline.yaml'}],
+            'output_files': [{'name': f} for f in output_filenames],
+        }
+
+        return (PipelineData(name=self.name, data=metadata, schema='metadata'),
+                PipelineData(
+                    name=self.name, data=provenance, schema='provenance'),
+                PipelineData(name=self.name, data=nxroot, schema='simdata'))
 
 
 if __name__ == '__main__':

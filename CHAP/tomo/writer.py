@@ -39,10 +39,11 @@ class TomoWriter(Writer):
             [PipelineData(name=self.__name__, data=tomodata)])
 
         # Add provenance info to the data pipeline
-        metadata = self.get_data(data, schema='metadata', remove=False)
-        did = metadata['did']
+#        metadata = self.get_data(data, schema='metadata', remove=False)
+#        did = metadata['did']
         provenance = {
-            'did': did,
+#            'did': did,
+#            'parent_did': '',
             'input_files': [{'name': 'todo.fix: pipeline.yaml'}],
             'output_files': [{'name': os_path.realpath(self.filename)}],
         }

@@ -1,7 +1,7 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: hollow_cube
+  outputdir: reduced/hollow_cube
   interactive: true
   log_level: info
   profile: false
@@ -23,14 +23,14 @@ map:
         station: id3b
         experiment_type: TOMO
         spec_scans:
-        - spec_file: ../data/hollow_cube/hollow_cube
+        - spec_file: ../raw/hollow_cube/hollow_cube
           scan_numbers: 1
       detector_config:
         detectors:
           - id: sim
       schema: darkfield
   - common.SpecReader:
-      inputdir: ../data/hollow_cube
+      inputdir: ../raw/hollow_cube
       config:
         station: id3b
         experiment_type: TOMO

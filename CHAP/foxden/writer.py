@@ -8,13 +8,16 @@ Description: FOXDEN writers
 
 # System modules
 import json
+from typing import Optional
+
+# Third party modules
+from pydantic import constr
 
 # Local modules
+from CHAP.pipeline import PipelineItem
 from CHAP.foxden.utils import HttpRequest
-from CHAP.writer import Writer
 
-
-class FoxdenDoiWriter(Writer):
+class FoxdenDoiWriter(PipelineItem):
     """Writer for saving info to the FOXDEN DOI service."""
     def write(
             self, url, data, provider='Datacite', description='', draft=True,
@@ -68,15 +71,22 @@ class FoxdenDoiWriter(Writer):
         return result
 
 
-class FoxdenMetadataWriter(Writer):
-    """Writer for saving data to the FOXDEN Metadata service."""
-    def write(self, data, url):#config=None):
+class FoxdenMetadataWriter(PipelineItem):
+    """Writer for saving data to the FOXDEN Metadata service.
+
+    :param url: URL of service.
+    :type url: str
+    :param verbose: Verbose output flag, defaults to `False`.
+    :type verbose: bool, optional
+    """
+    url: constr(strict=True, strip_whitespace=True)
+    verbose: Optional[bool] = None
+
+    def write(self, data):
         """Write data to the FOXDEN Metadata service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: HTTP response from FOXDEN Metadata service.
         :rtype: list[dict]
         """
@@ -89,26 +99,12 @@ class FoxdenMetadataWriter(Writer):
 
         # FIX it would be useful to perform validation of record
 
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
-#            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
-
-        # For now cut out anything but the did and application fields
-        # from the CHAP workflow metadata record
-        record = {'did': record['did'],
-                  'application': record.get('application', 'CHAP'),
-                  'btr': record.get('btr'),
-                  'user': getuser()}
-
         # Submit HTTP request and return response
-        rurl = f'{config.url}'
-        mrec = {'Schema': 'Analysis', 'Record': record}
-        payload = json.dumps(mrec)
-        self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
-        if config.verbose:
+        schema = record.pop('schema', 'Analysis')
+        payload = json.dumps({'Schema': schema, 'Record': record})
+        self.logger.info(f'method=POST url={self.url} payload={payload}')
+        response = HttpRequest(self.url, payload, method='POST', scope='write')
+        if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
@@ -120,15 +116,22 @@ class FoxdenMetadataWriter(Writer):
         return result
 
 
-class FoxdenProvenanceWriter(Writer):
-    """Writer for saving data to the FOXDEN Provenance service."""
-    def write(self, data, url):#config=None):
+class FoxdenProvenanceWriter(PipelineItem):
+    """Writer for saving data to the FOXDEN Provenance service.
+
+    :param url: URL of service.
+    :type url: str
+    :param verbose: Verbose output flag, defaults to `False`.
+    :type verbose: bool, optional
+    """
+    url: constr(strict=True, strip_whitespace=True)
+    verbose: Optional[bool] = None
+
+    def write(self, data):
         """Write data to the FOXDEN Provenance service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: HTTP response from FOXDEN Provenance service.
         :rtype: list[dict]
         """
@@ -138,18 +141,12 @@ class FoxdenProvenanceWriter(Writer):
 
         # FIX it would be useful to perform validation of data
 
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
-#            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
-
         # Submit HTTP request and return response
-        rurl = f'{url}/dataset'
+        url = f'{self.url}/dataset'
         payload = json.dumps(record)
-        self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
-        if config.verbose:
+        self.logger.info(f'method=POST url=url, payload={payload}')
+        response = HttpRequest(url, payload, method='POST', scope='write')
+        if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:

@@ -103,15 +103,15 @@ class FoxdenProvenanceProcessor(Processor):
         provenance = self.get_data(data, schema='provenance')
 
         # Add system info to provenance data
-        did = provenance['did']
+#        did = provenance['did']
         provenance.update({
-            'parent_did': did.rsplit('/', 1)[0],
+#            'parent_did': did.rsplit('/', 1)[0],
+            'environments': environments(),
+            'osinfo': osinfo(),
+            'processing': 'CHAP pipeline',
             'scripts': [
                 {'name': 'CHAP', 'parent_script': None, 'order_idx': 1}],
             'site': 'Cornell',
-            'osinfo': osinfo(),
-            'environments': environments(),
-            'processing': 'CHAP pipeline',
         })
 
         return provenance

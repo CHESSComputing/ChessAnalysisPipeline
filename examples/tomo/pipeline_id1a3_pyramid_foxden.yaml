@@ -1,0 +1,136 @@
+# Valid FOXDEN tokens are required
+# read token is always ok if kerberos ticket
+# write will depend on user ID
+
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: reduced/hollow_pyramid
+  interactive: false
+  log_level: info
+
+map:
+
+  - foxden.FoxdenDataDiscoveryReader:
+      config:
+        did: /beamline=1a3/btr=tomo-sim-164935/cycle=2026-1/sample_name=hollow_pyramid
+        url: 'https://foxden-demo.classe.cornell.edu:8320'
+  - tomo.TomoMetadataProcessor:
+      config:
+        scan_numbers: [3, 4, 5]
+        independent_dimensions:
+          - label: rotation_angles
+            units: degrees
+            data_type: scan_column
+            name: theta
+          - label: x_translation
+            units: mm
+            data_type: smb_par
+            name: ramsx
+          - label: z_translation
+            units: mm
+            data_type: smb_par
+            name: ramsz
+      schema: common.models.map.MapConfig
+  - common.MapProcessor:
+      detector_config:
+        detectors:
+          - id: sim
+            attrs:
+              pixel_size: 0.025
+              lens_magnification: 1.0
+      schema: tomofields
+#  - common.NexusWriter:
+#      filename: map_hollow_pyramid.nxs
+#      force_overwrite: true
+
+convert:
+
+#  - common.NexusReader:
+#      filename: map_hollow_pyramid.nxs
+#      schema: tomofields
+  - tomo.TomoCHESSMapConverter:
+#  - common.NexusWriter:
+#      filename: chess_map_hollow_pyramid.nxs
+#      force_overwrite: true
+
+reduce:
+
+  # Data reduction
+#  - common.NexusReader:
+#      filename: chess_map_hollow_pyramid.nxs
+  - tomo.TomoReduceProcessor:
+      save_figures: true
+#  - tomo.TomoWriter:
+#      filename: reduced_hollow_pyramid.nxs
+#      force_overwrite: true
+#  - common.ImageWriter:
+#      outputdir: saved_figures
+#      force_overwrite: true
+
+find_center:
+
+#  - common.NexusReader:
+#      filename: reduced_hollow_pyramid.nxs
+#  - common.YAMLReader:
+#      filename: find_center_id1a3.yaml
+#      schema: tomo.models.TomoFindCenterConfig
+  - tomo.TomoFindCenterProcessor:
+#      config:
+#        gaussian_sigma: 0.05
+#        ring_width: 1
+      save_figures: true
+#  - common.YAMLWriter:
+#      filename: center_hollow_pyramid.yaml
+#      force_overwrite: true
+#  - common.ImageWriter:
+#      outputdir: saved_figures
+#      force_overwrite: true
+
+recon:
+
+#  - common.NexusReader:
+#      filename: reduced_hollow_pyramid.nxs
+#  - common.YAMLReader:
+#      filename: center_hollow_pyramid.yaml
+#      schema: tomo.models.TomoFindCenterConfig
+#  - common.YAMLReader:
+#      filename: reconstruct_data.yaml
+#      schema: tomo.models.TomoReconstructConfig
+  - tomo.TomoReconstructProcessor:
+#      config:
+#        x_bounds: [15, 390]
+#        y_bounds: [25, 380]
+#        secondary_iters: 10
+#        ring_width: 1
+      save_figures: true
+#  - tomo.TomoWriter:
+#      filename: reconstructed_hollow_pyramid.nxs
+#      force_overwrite: true
+#  - common.ImageWriter:
+#      outputdir: saved_figures
+#      force_overwrite: true
+
+
+combine:
+
+#  - common.NexusReader:
+#      filename: reconstructed_hollow_pyramid.nxs
+#  - common.YAMLReader:
+#      filename: combine_data_id1a3.yaml
+#      schema: tomo.models.TomoCombineConfig
+  - tomo.TomoCombineProcessor:
+#      config:
+#        z_bounds: [2, 57]
+      save_figures: true
+  - tomo.TomoWriter:
+      filename: combined_hollow_pyramid.nxs
+      force_overwrite: true
+#  - common.ImageWriter:
+#      outputdir: saved_figures
+#      force_overwrite: true
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor:
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'

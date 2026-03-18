@@ -1,7 +1,7 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: data/hollow_brick
+  outputdir: raw/hollow_brick
   interactive: true
   log_level: info
   profile: false
@@ -10,7 +10,7 @@ pipeline:
 
   # Create a simulated stack of tomography images
   - common.YAMLReader:
-      filename: tomo_sim_id3a_brick.yaml
+      filename: tomo_sim_id1a3_brick.yaml
       schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor:
       schema: tomo.models.TomoSimField
