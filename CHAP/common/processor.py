@@ -78,7 +78,13 @@ class AsyncProcessor(Processor):
 
 
 class BinarizeProcessor(Processor):
-    """A Processor to binarize a dataset."""
+    """A Processor to binarize a dataset.
+
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
+    """
+    nxmemory: Optional[conint(gt=0)] = 100000
+
     def process(self, data, config=None):
         """Plot and return a binarized dataset from a dataset contained
         in `data`. The dataset must either be `array-like` or a NeXus
@@ -106,7 +112,7 @@ class BinarizeProcessor(Processor):
         # Local modules
         from CHAP.utils.general import nxcopy
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the validated processor configuration
         if config is None:
@@ -613,6 +619,8 @@ class ImageProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.common.models.ImageProcessorConfig
     :type config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Return the plottable image(s) to be written
         to file downstream in the pipeline, defaults to `True`.
     :type save_figures: bool, optional
@@ -621,6 +629,7 @@ class ImageProcessor(Processor):
         default = {
             'config': 'common.models.map.ImageProcessorConfig'}, init_var=True)
     config: ImageProcessorConfig
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figconfig: dict = PrivateAttr(default={})
@@ -642,7 +651,7 @@ class ImageProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import nxsetconfig
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the default data
         try:

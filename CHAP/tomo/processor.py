@@ -129,7 +129,12 @@ class TomoMetadataProcessor(Processor):
 class TomoCHESSMapConverter(Processor):
     """A processor to convert a CHESS style tomography map with dark
     and bright field configurations to a NeXus style input format.
+
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     """
+    nxmemory: Optional[conint(gt=0)] = 100000
+
     def process(self, data):
         """Process the input map and configuration and return a
         `nexusformat.nexus.NXroot` object based on the
@@ -164,7 +169,7 @@ class TomoCHESSMapConverter(Processor):
         from CHAP.utils.general import index_nearest
 
         # FIX make a config input
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load and validate the tomography fields
         tomofields = self.get_default_nxentry(
@@ -672,6 +677,8 @@ class TomoReduceProcessor(Processor):
     :type config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :type num_proc: int, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :type save_figures: bool, optional
@@ -681,11 +688,11 @@ class TomoReduceProcessor(Processor):
         init_var=True)
     config: Optional[TomoReduceConfig] = TomoReduceConfig()
     num_proc: Optional[conint(gt=0)] = 64
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
 
-    # FIX: add nxsetconfig(memory=100000)
     def process(self, data):
         """Reduced the tomography images.
 
@@ -704,9 +711,13 @@ class TomoReduceProcessor(Processor):
         from nexusformat.nexus import (
             NXdata,
             NXprocess,
+            nxsetconfig,
         )
 
         self.logger.info('Generate the reduced tomography images')
+
+        # FIX make a config input
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the tomography data
         nxroot = self.get_data(data)
@@ -1221,6 +1232,7 @@ class TomoReduceProcessor(Processor):
                 from tomopy.prep import stripe
                 for method_name, kwargs in self.config.remove_stripe.items():
                     method = getattr(stripe, method_name)
+                    self.logger.info(f'Running {method_name}')
                     tomo_stack = method(
                         tomo_stack,
                         ncore=kwargs.get('ncore', NUM_CORE_TOMOPY_LIMIT),
@@ -2013,6 +2025,8 @@ class TomoFindCenterProcessor(Processor):
     :type config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :type num_proc: int, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :type save_figures: bool, optional
@@ -2022,6 +2036,7 @@ class TomoFindCenterProcessor(Processor):
         init_var=True)
     config: Optional[TomoFindCenterConfig] = TomoFindCenterConfig()
     num_proc: Optional[conint(gt=0)] = 64
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
@@ -2038,7 +2053,13 @@ class TomoFindCenterProcessor(Processor):
             calibrated center axis information.
         :rtype: PipelineData, PipelineData, PipelineData
         """
+        # Third party modules
+        from nexusformat.nexus import nxsetconfig
+
         self.logger.info('Find the calibrated center axis information')
+
+        # FIX make a config input
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the reduced tomography data
         nxroot = self.get_data(data, remove=False)
@@ -2256,6 +2277,8 @@ class TomoReconstructProcessor(Processor):
     :type center_config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :type num_proc: int, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :type save_figures: bool, optional
@@ -2267,11 +2290,11 @@ class TomoReconstructProcessor(Processor):
     config: Optional[TomoReconstructConfig] = TomoReconstructConfig()
     center_config: Optional[TomoFindCenterConfig] = TomoFindCenterConfig()
     num_proc: Optional[conint(gt=0)] = 64
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
 
-    # FIX: add nxsetconfig(memory=100000)
     def process(self, data):
         """Reconstruct the tomography data.
 
@@ -2292,9 +2315,13 @@ class TomoReconstructProcessor(Processor):
             NXdata,
             NXfield,
             NXprocess,
+            nxsetconfig,
         )
 
         self.logger.info('Reconstruct the tomography data')
+
+        # FIX make a config input
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the reduced tomography data
         nxroot = self.get_data(data)
@@ -2808,6 +2835,8 @@ class TomoCombineProcessor(Processor):
     :type config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :type num_proc: int, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Create Matplotlib figures that can be saved to
         file downstream in the workflow, defaults to `True`.
     :type save_figures: bool, optional
@@ -2817,11 +2846,10 @@ class TomoCombineProcessor(Processor):
         init_var=True)
     config: Optional[TomoCombineConfig] = TomoCombineConfig()
     num_proc: Optional[conint(gt=0)] = 64
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figures: list = PrivateAttr(default=[])
-
-    # FIX: add nxsetconfig(memory=100000)
 
     def process(self, data):
         """Combine the reconstructed tomography stacks.
@@ -2839,9 +2867,13 @@ class TomoCombineProcessor(Processor):
             NXdata,
             NXfield,
             NXprocess,
+            nxsetconfig,
         )
 
         self.logger.info('Combine the reconstructed tomography stacks')
+
+        # FIX make a config input
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the reduced tomography data
         nxroot = self.get_data(data)
