@@ -11,9 +11,11 @@ config:
 
 map:
 
+  - common.YAMLReader:
+      filename: did_id1a3_hollow_pyramid.yaml
+      schema: foxden.models.FoxdenRequestConfig
   - foxden.FoxdenDataDiscoveryReader:
       config:
-        did: /beamline=1a3/btr=tomo-sim-164935/cycle=2026-1/sample_name=hollow_pyramid
         url: 'https://foxden-demo.classe.cornell.edu:8320'
   - tomo.TomoMetadataProcessor:
       config:
@@ -64,73 +66,71 @@ reduce:
 #  - tomo.TomoWriter:
 #      filename: reduced_hollow_pyramid.nxs
 #      force_overwrite: true
-#  - common.ImageWriter:
-#      outputdir: saved_figures
-#      force_overwrite: true
-
-find_center:
-
-#  - common.NexusReader:
-#      filename: reduced_hollow_pyramid.nxs
-#  - common.YAMLReader:
-#      filename: find_center_id1a3.yaml
-#      schema: tomo.models.TomoFindCenterConfig
-  - tomo.TomoFindCenterProcessor:
-#      config:
-#        gaussian_sigma: 0.05
-#        ring_width: 1
-      save_figures: true
-#  - common.YAMLWriter:
-#      filename: center_hollow_pyramid.yaml
-#      force_overwrite: true
-#  - common.ImageWriter:
-#      outputdir: saved_figures
-#      force_overwrite: true
-
-recon:
-
-#  - common.NexusReader:
-#      filename: reduced_hollow_pyramid.nxs
-#  - common.YAMLReader:
-#      filename: center_hollow_pyramid.yaml
-#      schema: tomo.models.TomoFindCenterConfig
-#  - common.YAMLReader:
-#      filename: reconstruct_data.yaml
-#      schema: tomo.models.TomoReconstructConfig
-  - tomo.TomoReconstructProcessor:
-#      config:
-#        x_bounds: [15, 390]
-#        y_bounds: [25, 380]
-#        secondary_iters: 10
-#        ring_width: 1
-      save_figures: true
-#  - tomo.TomoWriter:
-#      filename: reconstructed_hollow_pyramid.nxs
-#      force_overwrite: true
-#  - common.ImageWriter:
-#      outputdir: saved_figures
-#      force_overwrite: true
-
-
-combine:
-
-#  - common.NexusReader:
-#      filename: reconstructed_hollow_pyramid.nxs
-#  - common.YAMLReader:
-#      filename: combine_data_id1a3.yaml
-#      schema: tomo.models.TomoCombineConfig
-  - tomo.TomoCombineProcessor:
-#      config:
-#        z_bounds: [2, 57]
-      save_figures: true
-  - tomo.TomoWriter:
-      filename: combined_hollow_pyramid.nxs
+  - common.ImageWriter:
+      outputdir: saved_figures
       force_overwrite: true
-#  - common.ImageWriter:
-#      outputdir: saved_figures
-#      force_overwrite: true
 #  - foxden.FoxdenMetadataWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8300'
 #  - foxden.FoxdenProvenanceProcessor:
 #  - foxden.FoxdenProvenanceWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8310'
+
+find_center:
+
+#  - common.NexusReader:
+#      filename: reduced_hollow_pyramid.nxs
+  - tomo.TomoFindCenterProcessor:
+      config:
+        gaussian_sigma: 0.05
+        ring_width: 1
+      save_figures: true
+#  - tomo.TomoWriter:
+#      filename: center_hollow_pyramid.yaml
+#      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor:
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
+
+recon:
+
+  - tomo.TomoReconstructProcessor:
+      config:
+        x_bounds: [15, 390]
+        y_bounds: [25, 380]
+        secondary_iters: 10
+        ring_width: 1
+      save_figures: true
+#  - tomo.TomoWriter:
+#      filename: reconstructed_hollow_pyramid.nxs
+#      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceProcessor:
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
+
+combine:
+
+  - tomo.TomoCombineProcessor:
+      config:
+        z_bounds: [2, 57]
+      save_figures: true
+  - tomo.TomoWriter:
+      filename: combined_hollow_pyramid.nxs
+      force_overwrite: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceProcessor:
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'

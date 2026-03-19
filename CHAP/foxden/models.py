@@ -53,7 +53,7 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #    spec: Optional[map[string]any] ?
 #    sql: Optional[constr(strict=True, strip_whitespace=True)] = None
 #    idx: Optional[conint(ge=0)] = 0
-    url: constr(strict=True, strip_whitespace=True)
+    url: Optional[constr(strict=True, strip_whitespace=True)] = None
     verbose: Optional[bool] = 'False'
 
 #    @field_validator('method', mode='before')

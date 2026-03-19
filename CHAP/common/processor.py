@@ -900,7 +900,7 @@ class MapProcessor(Processor):
             'config': 'common.models.map.MapConfig',
             'detector_config': 'common.models.map.DetectorConfig'},
         init_var=True)
-    config: MapConfig
+    config: Optional[MapConfig] = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
 

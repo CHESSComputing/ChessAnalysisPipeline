@@ -7,6 +7,7 @@ Description: Module for Processors used only by tomography experiments
 """
 
 # System modules
+from datetime import datetime
 import os
 import re
 import sys
@@ -72,8 +73,15 @@ class TomoMetadataProcessor(Processor):
     Metadata service and extracts what's available to create
     a `CHAP.common.models.map.MapConfig` object for a tomography
     experiment.
+
+    :ivar config: Configuration dictionary containing all fields
+        required to create a CHAP.common.mocelc.map.MapConfig
+        instance that are not available from the metadata record.
+    :type config: dict
     """
-    def process(self, data, config):
+    config: dict
+
+    def process(self, data):
         """Process the meta data and return a dictionary with
         extracted data to create a `MapConfig` for the tomography
         experiment.
@@ -86,41 +94,33 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
-        try:
-            data = self.unwrap_pipelinedata(data)[0]
-            if isinstance(data, list) and len(data) != 1:
-                raise ValueError(f'Invalid PipelineData input data ({data})')
-            data = data[0]
-            if not isinstance(data, dict):
-                raise ValueError(f'Invalid PipelineData input data ({data})')
-        except Exception:
-            raise
+        # Get the metadata record
+        record = self.get_data(data, name='FoxdenDataDiscoveryReader')[0]
 
         # Extract any available MapConfig info
         map_config = {}
-        map_config['did'] = data.get('did')
-        map_config['title'] = data.get('sample_name')
-        station = data.get('beamline')[0]
+        map_config['did'] = record.get('did')
+        map_config['title'] = record.get('sample_name')
+        station = record.get('beamline')[0]
         if station == '3A':
             station = 'id3a'
+        elif station == '1A3':
+            station = 'id1a3'
         else:
             raise ValueError(f'Invalid beamline parameter ({station})')
         map_config['station'] = station
-        experiment_type = data.get('technique')
-        assert 'tomography' in experiment_type
+        experiment_type = record.get('technique')
+        assert 'Tomography' in experiment_type
         map_config['experiment_type'] = 'TOMO'
         map_config['sample'] = {'name': map_config['title'],
-                                'description': data.get('description')}
-        if station == 'id3a':
-            scan_numbers = config['scan_numbers']
-            if isinstance(scan_numbers, list):
-                if isinstance(scan_numbers[0], list):
-                    scan_numbers = scan_numbers[0]
+                                'description': record.get('description')}
+        if station in ('id1a3', 'id3a'):
             map_config['spec_scans'] = [{
                 'spec_file': os.path.join(
-                    data.get('data_location_raw'), 'spec.log'),
-                'scan_numbers': scan_numbers}]
-        map_config['independent_dimensions'] = config['independent_dimensions']
+                    record.get('data_location_raw'), 'spec.log'),
+                'scan_numbers': self.config['scan_numbers']}]
+        map_config['independent_dimensions'] = \
+            self.config['independent_dimensions']
 
         # Validate the MapConfig info
         MapConfig(**map_config)
@@ -714,21 +714,21 @@ class TomoReduceProcessor(Processor):
         nxroot = self.get_data(data)
         nxentry = self.get_default_nxentry(nxroot)
 
-        # Generate metadata
-        map_config = loads(str(nxentry.map_config))
+        # Load and validate the map and generate metadata
+        map_config = MapConfig(**loads(str(nxentry.map_config)))
         try:
-            btr = map_config['did'].split('btr=')[1].split('/')[0]
+            btr = map_config.did.split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
         except Exception:
-            self.logger.warning(
-                f'Unable to get a valid btr from map_config ({map_config})')
+            self.logger.warning('Unable to get a valid btr from map_config '
+                                f'({map_config.model_dump()})')
             btr = 'unknown'
         metadata = {
-            'parent_did': map_config['did'],
+            'parent_did': map_config.did,
             'application': 'CHAP',
             'btr': btr,
-            'experiment_type': map_config['experiment_type'],
-            'metadata': {}
+            'schema': 'user',
+            'user_metadata': {'experiment_type': map_config.experiment_type},
         }
 
         # Check the number of processors
@@ -745,7 +745,6 @@ class TomoReduceProcessor(Processor):
             self.num_proc = 64
 
         # Validate input parameters
-        map_config = MapConfig(**loads(str(nxentry.map_config)))
         detector_config = DetectorConfig(**loads(str(nxentry.detector_config)))
         img_row_bounds = self.config.img_row_bounds
         if img_row_bounds is not None and detector_config.roi is not None:
@@ -855,15 +854,14 @@ class TomoReduceProcessor(Processor):
         # Add to metadata
         metadata['did'] = \
             f'{metadata["parent_did"]}/workflow=' + \
-            f'{metadata["experiment_type"].lower()}_reduced'
+            f'{map_config.experiment_type.lower()}_reduced'
         if self.config is None:
-            metadata['metadata']['reduced_data'] = {}
+            metadata['user_metadata']['reduced_data'] = {}
         else:
-            metadata['metadata']['reduced_data'] = \
+            metadata['user_metadata']['reduced_data'] = \
                 self.config.model_dump()
-        metadata['metadata']['reduced_data']['date'] = str(
-            reduced_data.date)
-        metadata.pop('parent_did'),
+        metadata['user_metadata']['reduced_data']['date'] = str(
+            nxentry.reduced_data.date)
 
         return (
             PipelineData(name=self.name, data=metadata, schema='metadata'),
@@ -2050,22 +2048,30 @@ class TomoFindCenterProcessor(Processor):
         if 'reduced_data' not in nxentry:
             raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
-        # Generate metadata
-        map_config = loads(str(nxentry.map_config))
+        # Load and validate the map and generate metadata
+        map_config = MapConfig(**loads(str(nxentry.map_config)))
         try:
-            btr = map_config['did'].split('btr=')[1].split('/')[0]
-            assert isinstance(btr, str)
+            metadata = self.get_data(data, schema='metadata')
+            assert isinstance(metadata, dict)
+            metadata['parent_did'] = metadata.pop('did')
         except Exception:
             self.logger.warning(
-                f'Unable to get a valid btr from map_config ({map_config})')
-            btr = 'unknown'
-        metadata = {
-            'parent_did': map_config['did'],
-            'application': 'CHAP',
-            'btr': btr,
-            'experiment_type': map_config['experiment_type'],
-            'metadata': {}
-        }
+                f'Unable to get a valid metadata from pipeline')
+            try:
+                btr = map_config.did.split('btr=')[1].split('/')[0]
+                assert isinstance(btr, str)
+            except Exception:
+                self.logger.warning('Unable to get a valid btr from '
+                                    f'map_config ({map_config.model_dump()})')
+                btr = 'unknown'
+            metadata = {
+                'parent_did': map_config.did,
+                'application': 'CHAP',
+                'btr': btr,
+                'schema': 'user',
+                'user_metadata': {
+                    'experiment_type': map_config.experiment_type},
+            }
 
         # Get thetas (in degrees)
         thetas = nxentry.reduced_data.rotation_angle.nxdata
@@ -2166,14 +2172,12 @@ class TomoFindCenterProcessor(Processor):
                     f'reconstruction_row_{row}_offset_{offset}'))
 
         # Add to metadata
-        from datetime import datetime
         metadata['did'] = \
             f'{metadata["parent_did"]}/workflow=' + \
-            f'{metadata["experiment_type"].lower()}_center'
-        metadata['metadata']['findcenter'] = self.config.model_dump()
-        metadata['metadata']['findcenter']['date'] = str(
+            f'{map_config.experiment_type.lower()}_center'
+        metadata['user_metadata']['findcenter'] = self.config.model_dump()
+        metadata['user_metadata']['findcenter']['date'] = str(
             datetime.now())
-        metadata.pop('parent_did')
 
         return (
             PipelineData(
@@ -2306,22 +2310,30 @@ class TomoReconstructProcessor(Processor):
         if 'reduced_data' not in nxentry:
             raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
-        # Generate metadata
-        map_config = loads(str(nxentry.map_config))
+        # Load and validate the map and generate metadata
+        map_config = MapConfig(**loads(str(nxentry.map_config)))
         try:
-            btr = map_config['did'].split('btr=')[1].split('/')[0]
-            assert isinstance(btr, str)
+            metadata = self.get_data(data, schema='metadata')
+            assert isinstance(metadata, dict)
+            metadata['parent_did'] = metadata.pop('did')
         except Exception:
             self.logger.warning(
-                f'Unable to get a valid btr from map_config ({map_config})')
-            btr = 'unknown'
-        metadata = {
-            'parent_did': map_config['did'],
-            'application': 'CHAP',
-            'btr': btr,
-            'experiment_type': map_config['experiment_type'],
-            'metadata': {}
-        }
+                f'Unable to get a valid metadata from pipeline')
+            try:
+                btr = map_config.did.split('btr=')[1].split('/')[0]
+                assert isinstance(btr, str)
+            except Exception:
+                self.logger.warning('Unable to get a valid btr from '
+                                    f'map_config ({map_config.model_dump()})')
+                btr = 'unknown'
+            metadata = {
+                'parent_did': map_config.did,
+                'application': 'CHAP',
+                'btr': btr,
+                'schema': 'user',
+                'user_metadata': {
+                    'experiment_type': map_config.experiment_type},
+            }
 
         # Check the number of processors
         if self.num_proc > cpu_count():
@@ -2575,12 +2587,11 @@ class TomoReconstructProcessor(Processor):
         # Add to metadata
         metadata['did'] = \
             f'{metadata["parent_did"]}/workflow=' + \
-            f'{metadata["experiment_type"].lower()}_reconstructed'
-        metadata['metadata']['reconstructed_data'] = \
+            f'{map_config.experiment_type.lower()}_reconstructed'
+        metadata['user_metadata']['reconstructed_data'] = \
             self.config.model_dump()
-        metadata['metadata']['reconstructed_data']['date'] = str(
+        metadata['user_metadata']['reconstructed_data']['date'] = str(
             nxentry.reconstructed_data.date)
-        metadata.pop('parent_did')
 
         return (
             PipelineData(name=self.name, data=metadata, schema='metadata'),
@@ -2864,22 +2875,30 @@ class TomoCombineProcessor(Processor):
             self.logger.info('Only one stack available: leaving combine_data')
             return nxroot
 
-        # Generate metadata
-        map_config = loads(str(nxentry.map_config))
+        # Load and validate the map and generate metadata
+        map_config = MapConfig(**loads(str(nxentry.map_config)))
         try:
-            btr = map_config['did'].split('btr=')[1].split('/')[0]
-            assert isinstance(btr, str)
+            metadata = self.get_data(data, schema='metadata')
+            assert isinstance(metadata, dict)
+            metadata['parent_did'] = metadata.pop('did')
         except Exception:
             self.logger.warning(
-                f'Unable to get a valid btr from map_config ({map_config})')
-            btr = 'unknown'
-        metadata = {
-            'parent_did': map_config['did'],
-            'application': 'CHAP',
-            'btr': btr,
-            'experiment_type': map_config['experiment_type'],
-            'metadata': {}
-        }
+                f'Unable to get a valid metadata from pipeline')
+            try:
+                btr = map_config.did.split('btr=')[1].split('/')[0]
+                assert isinstance(btr, str)
+            except Exception:
+                self.logger.warning('Unable to get a valid btr from '
+                                    f'map_config ({map_config.model_dump()})')
+                btr = 'unknown'
+            metadata = {
+                'parent_did': map_config.did,
+                'application': 'CHAP',
+                'btr': btr,
+                'schema': 'user',
+                'user_metadata': {
+                    'experiment_type': map_config.experiment_type},
+            }
 
         # Create a NXprocess to store combined image reconstruction
         # (meta)data
@@ -3067,12 +3086,11 @@ class TomoCombineProcessor(Processor):
         # Add to metadata
         metadata['did'] = \
             f'{metadata["parent_did"]}/workflow=' + \
-            f'{metadata["experiment_type"].lower()}_combined'
-        metadata['metadata']['combined_data'] = \
+            f'{map_config.experiment_type.lower()}_combined'
+        metadata['user_metadata']['combined_data'] = \
             self.config.model_dump()
-        metadata['metadata']['combined_data']['date'] = str(
+        metadata['user_metadata']['combined_data']['date'] = str(
             nxentry.combined_data.date)
-        metadata.pop('parent_did')
 
         return (
             PipelineData(name=self.name, data=metadata, schema='metadata'),
@@ -3962,9 +3980,9 @@ class TomoSpecProcessor(Processor):
         nxentry.metadata = NXsubentry()
         #nxentry.metadata.data = dumps(metadata)
         nxentry.metadata.data = dumps({'did': did})
-        nxentry.metadata.attrs['schema'] = 'json'
+        nxentry.metadata.attrs['schema'] = 'yaml'
         nxentry.metadata.attrs['filename'] = \
-            f'{station}-tomo_sim-{sample_type}_metadata.json'
+            f'../../config/did_{station}_{sample_type}.yaml'
 
         # Create the provenance info
         provenance = {

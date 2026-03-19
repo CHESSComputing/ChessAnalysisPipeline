@@ -103,9 +103,7 @@ class FoxdenProvenanceProcessor(Processor):
         provenance = self.get_data(data, schema='provenance')
 
         # Add system info to provenance data
-#        did = provenance['did']
         provenance.update({
-#            'parent_did': did.rsplit('/', 1)[0],
             'environments': environments(),
             'osinfo': osinfo(),
             'processing': 'CHAP pipeline',

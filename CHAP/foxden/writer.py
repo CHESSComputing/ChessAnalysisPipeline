@@ -91,9 +91,10 @@ class FoxdenMetadataWriter(PipelineItem):
         :rtype: list[dict]
         """
         # System modules
+        from copy import deepcopy
         from getpass import getuser
 
-        record = self.get_data(data, schema='metadata')
+        record = deepcopy(self.get_data(data, schema='metadata'))
         if not isinstance(record, dict):
             raise ValueError('Invalid metadata record {(record)}')
 
@@ -101,6 +102,8 @@ class FoxdenMetadataWriter(PipelineItem):
 
         # Submit HTTP request and return response
         schema = record.pop('schema', 'Analysis')
+        if schema not in ('user', 'Composite'):
+            record.pop('parent_did', None)
         payload = json.dumps({'Schema': schema, 'Record': record})
         self.logger.info(f'method=POST url={self.url} payload={payload}')
         response = HttpRequest(self.url, payload, method='POST', scope='write')

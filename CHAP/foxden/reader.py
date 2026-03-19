@@ -8,15 +8,42 @@ Description: FOXDEN readers
 
 # System modules
 import json
+from typing import Optional
+
+# Third party modules
+from pydantic import (
+    Field,
+    model_validator,
+)
 
 # Local modules
 from CHAP.pipeline import PipelineItem
+from CHAP.processor import Processor
+from CHAP.foxden.models import FoxdenRequestConfig
 from CHAP.foxden.utils import HttpRequest
 
 
 class FoxdenDataDiscoveryReader(PipelineItem):
-    """Reader for the FOXDEN Data Discovery service."""
-    def read(self, config):
+    """Reader for the FOXDEN Data Discovery service.
+
+    :ivar config: Initialization parameters for an instance of
+        foxden.models.FoxdenRequestConfig.
+    :type config: dict, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {'config': 'foxden.models.FoxdenRequestConfig'},
+        init_var=True)
+    config: Optional[FoxdenRequestConfig] = FoxdenRequestConfig()
+
+    _validate_config = model_validator(mode='before')(
+        Processor.validate_processor_before)
+
+    @model_validator(mode='after')
+    def validate_foxdendatadiscoveryreader_after(self):
+        assert self.config.url is not None
+        return self
+
+    def read(self):
         """Read records from the FOXDEN Data Discovery service based on
         did or an arbitrary query.
 
@@ -25,34 +52,32 @@ class FoxdenDataDiscoveryReader(PipelineItem):
         :return: Discovered data records.
         :rtype: list
         """
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
+        self.logger.debug(f'config: {self.config}')
 
         # Submit HTTP request and return response
-        rurl = f'{config.url}/search'
+        rurl = f'{self.config.url}/search'
         request = {'client': 'CHAP-FoxdenDataDiscoveryReader'}
-        if config.did is None:
-            if config.query is None:
+        if self.config.did is None:
+            if self.config.query is None:
                 query = '{}'
             else:
-                query = config.query
-            request['service_query'] = {'query': query, 'limit': config.limit}
+                query = self.config.query
+            request['service_query'] = {
+                'query': query, 'limit': self.config.limit}
         else:
-            if config.limit is not None:
+            if self.config.limit is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "limit" ({config.limit}), '
+                    f'Ignoring parameter "limit" ({self.config.limit}), '
                     'when "did" is specified')
-            if config.query is not None:
+            if self.config.query is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "query" ({config.query}), '
+                    f'Ignoring parameter "query" ({self.config.query}), '
                     'when "did" is specified')
-            request['service_query'] = {'query': f'did:{config.did}'}
+            request['service_query'] = {'query': f'did:{self.config.did}'}
         payload = json.dumps(request)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
-        if config.verbose:
+        if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
