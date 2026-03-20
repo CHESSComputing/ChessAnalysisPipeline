@@ -78,7 +78,13 @@ class AsyncProcessor(Processor):
 
 
 class BinarizeProcessor(Processor):
-    """A Processor to binarize a dataset."""
+    """A Processor to binarize a dataset.
+
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
+    """
+    nxmemory: Optional[conint(gt=0)] = 100000
+
     def process(self, data, config=None):
         """Plot and return a binarized dataset from a dataset contained
         in `data`. The dataset must either be `array-like` or a NeXus
@@ -106,7 +112,7 @@ class BinarizeProcessor(Processor):
         # Local modules
         from CHAP.utils.general import nxcopy
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the validated processor configuration
         if config is None:
@@ -134,9 +140,7 @@ class BinarizeProcessor(Processor):
             assert isinstance(data, np.ndarray)
         except Exception:
             try:
-                dataset = self.unwrap_pipelinedata(data)[-1]
-                assert isinstance(dataset, np.ndarray)
-                data = dataset
+                data = np.asarray(self.get_pipelinedata_item(data))
             except Exception as exc:
                 raise ValueError(
                     'Unable the load a valid input data object') from exc
@@ -233,7 +237,7 @@ class ConstructBaseline(Processor):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
-        :type data: list[PipelineData]
+        :type data: Union[numpy.ndarray, list[PipelineData]]
         :param x: Independent dimension (only used when running
             interactively or when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
@@ -253,16 +257,15 @@ class ConstructBaseline(Processor):
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
         :return: The smoothed baseline and the configuration.
-        :rtype: numpy.array, dict
+        :rtype: numpy.ndarray, dict
         """
         try:
-            data = np.asarray(self.unwrap_pipelinedata(data)[0])
+            y = np.asarray(self.get_pipelinedata_item(data))
         except Exception as exc:
-            raise ValueError(
-                f'The structure of {data} contains no valid data') from exc
+            raise ValueError(f'No valid data found in {data}') from exc
 
         return self.construct_baseline(
-            data, x=x, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+            y, x=x, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             return_buf=save_figures)
 
     @staticmethod
@@ -272,7 +275,7 @@ class ConstructBaseline(Processor):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
-        :type y: numpy.array
+        :type y: numpy.ndarray
         :param x: Independent dimension (only used when interactive is
             `True` of when filename is set).
         :type x: array-like, optional
@@ -304,7 +307,7 @@ class ConstructBaseline(Processor):
         :return: The smoothed baseline and the configuration and a
             byte stream represention of the Matplotlib figure if
             return_buf is `True` (`None` otherwise)
-        :rtype: numpy.array, dict, Union[io.BytesIO, None]
+        :rtype: numpy.ndarray, dict, Union[io.BytesIO, None]
         """
         # Third party modules
         from matplotlib.widgets import TextBox, Button
@@ -492,7 +495,7 @@ class ConvertStructuredProcessor(Processor):
         # Local modules
         from CHAP.utils.converters import convert_structured_unstructured
 
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         return convert_structured_unstructured(data)
 
 
@@ -613,6 +616,8 @@ class ImageProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.common.models.ImageProcessorConfig
     :type config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Return the plottable image(s) to be written
         to file downstream in the pipeline, defaults to `True`.
     :type save_figures: bool, optional
@@ -621,6 +626,7 @@ class ImageProcessor(Processor):
         default = {
             'config': 'common.models.map.ImageProcessorConfig'}, init_var=True)
     config: ImageProcessorConfig
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figconfig: dict = PrivateAttr(default={})
@@ -642,7 +648,7 @@ class ImageProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import nxsetconfig
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the default data
         try:
@@ -1655,13 +1661,13 @@ class MPICollectProcessor(Processor):
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
         if root_as_worker:
-            data = self.unwrap_pipelinedata(data)[-1]
+            data = self.get_pipelinedata_item(data)
             if num_proc > 1:
                 data = comm.gather(data, root=0)
         else:
             for n_worker in range(1, num_proc):
                 if rank == n_worker:
-                    comm.send(self.unwrap_pipelinedata(data)[-1], dest=0)
+                    comm.send(self.get_pipelinedata_item(data), dest=0)
                     data = None
                 elif not rank:
                     if n_worker == 1:
@@ -1921,7 +1927,7 @@ class NexusToNumpyProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import NXdata
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
 
         if isinstance(data, NXdata):
             default_data = data
@@ -1964,7 +1970,7 @@ class NexusToXarrayProcessor(Processor):
         from nexusformat.nexus import NXdata
         from xarray import DataArray
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
 
         if isinstance(data, NXdata):
             default_data = data
@@ -2100,7 +2106,7 @@ class NormalizeNexusProcessor(Processor):
         from CHAP.utils.general import nxcopy
 
         # Check input data
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         data = nxcopy(data)
         if not isinstance(data, NXgroup):
             raise TypeError(f'Expected NXgroup, got (type{data})')
@@ -2170,7 +2176,7 @@ class NormalizeMapProcessor(Processor):
         )
 
         # Check input data
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         map_title = None
         for k, v in data.items():
             if isinstance(v, NXentry):
@@ -2286,7 +2292,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
             mask = fabio.open(mask_file).data
 
         try:
-            det_data = self.unwrap_pipelinedata(data)[0]
+            det_data = self.get_pipelinedata_item(data)
         except Exception:
             det_data = data
 
@@ -2517,7 +2523,7 @@ class SetupNXdataProcessor(Processor):
         self.attrs = attrs
         self.data_points = data_points
         try:
-            setup_params = self.unwrap_pipelinedata(data)[0]
+            setup_params = self.get_pipelinedata_item(data)
         except Exception:
             setup_params = None
         if isinstance(setup_params, dict):
@@ -2668,7 +2674,7 @@ class UnstructuredToStructuredProcessor(Processor):
         try:
             nxobject = self.get_data(data)
         except Exception:
-            nxobject = self.unwrap_pipelinedata(data)[0]
+            nxobject = self.get_pipelinedata_item(data)
         if isinstance(nxobject, NXdata):
             return self.convert_nxdata(nxobject)
         if nxpath is not None:
@@ -2853,7 +2859,7 @@ class UpdateNXvalueProcessor(Processor):
         if data_points is None:
             data_points = []
         self.logger.debug(f'Got {len(data_points)} data points from keyword')
-        ddata_points = self.unwrap_pipelinedata(data)[0]
+        ddata_points = self.get_pipelinedata_item(data)
         if isinstance(ddata_points, list):
             self.logger.debug(f'Got {len(ddata_points)} from pipeline data')
             data_points.extend(ddata_points)
@@ -2931,7 +2937,7 @@ class UpdateNXdataProcessor(Processor):
         if data_points is None:
             data_points = []
         self.logger.debug(f'Got {len(data_points)} data points from keyword')
-        _data_points = self.unwrap_pipelinedata(data)[0]
+        _data_points = self.get_pipelinedata_item(data)
         if isinstance(_data_points, list):
             self.logger.debug(f'Got {len(_data_points)} from pipeline data')
             data_points.extend(_data_points)
@@ -3024,7 +3030,7 @@ class NXdataToDataPointsProcessor(Processor):
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
         """
-        nxdata = self.unwrap_pipelinedata(data)[0]
+        nxdata = self.get_pipelinedata_item(data)
 
         data_points = []
         axes_names = [a.nxname for a in nxdata.nxaxes]
@@ -3067,7 +3073,7 @@ class XarrayToNexusProcessor(Processor):
             NXfield,
         )
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
         axes = []
         for name, coord in data.coords.items():
@@ -3090,7 +3096,7 @@ class XarrayToNumpyProcessor(Processor):
         :return: The data in `data`.
         :rtype: numpy.ndarray
         """
-        return self.unwrap_pipelinedata(data)[-1].data
+        return self.get_pipelinedata_item(data).data
 
 
 class ZarrToNexusProcessor(Processor):

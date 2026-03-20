@@ -12,11 +12,9 @@ class StrainAnalysisUpdateWriter(Writer):
         # Local modules
         from CHAP.edd.processor import StrainAnalysisProcessor
 
-        points = self.unwrap_pipelinedata(data)[0]
+        points = self.get_pipelinedata_item(data, remove=self.remove)
         nxroot = nxload(self.filename, mode='r+')
         StrainAnalysisProcessor.add_points(nxroot, points, logger=self.logger)
-
-        return nxroot
 
 
 if __name__ == '__main__':

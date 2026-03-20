@@ -332,6 +332,29 @@ class PipelineItem(RunConfig):
 
         return result
 
+    @staticmethod
+    def get_pipelinedata_item(data, index=-1, remove=False):
+        """If 'data' is a list, then retrieve from `data` the list
+        item matching `index` and return it's `data` value, otherwise
+        return `data` itself.
+
+        :param data: Input data from a previous `PipelineItem`.
+        :type data: Union[Any, list[PipelineData]]
+        :param index: The list index of the item to retrieve from
+            `data`, default to -1 or the last item in the list.
+        :type index: int, optional
+        :param remove: If there is a matching entry in `data`, remove
+            it from the list, defaults to `False`.
+        :type remove: bool, optional
+        :return: The matching data item.
+        :rtype: obj
+        """
+        if isinstance(data, list):
+            if remove:
+                return data.pop(index)['data']
+            return data.get(index)['data']
+        return data
+
     def execute(self, data):
         """Run the appropriate method of the object and return the
         result.
@@ -474,6 +497,10 @@ class Pipeline(CHAPBaseModel):
                                 name=current_item.name, data=data,
                                 schema=current_item.get_schema()))
                     elif item.method_type == 'write' and item.has_filename():
+                        if data is not None:
+                            self._data.append(PipelineData(
+                                name=current_item.name, data=data,
+                                schema=current_item.get_schema()))
                         for k, v in self._filename_mapping.items():
                             if v['path'] == item.filename:
                                 self._filename_mapping[k]['status'] = 'written'

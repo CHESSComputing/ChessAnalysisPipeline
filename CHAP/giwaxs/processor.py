@@ -15,6 +15,7 @@ import numpy as np
 from pydantic import (
     Field,
     PrivateAttr,
+    conint,
     constr,
 )
 
@@ -35,6 +36,8 @@ class GiwaxsConversionProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.giwaxs.models.GiwaxsConversionConfig
     :type config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read the intensity data from.
     :type nxpath: str, optional
@@ -46,6 +49,7 @@ class GiwaxsConversionProcessor(Processor):
         default = {
             'config': 'giwaxs.models.GiwaxsConversionConfig'}, init_var=True)
     config: GiwaxsConversionConfig
+    nxmemory: Optional[conint(gt=0)] = 100000
     nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = None
     save_figures: Optional[bool] = True
 
@@ -79,7 +83,7 @@ class GiwaxsConversionProcessor(Processor):
         from CHAP.common.map_utils import get_axes
         from CHAP.utils.general import nxcopy
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
         try:
@@ -227,11 +231,14 @@ class PyfaiIntegrationProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.giwaxs.models.GiwaxsConversionConfig
     :type config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     """
     pipeline_fields: dict = Field(
         default = {
             'config': 'giwaxs.models.PyfaiIntegrationConfig'}, init_var=True)
     config: PyfaiIntegrationConfig
+    nxmemory: Optional[conint(gt=0)] = 100000
 
     def process(self, data):
         """Process the input images & configuration and return a map of
@@ -260,7 +267,7 @@ class PyfaiIntegrationProcessor(Processor):
         from CHAP.common.map_utils import get_axes
         from CHAP.utils.general import nxcopy
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
         try:

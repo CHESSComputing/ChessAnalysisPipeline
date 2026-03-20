@@ -73,7 +73,8 @@ class FitProcessor(Processor):
 
         :param data: Input data containing the
             nexusformat.nexus.NXdata object to fit.
-        :type data: list[PipelineData]
+        :type data: Union[list[PipelineData], CHAP.utils.fit.Fit,
+            CHAP.utils.fit.FitMap, nexusformat.nexus.NXdata]
         :param config: Fit configuration.
         :type config: dict, optional
         :raises ValueError: Invalid input or configuration parameter.
@@ -89,7 +90,7 @@ class FitProcessor(Processor):
         # Unwrap the PipelineData if called as a Pipeline Processor
         if (not isinstance(data, (Fit, FitMap))
                 and not isinstance(data, NXdata)):
-            data = self.unwrap_pipelinedata(data)[0]
+            data = self.get_pipelinedata_item(data)
 
         # Get the validated fit configuration
         fit_config = None
