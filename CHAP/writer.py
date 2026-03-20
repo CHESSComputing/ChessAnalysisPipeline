@@ -66,16 +66,13 @@ class Writer(PipelineItem):
         :return: Contents of the input data.
         :rtype: list[PipelineData]
         """
-        ddata = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data, remove=self.remove)
         if os.path.isfile(self.filename) and not self.force_overwrite:
             raise FileExistsError(f'{self.filename} already exists')
         with open(self.filename, 'w') as f:
-            f.write(ddata)
-        if self.remove:
-            data.pop()
+            f.write(data)
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
-        return data
 
 
 class OptionParser():
