@@ -15,6 +15,7 @@ import numpy as np
 from pydantic import (
     Field,
     PrivateAttr,
+    conint,
     constr,
 )
 

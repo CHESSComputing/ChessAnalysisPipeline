@@ -84,15 +84,7 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
-        try:
-            data = self.unwrap_pipelinedata(data)[0]
-            if isinstance(data, list) and len(data) != 1:
-                raise ValueError(f'Invalid PipelineData input data ({data})')
-            data = data[0]
-            if not isinstance(data, dict):
-                raise ValueError(f'Invalid PipelineData input data ({data})')
-        except Exception:
-            raise
+        data = self.get_pipelinedata_item(data)
 
         # Extract any available MapConfig info
         map_config = {}
