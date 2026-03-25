@@ -536,8 +536,15 @@ class NexusWriter(Writer):
 
 
 class NexusValuesWriter(Writer):
-    """Writer for updating values in an existing NeXus file."""
-    def write(self, data, filename, path_prefix=''):
+    """Writer for updating values in an existing NeXus file.
+
+    :ivar path_prefix: Prefix to use for all paths in input `data`,
+        defaults to `''`.
+    :vartype path_prefix: str, optional
+    """
+    path_prefix: str = ''
+
+    def write(self, data, filename):
         """Write new values specified in `data` to the exising NeXus
         file `filename`.
 
@@ -561,7 +568,7 @@ class NexusValuesWriter(Writer):
             with NXFile(filename, 'a') as nxroot:
                 self.nxs_writer(
                     nxroot=nxroot,
-                    path=os.path.join(path_prefix, d['path']),
+                    path=os.path.join(self.path_prefix, d['path']),
                     idx=d['idx'],
                     data=d['data']
                 )
