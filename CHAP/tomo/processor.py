@@ -94,6 +94,7 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
+        # Get the metadata record
         record = self.get_data(data, name='FoxdenDataDiscoveryReader')[0]
 
         # Extract any available MapConfig info
