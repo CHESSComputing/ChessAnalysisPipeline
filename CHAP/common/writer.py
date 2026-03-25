@@ -7,7 +7,11 @@ Description: Module for Writers used in multiple experiment-specific workflows.
 
 # System modules
 import os
-from typing import Optional
+from typing import (
+    Literal,
+    Optional,
+    Union,
+)
 
 # Third party modules
 import numpy as np
@@ -541,8 +545,14 @@ class NexusValuesWriter(Writer):
     :ivar path_prefix: Prefix to use for all paths in input `data`,
         defaults to `''`.
     :vartype path_prefix: str, optional
+    :ivar resize_axis: `False` OR the axis along which the dataset
+        should be resized if the target slice shape does not match the
+        data shape. If `False`, any mismatching shapes will just raise
+        an error. Defaults to `False`.
+    :vartype resize_axis: Union[int, Literal[False]], optional
     """
     path_prefix: str = ''
+    resize_axis: Union[int, Literal[False]] = False
 
     def write(self, data, filename):
         """Write new values specified in `data` to the exising NeXus
@@ -552,7 +562,7 @@ class NexusValuesWriter(Writer):
         -- `'path'` identifying the location of the `NXfield` object
         to which values will be written, `'data'` identifying the data
         to be written, and `'idx'` identifying the index / indicies of
-        the `NXfield` to which the data will be written.
+         the `NXfield` to which the data will be written.
         :type data: list[PipelineData]
         :param filename: Name of an existing NeXus file to update.
         :type filename: str
@@ -586,8 +596,8 @@ class NexusValuesWriter(Writer):
         :type nxroot: nexusformat.nexus.NXroot
         :param path: Path to the dataset inside the NeXus file.
         :type path: str
-        :param idx: Index or slice where the data should be written.
-        :type idx: tuple or int
+        :param idx: Slice where the data should be written.
+        :type idx: slice
         :param data: Data to be written to the specified slice in the
             dataset.
         :type data: numpy.ndarray or compatible array-like object
@@ -607,9 +617,21 @@ class NexusValuesWriter(Writer):
         # Check that the slice shape matches the data shape
         data = np.asarray(data)
         if dataset[idx].shape != data.shape:
-            raise ValueError(
-                f'Data shape {data.shape} does not match the target slice '
-                f'shape {dataset[idx].shape}.')
+            if self.resize_axis is not False:
+                # Resize along the specified axis
+                start = idx.start or 0
+                stop = start + data.shape[0]
+                newshape = max(dataset.shape[self.resize_axis], stop)
+                self.logger.debug(
+                    f'Resizing {path} {dataset.shape} -> {newshape} '
+                    + f'along axis {self.resize_axis}'
+                )
+
+                dataset.resize(newshape, axis=self.resize_axis)
+            else:
+                raise ValueError(
+                    f'Data shape {data.shape} does not match the target slice '
+                    f'shape {dataset[idx].shape}.')
 
         # Write the data to the specified slice
         dataset[idx] = data
