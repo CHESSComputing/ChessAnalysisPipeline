@@ -352,7 +352,7 @@ class PipelineItem(RunConfig):
         if isinstance(data, list):
             if remove:
                 return data.pop(index)['data']
-            return data.get(index)['data']
+            return data[index]['data']
         return data
 
     def execute(self, data):
