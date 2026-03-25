@@ -1272,7 +1272,10 @@ class MapProcessor(Processor):
                         attrs={'units': dim.units,
                                'long_name': f'{dim.label} ({dim.units})',
                                'data_type': dim.data_type,
-                               'local_name': dim.name})
+                               'local_name': dim.name},
+                        maxshape= (None, *independent_dimensions[i].shape[1:]),
+                        chunks=(1, *independent_dimensions[i].shape[1:])
+                    )
         else:
             nxentry.independent_dimensions.index = NXfield(
                 np.arange(independent_dimensions[0].size), 'index')
@@ -1291,7 +1294,10 @@ class MapProcessor(Processor):
                 units=dim.units,
                 attrs={'long_name': f'{dim.label} ({dim.units})',
                        'data_type': dim.data_type,
-                       'local_name': dim.name}))
+                       'local_name': dim.name},
+                maxshape=(None, *all_scalar_data[i].shape[1:]),
+                chunks=(1, *all_scalar_data[i].shape[1:])
+            ))
         if (self.config.experiment_type == 'EDD'
                 and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
@@ -1308,7 +1314,10 @@ class MapProcessor(Processor):
                     attrs={'units': dim.units,
                            'long_name': f'{dim.label} ({dim.units})',
                            'data_type': dim.data_type,
-                           'local_name': dim.name}))
+                           'local_name': dim.name},
+                    maxshape=(None, *independent_dimensions[i].shape[1:]),
+                    chunks=(1, *independent_dimensions[i].shape[1:])
+                ))
                 self.config.all_scalar_data.append(
                     PointByPointScanData(**dim.model_dump()))
                 self.config.independent_dimensions.remove(dim)
@@ -1336,7 +1345,10 @@ class MapProcessor(Processor):
         for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.get_id()] = NXfield(
                 value=data[i],
-                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]})
+                attrs={**detector.attrs, 'min': min_[i], 'max': max_[i]},
+                maxshape=(None, *data[i].shape[1:]),
+                chunks=(1, *data[i].shape[1:])
+            )
             detector_ids.append(detector.get_id())
         linkdims(nxdata, nxentry.independent_dimensions)
         if len(self.detector_config.detectors) == 1:
