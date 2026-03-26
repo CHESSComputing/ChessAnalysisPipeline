@@ -750,7 +750,7 @@ class SliceNXdataReader(Reader):
     provided slicing parameters.
  
     :param scan_number: Number of the SPEC scan.
-    :type scan_number: int
+    :vartype scan_number: int
     """
     scan_number: conint(ge=0)
 
@@ -772,14 +772,28 @@ class SliceNXdataReader(Reader):
 
         reader = NexusReader(**self.model_dump())
         nxroot = nxcopy(reader.read())
+        nxentry = None
         nxdata = None
         for nxname, nxobject in nxroot.items():
             if isinstance(nxobject, NXentry):
+                nxentry = nxobject
                 nxdata = nxobject.data
         if nxdata is None:
             msg = 'Could not find NXdata group'
             self.logger.error(msg)
             raise ValueError(msg)
+        if 'SCAN_N' not in nxdata:
+            self.logger.warning(f'SCAN_N not in {nxdata}')
+            scan_n_found = False
+            for k, v in nxentry.items():
+                if 'SCAN_N' in v:
+                    nxdata = v
+                    scan_n_found = True
+                    self.logger.warning(f'Using SCAN_N dataset in {nxdata}')
+            if not scan_n_found:
+                msg = 'Cannot find SCAN_N dataset'
+                self.logger.error(msg)
+                raise ValueError(msg)
 
         indices = np.argwhere(
             nxdata.SCAN_N.nxdata == self.scan_number).flatten()
