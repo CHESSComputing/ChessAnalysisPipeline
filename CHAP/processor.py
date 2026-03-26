@@ -28,6 +28,8 @@ class Processor(PipelineItem):
     returned by the previous `PipelineItem`, process it in some way,
     and return the result for the next `PipelineItem` to use as input.
     """
+    # FIX add a validation status, so that the validator doesn't get
+    # executed twice with the config staying on the pipeline
     @model_validator(mode='before')
     @classmethod
     def validate_processor_before(cls, data):
