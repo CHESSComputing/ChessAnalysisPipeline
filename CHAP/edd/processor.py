@@ -2666,6 +2666,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxdata = nxentry[nxentry.default]
 
         # Load the validated calibration configuration
+        # FIX make this a class field and add to pipeline_fields too?
+        #     NB: be sure that adding this field does not mess up
+        #     self.detector_config during pydantic validation
         calibration_config = self.get_config(
             data, schema='edd.models.MCATthCalibrationConfig', remove=False)
 
