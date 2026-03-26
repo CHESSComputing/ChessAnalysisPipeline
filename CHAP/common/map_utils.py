@@ -106,13 +106,13 @@ class MapSliceProcessor(Processor):
         # Get spec scan indices to process
         scan_indices = range(npts_scan)[slice(
             idx_slice.get('start', 0),
-            idx_slice.get('stop', npts_scan + 1),
+            idx_slice.get('stop', npts_scan),
             idx_slice.get('step', 1)
         )]
         # Get map indices to write to
         map_indices = slice(
             idx_slice.get('start', 0) + index_offset,
-            idx_slice.get('stop', npts_scan + 1) + index_offset,
+            idx_slice.get('stop', npts_scan) + index_offset,
             idx_slice.get('step', 1)
         )
 
