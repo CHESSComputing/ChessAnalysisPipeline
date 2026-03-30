@@ -22,8 +22,7 @@ pipeline:
       num_image: 10
       schema: tomo.models.TomoBrightField
   # Create the SPEC file for the simulation
-  - tomo.TomoSpecProcessor
-#  - tomo.TomoSpecProcessor:
+  - tomo.TomoSpecProcessor:
 #      scan_numbers: [1, 2, 3, 4, 5]
   - common.FileTreeWriter:
       force_overwrite: true

@@ -4,7 +4,7 @@ experiment_type: TOMO
 sample:
   name: hollow_pyramid
 spec_scans:
-- spec_file: ../data/hollow_pyramid/spec.log
+- spec_file: ../raw/hollow_pyramid/spec.log
   scan_numbers: [3, 4, 5]
 independent_dimensions:
 - label: rotation_angles

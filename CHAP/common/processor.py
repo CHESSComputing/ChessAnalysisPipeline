@@ -1175,7 +1175,10 @@ class MapProcessor(Processor):
 
         # Read metadata and provenance from the pipeline data
         metadata, provenance = read_metadata_provenance(data, self.logger)
+        if not metadata:
+            return metadata, provenance
 
+        # Update metadata and provenance
         experiment_type = [v.lower() for v in metadata.get('technique')]
         if 'tomography' in experiment_type:
             station = f'id{metadata.get("beamline")[0].lower()}'

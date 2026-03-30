@@ -38,7 +38,6 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
-from CHAP.reader import validate_reader_model
 from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
 from CHAP.tomo.models import (
@@ -3752,14 +3751,23 @@ class TomoSpecProcessor(Processor):
     """A processor to create a tomography SPEC file associated with a
     simulated tomography data set created by TomoSimProcessor.
 
+    :var filename: Metadata input filename, when running with FOXDEN.
+    :vartype filename: str, optional
     :ivar scan_numbers: List of SPEC scan numbers.
-    :type scan_numbers: list[int], optional
+    :vartype scan_numbers: list[int], optional
     """
-    filename: constr(strip_whitespace=True, min_length=1)
+    filename: Optional[constr(strip_whitespace=True, min_length=1)] = None
     scan_numbers: Optional[
         conlist(min_length=1, item_type=conint(gt=0))] = None
 
-    _validate_filename = model_validator(mode='after')(validate_reader_model)
+    @model_validator(mode='after')
+    def validate_tomospecprocessor_after(self):
+        if self.filename is None:
+            return self
+
+        # Local modules
+        from CHAP.reader import validate_reader_model
+        return  validate_reader_model(self)
 
     @field_validator('scan_numbers', mode='before')
     @classmethod
@@ -4031,8 +4039,11 @@ class TomoSpecProcessor(Processor):
             return nxroot
 
         # Create a metadata record
-        with open(self.filename, 'r') as file:
-            metadata = load(file)
+        if self.filename is None:
+            metadata = {'beamline': [station.upper()[2:]]}
+        else:
+            with open(self.filename, 'r') as file:
+                metadata = load(file)
         now = datetime.now()
         beamline = metadata['beamline'][0]
         btr = f'tomo-sim-{now.strftime("%m%d%H%M%S")}'
