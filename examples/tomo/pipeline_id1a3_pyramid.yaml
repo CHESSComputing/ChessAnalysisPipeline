@@ -4,7 +4,6 @@ config:
   outputdir: reduced/hollow_pyramid
   interactive: true
   log_level: info
-  profile: false
 
 map:
 
@@ -42,7 +41,6 @@ map:
 #        detectors:
 #          - id: sim
       num_proc: 1
-      schema: tomofields
   - common.NexusWriter:
       filename: map_hollow_pyramid.nxs
       force_overwrite: true
@@ -96,6 +94,10 @@ reduce:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 find_center:
 
@@ -158,8 +160,3 @@ combine:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
-#  - foxden.FoxdenMetadataWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor
-#  - foxden.FoxdenProvenanceWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8310'

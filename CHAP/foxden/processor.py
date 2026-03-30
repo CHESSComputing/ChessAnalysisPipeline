@@ -6,11 +6,16 @@ Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
 Description: Processor module for FOXDEN services
 """
 
-# Local modules
-from CHAP.common.utils import (
-    osinfo,
-    environments,
+# System modules
+import os
+from typing import (
+    Literal,
+    Optional,
 )
+# Third party modules
+from pydantic import conint
+
+# Local modules
 from CHAP.processor import Processor
 
 
@@ -88,31 +93,95 @@ from CHAP.processor import Processor
 #        return metadata
 
 
-class FoxdenProvenanceProcessor(Processor):
-    """Processor to collect CHAP workflow provenance data."""
+#class FoxdenProvenanceProcessor(Processor):
+#    """Processor to collect CHAP workflow provenance data."""
+#    def process(self, data):
+#        """Extract provenance data from the pipeline data for
+#        submission to the FOXDEN Provenance service.
+#
+#        :param data: Input data.
+#        :type data: list[PipelineData]
+#        :return: CHAP workflow provenance record.
+#        :rtype: dict
+#        """
+#        # Local modules
+#        from CHAP.common.utils import (
+#            osinfo,
+#            environments,
+#        )
+#        # Load the provenance info
+#        provenance = self.get_data(data, schema='provenance')
+#
+#        # Add system info to provenance data
+#        provenance.update({
+#            'environments': environments(),
+#            'osinfo': osinfo(),
+#            'processing': 'CHAP pipeline',
+#            'scripts': [
+#                {'name': 'CHAP', 'parent_script': None, 'order_idx': 1}],
+#            'site': 'Cornell',
+#        })
+#
+#        return provenance
+
+
+class ProvenanceFileProcessor(Processor):
+    """A Processor that a FOXDEN provenance record from  the pipeline
+    and returns the content of the in or output file listed in the
+    record.
+
+    :ivar file_type: The `'file_type'` in the provenance record,
+        defaults to `'output'`.
+    :vartype file_type: Literal['input', 'output'], optional.
+    :ivar nxmemory: Maximum memory usage when reading NeXus files,
+        ignore for any other file type.
+    :vartype nxmemory: int, optional
+    """
+    file_type: Optional[Literal['input', 'output']] = 'output'
+    nxmemory: Optional[conint(gt=0)] = None
+
     def process(self, data):
-        """Extract provenance data from the pipeline data for
-        submission to the FOXDEN Provenance service.
+        """Return the content of in or output file listed in the
+        provenance record.
 
-        :param data: Input data.
-        :type data: list[PipelineData]
-        :return: CHAP workflow provenance record.
-        :rtype: dict
+        :return: The file content.
+        :rtype: Any
         """
-        # Load the provenance info
-        provenance = self.get_data(data, schema='provenance')
+        # Local modules
+        from CHAP.tomo.processor import read_metadata_provenance
 
-        # Add system info to provenance data
-        provenance.update({
-            'environments': environments(),
-            'osinfo': osinfo(),
-            'processing': 'CHAP pipeline',
-            'scripts': [
-                {'name': 'CHAP', 'parent_script': None, 'order_idx': 1}],
-            'site': 'Cornell',
-        })
+        try:
+            _, provenance = read_metadata_provenance(
+                data, logger=self.logger, remove=False)
+            filenames = [v['name']
+                        for v in provenance if v['file_type'] == 'output']
+            if not filenames:
+                raise ValueError('Unable to get an output file name from '
+                                 f'provenance ({provenance})')
+            if len(filenames) > 1:
+                raise ValueError('Unable to get a unique output file name '
+                                 f'from provenance ({provenance})')
+            filename = filenames[0]
+        except Exception:
+            raise
 
-        return provenance
+        # FIX modify CHAP.reader to be a generic reader, based on ext
+        # Can use __import__ as well
+        ext = os.path.splitext(filename)[1][1:]
+        if ext == 'nxs':
+            # Local modules
+            from CHAP.common.reader import NexusReader
+
+            reader = NexusReader(filename=filename, **self.model_dump())
+        elif ext in ('yml', 'yaml'):
+            # Local modules
+            from CHAP.common.reader import YAMLReader
+
+            reader = YAMLReader(filename=filename, **self.model_dump())
+        else:
+            raise ValueError('ProvenanceOutputReader not yet implemented for '
+                             f'files with extension {ext}')
+        return reader.read()
 
 
 if __name__ == '__main__':

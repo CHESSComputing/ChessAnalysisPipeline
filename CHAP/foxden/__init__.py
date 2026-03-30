@@ -4,7 +4,8 @@ services.
 
 from CHAP.foxden.processor import (
 #    FoxdenMetadataProcessor,
-    FoxdenProvenanceProcessor,
+#    FoxdenProvenanceProcessor,
+    ProvenanceFileProcessor,
 )
 from CHAP.foxden.reader import (
     FoxdenDataDiscoveryReader,

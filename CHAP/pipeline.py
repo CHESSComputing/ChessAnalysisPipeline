@@ -54,6 +54,8 @@ class PipelineItem(RunConfig):
         'read', 'process', 'write'] = PrivateAttr(default=None)
     _args: dict = PrivateAttr(default={})
     _allowed_args: conlist(item_type=str) = PrivateAttr(default=[])
+#    _metadata: dict = PrivateAttr(default=None)
+#    _provenance: dict = PrivateAttr(default=None)
     _status: Literal[
         'read', 'write_pending', 'written'] = PrivateAttr(default=None)
 
@@ -67,10 +69,7 @@ class PipelineItem(RunConfig):
         :rtype: PipelineItem
         """
         # System modules
-        from inspect import (
-#            Parameter,
-            signature,
-        )
+        from inspect import signature
 
         if self.name is None:
             self.__name__ = self.__class__.__name__
@@ -85,6 +84,10 @@ class PipelineItem(RunConfig):
                 datefmt='%Y-%m-%d %H:%M:%S', style='{'))
             self.logger.addHandler(log_handler)
         self.logger.setLevel(self.log_level)
+        # Optinal, but it's already available in the 'name' field
+        #if self.get_schema() is None:
+        #    mod_name = '.'.join(self.__class__.__module__.split('.')[1:])
+        #    self.schema_ = f'{mod_name}.{self.__class__.__name__}'
 
         if hasattr(self, 'read'):
             self._method_type = 'read'
@@ -355,7 +358,7 @@ class PipelineItem(RunConfig):
             return data.get(index)['data']
         return data
 
-    def execute(self, data):
+    def execute(self, data):#, metadata, provenance):
         """Run the appropriate method of the object and return the
         result.
 
@@ -364,11 +367,14 @@ class PipelineItem(RunConfig):
         :return: The wrapped result of running read, process, or write.
         :rtype: Union[PipelineData, tuple[PipelineData]]
         """
+#        self._metadata = metadata
+#        self._provenance = provenance
+
         if 'data' in self._allowed_args:
             self._args['data'] = data
         t0 = time()
         self.logger.debug(f'Executing "{self._method_type}" with schema '
-                          f'"{self.schema_}" and {self._args}')
+                          f'"{self.get_schema()}" and {self._args}')
         self.logger.info(f'Executing "{self._method_type}"')
         data = self._method(**self._args)
         self.logger.info(
@@ -386,6 +392,9 @@ class Pipeline(CHAPBaseModel):
     _items: conlist(item_type=PipelineItem) = PrivateAttr(default=[])
     #_output_filenames: conlist(item_type=FilePath) = PrivateAttr(default=[])
     _filename_mapping: dict = PrivateAttr(default={})
+#    _metadata: dict = PrivateAttr(
+#        default={'application': 'CHAP', 'user_metadata': {}})
+#    _provenance: dict = PrivateAttr(default={})
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -405,6 +414,7 @@ class Pipeline(CHAPBaseModel):
 
         output_filenames = []
         for mmc, args in zip(self.mmcs, self.args):
+            self.logger.info(f'Validating {mmc}')
             item = mmc(data=self._data, modelmetaclass=mmc, **args)
             if item.has_filename():
                 if item.method_type == 'read':
@@ -437,17 +447,16 @@ class Pipeline(CHAPBaseModel):
                     and item.status not in ('read', 'write_pending')):
                 if item.get_schema() is not None:
                     self.logger.debug(
-                        f'Validating "{item.method_type}" with schema '
+                        f'Reading "{item.name}" with schema '
                         f'"{item.get_schema()}" and {item.get_args()}')
-                    self.logger.info(f'Validating "{item.method_type}"')
+                    self.logger.info(f'Reading "{item.name}"')
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
                         name=item.name, data=data, schema=item.get_schema()))
                     if item.has_filename():
                         self._filename_mapping[
                             item._mapping_filename]['status'] = 'read'
-                    else:
-                        item.status = 'read'
+                    item.status = 'read' # FIX RV make part of pipelineitem for read
             if item.method_type == 'write' and item.has_filename():
                 for k, v in self._filename_mapping.items():
                     if v['path'] == item.filename:
@@ -470,7 +479,6 @@ class Pipeline(CHAPBaseModel):
         for mmc, item, args in zip(self.mmcs, self._items, self.args):
             if hasattr(item, 'execute'):
                 current_item = mmc(data=self._data, modelmetaclass=mmc, **args)
-                self.logger.info(f'Calling "execute" on {item}\n')
                 read_status = None
                 if item.method_type == 'read' and item.has_filename():
                     read_status = self._filename_mapping[
@@ -478,13 +486,27 @@ class Pipeline(CHAPBaseModel):
                     current_item.status = read_status
                     current_item.filename = item.filename
                 current_item.set_args(**item.get_args())
+                # FIX RV update to only read when not yet read or when
+                # written to in the mean time, make this happen for any
+                # type of read, from file, url, ...
                 if not (item.method_type == 'read' and read_status == 'read'):
-                    data = current_item.execute(data=self._data)
+                    self.logger.info(
+                        f'Calling "execute" on {current_item.name}')
+                    data = current_item.execute(self._data)
+#                        self._data, self._metadata, self._provenance)
                     if current_item.method_type == 'read':
-                        self._data.append(PipelineData(
-                            name=current_item.name, data=data,
-                            schema=current_item.get_schema()))
-                    elif current_item.method_type == 'process':
+                        for i, d in reversed(list(enumerate(self._data))):
+                            if (current_item.name==d['name']
+                                    and current_item.get_schema()==d['schema']
+                                    and data==d['data']):
+                                self._data[i]['data'] = data
+                                break
+                        else:
+                            self._data.append(PipelineData(
+                                name=current_item.name, data=data,
+                                schema=current_item.get_schema()))
+                        current_item.status = 'read' #FIX RF move to pipelineitem after read
+                    else:
                         if isinstance(data, tuple):
                             self._data.extend(
                                 [d if isinstance(d, PipelineData)
@@ -492,15 +514,13 @@ class Pipeline(CHAPBaseModel):
                                      name=current_item.name, data=d,
                                      schema=current_item.get_schema())
                                  for d in data])
-                        else:
+                        elif isinstance(data, PipelineData):
+                            self._data.append(data)
+                        elif data is not None:
                             self._data.append(PipelineData(
                                 name=current_item.name, data=data,
                                 schema=current_item.get_schema()))
-                    elif item.method_type == 'write' and item.has_filename():
-                        if data is not None:
-                            self._data.append(PipelineData(
-                                name=current_item.name, data=data,
-                                schema=current_item.get_schema()))
+                    if item.method_type == 'write' and item.has_filename():
                         for k, v in self._filename_mapping.items():
                             if v['path'] == item.filename:
                                 self._filename_mapping[k]['status'] = 'written'

@@ -35,6 +35,5 @@ pipeline:
   # Create the FOXDEN meta and provenance records
   - foxden.FoxdenMetadataWriter:
       url: 'https://foxden-demo.classe.cornell.edu:8300'
-  - foxden.FoxdenProvenanceProcessor:
   - foxden.FoxdenProvenanceWriter:
       url: 'https://foxden-demo.classe.cornell.edu:8310'

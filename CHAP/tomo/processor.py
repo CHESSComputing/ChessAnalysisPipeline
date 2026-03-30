@@ -5,9 +5,9 @@ File       : processor.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
 Description: Module for Processors used only by tomography experiments
 """
+from pprint import pprint
 
 # System modules
-from datetime import datetime
 import os
 import re
 import sys
@@ -68,6 +68,105 @@ from CHAP.utils.general import (
 NUM_CORE_TOMOPY_LIMIT = 24
 
 
+def read_metadata_provenance(data, logger=None, remove=True):
+    # Local modules
+    from CHAP.pipeline import PipelineItem
+
+    try:
+        metadata = PipelineItem.get_data(
+            data, schema='foxden.reader.FoxdenMetadataReader', remove=remove)
+    except Exception:
+        try:
+            metadata = PipelineItem.get_data(
+                data, schema='foxden.reader.FoxdenDataDiscoveryReader',
+                remove=remove)
+            if len(metadata) > 1:
+                logger.warning(f'Unable to get unique metadata from pipeline')
+            metadata = metadata[0]
+        except Exception:
+            if logger is None:
+                print(f'WARNING: Unable to get metadata from pipeline')
+            else:
+                logger.warning(f'Unable to get metadata from pipeline')
+            metadata = {}
+    # FIX right now the provenance service returns input and output
+    # info, not the actual record, so always remove it from the
+    # pipeline and create a new record using the metadata
+    # This means that you also need to read a metadata record to get
+    # the did
+    try:
+        provenance = PipelineItem.get_data(
+            data, schema='foxden.reader.FoxdenProvenanceReader')
+            #data, schema='foxden.reader.FoxdenProvenanceReader', remove=remove)
+    except Exception:
+        if logger is None:
+            print(f'WARNING: Unable to get provedance from pipeline')
+        else:
+            logger.warning(f'Unable to get provedance from pipeline')
+        provenance = {}
+    return metadata, provenance
+
+
+def create_metadata_provenance(
+        did_suffix, data=None, metadata=None, provenance=None,
+        user_metadata=None, logger=None, update=False, read=True):
+    if read:
+        if None in (metadata, provenance):
+            if logger is None:
+                print('WARNING: Ignoring inputs for metadata and provenance '
+                      'when reading them from pipeline data in '
+                      'create_metadata_provenance')
+            else:
+                logger.warning('Ignoring inputs for metadata and provenance '
+                      'when reading them from pipeline data')
+        metadata, provenance = read_metadata_provenance(data, logger)
+    else:
+        if metadata is None:
+            metadata = {}
+        if provenance is None:
+            provenance = {}
+
+    did = metadata.get('did')
+    if provenance:
+        # FIX: right now no multiple parent_did's inplemented
+        parent_did = provenance.get('parent_did')
+        if did is None:
+            did = provenance.get('did')
+        elif 'did' in provenance:
+            assert did == provenance.get('did')
+    else:
+        parent_did = did
+    if parent_did is None:
+        did = f'/workflow={did_suffix}'
+    else:
+        did = f'{parent_did}/workflow={did_suffix}'
+    btr = metadata.pop('btr', None)
+    if btr is None:
+        try:
+            btr = did.split('btr=')[1].split('/')[0]
+            assert isinstance(btr, str)
+        except Exception:
+            logger.warning('Unable to get a valid btr from did ({did})')
+            btr = 'unknown'
+    if user_metadata is None:
+        user_metadata = {}
+    else:
+        user_metadata = metadata.pop('user_metadata', {}) | user_metadata
+    if not update:
+        metadata = {}
+    metadata.update({
+        'btr': btr,
+        'did': did,
+        'parent_did': parent_did,
+        'schema': 'user',
+        'user_metadata': user_metadata})
+    provenance.update({
+        'did': did,
+        'parent_did': parent_did,
+        'input_files': [{'name': 'todo.fix: pipeline.yaml'}]})
+    return metadata, provenance
+
+
 class TomoMetadataProcessor(Processor):
     """A processor that takes data from the FOXDEN Data Discovery or
     Metadata service and extracts what's available to create
@@ -94,8 +193,12 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
-        # Get the metadata record
-        record = self.get_data(data, name='FoxdenDataDiscoveryReader')[0]
+        record = self.get_data(
+            data, schema='foxden.reader.FoxdenMetadataReader',
+            remove=False)
+        if not record:
+            raise ValueError('Unable to get the metadata from the pipeline '
+                             f'({data}), check FOXDEN read token')
 
         # Extract any available MapConfig info
         map_config = {}
@@ -123,9 +226,9 @@ class TomoMetadataProcessor(Processor):
             self.config['independent_dimensions']
 
         # Validate the MapConfig info
-        MapConfig(**map_config)
+        map_config = MapConfig(**map_config)
 
-        return map_config
+        return map_config.model_dump()
 
 
 class TomoCHESSMapConverter(Processor):
@@ -183,10 +286,6 @@ class TomoCHESSMapConverter(Processor):
 
         # Validate map
         map_config = MapConfig(**loads(str(tomofields.map_config)))
-        if map_config.did is None:
-            self.logger.warning(
-                f'Unable to extract did from map configuration')
-            map_config.did = f'/sample={map_config.sample.name}'
         assert len(map_config.spec_scans) == 1
         spec_scan = map_config.spec_scans[0]
         scan_numbers = spec_scan.scan_numbers
@@ -337,8 +436,6 @@ class TomoCHESSMapConverter(Processor):
         nxsource.probe = 'x-ray'
 
         # Tag the NXsource with the runinfo (as an attribute)
-#        nxsource.attrs['cycle'] = cycle
-#        nxsource.attrs['btr'] = btr
         nxsource.attrs['station'] = tomofields.station
         nxsource.attrs['experiment_type'] = map_config.experiment_type
 
@@ -517,15 +614,15 @@ class TomoCHESSMapConverter(Processor):
                         presample_intensities += scan_columns[
                             presample_intensity.attrs['local_name']]
         else:
-            data = brightfield.get_detector_data(detector_prefix)
-            data_shape = data.shape
+            data_brightfield = brightfield.get_detector_data(detector_prefix)
+            data_shape = data_brightfield.shape
             assert len(data_shape) == 3
             assert data_shape[1] == nxdetector.rows
             assert data_shape[2] == nxdetector.columns
             num_image = data_shape[0]
             image_keys += num_image*[1]
             sequence_numbers += list(range(num_image))
-            image_stacks.append(data)
+            image_stacks.append(data_brightfield)
             rotation_angles += num_image*[0.0]
             if (x_translation_data_type == 'spec_motor' or
                     z_translation_data_type == 'spec_motor'):
@@ -626,7 +723,19 @@ class TomoCHESSMapConverter(Processor):
         nxentry.data.makelink(nxentry.sample.z_translation)
         nxentry.data.set_default()
 
-        return nxroot
+        # Update metadata and provenance
+        metadata, provenance = create_metadata_provenance(
+            'tomo_convert', data, logger=self.logger)
+
+        return (
+            PipelineData(
+                name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
+            PipelineData(
+                    name=self.name, data=nxroot, schema=self.get_schema()))
 
 
 class SetNumexprThreads:
@@ -724,23 +833,6 @@ class TomoReduceProcessor(Processor):
         # Load the tomography data
         nxroot = self.get_data(data)
         nxentry = self.get_default_nxentry(nxroot)
-
-        # Load and validate the map and generate metadata
-        map_config = MapConfig(**loads(str(nxentry.map_config)))
-        try:
-            btr = map_config.did.split('btr=')[1].split('/')[0]
-            assert isinstance(btr, str)
-        except Exception:
-            self.logger.warning('Unable to get a valid btr from map_config '
-                                f'({map_config.model_dump()})')
-            btr = 'unknown'
-        metadata = {
-            'parent_did': map_config.did,
-            'application': 'CHAP',
-            'btr': btr,
-            'schema': 'user',
-            'user_metadata': {'experiment_type': map_config.experiment_type},
-        }
 
         # Check the number of processors
         if self.num_proc > cpu_count():
@@ -862,20 +954,22 @@ class TomoReduceProcessor(Processor):
         nxentry.data.makelink(nxentry.reduced_data.rotation_angle)
         nxentry.data.attrs['signal'] = 'reduced_data'
 
-        # Add to metadata
-        metadata['did'] = \
-            f'{metadata["parent_did"]}/workflow=' + \
-            f'{map_config.experiment_type.lower()}_reduced'
-        if self.config is None:
-            metadata['user_metadata']['reduced_data'] = {}
-        else:
-            metadata['user_metadata']['reduced_data'] = \
-                self.config.model_dump()
-        metadata['user_metadata']['reduced_data']['date'] = str(
-            nxentry.reduced_data.date)
+        # Update metadata and provenance
+        metadata, provenance = create_metadata_provenance(
+            'tomo_reduce',
+            data,
+            user_metadata={'reduced_data': self.config.model_dump()},
+            logger=self.logger)
+        nxentry.reduced_data.attrs['did'] = metadata.get('did')
+        nxentry.reduced_data.attrs['parent_did'] = metadata.get('parent_did')
 
         return (
-            PipelineData(name=self.name, data=metadata, schema='metadata'),
+            PipelineData(
+                name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
             PipelineData(
                 name=self.name, data=self._figures,
                 schema='common.write.ImageWriter'),
@@ -2069,31 +2163,6 @@ class TomoFindCenterProcessor(Processor):
         if 'reduced_data' not in nxentry:
             raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
-        # Load and validate the map and generate metadata
-        map_config = MapConfig(**loads(str(nxentry.map_config)))
-        try:
-            metadata = self.get_data(data, schema='metadata')
-            assert isinstance(metadata, dict)
-            metadata['parent_did'] = metadata.pop('did')
-        except Exception:
-            self.logger.warning(
-                f'Unable to get a valid metadata from pipeline')
-            try:
-                btr = map_config.did.split('btr=')[1].split('/')[0]
-                assert isinstance(btr, str)
-            except Exception:
-                self.logger.warning('Unable to get a valid btr from '
-                                    f'map_config ({map_config.model_dump()})')
-                btr = 'unknown'
-            metadata = {
-                'parent_did': map_config.did,
-                'application': 'CHAP',
-                'btr': btr,
-                'schema': 'user',
-                'user_metadata': {
-                    'experiment_type': map_config.experiment_type},
-            }
-
         # Get thetas (in degrees)
         thetas = nxentry.reduced_data.rotation_angle.nxdata
 
@@ -2192,17 +2261,20 @@ class TomoFindCenterProcessor(Processor):
                         return_fig=True),
                     f'reconstruction_row_{row}_offset_{offset}'))
 
-        # Add to metadata
-        metadata['did'] = \
-            f'{metadata["parent_did"]}/workflow=' + \
-            f'{map_config.experiment_type.lower()}_center'
-        metadata['user_metadata']['findcenter'] = self.config.model_dump()
-        metadata['user_metadata']['findcenter']['date'] = str(
-            datetime.now())
+        # Update metadata and provenance
+        metadata, provenance = create_metadata_provenance(
+            'tomo_center',
+            data,
+            user_metadata={'findcenter': self.config.model_dump()},
+            logger=self.logger)
 
         return (
             PipelineData(
-                name=self.name, data=metadata, schema='metadata'),
+                name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
             PipelineData(
                 name=self.name, data=self._figures,
                 schema='common.write.ImageWriter'),
@@ -2337,31 +2409,6 @@ class TomoReconstructProcessor(Processor):
         if 'reduced_data' not in nxentry:
             raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
 
-        # Load and validate the map and generate metadata
-        map_config = MapConfig(**loads(str(nxentry.map_config)))
-        try:
-            metadata = self.get_data(data, schema='metadata')
-            assert isinstance(metadata, dict)
-            metadata['parent_did'] = metadata.pop('did')
-        except Exception:
-            self.logger.warning(
-                f'Unable to get a valid metadata from pipeline')
-            try:
-                btr = map_config.did.split('btr=')[1].split('/')[0]
-                assert isinstance(btr, str)
-            except Exception:
-                self.logger.warning('Unable to get a valid btr from '
-                                    f'map_config ({map_config.model_dump()})')
-                btr = 'unknown'
-            metadata = {
-                'parent_did': map_config.did,
-                'application': 'CHAP',
-                'btr': btr,
-                'schema': 'user',
-                'user_metadata': {
-                    'experiment_type': map_config.experiment_type},
-            }
-
         # Check the number of processors
         if self.num_proc > cpu_count():
             self.logger.warning(
@@ -2382,9 +2429,22 @@ class TomoReconstructProcessor(Processor):
         center_rows = self.center_config.center_rows
         center_offsets = self.center_config.center_offsets
         if center_rows is None or center_offsets is None:
-            raise ValueError(
+            self.logger.warning(
                 'Unable to find valid calibrated center axis info in '
-                f'{self.center_config}.')
+                f'{self.center_config}, try getting it from metadata')
+            try:
+                metadata, _ = read_metadata_provenance(
+                    data, self.logger, remove=False)
+                self.center_config = TomoFindCenterConfig(
+                    **metadata['user_metadata']['findcenter'])
+                center_rows = self.center_config.center_rows
+                center_offsets = self.center_config.center_offsets
+            except:
+                metadata = {}
+            if center_rows is None or center_offsets is None:
+                raise ValueError(
+                    'Unable to find valid calibrated center axis info from '
+                    'metadata {metadata}')
         center_slope = (center_offsets[1]-center_offsets[0]) \
             / (center_rows[1]-center_rows[0])
 
@@ -2611,17 +2671,22 @@ class TomoReconstructProcessor(Processor):
 
         # Add the center info to the new NeXus object
 
-        # Add to metadata
-        metadata['did'] = \
-            f'{metadata["parent_did"]}/workflow=' + \
-            f'{map_config.experiment_type.lower()}_reconstructed'
-        metadata['user_metadata']['reconstructed_data'] = \
-            self.config.model_dump()
-        metadata['user_metadata']['reconstructed_data']['date'] = str(
-            nxentry.reconstructed_data.date)
+        # Update metadata and provenance
+        metadata, provenance = create_metadata_provenance(
+            'tomo_reconstruct',
+            data,
+            user_metadata={'reconstructed_data': self.config.model_dump()},
+            logger=self.logger)
+        nxentry.reconstructed_data.attrs['did'] = metadata.get('did')
+        nxentry.reconstructed_data.attrs['parent_did'] = \
+            metadata.get('parent_did')
 
         return (
-            PipelineData(name=self.name, data=metadata, schema='metadata'),
+            PipelineData(name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
             PipelineData(
                 name=self.name, data=self._figures,
                 schema='common.write.ImageWriter'),
@@ -2907,31 +2972,6 @@ class TomoCombineProcessor(Processor):
             self.logger.info('Only one stack available: leaving combine_data')
             return nxroot
 
-        # Load and validate the map and generate metadata
-        map_config = MapConfig(**loads(str(nxentry.map_config)))
-        try:
-            metadata = self.get_data(data, schema='metadata')
-            assert isinstance(metadata, dict)
-            metadata['parent_did'] = metadata.pop('did')
-        except Exception:
-            self.logger.warning(
-                f'Unable to get a valid metadata from pipeline')
-            try:
-                btr = map_config.did.split('btr=')[1].split('/')[0]
-                assert isinstance(btr, str)
-            except Exception:
-                self.logger.warning('Unable to get a valid btr from '
-                                    f'map_config ({map_config.model_dump()})')
-                btr = 'unknown'
-            metadata = {
-                'parent_did': map_config.did,
-                'application': 'CHAP',
-                'btr': btr,
-                'schema': 'user',
-                'user_metadata': {
-                    'experiment_type': map_config.experiment_type},
-            }
-
         # Create a NXprocess to store combined image reconstruction
         # (meta)data
         nxprocess = NXprocess()
@@ -3115,17 +3155,22 @@ class TomoCombineProcessor(Processor):
         nxentry.data.makelink(nxprocess.data.z)
         nxentry.data.attrs['signal'] = 'combined_data'
 
-        # Add to metadata
-        metadata['did'] = \
-            f'{metadata["parent_did"]}/workflow=' + \
-            f'{map_config.experiment_type.lower()}_combined'
-        metadata['user_metadata']['combined_data'] = \
-            self.config.model_dump()
-        metadata['user_metadata']['combined_data']['date'] = str(
-            nxentry.combined_data.date)
+        # Update metadata and provenance
+        metadata, provenance = create_metadata_provenance(
+            'tomo_combine',
+            data,
+            user_metadata={'combined_data': self.config.model_dump()},
+            logger=self.logger)
+        nxentry.combined_data.attrs['did'] = metadata.get('did')
+        nxentry.combined_data.attrs['parent_did'] = metadata.get('parent_did') 
 
         return (
-            PipelineData(name=self.name, data=metadata, schema='metadata'),
+            PipelineData(
+                name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
             PipelineData(
                 name=self.name, data=self._figures,
                 schema='common.write.ImageWriter'),
@@ -3990,7 +4035,7 @@ class TomoSpecProcessor(Processor):
             metadata = load(file)
         now = datetime.now()
         beamline = metadata['beamline'][0]
-        btr = f'tomo-sim-{now.strftime("%H%M%S")}'
+        btr = f'tomo-sim-{now.strftime("%m%d%H%M%S")}'
         if now.month < 4:
             cycle = f'{now.year}-1'
         elif now.month < 8:
@@ -4023,10 +4068,14 @@ class TomoSpecProcessor(Processor):
             'output_files': [{'name': f} for f in output_filenames],
         }
 
-        return (PipelineData(name=self.name, data=metadata, schema='metadata'),
-                PipelineData(
-                    name=self.name, data=provenance, schema='provenance'),
-                PipelineData(name=self.name, data=nxroot, schema='simdata'))
+        return (
+            PipelineData(
+                name=self.name, data=metadata,
+                schema='foxden.reader.FoxdenMetadataReader'),
+            PipelineData(
+                name=self.name, data=provenance,
+                schema='foxden.reader.FoxdenProvenanceReader'),
+            PipelineData(name=self.name, data=nxroot, schema='simdata'))
 
 
 if __name__ == '__main__':

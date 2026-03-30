@@ -534,6 +534,9 @@ class NexusWriter(Writer):
                 except Exception as exc:
                     raise exc
 
+        # Return provenance with the output file name added
+        return self._update_provenance(data)
+
 
 class NexusValuesWriter(Writer):
     """Writer for updating values in an existing NeXus file."""
@@ -751,6 +754,9 @@ class YAMLWriter(Writer):
         write_yaml(yaml_dict, self.filename, self.force_overwrite)
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
+
+       # Return provenance with the output file name added
+        return self._update_provenance(data)
 
 
 class ZarrValuesWriter(Writer):

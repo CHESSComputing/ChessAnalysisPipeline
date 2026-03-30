@@ -7,16 +7,16 @@ config:
   inputdir: config
   outputdir: reduced/hollow_pyramid
   interactive: false
-  log_level: info
+  log_level: warning
 
 map:
 
   - common.YAMLReader:
       filename: did_id1a3_hollow_pyramid.yaml
       schema: foxden.models.FoxdenRequestConfig
-  - foxden.FoxdenDataDiscoveryReader:
+  - foxden.FoxdenMetadataReader:
       config:
-        url: 'https://foxden-demo.classe.cornell.edu:8320'
+        url: 'https://foxden-demo.classe.cornell.edu:8300'
   - tomo.TomoMetadataProcessor:
       config:
         scan_numbers: [3, 4, 5]
@@ -45,22 +45,46 @@ map:
 #  - common.NexusWriter:
 #      filename: map_hollow_pyramid.nxs
 #      force_overwrite: true
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 convert:
 
-#  - common.NexusReader:
-#      filename: map_hollow_pyramid.nxs
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.ProvenanceFileProcessor:
+#      file_type: output
 #      schema: tomofields
   - tomo.TomoCHESSMapConverter:
 #  - common.NexusWriter:
 #      filename: chess_map_hollow_pyramid.nxs
 #      force_overwrite: true
+#  - foxden.FoxdenMetadataWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceWriter:
+#      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 reduce:
 
   # Data reduction
-#  - common.NexusReader:
-#      filename: chess_map_hollow_pyramid.nxs
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.ProvenanceFileProcessor:
+#      file_type: output
   - tomo.TomoReduceProcessor:
       save_figures: true
 #  - tomo.TomoWriter:
@@ -71,14 +95,29 @@ reduce:
       force_overwrite: true
 #  - foxden.FoxdenMetadataWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor:
 #  - foxden.FoxdenProvenanceWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 find_center:
 
-#  - common.NexusReader:
-#      filename: reduced_hollow_pyramid.nxs
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=tomo_reduce'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=tomo_reduce'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.ProvenanceFileProcessor:
+#      file_type: output
   - tomo.TomoFindCenterProcessor:
       config:
         gaussian_sigma: 0.05
@@ -92,12 +131,21 @@ find_center:
       force_overwrite: true
 #  - foxden.FoxdenMetadataWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor:
 #  - foxden.FoxdenProvenanceWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 recon:
 
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce/workflow=tomo_center'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.ProvenanceFileProcessor:
+#      file_type: output
   - tomo.TomoReconstructProcessor:
       config:
         x_bounds: [15, 390]
@@ -113,12 +161,21 @@ recon:
       force_overwrite: true
 #  - foxden.FoxdenMetadataWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor:
 #  - foxden.FoxdenProvenanceWriter:
 #      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 combine:
 
+#  - foxden.FoxdenMetadataReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce/workflow=tomo_center/workflow=tomo_reconstruct'
+#        url: 'https://foxden-demo.classe.cornell.edu:8300'
+#  - foxden.FoxdenProvenanceReader:
+#      config:
+#        did: '/beamline=1a3/btr=tomo-sim-0330144634/cycle=2026-1/sample_name=hollow_pyramid/workflow=map/workflow=tomo_convert/workflow=tomo_reduce/workflow=tomo_center/workflow=tomo_reconstruct'
+#        url: 'https://foxden-demo.classe.cornell.edu:8310'
+#  - foxden.ProvenanceFileProcessor:
+#      file_type: output
   - tomo.TomoCombineProcessor:
       config:
         z_bounds: [2, 57]
@@ -131,6 +188,5 @@ combine:
       force_overwrite: true
   - foxden.FoxdenMetadataWriter:
       url: 'https://foxden-demo.classe.cornell.edu:8300'
-  - foxden.FoxdenProvenanceProcessor:
   - foxden.FoxdenProvenanceWriter:
       url: 'https://foxden-demo.classe.cornell.edu:8310'
