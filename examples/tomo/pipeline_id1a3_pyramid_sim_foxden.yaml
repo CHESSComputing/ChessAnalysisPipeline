@@ -1,0 +1,39 @@
+# Valid FOXDEN tokens are required
+# read token is always ok if kerberos ticket
+# write will depend on user ID
+
+config:
+  root: examples/tomo
+  inputdir: config
+  outputdir: raw/hollow_pyramid
+  log_level: info
+
+pipeline:
+
+  # Create a simulated stack of tomography images
+  - common.YAMLReader:
+      filename: tomo_sim_id1a3_pyramid.yaml
+      schema: tomo.models.TomoSimConfig
+  - tomo.TomoSimFieldProcessor:
+      schema: tomo.models.TomoSimField
+
+  # Create the dark field for the simulation
+  - tomo.TomoDarkFieldProcessor:
+      schema: tomo.models.TomoDarkField
+
+  # Create the bright field for the simulation
+  - tomo.TomoBrightFieldProcessor:
+      num_image: 10
+      schema: tomo.models.TomoBrightField
+
+  # Create the SPEC and data files for the simulation
+  - tomo.TomoSpecProcessor:
+      filename: meta_id1a3_pyramid.json
+  - common.FileTreeWriter:
+      force_overwrite: true
+
+  # Create the FOXDEN meta and provenance records
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'

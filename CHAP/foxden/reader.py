@@ -8,160 +8,232 @@ Description: FOXDEN readers
 
 # System modules
 import json
+from typing import Optional
+
+# Third party modules
+from pydantic import (
+    Field,
+    model_validator,
+)
 
 # Local modules
-from CHAP.pipeline import PipelineItem
+from CHAP.foxden.models import FoxdenRequestConfig
 from CHAP.foxden.utils import HttpRequest
+from CHAP.pipeline import PipelineItem
+from CHAP.processor import Processor
 
 
 class FoxdenDataDiscoveryReader(PipelineItem):
-    """Reader for the FOXDEN Data Discovery service."""
-    def read(self, config):
+    """Reader for the FOXDEN Data Discovery service.
+
+    :ivar config: Initialization parameters for an instance of
+        foxden.models.FoxdenRequestConfig.
+    :vartype config: dict, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {'config': 'foxden.models.FoxdenRequestConfig'},
+        init_var=True)
+    config: Optional[FoxdenRequestConfig] = FoxdenRequestConfig()
+
+    _validate_config = model_validator(mode='before')(
+        Processor.validate_processor_before)
+
+    @model_validator(mode='after')
+    def validate_foxdendatadiscoveryreader_after(self):
+        assert self.config.url is not None
+        return self
+
+    def read(self):
         """Read records from the FOXDEN Data Discovery service based on
         did or an arbitrary query.
 
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: Discovered data records.
         :rtype: list
         """
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
+        self.logger.debug(f'config: {self.config}')
 
         # Submit HTTP request and return response
-        rurl = f'{config.url}/search'
+        rurl = f'{self.config.url}/search'
         request = {'client': 'CHAP-FoxdenDataDiscoveryReader'}
-        if config.did is None:
-            if config.query is None:
+        if self.config.did is None:
+            if self.config.query is None:
                 query = '{}'
             else:
-                query = config.query
-            request['service_query'] = {'query': query, 'limit': config.limit}
+                query = self.config.query
+            request['service_query'] = {
+                'query': query, 'limit': self.config.limit}
         else:
-            if config.limit is not None:
+            if self.config.limit is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "limit" ({config.limit}), '
+                    f'Ignoring parameter "limit" ({self.config.limit}), '
                     'when "did" is specified')
-            if config.query is not None:
+            if self.config.query is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "query" ({config.query}), '
+                    f'Ignoring parameter "query" ({self.config.query}), '
                     'when "did" is specified')
-            request['service_query'] = {'query': f'did:{config.did}'}
+            request['service_query'] = {'query': f'did:{self.config.did}'}
         payload = json.dumps(request)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
-        if config.verbose:
+        if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
             result = json.loads(response.text)['results']['records']
-        else:
-            self.logger.warning(f'HTTP error code {response.status_code}')
-            result = []
-        self.logger.debug(f'Returning {len(result)} records')
-        return result
+            self.logger.debug(f'Returning {len(result)} records')
+            return result
+        self.logger.warning(f'HTTP error code {response.status_code}')
+        self.logger.warning(
+            f'HTTP response:\n{response.__dict__}\npayload:\n{payload}')
+        return []
 
 
 class FoxdenMetadataReader(PipelineItem):
-    """Reader for the FOXDEN Metadata service."""
-    def read(self, config):
-        """Read records from the FOXDEN Metadata service based on did
+    """Reader for the FOXDEN Metadata service.
+
+    :ivar config: Initialization parameters for an instance of
+        foxden.models.FoxdenRequestConfig.
+    :vartype config: dict, optional
+    """
+    pipeline_fields: dict = Field(
+        default = {'config': 'foxden.models.FoxdenRequestConfig'},
+        init_var=True)
+    config: Optional[FoxdenRequestConfig] = FoxdenRequestConfig()
+
+    _validate_config = model_validator(mode='before')(
+        Processor.validate_processor_before)
+
+    @model_validator(mode='after')
+    def validate_foxdenmetadatareader_after(self):
+        if self.get_schema() is None:
+            self.schema_ = 'foxden.reader.FoxdenMetadataReader'
+        assert self.config.url is not None
+        return self
+
+    def read(self):
+        """Read a record from the FOXDEN Metadata service based on did
         or an arbitrary query.
 
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
-        :return: Metadata records.
-        :rtype: list
+        :return: Metadata record.
+        :rtype: dict
         """
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
+        self.logger.debug(f'config: {self.config}')
 
         # Submit HTTP request and return response
-        rurl = f'{config.url}/search'
+        rurl = f'{self.config.url}/search'
         request = {'client': 'CHAP-FoxdenMetadataReader'}
-        if config.did is None:
-            if config.query is None:
+        if self.config.did is None:
+            if self.config.query is None:
                 query = '{}'
             else:
-                query = config.query
+                query = self.config.query
             request['service_query'] = {'query': query}
         else:
-            if config.query is not None:
+            if self.config.query is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "query" ({config.query}), '
+                    f'Ignoring parameter "query" ({self.config.query}), '
                     'when "did" is specified')
-            request['service_query'] = {'query': f'did:{config.did}'}
+            request['service_query'] = {'query': f'did:{self.config.did}'}
         payload = json.dumps(request)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
-        if config.verbose:
+        if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
             result = json.loads(response.text)
-        else:
-            self.logger.warning(f'HTTP error code {response.status_code}')
-            result = []
-        self.logger.debug(f'Returning {len(result)} records')
-        return result
+            if not isinstance(result, list):
+                self.logger.warning('FOXDEN Metadata service did not return a '
+                                    f'valid record for did {self.config.did}.')
+                return []
+            if not result:
+                self.logger.warning('FOXDEN Metadata service did not return '
+                                    f'any records for did {self.config.did}.')
+                return []
+            if len(result) > 1:
+                self.logger.debug(f'Received {len(result)} records')
+                self.logger.warning('FOXDEN Metadata service did not return a '
+                                    f'unique record for did {self.config.did}.'
+                                    ' Returning the last record.')
+            # FIX For now don't allow multiple parent did records
+#            assert 'parent_did' not in self._metadata
+#            self._metadata['parent_did'] = result[-1]['did']
+            return result[-1]
+        self.logger.warning(f'HTTP error code {response.status_code}')
+        self.logger.warning(
+            f'HTTP response:\n{response.__dict__}\npayload:\n{payload}')
+        return []
 
 
 class FoxdenProvenanceReader(PipelineItem):
-    """Reader for FOXDEN Provenance data from a specific FOXDEN
-    Provenance service.
+    """Reader for the FOXDEN Provenance service.
+
+    :ivar config: Initialization parameters for an instance of
+        foxden.models.FoxdenRequestConfig.
+    :vartype config: dict, optional
     """
-    def read(self, config):
+    pipeline_fields: dict = Field(
+        default = {'config': 'foxden.models.FoxdenRequestConfig'},
+        init_var=True)
+    config: Optional[FoxdenRequestConfig] = FoxdenRequestConfig()
+
+    _validate_config = model_validator(mode='before')(
+        Processor.validate_processor_before)
+
+    @model_validator(mode='after')
+    def validate_foxdenprovenancereader_after(self):
+        if self.get_schema() is None:
+            self.schema_ = 'foxden.reader.FoxdenProvenanceReader'
+        assert self.config.url is not None
+        return self
+
+    def read(self):
         """Read records from the FOXDEN Provenance service based on did
         or an arbitrary query.
 
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: Provenance input and output file records.
         :rtype: list
         """
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
+        # FIX right now the provenance reader only returns input and
+        # output files, not the did. So you always also have to read a
+        # metadata record
+        self.logger.debug(f'config: {self.config}')
 
         # Submit HTTP request and return response
-        rurl = f'{config.url}/files?did={config.did}'
+        rurl = f'{self.config.url}/files?did={self.config.did}'
         request = {'client': 'CHAP-FoxdenProvenanceReader'}
-        if config.did is None:
-            if config.query is None:
+        if self.config.did is None:
+            if self.config.query is None:
                 query = '{}'
             else:
-                query = config.query
-            request['service_query'] = {'query': query, 'limit': config.limit}
+                query = self.config.query
+            request['service_query'] = {
+                'query': query, 'limit': self.config.limit}
         else:
-            if config.limit is not None:
+            if self.config.limit is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "limit" ({config.limit}), '
+                    f'Ignoring parameter "limit" ({self.config.limit}), '
                     'when "did" is specified')
-            if config.query is not None:
+            if self.config.query is not None:
                 self.logger.warning(
-                    f'Ignoring parameter "query" ({config.query}), '
+                    f'Ignoring parameter "query" ({self.config.query}), '
                     'when "did" is specified')
-            request['service_query'] = {'query': f'did:{config.did}'}
+            request['service_query'] = {'query': f'did:{self.config.did}'}
         payload = json.dumps(request)
         self.logger.info(f'method=GET url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='GET', scope='read')
-        exit(f'\n\nresponse.text:\n{response.text}')
-        if config.verbose:
+        if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
             result = [{'name': v['name'], 'file_type': v['file_type']}
                       for v in json.loads(response.text)]
-        else:
-            self.logger.warning(f'HTTP error code {response.status_code}')
-            result = []
-        self.logger.debug(f'Returning {len(result)} records')
-        return result
+            self.logger.debug(f'Returning {len(result)} records')
+            return result
+        self.logger.warning(f'HTTP error code {response.status_code}')
+        self.logger.warning(
+            f'HTTP response:\n{response.__dict__}\npayload:\n{payload}')
+        return []
 
 
 class FoxdenSpecScansReader(PipelineItem):

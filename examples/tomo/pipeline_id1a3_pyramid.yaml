@@ -1,29 +1,28 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: hollow_pyramid
+  outputdir: reduced/hollow_pyramid
   interactive: true
   log_level: info
-  profile: false
 
 map:
 
   # Convert the CHESS style map
   - common.YAMLReader:
-      filename: detector_id3a_pyramid.yaml
+      filename: detector_id1a3_pyramid.yaml
       schema: common.models.map.DetectorConfig
   - common.YAMLReader:
-      filename: map_id3a_pyramid.yaml
+      filename: map_id1a3_pyramid.yaml
       schema: common.models.map.MapConfig
   - common.MapProcessor:
 #      config:
 #        title: hollow_pyramid
-#        station: id3a
+#        station: id1a3
 #        experiment_type: TOMO
 #        sample:
 #          name: hollow_pyramid
 #        spec_scans:
-#        - spec_file: ../data/hollow_pyramid/spec.log
+#        - spec_file: ../raw/hollow_pyramid/spec.log
 #          scan_numbers: [3, 4, 5]
 #        independent_dimensions:
 #        - label: rotation_angles
@@ -42,7 +41,6 @@ map:
 #        detectors:
 #          - id: sim
       num_proc: 1
-      schema: tomofields
   - common.NexusWriter:
       filename: map_hollow_pyramid.nxs
       force_overwrite: true
@@ -54,19 +52,19 @@ convert:
       schema: tomofields
   - common.SpecReader:
       config:
-        station: id3a
+        station: id1a3
         experiment_type: TOMO
         spec_scans:
-        - spec_file: ../data/hollow_pyramid/spec.log
+        - spec_file: ../raw/hollow_pyramid/spec.log
           scan_numbers: 1
       detector_config:
         detectors:
           - id: sim
       schema: darkfield
   - common.SpecReader:
-      inputdir: ../data/hollow_pyramid
+      inputdir: ../raw/hollow_pyramid
       config:
-        station: id3a
+        station: id1a3
         experiment_type: TOMO
         spec_scans:
         - spec_file: spec.log
@@ -96,13 +94,17 @@ reduce:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
+  - foxden.FoxdenMetadataWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8300'
+  - foxden.FoxdenProvenanceWriter:
+      url: 'https://foxden-demo.classe.cornell.edu:8310'
 
 find_center:
 
   - common.NexusReader:
       filename: reduced_hollow_pyramid.nxs
   - common.YAMLReader:
-      filename: find_center_id3a.yaml
+      filename: find_center_id1a3.yaml
       schema: tomo.models.TomoFindCenterConfig
   - tomo.TomoFindCenterProcessor:
 #      config:
@@ -146,7 +148,7 @@ combine:
   - common.NexusReader:
       filename: reconstructed_hollow_pyramid.nxs
   - common.YAMLReader:
-      filename: combine_data_id3a.yaml
+      filename: combine_data_id1a3.yaml
       schema: tomo.models.TomoCombineConfig
   - tomo.TomoCombineProcessor:
 #      config:
@@ -158,8 +160,3 @@ combine:
   - common.ImageWriter:
       outputdir: saved_figures
       force_overwrite: true
-#  - foxden.FoxdenMetadataWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8300'
-#  - foxden.FoxdenProvenanceProcessor
-#  - foxden.FoxdenProvenanceWriter:
-#      url: 'https://foxden-demo.classe.cornell.edu:8310'
