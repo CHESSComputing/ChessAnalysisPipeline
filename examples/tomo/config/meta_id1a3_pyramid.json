@@ -1,0 +1,43 @@
+{
+  "affiliation": [
+    "AirForce"
+  ],
+  "beamline": [
+    "1A3"
+  ],
+  "beamline_funding_partner": [
+    "MSNC_AFRL"
+  ],
+  "beam_mode": [
+    "White"
+  ],
+  "calibration": false,
+  "cesr_conditions": [
+    "9BunchMode"
+  ],
+  "data_location_beamtime_notes": "",
+  "data_location_reduced": "",
+  "data_location_scratch": "",
+  "detectors": [
+    "Other"
+  ],
+  "experiment_type": [
+    "Imaging"
+  ],
+  "facility": "CHESS",
+  "in_situ": false,
+  "insertion_device": [
+    "CCU"
+  ],
+  "mechanical_test": false,
+  "monochromator": [
+    "MultiLayer"
+  ],
+  "pi": "CHAP-sim",
+  "staff_scientist": [
+    "NygrenKE"
+  ],
+  "technique": [
+    "Tomography"
+  ]
+}

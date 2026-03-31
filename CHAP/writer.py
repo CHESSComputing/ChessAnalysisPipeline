@@ -18,7 +18,10 @@ from typing import Optional
 from pydantic import model_validator
 
 # Local modules
-from CHAP.pipeline import PipelineItem
+from CHAP.pipeline import (
+    PipelineData,
+    PipelineItem,
+)
 
 
 def validate_writer_model(writer):
@@ -56,6 +59,30 @@ class Writer(PipelineItem):
     remove: Optional[bool] = False
 
     _validate_filename = model_validator(mode='after')(validate_writer_model)
+
+    def _update_provenance(self, data):
+        """Add output file name to the provenance.
+
+        :param data: Input data.
+        :type data: list[CHAP.pipeline.PipelineData]
+        :return: Provenance with added output file name.
+        :rtype: CHAP.pipeline.PipelineData
+        """
+        # System modules
+        from os import path as os_path
+
+        try:
+            provenance = self.get_data(
+                data, schema='foxden.reader.FoxdenProvenanceReader')
+        except:
+            return
+        output_files = provenance.pop('output_files', [])
+        output_files.append({
+            'name': os_path.realpath(self.filename)})
+        provenance['output_files'] = output_files
+        return PipelineData(
+            name=self.__name__, data=provenance,
+            schema='foxden.reader.FoxdenProvenanceReader')
 
     def write(self, data):
         """Write the last `CHAP.pipeline.PipelineData` item in `data`

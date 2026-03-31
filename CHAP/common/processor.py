@@ -27,6 +27,7 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
+from CHAP.pipeline import PipelineData
 
 
 class AsyncProcessor(Processor):
@@ -906,7 +907,7 @@ class MapProcessor(Processor):
             'config': 'common.models.map.MapConfig',
             'detector_config': 'common.models.map.DetectorConfig'},
         init_var=True)
-    config: MapConfig
+    config: Optional[MapConfig] = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
 
@@ -942,6 +943,10 @@ class MapProcessor(Processor):
     def process(
             self, data, placeholder_data=False, fill_data=True, comm=None):
 
+        # Update metadata
+#        self._metadata['user_metadata'].update({
+#            'map': self.config.model_dump()})
+
         return self._process(data, placeholder_data, fill_data, comm)
 
 #    @profile
@@ -964,7 +969,7 @@ class MapProcessor(Processor):
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :return: Map data and metadata.
-        :rtype: nexusformat.nexus.NXentry
+        :rtype: Union[nexusformat.nexus.NXentry
         """
         # System modules
         import logging
@@ -974,19 +979,9 @@ class MapProcessor(Processor):
 
         # Check for available metadata
         metadata = {}
+        provenance = {}
         if data:
-            try:
-                for d in data:
-                    if d.get('schema') == 'metadata':
-                        metadata = d.get('data')
-                        break
-            except Exception:
-                pass
-            if len(metadata) > 1:
-                raise ValueError(
-                    f'Unable to find unique data for schema "metadata"')
-            if metadata:
-                metadata = self._get_metadata_config(metadata[0])
+            metadata, provenance = self._get_metadata_provenance(data)
 
         if fill_data:
             # Create the sub-pipeline configuration for each processor
@@ -1147,38 +1142,72 @@ class MapProcessor(Processor):
                  for dim in self.config.independent_dimensions])
 
         # Construct and return the NeXus NXroot object
-        return self._get_nxroot(
+        nxroot = self._get_nxroot(
             data, independent_dimensions, all_scalar_data, placeholder_data)
 
-    def _get_metadata_config(self, metadata):
-        """Get experiment specific configurational data from the
-        FOXDEN metadata record
+        if metadata and provenance:
+            return (
+                PipelineData(
+                    name=self.name, data=metadata,
+                    schema='foxden.reader.FoxdenMetadataReader'),
+                PipelineData(
+                    name=self.name, data=provenance,
+                    schema='foxden.reader.FoxdenProvenanceReader'),
+                PipelineData(
+                    name=self.name, data=nxroot, schema=self.get_schema()))
+        return nxroot
 
-        :param metadata: FOXDEN metadata record.
-        :type metadata: dict
-        :return: Experiment specific configurational data.
-        :rtype: dict
+
+    def _get_metadata_provenance(self, data):
+        """Get experiment specific configurational data from the
+        FOXDEN metadata and provenance records.
+
+        :param data: Pipeline data list.
+        :type data: list[PipelineData]
+        :return: Experiment specific metadata and provenance.
+        :rtype: dict, dict
         """
-        config = {'did': metadata.get('did')}
-        experiment_type = metadata.get('technique')
+        # Local modules
+        from CHAP.tomo.processor import (
+            read_metadata_provenance,
+            create_metadata_provenance,
+        )
+
+        # Read metadata and provenance from the pipeline data
+        metadata, provenance = read_metadata_provenance(data, self.logger)
+        if not metadata:
+            return metadata, provenance
+
+        # Update metadata and provenance
+        experiment_type = [v.lower() for v in metadata.get('technique')]
         if 'tomography' in experiment_type:
-            config['title'] = metadata.get('sample_name')
-            station = metadata.get('beamline')[0]
-            if station == '3A':
-                station = 'id3a'
+            station = f'id{metadata.get("beamline")[0].lower()}'
+            if station in ('id1a3', 'id3a'):
+                spec_file = os.path.join(
+                    metadata.get('data_location_raw'), 'spec.log')
             else:
                 raise ValueError(f'Invalid beamline parameter ({station})')
-            config['station'] = station
-            config['experiment_type'] = 'TOMO'
-            config['sample'] = {'name': config['title'],
-                                    'description': metadata.get('description')}
-            if station == 'id3a':
-                config['spec_file'] = os.path.join(
-                    metadata.get('data_location_raw'), 'spec.log')
+            sample_name = metadata.get('sample_name')
+            # FIX We could add full self.config and self.detector_config
+            # That would allow us to create a full map from just metadata
+            user_metadata = {
+                'map_config': {
+                    'experiment_type': 'TOMO',
+                    'sample': {'name': sample_name,
+                                'description': metadata.get('description')},
+                    'station': station,
+                    'title': sample_name,
+                    'spec_file': spec_file}}
+            metadata, provenance = create_metadata_provenance(
+                'map', metadata=metadata, provenance=provenance,
+                user_metadata=user_metadata, logger=self.logger,
+                update=False, read=False)
+            user_metadata = metadata.pop('user_metadata', {})
+            metadata['user_metadata'] = user_metadata
         else:
             raise ValueError(
                 f'Experiment type {experiment_type} not implemented yet')
-        return config
+        return metadata, provenance
 
     def _get_nxroot(
             self, data, independent_dimensions, all_scalar_data,
