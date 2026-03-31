@@ -499,10 +499,9 @@ class Pipeline(CHAPBaseModel):
 #                        self._data, self._metadata, self._provenance)
                     if current_item.method_type == 'read':
                         for i, d in reversed(list(enumerate(self._data))):
-                            if (current_item.name==d['name']
-                                    and current_item.get_schema()==d['schema']
-                                    and data==d['data']):
-                                self._data[i]['data'] = data
+                            if d == PipelineData(
+                                    name=current_item.name, data=data,
+                                    schema=current_item.get_schema()):
                                 break
                         else:
                             self._data.append(PipelineData(
