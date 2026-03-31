@@ -54,32 +54,14 @@ class FoxdenDataDiscoveryReader(PipelineItem):
 
         # Submit HTTP request and return response
         rurl = f'{self.config.url}/search'
-        request = {'client': 'CHAP-FoxdenDataDiscoveryReader'}
-        if self.config.did is None:
-            if self.config.query is None:
-                query = '{}'
-            else:
-                query = self.config.query
-            request['service_query'] = {
-                'query': query, 'limit': self.config.limit}
-        else:
-            if self.config.limit is not None:
-                self.logger.warning(
-                    f'Ignoring parameter "limit" ({self.config.limit}), '
-                    'when "did" is specified')
-            if self.config.query is not None:
-                self.logger.warning(
-                    f'Ignoring parameter "query" ({self.config.query}), '
-                    'when "did" is specified')
-            request['service_query'] = {'query': f'did:{self.config.did}'}
-        payload = json.dumps(request)
+        payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            result = json.loads(response.text)['results']['records']
+            result = json.loads(response.text)
             self.logger.debug(f'Returning {len(result)} records')
             return result
         self.logger.warning(f'HTTP error code {response.status_code}')
@@ -121,20 +103,7 @@ class FoxdenMetadataReader(PipelineItem):
 
         # Submit HTTP request and return response
         rurl = f'{self.config.url}/search'
-        request = {'client': 'CHAP-FoxdenMetadataReader'}
-        if self.config.did is None:
-            if self.config.query is None:
-                query = '{}'
-            else:
-                query = self.config.query
-            request['service_query'] = {'query': query}
-        else:
-            if self.config.query is not None:
-                self.logger.warning(
-                    f'Ignoring parameter "query" ({self.config.query}), '
-                    'when "did" is specified')
-            request['service_query'] = {'query': f'did:{self.config.did}'}
-        payload = json.dumps(request)
+        payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
@@ -201,25 +170,7 @@ class FoxdenProvenanceReader(PipelineItem):
 
         # Submit HTTP request and return response
         rurl = f'{self.config.url}/files?did={self.config.did}'
-        request = {'client': 'CHAP-FoxdenProvenanceReader'}
-        if self.config.did is None:
-            if self.config.query is None:
-                query = '{}'
-            else:
-                query = self.config.query
-            request['service_query'] = {
-                'query': query, 'limit': self.config.limit}
-        else:
-            if self.config.limit is not None:
-                self.logger.warning(
-                    f'Ignoring parameter "limit" ({self.config.limit}), '
-                    'when "did" is specified')
-            if self.config.query is not None:
-                self.logger.warning(
-                    f'Ignoring parameter "query" ({self.config.query}), '
-                    'when "did" is specified')
-            request['service_query'] = {'query': f'did:{self.config.did}'}
-        payload = json.dumps(request)
+        payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=GET url={rurl} payload={payload}')
         response = HttpRequest(rurl, payload, method='GET', scope='read')
         if self.config.verbose:
