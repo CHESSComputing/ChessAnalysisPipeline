@@ -450,26 +450,16 @@ class Pipeline(CHAPBaseModel):
                     and item.status not in ('read', 'write_pending')):
                 if item.get_schema() is not None:
                     self.logger.debug(
-<<<<<<< HEAD
-                        f'Validating "{item.name}" with schema '
-                        f'"{item.get_schema()}" and {item.get_args()}')
-                    self.logger.info(f'Validating "{item.name}"')
-=======
                         f'Reading "{item.name}" with schema '
                         f'"{item.get_schema()}" and {item.get_args()}')
                     self.logger.info(f'Reading "{item.name}"')
->>>>>>> foxden
                     data = item.method(**item.get_args())
                     self._data.append(PipelineData(
                         name=item.name, data=data, schema=item.get_schema()))
                     if item.has_filename():
                         self._filename_mapping[
                             item._mapping_filename]['status'] = 'read'
-<<<<<<< HEAD
-                    item.status = 'read'  # FIX RV make part of pipelineitem for read
-=======
                     item.status = 'read' # FIX RV make part of pipelineitem for read
->>>>>>> foxden
             if item.method_type == 'write' and item.has_filename():
                 for k, v in self._filename_mapping.items():
                     if v['path'] == item.filename:
@@ -503,14 +493,6 @@ class Pipeline(CHAPBaseModel):
                 # written to in the mean time, make this happen for any
                 # type of read, from file, url, ...
                 if not (item.method_type == 'read' and read_status == 'read'):
-<<<<<<< HEAD
-                    self.logger.info(f'Calling "execute" on {current_item}')
-                    data = current_item.execute(data=self._data)
-                    if current_item.method_type == 'read':
-                        self._data.append(PipelineData(
-                            name=current_item.name, data=data,
-                            schema=current_item.get_schema()))
-=======
                     self.logger.info(
                         f'Calling "execute" on {current_item.name}')
                     data = current_item.execute(self._data)
@@ -526,7 +508,6 @@ class Pipeline(CHAPBaseModel):
                             self._data.append(PipelineData(
                                 name=current_item.name, data=data,
                                 schema=current_item.get_schema()))
->>>>>>> foxden
                         current_item.status = 'read' #FIX RF move to pipelineitem after read
                     else:
                         if isinstance(data, tuple):
