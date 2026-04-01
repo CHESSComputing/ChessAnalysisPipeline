@@ -1273,12 +1273,15 @@ class MapProcessor(Processor):
                                'long_name': f'{dim.label} ({dim.units})',
                                'data_type': dim.data_type,
                                'local_name': dim.name},
-                        maxshape= (None, *independent_dimensions[i].shape[1:]),
+                        maxshape=(None, *independent_dimensions[i].shape[1:]),
                         chunks=(1, *independent_dimensions[i].shape[1:])
                     )
         else:
             nxentry.independent_dimensions.index = NXfield(
-                np.arange(independent_dimensions[0].size), 'index')
+                np.arange(independent_dimensions[0].size), 'index',
+                maxshape=(None,),
+                chunks=(1,)
+            )
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
@@ -1298,6 +1301,7 @@ class MapProcessor(Processor):
                 maxshape=(None, *all_scalar_data[i].shape[1:]),
                 chunks=(1, *all_scalar_data[i].shape[1:])
             ))
+
         if (self.config.experiment_type == 'EDD'
                 and not placeholder_data is False):
             scalar_signals.append('placeholder_data_used')
@@ -1305,7 +1309,10 @@ class MapProcessor(Processor):
                 value=all_scalar_data[-1],
                 attrs={'description':
                     'Indicates whether placeholder data may be present for'
-                    'the corresponding frames of detector data.'}))
+                    'the corresponding frames of detector data.'},
+                maxshape=(None, *all_scalar_data[-1].shape[1:]),
+                chunks=(1, *all_scalar_data[-1].shape[1:])
+            ))
         for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
             if i in constant_dim:
                 scalar_signals.append(dim.label)
