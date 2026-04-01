@@ -131,8 +131,21 @@ class MapSliceProcessor(Processor):
                        + self.map_config.independent_dimensions
         ]
         if self.map_config.experiment_type == 'EDD':
+            data_points.extend(
+                [
+                    {
+                        'path': f'{self.map_config.title}/independent_dimensions/index',
+                        'data': [
+                            i for i in range(
+                                map_indices.start, map_indices.stop
+                            )
+                        ],
+                        'idx': map_indices
+                    }
+                ]
+            )
             def get_detector_data(detector, index):
-                return scan.get_detector_data(detector.get_id(), index)[0]
+                return scan.get_detector_data(detector.get_id(), index)[0][0]
         else:
             def get_detector_data(detector, index):
                 return scan.get_detector_data(detector.get_id(), index)
