@@ -59,7 +59,7 @@ class MapSliceProcessor(Processor):
     spec_file: FilePath
     scan_number: conint(gt=0)
 
-    def process(self, data, #spec_file, scan_number,
+    def process(self, data,
                 idx_slice={'start': 0, 'step': 1}):
         """Aggregate partial spec and detector data from one scan in a
         map, returning results in a format suitable for writing to the
@@ -128,6 +128,7 @@ class MapSliceProcessor(Processor):
                 'idx': map_indices
             }
             for s_d in self.map_config.all_scalar_data
+                       + self.map_config.independent_dimensions
         ]
         if self.map_config.experiment_type == 'EDD':
             def get_detector_data(detector, index):
