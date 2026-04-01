@@ -128,22 +128,24 @@ class MapSliceProcessor(Processor):
                 'idx': map_indices
             }
             for s_d in self.map_config.all_scalar_data
-                       + self.map_config.independent_dimensions
         ]
+        data_points.extend(
+            [
+                {
+                    'path': f'{self.map_config.title}/independent_dimensions/{dim.label}',
+                    'data': np.asarray([
+                        dim.get_value(
+                            scans, self.scan_number, i,
+                            scalar_data=self.map_config.scalar_data
+                        )
+                        for i in scan_indices
+                    ]),
+                    'idx': map_indices,
+                }
+                for dim in self.map_config.independent_dimensions
+            ]
+        )
         if self.map_config.experiment_type == 'EDD':
-            data_points.extend(
-                [
-                    {
-                        'path': f'{self.map_config.title}/independent_dimensions/index',
-                        'data': [
-                            i for i in range(
-                                map_indices.start, map_indices.stop
-                            )
-                        ],
-                        'idx': map_indices
-                    }
-                ]
-            )
             def get_detector_data(detector, index):
                 return scan.get_detector_data(detector.get_id(), index)[0][0]
         else:
