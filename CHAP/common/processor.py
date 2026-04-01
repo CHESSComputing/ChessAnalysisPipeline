@@ -1550,7 +1550,7 @@ class MapProcessor(Processor):
             if self.detector_config.roi is None:
                 detector_roi = [slice(None), slice(None)]
             else:
-                detector_roi = self.detector_config.roi
+                detector_roi = self.detector_config.roitoslice()
             ddata = scanparser.get_detector_data(
                 self.detector_config.detectors[0].get_id(),
                 detector_roi=detector_roi, dtype=dtype)
@@ -1624,7 +1624,8 @@ class MapProcessor(Processor):
                                 detector_roi = [
                                     slice(None), slice(None)]
                             else:
-                                detector_roi = self.detector_config.roi
+                                detector_roi = \
+                                    self.detector_config.roitoslice()
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[i].get_id(),
                                 detector_roi=detector_roi, dtype=dtype)

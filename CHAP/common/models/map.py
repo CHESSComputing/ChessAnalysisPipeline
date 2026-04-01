@@ -134,6 +134,12 @@ class DetectorConfig(CHAPBaseModel):
             return roi
         return [CHAPSlice().model_dump() if v is None else v for v in roi]
 
+    def tolist(self):
+        return [self.roi[0].tolist(), self.roi[1].tolist()]
+
+    def roitoslice(self):
+        return [self.roi[0].toslice(), self.roi[1].toslice()]
+
 
 class Sample(CHAPBaseModel):
     """Class representing a sample metadata configuration.

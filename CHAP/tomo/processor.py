@@ -1584,9 +1584,17 @@ class TomoFindCenterGui(Processor):
         self.tk_root.rowconfigure(0, weight=6)
 
         # Build initial content frame
-        self._build_gui(
-            self._find_center_rows, self._on_confirm_find_center_rows,
-            num_row=8, num_column=5)
+        if self.img_row_bounds[1] - self.img_row_bounds[0] == 1:
+            self.center_rows = (0,)
+            self.num_center_rows = 1
+            self._build_gui(
+                self._find_center_offset_one_plane,
+                self._on_confirm_find_center_offset_one_plane,
+                num_row=21, num_column=7)
+        else:
+            self._build_gui(
+                self._find_center_rows, self._on_confirm_find_center_rows,
+                num_row=8, num_column=5)
 
         # Start the GUI event loop
         self.tk_root.mainloop()
