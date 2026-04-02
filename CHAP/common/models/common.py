@@ -56,6 +56,10 @@ class ImageProcessorConfig(CHAPBaseModel):
     :param axis: Axis direction or name for the image slice(s),
         defaults to `0`.
     :type axis: Union[int, str], optional
+    :param basename: Basename of each file when saving a set of 'tif'
+        images (only used when 'fileformat' = 'fit'), defaults to
+        'image'.
+    :type basename: str, optional
     :param coord_range: Coordinate value range of the selected image
         slice(s), up to three floating point numbers (start, end,
         step), defaults to `None`, which enables index_range to select
@@ -70,9 +74,11 @@ class ImageProcessorConfig(CHAPBaseModel):
         all slices.
     :type index_range: Union[int, list[int]], optional
     :ivar fileformat: Image (stack) return file type, defaults to
-        'png' for a single image, 'tif' for an image stack, or
-        'gif' for an animation.
-    :type fileformat: Literal['gif', 'jpeg', 'png', 'tif'], optional
+        'png' for a single image, 'tif' for a (set of) 'tif' image(s),
+        or 'gif' for an animation. Set to 'tifstack' for a single 'tif'
+        image stack.
+    :type fileformat: Literal['gif', 'jpeg', 'png', 'tif' 'tifstack'],
+        optional
     :param vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
         Specify as [None, float] or [float, None] to set only the upper
@@ -81,6 +87,7 @@ class ImageProcessorConfig(CHAPBaseModel):
     """
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
+    basename: Optional[constr(min_length=1)] = 'image'
     # FIX convert to using CHAPSlice
     coord_range: Optional[Union[
         confloat(allow_inf_nan=False),
@@ -90,7 +97,8 @@ class ImageProcessorConfig(CHAPBaseModel):
         int,
         conlist(
             min_length=2, max_length=3, item_type=Union[None, int])]] = None
-    fileformat: Optional[Literal['gif', 'jpeg', 'png', 'tif']] = None
+    fileformat: Optional[
+        Literal['gif', 'jpeg', 'png', 'tif', 'tifstack']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
                 item_type=Union[None, confloat(allow_inf_nan=False)])] = None

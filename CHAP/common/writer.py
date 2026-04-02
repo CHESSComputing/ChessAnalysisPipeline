@@ -384,6 +384,8 @@ class ImageWriter(PipelineItem):
             fileformat = data[1]
         else:
             image_data = data
+        if self.filename is None:
+            self.filename = 'image'
         basename, ext = os.path.splitext(self.filename)
         if ext[1:] != fileformat:
             self.filename = f'{self.filename}.{fileformat}'
