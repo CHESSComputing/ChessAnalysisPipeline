@@ -91,10 +91,10 @@ class TomoFindCenterConfig(CHAPBaseModel):
     """
     center_stack_index: Optional[conint(ge=0)] = None
     center_rows: Optional[conlist(
-        item_type=conint(ge=0), min_length=2, max_length=2)] = None
+        item_type=conint(ge=0), min_length=1, max_length=2)] = None
     center_offsets: Optional[conlist(
         item_type=confloat(allow_inf_nan=False),
-        min_length=2, max_length=2)] = None
+        min_length=1, max_length=2)] = None
     center_offset_min: Optional[confloat(allow_inf_nan=False)] = None
     center_offset_max: Optional[confloat(allow_inf_nan=False)] = None
     center_search_range: Optional[conlist(
