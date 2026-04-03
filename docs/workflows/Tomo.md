@@ -96,6 +96,8 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 1. Double click on the base level `NXroot` field in the leftmost "NeXus Data" panel to view the reconstruction. Note that the `NXroot` name is always the basename of the output file.
 1. Or navigate the filetree in the "NeXus Data" panel to inspect any other output or metadata field. Note that the latest data set in any tomography reconstruction workflow is always available under the "data" `NXdata` field among the default `NXentry`'s fields (it is this data set that is opened in the viewer panel when double clicking the `NXroot` field). The default `NXentry` name is always the "title" field in the workflow's map configuration.
 
+An example of a NeXus file data tree for the output of a tomographic reconstruction is included [below](tomo_workflow_nexus_example).
+
 ## Creating the pipeline file
 
 Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file for a full tomography reconstruction workflow is as follows (note that spaces and indentation are important in `.yaml` files):
@@ -378,3 +380,57 @@ The final two processes write the output to file:
 - `common.TomosWriter`: A writer that writes the reconstructed data to a NeXus file.
 
 - `common.ImageWriter`: A writer that writes any output figures created by `tomo.TomoCombineProcessor` (or similarly by the other prodessors in the pipeline) to a directory `figures` underneath the workflow output directory.
+
+(tomo_workflow_nexus_example)=
+### Inspecting the example output
+
+Open the reconstructed data file in NeXpy as instructed above, navigate to `<your_work_directory>/reduced/hollow_pyramid` and open `reconstructed.nxs`. After the NeXpy GUI opens, the left panel will show the NeXus data tree. You can click on the black sideways pointing triangles to expand each level of the tree. The hollow pyramid example after full reconstruction as described above will look like:
+```
+recontructed                   # Base name of the NeXus output file
+└── hollow_pyramid             # Map title
+    ├── bright_field_config    # Bright field configuration
+    ├── combined_data          # (meta)data from the tomo.TomoCombineProcessor processor
+    │   ├── data
+    │   │   ├── combined_data
+    │   │   ├── x
+    │   │   ├── y
+    │   │   └── z
+    │   └── date
+    ├── dark_field_config      # Bright field configuration
+    ├── data                   # Default NeXus NXdata object
+    │   ├── combined_data -> /hollow_pyramid/combined_data/data/combined_data\n'
+    │   ├── x -> /hollow_pyramid/combined_data/data/x\n'
+    │   ├── y -> /hollow_pyramid/combined_data/data/y\n'
+    │   └── z -> /hollow_pyramid/combined_data/data/z\n'
+    ├── definition             # NeXus format style definition (NXtomo)
+    ├── detector_config        # Detector configuration
+    ├── instrument             # Instrument configuration
+    │   ├── detector
+    │   │   ├── column_pixel_size
+    │   │   ├── columns
+    │   │   ├── local_name
+    │   │   ├── row_pixel_size
+    │   │   └── rows
+    │   └── source
+    │   │   ├── name
+    │   │   ├── probe
+    │   │   └── type
+    ├── map_config             # Map configuration
+    ├── reconstructed_data     # (meta)data from the tomo.TomoCombineProcessor processor
+    │   ├── center_offsets
+    │   ├── center_rows
+    │   ├── center_stack_index
+    │   ├── date
+    │   ├── x_bounds
+    │   └── y_bounds
+    ├── reduced_data           # (meta)data from the tomo.TomoCombineProcessor processor
+    │   ├── date
+    │   ├── img_row_bounds
+    │   ├── rotation_angle
+    │   ├── x_translation
+    │   └── z_translation
+    └── sample                 # Sample information
+        ├── description
+        └── name
+```
+Double clicking on a dataset will open a graphical display in the main panel. Double clicking on a NeXus NXdata object, like `recontructed/hollow_pyramid/data`, or any field with a default path pointing to an NeXus NXdata object, like `recontructed/hollow_pyramid` will also open the default dataset in the main panel. Any other data field can be viewed by clicking on the name or by right-clicking it and selecting to `view` the item. 
