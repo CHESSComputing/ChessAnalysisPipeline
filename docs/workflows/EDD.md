@@ -13,7 +13,7 @@ A standard strain analysis in CHAP consists of three steps:
 
 - Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.
 
-## Activating the EDD conda environment (requires a local CHAP clone)
+## Creating and activating the EDD conda environment (requires a local CHAP clone)
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
 1. Install a local version of the CHAP package according to the [installation instructions](installation).
@@ -42,6 +42,10 @@ A standard strain analysis in CHAP consists of three steps:
    ```bash
    /nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd <pipelinefilename>
    ```
+   You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`, for example for the CHAP EDD production release:
+   ```bash
+   alias CHAP_edd_prod='/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd'
+   ```
 1. Respond to any prompts that pop up if running interactively.
 
 ## Inspecting output
@@ -53,6 +57,10 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
    /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
+   ```
+   You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`:
+   ```bash
+   alias nexus='/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &'
    ```
 1. After the GUI pops up, click File-> Open to navigate to the folder where your output `.nxs` file was saved, and select it.
 1. Navigate the filetree in the "NeXus Data" panel to inspect any output or metadata field.
@@ -76,7 +84,7 @@ energy:
   # Energy calibration
   - common.SpecReader:
       config:
-        station: id3a       # Change as needed
+        station: id1a3      # Change as needed
         experiment_type: EDD
         spec_scans:         # Edit both SPEC log file path and EDD scan numbers
                             # Path can be relative to inputdir (line 3) or absolute
@@ -84,7 +92,7 @@ energy:
             scan_numbers: 1
   - edd.MCAEnergyCalibrationProcessor:
       config:
-        max_peak_index: 1
+        max_peak_index: 1   # Index in `peak_energies` with the highest peak amplitude
         peak_energies: [34.276, 34.717, 39.255, 40.231]
         materials:          # Optional, using default CeO2 properties when omitted
           - material_name: CeO2
@@ -101,8 +109,8 @@ energy:
       save_figures: true
       schema: edd.models.MCAEnergyCalibrationConfig
   - common.YAMLWriter:
-                            # Energy calibration output filename, change as desired
       filename: energy_calibration_result.yaml
+                            # Energy calibration output filename, change as desired
       force_overwrite: true
   - common.ImageWriter:
       outputdir: figures    # Change as desired, unless an absolute path
@@ -115,12 +123,12 @@ twotheta:
 
   # Twotheta calibration
   - common.YAMLReader:
-                            # Energy calibration info, same file as written to above
       filename: energy_calibration_result.yaml
+                            # Energy calibration filename, same as written to above
       schema: edd.models.MCAEnergyCalibrationConfig
   - common.SpecReader:
       config:
-        station: id3a       # Change as needed
+        station: id1a3      # Change as needed
         experiment_type: EDD
         spec_scans:         # Edit both SPEC log file path and EDD scan numbers
                             # Path can be relative to inputdir (line 3) or absolute
@@ -137,8 +145,8 @@ twotheta:
           - id: 22
       save_figures: true
   - common.YAMLWriter:
-                            # Twotheta calibration output filename, change as desired
       filename: tth_calibration_result.yaml
+                            # Twotheta calibration output filename, change as desired
       force_overwrite: true
   - common.ImageWriter:
       outputdir: figures    # Change as desired
@@ -167,8 +175,8 @@ strain:
   - common.NexusReader:
       filename: map.nxs     # NeXus map, same file as written to above
   - common.YAMLReader:
-                            # Twotheta calibration info, same file as written to above
       filename: tth_calibration_result.yaml
+                            # Twotheta calibration filename, same as written to above
       schema: edd.models.MCATthCalibrationConfig
   - edd.StrainAnalysisProcessor:
       config:
