@@ -33,7 +33,7 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 
 Note that combining stacks with a horizontal displacement for samples wider than the width of the beam is not yet implemented.
 
-## Create and activating the tomography conda environment (requires a local CHAP clone)
+## Create and activate the tomography conda environment (requires a local CHAP clone)
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
 1. Install a local version of the CHAP package according to the [installation instructions](installation).
