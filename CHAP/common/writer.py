@@ -25,6 +25,7 @@ from pydantic import (
 from CHAP import Writer
 from CHAP.pipeline import PipelineItem
 from CHAP.writer import validate_writer_model
+from CHAP.common.models import IndexSliceConfig
 
 
 def validate_model(model):
@@ -550,9 +551,16 @@ class NexusValuesWriter(Writer):
         data shape. If `False`, any mismatching shapes will just raise
         an error. Defaults to `False`.
     :vartype resize_axis: Union[int, Literal[False]], optional
+    :ivar idx_slice: Configuration for a slice object that will be
+        used to select the slice of the target array to write to. Used
+        only if the `"idx"` key is not present for an item in the
+        newest `PipelineData` item in `data`. Defaults to
+        `IndexSliceConfig()`.
+    :vartype idx_slice: CHAP.common.models.IndexSliceConfig, optional
     """
     path_prefix: str = ''
     resize_axis: Union[int, Literal[False]] = False
+    idx_slice: Optional[IndexSliceConfig] = IndexSliceConfig()
 
     def write(self, data, filename):
         """Write new values specified in `data` to the exising NeXus
@@ -576,12 +584,15 @@ class NexusValuesWriter(Writer):
         data = self.get_pipelinedata_item(data, remove=self.remove)
         for d in data:
             with NXFile(filename, 'a') as nxroot:
-                self.nxs_writer(
-                    nxroot=nxroot,
-                    path=os.path.join(self.path_prefix, d['path']),
-                    idx=d['idx'],
-                    data=d['data']
-                )
+                try:
+                    self.nxs_writer(
+                        nxroot=nxroot,
+                        path=os.path.join(self.path_prefix, d['path']),
+                        idx=d.get('idx', self.idx_slice._slice),
+                        data=d['data']
+                    )
+                except Exception as exc:
+                    self.logger.error(exc)
 
     def nxs_writer(self, nxroot, path, idx, data):
         """Write data to a specific NeXus file.
@@ -613,9 +624,15 @@ class NexusValuesWriter(Writer):
 
         # Access the specified dataset
         dataset = nxroot[path]
+        self.logger.debug(
+            f'chunks, maxshape = {dataset.chunks}, {dataset.maxshape}'
+        )
 
         # Check that the slice shape matches the data shape
         data = np.asarray(data)
+        self.logger.debug(
+            f'data shape, target shape = {data.shape}, {dataset[idx].shape}'
+        )
         if dataset[idx].shape != data.shape:
             if self.resize_axis is not False:
                 # Resize along the specified axis
