@@ -628,8 +628,16 @@ class NexusValuesWriter(Writer):
             f'chunks, maxshape = {dataset.chunks}, {dataset.maxshape}'
         )
 
-        # Check that the slice shape matches the data shape
         data = np.asarray(data)
+
+        # Check the datatype
+        if data.dtype != dataset.dtype:
+            self.logger.warning(
+                f'Converting new data (type: {data.dtype}) to {dataset.dtype}'
+            )
+            data = data.astype(dataset.dtype)
+
+        # Check the shape
         self.logger.debug(
             f'data shape, target shape = {data.shape}, {dataset[idx].shape}'
         )
