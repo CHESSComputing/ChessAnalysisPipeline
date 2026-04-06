@@ -2811,18 +2811,32 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxcollection.results = NXdata()
         nxdata = nxcollection.results
         self._linkdims(nxdata, det_nxdata)
-        nxdata.best_fit = NXfield(shape=shape, dtype=np.float64)
+        nxdata.best_fit = NXfield(
+            shape=shape, dtype=np.float64,
+            maxshape=(None, *shape[1:]), chunks=(1, *shape[1:])
+        )
         nxdata.included_peaks = NXfield(
-            shape=[shape[0], len(hkls)], dtype=bool)
+            shape=[shape[0], len(hkls)], dtype=bool,
+            maxshape=(None, *shape[1:]), chunks=(1, *shape[1:])
+        )
         nxdata.included_peaks.attrs['hkls'] = dumps(
             peak_fit_info.get('hkls', '')
         )
         nxdata.included_peaks.attrs['use_peaks'] = peak_fit_info.get(
             'use_peaks'
         )
-        nxdata.residual = NXfield(shape=shape, dtype=np.float64)
-        nxdata.redchi = NXfield(shape=[shape[0]], dtype=np.float64)
-        nxdata.success = NXfield(shape=[shape[0]], dtype='bool')
+        nxdata.residual = NXfield(
+            shape=shape, dtype=np.float64,
+            maxshape=(None, *shape[1:]), chunks=(1, *shape[1:])
+        )
+        nxdata.redchi = NXfield(
+            shape=[shape[0]], dtype=np.float64,
+            maxshape=(None,), chunks=(1,)
+        )
+        nxdata.success = NXfield(
+            shape=[shape[0]], dtype='bool',
+            maxshape=(None,), chunks=(1,)
+        )
 
         # Peak-by-peak results
         for hkl in hkls:
@@ -2842,9 +2856,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 nxcollection[hkl_name].amplitudes, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].amplitudes.values = NXfield(
-                shape=[shape[0]], dtype=np.float64, attrs={'units': 'counts'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'counts'},
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].amplitudes.errors = NXfield(
-                shape=[shape[0]], dtype=np.float64)
+                shape=[shape[0]], dtype=np.float64,
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].amplitudes.attrs['signal'] = 'values'
             # Report HKL peak centers
             nxcollection[hkl_name].centers = NXdata()
@@ -2852,9 +2870,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 nxcollection[hkl_name].centers, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].centers.values = NXfield(
-                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'},
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].centers.errors = NXfield(
-                shape=[shape[0]], dtype=np.float64)
+                shape=[shape[0]], dtype=np.float64,
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].centers.attrs['signal'] = 'values'
             # Report HKL peak FWHMs
             nxcollection[hkl_name].sigmas = NXdata()
@@ -2862,9 +2884,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 nxcollection[hkl_name].sigmas, det_nxdata,
                 skip_field_dims=['energy'])
             nxcollection[hkl_name].sigmas.values = NXfield(
-                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'})
+                shape=[shape[0]], dtype=np.float64, attrs={'units': 'keV'},
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].sigmas.errors = NXfield(
-                shape=[shape[0]], dtype=np.float64)
+                shape=[shape[0]], dtype=np.float64,
+                maxshape=(None,), chunks=(1,)
+            )
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
             if peak_fit_info.get('peak_models') == 'pvoigt':
                 # Report HKL peak fractions
@@ -2873,9 +2899,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     nxcollection[hkl_name].fractions, det_nxdata,
                     skip_field_dims=['energy'])
                 nxcollection[hkl_name].fractions.values = NXfield(
-                    shape=[shape[0]], dtype=np.float64)
+                    shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,)
+                )
                 nxcollection[hkl_name].fractions.errors = NXfield(
-                    shape=[shape[0]], dtype=np.float64)
+                    shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,)
+                )
                 nxcollection[hkl_name].fractions.attrs['signal'] = 'values'
             # Report HKL peak strains (unconstrained only)
             if fit_type == 'unconstrained':
@@ -2885,11 +2915,17 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     skip_field_dims=['energy'])
                 values = np.full(shape=[shape[0]], fill_value=np.nan)
                 nxcollection[hkl_name].strains.values = NXfield(
-                    value=values, shape=[shape[0]], dtype=np.float64)
+                    value=values, shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,)
+                )
                 nxcollection[hkl_name].strains.errors = NXfield(
-                    value=values, shape=[shape[0]], dtype=np.float64)
+                    value=values, shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,)
+                )
                 nxcollection[hkl_name].strains.residuals = NXfield(
-                    value=values, shape=[shape[0]], dtype=np.float64)
+                    value=values, shape=[shape[0]], dtype=np.float64,
+                    maxshape=(None,), chunks=(1,)
+                )
                 nxcollection[hkl_name].strains.attrs['signal'] = 'values'
 
 
@@ -3061,35 +3097,54 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 value=energies[mask], attrs={'units': 'keV'})
             det_nxdata.norm = NXfield(
                 dtype=np.float64,
-                shape=(num_points,))
+                shape=(num_points,),
+                maxshape=(None,), chunks=(1,)
+            )
             det_nxdata.tth = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
-                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'})
+                attrs={'units':'degrees', 'long_name': '2\u03B8 (degrees)'},
+                maxshape=(None,), chunks=(1,),
+            )
             det_nxdata.uniform_strain = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
-                attrs={'long_name': 'Strain from uniform fit (\u03B5)'})
-                #attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'})
+                attrs={'long_name': 'Strain from uniform fit (\u03B5)'},
+                # attrs={'long_name': 'Strain from uniform fit (\u03BC\u03B5)'}
+                maxshape=(None,), chunks=(1,)
+            )
+
             det_nxdata.unconstrained_strain = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
                 attrs={'long_name':
-                           'Strain from unconstrained fit (\u03B5)'})
-                           #'Strain from unconstrained fit (\u03BC\u03B5)'})
+                           'Strain from unconstrained fit (\u03B5)'},
+                           #'Strain from unconstrained fit (\u03BC\u03B5)'},
+                maxshape=(None,), chunks=(1,)
+            )
             det_nxdata.unconstrained_strain_stdev = NXfield(
                 dtype=np.float64,
                 shape=(num_points,),
                 attrs={'long_name':
                            'Standard deviation in strain from unconstrained '
-                           'fit (\u03B5)'})
-                           #'fit (\u03BC\u03B5)'})
+                           'fit (\u03B5)'},
+                           #'fit (\u03BC\u03B5)'}
+                maxshape=(None,), chunks=(1,)
+            )
 
             # Add the detector data
+            _intensity=np.asarray(
+                [
+                    data[i].astype(np.float64)[mask]
+                    for i in range(num_points)
+                ]
+            )
             det_nxdata.intensity = NXfield(
-                value=np.asarray([data[i].astype(np.float64)[mask]
-                                  for i in range(num_points)]),
-                attrs={'units': 'counts'})
+                value=_intensity,
+                attrs={'units': 'counts'},
+                maxshape=(None,*_intensity.shape[1:]),
+                chunks=(1,*_intensity.shape[1:])
+            )
             det_nxdata.attrs['signal'] = 'intensity'
 
             # Get the unique HKLs and lattice spacings for the strain
