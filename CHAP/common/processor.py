@@ -1263,31 +1263,45 @@ class MapProcessor(Processor):
             **self.config.sample.model_dump())
 
         # Set up independent dimensions NeXus NXdata group
-        # (squeeze out constant dimensions)
-        constant_dim = []
-        for i, dim in enumerate(self.config.independent_dimensions):
-            unique = np.unique(independent_dimensions[i])
-            if unique.size == 1:
-                constant_dim.append(i)
         nxentry.independent_dimensions = NXdata()
-        if len(constant_dim) < len(self.config.independent_dimensions):
+        if self.remove_constant_dims:
+            # (squeeze out constant dimensions)
+            constant_dim = []
             for i, dim in enumerate(self.config.independent_dimensions):
-                if i not in constant_dim or not self.remove_constant_dims:
-                    nxentry.independent_dimensions[dim.label] = NXfield(
-                        independent_dimensions[i], dim.label,
-                        attrs={'units': dim.units,
-                               'long_name': f'{dim.label} ({dim.units})',
-                               'data_type': dim.data_type,
-                               'local_name': dim.name},
-                        maxshape=(None, *independent_dimensions[i].shape[1:]),
-                        chunks=(1, *independent_dimensions[i].shape[1:])
-                    )
+                unique = np.unique(independent_dimensions[i])
+                if unique.size == 1:
+                    constant_dim.append(i)
+            if len(constant_dim) < len(self.config.independent_dimensions):
+                for i, dim in enumerate(self.config.independent_dimensions):
+                    if i not in constant_dim or not self.remove_constant_dims:
+                        nxentry.independent_dimensions[dim.label] = NXfield(
+                            independent_dimensions[i], dim.label,
+                            attrs={'units': dim.units,
+                                   'long_name': f'{dim.label} ({dim.units})',
+                                   'data_type': dim.data_type,
+                                   'local_name': dim.name},
+                            maxshape=(None,
+                                      *independent_dimensions[i].shape[1:]),
+                            chunks=(1, *independent_dimensions[i].shape[1:])
+                        )
+            else:
+                nxentry.independent_dimensions.index = NXfield(
+                    np.arange(independent_dimensions[0].size), 'index',
+                    maxshape=(None,),
+                    chunks=(1,)
+                )
         else:
-            nxentry.independent_dimensions.index = NXfield(
-                np.arange(independent_dimensions[0].size), 'index',
-                maxshape=(None,),
-                chunks=(1,)
-            )
+            for i, dim in enumerate(self.config.independent_dimensions):
+                nxentry.independent_dimensions[dim.label] = NXfield(
+                    independent_dimensions[i], dim.label,
+                    attrs={'units': dim.units,
+                           'long_name': f'{dim.label} ({dim.units})',
+                           'data_type': dim.data_type,
+                           'local_name': dim.name},
+                    maxshape=(None,
+                              *independent_dimensions[i].shape[1:]),
+                    chunks=(1, *independent_dimensions[i].shape[1:])
+                )
 
         # Set up scalar data NeXus NXdata group
         # (add the constant independent dimensions)
@@ -1319,21 +1333,22 @@ class MapProcessor(Processor):
                 maxshape=(None, *all_scalar_data[-1].shape[1:]),
                 chunks=(1, *all_scalar_data[-1].shape[1:])
             ))
-        for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
-            if i in constant_dim:
-                scalar_signals.append(dim.label)
-                scalar_data.append(NXfield(
-                    independent_dimensions[i], dim.label,
-                    attrs={'units': dim.units,
-                           'long_name': f'{dim.label} ({dim.units})',
-                           'data_type': dim.data_type,
-                           'local_name': dim.name},
-                    maxshape=(None, *independent_dimensions[i].shape[1:]),
-                    chunks=(1, *independent_dimensions[i].shape[1:])
-                ))
-                self.config.all_scalar_data.append(
-                    PointByPointScanData(**dim.model_dump()))
-                self.config.independent_dimensions.remove(dim)
+        if self.remove_constant_dims:
+            for i, dim in enumerate(deepcopy(self.config.independent_dimensions)):
+                if i in constant_dim:
+                    scalar_signals.append(dim.label)
+                    scalar_data.append(NXfield(
+                        independent_dimensions[i], dim.label,
+                        attrs={'units': dim.units,
+                               'long_name': f'{dim.label} ({dim.units})',
+                               'data_type': dim.data_type,
+                               'local_name': dim.name},
+                        maxshape=(None, *independent_dimensions[i].shape[1:]),
+                        chunks=(1, *independent_dimensions[i].shape[1:])
+                    ))
+                    self.config.all_scalar_data.append(
+                        PointByPointScanData(**dim.model_dump()))
+                    self.config.independent_dimensions.remove(dim)
         if scalar_signals:
             nxentry.scalar_data = NXdata()
             for k, v in zip(scalar_signals, scalar_data):
