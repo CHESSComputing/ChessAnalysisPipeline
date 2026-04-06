@@ -129,6 +129,25 @@ class ImageProcessorConfig(CHAPBaseModel):
                 for i in index_range]
 
 
+class IndexSliceConfig(CHAPBaseModel):
+    """Configuration for a python `sslice` object.
+
+    :ivar start: A `start` parameter for `slice()`, defaults to 0.
+    :vartype start: int, optional
+    :ivar stop: A `stop` parameter for `slice()`, defaults to -1.
+    :vartype stop: int, optional
+    :ivar step: A `step` parameter for `slice()`, defaults to 1.
+    :vartype step: int, optional
+    """
+    start: Optional[int] = 0
+    stop: Optional[int] = -1
+    step: Optional[int] = 1
+
+    @property
+    def _slice(self):
+        return slice(self.start, self.stop, self.step)
+
+
 class UnstructuredToStructuredConfig(CHAPBaseModel):
     """Configuration class to reshape data in an NXdata from an
     "unstructured" to a "structured" representation.

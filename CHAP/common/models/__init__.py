@@ -5,5 +5,6 @@ processing workflows.
 from CHAP.common.models.common import (
     BinarizeConfig,
     ImageProcessorConfig,
+    IndexSliceConfig,
     UnstructuredToStructuredConfig,
 )
