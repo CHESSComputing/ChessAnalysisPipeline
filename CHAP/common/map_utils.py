@@ -118,17 +118,28 @@ class MapSliceProcessor(Processor):
 
         data_points = [
             {
-                'path': f'{self.map_config.title}/scalar_data/{s_d.label}',
-                'data': np.asarray([
-                    s_d.get_value(
-                        scans, self.scan_number, i,
-                        scalar_data=self.map_config.scalar_data)
-                    for i in scan_indices
-                ]),
+                'path': f'{self.map_config.title}/independent_dimensions/index',
+                'data': np.asarray(
+                    [i for i in range(index_offset, index_offset + npts_scan)]
+                ),
                 'idx': map_indices
             }
-            for s_d in self.map_config.all_scalar_data
         ]
+        data_points.extend(
+            [
+                {
+                    'path': f'{self.map_config.title}/scalar_data/{s_d.label}',
+                    'data': np.asarray([
+                        s_d.get_value(
+                            scans, self.scan_number, i,
+                            scalar_data=self.map_config.scalar_data)
+                        for i in scan_indices
+                    ]),
+                    'idx': map_indices
+                }
+                for s_d in self.map_config.all_scalar_data
+            ]
+        )
         data_points.extend(
             [
                 {
