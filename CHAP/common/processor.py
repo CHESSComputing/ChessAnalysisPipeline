@@ -1257,6 +1257,7 @@ class MapProcessor(Processor):
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
                         attrs={'spec_file': str(scans.spec_file)})
+        nxentry.data = NXdata()
 
         # Add sample metadata
         nxentry[self.config.sample.name] = NXsample(
@@ -1353,6 +1354,7 @@ class MapProcessor(Processor):
             nxentry.scalar_data = NXdata()
             for k, v in zip(scalar_signals, scalar_data):
                 nxentry.scalar_data[k] = v
+                nxentry.data.makelink(nxentry.scalar_data[k])
             if 'SCAN_N' in scalar_signals:
                 nxentry.scalar_data.attrs['signal'] = 'SCAN_N'
             else:
@@ -1361,8 +1363,7 @@ class MapProcessor(Processor):
             nxentry.scalar_data.attrs['auxiliary_signals'] = scalar_signals
 
         # Add detector data
-        nxdata = NXdata()
-        nxentry.data = nxdata
+        nxdata = nxentry.data
         nxentry.data.set_default()
         detector_ids = []
         for k, v in self.config.attrs.items():
