@@ -891,15 +891,20 @@ class MapProcessor(Processor):
         instance of common.models.map.MapConfig. Any values in
         `'config'` supplant their corresponding values obtained from
         the pipeline data configuration.
-    :type config: Union[dict, common.models.map.MapConfig]
+    :vartype config: Union[dict, common.models.map.MapConfig]
     :ivar detector_config: Detector configurations of the detectors to
         include raw data for in the returned NeXus NXentry object
         (overruling detector info in the pipeline data, if present).
-    :type detector_config: Union[
+    :vartype detector_config: Union[
         dict, common.models.map.DetectorConfig]
     :ivar num_proc: Number of processors used to read map,
         defaults to `1`.
-    :type num_proc: int, optional
+    :vartype num_proc: int, optional
+    :ivar remove_constant_dims: Flag to indicate that any
+        `independent_dimension`s in the map whose values are constant
+        across the map should be exluded from the output
+        `NXentry`. Defaults to `True`.
+    :vartype remove_constant_dims: bool, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -909,6 +914,7 @@ class MapProcessor(Processor):
     config: MapConfig
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
+    remove_constant_dims: Optional[bool] = True
 
     @field_validator('num_proc')
     @classmethod
@@ -1266,7 +1272,7 @@ class MapProcessor(Processor):
         nxentry.independent_dimensions = NXdata()
         if len(constant_dim) < len(self.config.independent_dimensions):
             for i, dim in enumerate(self.config.independent_dimensions):
-                if i not in constant_dim:
+                if i not in constant_dim or not self.remove_constant_dims:
                     nxentry.independent_dimensions[dim.label] = NXfield(
                         independent_dimensions[i], dim.label,
                         attrs={'units': dim.units,
