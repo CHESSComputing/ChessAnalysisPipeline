@@ -2814,8 +2814,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         nxdata.best_fit = NXfield(shape=shape, dtype=np.float64)
         nxdata.included_peaks = NXfield(
             shape=[shape[0], len(hkls)], dtype=bool)
-        nxdata.included_peaks.attrs['hkls'] = dumps(peak_fit_info['hkls'])
-        nxdata.included_peaks.attrs['use_peaks'] = peak_fit_info['use_peaks']
+        nxdata.included_peaks.attrs['hkls'] = dumps(
+            peak_fit_info.get('hkls', '')
+        )
+        nxdata.included_peaks.attrs['use_peaks'] = peak_fit_info.get(
+            'use_peaks'
+        )
         nxdata.residual = NXfield(shape=shape, dtype=np.float64)
         nxdata.redchi = NXfield(shape=[shape[0]], dtype=np.float64)
         nxdata.success = NXfield(shape=[shape[0]], dtype='bool')
@@ -2862,7 +2866,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             nxcollection[hkl_name].sigmas.errors = NXfield(
                 shape=[shape[0]], dtype=np.float64)
             nxcollection[hkl_name].sigmas.attrs['signal'] = 'values'
-            if peak_fit_info['peak_models'] == 'pvoigt':
+            if peak_fit_info.get('peak_models') == 'pvoigt':
                 # Report HKL peak fractions
                 nxcollection[hkl_name].fractions = NXdata()
                 self._linkdims(
@@ -3019,6 +3023,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             calibration_config.model_dump_json()
         nxprocess.strain_analysis_config = \
             self.config.model_dump_json()
+
+        if len(self._peak_fit_info) == 0:
+            # FIX this is a temporary fix to be able to run update
+            # after setup.
+            self._peak_fit_info = [{}] * len(self.detector_config.detectors)
+            self.logger.warning('Missing peak_fit_info')
 
         # Loop over the detectors to fill in the nxprocess
         for energies, mask, nxdata, detector, peak_fit_info in zip(
