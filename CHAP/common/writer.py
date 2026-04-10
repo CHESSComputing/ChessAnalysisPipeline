@@ -582,8 +582,8 @@ class NexusValuesWriter(Writer):
         from nexusformat.nexus import NXFile
 
         data = self.get_pipelinedata_item(data, remove=self.remove)
-        for d in data:
-            with NXFile(filename, 'a') as nxroot:
+        with NXFile(filename, 'a') as nxroot:
+            for d in data:
                 try:
                     self.nxs_writer(
                         nxroot=nxroot,
