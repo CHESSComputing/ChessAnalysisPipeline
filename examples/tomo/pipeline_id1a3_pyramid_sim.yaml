@@ -1,7 +1,7 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: data/hollow_pyramid
+  outputdir: raw/hollow_pyramid
   interactive: true
   log_level: info
   profile: false
@@ -10,7 +10,7 @@ pipeline:
 
   # Create a simulated stack of tomography images
   - common.YAMLReader:
-      filename: tomo_sim_id3a_pyramid.yaml
+      filename: tomo_sim_id1a3_pyramid.yaml
       schema: tomo.models.TomoSimConfig
   - tomo.TomoSimFieldProcessor:
       schema: tomo.models.TomoSimField
@@ -22,8 +22,7 @@ pipeline:
       num_image: 10
       schema: tomo.models.TomoBrightField
   # Create the SPEC file for the simulation
-  - tomo.TomoSpecProcessor
-#  - tomo.TomoSpecProcessor:
+  - tomo.TomoSpecProcessor:
 #      scan_numbers: [1, 2, 3, 4, 5]
   - common.FileTreeWriter:
       force_overwrite: true

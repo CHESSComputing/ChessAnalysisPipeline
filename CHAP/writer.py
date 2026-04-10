@@ -18,7 +18,10 @@ from typing import Optional
 from pydantic import model_validator
 
 # Local modules
-from CHAP.pipeline import PipelineItem
+from CHAP.pipeline import (
+    PipelineData,
+    PipelineItem,
+)
 
 
 def validate_writer_model(writer):
@@ -57,6 +60,30 @@ class Writer(PipelineItem):
 
     _validate_filename = model_validator(mode='after')(validate_writer_model)
 
+    def _update_provenance(self, data):
+        """Add output file name to the provenance.
+
+        :param data: Input data.
+        :type data: list[CHAP.pipeline.PipelineData]
+        :return: Provenance with added output file name.
+        :rtype: CHAP.pipeline.PipelineData
+        """
+        # System modules
+        from os import path as os_path
+
+        try:
+            provenance = self.get_data(
+                data, schema='foxden.reader.FoxdenProvenanceReader')
+        except:
+            return
+        output_files = provenance.pop('output_files', [])
+        output_files.append({
+            'name': os_path.realpath(self.filename)})
+        provenance['output_files'] = output_files
+        return PipelineData(
+            name=self.__name__, data=provenance,
+            schema='foxden.reader.FoxdenProvenanceReader')
+
     def write(self, data):
         """Write the last `CHAP.pipeline.PipelineData` item in `data`
         as text to a file.
@@ -66,16 +93,13 @@ class Writer(PipelineItem):
         :return: Contents of the input data.
         :rtype: list[PipelineData]
         """
-        ddata = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data, remove=self.remove)
         if os.path.isfile(self.filename) and not self.force_overwrite:
             raise FileExistsError(f'{self.filename} already exists')
         with open(self.filename, 'w') as f:
-            f.write(ddata)
-        if self.remove:
-            data.pop()
+            f.write(data)
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later
-        return data
 
 
 class OptionParser():

@@ -1,10 +1,10 @@
-title: hollow_brick
-station: id3a
+title: hollow_pyramid
+station: id1a3
 experiment_type: TOMO
 sample:
-  name: hollow_brick
+  name: hollow_pyramid
 spec_scans:
-- spec_file: ../data/hollow_brick/spec.log
+- spec_file: ../raw/hollow_pyramid/spec.log
   scan_numbers: [3, 4, 5]
 independent_dimensions:
 - label: rotation_angles
@@ -19,4 +19,3 @@ independent_dimensions:
   units: mm
   data_type: smb_par
   name: ramsz
-

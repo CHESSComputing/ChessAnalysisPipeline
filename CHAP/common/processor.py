@@ -27,6 +27,7 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
+from CHAP.pipeline import PipelineData
 
 
 class AsyncProcessor(Processor):
@@ -78,7 +79,13 @@ class AsyncProcessor(Processor):
 
 
 class BinarizeProcessor(Processor):
-    """A Processor to binarize a dataset."""
+    """A Processor to binarize a dataset.
+
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
+    """
+    nxmemory: Optional[conint(gt=0)] = 100000
+
     def process(self, data, config=None):
         """Plot and return a binarized dataset from a dataset contained
         in `data`. The dataset must either be `array-like` or a NeXus
@@ -106,7 +113,7 @@ class BinarizeProcessor(Processor):
         # Local modules
         from CHAP.utils.general import nxcopy
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the validated processor configuration
         if config is None:
@@ -134,9 +141,7 @@ class BinarizeProcessor(Processor):
             assert isinstance(data, np.ndarray)
         except Exception:
             try:
-                dataset = self.unwrap_pipelinedata(data)[-1]
-                assert isinstance(dataset, np.ndarray)
-                data = dataset
+                data = np.asarray(self.get_pipelinedata_item(data))
             except Exception as exc:
                 raise ValueError(
                     'Unable the load a valid input data object') from exc
@@ -233,7 +238,7 @@ class ConstructBaseline(Processor):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
-        :type data: list[PipelineData]
+        :type data: Union[numpy.ndarray, list[PipelineData]]
         :param x: Independent dimension (only used when running
             interactively or when filename is set).
         :param mask: A mask to apply to the spectrum before baseline
@@ -253,16 +258,15 @@ class ConstructBaseline(Processor):
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
         :return: The smoothed baseline and the configuration.
-        :rtype: numpy.array, dict
+        :rtype: numpy.ndarray, dict
         """
         try:
-            data = np.asarray(self.unwrap_pipelinedata(data)[0])
+            y = np.asarray(self.get_pipelinedata_item(data))
         except Exception as exc:
-            raise ValueError(
-                f'The structure of {data} contains no valid data') from exc
+            raise ValueError(f'No valid data found in {data}') from exc
 
         return self.construct_baseline(
-            data, x=x, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
+            y, x=x, mask=mask, tol=tol, lam=lam, max_iter=max_iter,
             return_buf=save_figures)
 
     @staticmethod
@@ -272,7 +276,7 @@ class ConstructBaseline(Processor):
         """Construct and return the baseline for a dataset.
 
         :param y: Input data.
-        :type y: numpy.array
+        :type y: numpy.ndarray
         :param x: Independent dimension (only used when interactive is
             `True` of when filename is set).
         :type x: array-like, optional
@@ -304,7 +308,7 @@ class ConstructBaseline(Processor):
         :return: The smoothed baseline and the configuration and a
             byte stream represention of the Matplotlib figure if
             return_buf is `True` (`None` otherwise)
-        :rtype: numpy.array, dict, Union[io.BytesIO, None]
+        :rtype: numpy.ndarray, dict, Union[io.BytesIO, None]
         """
         # Third party modules
         from matplotlib.widgets import TextBox, Button
@@ -492,7 +496,7 @@ class ConvertStructuredProcessor(Processor):
         # Local modules
         from CHAP.utils.converters import convert_structured_unstructured
 
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         return convert_structured_unstructured(data)
 
 
@@ -544,7 +548,10 @@ class ExpressionProcessor(Processor):
     def _process(self, data, expression, symtable=None, nxprocess=False,
                  nxfieldtable=None, nxdata_name='data',
                  nxfield_name='result'):
-        import zarr
+        try:
+            import zarr
+        except:
+            pass
         from ast import parse
         from asteval import get_ast_names, Interpreter
 
@@ -566,8 +573,11 @@ class ExpressionProcessor(Processor):
                 symtable[name] = self.get_data(
                     data, name=name, remove=False)
         for k, v in symtable.items():
-            if isinstance(v, zarr.core.array.Array):
-                symtable[k] = v[()]
+            try:
+                if isinstance(v, zarr.core.array.Array):
+                    symtable[k] = v[()]
+            except:
+                pass
         self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
         new_data = aeval(expression)
@@ -607,6 +617,8 @@ class ImageProcessor(Processor):
     :ivar config: Initialization parameters for an instance of
         CHAP.common.models.ImageProcessorConfig
     :type config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading NeXus files.
+    :type nxmemory: int, optional
     :ivar save_figures: Return the plottable image(s) to be written
         to file downstream in the pipeline, defaults to `True`.
     :type save_figures: bool, optional
@@ -615,6 +627,7 @@ class ImageProcessor(Processor):
         default = {
             'config': 'common.models.map.ImageProcessorConfig'}, init_var=True)
     config: ImageProcessorConfig
+    nxmemory: Optional[conint(gt=0)] = 100000
     save_figures: Optional[bool] = True
 
     _figconfig: dict = PrivateAttr(default={})
@@ -636,7 +649,7 @@ class ImageProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import nxsetconfig
 
-        nxsetconfig(memory=100000)
+        nxsetconfig(memory=self.nxmemory)
 
         # Load the default data
         try:
@@ -812,14 +825,35 @@ class ImageProcessor(Processor):
                 fileformat = 'gif'
                 image_data = ani
             else:
+                # Local modules
+                from CHAP.utils.general import fig_to_iobuf
+
+                if self.config.fileformat in ('png', 'tif', 'tifstack'):
+                    fileformat = self.config.fileformat
+                else:
+                    if self.config.fileformat is not None:
+                        self.logger.warning('Ignoring invalid fileformat '
+                                            f'({self.config.fileformat})')
+                    if data.shape[0] == 1:
+                        fileformat = 'tif'
+                    else:
+                        fileformat = 'tifstack'
+                if fileformat != 'tifstack':
+                    # Return the set of image slices as individual figs
+                    num_digit = len(str(data.shape[0]))
+                    images = []
+                    for i in range(data.shape[0]):
+                        fig, plt = self._create_figure(data[i])
+                        images.append((
+                            fig_to_iobuf(fig, fileformat=fileformat),
+                            f'{self.config.basename}_'
+                            f'{str(i).zfill(num_digit)}'))
+                    plt.close()
+                    return images
                 # Return the set of image slices as a tif stack
-                if (self.config.fileformat is not None
-                        and self.config.fileformat != 'tif'):
-                    self.logger.warning(
-                        'Ignoring inconsistent file extension')
-                fileformat = 'tif'
                 data = 255.0*((data - vrange[0])/
                               (vrange[1] - vrange[0]))
+                fileformat = 'tif'
                 image_data = data.astype(np.uint8)
             return {'image_data': image_data, 'fileformat': fileformat}
         return nxdata
@@ -894,7 +928,7 @@ class MapProcessor(Processor):
             'config': 'common.models.map.MapConfig',
             'detector_config': 'common.models.map.DetectorConfig'},
         init_var=True)
-    config: MapConfig
+    config: Optional[MapConfig] = None
     detector_config: DetectorConfig = DetectorConfig(detectors=[])
     num_proc: Optional[conint(gt=0)] = 1
 
@@ -930,6 +964,10 @@ class MapProcessor(Processor):
     def process(
             self, data, placeholder_data=False, fill_data=True, comm=None):
 
+        # Update metadata
+#        self._metadata['user_metadata'].update({
+#            'map': self.config.model_dump()})
+
         return self._process(data, placeholder_data, fill_data, comm)
 
 #    @profile
@@ -952,7 +990,7 @@ class MapProcessor(Processor):
         :param comm: MPI communicator.
         :type comm: mpi4py.MPI.Comm, optional
         :return: Map data and metadata.
-        :rtype: nexusformat.nexus.NXentry
+        :rtype: Union[nexusformat.nexus.NXentry
         """
         # System modules
         import logging
@@ -962,19 +1000,9 @@ class MapProcessor(Processor):
 
         # Check for available metadata
         metadata = {}
+        provenance = {}
         if data:
-            try:
-                for d in data:
-                    if d.get('schema') == 'metadata':
-                        metadata = d.get('data')
-                        break
-            except Exception:
-                pass
-            if len(metadata) > 1:
-                raise ValueError(
-                    f'Unable to find unique data for schema "metadata"')
-            if metadata:
-                metadata = self._get_metadata_config(metadata[0])
+            metadata, provenance = self._get_metadata_provenance(data)
 
         if fill_data:
             # Create the sub-pipeline configuration for each processor
@@ -1135,38 +1163,72 @@ class MapProcessor(Processor):
                  for dim in self.config.independent_dimensions])
 
         # Construct and return the NeXus NXroot object
-        return self._get_nxroot(
+        nxroot = self._get_nxroot(
             data, independent_dimensions, all_scalar_data, placeholder_data)
 
-    def _get_metadata_config(self, metadata):
-        """Get experiment specific configurational data from the
-        FOXDEN metadata record
+        if metadata and provenance:
+            return (
+                PipelineData(
+                    name=self.name, data=metadata,
+                    schema='foxden.reader.FoxdenMetadataReader'),
+                PipelineData(
+                    name=self.name, data=provenance,
+                    schema='foxden.reader.FoxdenProvenanceReader'),
+                PipelineData(
+                    name=self.name, data=nxroot, schema=self.get_schema()))
+        return nxroot
 
-        :param metadata: FOXDEN metadata record.
-        :type metadata: dict
-        :return: Experiment specific configurational data.
-        :rtype: dict
+
+    def _get_metadata_provenance(self, data):
+        """Get experiment specific configurational data from the
+        FOXDEN metadata and provenance records.
+
+        :param data: Pipeline data list.
+        :type data: list[PipelineData]
+        :return: Experiment specific metadata and provenance.
+        :rtype: dict, dict
         """
-        config = {'did': metadata.get('did')}
-        experiment_type = metadata.get('technique')
+        # Local modules
+        from CHAP.tomo.processor import (
+            read_metadata_provenance,
+            create_metadata_provenance,
+        )
+
+        # Read metadata and provenance from the pipeline data
+        metadata, provenance = read_metadata_provenance(data, self.logger)
+        if not metadata:
+            return metadata, provenance
+
+        # Update metadata and provenance
+        experiment_type = [v.lower() for v in metadata.get('technique')]
         if 'tomography' in experiment_type:
-            config['title'] = metadata.get('sample_name')
-            station = metadata.get('beamline')[0]
-            if station == '3A':
-                station = 'id3a'
+            station = f'id{metadata.get("beamline")[0].lower()}'
+            if station in ('id1a3', 'id3a'):
+                spec_file = os.path.join(
+                    metadata.get('data_location_raw'), 'spec.log')
             else:
                 raise ValueError(f'Invalid beamline parameter ({station})')
-            config['station'] = station
-            config['experiment_type'] = 'TOMO'
-            config['sample'] = {'name': config['title'],
-                                    'description': metadata.get('description')}
-            if station == 'id3a':
-                config['spec_file'] = os.path.join(
-                    metadata.get('data_location_raw'), 'spec.log')
+            sample_name = metadata.get('sample_name')
+            # FIX We could add full self.config and self.detector_config
+            # That would allow us to create a full map from just metadata
+            user_metadata = {
+                'map_config': {
+                    'experiment_type': 'TOMO',
+                    'sample': {'name': sample_name,
+                                'description': metadata.get('description')},
+                    'station': station,
+                    'title': sample_name,
+                    'spec_file': spec_file}}
+            metadata, provenance = create_metadata_provenance(
+                'map', metadata=metadata, provenance=provenance,
+                user_metadata=user_metadata, logger=self.logger,
+                update=False, read=False)
+            user_metadata = metadata.pop('user_metadata', {})
+            metadata['user_metadata'] = user_metadata
         else:
             raise ValueError(
                 f'Experiment type {experiment_type} not implemented yet')
-        return config
+        return metadata, provenance
 
     def _get_nxroot(
             self, data, independent_dimensions, all_scalar_data,
@@ -1509,7 +1571,7 @@ class MapProcessor(Processor):
             if self.detector_config.roi is None:
                 detector_roi = [slice(None), slice(None)]
             else:
-                detector_roi = self.detector_config.roi
+                detector_roi = self.detector_config.roitoslice()
             ddata = scanparser.get_detector_data(
                 self.detector_config.detectors[0].get_id(),
                 detector_roi=detector_roi, dtype=dtype)
@@ -1583,7 +1645,8 @@ class MapProcessor(Processor):
                                 detector_roi = [
                                     slice(None), slice(None)]
                             else:
-                                detector_roi = self.detector_config.roi
+                                detector_roi = \
+                                    self.detector_config.roitoslice()
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[i].get_id(),
                                 detector_roi=detector_roi, dtype=dtype)
@@ -1603,8 +1666,8 @@ class MapProcessor(Processor):
                             relative=False,
                             scalar_data=self.config.scalar_data)
                     else:
-                        raise RuntimeError(
-                            f'{dim.data_type} in data_type not tested')
+                        independent_dimensions[offset,i] = dim.get_value(
+                            scans, scan_number, scan_step_index=-1)
                 for i, dim in enumerate(self.config.all_scalar_data):
                     all_scalar_data[offset,i] = dim.get_value(
                         scans, scan_number, scan_step_index=-1,
@@ -1649,13 +1712,13 @@ class MPICollectProcessor(Processor):
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
         if root_as_worker:
-            data = self.unwrap_pipelinedata(data)[-1]
+            data = self.get_pipelinedata_item(data)
             if num_proc > 1:
                 data = comm.gather(data, root=0)
         else:
             for n_worker in range(1, num_proc):
                 if rank == n_worker:
-                    comm.send(self.unwrap_pipelinedata(data)[-1], dest=0)
+                    comm.send(self.get_pipelinedata_item(data), dest=0)
                     data = None
                 elif not rank:
                     if n_worker == 1:
@@ -1915,7 +1978,7 @@ class NexusToNumpyProcessor(Processor):
         # Third party modules
         from nexusformat.nexus import NXdata
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
 
         if isinstance(data, NXdata):
             default_data = data
@@ -1958,7 +2021,7 @@ class NexusToXarrayProcessor(Processor):
         from nexusformat.nexus import NXdata
         from xarray import DataArray
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
 
         if isinstance(data, NXdata):
             default_data = data
@@ -2094,7 +2157,7 @@ class NormalizeNexusProcessor(Processor):
         from CHAP.utils.general import nxcopy
 
         # Check input data
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         data = nxcopy(data)
         if not isinstance(data, NXgroup):
             raise TypeError(f'Expected NXgroup, got (type{data})')
@@ -2164,7 +2227,7 @@ class NormalizeMapProcessor(Processor):
         )
 
         # Check input data
-        data = self.unwrap_pipelinedata(data)[0]
+        data = self.get_pipelinedata_item(data)
         map_title = None
         for k, v in data.items():
             if isinstance(v, NXentry):
@@ -2280,7 +2343,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
             mask = fabio.open(mask_file).data
 
         try:
-            det_data = self.unwrap_pipelinedata(data)[0]
+            det_data = self.get_pipelinedata_item(data)
         except Exception:
             det_data = data
 
@@ -2511,7 +2574,7 @@ class SetupNXdataProcessor(Processor):
         self.attrs = attrs
         self.data_points = data_points
         try:
-            setup_params = self.unwrap_pipelinedata(data)[0]
+            setup_params = self.get_pipelinedata_item(data)
         except Exception:
             setup_params = None
         if isinstance(setup_params, dict):
@@ -2662,7 +2725,7 @@ class UnstructuredToStructuredProcessor(Processor):
         try:
             nxobject = self.get_data(data)
         except Exception:
-            nxobject = self.unwrap_pipelinedata(data)[0]
+            nxobject = self.get_pipelinedata_item(data)
         if isinstance(nxobject, NXdata):
             return self.convert_nxdata(nxobject)
         if nxpath is not None:
@@ -2847,7 +2910,7 @@ class UpdateNXvalueProcessor(Processor):
         if data_points is None:
             data_points = []
         self.logger.debug(f'Got {len(data_points)} data points from keyword')
-        ddata_points = self.unwrap_pipelinedata(data)[0]
+        ddata_points = self.get_pipelinedata_item(data)
         if isinstance(ddata_points, list):
             self.logger.debug(f'Got {len(ddata_points)} from pipeline data')
             data_points.extend(ddata_points)
@@ -2925,7 +2988,7 @@ class UpdateNXdataProcessor(Processor):
         if data_points is None:
             data_points = []
         self.logger.debug(f'Got {len(data_points)} data points from keyword')
-        _data_points = self.unwrap_pipelinedata(data)[0]
+        _data_points = self.get_pipelinedata_item(data)
         if isinstance(_data_points, list):
             self.logger.debug(f'Got {len(_data_points)} from pipeline data')
             data_points.extend(_data_points)
@@ -3018,7 +3081,7 @@ class NXdataToDataPointsProcessor(Processor):
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
         """
-        nxdata = self.unwrap_pipelinedata(data)[0]
+        nxdata = self.get_pipelinedata_item(data)
 
         data_points = []
         axes_names = [a.nxname for a in nxdata.nxaxes]
@@ -3061,7 +3124,7 @@ class XarrayToNexusProcessor(Processor):
             NXfield,
         )
 
-        data = self.unwrap_pipelinedata(data)[-1]
+        data = self.get_pipelinedata_item(data)
         signal = NXfield(value=data.data, name=data.name, attrs=data.attrs)
         axes = []
         for name, coord in data.coords.items():
@@ -3084,7 +3147,7 @@ class XarrayToNumpyProcessor(Processor):
         :return: The data in `data`.
         :rtype: numpy.ndarray
         """
-        return self.unwrap_pipelinedata(data)[-1].data
+        return self.get_pipelinedata_item(data).data
 
 
 class ZarrToNexusProcessor(Processor):

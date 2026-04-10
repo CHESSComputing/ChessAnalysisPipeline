@@ -189,6 +189,9 @@ class MaterialConfig(CHAPBaseModel):
     :type lattice_parameters: float, list[float], optional
     :ivar sgnum: Space group of the material.
     :type sgnum: int, optional
+    :ivar dmin: Minimum d-spacing for selecting the available hkls,
+        defaults to 0.35.
+    :type dmin: float, optional
     """
     #RV FIX create a getter for lattice_parameters that always returns a list?
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
@@ -198,6 +201,7 @@ class MaterialConfig(CHAPBaseModel):
             min_length=1, max_length=6,
             item_type=confloat(gt=0, allow_inf_nan=False))]] = None
     sgnum: Optional[conint(ge=0)] = None
+    dmin: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.35
 
     _material: Optional[Material]
 
@@ -213,7 +217,7 @@ class MaterialConfig(CHAPBaseModel):
 #        from CHAP.utils.material import Material
 
         self._material = make_material(
-            self.material_name, self.sgnum, self.lattice_parameters)
+            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
 #        self._material = Material.make_material(
 #            self.material_name, sgnum=self.sgnum,
 #            lattice_parameters_angstroms=self.lattice_parameters,
@@ -393,10 +397,10 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     :type fwhm_min: float, optional
     :ivar fwhm_max: Maximum FWHM for peak fitting (in keV),
         defaults to `2.0`.
-    :ivar peak_models: Peak model for peak fitting,
+    :ivar peak_models: Peak model(s) for peak fitting,
         defaults to `'gaussian'`.
-    :type peak_models: Literal['gaussian', 'lorentzian']],
-        list[Literal['gaussian', 'lorentzian']]], optional
+    :type peak_models: Literal['gaussian', 'lorentzian', 'pvoigt']],
+        list[Literal['gaussian', 'lorentzian', 'pvoigt']]], optional
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
@@ -412,8 +416,10 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
     processor_type: Literal['strainanalysis']
     peak_models: Union[
-        conlist(min_length=1, item_type=Literal['gaussian', 'lorentzian']),
-        Literal['gaussian', 'lorentzian']] = 'gaussian'
+        conlist(
+            min_length=1,
+            item_type=Literal['gaussian', 'lorentzian', 'pvoigt']),
+        Literal['gaussian', 'lorentzian', 'pvoigt']] = 'gaussian'
     rel_height_cutoff: Optional[
         confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
 #    tth_file: Optional[FilePath] = None
@@ -425,6 +431,24 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
             min_length=2,
             max_length=2,
             item_type=confloat(allow_inf_nan=False))) = PrivateAttr()
+
+    @field_validator('peak_models')
+    @classmethod
+    def validate_peak_models(cls, peak_models):
+        """Validate the specified peak_models.
+
+        :ivar peak_models: Peak model(s) for peak fitting.
+        :type peak_models: Literal['gaussian', 'lorentzian', 'pvoigt']],
+            list[Literal['gaussian', 'lorentzian', 'pvoigt']]], optional
+        :type peak_models:
+        :return: Validated peak_models
+        :rtype: Literal['gaussian', 'lorentzian', 'pvoigt']],
+            list[Literal['gaussian', 'lorentzian', 'pvoigt']]]
+        """
+        if isinstance(peak_models, list):
+            raise NotImplementedError(
+                'Multiple peak models not yet implemented')
+        return peak_models
 
     def add_calibration(self, calibration):
         """Finalize values for some fields using a tth calibration

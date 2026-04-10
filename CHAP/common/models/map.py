@@ -44,7 +44,7 @@ class CHAPSlice(CHAPBaseModel):
     :type step: int, optional
     """
     start: Optional[int] = 0
-    end: Optional[int] = None
+    end: Optional[int] = None # FIX allow stop as alias
     step: Optional[conint(gt=0)] = 1
 
     def tolist(self):
@@ -133,6 +133,12 @@ class DetectorConfig(CHAPBaseModel):
         if roi is None:
             return roi
         return [CHAPSlice().model_dump() if v is None else v for v in roi]
+
+    def tolist(self):
+        return [self.roi[0].tolist(), self.roi[1].tolist()]
+
+    def roitoslice(self):
+        return [self.roi[0].toslice(), self.roi[1].toslice()]
 
 
 class Sample(CHAPBaseModel):
@@ -369,8 +375,10 @@ class PointByPointScanData(CHAPBaseModel):
     label: constr(min_length=1)
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal[
-        'spec_motor', 'spec_motor_absolute', 'scan_column', 'smb_par',
-        'expression', 'detector_log_timestamps']
+        'spec_motor', 'spec_motor_absolute', 'spec_motor_static',
+        'scan_column', 'scan_start_time', 'smb_par', 'expression',
+        'detector_log_timestamps', 'scan_step_index'
+    ]
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
 
@@ -487,7 +495,7 @@ class PointByPointScanData(CHAPBaseModel):
 
     def get_value(
             self, spec_scans, scan_number, scan_step_index=0,
-            scalar_data=None, relative=True, ndigits=None):
+            scalar_data=None, relative=True, static=False, ndigits=None):
         """Return the value recorded for this instance of
         `PointByPointScanData` at a specific scan step.
 
@@ -518,14 +526,23 @@ class PointByPointScanData(CHAPBaseModel):
         if 'spec_motor' in self.data_type:
             if ndigits is None:
                 ndigits = self.ndigits
-            if 'absolute' in self.data_type:
+            if self.data_type.endswith('absolute'):
+                relative = False
+            if self.data_type.endswith('static'):
+                static = True
                 relative = False
             return get_spec_motor_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name,
-                relative, ndigits)
+                relative, static, ndigits)
         if self.data_type == 'scan_column':
             return get_spec_counter_value(
                 spec_scans.spec_file, scan_number, scan_step_index, self.name)
+        if self.data_type == 'scan_start_time':
+            start_time = get_scan_start_time(spec_scans.spec_file, scan_number)
+            if scan_step_index < 0:
+                scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+                return np.array([start_time] * scanparser.spec_scan_npts)
+            return start_time
         if self.data_type == 'smb_par':
             return get_smb_par_value(
                 spec_scans.spec_file, scan_number, self.name)
@@ -541,12 +558,17 @@ class PointByPointScanData(CHAPBaseModel):
             if scan_step_index >= 0:
                 return timestamps[scan_step_index]
             return timestamps
+        if self.data_type == 'scan_step_index':
+            if scan_step_index >= 0:
+                return scan_step_index
+            scanparser = get_scanparser(spec_scans.spec_file, scan_number)
+            return [i for i in range(scanparser.spec_scan_npts)]
         return None
 
 @cache
 def get_spec_motor_value(
         spec_file, scan_number, scan_step_index, spec_mnemonic,
-        relative=True, ndigits=None):
+        relative=True, static=False, ndigits=None):
     """Return the value recorded for a SPEC motor at a specific scan
     step.
 
@@ -563,6 +585,10 @@ def get_spec_motor_value(
     :param relative: Whether to return a relative value or not,
         defaults to `True`.
     :type relative: bool, optional
+    :param static: Wether to return just a static motor postion even
+        if the motor is scanned (in which case: return the first
+        position of the motor in the scan); defaults to `False`.
+    :type static: bool, optional
     :params ndigits: Round SPEC motor values to the specified
         number of decimals if set.
     :type ndigits: int, optional
@@ -578,19 +604,26 @@ def get_spec_motor_value(
                 scan_step_index,
                 scanparser.spec_scan_shape,
                 order='F')
-            motor_value = \
-                scanparser.get_spec_scan_motor_vals(
-                    relative)[motor_i][scan_step[motor_i]]
+            if static:
+                motor_value = scanparser.get_spec_scan_motor_vals(
+                    relative)[motor_i][0]
+            else:
+                motor_value = \
+                    scanparser.get_spec_scan_motor_vals(
+                        relative)[motor_i][scan_step[motor_i]]
         else:
             motor_value = scanparser.get_spec_scan_motor_vals(
                 relative)[motor_i]
-            if len(scanparser.spec_scan_shape) == 2:
-                if motor_i == 0:
-                    motor_value = np.concatenate(
-                        [motor_value] * scanparser.spec_scan_shape[1])
-                else:
-                    motor_value = np.repeat(
-                        motor_value, scanparser.spec_scan_shape[0])
+            if static:
+                motor_value = [motor_value[0]] * scanparser.spec_scan_npts
+            else:
+                if len(scanparser.spec_scan_shape) == 2:
+                    if motor_i == 0:
+                        motor_value = np.concatenate(
+                            [motor_value] * scanparser.spec_scan_shape[1])
+                    else:
+                        motor_value = np.repeat(
+                            motor_value, scanparser.spec_scan_shape[0])
     else:
         motor_value = scanparser.get_spec_positioner_value(spec_mnemonic)
     if ndigits is not None:
@@ -639,6 +672,26 @@ def get_smb_par_value(spec_file, scan_number, par_name):
     """
     scanparser = get_scanparser(spec_file, scan_number)
     return scanparser.pars[par_name]
+
+@cache
+def get_scan_start_time(spec_file, scan_number):
+    """Return the start time of the indicated spec scan as the unix
+    epoch (in seconds).
+
+    :param spec_file: Location of a SPEC file.
+    :type spec_file: str
+    :param scan_number: The number of the scan.
+    :returns: The epoch at which the scan began.
+    :rtype: int
+    """
+    import datetime, zoneinfo
+    scan = get_scanparser(spec_file, scan_number).spec_scan
+    start_time = datetime.datetime.strptime(scan.date, '%c')
+    start_time = start_time.replace(
+        tzinfo=zoneinfo.ZoneInfo('America/New_York')
+    )
+    start_time = start_time.astimezone(tz=datetime.timezone.utc)
+    return start_time.timestamp()
 
 def get_expression_value(
         spec_scans, scan_number, scan_step_index, expression,
@@ -840,11 +893,11 @@ class SpecConfig(CHAPBaseModel):
     :ivar station: The name of the station at which the data was
         collected.
     :type station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
-    :ivar spec_scans: A list of the SPEC scans that compose the set.
-    :type spec_scans: list[SpecScans]
     :ivar experiment_type: Experiment type.
     :type experiment_type: Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO',
         'XRF', 'HDRM']
+    :ivar spec_scans: A list of the SPEC scans that compose the set.
+    :type spec_scans: list[SpecScans]
     """
     station: Literal['id1a3', 'id3a', 'id3b', 'id4b']
     experiment_type: Literal[

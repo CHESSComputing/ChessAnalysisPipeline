@@ -22,11 +22,16 @@ class FoxdenRequestConfig(CHAPBaseModel):
 
     :param did: FOXDEN dataset identifier (did).
     :type did: string, optional
+    :param idx: Index of the first record in the list of records to
+        be retured, defaults to `0`.
+    :type idx: int, optional
     :param limit: Maximum number of returned records,
         defaults to `10`.
     :type limit: int, optional
     :param query: FOXDEN query.
     :type query: string, optional
+    :param url: URL of service.
+    :type url: str
     :param verbose: Verbose output flag, defaults to `False`.
     :type verbose: bool, optional
     """
@@ -35,11 +40,10 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #    :type method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional
 #    :param scope: FOXDEN scope (not case sensitive).
 #    :type scope: Literal['read', 'write'], optional
-#    :param idx: Ask Valentin, currently it's ignored
-#    :type idx: int, optional
     # Mimics golib.services.data.ServiceQuery
     did: Optional[constr(
         strict=True, strip_whitespace=True, to_lower=True)] = None
+    idx: Optional[conint(ge=0)] = 0
     limit: Optional[conint(gt=0)] = 10
     query: Optional[constr(
         strict=True, strip_whitespace=True, to_lower=True)] = None
@@ -50,9 +54,8 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #    sortorder: Optional[int] = None
 #    spec: Optional[map[string]any] ?
 #    sql: Optional[constr(strict=True, strip_whitespace=True)] = None
-#    idx: Optional[conint(ge=0)] = 0
-    url: constr(strict=True, strip_whitespace=True)
-    verbose: Optional[bool] = None
+    url: Optional[constr(strict=True, strip_whitespace=True)] = None
+    verbose: Optional[bool] = 'False'
 
 #    @field_validator('method', mode='before')
 #    @classmethod
@@ -67,3 +70,33 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #        if isinstance(scope, str):
 #            return scope.lower()
 #        return scope
+
+    def create_http_request_payload(self, reader):
+        # Third party modules
+        from json import dumps
+
+        request = {
+            'client': f'CHAP-{reader.name}',
+            'service_query': {'query': '{}'}}
+        if self.did is None:
+            if self.query is not None:
+                request['service_query'].update({'query': self.query})
+        else:
+            if reader.name == 'FoxdenMetadataReader':
+                if self.idx is not None:
+                    reader.logger.warning(
+                        f'Ignoring parameter "idx" ({self.idx}), '
+                        'when "did" is specified')
+                if self.limit is not None:
+                    reader.logger.warning(
+                        f'Ignoring parameter "limit" ({self.limit}), '
+                        'when "did" is specified')
+            else:
+                request['service_query'].update({
+                    'idx': self.idx, 'limit': self.limit})
+            if self.query is not None:
+                reader.logger.warning(
+                    f'Ignoring parameter "query" ({self.query}), '
+                    'when "did" is specified')
+            request['service_query'].update({'query': f'did:{self.did}'})
+        return dumps(request)

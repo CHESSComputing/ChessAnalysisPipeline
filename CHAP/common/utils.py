@@ -91,8 +91,9 @@ def environments():
             ['pip', 'list', '--format', 'json'], text=True)
         pip_packages = json.loads(pip_packages)
         packages = [{'name': pkg['name'],
-                     #'version': pkg['version'],
-                     'commit_hash': subprocess.check_output(
+#                     'version': pkg['version'],
+#                     'commit_hash': subprocess.check_output(
+                     'version': subprocess.check_output(
                          ["git", "rev-parse", "HEAD"],
                          cwd=pkg['editable_project_location']
                      ).strip().decode()}

@@ -50,7 +50,7 @@ fwhm_factor = {
     'lorentzian': '0.5*fwhm',
     'splitlorentzian': '0.5*fwhm',  # sigma = sigma_r
     'voight': '0.2776*fwhm',        # sigma = gamma
-    'pseudovoight': '0.5*fwhm',     # fraction = 0.5
+    'pvoigt': '0.5*fwhm',           # fraction = 0.5
 }
 
 # amplitude = height_factor*height*fwhm
@@ -59,7 +59,7 @@ height_factor = {
     'lorentzian': 'height*fwhm*0.5*pi',
     'splitlorentzian': 'height*fwhm*0.5*pi',  # sigma = sigma_r
     'voight': '3.334*height*fwhm',            # sigma = gamma
-    'pseudovoight': '1.268*height*fwhm',      # fraction = 0.5
+    'pvoigt': '1.268*height*fwhm',            # fraction = 0.5
 }
 
 
@@ -73,7 +73,8 @@ class FitProcessor(Processor):
 
         :param data: Input data containing the
             nexusformat.nexus.NXdata object to fit.
-        :type data: list[PipelineData]
+        :type data: Union[list[PipelineData], CHAP.utils.fit.Fit,
+            CHAP.utils.fit.FitMap, nexusformat.nexus.NXdata]
         :param config: Fit configuration.
         :type config: dict, optional
         :raises ValueError: Invalid input or configuration parameter.
@@ -89,19 +90,20 @@ class FitProcessor(Processor):
         # Unwrap the PipelineData if called as a Pipeline Processor
         if (not isinstance(data, (Fit, FitMap))
                 and not isinstance(data, NXdata)):
-            data = self.unwrap_pipelinedata(data)[0]
+            data = self.get_pipelinedata_item(data)
+
+        # Get the validated fit configuration
+        fit_config = None
+        if config is not None:
+            try:
+                fit_config = FitConfig(**config)
+            except Exception as exc:
+                raise RuntimeError from exc
 
         if isinstance(data, (Fit, FitMap)):
 
             # Refit/continue the fit with possibly updated parameters
             fit = data
-            fit_config = None
-            if config is not None:
-                try:
-                    fit_config = FitConfig(**config)
-                except Exception as exc:
-                    raise RuntimeError from exc
-
             if isinstance(data, FitMap):
                 fit.fit(config=fit_config)
             else:
@@ -112,7 +114,7 @@ class FitProcessor(Processor):
                     if fit_config.plot:
                         fit.plot(skip_init=True)
 
-        else:
+        elif isinstance(data, NXdata):
 
             # Get the default NXdata object
             try:
@@ -123,10 +125,6 @@ class FitProcessor(Processor):
                     raise ValueError(
                         'Invalid default pathway to an NXdata '
                         f'object in ({data})') from exc
-
-            # Get the validated fit configuration
-            fit_config = self.get_config(
-                data=data, config=config, schema='utils.models.FitConfig')
 
             # Expand multipeak model if present
             found_multipeak = False
@@ -157,6 +155,8 @@ class FitProcessor(Processor):
                     rel_height_cutoff=fit_config.rel_height_cutoff,
                     num_proc=fit_config.num_proc, plot=fit_config.plot,
                     print_report=fit_config.print_report)
+        else:
+            raise ValueError(f'Invalid input data ({type(data)}: {data})')
 
         return fit
 
@@ -166,11 +166,13 @@ class FitProcessor(Processor):
         # Local modules
         from CHAP.utils.models import (
             FitParameter,
-            Gaussian,
+            models,
         )
 
+        peak_model_name = model_config.peak_models
+        peak_model_class = models[peak_model_name]['class']
         parameters = []
-        models = []
+        peak_models = []
         num_peak = len(model_config.centers)
         if num_peak == 1 and model_config.fit_type == 'uniform':
             model_config.fit_type = 'unconstrained'
@@ -197,8 +199,8 @@ class FitProcessor(Processor):
             for i, cen in enumerate(model_config.centers):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
-                models.append(Gaussian(
-                    model='gaussian',
+                peak_models.append(peak_model_class(
+                    model=peak_model_name,
                     prefix=prefix,
                     parameters=[
                          {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -209,8 +211,8 @@ class FitProcessor(Processor):
                 if num_peak > 1:
                     prefix = f'peak{i+1}_'
                 if model_config.centers_range == 0:
-                    models.append(Gaussian(
-                        model='gaussian',
+                    peak_models.append(peak_model_class(
+                        model=peak_model_name,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -224,8 +226,8 @@ class FitProcessor(Processor):
                     else:
                         cen_min = cen - model_config.centers_range
                         cen_max = cen + model_config.centers_range
-                    models.append(Gaussian(
-                        model='gaussian',
+                    peak_models.append(peak_model_class(
+                        model=peak_model_name,
                         prefix=prefix,
                         parameters=[
                              {'name': 'amplitude', 'min': FLOAT_MIN},
@@ -234,7 +236,7 @@ class FitProcessor(Processor):
                              {'name': 'sigma', 'min': sig_min, 'max': sig_max}
                         ]))
 
-        return parameters, models
+        return parameters, peak_models
 
 
 class Component():
@@ -243,7 +245,7 @@ class Component():
         # Local modules
         from CHAP.utils.models import models
 
-        self.func = models[model.model]
+        self.func = models[model.model]['name']
         self.param_names = [f'{prefix}{par.name}' for par in model.parameters]
         self.prefix = prefix
         self._name = model.model
@@ -862,6 +864,7 @@ class Fit:
                 ExponentialModel,
                 GaussianModel,
                 LorentzianModel,
+                PseudoVoigtModel,
                 ExpressionModel,
 #                StepModel,
                 RectangleModel,
@@ -940,6 +943,16 @@ class Fit:
                 # parameter norms for height and fwhm are needed to
                 #   get correct errors
             self._linear_parameters.append(f'{pprefix}amplitude')
+            self._nonlinear_parameters.append(f'{pprefix}center')
+            self._nonlinear_parameters.append(f'{pprefix}sigma')
+        elif model_name == 'pvoigt':
+            # Par: amplitude, center, sigma (fwhm, height), fraction
+            if self._code == 'lmfit':
+                newmodel = PseudoVoigtModel(prefix=prefix)
+                # parameter norms for height and fwhm are needed to
+                #   get correct errors
+            self._linear_parameters.append(f'{pprefix}amplitude')
+            self._linear_parameters.append(f'{pprefix}fraction')
             self._nonlinear_parameters.append(f'{pprefix}center')
             self._nonlinear_parameters.append(f'{pprefix}sigma')
 #        elif model_name == 'step':
@@ -1044,14 +1057,15 @@ class Fit:
                             value = None
                         if value is None:
                             value = par.value
-                        if value is not None:
-                            value *= self._norm[1]
                         _min = par.min
                         _max = par.max
-                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                            _min *= self._norm[1]
-                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                            _max *= self._norm[1]
+                        if not (model_name == 'pvoigt' and 'fraction' in name):
+                            if value is not None:
+                                value *= self._norm[1]
+                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                                _min *= self._norm[1]
+                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                                _max *= self._norm[1]
                         par.set(value=value, min=_min, max=_max)
 
         # Initialize the model parameters
@@ -1383,9 +1397,13 @@ class Fit:
                         # Third party modules
                         from sympy import diff
 
+                        if 'fraction' in par.expr:
+                            expr = par.expr.replace('fraction', 'fraction_')
+                        else:
+                            expr = par.expr
                         if nname in self._nonlinear_parameters:
                             self._nonlinear_parameters.insert(0, name)
-                        elif diff(par.expr, name, name):
+                        elif diff(expr, name, name):
                             self._nonlinear_parameters.insert(0, name)
                         else:
                             self._linear_parameters.insert(0, name)
@@ -1574,7 +1592,7 @@ class Fit:
                     if (self._norm is None
                             or name in self._nonlinear_parameters):
                         self._parameters[name].set(value=1.0)
-                    else:
+                    elif 'fraction' not in name:
                         self._parameters[name].set(value=self._norm[1])
 
     def _check_linearity_model(self):
@@ -1805,7 +1823,7 @@ class Fit:
                 and (have_expression_model or expr_parameters)):
             for name, norm in self._parameter_norms.items():
                 par = self._parameters[name]
-                if par.expr is None and norm:
+                if par.expr is None and norm and 'fraction' not in name:
                     self._parameters[name].set(value=par.value*self._norm[1])
         #RV FIX
         self._result = ModelResult(
@@ -1822,7 +1840,7 @@ class Fit:
             if self._normalized:
                 for name, norm in self._parameter_norms.items():
                     par = self._parameters[name]
-                    if par.expr is None and norm:
+                    if par.expr is None and norm and 'fraction' not in name:
                         value = par.value/self._norm[1]
                         self._parameters[name].set(value=value)
                         self._result.params[name].set(value=value)
@@ -1935,14 +1953,16 @@ class Fit:
             for name in self._linear_parameters:
                 par = self._parameters[name]
                 if par.expr is None:
-                    value = par.value/self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min /= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max /= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
+                    # FIX not quite safe if fraction occurs in non pvoigt
+                    if 'fraction' not in name:
+                        value = par.value/self._norm[1]
+                        _min = par.min
+                        _max = par.max
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min /= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max /= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
             self._normalized = True
 
     def _renormalize(self):
@@ -1953,47 +1973,58 @@ class Fit:
         for name in self._linear_parameters:
             par = self._parameters[name]
             if par.expr is None:
-                value = par.value*self._norm[1]
-                _min = par.min
-                _max = par.max
-                if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                    _min *= self._norm[1]
-                if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                    _max *= self._norm[1]
-                par.set(value=value, min=_min, max=_max)
+                # FIX not quite safe if fraction occurs in non pvoigt
+                if 'fraction' not in name:
+                    value = par.value*self._norm[1]
+                    _min = par.min
+                    _max = par.max
+                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                        _min *= self._norm[1]
+                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                        _max *= self._norm[1]
+                    par.set(value=value, min=_min, max=_max)
         if self._result is None:
             return
         self._result.best_fit = (
             self._result.best_fit*self._norm[1] + self._norm[0])
         for name, par in self._result.params.items():
             if name in self._linear_parameters:
-                if par.stderr is not None:
-                    if self._code == 'scipy':
-                        setattr(par, '_stderr', par.stderr*self._norm[1])
-                    else:
-                        par.stderr *= self._norm[1]
-                if par.expr is None:
-                    _min = par.min
-                    _max = par.max
-                    value = par.value*self._norm[1]
-                    if par.init_value is not None:
+                    # FIX not quite safe if fraction occurs in non pvoigt
+                    if 'fraction' in name:
                         if self._code == 'scipy':
-                            setattr(par, '_init_value',
-                                    par.init_value*self._norm[1])
-                        else:
-                            par.init_value *= self._norm[1]
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
+                            if par.stderr is not None:
+                                setattr(par, '_stderr', par.stderr)
+                            if par.expr is None and par.init_value is not None:
+                                setattr(par, '_init_value',par.init_value)
+                    else:
+                        if par.stderr is not None:
+                            if self._code == 'scipy':
+                                setattr(
+                                    par, '_stderr', par.stderr*self._norm[1])
+                            else:
+                                par.stderr *= self._norm[1]
+                        if par.expr is None:
+                            value = par.value*self._norm[1]
+                            if par.init_value is not None:
+                                if self._code == 'scipy':
+                                    setattr(par, '_init_value',
+                                            par.init_value*self._norm[1])
+                                else:
+                                    par.init_value *= self._norm[1]
+                            _min = par.min
+                            _max = par.max
+                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                                _min *= self._norm[1]
+                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                                _max *= self._norm[1]
+                            par.set(value=value, min=_min, max=_max)
         if hasattr(self._result, 'init_fit'):
             self._result.init_fit = (
                 self._result.init_fit*self._norm[1] + self._norm[0])
         if hasattr(self._result, 'init_values'):
             init_values = {}
             for name, value in self._result.init_values.items():
-                if name in self._linear_parameters:
+                if name in self._linear_parameters and 'fraction' not in name:
                     init_values[name] = value*self._norm[1]
                 else:
                     init_values[name] = value
@@ -2002,15 +2033,16 @@ class Fit:
                 and self._result.init_params is not None):
             for name, par in self._result.init_params.items():
                 if par.expr is None and name in self._linear_parameters:
-                    value = par.value
-                    _min = par.min
-                    _max = par.max
-                    value *= self._norm[1]
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
+                    # FIX not quite safe if fraction occurs in non pvoigt
+                    if 'fraction' not in name:
+                        value = par.value*self._norm[1]
+                        _min = par.min
+                        _max = par.max
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
                 if self._code == 'scipy':
                     setattr(par, '_init_value', par.value)
                 else:
@@ -2019,15 +2051,20 @@ class Fit:
         #     physical units
 #        self._result.chisqr *= self._norm[1]*self._norm[1]
         if self._result.covar is not None:
-            norm_sq = self._norm[1]*self._norm[1]
             for i, name in enumerate(self._result.var_names):
+                if 'fraction' in name:
+                    nnorm = 1
+                else:
+                    nnorm = self._norm[1]
                 if name in self._linear_parameters:
+                    if 'fraction' in name:
+                        norm_sq = nnorm
+                    else:
+                        norm_sq = nnorm * self._norm[1]
                     for j in range(len(self._result.var_names)):
                         if self._result.covar[i,j] is not None:
-                            #self._result.covar[i,j] *= self._norm[1]
                             self._result.covar[i,j] *= norm_sq
                         if self._result.covar[j,i] is not None:
-                            #self._result.covar[j,i] *= self._norm[1]
                             self._result.covar[j,i] *= norm_sq
         # Don't renormalize redchi, it has no useful meaning in
         #     physical units
@@ -2494,7 +2531,8 @@ class FitMap(Fit):
                 for i in range(num_best_parameters)]
             if self._norm is not None:
                 for i, name in enumerate(self._best_parameters):
-                    if name in self._linear_parameters:
+                    if (name in self._linear_parameters
+                            and 'fraction' not in name):
                         self._best_values[i] /= self._norm[1]
 
         # Normalize the initial parameters
@@ -2510,6 +2548,10 @@ class FitMap(Fit):
 
         # Set parameter bounds to unbound
         #     (only use bounds when fit fails)
+        if 'fraction' in self._parameters and self._try_no_bounds:
+            self._logger.warning(
+                'Setting self._try_no_bounds to False for PseudoVoigt model')
+            self._try_no_bounds = False
         if self._try_no_bounds:
             for name in self._parameter_bounds.keys():
                 self._parameters[name].set(min=-np.inf, max=np.inf)
@@ -2662,21 +2704,23 @@ class FitMap(Fit):
                     if (name in self._nonlinear_parameters
                             or self._parameters[name].expr is not None):
                         init_values[name] = value
-                    else:
+                    elif 'fraction' not in name:
                         init_values[name] = value*self._norm[1]
                 self._result.init_values = init_values
             if (hasattr(self._result, 'init_params')
                     and self._result.init_params is not None):
                 for name, par in self._result.init_params.items():
                     if par.expr is None and name in self._linear_parameters:
-                        _min = par.min
-                        _max = par.max
-                        value = par.value*self._norm[1]
-                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                            _min *= self._norm[1]
-                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                            _max *= self._norm[1]
-                        par.set(value=value, min=_min, max=_max)
+                        # FIX not quite safe if fraction occurs in non pvoigt
+                        if 'fraction' not in name:
+                            value = par.value*self._norm[1]
+                            _min = par.min
+                            _max = par.max
+                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                                _min *= self._norm[1]
+                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                                _max *= self._norm[1]
+                            par.set(value=value, min=_min, max=_max)
                     if self._code == 'scipy':
                         setattr(par, '_init_value', par.value)
                     else:
@@ -2735,14 +2779,16 @@ class FitMap(Fit):
             for name in self._linear_parameters:
                 par = self._parameters[name]
                 if par.expr is None:
-                    value = par.value*self._norm[1]
-                    _min = par.min
-                    _max = par.max
-                    if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                        _min *= self._norm[1]
-                    if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                        _max *= self._norm[1]
-                    par.set(value=value, min=_min, max=_max)
+                    # FIX not quite safe if fraction occurs in non pvoigt
+                    if 'fraction' not in name:
+                        value = par.value*self._norm[1]
+                        _min = par.min
+                        _max = par.max
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
 
         if num_proc > 1:
             # Free the shared memory
@@ -2949,26 +2995,36 @@ class FitMap(Fit):
         else:
             for name, par in result.params.items():
                 if name in self._linear_parameters:
-                    if par.stderr is not None:
+                    # FIX not quite safe if fraction occurs in non pvoigt
+                    if 'fraction' in name:
                         if self._code == 'scipy':
-                            setattr(par, '_stderr', par.stderr*self._norm[1])
-                        else:
-                            par.stderr *= self._norm[1]
-                    if par.expr is None:
-                        par.value *= self._norm[1]
-                        if self._print_report:
-                            if par.init_value is not None:
-                                if self._code == 'scipy':
-                                    setattr(par, '_init_value',
-                                            par.init_value*self._norm[1])
-                                else:
-                                    par.init_value *= self._norm[1]
-                            if (not np.isinf(par.min)
-                                    and abs(par.min) != FLOAT_MIN):
-                                par.min *= self._norm[1]
-                            if (not np.isinf(par.max)
-                                    and abs(par.max) != FLOAT_MIN):
-                                par.max *= self._norm[1]
+                            if par.stderr is not None:
+                                setattr(par, '_stderr', par.stderr)
+                            if (par.expr is None and self._print_report
+                                    and par.init_value is not None):
+                                setattr(par, '_init_value', par.init_value)
+                    else:
+                        if par.stderr is not None:
+                            if self._code == 'scipy':
+                                setattr(
+                                    par, '_stderr', par.stderr*self._norm[1])
+                            else:
+                                par.stderr *= self._norm[1]
+                        if par.expr is None:
+                            par.value *= self._norm[1]
+                            if self._print_report:
+                                if par.init_value is not None:
+                                    if self._code == 'scipy':
+                                        setattr(par, '_init_value',
+                                                par.init_value*self._norm[1])
+                                    else:
+                                        par.init_value *= self._norm[1]
+                                if (not np.isinf(par.min)
+                                        and abs(par.min) != FLOAT_MIN):
+                                    par.min *= self._norm[1]
+                                if (not np.isinf(par.max)
+                                        and abs(par.max) != FLOAT_MIN):
+                                    par.max *= self._norm[1]
             for i, name in enumerate(self._best_parameters):
                 self._best_values_flat[i][n] = np.float64(
                     result.params[name].value)

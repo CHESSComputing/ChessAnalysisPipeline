@@ -15,7 +15,7 @@ from CHAP.common.models.map import (
 )
 
 def get_axes(nxdata, skip_axes=None):
-    """Get the axes of an NXdata object used in EDD."""
+    """Get the axes of an NXdata object."""
     if skip_axes is None:
         skip_axes = []
     if 'unstructured_axes' in nxdata.attrs:
@@ -96,11 +96,13 @@ class MapSliceProcessor(Processor):
         nscans_prev = 0
         for scans in self.map_config.spec_scans:
             for scan_n in scans.scan_numbers:
-                if (str(scans.spec_file) == str(self.spec_file)
+                if (os.path.abspath(self.spec_file) == \
+                    os.path.abspath(self.spec_file)
                     and scan_n == self.scan_number):
                     break
                 nscans_prev += 1
         index_offset = nscans_prev * npts_scan
+
         # Get spec scan indices to process
         scan_indices = range(npts_scan)[slice(
             idx_slice.get('start', 0),
