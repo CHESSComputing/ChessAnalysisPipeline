@@ -876,11 +876,12 @@ class SpecReader(Reader):
 #                        f'spec_scans/{nxscans.nxname}/{scan_number}/data')
                     for detector in self.detector_config.detectors:
                         if self.detector_config.roi is None:
-                            detector_roi = [None, None]
+                            detector_roi = None
                         else:
                             detector_roi=[
                                self.detector_config.roi[0].toslice(),
                                self.detector_config.roi[1].toslice()]
+                        print(f'\n\ndetector_roi: {detector_roi}\n\n')
                         nxdata[detector.get_id()] = NXfield(
                            value=scanparser.get_detector_data(
                                detector.get_id(),

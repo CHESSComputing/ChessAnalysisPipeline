@@ -20,6 +20,7 @@ from typing import (
     Annotated,
     Optional,
 )
+import tkinter as tk
 
 # Third party modules
 from json import loads
@@ -36,7 +37,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-import tkinter as tk
 
 # Local modules
 from CHAP.common.models.map import (
@@ -53,11 +53,8 @@ from CHAP.tomo.models import (
     TomoSimConfig,
 )
 from CHAP.utils.general import (
-    fig_to_iobuf,
-    input_int,
-    input_num,
-    input_num_list,
-    input_yesno,
+    #input_num,
+    #input_yesno,
     is_int_pair,
     is_num,
     is_num_series,
@@ -92,19 +89,19 @@ def read_metadata_provenance(data, logger=None, remove=True):
     try:
         metadata = PipelineItem.get_data(
             data, schema='foxden.reader.FoxdenMetadataReader', remove=remove)
-    except Exception:
+    except ValueError:
         try:
             metadata = PipelineItem.get_data(
                 data, schema='foxden.reader.FoxdenDataDiscoveryReader',
                 remove=remove)
             if len(metadata) > 1:
-                logger.warning(f'Unable to get unique metadata from pipeline')
+                logger.warning('Unable to get unique metadata from pipeline')
             metadata = metadata[0]
-        except Exception:
+        except ValueError:
             if logger is None:
-                print(f'WARNING: Unable to get metadata from pipeline')
+                print('WARNING: Unable to get metadata from pipeline')
             else:
-                logger.warning(f'Unable to get metadata from pipeline')
+                logger.warning('Unable to get metadata from pipeline')
             metadata = {}
     # FIX right now the provenance service returns input and output
     # info, not the actual record, so always remove it from the
@@ -115,17 +112,17 @@ def read_metadata_provenance(data, logger=None, remove=True):
         provenance = PipelineItem.get_data(
             data, schema='foxden.reader.FoxdenProvenanceReader')
             #data, schema='foxden.reader.FoxdenProvenanceReader', remove=remove)
-    except Exception:
+    except ValueError:
         if logger is None:
-            print(f'WARNING: Unable to get provedance from pipeline')
+            print('WARNING: Unable to get provedance from pipeline')
         else:
-            logger.warning(f'Unable to get provedance from pipeline')
+            logger.warning('Unable to get provedance from pipeline')
         provenance = {}
     return metadata, provenance
 
 
 def create_metadata_provenance(
-        did_suffix, data=None, metadata=None, provenance=None,
+        did_suffix, data=None, *, metadata=None, provenance=None,
         user_metadata=None, logger=None, update=False, read=True):
     """Create metadata and provenance for CHAP processors with the
     correct schema to submit to the
@@ -157,11 +154,16 @@ def create_metadata_provenance(
     :param read: Read the parent metadata and provenance from the data
         pipeline when `True`, defaults to `True`.
     :type read: bool, optional
+    :raises AssertionError: When the DID doesn't match between the metadata
+        and the provenance records.
+    :raises RuntimeError: When `read` is True and the `data` is omitted.
     :return: The metadata and provenance information.
     :rtype: dict, dict
     """
-    if read:
-        if metadata is None or provenance is None:
+    def validate_read(data, metadata, provenance):
+        if data is None:
+            raise ValueError('Missing required input parameter "data"')
+        if metadata or provenance:
             if logger is None:
                 print('WARNING: Ignoring inputs for metadata and provenance '
                       'when reading them from pipeline data in '
@@ -169,12 +171,14 @@ def create_metadata_provenance(
             else:
                 logger.warning('Ignoring inputs for metadata and provenance '
                       'when reading them from pipeline data')
+
+    if metadata is None:
+        metadata = {}
+    if provenance is None:
+        provenance = {}
+    if read:
+        validate_read(data, metadata, provenance)
         metadata, provenance = read_metadata_provenance(data, logger)
-    else:
-        if metadata is None:
-            metadata = {}
-        if provenance is None:
-            provenance = {}
 
     did = metadata.get('did')
     if provenance:
@@ -186,22 +190,21 @@ def create_metadata_provenance(
             assert did == provenance.get('did')
     else:
         parent_did = did
-    if parent_did is None:
-        did = f'/workflow={did_suffix}'
-    else:
-        did = f'{parent_did}/workflow={did_suffix}'
+    did = f'/workflow={did_suffix}' \
+        if parent_did is None \
+        else f'{parent_did}/workflow={did_suffix}'
     btr = metadata.pop('btr', None)
     if btr is None:
         try:
             btr = did.split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
-        except Exception:
-            logger.warning(f'Unable to get a valid btr from did ({did})')
+        except (AttributeError, IndexError, TypeError, ValueError) as exc:
+            logger.warning(
+                f'Unable to get a valid btr from did ({did}): {exc}')
             btr = 'unknown'
-    if user_metadata is None:
-        user_metadata = {}
-    else:
-        user_metadata = metadata.pop('user_metadata', {}) | user_metadata
+    user_metadata = {} \
+        if user_metadata is None \
+        else metadata.pop('user_metadata', {}) | user_metadata
     if not update:
         metadata = {}
     metadata.update({
@@ -244,12 +247,14 @@ class TomoMetadataProcessor(Processor):
         :return: Metadata from the tomography experiment.
         :rtype: CHAP.common.models.map.MapConfig
         """
-        record = self.get_data(
-            data, schema='foxden.reader.FoxdenMetadataReader',
-            remove=False)
-        if not record:
-            raise ValueError('Unable to get the metadata from the pipeline '
-                             f'({data}), check FOXDEN read token')
+        try:
+            record = self.get_data(
+                data, schema='foxden.reader.FoxdenMetadataReader',
+                remove=False)
+        except ValueError as exc:
+            raise ValueError(
+                f'Unable to get the metadata from the pipeline ({data}), '
+                f'check FOXDEN read token') from exc
 
         # Extract any available MapConfig info
         map_config = {}
@@ -353,8 +358,8 @@ class TomoCHESSMapConverter(Processor):
         # in the SPEC log file)
         try:
             darkfield = self.get_data(data, schema='darkfield')
-        except Exception:
-            self.logger.warning(f'Unable to load dark field from pipeline')
+        except ValueError:
+            self.logger.warning('Unable to load dark field from pipeline')
             darkfield = None
         data_darkfield = None
         if darkfield is None:
@@ -368,8 +373,8 @@ class TomoCHESSMapConverter(Processor):
                             detector_prefix)
                         data_shape = data_darkfield.shape
                         break
-            except Exception:
-                pass
+            except (IOError, OSError, RuntimeError, ValueError) as exc:
+                self.logger.warning(f'Unable to load valid dark field: {exc}')
             if data_darkfield is None:
                 try:
                     for scan_number in range(
@@ -382,10 +387,11 @@ class TomoCHESSMapConverter(Processor):
                                 detector_prefix)
                             data_shape = data_darkfield.shape
                             break
-                except Exception:
-                    pass
+                except (IOError, OSError, RuntimeError, ValueError) as exc:
+                    self.logger.warning(
+                        f'Unable to load valid dark field: {exc}')
             if data_darkfield is None:
-                self.logger.warning(f'Unable to load dark field')
+                self.logger.warning('Unable to load dark field')
         else:
             darkfield = self.get_default_nxentry(darkfield)
 
@@ -393,8 +399,8 @@ class TomoCHESSMapConverter(Processor):
         # downstream # in the SPEC log file)
         try:
             brightfield = self.get_data(data, schema='brightfield')
-        except Exception:
-            self.logger.warning(f'Unable to load bright field from pipeline')
+        except ValueError:
+            self.logger.warning('Unable to load bright field from pipeline')
             brightfield = None
         if brightfield is None:
             for scan_number in range(min(scan_numbers), 0, -1):
@@ -404,7 +410,7 @@ class TomoCHESSMapConverter(Processor):
                     brightfield = scanparser
                     break
             else:
-                raise ValueError(f'Unable to load bright field')
+                raise ValueError('Unable to load bright field')
         else:
             brightfield = self.get_default_nxentry(brightfield)
 
@@ -412,7 +418,7 @@ class TomoCHESSMapConverter(Processor):
         try:
             detector_config = self.get_config(
                 data=data, schema='tomo.models.Detector')
-        except Exception:
+        except ValueError:
             detector_config = None
 
         # Construct NXroot
@@ -467,7 +473,7 @@ class TomoCHESSMapConverter(Processor):
                              '"rotation_angles"}')
 
         # Check for presample intensity
-        if 'scalar_data' and 'presample_intensity' in tomofields.scalar_data:
+        if 'presample_intensity' in tomofields.scalar_data:
             presample_intensity = \
                 tomofields.scalar_data.presample_intensity
         else:
@@ -1052,6 +1058,42 @@ class TomoReduceProcessor(Processor):
         from nexusformat.nexus import NXdata
         from numexpr import evaluate
 
+        def subtrack_dark_and_normalize(nxentry, tdf, tbf_stack):
+            """Subtract dark field and normalize with presample intensity."""
+            if nxentry.sample.presample_intensity.size:
+                presam_int = \
+                    nxentry.sample.presample_intensity.nxdata[
+                        field_indices].reshape(-1, 1, 1)
+                if tdf is None:
+                    try:
+                        with SetNumexprThreads(self.num_proc):
+                            evaluate('tbf_stack/presam_int', out=tbf_stack)
+                    except TypeError as exc:
+                        raise TypeError(
+                            f'\nA {type(exc).__name__} occured while '
+                            'normalizing with num_expr.evaluate(). '
+                            'Try reducing the detector\'s roi') from exc
+                else:
+                    try:
+                        with SetNumexprThreads(self.num_proc):
+                            evaluate(
+                                '(tbf_stack-tdf)/presam_int', out=tbf_stack)
+                    except TypeError as exc:
+                        raise TypeError(
+                            f'\nA {type(exc).__name__} occured while '
+                            'subtracting the dark field and normalizing with '
+                            'num_expr.evaluate(). Try reducing the detector\'s'
+                            'roi') from exc
+            elif tdf is not None:
+                try:
+                    with SetNumexprThreads(self.num_proc):
+                        evaluate('tbf_stack-tdf', out=tbf_stack)
+                except TypeError as exc:
+                    raise TypeError(
+                        f'\nA {type(exc).__name__} occured while subtracting '
+                        'the dark field with num_expr.evaluate()'
+                        '\nTry reducing the detector range') from exc
+
         # Get dark field
         if 'dark_field' in reduced_data.data:
             tdf = reduced_data.data.dark_field.nxdata
@@ -1062,45 +1104,15 @@ class TomoReduceProcessor(Processor):
         # Get the bright field images
         field_indices = [
             index for index, key in enumerate(image_key) if key == 1]
-        if field_indices:
+        try:
+            assert field_indices
             tbf_stack = nxentry.instrument.detector.data.nxdata[
                 field_indices,:,:]
-        else:
-            raise ValueError('Bright field unavailable')
+        except AssertionError as exc:
+            raise ValueError('Bright field unavailable') from exc
 
         # Subtract dark field and normalize with presample intensity
-        if nxentry.sample.presample_intensity.size:
-            presam_int = \
-                nxentry.sample.presample_intensity.nxdata[
-                    field_indices].reshape(-1, 1, 1)
-            if tdf is not None:
-                try:
-                    with SetNumexprThreads(self.num_proc):
-                        evaluate('(tbf_stack-tdf)/presam_int', out=tbf_stack)
-                except TypeError as exc:
-                    raise TypeError(
-                        f'\nA {type(exc).__name__} occured while subtracting '
-                        'the dark field and normalizing with '
-                        'num_expr.evaluate(). Try reducing the detector\'s'
-                        'roi') from exc
-            else:
-                try:
-                    with SetNumexprThreads(self.num_proc):
-                        evaluate('tbf_stack/presam_int', out=tbf_stack)
-                except TypeError as exc:
-                    raise TypeError(
-                        f'\nA {type(exc).__name__} occured while normalizing '
-                        'with num_expr.evaluate(). Try reducing the '
-                        'detector\'s roi') from exc
-        elif tdf is not None:
-            try:
-                with SetNumexprThreads(self.num_proc):
-                    evaluate('tbf_stack-tdf', out=tbf_stack)
-            except TypeError as exc:
-                raise TypeError(
-                    f'\nA {type(exc).__name__} occured while subtracting '
-                    'the dark field with num_expr.evaluate()'
-                    '\nTry reducing the detector range') from exc
+        subtrack_dark_and_normalize(nxentry, tdf, tbf_stack)
 
         # Take median if more than one image
         #
@@ -1447,17 +1459,17 @@ class TomoReduceProcessor(Processor):
         from CHAP.utils.general import index_nearest
 
         # For now eliminate from interactive use
-        if False: # self.interactive:
-            if delta_theta is None:
-                delta_theta = thetas[1]-thetas[0]
-            print(f'\nAvailable \u03b8 range: [{thetas[0]}, {thetas[-1]}]')
-            print(f'Current \u03b8 interval: {delta_theta}')
-            if input_yesno(
-                    'Do you want to change the \u03b8 interval to reduce the '
-                    'memory requirement (y/n)?', 'n'):
-                delta_theta = input_num(
-                    '    Enter the desired \u03b8 interval',
-                    ge=thetas[1]-thetas[0], lt=(thetas[-1]-thetas[0])/2)
+        #if self.interactive:
+        #    if delta_theta is None:
+        #        delta_theta = thetas[1]-thetas[0]
+        #    print(f'\nAvailable \u03b8 range: [{thetas[0]}, {thetas[-1]}]')
+        #    print(f'Current \u03b8 interval: {delta_theta}')
+        #    if input_yesno(
+        #            'Do you want to change the \u03b8 interval to reduce the '
+        #            'memory requirement (y/n)?', 'n'):
+        #        delta_theta = input_num(
+        #            '    Enter the desired \u03b8 interval',
+        #            ge=thetas[1]-thetas[0], lt=(thetas[-1]-thetas[0])/2)
         if delta_theta is not None:
             delta_theta = index_nearest(thetas, thetas[0]+delta_theta)
             if delta_theta <= 1:
@@ -1672,9 +1684,13 @@ class TomoFindCenterGui(Processor):
 
     _content: tk.Frame = PrivateAttr(default=None)
     _center_offsets: list = PrivateAttr(default=[])
+    _range_x: tuple = PrivateAttr(default=None)
+    _range_y: tuple = PrivateAttr(default=None)
+    _recon_planes: list = PrivateAttr(default=[])
+    _rects: list = PrivateAttr(default=[])
     _selected_rows: list = PrivateAttr(default=[])
     _selected_offset: tk.StringVar = PrivateAttr(default=None)
-    _recon_planes: list = PrivateAttr(default=[])
+    _zoom_window: tuple = PrivateAttr(default=None)
 
     _fig_title: list = PrivateAttr(default=[])
     _error_text: list = PrivateAttr(default=[])
@@ -1871,7 +1887,7 @@ class TomoFindCenterGui(Processor):
                         or center_row >= self.img_row_bounds[1]):
                     raise ValueError
                 if len(self._selected_rows) >= self.num_center_rows:
-                    err = f'Exceeding the number of required rows ' + \
+                    err = 'Exceeding the number of required rows ' + \
                         f'({self.num_center_rows}), click "Reset"/' + \
                         '"Confirm" to change/confirm the selected rows'
                     raise ValueError
@@ -2134,7 +2150,6 @@ class TomoFindCenterGui(Processor):
         reset_button.grid(row=0, column=6, padx=5)
 
         # Try Nghia Vo's method to find the center
-        t0 = time()
 #        if center_offset_min is None:
 #            center_offset_min = -50
 #        if center_offset_max is None:
@@ -2197,7 +2212,7 @@ class TomoFindCenterGui(Processor):
             axs[i].set_axis_off()
         self._change_error_text(
             f'Center axis offset obtained with Nghia Vo\'s method: '
-            f'{center_offset_vo}', plt, error_pos=(0.5, 0.91))
+            f'{center_offset_vo_text}', plt, error_pos=(0.5, 0.91))
         fig.subplots_adjust(bottom=0.0, top=0.88)
         cbar = [fig.colorbar(
             ims[0], ax=axs, pad=0.03, shrink=0.5, location='bottom')]
@@ -2218,7 +2233,7 @@ class TomoFindCenterGui(Processor):
         zoom_button.grid(row=1, column=6, padx=5)
 
         # Setup the selected offset radio buttons
-        self._selected_offset = tk.StringVar(value=f'{center_offset_vo:.1f}')
+        self._selected_offset = tk.StringVar(value=f'{center_offset_vo_text}')
         self._selected_offset.trace_add('write', on_select_offset)
         choices_label = tk.Label(self._content, text='Choose offset:')
         choices_label.grid(row=3, column=6, padx=5, sticky='w')
@@ -2229,11 +2244,11 @@ class TomoFindCenterGui(Processor):
                 variable=self._selected_offset, value=offset_choices[i],
                 command=None))
             rb[i].grid(row=4+i, column=6, padx=5, sticky='w')
-        confirm_text.set(f'Confirm {center_offset_vo:.1f}')
+        confirm_text.set(f'Confirm {center_offset_vo_text}')
 
     @staticmethod
     def reconstruct_planes(
-            tomo_planes, center_offset, thetas, num_proc=1,
+            tomo_planes, center_offset, thetas, *, num_proc=1,
             gaussian_sigma=None, ring_width=None):
         """Invert the sinogram for a single or multiple tomography
         planes using tomopy's recon routine.
@@ -2356,10 +2371,6 @@ class TomoFindCenterProcessor(Processor):
         nxroot = self.get_data(data, remove=False)
         nxentry = self.get_default_nxentry(nxroot)
 
-        # Check if reduced data is available
-        if 'reduced_data' not in nxentry:
-            raise ValueError(f'Unable to find valid reduced data in {nxentry}.')
-
         # Get thetas (in degrees)
         thetas = nxentry.reduced_data.rotation_angle.nxdata
 
@@ -2425,10 +2436,7 @@ class TomoFindCenterProcessor(Processor):
             recon_planes = self._find_center_gui(config=gui_config)
         else:
             recon_planes = self._find_center(
-                nxentry.reduced_data.data.tomo_fields,
-                tbf[img_row_bounds[0]:img_row_bounds[1],
-                    img_column_bounds[0]:img_column_bounds[1]],
-                img_row_bounds[0],
+                nxentry.reduced_data.data.tomo_fields, img_row_bounds[0],
                 np.radians(thetas))
 
         if self.save_figures:
@@ -2481,7 +2489,7 @@ class TomoFindCenterProcessor(Processor):
                 name=self.name, data=self.config.model_dump(),
                 schema='tomo.models.TomoFindCenterConfig'))
 
-    def _find_center(self, tomo_stack, tbf, row_offset, thetas):
+    def _find_center(self, tomo_stack, row_offset, thetas):
         """Find calibrated center axis using Nghia Vo's method
 
         tomo_stacks data axes order: stack,theta,row,column
@@ -2541,14 +2549,13 @@ class TomoFindCenterProcessor(Processor):
             app = TomoFindCenterGui(tk_root=tk_root, config=config_save)
 
             tk_root.mainloop()
-            if len(app.center_offsets) < app.num_center_rows:
-                raise ValueError
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        else:
-            self.config.center_stack_index = app.center_stack_index
-            self.config.center_rows = list(app.center_rows)
-            self.config.center_offsets = list(app.center_offsets)
+
+            assert len(app.center_offsets) == app.num_center_rows
+        except (AssertionError, KeyboardInterrupt, SystemExit) as exc:
+            raise exc
+        self.config.center_stack_index = app.center_stack_index
+        self.config.center_rows = list(app.center_rows)
+        self.config.center_offsets = list(app.center_offsets)
         return app.recon_planes
 
 
@@ -2656,7 +2663,7 @@ class TomoReconstructProcessor(Processor):
                     **metadata['user_metadata']['findcenter'])
                 center_rows = self.center_config.center_rows
                 center_offsets = self.center_config.center_offsets
-            except:
+            except Exception:
                 metadata = {}
             if center_rows is None or center_offsets is None:
                 raise ValueError(
@@ -2920,7 +2927,7 @@ class TomoReconstructProcessor(Processor):
             PipelineData(name=self.name, data=nxroot, schema='tomodata'))
 
     def _reconstruct_one_tomo_stack(
-            self, tomo_stack, thetas, center_offsets=None, num_proc=1,
+            self, tomo_stack, thetas, *, center_offsets=None, num_proc=1,
             algorithm='gridrec', secondary_iters=0, gaussian_sigma=None,
             ring_width=None):
             #remove_stripe_sigma=None, ring_width=None):
@@ -2929,7 +2936,7 @@ class TomoReconstructProcessor(Processor):
         from tomopy import (
             astra,
             misc,
-            prep,
+            #prep,
             recon,
         )
 
@@ -2975,7 +2982,7 @@ class TomoReconstructProcessor(Processor):
         # Run optional secondary iterations
         if secondary_iters > 0:
             self.logger.debug(
-                'Running {secondary_iters} secondary iterations')
+                f'Running {secondary_iters} secondary iterations')
 #            options = {
 #                'method': 'SIRT_CUDA',
 #                'proj_type': 'cuda',
@@ -3025,7 +3032,7 @@ class TomoReconstructProcessor(Processor):
         return tomo_recon_stack
 
     def _resize_reconstructed_data(
-            self, data, x_bounds=None, y_bounds=None, z_bounds=None,
+            self, data, *, x_bounds=None, y_bounds=None, z_bounds=None,
             combine_data=False):
         """Resize the reconstructed tomography data."""
         # Data order: row/-z,y,x or stack,row/-z,y,x
@@ -3191,11 +3198,6 @@ class TomoCombineProcessor(Processor):
         # Load the reduced tomography data
         nxroot = self.get_data(data)
         nxentry = self.get_default_nxentry(nxroot)
-
-        # Check if reconstructed image data is available
-        if 'reconstructed_data' not in nxentry:
-            raise ValueError(
-                f'Unable to find valid reconstructed image data in {nxentry}')
 
         # Check the number of stacks
         if nxentry.reconstructed_data.data.reconstructed_data.ndim == 3:
@@ -3397,7 +3399,7 @@ class TomoCombineProcessor(Processor):
             user_metadata={'combined_data': self.config.model_dump()},
             logger=self.logger)
         nxentry.combined_data.attrs['did'] = metadata.get('did')
-        nxentry.combined_data.attrs['parent_did'] = metadata.get('parent_did') 
+        nxentry.combined_data.attrs['parent_did'] = metadata.get('parent_did')
 
         return (
             PipelineData(
@@ -3412,7 +3414,7 @@ class TomoCombineProcessor(Processor):
             PipelineData(name=self.name, data=nxroot, schema='tomodata'))
 
     def _resize_reconstructed_data(
-            self, data, x_bounds=None, y_bounds=None, z_bounds=None,
+            self, data, *, x_bounds=None, y_bounds=None, z_bounds=None,
             combine_data=False):
         """Resize the reconstructed tomography data."""
         # Data order: row/-z,y,x or stack,row/-z,y,x
@@ -3855,9 +3857,6 @@ class TomoDarkFieldProcessor(Processor):
         # Get and validate the TomoSimField configuration object in data
         nxroot = self.get_data(
             data, schema='tomo.models.TomoSimField', remove=False)
-        if nxroot is None:
-            raise ValueError('No valid TomoSimField configuration found in '
-                             'input data')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         background_intensity = source.background_intensity
@@ -3933,9 +3932,6 @@ class TomoBrightFieldProcessor(Processor):
         # Get and validate the TomoSimField configuration object in data
         nxroot = self.get_data(
             data, schema='tomo.models.TomoSimField', remove=False)
-        if nxroot is None:
-            raise ValueError('No valid TomoSimField configuration found in '
-                             'input data')
         source = nxroot.entry.instrument.source
         detector = nxroot.entry.instrument.detector
         beam_intensity = source.beam_intensity
@@ -4062,15 +4058,21 @@ class TomoSpecProcessor(Processor):
         # Get and validate the TomoSimField, TomoDarkField, or
         # TomoBrightField configuration object in data
         configs = {}
-        nxroot = self.get_data(data, schema='tomo.models.TomoDarkField')
-        if nxroot is not None:
+        try:
+            nxroot = self.get_data(data, schema='tomo.models.TomoDarkField')
             configs['tomo.models.TomoDarkField'] = nxroot
-        nxroot = self.get_data(data, schema='tomo.models.TomoBrightField')
-        if nxroot is not None:
+        except ValueError:
+            pass
+        try:
+            nxroot = self.get_data(data, schema='tomo.models.TomoBrightField')
             configs['tomo.models.TomoBrightField'] = nxroot
-        nxroot = self.get_data(data, schema='tomo.models.TomoSimField')
-        if nxroot is not None:
+        except ValueError:
+            pass
+        try:
+            nxroot = self.get_data(data, schema='tomo.models.TomoSimField')
             configs['tomo.models.TomoSimField'] = nxroot
+        except ValueError:
+            pass
         station = None
         sample_type = None
         num_scan = 0
@@ -4292,7 +4294,7 @@ class TomoSpecProcessor(Processor):
         if self.filename is None:
             metadata = {'beamline': [station.upper()[2:]]}
         else:
-            with open(self.filename, 'r') as file:
+            with open(self.filename, 'r', encoding='utf-8') as file:
                 metadata = load(file)
         now = datetime.now()
         beamline = metadata['beamline'][0]

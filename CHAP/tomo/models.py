@@ -175,7 +175,8 @@ class TomoReduceConfig(CHAPBaseModel):
     img_row_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)] = None
-    remove_stripe: Optional[dict] = {} # FIX create validator and more elaborate type
+    # FIX create validator and more elaborate type for remove_stripe
+    remove_stripe: Optional[dict] = {}
 
 
 class TomoSimConfig(CHAPBaseModel):

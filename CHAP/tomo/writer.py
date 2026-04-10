@@ -35,9 +35,6 @@ class TomoWriter(Writer):
         :return: Output data.
         :rtype: list[PipelineData]
         """
-        # System modules
-        from os import path as os_path
-
         # Local modules
         from CHAP.pipeline import PipelineData
 
