@@ -9,9 +9,6 @@ through the sample. This module contains the CHAP processors that
 perform the steps in a typical tomographic reconstruction workflow.
 It also contains CHAP processors to create simulated 3D image data to
 test the workflow.
-
-:var int NUM_CORE_TOMOPY_LIMIT:
-    Maximum number of cores in Tomopy routines.
 """
 
 # System modules
@@ -73,6 +70,7 @@ from CHAP.utils.general import (
 
 
 NUM_CORE_TOMOPY_LIMIT = 24
+"""int: Maximum number of cores in Tomopy routines."""
 
 
 def read_metadata_provenance(data, logger=None, remove=True):
