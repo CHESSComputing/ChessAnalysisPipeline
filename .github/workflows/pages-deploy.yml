@@ -55,7 +55,7 @@ jobs:
 
     - name: Generate .rst files with sphinx-apidoc
       run: |
-        sphinx-apidoc --tocfile api_documentation -o docs CHAP CHAP/hdrm CHAP/inference CHAP/sin2psi CHAP/test
+        sphinx-apidoc -M --tocfile api_documentation --module-first -o docs CHAP CHAP/hdrm CHAP/inference CHAP/sin2psi CHAP/test
 
     - name: Build Sphinx HTML documentation
       run: |
