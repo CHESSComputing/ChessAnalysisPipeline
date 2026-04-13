@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
+"""Module for Processors unique to the GIWAXS workflow.
+
+Add discription of GIWAXS
 """
-File       : processor.py
-Author     : Rolf Verberg
-Description: Module for Processors used only by GIWAXS experiments
-"""
+
 # System modules
 from json import loads
 import os
@@ -34,16 +34,16 @@ class GiwaxsConversionProcessor(Processor):
     rectangular coordinates (wedge correction).
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.giwaxs.models.GiwaxsConversionConfig
-    :type config: dict, optional
+        :py:class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+    :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :vartype nxmemory: int, optional
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read the intensity data from.
-    :type nxpath: str, optional
+    :vartype nxpath: str, optional
     :ivar save_figures: Save .pngs of plots for checking inputs &
         outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+    :vartype save_figures: bool, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -57,12 +57,14 @@ class GiwaxsConversionProcessor(Processor):
     _figures: list = PrivateAttr(default=[])
 
     def process(self, data):
-        """Process the GIWAXS input images & configuration and returns
-        a map of the images in rectangular coordinates as a
-        `nexusformat.nexus.NXroot` object.
+        """Process the GIWAXS input images & configuration and return
+        a map of the images in rectangular coordinates as a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
-        :param data: Results of `common.MapProcessor` containing the
-            map of GIWAXS input images.
+        :param data: Results of
+            :py:class:`~CHAP.common.processor.MapProcessor` containing
+            a map with the GIWAXS input images.
         :type data: list[PipelineData]
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
@@ -229,10 +231,10 @@ class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.giwaxs.models.GiwaxsConversionConfig
-    :type config: dict, optional
+        :py:class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+    :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :vartype nxmemory: int, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -242,11 +244,14 @@ class PyfaiIntegrationProcessor(Processor):
 
     def process(self, data):
         """Process the input images & configuration and return a map of
-        the azimuthally integrated images.
+        the azimuthally integrated images as a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
-        :param data: Results of `common.MapProcessor` or other suitable
-            preprocessor of the raw detector data containing the map of
-            input images.
+        :param data: Results of
+            :py:class:`~CHAP.common.processor.MapProcessor` or other
+            suitable preprocessor of the raw detector data containing
+            the map of input images.
         :type data: list[PipelineData]
         :return: Integrated images.
         :rtype: nexusformat.nexus.NXroot
