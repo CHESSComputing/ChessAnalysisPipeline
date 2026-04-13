@@ -78,13 +78,11 @@ class IntegratorConfig(Detector, CHAPBaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_integratorconfig_before(cls, data, info):
+    def validate_integratorconfig_before(cls, data):
         """Validate the integrator configuration.
 
         :param data: Input data.
         :type data: dict
-        :param info: Model parameter validation information.
-        :type info: pydantic.ValidationInfo
         :return: Validated data.
         :rtype: dict
         """
@@ -93,7 +91,7 @@ class IntegratorConfig(Detector, CHAPBaseModel):
             poni_file = data.get('poni_file')
             if params is None and poni_file is None:
                 raise ValueError('Specify either poni_file or params')
-            elif params is not None and poni_file is not None:
+            if params is not None and poni_file is not None:
                 print('Specify either poni_file or params, not both, '
                       'ignoring poni_file')
                 data['poni_file'] = None
@@ -341,7 +339,7 @@ class Integrate2dConfig(CHAPBaseModel):
     attrs: Optional[dict] = {}
 
 
-class Integrate2d_GI_Config(CHAPBaseModel):
+class Integrate2dGIConfig(CHAPBaseModel):
     """Class with the input parameters to performs 2D grazing incidence
     integration with
     `pyFAI <https://pyfai.readthedocs.io/en/stable>`__.
@@ -396,7 +394,7 @@ class Integrate2d_GI_Config(CHAPBaseModel):
 
     @field_validator('unit_ip', mode='after')
     @classmethod
-    def validate_unit_ip(cls, unit_ip, info):
+    def validate_unit_ip(cls, unit_ip):
         """Validate the sample orientation.
 
         :param unit_ip: The in-plane unit, defaults to `qip_A^-1`.
@@ -413,7 +411,7 @@ class Integrate2d_GI_Config(CHAPBaseModel):
 
     @field_validator('unit_oop', mode='after')
     @classmethod
-    def validate_unit_oop(cls, unit_oop, info):
+    def validate_unit_oop(cls, unit_oop):
         """Validate the sample orientation.
 
         :param unit_oop: The out-of-plane unit,
@@ -436,6 +434,8 @@ class Integrate2d_GI_Config(CHAPBaseModel):
 
         :param sample_orientation: The sample orientation.
         :type sample_orientation: int
+        :param info: Model parameter validation information.
+        :vartype info: pydantic.ValidationInfo
         :return: The validated sample orientation.
         :rtype: int
         """
@@ -465,7 +465,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     :vartype multi_geometry: MultiGeometryConfig
     :ivar integration_params: Integration parameter configuration.
     :vartype integration_params: Union[
-        Integrate1dConfig, Integrate2dConfig, Integrate2d_GI_Config]
+        Integrate1dConfig, Integrate2dConfig, Integrate2dGIConfig]
     :ivar right_handed: For radial and cake integration, reverse the
         direction of the azimuthal coordinate from pyFAI's convention,
         defaults to True.
@@ -478,7 +478,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         'integrate2d_grazing_incidence']
     multi_geometry: Optional[MultiGeometryConfig] = None
     integration_params: Optional[Union[
-        Integrate1dConfig, Integrate2dConfig, Integrate2d_GI_Config]] = None
+        Integrate1dConfig, Integrate2dConfig, Integrate2dGIConfig]] = None
     right_handed: bool = True
 
     @model_validator(mode='before')
@@ -531,9 +531,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                     **self.integration_params.model_dump())
         elif self.integration_method == 'integrate2d_grazing_incidence':
             if self.integration_params is None:
-                self.integration_params = Integrate2d_GI_Config()
+                self.integration_params = Integrate2dGIConfig()
             else:
-                self.integration_params = Integrate2d_GI_Config(
+                self.integration_params = Integrate2dGIConfig(
                     **self.integration_params.model_dump())
         else:
             raise ValueError('Invalid parameter integration_params '
@@ -570,9 +570,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 integration_params = {
                     **integration_params, **integration_params['attrs']}
                 del integration_params['attrs']
-                if isinstance(self.integration_params, Integrate2d_GI_Config):
-                    if thetas is not None:
-                        assert len(thetas) == npts
+                if (isinstance(self.integration_params, Integrate2dGIConfig)
+                        and thetas is not None):
+                    assert len(thetas) == npts
                 integration_method = getattr(ai, self.integration_method)
                 if thetas is not None:
                     results = [
@@ -600,33 +600,26 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                     [ais[ai] for ai in self.multi_geometry.ais],
                     **self.multi_geometry.model_dump(exclude={'ais'}))
                 integration_method = getattr(mg, self.integration_method)
-                if masks is None:
-                    lst_mask = None
-                else:
-                    lst_mask = [masks[ai] for ai in self.multi_geometry.ais]
+                lst_mask = None \
+                    if masks is None \
+                    else [masks[ai] for ai in self.multi_geometry.ais]
                 results = [
                     integration_method(
                         [data[ai][i] for ai in self.multi_geometry.ais],
                         lst_mask=lst_mask,
                         **self.integration_params.model_dump(exclude='attrs'))
-#                        normalization_factor=[8177142.28771039],
-#                        method=('bbox', 'csr', 'cython'),
-#                        **self.integration_params.model_dump(exclude={'normalization_factor', 'method'}))
                     for i in range(npts)
                 ]
-            if npts == 1:
-                intensities = results[0].intensity
-            else:
-                intensities = [v.intensity for v in results]
+            intensities = results[0].intensity \
+                if npts == 1 else [v.intensity for v in results]
             if isinstance(self.integration_params, Integrate1dConfig):
-                if self.multi_geometry is None:
-                    unit = integration_params['unit']
-                else:
-                    unit = self.multi_geometry.unit
+                unit = integration_params['unit'] \
+                    if self.multi_geometry is None \
+                    else self.multi_geometry.unit
                 results = {
                     'intensities': intensities,
                     'radial': {'coords': results[0].radial, 'unit': unit}}
-            elif isinstance(self.integration_params, Integrate2d_GI_Config):
+            elif isinstance(self.integration_params, Integrate2dGIConfig):
                 results = {
                     'intensities': intensities,
                     'inplane': {
