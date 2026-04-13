@@ -17,7 +17,7 @@ from pydantic import (
 
 # Local modules
 from CHAP.foxden.models import FoxdenRequestConfig
-from CHAP.foxden.utils import HttpRequest
+from CHAP.foxden.utils import HTTP_request
 from CHAP.pipeline import PipelineItem
 from CHAP.processor import Processor
 
@@ -64,7 +64,7 @@ class FoxdenDataDiscoveryReader(PipelineItem):
         rurl = f'{self.config.url}/search'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='read')
+        response = HTTP_request(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -122,7 +122,7 @@ class FoxdenMetadataReader(PipelineItem):
         rurl = f'{self.config.url}/search'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='read')
+        response = HTTP_request(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -197,7 +197,7 @@ class FoxdenProvenanceReader(PipelineItem):
         rurl = f'{self.config.url}/files?did={self.config.did}'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=GET url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='GET', scope='read')
+        response = HTTP_request(rurl, payload, method='GET', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -217,10 +217,9 @@ class FoxdenSpecScansReader(PipelineItem):
     SpecScans data from a specific FOXDEN SpecScans service.
     """
     def read(
-            self, url, data, did='', query='', spec=None, method='POST',
+            self, url, data, *, did='', query='', spec=None, method='POST',
             # 'GET',
             verbose=False):
-        # TODO FIX
         """Read and return data from a specific
         `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
         SpecScans service.
@@ -243,6 +242,7 @@ class FoxdenSpecScansReader(PipelineItem):
         :return: Contents of the input data.
         :rtype: object
         """
+        # TODO FIX
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
         rurl = f'{url}/search'
@@ -256,7 +256,7 @@ class FoxdenSpecScansReader(PipelineItem):
         payload = json.dumps(request)
         if verbose:
             self.logger.info(f'method={method} url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method=method)
+        response = HTTP_request(rurl, payload, method=method)
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')

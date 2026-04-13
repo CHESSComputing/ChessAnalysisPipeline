@@ -15,15 +15,15 @@ from pydantic import constr
 
 # Local modules
 from CHAP.pipeline import PipelineItem
-from CHAP.foxden.utils import HttpRequest
+from CHAP.foxden.utils import HTTP_request
 
 class FoxdenDoiWriter(PipelineItem):
     """Writer for saving info to the
     `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
     DOI service."""
     def write(
-            self, url, data, provider='Datacite', description='', draft=True,
-            publishMetadata=True, verbose=False):
+            self, url, data, *, provider='Datacite', description='',
+            draft=True, publishMetadata=True, verbose=False):
         """Write data to the
         `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ DOI service.
 
@@ -67,7 +67,7 @@ class FoxdenDoiWriter(PipelineItem):
         }
         if verbose:
             self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
+        response = HTTP_request(rurl, payload, method='POST', scope='write')
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -96,17 +96,14 @@ class FoxdenMetadataWriter(PipelineItem):
         :param data: Input data.
         :type data: list[PipelineData]
         :return: HTTP response from FOXDEN Metadata service.
-        :rtype: list[dict]
+        :rtype: dict
         """
-        # System modules
-        from getpass import getuser
-
         record = deepcopy(self.get_data(
             data, schema='foxden.reader.FoxdenMetadataReader', remove=False))
         if not isinstance(record, dict):
             self.logger.warning(
-                'Invalid or unavailable metadata record {(record)}')
-            return
+                f'Invalid or unavailable metadata record {(record)}')
+            return None
 
         # FIX it would be useful to perform validation of record
 
@@ -116,12 +113,13 @@ class FoxdenMetadataWriter(PipelineItem):
         #    record.pop('parent_did', None)
         payload = json.dumps({'Schema': schema, 'Record': record})
         self.logger.info(f'method=POST url={self.url} payload={payload}')
-        response = HttpRequest(self.url, payload, method='POST', scope='write')
+        response = HTTP_request(
+            self.url, payload, method='POST', scope='write')
         if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            self.logger.info(f'Successfully submitted metadata record')
+            self.logger.info('Successfully submitted metadata record')
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
             self.logger.warning(
@@ -149,8 +147,9 @@ class FoxdenProvenanceWriter(PipelineItem):
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :return: HTTP response from FOXDEN Provenance service.
-        :rtype: list[dict]
+        :return: HTTP response from FOXDEN Provenance serviceand the
+            updated provenance record.
+        :rtype: PipelineData, PipelineData
         """
         # Local modules
         from CHAP.common.utils import (
@@ -163,8 +162,8 @@ class FoxdenProvenanceWriter(PipelineItem):
             data, schema='foxden.reader.FoxdenProvenanceReader')
         if not isinstance(provenance, dict):
             self.logger.warning(
-                'Invalid or unavailable provenance provenance {(provenance)}')
-            return
+                f'Invalid or unavailable provenance provenance {(provenance)}')
+            return None
 
         # FIX it would be useful to perform validation of data
 
@@ -183,12 +182,12 @@ class FoxdenProvenanceWriter(PipelineItem):
         url = f'{self.url}/dataset'
         payload = json.dumps(record)
         self.logger.info(f'method=POST url=url, payload={payload}')
-        response = HttpRequest(url, payload, method='POST', scope='write')
+        response = HTTP_request(url, payload, method='POST', scope='write')
         if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            self.logger.info(f'Successfully submitted provenance record')
+            self.logger.info('Successfully submitted provenance record')
             provenance['parent_did'] = provenance.pop('did')
             provenance.pop('input_files', None)
             provenance.pop('output_files', None)

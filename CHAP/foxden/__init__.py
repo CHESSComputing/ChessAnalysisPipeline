@@ -1,6 +1,3 @@
-"""This subpackage contains `PipelineItems` to communicate with FOXDEN
-services.
-"""
 """`PipelineItems` unique to communicating with FOXDEN
 
 This module contains all the `PipelineItems` (Processors, Readers and

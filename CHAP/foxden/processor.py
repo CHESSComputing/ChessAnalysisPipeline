@@ -162,7 +162,7 @@ class ProvenanceFileProcessor(Processor):
                 raise ValueError('Unable to get a unique output file name '
                                  f'from provenance ({provenance})')
             filename = filenames[0]
-        except Exception:
+        except ValueError:
             raise
 
         # FIX modify CHAP.reader to be a generic reader, based on ext

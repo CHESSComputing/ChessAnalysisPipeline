@@ -1,4 +1,4 @@
-"`Pydantic <https://github.com/pydantic/pydantic>`__ model
+"""`Pydantic <https://github.com/pydantic/pydantic>`__ model
 configuration classes unique to the the 
 `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ integration.
 """
