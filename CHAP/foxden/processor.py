@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : processor.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Processor module for FOXDEN services
+"""Module for Processors unique to the
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+integration with CHAP.
 """
 
 # System modules
@@ -126,9 +125,10 @@ from CHAP.processor import Processor
 
 
 class ProvenanceFileProcessor(Processor):
-    """A Processor that a FOXDEN provenance record from  the pipeline
-    and returns the content of the in or output file listed in the
-    record.
+    """A Processor that retrieves a
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ provenance
+    record from the pipeline and returns the content of the in or
+    output file listed in the record.
 
     :ivar file_type: The `'file_type'` in the provenance record,
         defaults to `'output'`.
@@ -141,7 +141,7 @@ class ProvenanceFileProcessor(Processor):
     nxmemory: Optional[conint(gt=0)] = None
 
     def process(self, data):
-        """Return the content of in or output file listed in the
+        """Return the content of in or output files listed in the
         provenance record.
 
         :return: The file content.

@@ -6,7 +6,7 @@ Writers) that are unique to the tomography workflow. Any of these
 instantiated from a user Python script.
 
 .. note::
-    Using the tomography workflow processors in a :doc:`/pipeline`
+    Using the tomography workflow pipeline items in a :doc:`/pipeline`
     and running it, requires a Tomo conda environent or access to the
     appropriate CHAP Tomo executable, see :doc:`/workflows/Tomo`
 

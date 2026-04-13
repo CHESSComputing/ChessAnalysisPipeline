@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : writer.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: FOXDEN writers
+"""Module for Readers unique to the
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+integration with CHAP.
 """
 
 # System modules
@@ -19,18 +18,22 @@ from CHAP.pipeline import PipelineItem
 from CHAP.foxden.utils import HttpRequest
 
 class FoxdenDoiWriter(PipelineItem):
-    """Writer for saving info to the FOXDEN DOI service."""
+    """Writer for saving info to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    DOI service."""
     def write(
             self, url, data, provider='Datacite', description='', draft=True,
             publishMetadata=True, verbose=False):
-        """Write data to the FOXDEN DOI service.
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ DOI service.
 
         :param data: Input data.
         :type data: list[PipelineData]
         :param url: URL of service.
         :type url: str
-        :param provider: DOI provider name, e.g. Zenodo, Datacite,
-            Materialcommons, defaults to `'Datacite'`.
+        :param provider: DOI provider name, e.g. `'Zenodo'`,
+            `'Datacite'`, or `'Materialcommons'`, defaults to
+            `'Datacite'`.
         :type provider: str, optional
         :param description: Dataset description.
         :type description: str, optional
@@ -73,7 +76,9 @@ class FoxdenDoiWriter(PipelineItem):
 
 
 class FoxdenMetadataWriter(PipelineItem):
-    """Writer for saving data to the FOXDEN Metadata service.
+    """Writer for saving data to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Metadata service.
 
     :ivar url: URL of service.
     :vartype url: str
@@ -84,7 +89,9 @@ class FoxdenMetadataWriter(PipelineItem):
     verbose: Optional[bool] = None
 
     def write(self, data):
-        """Write data to the FOXDEN Metadata service.
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Metadata service.
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -123,7 +130,9 @@ class FoxdenMetadataWriter(PipelineItem):
 
 
 class FoxdenProvenanceWriter(PipelineItem):
-    """Writer for saving data to the FOXDEN Provenance service.
+    """Writer for saving data to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Provenance service.
 
     :ivar url: URL of service.
     :vartype url: str
@@ -134,7 +143,9 @@ class FoxdenProvenanceWriter(PipelineItem):
     verbose: Optional[bool] = None
 
     def write(self, data):
-        """Write data to the FOXDEN Provenance service.
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Provenance service.
 
         :param data: Input data.
         :type data: list[PipelineData]

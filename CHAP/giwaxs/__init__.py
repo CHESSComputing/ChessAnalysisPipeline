@@ -6,7 +6,7 @@ Writers) that are unique to the GIWAXS workflow. Any of these
 instantiated from a user Python script.
 
 .. note::
-    Using the GIWAXS workflow processors in a :doc:`/pipeline`
+    Using the GIWAXS workflow pipeline items in a :doc:`/pipeline`
     and running it, requires a GIWAXS conda environent or access to the
     appropriate CHAP GIWAXS  executable, see :doc:`/workflows/GIWAXS`
 

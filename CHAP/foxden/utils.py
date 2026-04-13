@@ -2,10 +2,13 @@
 
 
 def readFoxdenToken(scope):
-    """Obtain a FOXDEN token.
+    """Obtain a
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ token.
 
     :param scope: FOXDEN scope: `'read'` or `'write'`.
     :type scope: string
+    :return: The FOXDEN token.
+    :rtype: str
     """
     # System modules
     import os
@@ -22,7 +25,8 @@ def readFoxdenToken(scope):
 def HttpRequest(
         url, payload, method='POST', headers=None, scope='read', timeout=10,
         dry_run=False):
-    """Submit a HTTP request to a FOXDEN service
+    """Submit a HTTP request to a
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ service.
 
     :param url: URL of service.
     :type url: str
