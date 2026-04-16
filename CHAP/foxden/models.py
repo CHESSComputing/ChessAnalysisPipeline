@@ -80,8 +80,8 @@ class FoxdenRequestConfig(CHAPBaseModel):
 
         :param reader: Any of the FOXDEN readers in
             :py:mod`~CHAP.foxden.reader`.
-        :type reader: Union[FoxdenDataDiscoveryReader,
-            FoxdenMetadataReader, FoxdenProvenanceReader] 
+        :type reader: FoxdenDataDiscoveryReader or
+            FoxdenMetadataReader or FoxdenProvenanceReader
         :return: JSON string of the HTTP request.
         :rtype: str
         """

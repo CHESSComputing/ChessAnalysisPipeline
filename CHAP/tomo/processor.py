@@ -245,7 +245,7 @@ class TomoMetadataProcessor(Processor):
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
         :return: Metadata from the tomography experiment.
-        :rtype: CHAP.common.models.map.MapConfig
+        :rtype: MapConfig
         """
         try:
             record = self.get_data(
@@ -1725,7 +1725,7 @@ class TomoFindCenterGui(Processor):
         :param tk_root: tkinter root window.
         :type tk_root: tkinter.Tk
         :param config: Any keyword arguments to pass along to the
-            base processor (:py:class:`~CHAP.processor.Processor).
+            base processor (:py:class:`~CHAP.processor.Processor`).
         :type config: dict
         """
         super().__init__(tk_root=tk_root, **config)
@@ -4021,7 +4021,7 @@ class TomoSpecProcessor(Processor):
         """Validate the specified list of scan numbers.
 
         :param scan_numbers: List of scan numbers.
-        :type scan_numbers: Union(int, list[int], str)
+        :type scan_numbers: int or list[int] or str
         :return: Validated scan numbers.
         :rtype: list[int]
         """
@@ -4042,8 +4042,8 @@ class TomoSpecProcessor(Processor):
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.
-        :rtype: Union[nexusformat.nexus.NXroot,
-            (PipelineData, PipelineData)]
+        :rtype: nexusformat.nexus.NXroot or
+            (PipelineData, PipelineData)
         """
         # System modules
         from json import dumps, load

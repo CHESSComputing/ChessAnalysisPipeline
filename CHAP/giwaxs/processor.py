@@ -42,6 +42,7 @@ class GiwaxsConversionProcessor(Processor):
         outputs of this Processor, defaults to `False`.
     :vartype save_figures: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'giwaxs.models.GiwaxsConversionConfig'}, init_var=True)
@@ -230,6 +231,7 @@ class PyfaiIntegrationProcessor(Processor):
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'giwaxs.models.PyfaiIntegrationConfig'}, init_var=True)

@@ -35,9 +35,9 @@ def validate_azimuthal_integrators_before(cls, data, info):
     """Validate an azimuthal integrator model.
 
     :param data: Input data.
-    :vartype data: dict
+    :type data: dict
     :param info: Model parameter validation information.
-    :vartype info: pydantic.ValidationInfo
+    :type info: pydantic.ValidationInfo
     :return: Validated data.
     :rtype: dict
     """
@@ -209,21 +209,19 @@ class MultiGeometryConfig(CHAPBaseModel):
     multiple detector configuration within a single integration
 
     :ivar ais: List of detector IDs of azimuthal integrators
-    :vartype ais: Union[str, list[str]]
+    :vartype ais: str or list[str]
     :ivar azimuth_range: Common azimuthal range for integration,
         defaults to `[-180.0, 180.0]`.
-    :vartype azimuth_range:
-        Union(list[float, float], tuple[float, float]), optional
+    :vartype azimuth_range: list[float, float], optional
     :ivar radial_range: Common range for integration, defaults to
         `[0.0, 180.0]`.
-    :vartype radial_range:
-        Union(list[float, float], tuple[float, float]), optional
+    :vartype radial_range: list[float, float], optional
     :ivar unit: Output unit, defaults to `q_A^-1`.
     :vartype unit: str, optional
     :ivar chi_disc: chi discontinuity value, defaults to `180`.
     :vartype chi_disc: int, optional
     :ivar empty: Value for empty pixels.
-    :vartype empty: float
+    :vartype empty: float, optional
     :ivar wavelength: Wave length used in meters.
     :vartype wavelength: float, optional
     """
@@ -252,7 +250,7 @@ class MultiGeometryConfig(CHAPBaseModel):
         """Validate the detector IDs of the azimuthal integrators.
 
         :param ais: The detector IDs.
-        :type ais: str, list[str]
+        :type ais: str or list[str]
         :return: The detector ais.
         :rtype: list[str]
         """
@@ -435,7 +433,7 @@ class Integrate2dGIConfig(CHAPBaseModel):
         :param sample_orientation: The sample orientation.
         :type sample_orientation: int
         :param info: Model parameter validation information.
-        :vartype info: pydantic.ValidationInfo
+        :type info: pydantic.ValidationInfo
         :return: The validated sample orientation.
         :rtype: int
         """
@@ -464,8 +462,8 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     :ivar multi_geometry: Multiple detector configuration.
     :vartype multi_geometry: MultiGeometryConfig
     :ivar integration_params: Integration parameter configuration.
-    :vartype integration_params: Union[
-        Integrate1dConfig, Integrate2dConfig, Integrate2dGIConfig]
+    :vartype integration_params: Integrate1dConfig or
+        Integrate2dConfig or Integrate2dGIConfig
     :ivar right_handed: For radial and cake integration, reverse the
         direction of the azimuthal coordinate from pyFAI's convention,
         defaults to True.
@@ -487,7 +485,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Validate the integration parameters.
 
         :param data: Pydantic validator data object.
-        :type data: PyfaiIntegratorConfig,
+        :type data: PyfaiIntegratorConfig or
             pydantic_core._pydantic_core.ValidationInfo
         :return: The currently validated list of class properties.
         :rtype: dict
@@ -548,10 +546,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         :param data: Detector image(s).
         :type data: dict
         :param masks: Detector mask(s).
-        :type masks: numpy.ndarray
+        :type masks: numpy.ndarray, optional
         :param thetas: Tilt of the sample stage towards the beam (only
             relevant to wedge or grazing-incidence integration)
-        :type thetas: numpy.ndarray
+        :type thetas: numpy.ndarray, optional
         :return: Integration results.
         :rtype: dict
         """
@@ -649,7 +647,7 @@ class GiwaxsConversionConfig(CHAPBaseModel):
     :vartype azimuthal_integrators: list[FiberIntegratorConfig]
     :ivar scan_step_indices: Optional scan step indices to convert.
         If not specified, all images will be converted.
-    :vartype scan_step_indices: Union(int, list[int], str), optional
+    :vartype scan_step_indices: int or list[int] or str, optional
     :ivar save_raw_data: Save the raw data in the NeXus output,
         defaults to `False`.
     :vartype save_raw_data: bool, optional
@@ -674,7 +672,7 @@ class GiwaxsConversionConfig(CHAPBaseModel):
         """Validate the scan step indices.
 
         :param scan_step_indices: Input scan step indices.
-        :vartype scan_step_indices: Union(int, list[int], str), optional
+        :type scan_step_indices: int or list[int] or str, optional
         :return: Validated scan step indices.
         :rtype: list[int]
         """
@@ -701,8 +699,8 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
     :ivar sum_axes: Sum the detector data over the independent
         coordinates before integration, defaults to `False`.
     :vartype sum_axes: bool, optional
-
     """
+
     azimuthal_integrators: Optional[conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)] = None
     integrations: conlist(min_length=1, item_type=PyfaiIntegratorConfig)

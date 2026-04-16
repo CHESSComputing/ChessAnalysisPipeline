@@ -240,7 +240,7 @@ class FoxdenSpecScansReader(PipelineItem):
         :param verbose: Verbose output flag, defaults to `False`.
         :type verbose: bool, optional
         :return: Contents of the input data.
-        :rtype: object
+        :rtype: list
         """
         # TODO FIX
         self.logger.info(
