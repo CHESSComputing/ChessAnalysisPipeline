@@ -1,4 +1,6 @@
-"""pyFAI integration related Pydantic model classes."""
+"""`pyFAI <https://pyfai.readthedocs.io/en/stable/>`__ integration
+related 'Pydantic <https://github.com/pydantic/pydantic>`__ model
+configuration classes."""
 
 # System modules
 from copy import deepcopy
@@ -32,15 +34,16 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     """Azimuthal integrator configuration class to represent a single
     detector used in the experiment.
 
-    :param mask_file: Path to the mask file.
-    :type mask_file: FilePath, optional
-    :param poni_file: Path to the PONI file, specify either `poni_file`
+    :ivar mask_file: Path to the mask file.
+    :vartype mask_file: FilePath, optional
+    :ivar poni_file: Path to the PONI file, specify either `poni_file`
         or `params`, not both.
-    :type poni_file: FilePath, optional
-    :param params: Azimuthal integrator configuration parameters,
+    :vartype poni_file: FilePath, optional
+    :ivar params: Azimuthal integrator configuration parameters,
         specify either `poni_file` or `params`, not both.
-    :type params: dict, optional
+    :vartype params: dict, optional
     """
+
     mask_file: Optional[FilePath] = None
     params: Optional[dict] = None
     poni_file: Optional[FilePath] = None
@@ -52,7 +55,13 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     def validate_root(cls, data):
         """Make sure `data` contains either `poni_file` _or_ `params`,
         not both, and that the field that is used defines a valid
-        `pyFAI.azimuthalIntegrator.AzimuthalIntegrator object`.
+        `pyFAI.azimuthalIntegrator.AzimuthalIntegrator <https://www.silx.org/doc/pyFAI/latest/api/pyFAI.html#pyFAI.__init__.AzimuthalIntegrator>`__
+        object.
+
+        :param data: Input data.
+        :type data: dict
+        :return: Validated data.
+        :rtype: dict
         """
         if isinstance(data, dict):
             inputdir = data.get('inputdir')
@@ -102,7 +111,11 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
 
     @property
     def ai(self):
-        """Return the azimuthal integrator."""
+        """Return the azimuthal integrator.
+
+        :return: Azimuthal integrator.
+        :rtype: AzimuthalIntegrator
+        """
         return self._ai
 
     @property
@@ -110,11 +123,16 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         """Return the mask array to use for this detector from the
         data in the file specified with the `mask_file` field. Return
         `None` if `mask_file` is `None`.
+
+        :return: Mask array.
+        :rtype: numpy.ndarray
         """
+        # Third party modules
+        import fabio
+
         if self.mask_file is None:
             return None
 
-        import fabio
         _mask_file = fabio.open(self.mask_file)
         mask_data = _mask_file.data
         _mask_file.close()
@@ -126,18 +144,25 @@ class MultiGeometryConfig(CHAPBaseModel):
     multiple detector configuration within a single integration
 
     :ivar ais: List of detector IDs of azimuthal integrators.
-    :type ais: Union[str, list[str]]
+    :vartype ais: str or list[str]
     :ivar azimuth_range: Common azimuthal range for integration,
         defaults to `[-180.0, 180.0]`.
-    :type azimuth_range: Union(
-        list[float, float], tuple[float, float]), optional
+    :vartype azimuth_range: list[float, float] or tuple[float, float],
+        optional
     :ivar radial_range: Common range for integration,
         defaults to `[0.0, 180.0]`.
-    :type radial_range: Union(list[float, float],
-                              tuple[float, float]), optional
+    :vartype radial_range: list[float, float] or tuple[float, float],
+        optional
     :ivar unit: Output unit, defaults to `'q_A^-1'`.
-    :type unit: str, optional
+    :vartype unit: str, optional
+    :ivar chi_disc: chi discontinuity value, defaults to `180`.
+    :vartype chi_disc: int, optional
+    :ivar empty: Value for empty pixels, defaults to `0`.
+    :vartype empty: float, optional
+    :ivar wavelength: Wave length used in meters.
+    :vartype wavelength: float, optional
     """
+
     ais: conlist(
         min_length=1, item_type=constr(min_length=1, strip_whitespace=True))
     azimuth_range: Optional[
@@ -161,9 +186,9 @@ class MultiGeometryConfig(CHAPBaseModel):
     def validate_ais(cls, ais):
         """Validate the detector IDs of the azimuthal integrators.
 
-        :param ais: The detector IDs.
+        :param ais: Detector IDs.
         :type ais: str, list[str]
-        :return: The detector ais.
+        :return: Detector ais.
         :rtype: list[str]
         """
         if isinstance(ais, str):
@@ -173,13 +198,14 @@ class MultiGeometryConfig(CHAPBaseModel):
 
 class IntegrateConfig(CHAPBaseModel):
     """Class with the input parameters to perform various integrations
-    with `pyFAI`.
+    with `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
     :ivar error_model: When the variance is unknown, an error model
         can be given (ignored for radial integration):
         `poisson` (variance = I) or `azimuthal` (variance = (I-<I>)^2).
-    :type error_model: str, optional
+    :vartype error_model: str, optional
     """
+
     # correctSolidAngle: true
     # dark: None
     error_model: Optional[constr(strip_whitespace=True, min_length=1)] = None
@@ -195,17 +221,19 @@ class IntegrateConfig(CHAPBaseModel):
 
 class Integrate1dConfig(IntegrateConfig):
     """Class with the input parameters to perform 1D azimuthal
-    integration with `pyFAI`.
+    integration with
+    `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
     :ivar method: For pyFAI.azimuthalIntegrator.AzimuthalIntegrator
         a registered integration method or a 3-tuple (splitting,
         algorithm, implementation), defaults to `csr`.
         For pyFAI.multi_geometry.MultiGeometry a registered integration
         method, defaults to `splitpixel`.
-    :type method: Union[str, tuple], optional
+    :vartype method: str or tuple, optional
     :ivar npt: Number of integration points, defaults to 1800.
-    :type npt: int, optional
+    :vartype npt: int, optional
     """
+
     method: Optional[Union[
         str,
         conlist(
@@ -216,19 +244,21 @@ class Integrate1dConfig(IntegrateConfig):
 
 class Integrate2dConfig(IntegrateConfig):
     """Class with the input parameters to perform 2D azimuthal (cake)
-    integration with `pyFAI`.
+    integration with
+    `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
     :ivar method: Registered integration method, defaults to `bbox`
         for pyFAI.azimuthalIntegrator.AzimuthalIntegrator or
         `splitpixel` for pyFAI.multi_geometry.MultiGeometry.
-    :type method: str, optional
+    :vartype method: str, optional
     :ivar npt_azim: Number of points for the integration in the
         azimuthal direction, defaults to 3600.
-    :type npt_azim: int, optional
+    :vartype npt_azim: int, optional
     :ivar npt_rad: Number of points for the integration in the
         radial direction, defaults to 1800.
-    :type npt_rad: int, optional
+    :vartype npt_rad: int, optional
     """
+
     method: Optional[str] = None
     npt_azim: Optional[conint(gt=0)] = 3600
     npt_rad: Optional[conint(gt=0)] = 1800
@@ -236,16 +266,17 @@ class Integrate2dConfig(IntegrateConfig):
 
 class IntegrateRadialConfig(IntegrateConfig, MultiGeometryConfig):
     """Class with the input parameters to perform radial integration
-    with `pyFAI`.
+    with `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
     :ivar method: Registered integration method, defaults to `csr`.
-    :type method: str, optional
+    :vartype method: str, optional
     :ivar radial_unit: Unit used for radial representation,
         defaults to `'q_A^-1'`.
-    :type radial_unit: str, optional
+    :vartype radial_unit: str, optional
     :ivar npt: Number of integration points, defaults to 1800.
-    :type npt: int, optional
+    :vartype npt: int, optional
     """
+
     radial_unit: Optional[
         constr(strip_whitespace=True, min_length=1)] = 'q_A^-1'
     method: Optional[str] = 'csr'
@@ -254,20 +285,32 @@ class IntegrateRadialConfig(IntegrateConfig, MultiGeometryConfig):
 
 class PyfaiIntegratorConfig(CHAPBaseModel):
     """Class representing the configuration for detector data
-    integrator for `pyFAI`.
+    integrator for `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
+    :ivar name: Integration type name, e.g. `cake`, or `wedge`.
+    :vartype name: str
+    :ivar integration_method: Integration method.
+    :vartype integration_method: Literal[
+        'integrate1d', 'integrate2d', 'integrate_radial',
+        'integrate2d_grazing_incidence']
+    :ivar multi_geometry: Multiple detector configuration.
+    :vartype multi_geometry: MultiGeometryConfig
+    :ivar integration_params: Integration parameter configuration.
+    :vartype integration_params: Integrate1dConfig or
+        Integrate2dConfig or IntegrateRadialConfig
     :ivar right_handed: For radial and cake integration, reverse the
         direction of the azimuthal coordinate from pyFAI's convention,
-        defaults to True.
-    :type right_handed: bool, optional
+        defaults to `True`.
+    :vartype right_handed: bool, optional
     """
+
     name: constr(strip_whitespace=True, min_length=1)
     integration_method: Literal[
         'integrate1d', 'integrate2d', 'integrate_radial']
     multi_geometry: Optional[MultiGeometryConfig] = None
-    integration_params: Optional[
-            Union[Integrate1dConfig, Integrate2dConfig, IntegrateRadialConfig]
-        ] = None
+    integration_params: Optional[Union[
+        Integrate1dConfig, Integrate2dConfig, IntegrateRadialConfig]
+    ] = None
     right_handed: bool = True
 
     _placeholder_result: PrivateAttr = None
@@ -280,7 +323,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         :param data: Pydantic validator data object.
         :type data: PyfaiIntegratorConfig,
             pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
+        :return: Currently validated list of class properties.
         :rtype: dict
         """
         integration_method = data.get('integration_method')
@@ -324,7 +367,11 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
     @property
     def result_shape(self):
-        """Return shape of one frame of results from this integration."""
+        """Return shape of one frame of results from this integration.
+
+        :return: Shape of one frame of integration results.
+        :rtype: tuple
+        """
         if self.integration_method == 'integrate_radial':
             return (self.integration_params.npt, )
         elif self.integration_method == 'integrate1d':
@@ -341,6 +388,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Return a dictionary representing the `zarr.array` objects
         for the coordinates of a single frame of results from this
         integration.
+
+        :return: `zarr.array` objects for the coordinates of a single
+            frame from this integration.
+        :rtype: dict
         """
         if self._placeholder_result is None:
             raise RuntimeError('Missing placeholder results')
@@ -349,6 +400,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def get_axes_indices(self, dataset_ndims):
         """Return the index of each coordinate orienting a single
         frame of results from this integration.
+
+        :return: Index of each coordinate orienting a single
+            frame from this integration.
+        :rtype: dict
         """
         return {k: dataset_ndims + i
                 for i, k in enumerate(self.result_coords.keys())}
@@ -356,6 +411,9 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def get_placeholder_data(self, ais):
         """Return empty input data of the correct shape for use in
         `init_placeholder_data`.
+
+        :return: Empty input data for use in `init_placeholder_data`.
+        :rtype: dict
         """
         if self.integration_method == 'integrate_radial':
             return {ai:np.full(ais[ai].ai.detector.shape, 0)
@@ -367,7 +425,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Get placeholder results for this integration so we can fill
         in the datasets for results of coordinates when setting up a
         zarr tree for holding results of
-        `saxswaxs.PyfaiIntegrationProcessor`.
+        :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
         """
         self._placeholder_result = self.integrate(
             ais, self.get_placeholder_data(ais))
@@ -376,13 +434,13 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Perform the integration and return the results.
 
         :param azimuthal_integrators: List of single-detector
-            integrator configurations.
+            azimuthal integrator configurations.
         :type azimuthal_integrators: list[AzimuthalIntegratorConfig]
         :param data: Dictionary of 2D detector frames to be
             integrated.
         :type data: dict[str, np.ndarray]
         :return: Integrated intensities and coordinates for every
-            frame (or set of frames) in `input_data`.
+            frame (or set of frames) in `data`.
         :rtype: dict[str, object]
         """
         # Third party modules
@@ -585,6 +643,10 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from this integration.
+
+        :return: A `zarr.group` that can be used to contain the
+            integration results.
+        :rtype: dict
         """
         # Third party modules
         import json
@@ -626,8 +688,18 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 class PyfaiIntegrationConfig(CHAPBaseModel):
     """Class defining components needed for performing one or more
     integrations on the same set of 2D input data with
-    `saxswaxs.PyfaiIntegrationProcessor`.
+    :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
+
+    :ivar azimuthal_integrators: List of single-detector azimuthal
+        integrator configurations.
+    :vartype azimuthal_integrators: list[AzimuthalIntegratorConfig]
+    :ivar integrations: Azimuthal integrator configurations.
+    :vartype integrations: list[PyfaiIntegratorConfig]
+    :ivar sum_axes: Sum the detector data over the independent
+        coordinates before integration, defaults to `False`.
+    :vartype sum_axes: bool, optional
     """
+
     azimuthal_integrators: Optional[conlist(
         min_length=1, item_type=AzimuthalIntegratorConfig)] = None
     integrations: conlist(min_length=1, item_type=PyfaiIntegratorConfig)
@@ -644,7 +716,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
         :param data: Pydantic validator data object.
         :type data: GiwaxsConversionConfig,
             pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
+        :return: Currently validated list of class properties.
         :rtype: dict
         """
         if isinstance(data, dict):
@@ -667,7 +739,12 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
 
     def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
         """Return a dictionary representing a `zarr.group` that can be
-        used to contain results from `saxswaxs.PyfaiIntegrationProcessor`.
+        used to contain results from
+        :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
+
+        :return: A `zarr.group` that can be used to contain the
+            integration results.
+        :rtype: dict
         """
         ais = {ai.get_id(): ai for ai in self.azimuthal_integrators}
         for integration in self.integrations:
