@@ -31,7 +31,7 @@ def validate_reader_model(reader):
         os.path.join(reader.inputdir, reader.filename)))
     if (not os.path.isfile(filename)
             and not os.path.dirname(reader.filename)):
-        reader.logger.warning(
+        reader.logger.info(
             f'Unable to find {reader.filename} in {reader.inputdir}, looking '
             f'in {reader.outputdir}')
         filename = os.path.normpath(os.path.realpath(

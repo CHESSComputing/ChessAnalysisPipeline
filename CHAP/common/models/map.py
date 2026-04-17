@@ -79,7 +79,7 @@ class Detector(CHAPBaseModel):
 
     id_: constr(min_length=1) = Field(alias='id')
     shape: Optional[tuple[int, int]] = None
-    attrs: Optional[Annotated[dict, Field(validate_default=True)]] = {}
+    attrs: Optional[dict] = {}
 
     @field_validator('id_', mode='before')
     @classmethod
@@ -95,26 +95,22 @@ class Detector(CHAPBaseModel):
             return str(id_)
         return id_
 
-    #RV maybe better to use model_validator, see v2 docs?
-    @field_validator('attrs')
-    @classmethod
-    def validate_attrs(cls, attrs):
+    @model_validator(mode='after')
+    def validate_detector_after(self):
         """Validate any additional detector configuration attributes.
 
-        :param attrs: Additional detector configuration attributes.
-        :type attrs: dict
         :raises ValueError: Invalid attribute.
-        :return: Validated field for `attrs`.
-        :rtype: dict
+        :return: The validated detector class properties.
+        :rtype: Detector
         """
         # RV FIX add eta
-        name = attrs.get('name')
+        name = self.attrs.get('name')
         if name is not None:
             if isinstance(name, int):
-                attrs['name'] = str(name)
+                self.attrs['name'] = str(name)
             elif not isinstance(name, str):
                 raise ValueError
-        return attrs
+        return self
 
     def get_id(self):
         """Return the detector ID

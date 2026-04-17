@@ -30,7 +30,7 @@ class CHAPBaseModel(BaseModel):
     def dict(self, *args, **kwargs):
         """Dump the class implemention to a dictionary.
 
-        :param **kwargs: Arbitrary keyword arguments.
+        :param \*\*kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
@@ -46,7 +46,7 @@ class CHAPBaseModel(BaseModel):
     def model_dump(self, *args, **kwargs):
         """Dump the class implemention to a dictionary.
 
-        :param **kwargs: Arbitrary keyword arguments.
+        :param \*\*kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
@@ -67,7 +67,7 @@ class CHAPBaseModel(BaseModel):
     def model_dump_json(self, *args, **kwargs):
         """Dump the class implemention to a JSON string.
 
-        :param **kwargs: Arbitrary keyword arguments.
+        :param \*\*kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
