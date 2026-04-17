@@ -44,7 +44,7 @@ def gformat(value, length=11):
     :type value: float
     :param length: Length of the number field, defaults to `11`.
     :type length: int, optional
-    :return: The formatted number.
+    :return: Formatted number.
     :rtype: str
     """
     # Code taken from lmfit library
@@ -73,9 +73,9 @@ def gformat(value, length=11):
 def getfloat_attr(obj, attr, length=11):
     """Format an attribute of an object for printing.
 
-    :param obj: The object that the attr belongs to.
+    :param obj: Object that the attr belongs to.
     :type obj: str
-    :param attr: The attribute.
+    :param attr: Attribute.
     :type attr: str
     :param length: Length of the number field, defaults to `11`.
     :type length: int, optional
@@ -98,7 +98,7 @@ def depth_list(l):
 
     :param l: Input list.
     :type l: list
-    :return: The depth of a list.
+    :return: Depth of a list.
     :rtype: int
     """
     return isinstance(l, list) and 1+max(map(depth_list, l))
@@ -109,7 +109,7 @@ def depth_tuple(t):
 
     :param t: Input tuple.
     :type t: tuple
-    :return: The depth of a tuple.
+    :return: Depth of a tuple.
     :rtype: int
     """
     return isinstance(t, tuple) and 1+max(map(depth_tuple, t))
@@ -134,7 +134,7 @@ def all_any(l, key):
 
     :param l: Input list.
     :type l: list[dict]
-    :param key: The common dictionary key.
+    :param key: Common dictionary key.
     :type key: Any
     :return: `1` if `all(l, key)`, `0` if `not any(l, key)`, or `-1`
         otherwise. Return `None` for a zero length input list.
@@ -1045,13 +1045,13 @@ def input_int(
     :type lt: int, optional
     :param default: Default value to return.
     :type default: int, optional
-    :param inset: The valid values to choose from.
+    :param inset: Valid values to choose from.
     :type inset: list[int], optional
     :param raise_error: Raise an error, defaults to `False`.
     :type raise_error: bool, optional
     :param log: Write error message to the logger, defaults to `True`.
     :type log: bool, optional
-    :return: The entered value.
+    :return: Entered value.
     :rtype: int
     """
     return _input_int_or_num(
@@ -1080,7 +1080,7 @@ def input_num(
     :type raise_error: bool, optional
     :param log: Write error message to the logger, defaults to `True`.
     :type log: bool, optional
-    :return: The entered value.
+    :return: Entered value.
     :rtype: int or float
     """
     return _input_int_or_num(
@@ -1336,7 +1336,7 @@ def input_menu(items, default=None, header=None):
     :type s: list[str]
     :param default: Default value to return.
     :type default: str
-    :return: The choosen entry.
+    :return: Choosen entry.
     :rtype: str
     """
     if (not isinstance(items, (tuple, list))
@@ -1674,28 +1674,28 @@ def baseline_arPLS(
     "Baseline correction using asymmetrically reweighted penalized
     least squares smoothing", Analyst, 2015,140, 250-257
 
-    :param y: The spectrum.
+    :param y: Spectrum.
     :type y: array-like
-    :param mask: A mask to apply to the spectrum before baseline
+    :param mask: Mask to apply to the spectrum before baseline
        construction.
     :type mask: array-like, optional
-    :param w: The weights (allows restart for additional ieterations).
+    :param w: Weights (allows restart for additional iterations).
     :type w: numpy.array, optional
-    :param tol: The convergence tolerence, defaults to `1.e-8`.
+    :param tol: Convergence tolerence, defaults to `1.e-8`.
     :type tol: float, optional
-    :param lam: The &lambda (smoothness) parameter (the balance
+    :param lam: &lambda (smoothness) parameter (the balance
         between the residual of the data and the baseline and the
         smoothness of the baseline). The suggested range is between
         100 and 10^8, defaults to `10^6`.
     :type lam: float, optional
-    :param max_iter: The maximum number of iterations,
+    :param max_iter: Maximum number of iterations,
         defaults to `20`.
     :type max_iter: int, optional
     :param full_output: Whether or not to also output the baseline
         corrected spectrum, the number of iterations and error in the
         returned result, defaults to `False`.
     :type full_output: bool, optional
-    :return: The smoothed baseline, with optionally the baseline
+    :return: Smoothed baseline, with optionally the baseline
         corrected spectrum, the weights, the number of iterations and
         the error in the returned result.
     :rtype: numpy.array [, numpy.array, int, float]
@@ -1849,10 +1849,10 @@ def select_mask_1d(
     :type xlabel: str, optional
     :param ylabel: Label for the y-axis of the displayed figure.
     :type ylabel: str, optional
-    :param min_num_index_ranges: The minimum number of selected index
+    :param min_num_index_ranges: Minimum number of selected index
         ranges.
     :type min_num_index_ranges: int, optional
-    :param max_num_index_ranges: The maximum number of selected index
+    :param max_num_index_ranges: Maximum number of selected index
         ranges.
     :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
@@ -1864,7 +1864,7 @@ def select_mask_1d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), a boolean mask array,
         and the list of selected index ranges.
     :rtype: tuple[_io.BytesIO, str] or `None`, numpy.ndarray,
@@ -2173,7 +2173,7 @@ def select_roi_1d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), and the selected
         region of interest.
     :rtype: io.BytesIO or `None`, tuple(int, int)
@@ -2227,7 +2227,7 @@ def select_roi_2d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), and the selected
         region of interest.
     :rtype: tuple[_io.BytesIO, str] or `None`,
@@ -2404,9 +2404,9 @@ def select_image_indices(
     :param a: Two-dimensional image data array for which a region of
         interest will be selected.
     :type a: array-like
-    :param axis: The selection direction (0: row, 1: column)
+    :param axis: Selection direction (0: row, 1: column)
     :type axis: int
-    :param b: A secondary two-dimensional image data array for which
+    :param b: Secondary two-dimensional image data array for which
         a shared region of interest will be selected.
     :type b: array-like, optional
     :param preselected_indices: Preselected image indices.
@@ -2414,12 +2414,12 @@ def select_image_indices(
     :param axis_index_offset: Offset in axis index range and
         preselected indices, defaults to `0`.
     :type axis_index_offset: int, optional
-    :param min_range: The minimal range spanned by the selected 
+    :param min_range: Minimal range spanned by the selected 
         indices.
     :type min_range: int, optional
-    :param min_num_indices: The minimum number of selected indices.
+    :param min_num_indices: Minimum number of selected indices.
     :type min_num_indices: int, optional
-    :param max_num_indices: The maximum number of selected indices.
+    :param max_num_indices: Maximum number of selected indices.
     :type max_num_indices: int, optional
     :param title: Title for the displayed figure.
     :type title: str, optional
@@ -2440,7 +2440,7 @@ def select_image_indices(
         represention of the Matplotlib figure instead of the
         matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The selected region of interest as array indices and a
+    :return: Selected region of interest as array indices and a
         matplotlib figure.
     :rtype: tuple[_io.BytesIO, str] or `None`,
         tuple(int, int, int, int) or `None`.
@@ -2816,7 +2816,7 @@ def quick_plot(
     `Matplotlib <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`__
     line plot.
 
-    :param args: A tuple or tuple of tuples of input x-coordinates
+    :param args: Tuple or tuple of tuples of input x-coordinates
         (optional), y-coordinates, and optional line formatting
         parameters.
     :type args: [x], y, [fmt] [, [x2], y2, [fmt2], ...]
@@ -2957,9 +2957,9 @@ def nxcopy(
     `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
     optionally exluding certain child items.
 
-    :param nxobject: The input nexus object to "copy".
+    :param nxobject: Input nexus object to "copy".
     :type nxobject: nexusformat.nexus.NXobject
-    :param exlude_nxpaths: A list of relative paths to child nexus
+    :param exlude_nxpaths: List of relative paths to child nexus
         objects that should be excluded from the returned "copy".
     :type exclude_nxpaths: str or list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
@@ -2988,12 +2988,12 @@ def nxcopy(
 
 
     if isinstance(nxobject, NXlinkgroup):
-        # The top level nxobject is a linked group
+        # Top level nxobject is a linked group
         # Create a group with the same name as the top level's target
         nxobject_copy = nxobject[nxobject.nxtarget].__class__(
             name=nxobject.nxname)
     elif isinstance(nxobject, (NXlink, NXfield)):
-        # The top level nxobject is a (linked) field: return a copy
+        # Top level nxobject is a (linked) field: return a copy
         attrs = nxobject.attrs
         attrs.pop('target', None)
         nxobject_copy = NXfield(
@@ -3121,7 +3121,7 @@ def dictionary_update(target, source, merge_key_paths=None, sort=False):
     :type merge_key_paths: str or list[str]
     :param sort: Sort dictionary lists on the key.
     :type sort: bool, optional
-    :return: The updated target directory.
+    :return: Updated target directory.
     :rtype: collections.abc.Mapping
     """
     if not isinstance(target, dict):
@@ -3206,7 +3206,7 @@ def list_dictionary_update(
     :type key_type: type, optional
     :param sort: Sort the returned list on the key.
     :type sort: bool, optional
-    :return: The updated list.
+    :return: Updated list.
     :rtype: list
     """
     if not isinstance(target, list):

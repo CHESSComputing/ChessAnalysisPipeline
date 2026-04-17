@@ -28,7 +28,7 @@ class FoxdenDataDiscoveryReader(PipelineItem):
     Data Discovery service.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class`~CHAP.foxden.models.FoxdenRequestConfig`.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
     pipeline_fields: dict = Field(
@@ -84,7 +84,7 @@ class FoxdenMetadataReader(PipelineItem):
     Metadata service.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class`~CHAP.foxden.models.FoxdenRequestConfig`.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
     pipeline_fields: dict = Field(
@@ -157,7 +157,7 @@ class FoxdenProvenanceReader(PipelineItem):
     Provenance service.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class`~CHAP.foxden.models.FoxdenRequestConfig`.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
     pipeline_fields: dict = Field(

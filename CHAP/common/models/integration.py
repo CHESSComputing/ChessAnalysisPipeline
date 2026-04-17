@@ -425,7 +425,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Get placeholder results for this integration so we can fill
         in the datasets for results of coordinates when setting up a
         zarr tree for holding results of
-        :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
+        :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
         """
         self._placeholder_result = self.integrate(
             ais, self.get_placeholder_data(ais))
@@ -688,7 +688,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 class PyfaiIntegrationConfig(CHAPBaseModel):
     """Class defining components needed for performing one or more
     integrations on the same set of 2D input data with
-    :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
+    :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
 
     :ivar azimuthal_integrators: List of single-detector azimuthal
         integrator configurations.
@@ -740,7 +740,7 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
     def zarr_tree(self, dataset_shape, dataset_chunks='auto'):
         """Return a dictionary representing a `zarr.group` that can be
         used to contain results from
-        :py:class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
+        :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
 
         :return: A `zarr.group` that can be used to contain the
             integration results.

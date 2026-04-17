@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : utils.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: common set of utility functions
-"""
+"""Some generic utility functions."""
 
 # System modules
 import os
@@ -17,7 +13,11 @@ import json
 from importlib.metadata import distributions
 
 def osinfo():
-    """Helper function to provide osinfo."""
+    """Helper function to provide the current osinfo.
+
+    :return: Information about the current OS.
+    :rtype: dict
+    """
     os_info = {
         'name': f'{platform.system().lower()}-{platform.release()}',
         'kernel': platform.version(),
@@ -29,6 +29,9 @@ def environments():
     """Detects the current Python environment (system, virtualenv,
     Conda, or pip) and collects package information. Returns a list
     of detected environments with installed packages.
+
+    :return: Information about the current Python environment.
+    :rtype: list[dict]
     """
     environments_ = []
     os_name = f'{platform.system().lower()}-{platform.release()}'

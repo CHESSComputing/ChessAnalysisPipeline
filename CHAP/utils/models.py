@@ -777,7 +777,7 @@ class FitConfig(CHAPBaseModel):
         implicitly defined through the build-in model functions,
         defaults to `[]`'
     :vartype parameters:
-        list[:py:class:`~CHAP.utils.models.FitParameter`], optional
+        list[:class:`~CHAP.utils.models.FitParameter`], optional
     :ivar models: The component(s) of the (composite) fit model.
     :vartype models:
         list[:py:attr:`~CHAP.utils.models.FitConfig.models`]

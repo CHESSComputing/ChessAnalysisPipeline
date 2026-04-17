@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-"""
-File       : reader.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Readers used in multiple experiment-specific workflows.
+#-*- coding: utf-8 -*-
+"""Module for generic Readers used in multiple experiment-specific
+workflows.
 """
 
 # System modules
@@ -38,6 +37,7 @@ def validate_model(model):
 
 class BinaryFileReader(Reader):
     """Reader for binary files."""
+
     def read(self):
         """Return a content of a given binary file.
 
@@ -53,9 +53,13 @@ class ConfigReader(Reader):
     """Reader for YAML files that optionally implements and verifies it
     agaist its Pydantic configuration schema.
     """
+
     def read(self):
         """Return an optionally verified dictionary from the contents
         of a yaml file.
+
+        :return: File content.
+        :rtype: dict
         """
         data = YAMLReader(**self.model_dump()).read()
         #print(f'\nConfigReader.read start data {type(data)}:')
@@ -74,11 +78,12 @@ class ConfigReader(Reader):
 
 class DetectorDataReader(Reader):
     """Reader for detector data files. Glob filenames allowed. Mask
-    application and background correction available."""
+    application and background correction available.
+    """
+
     def read(self, filename,
              mask_file=None, mask_above=None, mask_below=None,
-             mask_value=np.nan,
-             data_scalar=None,
+             mask_value=np.nan, data_scalar=None,
              background_file=None, background_scalar=None,
              ):
         """Reads detector data, applies masking, scaling, and
@@ -102,8 +107,11 @@ class DetectorDataReader(Reader):
         :return: Processed detector data.
         :rtype: numpy.ndarray
         """
-        import glob
+        # System modules
         import os
+
+        # Third party modules
+        import glob
         import numpy as np
 
         # Handle glob filenames
@@ -117,18 +125,18 @@ class DetectorDataReader(Reader):
 
         # Read the raw data files
         self.logger.info(f'Reading {len(filenames)} raw data files')
-        raw_data = [self.get_data_from_file(f) for f in filenames]
+        raw_data = [self._get_data_from_file(f) for f in filenames]
 
         # Initialize mask arary
         self.logger.info(f'Initializing mask array')
         mask_array = np.zeros_like(raw_data[0], dtype=bool)
         if mask_file:
-            mask_array |= self.get_data_from_file(mask_file) != 0
+            mask_array |= self._get_data_from_file(mask_file) != 0
 
         # Initialize background data
         self.logger.info('Initializing background data')
         if background_file:
-            background_data = self.get_data_from_file(background_file)
+            background_data = self._get_data_from_file(background_file)
             if background_scalar:
                 background_data *= background_scalar
         else:
@@ -141,14 +149,15 @@ class DetectorDataReader(Reader):
 
         # Scale data, apply mask, subtract background
         self.logger.info('Applying corrections to raw data')
-        corrected_data = self.correct_data(
+        corrected_data = self._correct_data(
             np.array(raw_data),
             mask_array, mask_above, mask_below, mask_value,
             data_scalar, background_data)
 
         return corrected_data
 
-    def get_data_from_file(self, filename):
+    def _get_data_from_file(self, filename):
+        # Third party modules
         import fabio
 
         self.logger.debug(f'Reading {filename}')
@@ -156,10 +165,10 @@ class DetectorDataReader(Reader):
             data = datafile.data
         return data
 
-    def correct_data(self, raw_data,
-                     mask_array, mask_above, mask_below, mask_value,
-                     data_scalar,
-                     background_data):
+    def _correct_data(
+            self, raw_data, mask_array, mask_above, mask_below,
+            mask_value, data_scalar, background_data):
+        # Third party modules
         import numpy as np
 
         # Scale raw data
@@ -183,13 +192,14 @@ class DetectorDataReader(Reader):
 
 
 class FabioImageReader(Reader):
-    """Reader for images using the python package.
-    [`fabio`](https://fabio.readthedocs.io/en/main/).
+    """Reader for images using the python
+    `fabio <https://fabio.readthedocs.io/en/main>`__ package.
 
     :ivar frame: Index of a specific frame to read from the file(s),
         defaults to `None`.
-    :type frame: int, optional
+    :vartype frame: int, optional
     """
+
     frame: Optional[conint(ge=0)] = None
 
     def read(self):
@@ -198,7 +208,7 @@ class FabioImageReader(Reader):
         :returns: Image data as a numpy array (or list of numpy
             arrays, if a glob pattern matching more than one file was
             provided).
-        :rtype: Union[numpy.ndarray, list[numpy.ndarray]]
+        :rtype: numpy.ndarray | list[numpy.ndarray]
         """
         # Third party modules
         from glob import glob
@@ -218,12 +228,12 @@ class H5Reader(Reader):
 
     :ivar h5path: Path to a specific location in the h5 file to read
         data from, defaults to `'/'`.
-    :type h5path: str, optional
+    :vartype h5path: str, optional
     :ivar idx: Data slice to read from the object at the specified
         location in the h5 file.
-    :type idx: list[int], optional
-
+    :vartype idx: list[int], optional
     """
+
     h5path: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
     idx: Optional[conlist(min_length=1, max_length=3, item_type=int)] = None
 
@@ -231,7 +241,7 @@ class H5Reader(Reader):
         """Return the data object stored at `h5path` in an h5-file.
 
         :return: Object indicated by `filename` and `h5path`.
-        :rtype: object
+        :rtype: Any
         """
         # Third party modules
         from h5py import File
@@ -244,19 +254,21 @@ class H5Reader(Reader):
 
 class LinkamReader(Reader):
     """Reader for loading Linkam load frame .txt files as an
-    `NXdata`.
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object.
 
     :ivar columns: Column names to read in, defaults to None
         (read in all columns)
-    :type columns: list[str], optional
+    :vartype columns: list[str], optional
     """
+
     columns: Optional[conlist(
         item_type=constr(strip_whitespace=True, min_length=1))] = None
 
     def read(self):
         """Read specified columns from the given Linkam file.
 
-        :returns: Linkam data represented in an `NXdata` object
+        :returns: Linkam data.
         :rtype: nexusformat.nexus.NXdata
         """
         # Third party modules
@@ -313,7 +325,8 @@ class LinkamReader(Reader):
         """Return start time, metadata, and data stored in the
         provided Linkam .txt file.
 
-        :returns:
+        :returns: Start time, metadata, and data stored in the input
+            file.
         :rtype: tuple(float, dict[str, str], dict[str, list[float]])
         """
         # System modules
@@ -393,23 +406,25 @@ class LinkamReader(Reader):
 
 class MapReader(Reader):
     """Reader for CHESS sample maps."""
-    def read(
-            self, filename=None, map_config=None, detector_names=None,
-            inputdir=None):
-        """Take a map configuration dictionary and return a
-        representation of the map as a NeXus NXentry object. The
-        NXentry's default data group will contain the raw data
-        collected over the course of the map.
 
-        :param filename: The name of a file with the map configuration
+    def read(
+            self, filename=None, map_config=None, detector_names=None):
+        """Take a map configuration dictionary and return a
+        representation of the map as a NeXus style
+        `NXentry <https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0>`__
+        object. The NXentry's default data group will contain the
+        raw data collected over the course of the map.
+
+        :param filename: Name of a file with the map configuration
             to read and pass onto the constructor of
-            `CHAP.common.models.map.MapConfig`.
+            :class:`~CHAP.common.models.map.MapConfig`.
         :type filename: str, optional
-        :param map_config: A map configuration to be passed directly to
-            the constructor of `CHAP.common.models.map.MapConfig`.
+        :param map_config: Map configuration to be passed directly to
+            the constructor of
+            :class:`~CHAP.common.models.map.MapConfig`.
         :type map_config: dict, optional
         :param detector_names: Detector prefixes to include raw data
-            for in the returned NeXus NXentry object.
+            for in the returned NXentry object.
         :type detector_names: list[str], optional
         :param inputdir: Input directory, used only if files in the
             input configuration are not absolute paths,
@@ -529,7 +544,9 @@ class MapReader(Reader):
 
 class PandasReader(Reader):
     """Reader for files that can be read in with
-    (pandas)[https://pandas.pydata.org/docs/index.html]"""
+    `pandas <https://pandas.pydata.org/docs/index.html>`__
+    """
+
     def read(self, filename, method='read_csv', comment='#', kwargs=None):
         """Return a `pandas.DataFrame` read from the given file.
 
@@ -543,7 +560,7 @@ class PandasReader(Reader):
         :type comment: str, optional
         :param kwargs: Additional keyword arguments to supply to the
             `pandas` reader.
-        :param kwargs: dict[str, object], optional.
+        :param kwargs: dict, optional.
         :rtype: `pandas.DataFrame`
         """
         # Third party modules
@@ -564,25 +581,29 @@ class PandasReader(Reader):
 
 
 class NexusReader(Reader):
-    """Reader for NeXus files.
+    """Reader for `NeXus <https://www.nexusformat.org>`__ files.
 
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read from, defaults to `'/'`.
-    :type nxpath: str, optional
+    :vartype nxpath: str, optional
     :ivar idx: Index of array to select, defaults to `None`
-    :type idx: int, optional
+    :vartype idx: int, optional
     :ivar mode: File mode, defaults to 'r'.
-    :type mode: Literal['r', 'rw', 'r+', 'w', 'a'], optional
+    :vartype mode: Literal['r', 'rw', 'r+', 'w', 'a'], optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :vartype nxmemory: int, optional
     """
+
     nxpath: Optional[constr(strip_whitespace=True, min_length=1)] = '/'
     idx: Optional[conint(ge=0)] = None
     mode: Literal['r', 'rw', 'r+', 'w', 'a'] = 'r'
     nxmemory: Optional[conint(gt=0)] = None
 
     def read(self):
-        """Return the NeXus object stored at `nxpath` in a NeXus file.
+        """Return the NeXus Style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__,
+        object stored at `nxpath` in a
+        `NeXus <https://www.nexusformat.org>`__ file.
 
         :raises nexusformat.nexus.NeXusError: If `filename` is not a
             NeXus file or `nxpath` is not in its tree.
@@ -603,27 +624,33 @@ class NexusReader(Reader):
 
 
 class NXdataReader(Reader):
-    """Reader for constructing an NXdata object from components."""
+    """Reader for constructing a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object from components."""
+
     def read(self, name, nxfield_params, signal_name, axes_names, attrs=None):
-        """Return a basic NXdata object constructed from components.
+        """Return a basic NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object constructed from components.
 
         :param name: NXdata group name.
         :type name: str
         :param nxfield_params: List of sets of parameters for
-            `NXfieldReader` specifying the NXfields belonging to the
-            NXdata.
+            :class:`~CHAP/common.reader.NXfieldReader` specifying the
+            `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+            objects belonging to the NXdata object.
         :type nxfield_params: list[dict]
-        :param signal_name: Name of the signal for the NXdata (must be
-            one of the names of the NXfields indicated in `nxfields`).
+        :param signal_name: Name of the signal for the NXdata (musts
+            be one of the names of the NXfields indicated in
+            `nxfields`).
         :type signal: str
         :param axes_names: Name or names of the coordinate axes
             NXfields associated with the signal (must be names of
             NXfields indicated in `nxfields`).
-        :type axes_names: Union[str, list[str]]
-        :param attrs: Dictionary of additional attributes for the
-            NXdata.
+        :type axes_names: str | list[str]
+        :param attrs: Additional configuration attributes.
         :type attrs: dict, optional
-        :returns: A new NXdata object.
+        :returns: NXdata object.
         :rtype: nexusformat.nexus.NXdata
         """
         # Third party modules
@@ -667,12 +694,17 @@ class NXdataReader(Reader):
 
 
 class NXfieldReader(Reader):
-    """Reader for an NXfield with options to modify certain attributes.
+    """Reader for a NeXus style
+    `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+    with options to modify certain attributes.
     """
+
     def read(self, nxpath, nxname=None, update_attrs=None, slice_params=None):
-        """Return a copy of the indicated NXfield from the file. Name
-        and attributes of the returned copy may be modified with the
-        `nxname` and `update_attrs` keyword arguments.
+        """Return a copy of the indicated NeXus style
+        `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+        object from the file. Name and attributes of the returned copy
+        may be modified with the `nxname` and `update_attrs` keyword
+        arguments.
 
         :param nxpath: Path in `nxfile` pointing to the NXfield to
            read.
@@ -690,7 +722,7 @@ class NXfieldReader(Reader):
             `"step"` -- `1`. The order of the list must correspond to
             the order of the field's axes.
         :type slice_params: list[dict[str, int]], optional
-        :returns: A copy of the indicated NXfield (with name and
+        :returns: Copy of the indicated NXfield (with name and
             attributes optionally modified).
         :rtype: nexusformat.nexus.NXfield
         """
@@ -737,16 +769,18 @@ class SpecReader(Reader):
     """Reader for CHESS SPEC scans.
 
     :ivar config: SPEC configuration to be passed directly to the
-        constructor of `CHAP.common.models.map.SpecConfig`.
-    :type config: dict, optional
+        constructor of :class:`~CHAP.common.models.map.SpecConfig`.
+    :vartype config: dict, optional
     :ivar detectors: Detector configurations of the detectors to
-        include raw data for in the returned NeXus NXroot object,
-        defaults to None (only a valid input for EDD).
-    :type detectors: Union[
-        dict, common.models.map.DetectorConfig], optional
+        include raw data for in the returned NeXus
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+        object, defaults to None (only a valid input for EDD).
+    :vartype detectors: dict | DetectorConfig,
+        optional
     :ivar filename: Name of file to read from.
-    :type filename: str, optional
+    :vartype filename: str, optional
     """
+
     config: Optional[Union[dict, SpecConfig]] = None
     detector_config: Optional[DetectorConfig] = None
     filename: Optional[str] = None
@@ -759,7 +793,7 @@ class SpecReader(Reader):
     def validate_specreader_after(self):
         """Validate the `SpecReader` configuration.
 
-        :return: The validated configuration.
+        :return: Validated configuration.
         :rtype: PipelineItem
         """
         if self.filename is not None:
@@ -778,7 +812,9 @@ class SpecReader(Reader):
 
     def read(self):
         """Take a SPEC configuration filename or dictionary and return
-        the raw data as a NeXus NXentry object.
+        the raw data as a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+        object.
 
         :return: Data from the provided SPEC configuration.
         :rtype: nexusformat.nexus.NXroot
@@ -903,6 +939,7 @@ class SpecReader(Reader):
 
 class URLReader(Reader):
     """Reader for data available over HTTPS."""
+
     def read(self, url, headers=None, timeout=10):
         """Make an HTTPS request to the provided URL and return the
         results. Headers for the request are optional.
@@ -915,7 +952,7 @@ class URLReader(Reader):
             defaults to `10`.
         :type timeout: int
         :return: Content of the response.
-        :rtype: object
+        :rtype: Any
         """
         # System modules
         import requests
@@ -932,6 +969,7 @@ class URLReader(Reader):
 
 class YAMLReader(Reader):
     """Reader for YAML files."""
+
     def read(self):
         """Return a dictionary from the contents of a yaml file.
 
@@ -946,25 +984,32 @@ class YAMLReader(Reader):
         return data
 
 class ZarrReader(Reader):
-    """Reader for Zarr stores."""
+    """Reader for
+    `Zarr <https://zarr.readthedocs.io/en/stable/>`__
+    stores.
+    """
 
     def read(self, filename, path='/', idx=None, mode='r'):
-        """Return the Zarr object stored at `path` in a Zarr store.
+        """Return the `Zarr <https://zarr.readthedocs.io/en/stable/>`__
+        object stored at `path` in a Zarr store.
 
         :param filename: Path or URL to the Zarr store.
         :type filename: str
         :param path: Path to a specific location in the Zarr hierarchy
             to read from, defaults to `'/'`.
         :type path: str, optional
-        :param idx: Optional index or slice to apply to the returned object.
+        :param idx: Optional index or slice to apply to the returned
+            object.
         :type idx: int, slice, tuple, optional
         :param mode: Store access mode, defaults to `'r'`.
             Common values: `'r'`, `'r+'`, `'a'`, `'w'`.
         :type mode: str, optional
         :raises KeyError: If `path` does not exist in the store.
-        :return: The Zarr array or group indicated by `filename` and `path`.
+        :return: Zarr array or group indicated by `filename` and
+            `path`.
         :rtype: zarr.core.Array or zarr.hierarchy.Group
         """
+        # Third party modules
         import zarr
 
         # Open the Zarr store (directory, zip, or URL)

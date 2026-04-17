@@ -51,7 +51,7 @@ class Detector(CHAPBaseModel):
 
 class TomoCombineConfig(CHAPBaseModel):
     """Configuration for the combine tomography stacks processor
-    :py:class:`~CHAP.tomo.processor.TomoCombineProcessor`.
+    :class:`~CHAP.tomo.processor.TomoCombineProcessor`.
 
     :ivar x_bounds: Combined image bounds in the x-direction.
     :vartype x_bounds: list[int], optional
@@ -71,7 +71,7 @@ class TomoCombineConfig(CHAPBaseModel):
 
 class TomoFindCenterConfig(CHAPBaseModel):
     """Configuration for the tomography center axis finding processor
-    :py:class:`~CHAP.tomo.processor.TomoFindCenterProcessor`.
+    :class:`~CHAP.tomo.processor.TomoFindCenterProcessor`.
 
     :ivar center_stack_index: Stack index of the tomography set to find
         the center axis.
@@ -116,7 +116,7 @@ class TomoFindCenterConfig(CHAPBaseModel):
 
 class TomoReconstructConfig(CHAPBaseModel):
     """Configuration for the tomography image reconstruction processor
-    :py:class:`~CHAP.tomo.processor.TomoReconstructProcessor`.
+    :class:`~CHAP.tomo.processor.TomoReconstructProcessor`.
 
     :ivar x_bounds: Reconstructed image bounds in the x-direction.
     :vartype x_bounds: list[int], optional
@@ -152,7 +152,7 @@ class TomoReconstructConfig(CHAPBaseModel):
 
 class TomoReduceConfig(CHAPBaseModel):
     """Configuration for the tomography image reduction processor
-    :py:class:`~CHAP.tomo.processor.TomoReduceProcessor`.
+    :class:`~CHAP.tomo.processor.TomoReduceProcessor`.
 
     :ivar img_row_bounds: Detector image bounds in the row-direction
         (ignored for id1a3 and id3a for an image stack).
@@ -181,7 +181,7 @@ class TomoReduceConfig(CHAPBaseModel):
 
 class TomoSimConfig(CHAPBaseModel):
     """Configuration for the tomography simulator processor
-    :py:class:`~CHAP.tomo.processor.TomoSimFieldProcessor`.
+    :class:`~CHAP.tomo.processor.TomoSimFieldProcessor`.
 
     :ivar station: The station name (in 'idxx' format).
     :vartype station: Literal['id1a3', 'id3a', 'id3b']

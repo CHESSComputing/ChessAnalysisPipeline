@@ -95,7 +95,7 @@ class ParFile():
             independent dimensions.
         :type par_dims: list[dict[str, str]]
         :param other_dims: Other dimensions to include in the returned
-            :py:class:`~CHAP.common.models.map.MapConfig`'s
+            :class:`~CHAP.common.models.map.MapConfig`'s
             `independednt_dimensions`. Use this if each scans in this
             par file captured more than one frame of data.
         :type other_dims: list[dict[str,str]], optional

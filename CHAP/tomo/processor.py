@@ -224,12 +224,12 @@ class TomoMetadataProcessor(Processor):
     """A processor that takes data from the
     `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
     Data Discovery or Metadata service and extracts what's available
-    to create a :py:class`~CHAP.common.models.map.MapConfig` instance
+    to create a :class:`~CHAP.common.models.map.MapConfig` instance
     for a tomography experiment.
 
     :ivar config: Configuration dictionary containing all fields
         required to create a
-        :py:class`~CHAP.common.mocelc.map.MapConfig`
+        :class:`~CHAP.common.mocelc.map.MapConfig`
         instance that are not available from the metadata record.
     :vartype config: dict
     """
@@ -238,7 +238,7 @@ class TomoMetadataProcessor(Processor):
 
     def process(self, data):
         """Process the metadata and return a dictionary with extracted
-        data to create a :py:class`~CHAP.common.mocelc.map.MapConfig`
+        data to create a :class:`~CHAP.common.mocelc.map.MapConfig`
         instance for the tomography experiment.
 
         :param data: Input data.
@@ -854,7 +854,7 @@ class TomoReduceProcessor(Processor):
     associated with the data reduction step.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.tomo.models.TomoReduceConfig`.
+        :class:`~CHAP.tomo.models.TomoReduceConfig`.
     :vartype config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :vartype num_proc: int, optional
@@ -1725,7 +1725,7 @@ class TomoFindCenterGui(Processor):
         :param tk_root: tkinter root window.
         :type tk_root: tkinter.Tk
         :param config: Any keyword arguments to pass along to the
-            base processor (:py:class:`~CHAP.processor.Processor`).
+            base processor (:class:`~CHAP.processor.Processor`).
         :type config: dict
         """
         super().__init__(tk_root=tk_root, **config)
@@ -2322,7 +2322,7 @@ class TomoFindCenterProcessor(Processor):
     calibration step.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.tomo.models.TomoFindCenterConfig`.
+        :class:`~CHAP.tomo.models.TomoFindCenterConfig`.
     :vartype config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :vartype num_proc: int, optional
@@ -2568,7 +2568,7 @@ class TomoReconstructProcessor(Processor):
     associated with the data reduction step.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.tomo.models.TomoReconstructConfig`.
+        :class:`~CHAP.tomo.models.TomoReconstructConfig`.
     :vartype config: dict, optional
     :ivar center_config: Center axis calibration configuration.
     :vartype center_config: dict, optional
@@ -3147,7 +3147,7 @@ class TomoCombineProcessor(Processor):
     associated with the data reduction step.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.tomo.models.TomoCombineConfig`.
+        :class:`~CHAP.tomo.models.TomoCombineConfig`.
     :vartype config: dict, optional
     :ivar num_proc: Number of processors, defaults to `64`.
     :vartype num_proc: int, optional
@@ -3526,7 +3526,7 @@ class TomoSimFieldProcessor(Processor):
     object containing the simulated tomography detector images.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.tomo.models.TomoSimConfig`.
+        :class:`~CHAP.tomo.models.TomoSimConfig`.
     :vartype config: dict, optional
     """
 

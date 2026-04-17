@@ -101,7 +101,7 @@ class IntegratorConfig(Detector, CHAPBaseModel):
     def ai(self):
         """Return the integrator.
 
-        :return: The model's integrator.
+        :return: Model's integrator.
         :rtype: pyFAI.integrator.azimuthal.AzimuthalIntegrator
         """
         return self._ai
@@ -220,7 +220,7 @@ class MultiGeometryConfig(CHAPBaseModel):
     :vartype unit: str, optional
     :ivar chi_disc: chi discontinuity value, defaults to `180`.
     :vartype chi_disc: int, optional
-    :ivar empty: Value for empty pixels.
+    :ivar empty: Value for empty pixels, defaults to `0`.
     :vartype empty: float, optional
     :ivar wavelength: Wave length used in meters.
     :vartype wavelength: float, optional
@@ -249,9 +249,9 @@ class MultiGeometryConfig(CHAPBaseModel):
     def validate_ais(cls, ais):
         """Validate the detector IDs of the azimuthal integrators.
 
-        :param ais: The detector IDs.
+        :param ais: Detector IDs.
         :type ais: str or list[str]
-        :return: The detector ais.
+        :return: Detector ais.
         :rtype: list[str]
         """
         if isinstance(ais, str):
@@ -274,6 +274,8 @@ class Integrate1dConfig(CHAPBaseModel):
     :vartype method: list[str, str, str], optional
     :ivar npt: Number of integration points, defaults to 1800.
     :vartype npt: int, optional
+    :ivar attrs: Additional 1D azimuthal integration configuration attributes.
+    :vartype attrs: dict, optional
     """
 
     # correctSolidAngle: true
@@ -314,6 +316,8 @@ class Integrate2dConfig(CHAPBaseModel):
     :ivar npt_rad: Number of points for the integration in the
         radial direction, defaults to 1800.
     :vartype npt_rad: int, optional
+    :ivar attrs: Additional 2D azimuthal integration configuration attributes.
+    :vartype attrs: dict, optional
     """
 
     # correctSolidAngle: true
@@ -342,7 +346,7 @@ class Integrate2dGIConfig(CHAPBaseModel):
     integration with
     `pyFAI <https://pyfai.readthedocs.io/en/stable>`__.
 
-    :ivar ais: The detector prefix.
+    :ivar ais: Detector prefix.
     :vartype ais: str
     :ivar method:  Integration method: 3-tuple with (splitting,
         algorithm, implementation), defaults to [`'no'`, `'histogram'`,
@@ -359,10 +363,13 @@ class Integrate2dGIConfig(CHAPBaseModel):
         defaults to `2`, or `4` for `ais` equal to `EIG1` or `PIL5`,
         and `1` otherwise.
     :vartype sample_orientation: int, optional
-    :ivar unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+    :ivar unit_ip: In-plane unit, defaults to `qip_A^-1`.
     :vartype unit_ip: str, optional
-    :ivar unit_oop: The out-of-plane unit, defaults to `qoop_A^-1`.
+    :ivar unit_oop: Out-of-plane unit, defaults to `qoop_A^-1`.
     :vartype unit_oop: str, optional
+    :ivar attrs: Additional 2D grazing incidence integration configuration
+        attributes.
+    :vartype attrs: dict, optional
     """
 
     ais: constr(strip_whitespace=True, min_length=1)
@@ -395,9 +402,9 @@ class Integrate2dGIConfig(CHAPBaseModel):
     def validate_unit_ip(cls, unit_ip):
         """Validate the sample orientation.
 
-        :param unit_ip: The in-plane unit, defaults to `qip_A^-1`.
+        :param unit_ip: In-plane unit, defaults to `qip_A^-1`.
         :type unit_ip: str, optional
-        :return: The validated unit.
+        :return: Validated unit.
         :rtype: int
         """
         # Third party modules
@@ -412,10 +419,10 @@ class Integrate2dGIConfig(CHAPBaseModel):
     def validate_unit_oop(cls, unit_oop):
         """Validate the sample orientation.
 
-        :param unit_oop: The out-of-plane unit,
+        :param unit_oop: Out-of-plane unit,
             defaults to `qoop_A^-1`.
         :type unit_oop: str, optional
-        :return: The validated unit.
+        :return: Validated unit.
         :rtype: int
         """
         # Third party modules
@@ -430,11 +437,11 @@ class Integrate2dGIConfig(CHAPBaseModel):
     def validate_sample_orientation(cls, sample_orientation, info):
         """Validate the sample orientation.
 
-        :param sample_orientation: The sample orientation.
+        :param sample_orientation: Sample orientation.
         :type sample_orientation: int
         :param info: Model parameter validation information.
         :type info: pydantic.ValidationInfo
-        :return: The validated sample orientation.
+        :return: Validated sample orientation.
         :rtype: int
         """
         if sample_orientation is None:
@@ -450,8 +457,7 @@ class Integrate2dGIConfig(CHAPBaseModel):
 
 class PyfaiIntegratorConfig(CHAPBaseModel):
     """Class representing the configuration for detector data
-    integrater for
-    `pyFAI <https://pyfai.readthedocs.io/en/stable>`__.
+    integrator for `pyFAI <https://pyfai.readthedocs.io/en/stable>`__.
 
     :ivar name: Integration type name, e.g. `cake`, or `wedge`.
     :vartype name: str
@@ -466,7 +472,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         Integrate2dConfig or Integrate2dGIConfig
     :ivar right_handed: For radial and cake integration, reverse the
         direction of the azimuthal coordinate from pyFAI's convention,
-        defaults to True.
+        defaults to `True`.
     :vartype right_handed: bool, optional
     """
 
@@ -487,7 +493,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         :param data: Pydantic validator data object.
         :type data: PyfaiIntegratorConfig or
             pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
+        :return: Currently validated list of class properties.
         :rtype: dict
         """
         integration_method = data['integration_method']
@@ -512,7 +518,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         `integration_method` value.
 
         :raises ValueError: Invalid `integration_method`.
-        :return: The validated integrater configuration.
+        :return: Validated integrator configuration.
         :rtype: PyfaiIntegratorConfig
         """
         if self.integration_method == 'integrate1d':
@@ -541,7 +547,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def integrate(self, ais, data, masks=None, thetas=None):
         """Perform the azimuthal integration.
 
-        :param ais: The azimuthal integrators.
+        :param ais: Azimuthal integrators.
         :type ais: dict
         :param data: Detector image(s).
         :type data: dict
@@ -640,11 +646,13 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
 
 class GiwaxsConversionConfig(CHAPBaseModel):
     """Configuration for the wedge correction processor
-    :py:class:`~CHAP.giwaxs.processor.GiwaxsConversionProcessor`.
+    :class:`~CHAP.giwaxs.processor.GiwaxsConversionProcessor`.
 
     :ivar azimuthal_integrators: List of azimuthal integrator
         configurations.
     :vartype azimuthal_integrators: list[FiberIntegratorConfig]
+    :ivar integrations: Azimuthal integrator configurations.
+    :vartype integrations: list[PyfaiIntegratorConfig]
     :ivar scan_step_indices: Optional scan step indices to convert.
         If not specified, all images will be converted.
     :vartype scan_step_indices: int or list[int] or str, optional
@@ -689,12 +697,12 @@ class GiwaxsConversionConfig(CHAPBaseModel):
 
 class PyfaiIntegrationConfig(CHAPBaseModel):
     """Configuration for the azimuthal integrator processor
-    :py:class:`~CHAP.giwaxs.processor.PyfaiIntegrationProcessor`.
+    :class:`~CHAP.giwaxs.processor.PyfaiIntegrationProcessor`.
 
     :ivar azimuthal_integrators: List of azimuthal integrator
         configurations.
     :vartype azimuthal_integrators: list[AzimuthalIntegratorConfig]
-    :ivar integrations: The azimuthal integrator configurations.
+    :ivar integrations: Azimuthal integrator configurations.
     :vartype integrations: list[PyfaiIntegratorConfig]
     :ivar sum_axes: Sum the detector data over the independent
         coordinates before integration, defaults to `False`.

@@ -270,7 +270,7 @@ class SpecScans(CHAPBaseModel):
         `ScanParser`s <https://github.com/CHESSComputing/chess-scanparsers?tab=readme-ov-file>`,
         for each of the scans specified by the SPEC file and scan
         numbers belonging to this instance of
-        :py:class:`~CHAP.common.models.map.SpecScans`.
+        :class:`~CHAP.common.models.map.SpecScans`.
 
         :return: `ScanParser` for each specified SPEC file and scan
             number.
@@ -398,7 +398,7 @@ def get_detector_data(
 class PointByPointScanData(CHAPBaseModel):
     """Class representing a source of raw scalar-valued data for which
     a value was recorded at every point in a
-    :py:class:`~CHAP.common.models.map.MapConfig`.
+    :class:`~CHAP.common.models.map.MapConfig`.
 
     :ivar label: User-defined label for referring to this data in
         the NeXus file and in other tools.
@@ -450,7 +450,7 @@ class PointByPointScanData(CHAPBaseModel):
 
     def validate_for_station(self, station):
         """Validate this instance of
-        :py:class:`~CHAP.common.models.map.PointByPointScanData` for a
+        :class:`~CHAP.common.models.map.PointByPointScanData` for a
         certain choice of station (beamline).
 
         :param station: Name of the station at which the data was
@@ -461,7 +461,7 @@ class PointByPointScanData(CHAPBaseModel):
             'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
         :raises TypeError: If the station is not compatible with the
             value of the `data_type` attribute for this instance of
-            :py:class:`~CHAP.common.models.map.PointByPointScanData`.
+            :class:`~CHAP.common.models.map.PointByPointScanData`.
         """
         if (station.lower() not in ('id1a3', 'id3a')
                 and self.data_type == 'smb_par'):
@@ -477,20 +477,20 @@ class PointByPointScanData(CHAPBaseModel):
     def validate_for_spec_scans(
             self, spec_scans, scan_step_index='all'):
         """Validate this instance of
-        :py:class:`~CHAP.common.models.map.PointByPointScanData` for a
-        list of :py:class:`~CHAP.common.models.map.SpecScans`.
+        :class:`~CHAP.common.models.map.PointByPointScanData` for a
+        list of :class:`~CHAP.common.models.map.SpecScans`.
 
         :param spec_scans: List of
-            :py:class:`~CHAP.common.models.map.SpecScans`'s whose raw
+            :class:`~CHAP.common.models.map.SpecScans`'s whose raw
             data will be checked for the presence of the data
             represented by this instance of
-            :py:class:`~CHAP.common.models.map.PointByPointScanData`.
+            :class:`~CHAP.common.models.map.PointByPointScanData`.
         :type spec_scans: list[SpecScans]
         :param scan_step_index: Specific scan step index to validate,
             defaults to `'all'`.
         :type scan_step_index: int or Literal['all'], optional
         :raises RuntimeError: If the data represented by this instance
-            of :py:class:`~CHAP.common.models.map.PointByPointScanData`
+            of :class:`~CHAP.common.models.map.PointByPointScanData`
             is missing for the specified scan steps.
         """
         for scans in spec_scans:
@@ -514,15 +514,15 @@ class PointByPointScanData(CHAPBaseModel):
 
     def validate_for_scalar_data(self, scalar_data):
         """Used for
-        :py:class:`~CHAP.common.models.map.PointByPointScanData`
+        :class:`~CHAP.common.models.map.PointByPointScanData`
         objects with a `data_type` of `'expression'`. Validate that
         the `scalar_data` field of ai
-        :py:class:`~CHAP.common.models.map.MapConfig` object contains
+        :class:`~CHAP.common.models.map.MapConfig` object contains
         all the items necessary for evaluating the expression.
 
         :param scalar_data: The `scalar_data` field of a
-            :py:class:`~CHAP.common.models.map.MapConfig` that this
-            :py:class:`~CHAP.common.models.map.PointByPointScanData`
+            :class:`~CHAP.common.models.map.MapConfig` that this
+            :class:`~CHAP.common.models.map.PointByPointScanData`
             object will be validated against.
         :type scalar_data: list[PointByPointScanData]
         :raises ValueError: if `scalar_data` does not contain items
@@ -554,11 +554,11 @@ class PointByPointScanData(CHAPBaseModel):
             self, spec_scans, scan_number, scan_step_index=0,
             scalar_data=None, relative=True, static=False, ndigits=None):
         """Return the value recorded for this instance of
-        :py:class:`~CHAP.common.models.map.PointByPointScanData` at a
+        :class:`~CHAP.common.models.map.PointByPointScanData` at a
         specific scan step.
 
         :param spec_scans: An instance of
-            :py:class:`~CHAP.common.models.map.SpecScans` in which the
+            :class:`~CHAP.common.models.map.SpecScans` in which the
             requested scan step occurs.
         :type spec_scans: SpecScans
         :param scan_number: Number of the scan in which the
@@ -569,7 +569,7 @@ class PointByPointScanData(CHAPBaseModel):
         :type scan_step_index: int, optional
         :param scalar_data: Scalar data configurations used to get
             values for
-            :py:class:`~CHAP.common.models.map.PointByPointScanData`
+            :class:`~CHAP.common.models.map.PointByPointScanData`
             objects with `data_type == 'expression'`.
         :type scalar_data: list[PointByPointScanData], optional
         :param relative: Whether to return a relative value or not,
@@ -585,7 +585,7 @@ class PointByPointScanData(CHAPBaseModel):
         :type static: bool, optional
         :return: Value recorded of the data represented by this
             instance of
-            :py:class:`~CHAP.common.models.map.PointByPointScanData` at
+            :class:`~CHAP.common.models.map.PointByPointScanData` at
             the scan step requested.
         :rtype: float
         """
@@ -769,7 +769,7 @@ def get_expression_value(
     point-by-point scalar scan data for a single point.
 
     :param spec_scans: Instance of
-        :py:class:`~CHAP.common.models.map.SpecScans` in which the
+        :class:`~CHAP.common.models.map.SpecScans` in which the
         requested scan step occurs.
     :type spec_scans: SpecScans
     :param scan_number: Number of the scan in which the requested
@@ -780,7 +780,7 @@ def get_expression_value(
     :param expression: String expression to evaluate.
     :type expression: str
     :param scalar_data: `scalar_data` field of a
-        :py:class:`~CHAP.common.models.map.MapConfig` object (used to
+        :class:`~CHAP.common.models.map.MapConfig` object (used to
         provide values for variables used in `expression`).
     :type scalar_data: list[PointByPointScanData]
     :return: Par file value for the requested scan.
@@ -823,7 +823,7 @@ def get_detector_log_timestamps(spec_file, scan_number, detector_prefix):
 
 def validate_data_source_for_map_config(data_source, info):
     """Confirm that an instance of
-    :py:class:`~CHAP.common.models.map.PointByPointScanData` is valid
+    :class:`~CHAP.common.models.map.PointByPointScanData` is valid
     for the station and scans provided by a map configuration
     dictionary.
 
@@ -859,20 +859,20 @@ def validate_data_source_for_map_config(data_source, info):
 class IndependentDimension(PointByPointScanData):
     """Class representing the source of data to identify the
     coordinate values along one dimension of a
-    :py:class:`~CHAP.common.models.map.MapConfig`.
+    :class:`~CHAP.common.models.map.MapConfig`.
 
     :ivar start: Starting index for slicing all datasets of a
-        :py:class:`~CHAP.common.models.map.MapConfig` along this axis,
+        :class:`~CHAP.common.models.map.MapConfig` along this axis,
         defaults to `0`.
     :vartype start: int, optional
     :ivar end: Ending index for slicing all datasets of a
-        :py:class:`~CHAP.common.models.map.MapConfig` along this axis,
+        :class:`~CHAP.common.models.map.MapConfig` along this axis,
         defaults to the total number of unique values along this axis
         in the associated
-        :py:class:`~CHAP.common.models.map.MapConfig`.
+        :class:`~CHAP.common.models.map.MapConfig`.
     :vartype end: int, optional
     :ivar step: Step for slicing all datasets of a
-        :py:class:`~CHAP.common.models.map.MapConfig` along this axis,
+        :class:`~CHAP.common.models.map.MapConfig` along this axis,
         defaults to `1`.
     :vartype step: int, optional
     """
@@ -900,7 +900,7 @@ class IndependentDimension(PointByPointScanData):
 
 class CorrectionsData(PointByPointScanData):
     """Class representing the special instances of
-    :py:class:`~CHAP.common.models.map.PointByPointScanData` that are
+    :class:`~CHAP.common.models.map.PointByPointScanData` that are
     used by certain kinds of `Correction` tools.
 
     :ivar label: One of the reserved values required by the
@@ -1231,7 +1231,7 @@ class MapConfig(CHAPBaseModel):
         for the station and experiment_type fields.
 
         :param attrs: Any additional attributes to the
-            :py:class:`~CHAP.common.models.map.MapConfig`
+            :class:`~CHAP.common.models.map.MapConfig`
         :type attrs: dict
         :param info:
             `Pydantic <https://github.com/pydantic/pydantic>`__
@@ -1311,7 +1311,7 @@ class MapConfig(CHAPBaseModel):
     @property
     def all_scalar_data(self):
         """Return a list of all instances of
-        :py:class:`~CHAP.common.models.map.PointByPointScanData` for
+        :class:`~CHAP.common.models.map.PointByPointScanData` for
         which this map configuration will collect dataset-like data
         (as opposed to axes-like data).
 
@@ -1374,7 +1374,7 @@ class MapConfig(CHAPBaseModel):
     @property
     def scan_step_indices(self):
         """Return an ordered list in which we can look up the
-        :py:class:`~CHAP.common.models.map.SpecScans` object, the scan
+        :class:`~CHAP.common.models.map.SpecScans` object, the scan
         number, and scan step index for every point on the map.
 
         :return: Scan number, and scan step index for every point on
@@ -1458,7 +1458,7 @@ class MapConfig(CHAPBaseModel):
         :param map_index: Map point index to identify as a specific
             SPEC scan step index.
         :type map_index: tuple
-        :return: :py:class:`~CHAP.common.models.map.SpecScans`
+        :return: :class:`~CHAP.common.models.map.SpecScans`
             configuration, scan number, and scan step index.
         :rtype: tuple[SpecScans, int, int]
         """

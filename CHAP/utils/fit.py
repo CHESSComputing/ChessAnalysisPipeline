@@ -63,13 +63,13 @@ class FitProcessor(Processor):
     """A processor to perform a fit on a data set or data map. """
 
     def process(self, data, config=None):
-        """Fit the data and return a :py:class:`~CHAP.utils.fit.Fit` or
-        :py:class:`~CHAP.utils.fit.FitMap` object depending on the
+        """Fit the data and return a :class:`~CHAP.utils.fit.Fit` or
+        :class:`~CHAP.utils.fit.FitMap` object depending on the
         dimensionality of the input data. The input data should be or
         contain a NeXus style
         `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__ 
         object, with properly defined signal and axis, or a
-        :py:class:`~CHAP.utils.fit.Fit` or :py:class:`~CHAP.utils.fit.FitMap`
+        :class:`~CHAP.utils.fit.Fit` or :class:`~CHAP.utils.fit.FitMap`
         object from a previous fit.
 
         :param data: Input data containing the
@@ -166,7 +166,7 @@ class FitProcessor(Processor):
         """Create a multipeak model.
 
         :param model_config: A Multipeak fit model class.
-        :type model_config: :py:class:`~CHAP.utils.models.Multipeak`
+        :type model_config: :class:`~CHAP.utils.models.Multipeak`
         :return: The fit parameters and fit model classes.
         :rtype: list[:py:attr:`~CHAP.utils.models.FitParameter`],
             list[:py:attr:`~CHAP.utils.models.FitConfig.models`]

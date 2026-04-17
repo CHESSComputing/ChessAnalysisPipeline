@@ -31,7 +31,7 @@ class GiwaxsConversionProcessor(Processor):
     rectangular coordinates (wedge correction).
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+        :class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
     :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
@@ -61,7 +61,7 @@ class GiwaxsConversionProcessor(Processor):
         object.
 
         :param data: Results of
-            :py:class:`~CHAP.common.processor.MapProcessor` containing
+            :class:`~CHAP.common.processor.MapProcessor` containing
             a map with the GIWAXS input images.
         :type data: list[PipelineData]
         :return: Converted GIWAXS images.
@@ -226,7 +226,7 @@ class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images.
 
     :ivar config: Initialization parameters for an instance of
-        :py:class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+        :class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
     :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional
@@ -245,7 +245,7 @@ class PyfaiIntegrationProcessor(Processor):
         object.
 
         :param data: Results of
-            :py:class:`~CHAP.common.processor.MapProcessor` or other
+            :class:`~CHAP.common.processor.MapProcessor` or other
             suitable preprocessor of the raw detector data containing
             the map of input images.
         :type data: list[PipelineData]
