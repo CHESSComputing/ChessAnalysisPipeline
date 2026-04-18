@@ -780,7 +780,7 @@ class FitConfig(CHAPBaseModel):
         list[:class:`~CHAP.utils.models.FitParameter`], optional
     :ivar models: The component(s) of the (composite) fit model.
     :vartype models:
-        list[:py:attr:`~CHAP.utils.models.FitConfig.models`]
+        list[:attr:`~CHAP.utils.models.FitConfig.models`]
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 

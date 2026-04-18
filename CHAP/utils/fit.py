@@ -168,8 +168,8 @@ class FitProcessor(Processor):
         :param model_config: A Multipeak fit model class.
         :type model_config: :class:`~CHAP.utils.models.Multipeak`
         :return: The fit parameters and fit model classes.
-        :rtype: list[:py:attr:`~CHAP.utils.models.FitParameter`],
-            list[:py:attr:`~CHAP.utils.models.FitConfig.models`]
+        :rtype: list[:attr:`~CHAP.utils.models.FitParameter`],
+            list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         # Local modules
         from CHAP.utils.models import (
@@ -255,7 +255,7 @@ class Component():
         """Initialize Component.
 
         :param model: A fit model class.
-        :type model: :py:attr:`~CHAP.utils.models.FitConfig.models`
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
         :param prefix: Model prefix.
         :type prefix: str, optional
         """
@@ -288,7 +288,7 @@ class Components(dict):
         """Return the model fit components.
 
         :return: The model fit components.
-        :rtype: list[:py:attr:`~CHAP.utils.models.FitConfig.models`]
+        :rtype: list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         return self.values()
 
@@ -296,7 +296,7 @@ class Components(dict):
         """Add a model to the model fit components dictionary.
 
         :param model: A fit model class.
-        :type model: :py:attr:`~CHAP.utils.models.FitConfig.models`
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
         :param prefix: Model prefix.
         :type prefix: str, optional
         """
@@ -1011,7 +1011,7 @@ class Fit:
         """Add a model component to the fit model.
 
         :param model: A fit model class.
-        :type model: :py:attr:`~CHAP.utils.models.FitConfig.models`
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
         :param prefix: Model prefix.
         :type prefix: str
         """

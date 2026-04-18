@@ -79,7 +79,7 @@ class FoxdenRequestConfig(CHAPBaseModel):
         """Create the payload for a HTTP request.
 
         :param reader: Any of the FOXDEN readers in
-            :py:mod`~CHAP.foxden.reader`.
+            :mod:`~CHAP.foxden.reader`.
         :type reader: FoxdenDataDiscoveryReader or
             FoxdenMetadataReader or FoxdenProvenanceReader
         :return: JSON string of the HTTP request.
