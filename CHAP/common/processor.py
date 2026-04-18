@@ -394,7 +394,7 @@ class ConstructBaseline(Processor):
             plt.close()
 
         def get_baseline(
-                y, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
+                y, *, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
             """Get a baseline.
 
             :param y: Input data.
@@ -585,7 +585,7 @@ class ExpressionProcessor(Processor):
         # Third party modules
         try:
             import zarr
-        except:
+        except ImportError:
             pass
         from ast import parse
         from asteval import get_ast_names, Interpreter
@@ -600,7 +600,7 @@ class ExpressionProcessor(Processor):
         for name in names:
             if name in symtable:
                 continue
-            elif name == 'round':
+            if name == 'round':
                 symtable[name] = round
             elif name in ('np', 'numpy'):
                 symtable[name] = np
@@ -611,7 +611,7 @@ class ExpressionProcessor(Processor):
             try:
                 if isinstance(v, zarr.core.array.Array):
                     symtable[k] = v[()]
-            except:
+            except Exception:
                 pass
         self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
@@ -635,10 +635,7 @@ class ExpressionProcessor(Processor):
                         value=new_data,
                         attrs={'expression': expression}
                     ),
-                    **{
-                        name: nxfield
-                        for name, nxfield in nxfieldtable.items()
-                    },
+                    **dict(nxfieldtable.items()),
                     attrs={'expression': expression}
                 ),
             }
@@ -982,11 +979,13 @@ class MapProcessor(Processor):
         :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :return: Validated number of processors
         :rtype: str
         """
         if num_proc > 1:
-            logger = info['logger']
+            logger = info.data['logger']
             try:
                 # Third party modules
                 from mpi4py import MPI
@@ -997,7 +996,7 @@ class MapProcessor(Processor):
                         'exceeds the maximum number of processors '
                         f'({os.cpu_count()}): reset it to {os.cpu_count()}')
                     num_proc = os.cpu_count()
-            except Exception:
+            except ImportError:
                 logger.warning('Unable to load mpi4py, running serially')
                 num_proc = 1
             logger.debug(f'Number of processors: {num_proc}')
@@ -1081,11 +1080,11 @@ class MapProcessor(Processor):
                     config = self.config.model_dump()
                     config['spec_scans'][0]['scan_numbers'] = \
                         scan_numbers[n_scan:n_scan+num]
-                    pipeline_config.append(
-                        [{'common.MapProcessor': {
+                    pipeline_config.append([{
+                        'common.MapProcessor': {
                             'config': config,
-                            'detector_config': self.detector_config.model_dump(),
-                         }}])
+                            'detector_config':
+                                self.detector_config.model_dump()}}])
                     offsets.append(n_scan)
                     n_scan += num
 
@@ -1097,15 +1096,15 @@ class MapProcessor(Processor):
                     # pylint: disable=c-extension-no-member
                     fp_name = fp.name
                     tmp_names.append(fp_name)
-                    with open(fp_name, 'w') as f:
+                    with open(fp_name, 'w', encoding='utf-8') as f:
                         yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
                     for n_proc in range(1, self.num_proc):
                         f_name = f'{fp_name}_{n_proc}'
                         tmp_names.append(f_name)
-                        with open(f_name, 'w') as f:
+                        with open(f_name, 'w', encoding='utf-8') as f:
                             yaml.dump(
                                 # FIX once comm is a field of RunConfig
-                                # {'config': run_config.model_dump(exclude='comm'),
+                                #processor.py {'config': run_config.model_dump(exclude='comm'),
                                 {'config': run_config.model_dump(),
                                  'pipeline': pipeline_config[n_proc-1]},
                                 f, sort_keys=False)
@@ -1309,7 +1308,7 @@ class MapProcessor(Processor):
             """Link the dimensions for an
             `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__.
             """
-            source_axes = [k for k in nxdata_source.keys()]
+            source_axes = list(nxdata_source.keys())
             if isinstance(source_axes, str):
                 source_axes = [source_axes]
             axes = []
@@ -1458,7 +1457,7 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except Exception:
+        except ImportError:
             pass
 
         # Local modules
@@ -1581,7 +1580,7 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except Exception:
+        except ImportError:
             pass
 
         # Local modules
@@ -1953,14 +1952,14 @@ class MPISpawnMapProcessor(Processor):
                 # pylint: disable=c-extension-no-member
                 fp_name = fp.name
                 tmp_names.append(fp_name)
-                with open(fp_name, 'w') as f:
+                with open(fp_name, 'w', encoding='utf-8') as f:
                     yaml.dump(
                         {'config': {'spawn': run_config.spawn}}, f,
                         sort_keys=False)
                 for n_proc in range(first_proc, num_proc):
                     f_name = f'{fp_name}_{n_proc}'
                     tmp_names.append(f_name)
-                    with open(f_name, 'w') as f:
+                    with open(f_name, 'w', encoding='utf-8') as f:
                         yaml.dump(
                             #FIX once comm is a field of RunConfig
                             #{'config': run_config.model_dump(exclude='comm'),
@@ -2181,8 +2180,8 @@ class NexusToZarrProcessor(Processor):
                             )
                             self.logger.info(f'Copying {item.nxpath}')
                             zarr_dset[:] = item.nxdata
-                        except Exception as e:
-                            self.logger.error(f'{item.nxpath}: {e}')
+                        except Exception as exc:
+                            self.logger.error(f'{item.nxpath}: {exc}')
                     else:
                         self.logger.warning(f'Ignoring {item.nxpath}')
                 elif isinstance(item, NXgroup):
@@ -2424,7 +2423,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
         try:
             det_data = self.get_pipelinedata_item(data)
-        except Exception:
+        except ValueError:
             det_data = data
 
         if integrate1d_kwargs is None:
@@ -2474,9 +2473,6 @@ class RawDetectorDataMapProcessor(Processor):
             field values taken from `data`.
         :rtype: MapConfig
         """
-        # Local modules
-        from CHAP.common.models.map import MapConfig
-
         map_config = False
         if isinstance(data, list):
             for item in data:
@@ -2872,7 +2868,7 @@ class UnstructuredToStructuredProcessor(Processor):
                     if nxdata[a].size == unstructured_dim:
                         unstructured_axes.append(a)
                     elif 'unstructured_axes' in nxdata.attrs:
-                        raise ValueError(f'Inconsistent axes dimensions')
+                        raise ValueError('Inconsistent axes dimensions')
             elif 'unstructured_axes' in nxdata.attrs:
                 raise ValueError(
                     f'Invalid unstructered axis shape ({nxdata[a].shape})')
@@ -2886,7 +2882,7 @@ class UnstructuredToStructuredProcessor(Processor):
                         and v.shape[0] == unstructured_dim):
                     unstructured_axes.append(k)
         if unstructured_dim is None:
-            raise ValueError(f'Unable to determine the unstructered axes')
+            raise ValueError('Unable to determine the unstructered axes')
         axes = unstructured_axes
 
         # Identify unique coordinate points for each axis
@@ -3293,9 +3289,9 @@ class ZarrToNexusProcessor(Processor):
         import zarr
 
         if not os.path.isabs(zarr_filename):
-            zarr_filename = os.path.join(inputdir, zarr_filename)
+            zarr_filename = os.path.join(self.inputdir, zarr_filename)
         if not os.path.isabs(nexus_filename):
-            nexus_filename = os.path.join(inputdir, nexus_filename)
+            nexus_filename = os.path.join(self.inputdir, nexus_filename)
 
         # Open the Zarr file
         zarr_file = zarr.open(zarr_filename, mode='r')

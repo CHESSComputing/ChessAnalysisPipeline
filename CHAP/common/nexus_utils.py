@@ -54,7 +54,7 @@ class NexusMakeLinkProcessor(Processor):
         """
         # Local modules
         from CHAP.utils.general import nxcopy
-        
+
         root = self.get_data(data)
         self.logger.debug(f'root.nxfile.mode = {root.nxfile.mode}')
         if root.nxfile.mode == 'r':

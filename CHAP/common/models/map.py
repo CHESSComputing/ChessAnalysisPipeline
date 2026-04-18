@@ -117,6 +117,11 @@ class Detector(CHAPBaseModel):
         return attrs
 
     def get_id(self):
+        """Return the detector ID
+
+        :return: Detector ID.
+        :rtype id: str
+        """
         return self.id_
 
 
@@ -444,8 +449,9 @@ class PointByPointScanData(CHAPBaseModel):
         if ((not issubclass(cls,CorrectionsData))
                 and label in CorrectionsData.reserved_labels()):
             raise ValueError(
-                f'{cls.__class__.__name__}.label may not be any of the following '
-                f'reserved values: {CorrectionsData.reserved_labels()}')
+                f'{cls.__class__.__name__}.label may not be any of the '
+                'following reserved values: '
+                f'{CorrectionsData.reserved_labels()}')
         return label
 
     def validate_for_station(self, station):
@@ -1219,6 +1225,13 @@ class MapConfig(CHAPBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_before(cls, data):
+        """Ensure that the `attrs` parameter is initialized.
+
+        :param data: Pydantic validator data object.
+        :type data: dict
+        :return: Initialized `attrs` parameter.
+        :rtype: dict
+        """
         if data.get('attrs') is None:
             data['attrs'] = {}
         return data

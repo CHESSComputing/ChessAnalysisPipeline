@@ -236,7 +236,6 @@ class SpecScanToMapConfigProcessor(Processor):
             :rtype: list[dict[str, str]]
             """
             # System modules
-            from datetime import datetime
             import re
 
             match = re.match(r'a(\d+)scan', _scanparser.spec_macro)
@@ -274,7 +273,7 @@ class SpecScanToMapConfigProcessor(Processor):
                       'units': 'seconds',
                       'data_type': 'scan_column',
                       'name': 'Epoch'}])
-            elif _scanparser.spec_macro == 'flyscan' and \
+            if _scanparser.spec_macro == 'flyscan' and \
                  not len(_scanparser.spec_args) == 5:
                 return (
                     [{'label': 'Time',
@@ -282,7 +281,7 @@ class SpecScanToMapConfigProcessor(Processor):
                       'data_type': 'scan_column',
                       'name': 'Time'}],
                     [])
-            elif _scanparser.is_snake():
+            if _scanparser.is_snake():
                 return (
                     [{'label': mne,
                       'units': 'unknown units',
@@ -327,7 +326,8 @@ class SpecScanToMapConfigProcessor(Processor):
             'scalar_data': scalar_data,
         }
         if postsample_intensity_counter_name:
-                mapconfig_dict['postsample_intensity'] = {
-                    'data_type': 'scan_column',
-                    'name': postsample_intensity_counter_name}
+            mapconfig_dict['postsample_intensity'] = {
+                'data_type': 'scan_column',
+                'name': postsample_intensity_counter_name,
+            }
         return mapconfig_dict

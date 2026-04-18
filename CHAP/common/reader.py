@@ -30,6 +30,11 @@ from CHAP.common.models.map import (
 )
 
 def validate_model(model):
+    """Validate the `model` configuration.
+
+    :return: Validated model.
+    :rtype: Any
+    """
     if model.filename is not None:
         validate_reader_model(model)
     return model
@@ -112,14 +117,13 @@ class DetectorDataReader(Reader):
 
         # Third party modules
         import glob
-        import numpy as np
 
         # Handle glob filenames
         if not os.path.isfile(filename):
             filenames = sorted(glob.glob(filename))
             if not filenames:
                 raise ValueError(
-                    f'{filename} is not a file or glob that matches any files')
+                    '{filename} is not a file or glob that matches any files')
         else:
             filenames = [filename]
 
@@ -128,7 +132,7 @@ class DetectorDataReader(Reader):
         raw_data = [self._get_data_from_file(f) for f in filenames]
 
         # Initialize mask arary
-        self.logger.info(f'Initializing mask array')
+        self.logger.info('Initializing mask array')
         mask_array = np.zeros_like(raw_data[0], dtype=bool)
         if mask_file:
             mask_array |= self._get_data_from_file(mask_file) != 0
@@ -168,9 +172,6 @@ class DetectorDataReader(Reader):
     def _correct_data(
             self, raw_data, mask_array, mask_above, mask_below,
             mask_value, data_scalar, background_data):
-        # Third party modules
-        import numpy as np
-
         # Scale raw data
         corrected_data = raw_data
         if data_scalar:
@@ -375,7 +376,7 @@ class LinkamReader(Reader):
                         key, val = _metadata
                     else:
                         continue
-                        key, val = _metadata[0], None
+                        #key, val = _metadata[0], None
                     metadata[key] = val
                 if re.match(r'^([\w\s\w]+)(\t\t[\w\s\w]+)*$', line):
                     # Match found for start of data section -- this
@@ -426,13 +427,12 @@ class MapReader(Reader):
         :param detector_names: Detector prefixes to include raw data
             for in the returned NXentry object.
         :type detector_names: list[str], optional
-        :param inputdir: Input directory, used only if files in the
-            input configuration are not absolute paths,
-            defaults to `'.'`.
-        :type inputdir: str, optional
         :return: Data from the provided map configuration.
         :rtype: nexusformat.nexus.NXentry
         """
+        # System modules
+        import os
+
         # Third party modules
         from nexusformat.nexus import (
             NXcollection,
@@ -452,9 +452,9 @@ class MapReader(Reader):
                 raise RuntimeError('Specify either filename or map_config '
                                    'in common.MapReader, not both')
             # Read the map configuration from file
-            if not isfile(filename):
+            if not os.path.isfile(filename):
                 raise OSError(f'input file does not exist ({filename})')
-            extension = splitext(filename)[1]
+            extension = os.path.splitext(filename)[1]
             if extension in ('.yml', '.yaml'):
                 reader = YAMLReader()
             else:
@@ -467,7 +467,7 @@ class MapReader(Reader):
 
         # Validate the map configuration provided by constructing a
         # MapConfig
-        map_config = MapConfig(**map_config, inputdir=inputdir)
+        map_config = MapConfig(**map_config, inputdir=self.inputdir)
 
         # Set up NXentry and add misc. CHESS-specific metadata
         nxentry = NXentry(name=map_config.title)
@@ -886,7 +886,7 @@ class SpecReader(Reader):
                     pass
                 try:
                     nxscans[scan_number].smb_pars = dumps(
-                        {k:v for k,v in scanparser.pars.items()})
+                        dict(scanparser.pars.items()))
                 except Exception:
                     pass
                 try:
@@ -979,7 +979,7 @@ class YAMLReader(Reader):
         # Third party modules
         import yaml
 
-        with open(self.filename) as f:
+        with open(self.filename, encoding='utf-8') as f:
             data = yaml.safe_load(f)
         return data
 
@@ -1016,7 +1016,7 @@ class ZarrReader(Reader):
         root = zarr.open(filename, mode=mode)
 
         # Normalize path handling
-        if path == '/' or path == '':
+        if path in ('/', ''):
             data = root
         else:
             # Remove leading slash for Zarr traversal

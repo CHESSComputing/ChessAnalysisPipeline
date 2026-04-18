@@ -23,6 +23,11 @@ from CHAP.writer import validate_writer_model
 
 
 def validate_model(model):
+    """Validate the `model` configuration.
+
+    :return: Validated model.
+    :rtype: Any
+    """
     if model.filename is not None:
         validate_writer_model(model)
     return model
@@ -129,13 +134,13 @@ def write_txt(data, filename, force_overwrite=False, append=False):
         raise FileExistsError(f'{filename} already exists')
 
     if append:
-        with open(filename, 'a') as f:
+        with open(filename, 'a', encoding='utf-8') as f:
             if isinstance(data, str):
                 f.write(data)
             else:
                 f.write('\n'.join(data))
     else:
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             if isinstance(data, str):
                 f.write(data)
             else:
@@ -161,7 +166,7 @@ def write_yaml(data, filename, force_overwrite=False):
     if os.path.isfile(filename) and not force_overwrite:
         raise FileExistsError(f'{filename} already exists')
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         yaml.dump(data, f, sort_keys=False)
 
 def write_filetree(data, outputdir='.', force_overwrite=False):
@@ -280,12 +285,6 @@ class FileTreeWriter(PipelineItem):
         :raises RuntimeError: If `filename` already exists and
             `force_overwrite` is `False`.
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         nxentry = self.get_default_nxentry(
                 self.get_data(data, remove=self.remove))
         write_filetree(nxentry, self.outputdir, self.force_overwrite)
@@ -663,14 +662,14 @@ class PyfaiResultsWriter(Writer):
 
         try:
             results = self.get_pipelinedata_item(data, remove=self.remove)
-        except Exception:
+        except ValueError:
             results = data
         if not isinstance(results, list):
             results = [results]
         if (not all([isinstance(r, Integrate1dResult) for r in results])
                and not all(
                    [isinstance(r, Integrate2dResult) for r in results])):
-            raise Exception(
+            raise ValueError(
                 'Bad input data: all items must have the same type -- either '
                 'all pyFAI.containers.Integrate1dResult, or all '
                 'pyFAI.containers.Integrate2dResult.')
@@ -680,14 +679,14 @@ class PyfaiResultsWriter(Writer):
                 self.logger.warning(f'Removing existing file {self.filename}')
                 os.remove(self.filename)
             else:
-                raise Exception(f'{self.filename} already exists.')
+                raise RuntimeError(f'{self.filename} already exists.')
         _, ext = os.path.splitext(self.filename)
         if ext.lower() == '.npz':
             self.write_npz(results, self.filename)
         elif ext.lower() == '.nxs':
             self.write_nxs(results, self.filename)
         else:
-            raise Exception(f'Unsupported file format: {ext}')
+            raise RuntimeError(f'Unsupported file format: {ext}')
         self.logger.info(f'Wrote to {self.filename}')
 
     def write_npz(self, results, filename):

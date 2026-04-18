@@ -130,7 +130,7 @@ class ImageProcessorConfig(CHAPBaseModel):
 
     @field_validator('vrange', mode='before')
     @classmethod
-    def validate_vrange(cls, vrange):
+    def validate_vrange(cls, vrange, info):
         """Validate the vrange.
 
         :ivar vrange: Data value range in image slice(s),
@@ -143,7 +143,7 @@ class ImageProcessorConfig(CHAPBaseModel):
             if None not in vrange:
                 return [min(vrange), max(vrange)]
         return [None if isinstance(i, str) and i.lower() == 'none' else i
-                for i in index_range]
+                for i in info.data['index_range']]
 
 
 class UnstructuredToStructuredConfig(CHAPBaseModel):

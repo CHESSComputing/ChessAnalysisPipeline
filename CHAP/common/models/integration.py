@@ -374,14 +374,13 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """
         if self.integration_method == 'integrate_radial':
             return (self.integration_params.npt, )
-        elif self.integration_method == 'integrate1d':
+        if self.integration_method == 'integrate1d':
             return (self.integration_params.npt, )
-        elif self.integration_method == 'integrate2d':
+        if self.integration_method == 'integrate2d':
             return (self.integration_params.npt_azim,
                     self.integration_params.npt_rad)
-        else:
-            raise NotImplementedError(
-                f'Unimplemented integration_method: {self.integration_method}')
+        raise NotImplementedError(
+            f'Unimplemented integration_method: {self.integration_method}')
 
     @property
     def result_coords(self):
@@ -553,7 +552,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
                 integration_params = {
                     **integration_params, **integration_params['attrs']}
                 del integration_params['attrs']
-                raise RuntimeError(f'Check use of mask in integration_method')
+                raise RuntimeError('Check use of mask in integration_method')
                 if masks is None:
                     results = [
                         integration_method(data[_id][i], **integration_params)
@@ -649,7 +648,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         :rtype: dict
         """
         # Third party modules
-        import json
+        #import json
 
         tree = {
             # NXprocess
