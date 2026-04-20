@@ -1,8 +1,7 @@
+#!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : pipeline.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description:
+"""Base pipeline `Pydantic <https://github.com/pydantic/pydantic>`__
+model classes.
 """
 
 # System modules
@@ -35,6 +34,7 @@ from CHAP.models import (
 
 class PipelineData(dict):
     """Wrapper for all results of PipelineItem.execute."""
+
     def __init__(self, name=None, data=None, schema=None):
         super().__init__()
         self.__setitem__('name', name)
@@ -43,7 +43,16 @@ class PipelineData(dict):
 
 
 class PipelineItem(RunConfig):
-    """Class representing a single item in a `Pipeline` object."""
+    """Class representing a single item in a `Pipeline` object.
+
+    :ivar logger: CHAP logger.
+    :vartype logger: logging.Logger, optional
+    :ivar name: `Pipeline` object name.
+    :vartype name: str, optional
+    :ivar schema: `Pipeline` object schema.
+    :vartype schema: str, optional
+    """
+    
     logger: Optional[logging.Logger] = None
     name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     schema_: Optional[constr(strip_whitespace=True, min_length=1)] = \
@@ -65,7 +74,7 @@ class PipelineItem(RunConfig):
     def validate_pipelineitem_after(self):
         """Validate the `PipelineItem` configuration.
 
-        :return: The validated configuration.
+        :return: Validated configuration.
         :rtype: PipelineItem
         """
         # System modules
@@ -105,36 +114,81 @@ class PipelineItem(RunConfig):
 
     @property
     def method(self):
+        """Return the `PipelineItem`//s `read`, `process` or `write`
+        method.
+
+        :type: types.MethodType
+        """
         return self._method
 
     @property
     def method_type(self):
+        """Return the `PipelineItem`//s execute method type.
+
+        :type: Literal['read', 'process', 'write']
+        """
         return self._method_type
 
     @property
     def run_config(self):
+        """Return the `PipelineItem`//s run configuration.
+
+        :type: RunConfig
+        """
         return RunConfig(**self.model_dump()).model_dump()
 
     @property
     def status(self):
+        """Return the `PipelineItem`//s status.
+
+        :type: Literal['read', 'write_pending', 'written']
+        """
         return self._status
 
     @status.setter
     def status(self, status):
+        """Set the `PipelineItem`//s status.
+
+        :param status: `PipelineItem`//s status.
+        :type: Literal['read', 'write_pending', 'written']
+        """
         self._status = status
 
     def get_args(self):
+        """Return the `PipelineItem`//s execution method run time
+        arguments.
+
+        :return: `PipelineItem`//s execution method run time arguments.
+        :rtype: dict
+        """
         return self._args
 
     def set_args(self, **args):
+        """Set the `PipelineItem`//s execution method run time
+        arguments that are allowed by its method declaration.
+
+        :param: `PipelineItem`//s execution method run time arguments.
+        :type: dict
+        """
         for k, v in args.items():
             if k in self._allowed_args:
                 self._args[k] = v
 
     def has_filename(self):
+        """Does the `PipelineItem` has a `filename` class attribute?
+
+        :return: `True` if the `PipelineItem` has a `filename` class
+            attribute.
+        :rtype: bool
+        """
         return hasattr(self, 'filename') and self.filename is not None
 
     def get_schema(self):
+        """Return the `PipelineItem`//s schema.
+
+        :return: `PipelineItem`//s schema.
+        :rtype: str
+        """
         return self.schema_
 
     @staticmethod
@@ -148,7 +202,7 @@ class PipelineItem(RunConfig):
             nexusformat.nexus.NXentry
         :raises ValueError: If unable to retrieve a
             `nexusformat.nexus.NXentry` object.
-        :return: The input data if a `nexusformat.nexus.NXentry`
+        :return: Input data if a `nexusformat.nexus.NXentry`
             object or the default or first `nexusformat.nexus.NXentry`
             object if a `nexusformat.nexus.NXroot` object.
         :rtype: nexusformat.nexus.NXentry
@@ -185,8 +239,8 @@ class PipelineItem(RunConfig):
         :param data: Input data to read, write, or process that needs
             to be unwrapped from PipelineData before use.
         :type data: list[PipelineData]
-        :return: The `'data'` values of the items in the input data.
-        :rtype: list[object]
+        :return: `'data'` values of the items in the input data.
+        :rtype: list
         """
         unwrapped_data = []
         if isinstance(data, list):
@@ -203,30 +257,32 @@ class PipelineItem(RunConfig):
             self, data=None, config=None, schema=None, remove=True):
         """Look through `data` for the last item which value for the
         `'schema'` key matches `schema`. Convert the value for that
-        item's `'data'` key into the configuration's Pydantic model
+        item's `'data'` key into the configuration's
+        `Pydantic <https://github.com/pydantic/pydantic>`__ model
         identified by `schema` and return it. If no item is found and
-        `config` and `schema` are specified, validate `config`
-        against the configuration's Pydantic model identified by
-        `schema` and return it. Return `config` if no item is found
-        and `config` is specified, but `schema` is not.
+        `config` and `schema` are specified, validate `config` against
+        the configuration's Pydantic model identified by `schema` and
+        return it. Return `config` if no item is found and `config` is
+        specified, but `schema` is not.
 
-        :param data: Input data from a previous `PipelineItem`.
+        :param data: Input data.
         :type data: list[PipelineData], optional
-        :param config: Initialization parameters for an instance of
-            the Pydantic model identified by `schema`, required if
-            data is unspecified, invalid or does not contain an item
-            that matches the schema, superseeds any equal parameters
-            contained in `data`.
+        :param config: Initialization parameters for an instance of the
+            `Pydantic <https://github.com/pydantic/pydantic>`__ model
+            identified by `schema`, required if data is unspecified,
+            invalid or does not contain an item that matches the
+            schema, superseeds any equal parameters contained in
+            `data`.
         :type config: dict, optional
-        :param schema: Name of the `PipelineItem` class to match in
-            `data` & return, defaults to the internal PipelineItem
-            `schema` attribute.
+        :param schema: Schema of the `PipelineItem` class to match in
+             `data`, defaults to the internal PipelineItem `schema`
+             attribute.
         :type schema: str, optional
         :param remove: If there is a matching entry in `data`, remove
            it from the list, defaults to `True`.
         :type remove: bool, optional
         :raises ValueError: If there's no match for `schema` in `data`.
-        :return: The last matching validated configuration model.
+        :return: Last matching validated configuration model.
         :rtype: PipelineItem
         """
         self.logger.debug(f'Getting {schema} configuration')
@@ -282,21 +338,22 @@ class PipelineItem(RunConfig):
         if set, pick the last match for a nexusformat.nexus.NXobject
         object otherwise. Return the data object.
 
-        :param data: Input data from a previous `PipelineItem`.
+        :param data: Input data.
         :type data: list[PipelineData].
-        :param name: Name of the data item to match in `data` & return.
+        :param name: Name of the `PipelineItem` class to match in
+            `data`.
         :type name: str, optional
-        :param schema: Name of the `PipelineItem` class to match in
+        :param schema: Schema of the `PipelineItem` class to match in
             `data` & return.
-        :type schema: Union[str, list[str]], optional
+        :type schema: str or list[str], optional
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
         :raises ValueError: If there's no match for `name` or 'schema`
             in `data`, or if there is no object of type
             nexusformat.nexus.NXobject.
-        :return: The last matching data item.
-        :rtype: obj
+        :return: Last matching data item.
+        :rtype: Any
         """
         # Third party modules
         from nexusformat.nexus import NXobject
@@ -341,16 +398,16 @@ class PipelineItem(RunConfig):
         item matching `index` and return it's `data` value, otherwise
         return `data` itself.
 
-        :param data: Input data from a previous `PipelineItem`.
-        :type data: Union[Any, list[PipelineData]]
-        :param index: The list index of the item to retrieve from
+        :param data: Input data.
+        :type data: Any | list[PipelineData]
+        :param index: List index of the item to retrieve from
             `data`, default to -1 or the last item in the list.
         :type index: int, optional
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `False`.
         :type remove: bool, optional
-        :return: The matching data item.
-        :rtype: obj
+        :return: Matching data item.
+        :rtype: Any
         """
         if isinstance(data, list):
             if remove:
@@ -359,13 +416,13 @@ class PipelineItem(RunConfig):
         return data
 
     def execute(self, data):#, metadata, provenance):
-        """Run the appropriate method of the object and return the
+        """Execute the appropriate method of the object and return the
         result.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :return: The wrapped result of running read, process, or write.
-        :rtype: Union[PipelineData, tuple[PipelineData]]
+        :return: Wrapped result of executing read, process, or write.
+        :rtype: PipelineData | tuple[PipelineData]
         """
 #        self._metadata = metadata
 #        self._provenance = provenance
@@ -383,7 +440,18 @@ class PipelineItem(RunConfig):
 
 
 class Pipeline(CHAPBaseModel):
-    """Class representing a full `Pipeline` object."""
+    """Class representing a full `Pipeline` object.
+
+    :ivar args: List of `PipelineItem` arguments for each item in the
+        full pipeline.
+    :vartype args: list[dict]
+    :ivar logger: CHAP logger.
+    :vartype logger: logging.Logger, optional
+    :ivar mmcs: List of `PipelineItem`//s classes in the full pipeline.
+    :vartype mmcs:
+        list[pydantic._internal._model_construction.ModelMetaclass]
+    """
+
     args: conlist(item_type=dict, min_length=1)
     logger: Optional[logging.Logger] = None
     mmcs: conlist(item_type=ModelMetaclass, min_length=1)
@@ -403,7 +471,7 @@ class Pipeline(CHAPBaseModel):
         """Validate the `Pipeline` configuration and initialize and
         validate the private attributes.
 
-        :return: The validated configuration.
+        :return: Validated configuration.
         :rtype: Pipeline
         """
         t0 = time()
@@ -475,7 +543,11 @@ class Pipeline(CHAPBaseModel):
         return self
 
     def execute(self):
-        """Executes the pipeline."""
+        """Executes the pipeline.
+
+        :return: List of `PipelineData` items after pipeline execution.
+        :rtype: list[PipelineData]
+        """
         t0 = time()
         self.logger.info('Executing "execute"\n')
 

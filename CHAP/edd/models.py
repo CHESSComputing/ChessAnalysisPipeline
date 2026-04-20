@@ -859,9 +859,8 @@ class StrainAnalysisConfig(MCACalibrationConfig):
 
         :param oversampling: The value of `oversampling` to validate.
         :type oversampling: dict
-        :param info: Pydantic validator info object.
-        :type info: StrainAnalysisConfig,
-            pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :return: The validated value for oversampling.
         :rtype: bool
         """

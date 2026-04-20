@@ -287,8 +287,7 @@ class Components(dict):
     def components(self):
         """Return the model fit components.
 
-        :return: The model fit components.
-        :rtype: list[:attr:`~CHAP.utils.models.FitConfig.models`]
+        :type: list[:attr:`~CHAP.utils.models.FitConfig.models`]
         """
         return self.values()
 
@@ -674,8 +673,7 @@ class Fit:
     def best_errors(self):
         """Return errors in the best fit parameters.
 
-        :return: Errors in the best fit parameters.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None:
             return None
@@ -687,8 +685,7 @@ class Fit:
     def best_fit(self):
         """Return the best fit.
 
-        :return: Best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
@@ -698,8 +695,7 @@ class Fit:
     def best_parameters(self):
         """Return the best fit parameters.
 
-        :return: Best fit parameters.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None:
             return None
@@ -719,10 +715,9 @@ class Fit:
 
     @property
     def best_values(self):
-        """Return values of the best fit parameters.
+        """Return values for the best fit parameters.
 
-        :return: Values of the best fit parameters.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None:
             return None
@@ -732,11 +727,9 @@ class Fit:
 
     @property
     def best_vary(self):
-        """Return vary parameter for the best fit parameters.
+        """Return vary parameters for the best fit parameters.
 
-        :return: The value of the `vary` parameter for the best fit
-            parameters.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None:
             return None
@@ -746,10 +739,9 @@ class Fit:
 
     @property
     def chisqr(self):
-        """Return the chisqr value of the best fit.
+        """Return chisqr values for the best fit parameters.
 
-        :return: chisqr value of the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
@@ -757,10 +749,9 @@ class Fit:
 
     @property
     def components(self):
-        """Return the fit model components info.
+        """Return fit model components info.
 
-        :return: Fit model components info.
-        :rtype: dict
+        :type: dict
         """
         # Third party modules
         from lmfit.models import ExpressionModel
@@ -809,10 +800,9 @@ class Fit:
 
     @property
     def covar(self):
-        """Return the covarience matrix of the best fit parameters.
+        """Return the covarience matrix for the best fit parameters.
 
-        :return: Covarience matrix of the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
@@ -822,8 +812,7 @@ class Fit:
     def init_parameters(self):
         """Return the initial parameters for the fit model.
 
-        :return: Initial parameters for the fit model.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None or self._result.init_params is None:
             return None
@@ -844,8 +833,7 @@ class Fit:
     def init_values(self):
         """Return the initial values for the fit parameters.
 
-        :return: Initial values for the fit parameters.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None or self._result.init_params is None:
             return None
@@ -855,10 +843,9 @@ class Fit:
 
     @property
     def normalization_offset(self):
-        """Return the normalization_offset for the fit model.
+        """Return the `normalization_offset` value for the fit model.
 
-        :return: The `normalization_offset` value for the fit model.
-        :rtype: float
+        :type: float
         """
         if self._result is None:
             return None
@@ -876,8 +863,7 @@ class Fit:
     def num_func_eval(self):
         """Return the number of function evaluations for the best fit.
 
-        :return: Number of function evaluations for the best fit.
-        :rtype: int
+        :type: int
         """
         if self._result is None:
             return None
@@ -887,8 +873,7 @@ class Fit:
     def parameters(self):
         """Return the fit parameters info.
 
-        :return: Fit parameters info.
-        :rtype: dict
+        :type: dict
         """
         return {name:{'min': par.min, 'max': par.max, 'vary': par.vary,
                 'expr': par.expr} for name, par in self._parameters.items()
@@ -896,10 +881,9 @@ class Fit:
 
     @property
     def redchi(self):
-        """Return the redchi value of the best fit.
+        """Return redchi for the best fit.
 
-        :return: redchi value of the best fit.
-        :rtype: dict
+        :type: dict
         """
         if self._result is None:
             return None
@@ -909,8 +893,7 @@ class Fit:
     def residual(self):
         """Return the residual in the best fit.
 
-        :return: Residual in the best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         if self._result is None:
             return None
@@ -922,8 +905,7 @@ class Fit:
     def success(self):
         """Return the success value for the fit.
 
-        :return: Success value for the fit.
-        :rtype: bool
+        :type: bool
         """
         if self._result is None:
             return None
@@ -940,8 +922,7 @@ class Fit:
         """Return the variable names for the covarience matrix
         property.
 
-        :return: Variable names for the covarience matrix property.
-        :rtype: list[str]
+        :type: list[str]
         """
         if self._result is None:
             return None
@@ -951,8 +932,7 @@ class Fit:
     def x(self):
         """Return the input x-coordinates.
 
-        :return: x-coordinates.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._x
 
@@ -960,8 +940,7 @@ class Fit:
     def y(self):
         """Return the input y-coordinates.
 
-        :return: y-coordinates.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._y
 
@@ -2419,8 +2398,7 @@ class FitMap(Fit):
     def best_errors(self):
         """Return errors in the best fit parameters.
 
-        :return: Errors in the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._best_errors
 
@@ -2428,36 +2406,31 @@ class FitMap(Fit):
     def best_fit(self):
         """Return the best fits.
 
-        :return: Best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._best_fit
 
     @property
     def best_values(self):
-        """Return values of the best fit parameters.
+        """Return values for the best fit parameters.
 
-        :return: Values of the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._best_values
 
     @property
     def best_vary(self):
-        """Return vary parameter for the best fit parameters.
+        """Return vary parameters for the best fit parameters.
 
-        :return: The value of the `vary` parameter for the best fit
-            parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._best_vary
 
     @property
     def chisqr(self):
-        """Return the chisqr value of each best fit.
+        """Return the chisqr value for each best fit.
 
-        :return: chisqr value of the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         self._logger.warning('Undefined property chisqr')
 
@@ -2465,8 +2438,7 @@ class FitMap(Fit):
     def components(self):
         """Return the fit model components info.
 
-        :return: Fit model components info.
-        :rtype: dict
+        :type: dict
         """
         # Third party modules
         from lmfit.models import ExpressionModel
@@ -2515,10 +2487,9 @@ class FitMap(Fit):
 
     @property
     def covar(self):
-        """Return the covarience matrices of the best fit parameters.
+        """Return the covarience matrices for the best fit parameters.
 
-        :return: Covarience matrix of the best fit parameters.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         self._logger.warning('Undefined property covar')
 
@@ -2527,9 +2498,7 @@ class FitMap(Fit):
         """Return if the maximum number of function evaluations is
         reached for each fit.
 
-        :return: Flags for all fits indicating if the maximum number of
-            function evaluations is reached.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._max_nfev
 
@@ -2537,27 +2506,23 @@ class FitMap(Fit):
     def num_func_eval(self):
         """Return the number of function evaluations for each best fit.
 
-        :return: Number of function evaluations for the best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._num_func_eval
 
     @property
     def out_of_bounds(self):
-        """Return the out_of_bounds value of each best fit.
+        """Return the out_of_bounds flag values for each best fit.
 
-        :return: Flags for all fits indicating the out_of_bounds value
-            of each best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._out_of_bounds
 
     @property
     def redchi(self):
-        """Return the redchi value of each best fit.
+        """Return the redchi value for each best fit.
 
-        :return: redchi value of the best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._redchi
 
@@ -2565,8 +2530,7 @@ class FitMap(Fit):
     def residual(self):
         """Return the residual in each best fit.
 
-        :return: Residual in the best fit.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         if self.best_fit is None:
             return None
@@ -2586,8 +2550,7 @@ class FitMap(Fit):
     def success(self):
         """Return the success value for each fit.
 
-        :return: Success value for each fit.
-        :rtype: bool
+        :type: bool
         """
         return self._success
 
@@ -2596,8 +2559,7 @@ class FitMap(Fit):
         """Return the variable names for the covarience matrix
         property.
 
-        :return: Variable names for the covarience matrix property.
-        :rtype: list[str]
+        :type: list[str]
         """
         self._logger.warning('Undefined property var_names')
 
@@ -2605,8 +2567,7 @@ class FitMap(Fit):
     def y(self):
         """Return the input y-coordinates.
 
-        :return: y-coordinates.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         self._logger.warning('Undefined property y')
 
@@ -2614,8 +2575,7 @@ class FitMap(Fit):
     def ymap(self):
         """Return the input y-coordinates map.
 
-        :return: y-coordinates.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         return self._ymap
 

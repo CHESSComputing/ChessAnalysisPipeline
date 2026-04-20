@@ -4,15 +4,12 @@ classes for `PipelineItems` that are common to various processing
 workflows.
 
 common
-    Common `Pydantic <https://github.com/pydantic/pydantic>`__ model
-    configuration classes.
+    Common Pydantic model configuration classes.
 integration:
     `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__ integration
-    related `Pydantic <https://github.com/pydantic/pydantic>`__ model
-    configuration classes.
+    related Pydantic model configuration classes.
 map
-    Map related `Pydantic <https://github.com/pydantic/pydantic>`__
-    model configuration classes.
+    Map related Pydantic model configuration classes.
 """
 
 from CHAP.common.models.common import (

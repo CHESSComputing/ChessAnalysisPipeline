@@ -19,7 +19,7 @@ class TomoWriter(Writer):
         """Validate the filename extension.
 
         :return: Validated writer configuration
-        :rtype: dict
+        :rtype: TomoWriter
         """
         ext = os.path.splitext(self.filename)[1][1:]
         if ext not in ('nxs', 'yml', 'yaml'):

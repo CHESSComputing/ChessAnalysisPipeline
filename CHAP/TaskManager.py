@@ -1,7 +1,5 @@
-"""
-Python thread pool, see
+"""Python thread pool, see
 http://code.activestate.com/recipes/577187-python-thread-pool/
-Author: Valentin Kuznetsov <vkuznet [AT] gmail [DOT] com>
 """
 from builtins import range
 
@@ -15,8 +13,9 @@ from queue import Queue
 
 
 def genkey(query):
-    """Generate a new key-hash for a given query. We use md5 hash for
-    the query and key is just hex representation of this hash.
+    """Generate a new key-hash for a given query. CHAP uses a md5 hash
+    for the query and the key is just the hex representation of this
+    hash.
     """
     if  isinstance(query, dict):
         record = dict(query)
@@ -25,17 +24,20 @@ def genkey(query):
     keyhash.update(query.encode('utf-8', 'strict'))
     return keyhash.hexdigest()
 
+
 def set_thread_name(ident, name):
-    """Set thread name for given identified."""
+    """Set the thread name for given identified."""
     for thr in threading.enumerate():
         if  thr.ident == ident:
             thr.name = name
             break
 
+
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to
     check regularly for the stopped() condition.
     """
+
     def __init__(self, target, name, args):
         super(StoppableThread, self).__init__(
             target=target, name=name, args=args)
@@ -53,8 +55,9 @@ class StoppableThread(threading.Thread):
         """Return running status of the thread."""
         return not self._stop_event.is_set()
 
+
 def start_new_thread(name, func, args, unique=False):
-    """Wrapper wroung standard thread.strart_new_thread call."""
+    """Wrapper for standard thread.strart_new_thread call."""
     if unique:
         threads = sorted(threading.enumerate())
         for thr in threads:
@@ -66,8 +69,10 @@ def start_new_thread(name, func, args, unique=False):
     thr.start()
     return thr
 
+
 class UidSet():
     """UID holder keeps track of uid frequency."""
+
     def __init__(self):
         self.set = {}
 
@@ -97,8 +102,10 @@ class UidSet():
         """Get value for given uid."""
         return self.set.get(uid, 0)
 
+
 class Worker(threading.Thread):
     """Thread executing worker from a given tasks queue."""
+
     def __init__(self, name, taskq, pidq, uidq, logger=None):
         self.logger = logging.getLogger() if logger is None else logger
         threading.Thread.__init__(self, name=name)
@@ -138,6 +145,7 @@ class Worker(threading.Thread):
             else:
                 print(f'Unsupported task {task}')
 
+
 class TaskManager():
     """Task manager class based on thread module which executes
     assigned tasks concurently. It uses a pool of thread workers,
@@ -151,6 +159,7 @@ class TaskManager():
         jobs.append(mgr.spawn(func, args))
         mgr.joinall(jobs)
     """
+
     def __init__(self, nworkers=10, name='TaskManager'):
         self.logger = logging.getLogger()
         self.name = name

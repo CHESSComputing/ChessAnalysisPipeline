@@ -224,10 +224,8 @@ class SpecScans(CHAPBaseModel):
 
         :param scan_numbers: Scan numbers.
         :type scan_numbers: int or list[int] or str
-        :param info:
-            `Pydantic <https://github.com/pydantic/pydantic>`__
-            validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
         :return: Validated scan numbers.
@@ -271,15 +269,13 @@ class SpecScans(CHAPBaseModel):
 
     @property
     def scanparsers(self):
-        """Returns the list of
+        """Return the list of
         `ScanParser`s <https://github.com/CHESSComputing/chess-scanparsers?tab=readme-ov-file>`,
         for each of the scans specified by the SPEC file and scan
         numbers belonging to this instance of
         :class:`~CHAP.common.models.map.SpecScans`.
 
-        :return: `ScanParser` for each specified SPEC file and scan
-            number.
-        :rtype: list[chess_scanparsers.ScanParser]
+        :type: list[chess_scanparsers.ScanParser]
         """
         return [self.get_scanparser(scan_no) for scan_no in self.scan_numbers]
 
@@ -835,10 +831,8 @@ def validate_data_source_for_map_config(data_source, info):
 
     :param data_source: Input object to validate.
     :type data_source: PointByPointScanData
-    :param info:
-        `Pydantic <https://github.com/pydantic/pydantic>`__
-        validator info object.
-    :type info: pydantic_core._pydantic_core.ValidationInfo
+    :param info: Model parameter validation information.
+    :type info: pydantic.ValidationInfo
     :raises Exception: If `data_source` cannot be validated.
     :return: Validated `data_source` instance.
     :rtype: PointByPointScanData
@@ -1003,9 +997,8 @@ class SpecConfig(CHAPBaseModel):
         :param data:
             `Pydantic <https://github.com/pydantic/pydantic>`__
             validator data object.
-        :type data: SpecConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: Currently validated list of class properties.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         inputdir = data.get('inputdir')
@@ -1034,10 +1027,8 @@ class SpecConfig(CHAPBaseModel):
         :param experiment_type: `experiment_type` value to validate.
         :type experiment_type: Literal[
             'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
-        :param info:
-            `Pydantic <https://github.com/pydantic/pydantic>`__
-            validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :raises ValueError: Invalid experiment type.
         :return: Validated `experiment_type` value.
         :rtype: str
@@ -1146,9 +1137,8 @@ class MapConfig(CHAPBaseModel):
         :param data:
             `Pydantic <https://github.com/pydantic/pydantic>`__
             validator data object.
-        :type data:
-            MapConfig, pydantic_core._pydantic_core.ValidationInfo
-        :return: Currently validated list of class properties.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if 'spec_file' in data and 'scan_numbers' in data:
@@ -1195,10 +1185,8 @@ class MapConfig(CHAPBaseModel):
         :param experiment_type: `experiment_type` value to validate.
         :type experiment_type: Literal[
             'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
-        :param info:
-            `Pydantic <https://github.com/pydantic/pydantic>`__
-            validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :raises ValueError: Invalid experiment type.
         :return: Validated `experiment_type` value.
         :rtype: str
@@ -1227,9 +1215,11 @@ class MapConfig(CHAPBaseModel):
     def validate_before(cls, data):
         """Ensure that the `attrs` parameter is initialized.
 
-        :param data: Pydantic validator data object.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
         :type data: dict
-        :return: Initialized `attrs` parameter.
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if data.get('attrs') is None:
@@ -1246,10 +1236,8 @@ class MapConfig(CHAPBaseModel):
         :param attrs: Any additional attributes to the
             :class:`~CHAP.common.models.map.MapConfig`
         :type attrs: dict
-        :param info:
-            `Pydantic <https://github.com/pydantic/pydantic>`__
-            validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :raises ValueError: Invalid attribute.
         :return: Validated `attrs` fields.
         :rtype: dict
@@ -1332,8 +1320,7 @@ class MapConfig(CHAPBaseModel):
         corrections-data-related fields, as well as any additional
         items in the optional `scalar_data` field.
 
-        :return: All scalar fields.
-        :rtype: list
+        :type: list
         """
         return [getattr(self, label, None)
                 for label in CorrectionsData.reserved_labels()
@@ -1344,8 +1331,7 @@ class MapConfig(CHAPBaseModel):
         """Return a dictionary of the values of each independent
         dimension across the map.
 
-        :return: Independent dimension values across the map.
-        :rtype: list
+        :type: list
         """
         raise RuntimeError('property coords not implemented')
         if not hasattr(self, '_coords'):
@@ -1377,8 +1363,7 @@ class MapConfig(CHAPBaseModel):
         """Return a list of the independent dimension labels for the
         map.
 
-        :return: Independent dimension labels for the map.
-        :rtype: list
+        :type: list
         """
         if not hasattr(self, '_dims'):
             self._dims = [dim.label for dim in self.independent_dimensions]
@@ -1390,9 +1375,7 @@ class MapConfig(CHAPBaseModel):
         :class:`~CHAP.common.models.map.SpecScans` object, the scan
         number, and scan step index for every point on the map.
 
-        :return: Scan number, and scan step index for every point on
-            the map.
-        :rtype: list
+        :type: list
         """
         raise RuntimeError('property scan_step_indices not implemented')
         if not hasattr(self, '_scan_step_indices'):
@@ -1411,8 +1394,7 @@ class MapConfig(CHAPBaseModel):
         """Return the shape of the map -- a tuple representing the
         number of unique values of each dimension across the map.
 
-        :return: Map shape.
-        :rtype: tupple
+        :type: tupple
         """
         raise RuntimeError('property shape not implemented')
         if not hasattr(self, '_shape'):

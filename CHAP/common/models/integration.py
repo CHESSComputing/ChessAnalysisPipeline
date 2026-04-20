@@ -1,5 +1,5 @@
 """`pyFAI <https://pyfai.readthedocs.io/en/stable/>`__ integration
-related 'Pydantic <https://github.com/pydantic/pydantic>`__ model
+related `Pydantic <https://github.com/pydantic/pydantic>`__ model
 configuration classes."""
 
 # System modules
@@ -58,9 +58,11 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         `pyFAI.azimuthalIntegrator.AzimuthalIntegrator <https://www.silx.org/doc/pyFAI/latest/api/pyFAI.html#pyFAI.__init__.AzimuthalIntegrator>`__
         object.
 
-        :param data: Input data.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
         :type data: dict
-        :return: Validated data.
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if isinstance(data, dict):
@@ -113,8 +115,7 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
     def ai(self):
         """Return the azimuthal integrator.
 
-        :return: Azimuthal integrator.
-        :rtype: AzimuthalIntegrator
+        :type: AzimuthalIntegrator
         """
         return self._ai
 
@@ -124,8 +125,7 @@ class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
         data in the file specified with the `mask_file` field. Return
         `None` if `mask_file` is `None`.
 
-        :return: Mask array.
-        :rtype: numpy.ndarray
+        :type: numpy.ndarray
         """
         # Third party modules
         import fabio
@@ -320,10 +320,11 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def validate_config(cls, data):
         """Validate the input integration configuration.
 
-        :param data: Pydantic validator data object.
-        :type data: PyfaiIntegratorConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: Currently validated list of class properties.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         integration_method = data.get('integration_method')
@@ -369,8 +370,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     def result_shape(self):
         """Return shape of one frame of results from this integration.
 
-        :return: Shape of one frame of integration results.
-        :rtype: tuple
+        :type: tuple
         """
         if self.integration_method == 'integrate_radial':
             return (self.integration_params.npt, )
@@ -388,9 +388,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         for the coordinates of a single frame of results from this
         integration.
 
-        :return: `zarr.array` objects for the coordinates of a single
-            frame from this integration.
-        :rtype: dict
+        :type: dict
         """
         if self._placeholder_result is None:
             raise RuntimeError('Missing placeholder results')
@@ -712,10 +710,11 @@ class PyfaiIntegrationConfig(CHAPBaseModel):
         """Ensure that a valid configuration was provided and finalize
         PONI filepaths.
 
-        :param data: Pydantic validator data object.
-        :type data: GiwaxsConversionConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: Currently validated list of class properties.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if isinstance(data, dict):

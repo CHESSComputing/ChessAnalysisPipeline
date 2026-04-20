@@ -41,10 +41,10 @@ class FoxdenDataDiscoveryReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdendatadiscoveryreader_after(self):
-        """Validate the model configuration.
+        """Validate the `FoxdenDataDiscoveryReader` configuration.
 
         :return: Validated model configuration
-        :rtype: dict
+        :rtype: FoxdenDataDiscoveryReader
         """
         assert self.config.url is not None
         return self
@@ -97,10 +97,10 @@ class FoxdenMetadataReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdenmetadatareader_after(self):
-        """Validate the model configuration.
+        """Validate the `FoxdenMetadataReader` configuration.
 
         :return: Validated model configuration
-        :rtype: dict
+        :rtype: FoxdenMetadataReader
         """
         if self.get_schema() is None:
             self.schema_ = 'foxden.reader.FoxdenMetadataReader'
@@ -170,10 +170,10 @@ class FoxdenProvenanceReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdenprovenancereader_after(self):
-        """Validate the model configuration.
+        """Validate the `FoxdenProvenanceReader` configuration.
 
         :return: Validated model configuration
-        :rtype: dict
+        :rtype: FoxdenProvenanceReader
         """
         if self.get_schema() is None:
             self.schema_ = 'foxden.reader.FoxdenProvenanceReader'

@@ -1704,8 +1704,7 @@ class TomoFindCenterGui(Processor):
         """Return the selected centers at the specified or selected
         center finding rows.
 
-        :return: Selected centers at center finding rows.
-        :rtype: list[float]
+        :type: list[float]
         """
         return self._center_offsets
 
@@ -1714,8 +1713,7 @@ class TomoFindCenterGui(Processor):
         """Return the reconstructed images at the specified or selected
         center finding row indices.
 
-        :return: Reconstructed images at center finding rows.
-        :rtype: list[numpy.ndarray]
+        :type: list[numpy.ndarray]
         """
         return self._recon_planes
 
@@ -3539,7 +3537,7 @@ class TomoSimFieldProcessor(Processor):
         `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
         object with the simulated tomography detector images.
 
-        :param data: Input configuration for the simulation.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated tomographic images.
@@ -3837,7 +3835,7 @@ class TomoDarkFieldProcessor(Processor):
         `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
         object with the simulated dark field detector images.
 
-        :param data: Input configuration for the simulation.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises ValueError: Missing or invalid input or configuration
             parameter.
@@ -3912,7 +3910,7 @@ class TomoBrightFieldProcessor(Processor):
         `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
         object with the simulated bright field detector images.
 
-        :param data: Input configuration for the simulation.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises ValueError: Missing or invalid input or configuration
             parameter.
@@ -4003,10 +4001,10 @@ class TomoSpecProcessor(Processor):
 
     @model_validator(mode='after')
     def validate_tomospecprocessor_after(self):
-        """Validate the model configuration.
+        """Validate the `TomoSpecProcessor` configuration.
 
         :return: Validated model configuration
-        :rtype: dict
+        :rtype: TomoSpecProcessor
         """
         if self.filename is None:
             return self
@@ -4038,7 +4036,7 @@ class TomoSpecProcessor(Processor):
         """Process the input configuration and return a list of strings
         representing a plain text SPEC file.
 
-        :param data: Input configuration for the simulation.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises ValueError: Invalid input or configuration parameter.
         :return: Simulated SPEC file.

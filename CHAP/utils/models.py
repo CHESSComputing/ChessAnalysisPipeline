@@ -295,8 +295,8 @@ def validate_parameters(parameters, info):
 
     :param parameters: Fit model parameters.
     :type parameters: list[FitParameter]
-    :param info: Pydantic validator info object.
-    :type info: pydantic_core._pydantic_core.ValidationInfo
+    :param info: Model parameter validation information.
+    :type info: pydantic.ValidationInfo
     :return: List of fit model parameters.
     :rtype: list[FitParameter]
     """
@@ -400,10 +400,9 @@ class FitParameter(CHAPBaseModel):
 
     @property
     def default(self):
-        """Return the _default attribute.
+        """Return the default parameter value.
 
-        :return: Default parameter value.
-        :rtype: float or None
+        :type: float or None
         """
         if hasattr(self, '_default'):
             return self._default
@@ -411,10 +410,9 @@ class FitParameter(CHAPBaseModel):
 
     @property
     def init_value(self):
-        """Return the _init_value attribute.
+        """Return the initial parameter value.
 
-        :return: Initial parameter value.
-        :rtype: float or None
+        :type: float or None
         """
         if hasattr(self, '_init_value'):
             return self._init_value
@@ -422,10 +420,9 @@ class FitParameter(CHAPBaseModel):
 
     @property
     def prefix(self):
-        """Return the _prefix attribute.
+        """Return the parametr prefix.
 
-        :return: Parameter prefix.
-        :rtype: str or None
+        :type: str or None
         """
         if hasattr(self, '_prefix'):
             return self._prefix
@@ -433,10 +430,9 @@ class FitParameter(CHAPBaseModel):
 
     @property
     def stderr(self):
-        """Return the _stderr attribute.
+        """Return the parameter's uncertainty value.
 
-        :return: Parameter's uncertainty value.
-        :rtype: float or None
+        :type: float or None
         """
         if hasattr(self, '_stderr'):
             return self._stderr
@@ -821,8 +817,8 @@ class FitConfig(CHAPBaseModel):
 
         :param method: The value of `method` to validate.
         :type method: str
-        :param info: Pydantic validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :return: Fit method.
         :rtype: str
         """

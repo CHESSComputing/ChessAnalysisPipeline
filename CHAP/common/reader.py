@@ -56,7 +56,8 @@ class BinaryFileReader(Reader):
 
 class ConfigReader(Reader):
     """Reader for YAML files that optionally implements and verifies it
-    agaist its Pydantic configuration schema.
+    agaist its `Pydantic <https://github.com/pydantic/pydantic>`__
+    configuration schema.
     """
 
     def read(self):
@@ -794,7 +795,7 @@ class SpecReader(Reader):
         """Validate the `SpecReader` configuration.
 
         :return: Validated configuration.
-        :rtype: PipelineItem
+        :rtype: SpecReader
         """
         if self.filename is not None:
             if self.config is not None:

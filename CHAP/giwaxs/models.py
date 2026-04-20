@@ -34,11 +34,13 @@ from CHAP.common.models.map import Detector
 def validate_azimuthal_integrators_before(cls, data, info):
     """Validate an azimuthal integrator model.
 
-    :param data: Input data.
+    :param data:
+        `Pydantic <https://github.com/pydantic/pydantic>`__
+        validator data object.
     :type data: dict
     :param info: Model parameter validation information.
     :type info: pydantic.ValidationInfo
-    :return: Validated data.
+    :return: Currently validated class attributes.
     :rtype: dict
     """
     ais = data['azimuthal_integrators']
@@ -79,11 +81,13 @@ class IntegratorConfig(Detector, CHAPBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_integratorconfig_before(cls, data):
-        """Validate the integrator configuration.
+        """Validate the `IntegratorConfig` class attributes.
 
-        :param data: Input data.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
         :type data: dict
-        :return: Validated data.
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if isinstance(data, dict):
@@ -99,10 +103,9 @@ class IntegratorConfig(Detector, CHAPBaseModel):
 
     @property
     def ai(self):
-        """Return the integrator.
+        """Return the model's integrator.
 
-        :return: Model's integrator.
-        :rtype: pyFAI.integrator.azimuthal.AzimuthalIntegrator
+        :type: pyFAI.integrator.azimuthal.AzimuthalIntegrator
         """
         return self._ai
 
@@ -488,12 +491,13 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
     @model_validator(mode='before')
     @classmethod
     def validate_pyfaiintegratorconfig_before(cls, data):
-        """Validate the integration parameters.
+        """Validate the `PyfaiIntegratorConfig` class attributes.
 
-        :param data: Pydantic validator data object.
-        :type data: PyfaiIntegratorConfig or
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: Currently validated list of class properties.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         integration_method = data['integration_method']
