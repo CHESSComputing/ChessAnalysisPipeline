@@ -17,7 +17,7 @@ from typing import (
 from pydantic import (
     ConfigDict,
     Field,
-    FilePath,
+#    FilePath,
     PrivateAttr,
     conlist,
     constr,
@@ -52,7 +52,7 @@ class PipelineItem(RunConfig):
     :ivar schema: `Pipeline` object schema.
     :vartype schema: str, optional
     """
-    
+
     logger: Optional[logging.Logger] = None
     name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     schema_: Optional[constr(strip_whitespace=True, min_length=1)] = \
@@ -114,7 +114,7 @@ class PipelineItem(RunConfig):
 
     @property
     def method(self):
-        """Return the `PipelineItem`//s `read`, `process` or `write`
+        """Return the `PipelineItem`\\s `read`, `process` or `write`
         method.
 
         :type: types.MethodType
@@ -123,7 +123,7 @@ class PipelineItem(RunConfig):
 
     @property
     def method_type(self):
-        """Return the `PipelineItem`//s execute method type.
+        """Return the `PipelineItem`\\s execute method type.
 
         :type: Literal['read', 'process', 'write']
         """
@@ -131,7 +131,7 @@ class PipelineItem(RunConfig):
 
     @property
     def run_config(self):
-        """Return the `PipelineItem`//s run configuration.
+        """Return the `PipelineItem`\\s run configuration.
 
         :type: RunConfig
         """
@@ -139,7 +139,7 @@ class PipelineItem(RunConfig):
 
     @property
     def status(self):
-        """Return the `PipelineItem`//s status.
+        """Return the `PipelineItem`\\s status.
 
         :type: Literal['read', 'write_pending', 'written']
         """
@@ -147,27 +147,27 @@ class PipelineItem(RunConfig):
 
     @status.setter
     def status(self, status):
-        """Set the `PipelineItem`//s status.
+        """Set the `PipelineItem`\\s status.
 
-        :param status: `PipelineItem`//s status.
+        :param status: `PipelineItem`\\s status.
         :type: Literal['read', 'write_pending', 'written']
         """
         self._status = status
 
     def get_args(self):
-        """Return the `PipelineItem`//s execution method run time
+        """Return the `PipelineItem`\\s execution method run time
         arguments.
 
-        :return: `PipelineItem`//s execution method run time arguments.
+        :return: `PipelineItem`\\s execution method run time arguments.
         :rtype: dict
         """
         return self._args
 
     def set_args(self, **args):
-        """Set the `PipelineItem`//s execution method run time
+        """Set the `PipelineItem`\\s execution method run time
         arguments that are allowed by its method declaration.
 
-        :param: `PipelineItem`//s execution method run time arguments.
+        :param: `PipelineItem`\\s execution method run time arguments.
         :type: dict
         """
         for k, v in args.items():
@@ -184,9 +184,9 @@ class PipelineItem(RunConfig):
         return hasattr(self, 'filename') and self.filename is not None
 
     def get_schema(self):
-        """Return the `PipelineItem`//s schema.
+        """Return the `PipelineItem`\\s schema.
 
-        :return: `PipelineItem`//s schema.
+        :return: `PipelineItem`\\s schema.
         :rtype: str
         """
         return self.schema_
@@ -357,7 +357,7 @@ class PipelineItem(RunConfig):
         """
         # Third party modules
         from nexusformat.nexus import NXobject
-        
+
         result = None
         if name is None and schema is None:
             for i, d in reversed(list(enumerate(data))):
@@ -367,7 +367,7 @@ class PipelineItem(RunConfig):
                         data.pop(i)
                     break
             else:
-                raise ValueError(f'No NXobject data item found')
+                raise ValueError('No NXobject data item found')
         elif name is not None:
             for i, d in reversed(list(enumerate(data))):
                 if d.get('name') == name:
@@ -447,7 +447,7 @@ class Pipeline(CHAPBaseModel):
     :vartype args: list[dict]
     :ivar logger: CHAP logger.
     :vartype logger: logging.Logger, optional
-    :ivar mmcs: List of `PipelineItem`//s classes in the full pipeline.
+    :ivar mmcs: List of `PipelineItem`\\s classes in the full pipeline.
     :vartype mmcs:
         list[pydantic._internal._model_construction.ModelMetaclass]
     """
@@ -527,7 +527,8 @@ class Pipeline(CHAPBaseModel):
                     if item.has_filename():
                         self._filename_mapping[
                             item._mapping_filename]['status'] = 'read'
-                    item.status = 'read' # FIX RV make part of pipelineitem for read
+                    # FIX make part of pipelineitem for read
+                    item.status = 'read'
             if item.method_type == 'write' and item.has_filename():
                 for k, v in self._filename_mapping.items():
                     if v['path'] == item.filename:
@@ -570,7 +571,7 @@ class Pipeline(CHAPBaseModel):
                     data = current_item.execute(self._data)
 #                        self._data, self._metadata, self._provenance)
                     if current_item.method_type == 'read':
-                        for i, d in reversed(list(enumerate(self._data))):
+                        for _, d in reversed(list(enumerate(self._data))):
                             if d == PipelineData(
                                     name=current_item.name, data=data,
                                     schema=current_item.get_schema()):
@@ -579,7 +580,8 @@ class Pipeline(CHAPBaseModel):
                             self._data.append(PipelineData(
                                 name=current_item.name, data=data,
                                 schema=current_item.get_schema()))
-                        current_item.status = 'read' #FIX RF move to pipelineitem after read
+                        #FIX RF move to pipelineitem after read
+                        current_item.status = 'read'
                     else:
                         if isinstance(data, tuple):
                             self._data.extend(

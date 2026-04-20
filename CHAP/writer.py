@@ -75,8 +75,8 @@ class Writer(PipelineItem):
         try:
             provenance = self.get_data(
                 data, schema='foxden.reader.FoxdenProvenanceReader')
-        except:
-            return
+        except ValueError:
+            return None
         output_files = provenance.pop('output_files', [])
         output_files.append({
             'name': os_path.realpath(self.filename)})
@@ -95,7 +95,7 @@ class Writer(PipelineItem):
         data = self.get_pipelinedata_item(data, remove=self.remove)
         if os.path.isfile(self.filename) and not self.force_overwrite:
             raise FileExistsError(f'{self.filename} already exists')
-        with open(self.filename, 'w') as f:
+        with open(self.filename, 'w', encoding='utf-8') as f:
             f.write(data)
         self.status = 'written' # Right now does nothing yet, but could
                                 # add a sort of modification flag later

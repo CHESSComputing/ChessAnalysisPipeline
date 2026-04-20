@@ -1,5 +1,5 @@
 """Python thread pool, see
-http://code.activestate.com/recipes/577187-python-thread-pool/
+http://code.activestate.com/recipes/577187-python-thread-pool
 """
 from builtins import range
 
@@ -106,7 +106,7 @@ class UidSet():
 class Worker(threading.Thread):
     """Thread executing worker from a given tasks queue."""
 
-    def __init__(self, name, taskq, pidq, uidq, logger=None):
+    def __init__(self, name, taskq, pidq, uidq, *, logger=None):
         self.logger = logging.getLogger() if logger is None else logger
         threading.Thread.__init__(self, name=name)
         self.exit = 0
@@ -167,7 +167,7 @@ class TaskManager():
         self.uids = UidSet()
         self.tasks = Queue()
         self.workers = [Worker(name, self.tasks, self.pids, self.uids,
-                               self.logger)
+                               logger=self.logger)
                         for _ in range(0, nworkers)]
 
     def status(self):

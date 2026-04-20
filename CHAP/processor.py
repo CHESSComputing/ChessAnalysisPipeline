@@ -8,7 +8,6 @@ from.
 import argparse
 import logging
 from sys import modules
-from typing import Optional
 
 # Third party modules
 from pydantic import model_validator
@@ -22,7 +21,7 @@ class Processor(PipelineItem):
 
     The job of any `Processor` in a pipeline is to receive data
     returned by a previous `PipelineItem`, process it in some way,
-    and return the result for the following `PipelineItem`//s to use.
+    and return the result for the following `PipelineItem`\\s to use.
     """
 
     # FIX add a validation status, so that the validator doesn't get
@@ -63,7 +62,7 @@ class Processor(PipelineItem):
                         try:
                             value = deepcopy(mmc.get_data(
                                 data['data'], schema=schema, remove=False))
-                        except:
+                        except Exception:
                             pass
                         else:
                             if k in data:

@@ -51,7 +51,7 @@ class Reader(PipelineItem):
     """Base reader.
 
     The job of any `Reader` in a pipeline is to provide data stored
-    in a file to the list of `PipelineItem`//s.
+    in a file to the list of `PipelineItem`\\s.
 
     :ivar filename: Name of file to read from.
     :vartype filename: str
@@ -74,7 +74,7 @@ class Reader(PipelineItem):
                 'No file name is given, skipping read operation')
             return None
         try:
-            with open(self.filename) as f:
+            with open(self.filename, encoding='utf-8') as f:
                 data = f.read()
         except Exception:
             return None

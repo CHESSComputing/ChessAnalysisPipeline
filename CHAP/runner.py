@@ -68,7 +68,7 @@ def main():
 
     # Read the input config file
     configfile = args.config
-    with open(configfile) as file:
+    with open(configfile, encoding='utf-8') as file:
         config = safe_load(file)
     #RV Add to input_files in provenance data writer
 
@@ -80,12 +80,16 @@ def main():
         common_comm = sub_comm.Merge(True)
         # Read worker specific input config file
         if run_config.spawn > 0:
-            with open(f'{configfile}_{common_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{common_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(
                     **config.pop('config'), comm=common_comm)
         else:
-            with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{sub_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(**config.pop('config'), comm=comm)
     else:
@@ -375,7 +379,7 @@ def batch_runner(run_config, pipeline_config, log_file):
     import traceback
 
     print(f'Logging to {log_file}')
-    with open(log_file, "w") as f:
+    with open(log_file, 'w', encoding='utf-8') as f:
         sys.stdout = f
         sys.stderr = f
         try:

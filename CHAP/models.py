@@ -30,7 +30,7 @@ class CHAPBaseModel(BaseModel):
     def dict(self, *args, **kwargs):
         """Dump the class implemention to a dictionary.
 
-        :param \*\*kwargs: Arbitrary keyword arguments.
+        :param **kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
@@ -46,7 +46,7 @@ class CHAPBaseModel(BaseModel):
     def model_dump(self, *args, **kwargs):
         """Dump the class implemention to a dictionary.
 
-        :param \*\*kwargs: Arbitrary keyword arguments.
+        :param **kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
@@ -67,7 +67,7 @@ class CHAPBaseModel(BaseModel):
     def model_dump_json(self, *args, **kwargs):
         """Dump the class implemention to a JSON string.
 
-        :param \*\*kwargs: Arbitrary keyword arguments.
+        :param **kwargs: Arbitrary keyword arguments.
         :type: dict
         :keyword exclude: Class variable(s) to omit from the output
             dictionary.
@@ -179,10 +179,7 @@ class RunConfig(CHAPBaseModel):
 
             # Make sure os.makedirs is only called from the root node
             comm = data.get('comm')
-            if comm is None:
-                rank = 0
-            else:
-                rank = comm.Get_rank()
+            rank = 0 if comm is None else comm.Get_rank()
 
             # Check if root exists (create it if not) and is readable
             root = data.get('root')

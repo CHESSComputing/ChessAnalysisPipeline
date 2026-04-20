@@ -59,7 +59,7 @@ from queue import Queue
 from flask import Flask, request
 
 # Local modules
-from CHAP.TaskManager import TaskManager, start_new_thread
+from CHAP.taskmanager import TaskManager, start_new_thread
 from CHAP.runner import run, set_logger
 
 
