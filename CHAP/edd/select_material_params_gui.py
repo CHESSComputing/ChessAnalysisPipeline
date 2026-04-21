@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Model class and functions to create a GUI to interactively update
+the material properties for an EDD workflow.
+"""
+
 # Third party modules
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
@@ -6,6 +12,11 @@ import tkinter as tk
 from tkinter import messagebox
 
 class MaterialParamSelector:
+    """A processor that creates and opens a GUI to interactively
+    check and if needed update the material properties for an EDD
+    workflow.
+    """
+
     def __init__(
             self, root, x, y, tth, preselected_materials, label, on_complete):
 
@@ -62,10 +73,6 @@ class MaterialParamSelector:
             root, text='Update Material Properties',
             command=self.update_material)
         self.update_button.grid(row=11, column=1, columnspan=2)
-        self.update_button = tk.Button(
-            root, text='Update Material Properties',
-            command=self.update_material)
-        self.update_button.grid(row=11, column=1, columnspan=2)
 
         self.confirm_button = tk.Button(
             root, text='Confirm\nAll\nSelected\nMaterial\nProperties',
@@ -84,7 +91,13 @@ class MaterialParamSelector:
         # Overwrite the root window's close action to call `self.on_close`
         self.root.protocol('WM_DELETE_WINDOW', self.on_close)
 
-    def plot_reference_data(self):
+    def _clear_fields(self):
+        """Clear the fields."""
+        for entry in self.fields.values():
+            entry.delete(0, tk.END)
+
+    def _plot_reference_data(self):
+        """Plot the reference data."""
         if self.ref_data_y is None:
             return
         handle = self.ax.plot(
@@ -95,7 +108,37 @@ class MaterialParamSelector:
         self.ax.set_ylabel('Intensity (a.u)')
         self.canvas.draw()
 
+    def _update_plot(self):
+        """Update the reference data plot."""
+        # Local modules
+        from CHAP.edd.utils import (
+            get_unique_hkls_ds,
+            get_peak_locations,
+        )
+
+        self.ax.cla()
+        self.legend_handles = []
+        self._plot_reference_data()  # Re-plot reference data
+
+        # Plot each material's hkl peak locations
+        for i, material in enumerate(self.materials):
+            hkls, ds = get_unique_hkls_ds([material])
+            E0s = get_peak_locations(ds, self.tth)
+            for hkl, E0 in zip(hkls, E0s):
+                if E0 < min(self.ref_data_x) or E0 > max(self.ref_data_x):
+                    continue
+                line = self.ax.axvline(
+                    E0, c=f'C{i+1}', ls='--', lw=1,
+                    label=material.material_name)
+                self.ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i+1}',
+                             ha='right', va='top', rotation=90,
+                             transform=self.ax.get_xaxis_transform())
+            self.legend_handles.append(line)
+        self.ax.legend(handles=self.legend_handles)
+        self.canvas.draw()
+
     def add_material(self, new_material=None):
+        """Callback function for the "Add Material" botton."""
         # Local modules
         from CHAP.edd.models import MaterialConfig
 
@@ -109,17 +152,21 @@ class MaterialParamSelector:
         self.material_listbox.insert(tk.END, new_material.material_name)
         self.material_listbox.select_set(tk.END)
         self.on_material_select(None)
-        self.update_plot()
+        self._update_plot()
 
     def remove_material(self):
+        """Callback function for the "Remove Material" botton."""
         if self.selected_material is not None:
             self.materials.pop(self.selected_material)
             self.material_listbox.delete(self.selected_material)
             self.selected_material = None
-            self.clear_fields()
-            self.update_plot()
+            self._clear_fields()
+            self._update_plot()
 
     def update_material(self):
+        """Callback function for the "Update Material Properties"
+        botton.
+        """
         # Local modules
         from CHAP.edd.utils import make_material
 #        from CHAP.utils.material import Material
@@ -168,80 +215,54 @@ class MaterialParamSelector:
             self.material_listbox.delete(self.selected_material)
             self.material_listbox.insert(
                 self.selected_material, material.material_name)
-            self.update_plot()
+            self._update_plot()
         except ValueError:
             messagebox.showerror(
                 'Invalid input',
                 'Please enter valid numbers for lattice parameters.')
 
     def on_material_select(self, event):
+        """Callback function for the "Select Material" ListBox."""
         if len(self.material_listbox.curselection()) == 0:
             # Listbox item deselection event can be ignored
             return
         # Update the selected material index
         self.selected_material = self.material_listbox.curselection()[0]
         material = self.materials[self.selected_material]
-        self.clear_fields()
+        self._clear_fields()
         self.fields['Material Name'].insert(0, material.material_name)
         self.fields['Space Group'].insert(0, str(material.sgnum))
         for i, key in enumerate(('a', 'b', 'c', 'alpha', 'beta', 'gamma')):
             self.fields[key].insert(
                 0, str(material._material.latticeParameters[i].value))
 
-    def clear_fields(self):
-        for entry in self.fields.values():
-            entry.delete(0, tk.END)
-
-    def update_plot(self):
-        # Local modules
-        from CHAP.edd.utils import (
-            get_unique_hkls_ds,
-            get_peak_locations,
-        )
-
-        self.ax.cla()
-        self.legend_handles = []
-        self.plot_reference_data()  # Re-plot reference data
-
-        # Plot each material's hkl peak locations
-        for i, material in enumerate(self.materials):
-            hkls, ds = get_unique_hkls_ds([material])
-            E0s = get_peak_locations(ds, self.tth)
-            for hkl, E0 in zip(hkls, E0s):
-                if E0 < min(self.ref_data_x) or E0 > max(self.ref_data_x):
-                    continue
-                line = self.ax.axvline(
-                    E0, c=f'C{i+1}', ls='--', lw=1,
-                    label=material.material_name)
-                self.ax.text(E0, 1, str(hkl)[1:-1], c=f'C{i+1}',
-                             ha='right', va='top', rotation=90,
-                             transform=self.ax.get_xaxis_transform())
-            self.legend_handles.append(line)
-        self.ax.legend(handles=self.legend_handles)
-        self.canvas.draw()
-
     def on_close(self):
-        """Handle closing the GUI and triggering the on_complete
-        callback."""
+        """Callback function for the "Confirm All Selected Material
+        Properties" button. Closes the GUI and triggers the
+        on_complete callback function."""
         if self.on_complete:
             self.on_complete(self.materials, self.figure)
         self.root.destroy()  # Close the tkinter root window
         plt.close()
 
+
 def run_material_selector(
         x, y, tth, preselected_materials=None, label='Reference Data',
         on_complete=None, interactive=False):
-    """Run the MaterialParamSelector tkinter application.
+    """Run the
+    :class:`~CHAP.edd.select_material_params_gui.MaterialParamSelector`
+    tkinter application.
 
     :param x: MCA channel energies.
-    :type x: np.ndarray
+    :type x: numpy.ndarray
     :param y: MCA intensities.
-    :type y: np.ndarray
-    :param tth: The (calibrated) 2&theta; angle.
+    :type y: numpy.ndarray
+    :param tth: (calibrated) 2&theta; angle.
     :type tth: float
     :param preselected_materials: Materials to get HKLs and lattice
         spacings for.
-    :type preselected_materials: list[hexrd.material.Material], optional
+    :type preselected_materials: list[MaterialConfig],
+        optional
     :param label: Legend label for the 1D plot of reference MCA data
         from the parameters `x`, `y`, defaults to `"Reference Data"`.
     :type label: str, optional
@@ -249,10 +270,10 @@ def run_material_selector(
         material selection, defaults to `None`.
     :type on_complete: Callable, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `False`.
+        the Matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-    :return: The selected materials for the strain analyses.
-    :rtype: list[CHAP.edd.models.MaterialConfig]
+    :return: Selected materials for the strain analyses.
+    :rtype: list[MaterialConfig]
     """
     # Initialize the main application window
     root = tk.Tk()
@@ -281,29 +302,28 @@ def select_material_params(
     the list.
 
     :param x: MCA channel energies.
-    :type x: np.ndarray
+    :type x: numpy.ndarray
     :param y: MCA intensities.
-    :type y: np.ndarray
-    :param tth: The (calibrated) 2&theta angle.
+    :type y: numpy.ndarray
+    :param tth: (calibrated) 2&theta angle.
     :type tth: float
     :param preselected_materials: Materials to get HKLs and
         lattice spacings for.
-    :type preselected_materials: list[hexrd.material.Material],
+    :type preselected_materials: list[MaterialConfig],
         optional
     :param label: Legend label for the 1D plot of reference MCA data
         from the parameters `x`, `y`, defaults to `"Reference Data"`.
     :type label: str, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `False`.
+        the Matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
-        :param return_buf: Return an in-memory object as a byte stream
+    :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The selected materials for the strain analyses and a byte
+    :return: Selected materials for the strain analyses and a byte
         stream represention of the Matplotlib figure if return_buf is
         `True` (`None` otherwise).
-    :rtype: list[CHAP.edd.models.MaterialConfig],
-        Union[io.BytesIO, None]
+    :rtype: list[MaterialConfig], io.BytesIO or None
     """
     # Local modules
     from CHAP.utils.general import fig_to_iobuf

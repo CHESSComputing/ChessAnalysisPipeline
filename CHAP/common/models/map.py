@@ -115,8 +115,7 @@ class Detector(CHAPBaseModel):
     def get_id(self):
         """Return the detector ID
 
-        :return: Detector ID.
-        :rtype id: str
+        :type: str
         """
         return self.id_
 

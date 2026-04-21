@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""EDD specific readers."""
+#-*- coding: utf-8 -*-
+"""Module for Readers unique to the EDD workflow."""
 
 # System modules
 import os
@@ -23,19 +24,20 @@ from CHAP.common.models.map import DetectorConfig
 
 
 class EddMapReader(Reader):
-    """Reader for taking an EDD-style .par file and returning a
-    `MapConfig` representing one of the datasets in the
-    file. Independent dimensions are determined automatically, and a
-    specific set of items to use for extra scalar datasets to include
-    are hard-coded in. The raw data is read if detector_names are
-    specified.
+    """Reader for taking an EDD-style par file and returning a
+    :class:`~CHAP.common.models.map.MapConfig` object representing one
+    of the datasets in the file. Independent dimensions are determined
+    automatically, and a specific set of items to use for extra scalar
+    datasets to include are hard-coded in. The raw data is read if
+    detector ID's are specified.
 
     :ivar scan_numbers: List of scan numbers to use.
-    :type scan_numbers: Union(int, list[int], str), optional
-    :ivar dataset_id: Dataset ID value in the .par file to return as a
+    :vartype scan_numbers: int or list[int] or str, optional
+    :ivar dataset_id: Dataset ID value in the par file to return as a
         map, defaults to `1`.
-    :type dataset_id: int, optional
+    :vartype dataset_id: int, optional
     """
+
     scan_numbers: Optional[
         conlist(item_type=conint(gt=0), min_length=1)] = None
     dataset_id: Optional[conint(ge=1)] = 1
@@ -45,11 +47,11 @@ class EddMapReader(Reader):
     def validate_scan_numbers(cls, scan_numbers):
         """Validate the specified list of scan numbers.
 
-        :param scan_numbers: List of scan numbers.
-        :type scan_numbers: Union(int, list[int], str)
+        :param scan_numbers: Scan numbers.
+        :type scan_numbers: int or list[int] or str
         :raises ValueError: If a specified scan number is not found in
             the SPEC file.
-        :return: List of scan numbers.
+        :return: Scan numbers.
         :rtype: list[int]
         """
         if isinstance(scan_numbers, int):
@@ -62,11 +64,12 @@ class EddMapReader(Reader):
         return scan_numbers
 
     def read(self):
-        """Return a validated `MapConfig` object representing an EDD
-        dataset.
+        """Return a validated serialized
+        :class:`~CHAP.common.models.map.MapConfig` object representing
+        an EDD dataset.
 
         :returns: Map configuration.
-        :rtype: PipelineData
+        :rtype: dict 
         """
         # Local modules
         from CHAP.common.models.map import MapConfig
@@ -236,18 +239,20 @@ class EddMapReader(Reader):
 
 
 class EddMPIMapReader(Reader):
-    """Reader for taking an EDD-style .par file and returning a
-    representing one of the datasets in the file as a NeXus NXentry
-    object. Independent dimensions are determined automatically, and a
-    specific set of items to use for extra scalar datasets to include
-    are hard-coded in.
+    """Reader for taking an EDD-style par file and returning a
+    :class:`~CHAP.common.models.map.MapConfig` object representing one
+    of the datasets in the file. Independent dimensions are determined
+    automatically, and a specific set of items to use for extra scalar
+    datasets to include are hard-coded in. The raw data is read if
+    detector ID's are specified.
 
-    :ivar dataset_id: Dataset ID value in the .par file to return as a
+    :ivar dataset_id: Dataset ID value in the par file to return as a
         map, defaults to `1`.
-    :type dataset_id: int, optional
+    :vartype dataset_id: int, optional
     :ivar detector_ids: Detector IDs for the raw data.
-    :type detector_ids: Union(int, list[int], str)
+    :vartype detector_ids: int or list[int] or str
     """
+
     dataset_id: Optional[conint(ge=1)] = 1
     detector_ids: conlist(item_type=conint(gt=0), min_length=1)
 
@@ -257,7 +262,7 @@ class EddMPIMapReader(Reader):
         """Validate the specified list of detector IDs.
 
         :param detector_ids: Detector IDs.
-        :type detector_ids: Union(int, list[int], str)
+        :type detector_ids: int or list[int] or str
         :return: List of Detector IDs.
         :rtype: list[int]
         """
@@ -271,11 +276,12 @@ class EddMPIMapReader(Reader):
         return detector_ids
 
     def read(self):
-        """Return a NeXus NXentry object after validating the
-        `MapConfig` object representing an EDD dataset.
+        """Return a validated serialized
+        :class:`~CHAP.common.models.map.MapConfig` object representing
+        an EDD dataset.
 
-        :returns: The EDD map including the raw data packaged.
-        :rtype: PipelineData
+        :returns: Map configuration.
+        :rtype: dict
         """
         # Third party modules
         # pylint: disable=no-name-in-module
@@ -475,18 +481,21 @@ class EddMPIMapReader(Reader):
 
 
 class ScanToMapReader(Reader):
-    """Reader for turning a single SPEC scan into a MapConfig.
+    """Reader for turning a single SPEC scan into a
+    :class:`~CHAP.common.models.map.MapConfig` object.
  
-    :param scan_number: Number of the SPEC scan.
-    :type scan_number: int
+    :ivar scan_number: SPEC scan number.
+    :vartype scan_number: int
     """
+
     scan_number: conint(ge=0)
 
     def read(self):
-        """Return a dictionary representing a valid map configuration
-        consisting of the single SPEC scan specified.
+        """Return a validated serialized
+        :class:`~CHAP.common.models.map.MapConfig` object representing
+        an EDD dataset.
 
-        :returns: Map configuration dictionary.
+        :returns: Map configuration.
         :rtype: dict
         """
         scanparser = ScanParser(self.filename, self.scan_number)
@@ -528,17 +537,18 @@ class ScanToMapReader(Reader):
 
 
 class SetupNXdataReader(Reader):
-    """Reader for converting the SPEC input .txt file for EDD dataset
+    """Reader for converting the SPEC input txt file for EDD dataset
     collection to an approporiate input argument for
-    `CHAP.common.SetupNXdataProcessor`.
+    :class:`~CHAP.common.processor.SetupNXdataProcessor`.
 
-    :ivar dataset_id: Dataset ID value in the .txt file to return 
-        `CHAP.common.SetupNXdataProcessor.process` arguments for.
-    :type dataset_id: int
+    :ivar dataset_id: Dataset ID value in the txt file to return 
+        :meth:`~CHAP.common.SetupNXdataProcessor.process` arguments
+        for.
+    :vartype dataset_id: int
     :ivar detectors: Detector list.
-    :type detectors: Union[
-        list[dict], CHAP.common.models.map.DetectorConfig]
+    :vartype detectors: DetectorConfig
     """
+
     dataset_id: conint(ge=1)
     detectors: DetectorConfig
 
@@ -559,15 +569,17 @@ class SetupNXdataReader(Reader):
     def read(self):
         """Return a dictionary containing the `coords`, `signals`, and
         `attrs` arguments appropriate for use with
-        `CHAP.common.SetupNXdataProcessor.process` to set up an
-        initial `NXdata` object representing a complete and organized
-        structured EDD dataset.
+        :meth:`~CHAP.common.processor.SetupNXdataProcessor.process` to
+        set up an initial NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object representing a complete and organized structured EDD
+        dataset.
 
-        :returns: The dataset's coordinate names, values, attributes,
+        :returns: Dataset's coordinate names, values, attributes,
             and signal names, shapes, and attributes.
         :rtype: dict
         """
-        # Columns in input .txt file:
+        # Columns in input txt file:
         # 0: scan number
         # 1: dataset index
         # 2: configuration descriptor
@@ -594,7 +606,7 @@ class SetupNXdataReader(Reader):
         # For scan type 5 only:
         # 21: bin axis
 
-        # Parse dataset from the input .txt file.
+        # Parse dataset from the input txt file.
         with open(self.filename, 'r') as f:
             file_lines = f.readlines()
         dataset_lines = []
@@ -744,24 +756,28 @@ class SetupNXdataReader(Reader):
                 'attrs': attrs, 'data_points': data_points}
 
 class SliceNXdataReader(Reader):
-    """A reader class to load and slice an NXdata field from a NeXus
-    file.  This class reads EDD (Energy Dispersive Diffraction) data
-    from an NXdata group and slices all fields according to the
-    provided slicing parameters.
+    """A reader class to load and slice a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    field from a NeXus file. This class reads EDD data from a `NXdata`
+    object and slices all fields according to the provided slicing
+    parameters.
  
-    :param scan_number: Number of the SPEC scan.
-    :type scan_number: int
+    :ivar scan_number: SPEC scan number.
+    :vartype scan_number: int
     """
+
     scan_number: conint(ge=0)
 
     def read(self):
-        """Reads an NXdata group from a NeXus file and slices the
-        fields within it based on the provided scan number.
+        """Reads a NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object from a NeXus file and slices the fields within it based
+        on the provided scan number.
 
-        :raises ValueError: If no NXdata group is found in the file.
-        :return: The root object of the NeXus file with sliced NXdata
+        :raises ValueError: If no `NXdata` object is found in the file.
+        :return: Root object of the NeXus file with sliced `NXdata`
             fields.
-        :rtype: NXroot
+        :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from nexusformat.nexus import NXentry, NXfield
@@ -794,18 +810,21 @@ class SliceNXdataReader(Reader):
         return nxroot
 
 class UpdateNXdataReader(Reader):
-    """Companion to `edd.SetupNXdataReader` and
-    `common.UpdateNXDataProcessor`. Constructs a list of data points
-    to pass as pipeline data to `common.UpdateNXDataProcessor` so that
-    an `NXdata` constructed by `edd.SetupNXdataReader` and
-    `common.SetupNXdataProcessor` can be updated live as individual
-    scans in an EDD dataset are completed.
+    """Companion to :class:`~CHAP.edd.reader.SetupNXdataReader` and
+    :class:`~CHAP.common.processor.UpdateNXDataProcessor`. Constructs
+    a list of data points to pass as pipeline data to
+    `UpdateNXDataProcessor` so that a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    constructed by `SetupNXdataReader` and `UpdateNXDataProcessor` can
+    be updated live as individual scans in an EDD dataset are
+    completed.
  
-    :ivar detector_ids: Detector IDs for the raw data.
-    :type detector_ids: Union(int, list[int], str), optional
-    :param scan_number: Number of the SPEC scan.
-    :type scan_number: int
+    :ivar detector_ids: Detector IDs.
+    :vartype detector_ids: int or list[int] or str, optional
+    :ivar scan_number: SPEC scan number.
+    :vartype scan_number: int
     """
+
     detector_ids: Optional[
         conlist(item_type=conint(gt=0), min_length=1)] = None
     scan_number: conint(ge=0)
@@ -813,12 +832,15 @@ class UpdateNXdataReader(Reader):
     def read(self):
         """Return a list of data points containing raw data values for
         a single EDD spec scan. The returned values can be passed
-        along to `common.UpdateNXdataProcessor` to fill in an existing
-        `NXdata` set up with `common.SetupNXdataProcessor`.
+        along to :class:`~CHAP.common.processor.UpdateNXdataProcessor`
+        to fill in an existing NeXus Style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+        object up with
+        :class:`~CHAP.common.processor.SetupNXdataProcessor`.
 
-        :returs: List of data points appropriate for input to
-            `common.UpdateNXdataProcessor`.
-        :rtype: list[dict[str, object]]
+        :returs: Data points appropriate for input to
+            `UpdateNXdataProcessor`.
+        :rtype: list[dict[str, Any]]
         """
         # Local modules
         from CHAP.utils.parfile import ParFile
@@ -898,28 +920,32 @@ class UpdateNXdataReader(Reader):
 
 
 class NXdataSliceReader(Reader):
-    """Reader for returning a sliced verison of an `NXdata` (which
-    represents a full EDD dataset) that contains data from just a
-    single SPEC scan.
+    """Reader for returning a sliced verson of a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    object (which represents a full EDD dataset) that contains data
+    from just a single SPEC scan.
  
-    :ivar nxpath: Path to the existing full EDD dataset's NXdata
-        group in `filename`.
-    :type nxpath: str
-    :ivar scan_number: Number of the SPEC scan.
-    :type scan_number: int
-    :ivat spec_file: Name of the spec file containing whose data
-        will be the only contents of the returned `NXdata`.
-    :type spec_file: str
+    :ivar nxpath: Path to the existing full EDD dataset's `NXdata`
+        object in `filename`.
+    :vartype nxpath: str
+    :ivar scan_number: SPEC scan number.
+    :vartype scan_number: int
+    :ivar spec_file: Name of the spec file whose data will be the only
+        contents of the returned `NXdata`.
+    :vartype spec_file: str
     """
+
     nxpath: constr(strip_whitespace=True, min_length=1)
     scan_number: conint(ge=0)
     spec_file: constr(strip_whitespace=True, min_length=1)
 
     def read(self):
-        """Return a "slice" of an EDD dataset's NXdata that represents
-        just the data from one scan in the dataset.
+        """Return a "slice" of an EDD dataset's NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+        object that represents just the data from one scan in the
+        dataset.
 
-        :returns: An `NXdata` similar to the one at `nxpath` in
+        :returns: `NXdata` object similar to the one at `nxpath` in
             `filename`, but containing only the data collected by the
             specified spec scan.
         :rtype: nexusformat.nexus.NXdata

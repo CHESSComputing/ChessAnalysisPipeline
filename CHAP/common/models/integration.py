@@ -398,9 +398,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Return the index of each coordinate orienting a single
         frame of results from this integration.
 
-        :return: Index of each coordinate orienting a single
-            frame from this integration.
-        :rtype: dict
+        :type: dict
         """
         return {k: dataset_ndims + i
                 for i, k in enumerate(self.result_coords.keys())}
@@ -409,8 +407,7 @@ class PyfaiIntegratorConfig(CHAPBaseModel):
         """Return empty input data of the correct shape for use in
         `init_placeholder_data`.
 
-        :return: Empty input data for use in `init_placeholder_data`.
-        :rtype: dict
+        :type: dict
         """
         if self.integration_method == 'integrate_radial':
             return {ai:np.full(ais[ai].ai.detector.shape, 0)

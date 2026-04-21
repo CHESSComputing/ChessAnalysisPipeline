@@ -23,7 +23,7 @@ models
     classes.
 
 parfile
-    Utilities for interacting with scans using an SMB-style .par file
+    Utilities for interacting with scans using an SMB-style par file
     as input.
 """
 

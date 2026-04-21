@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""Utilities for interacting with scans using an SMB-style .par file
+"""Utilities for interacting with scans using an SMB-style par file
 as input.
 """
 
@@ -12,12 +12,12 @@ import os
 import json
 
 class ParFile():
-    """Representation of a .par file."""
+    """Representation of a par file."""
 
     def __init__(self, par_file, scan_numbers=None, scann_col_name='SCAN_N'):
         """Initialize ParFile.
 
-        :param par_file: Name of the .par file.
+        :param par_file: Name of the par file.
         :type par_file: str
         :param scan_numbers: List of scan numbers to use.
         :type scan_numbers: int or list[int] or str, optional
@@ -86,7 +86,7 @@ class ParFile():
         """Return a map configuration based on this par file.
 
         :param experiment_type: Experiment type name for the map
-            that this .par file represents.
+            that this par file represents.
         :type experiment_type:
             Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         :param station: Station name at which the data were collected.
@@ -133,12 +133,12 @@ class ParFile():
 
     def good_scan_numbers(self, good_col_name='1/0'):
         """Return the numbers of scans marked with a "1" in the
-        indicated "good" column of the .par file.
+        indicated "good" column of the par file.
         
         :param good_col_name: Name of the "good" column of the par
             file, defaults to "1/0"
         :type good_col_name: str, optional
-        :raises ValueError: If this .par file does not have a column
+        :raises ValueError: If this par file does not have a column
             with the same name as `good_col_name`.
         :return: "good" scan numbers.
         :rtype: list[int]

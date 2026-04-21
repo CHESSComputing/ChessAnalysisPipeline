@@ -705,7 +705,8 @@ def is_dict_strings(d, raise_error=False, log=True):
 def is_index(value, ge=0, lt=None, raise_error=False, log=True):
     """Value is an array index in range ge <= value < lt.
 
-    ..note:: The vale for `lt` IS NOT included!
+    .. note::
+        The value for `lt` IS NOT included!
 
     :param value: Input value.
     :type value: int
@@ -734,7 +735,8 @@ def is_index_range(value, ge=0, le=None, lt=None, raise_error=False, log=True):
     ge <= value[0] <= value[1] <= le or
     ge <= value[0] <= value[1] < lt.
 
-    ..note:: The value for `le` IS included!
+    .. note::
+        The value for `le` IS included!
 
     :param value: Input value.
     :type value: list[int, int]
@@ -1531,7 +1533,8 @@ def rolling_average(
         with their independent coordinates.
     :rtype: numpy.ndarray or (numpy.ndarray, numpy.ndarray)
 
-    ..note:: Specify only one or two of `width`, `stride`, and `num`.
+    .. note::
+        Specify only one or two of `width`, `stride`, and `num`.
     """
     y = np.asarray(y)
     y_shape = y.shape

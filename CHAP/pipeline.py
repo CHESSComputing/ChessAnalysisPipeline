@@ -68,7 +68,7 @@ class PipelineItem(RunConfig):
     _status: Literal[
         'read', 'write_pending', 'written'] = PrivateAttr(default=None)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def validate_pipelineitem_after(self):
@@ -158,8 +158,7 @@ class PipelineItem(RunConfig):
         """Return the `PipelineItem`\\s execution method run time
         arguments.
 
-        :return: `PipelineItem`\\s execution method run time arguments.
-        :rtype: dict
+        :type: dict
         """
         return self._args
 
@@ -186,8 +185,7 @@ class PipelineItem(RunConfig):
     def get_schema(self):
         """Return the `PipelineItem`\\s schema.
 
-        :return: `PipelineItem`\\s schema.
-        :rtype: str
+        :type: str
         """
         return self.schema_
 
@@ -464,7 +462,7 @@ class Pipeline(CHAPBaseModel):
 #        default={'application': 'CHAP', 'user_metadata': {}})
 #    _provenance: dict = PrivateAttr(default={})
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def validate_pipeline_after(self):

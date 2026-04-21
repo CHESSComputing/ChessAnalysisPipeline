@@ -231,4 +231,4 @@ class TomoSimConfig(CHAPBaseModel):
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     slit_size: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)

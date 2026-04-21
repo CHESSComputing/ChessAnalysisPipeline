@@ -15,6 +15,7 @@ from typing import (
 # Third party modules
 from pydantic import (
     BaseModel,
+    ConfigDict,
     DirectoryPath,
     PrivateAttr,
     field_validator,
@@ -26,6 +27,8 @@ class CHAPBaseModel(BaseModel):
     """Base CHAP configuration class implementing robust
     serialization tools.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def dict(self, *args, **kwargs):
         """Dump the class implemention to a dictionary.

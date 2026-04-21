@@ -1697,7 +1697,7 @@ class TomoFindCenterGui(Processor):
 
     _exclude = {'tk_root'}
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def center_offsets(self):
