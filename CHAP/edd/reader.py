@@ -770,42 +770,63 @@ class SliceNXdataReader(Reader):
         from CHAP.common import NexusReader
         from CHAP.utils.general import nxcopy
 
+        # Read NXroot
         reader = NexusReader(**self.model_dump())
-        nxroot = nxcopy(reader.read())
-        nxentry = None
-        nxdata = None
-        for nxname, nxobject in nxroot.items():
-            if isinstance(nxobject, NXentry):
-                nxentry = nxobject
-                nxdata = nxobject.data
-        if nxdata is None:
-            msg = 'Could not find NXdata group'
-            self.logger.error(msg)
-            raise ValueError(msg)
-        if 'SCAN_N' not in nxdata:
-            self.logger.warning(f'SCAN_N not in {nxdata}')
-            scan_n_found = False
-            for k, v in nxentry.items():
-                if 'SCAN_N' in v:
-                    nxdata = v
-                    scan_n_found = True
-                    self.logger.warning(f'Using SCAN_N dataset in {nxdata}')
-            if not scan_n_found:
-                msg = 'Cannot find SCAN_N dataset'
-                self.logger.error(msg)
-                raise ValueError(msg)
+        nxroot = reader.read()
 
-        indices = np.argwhere(
-            nxdata.SCAN_N.nxdata == self.scan_number).flatten()
-        for nxname, nxobject in nxdata.items():
-            if isinstance(nxobject, NXfield):
-                nxdata[nxname] = NXfield(
-                    value=nxobject.nxdata[indices],
-                    dtype=nxdata[nxname].dtype,
-                    attrs=nxdata[nxname].attrs,
-                )
+        # Locate NXentry
+        nxentry = next(
+            (obj for obj in nxroot.values() if isinstance(obj, NXentry)),
+            None,
+        )
+        if nxentry is None:
+            raise ValueError('Could not find NXentry group')
+        nxentry_nxpath = nxentry.nxpath
+        self.logger.info(f'Using NXentry at: {nxentry_nxpath}')
+
+        # Make a copy of the NXroot, excluding everything but the
+        # NXentry of interest. Do this so we can just slice the
+        # NXfields in place in the copy (because copy is not tied to
+        # the original input file).
+        exclude_nxpaths = []
+        for v in nxroot.values():
+            if v.nxpath != nxentry_nxpath:
+                exclude_nxpaths.append(v.nxpath)
+        nxroot = nxcopy(nxroot, exclude_nxpaths=exclude_nxpaths)
+        nxentry = nxroot[nxentry_nxpath]
+
+        # Locate NXdata containining the "SCAN_N" NXfield
+        nxdata = getattr(nxentry, 'data', None)
+        if nxdata is None:
+            self.logger.warning('NXdata group missing — searching fallback')
+
+            for v in nxentry.values():
+                if hasattr(v, 'SCAN_N'):
+                    nxdata = v
+                    break
+
+            if nxdata is None:
+                raise ValueError('Cannot find SCAN_N dataset')
+        self.logger.info(f'Using NXdata at: {nxdata.nxpath}')
+
+        # Get indicies of SCAN_N that match self.scan_number
+        scan_field = nxdata['SCAN_N'].nxdata
+        indices = np.flatnonzero(scan_field == self.scan_number)
+
+        if indices.size == 0:
+            self.logger.warning(
+                f'scan_number {self.scan_number} not found in SCAN_N'
+            )
+        self.logger.info(f'Slicing NXfields with: {indices}')
+
+        # Slice only NXfields
+        for name, obj in list(nxdata.items()):
+            if isinstance(obj, NXfield):
+                self.logger.info(f'Slicing NXfield at: {obj.nxpath}')
+                nxdata[name] = obj[indices]
 
         return nxroot
+
 
 class UpdateNXdataReader(Reader):
     """Companion to `edd.SetupNXdataReader` and
