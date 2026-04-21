@@ -13,40 +13,44 @@ A standard strain analysis in CHAP consists of three steps:
 
 - Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.
 
-## Creating and activating the EDD conda environment (requires a local CHAP clone)
-
-1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
-1. Install a local version of the CHAP package according to the [installation instructions](installation).
-1. Create the EDD conda environment:
-   ```bash
-   mamba env create -f <path_to_CHAP_clone_dir>/CHAP/edd/environment.yml
-   ```
-1. Activate the `CHAP_edd` environment:
-   ```bash
-   conda activate CHAP_edd
-   ```
-
-## Running an EDD workflow
+## Running an EDD workflow on the CHESS Linux system
 
 1. Navigate to your work directory.
 1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. 
-1. Run the workflow using your own `CHAP_edd` conda environment:
+1. Run the workflow using the latest production release version:
    ```bash
-   CHAP <pipelinefilename>
-   ```
-   or run the workflow using the latest production release version:
-   ```bash
-   /nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd <pipelinefilename>
+   $ /nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd <pipelinefilename>
    ```
    or the latest development release version:
    ```bash
-   /nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd <pipelinefilename>
+   $ /nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd <pipelinefilename>
    ```
    You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`, for example for the CHAP EDD production release:
    ```bash
    alias CHAP_edd_prod='/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd'
    ```
+   (see: {ref}`instructions <chap_executables_chess>` on running `CHAP` on the CHESS Linux system)
 1. Respond to any prompts that pop up if running interactively.
+
+## Running an EDD workflow on any Linux system (requires a local Conda environment and CHAP clone)
+
+1. Create a base Conda environent and clone the `CHAP` repository according to steps 1 and 2 of the {ref}`Conda installation instructions <conda_installation>`.
+1. Activate the base Conda environment:
+   ```bash
+   $ source <path_to_CHAP_clone_dir>/bin/activate
+   ```
+1. Create the EDD conda environment:
+   ```bash
+   (base) $ mamba env create -f <path_to_CHAP_clone_dir>/CHAP/edd/environment.yml
+   ```
+1. Activate the `CHAP_edd` environment:
+   ```bash
+   (base) $ conda activate CHAP_edd
+   ```
+1. Run the workflow using your own `CHAP_edd` conda environment:
+   ```bash
+   (CHAP_edd) $ CHAP <pipelinefilename>
+   ```
 
 ## Inspecting output
 
@@ -56,7 +60,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
-   /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
+   $ /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
    ```
    You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`:
    ```bash

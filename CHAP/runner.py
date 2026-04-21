@@ -26,14 +26,15 @@ def parser():
         '--regex', nargs='?', default=False, const='match',
         choices=['match', 'search', 'fullmatch'],
         dest='regex_function', required=False,
-        help='''Name of Python regex function to use for matching
-        configured pipeline names against the string provided with the
-        -p / --pipeline option.'''
+        help='''Name of Python
+        RegEx function (https://docs.python.org/3/howto/regex.html)
+        to use for matching configured pipeline names against the
+        string provided with the -p / --pipeline option.'''
     )
     pparser.add_argument(
         '--batch', action='store_true',
-        help='''Enables "batch mode" where every sub-pipeline is run
-        in a separate process, all at once. Log files for each
+        help='''Enables "batch mode" operation where every sub-pipeline
+        is run in separate parallel processes. Log files for each
         pipeline process will be created in the directory specified
         with the `--batch-logdir` option.'''
     )

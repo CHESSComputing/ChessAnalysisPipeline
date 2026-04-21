@@ -21,7 +21,7 @@ A standard tomographic experiment at CHESS (and other similar institutions) cons
 
 ## Processing the data
 
-A standard tomographic reconstruction in CHAP consists of three steps:
+A standard tomographic reconstruction in `CHAP` consists of three steps:
 
 - Reducing the data, i.e., correcting the raw detector images for background and non-uniformities in the beam intensity profile using dark and bright fields collected separately from the tomography image series.
 
@@ -33,23 +33,10 @@ A standard tomographic reconstruction in CHAP consists of three steps:
 
 Note that combining stacks with a horizontal displacement for samples wider than the width of the beam is not yet implemented.
 
-## Creating and activating the tomography conda environment (requires a local CHAP clone)
-
-1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
-1. Install a local version of the CHAP package according to the [installation instructions](installation).
-1. Create the tomography conda environment:
-   ```bash
-   mamba env create -f <path_to_CHAP_clone_dir>/CHAP/tomo/environment.yml
-   ```
-1. Activate the `CHAP_tomo` environment:
-   ```bash
-   conda activate CHAP_tomo
-   ```
-
-## Running a tomography reconstruction
+## Running a tomography reconstruction on the CHESS Linux system
 
 1. Navigate to your work directory.
-1. Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files. This includes, at a minimum, the detector configuration `.yaml` file with the detector configuration. For example, for the andor2 detector (`andor2.yaml`):
+1. Create the required `CHAP` pipeline file for the workflow (see below) and any additional workflow specific input files. This includes, at a minimum, the detector configuration `.yaml` file with the detector configuration. For example, for the andor2 detector (`andor2.yaml`):
     ```
     prefix: andor2
     rows: 2160
@@ -60,23 +47,40 @@ Note that combining stacks with a horizontal displacement for samples wider than
     lens_magnification: 5.0
     ``` 
     Here, the prefix field must equal a detector ID field in the `detectors` list in the pipeline input file. Note that this allows the detector configuration files to be stored at a single convenient location elsewhere on the file system, which may prove convenient or advantageous. 
-1. Run the reconstruction using your own `CHAP_tomo` conda environment:
+1. Run the workflow using the latest production release version:
    ```bash
-   CHAP <pipelinefilename>
-   ```
-   or run the workflow using the latest production release version:
-   ```bash
-   /nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo <pipelinefilename>
+   $ /nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo <pipelinefilename>
    ```
    or the latest development release version:
    ```bash
-   /nfs/chess/sw/CHESS-software-releases/dev/CHAP_tomo <pipelinefilename>
+   $ /nfs/chess/sw/CHESS-software-releases/dev/CHAP_tomo <pipelinefilename>
    ```
    You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`, for example for the CHAP Tomography production release:
    ```bash
    alias CHAP_tomo_prod='/nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo'
    ```
+   (see: {ref}`instructions <chap_executables_chess>` on running `CHAP` on the CHESS Linux system)
 1. Respond to any prompts that pop up if running interactively.
+
+## Running a tomography workflow on any Linux system (requires a local Conda environment and CHAP clone)
+
+1. Create a base Conda environent and clone the `CHAP` repository according to steps 1 and 2 of the {ref}`Conda installation instructions <conda_installation>`.
+1. Activate the base Conda environment:
+   ```bash
+   $ source <path_to_CHAP_clone_dir>/bin/activate
+   ```
+1. Create the Tomo conda environment:
+   ```bash
+   (base) $ mamba env create -f <path_to_CHAP_clone_dir>/CHAP/tomo/environment.yml
+   ```
+1. Activate the `CHAP_tomo` environment:
+   ```bash
+   (base) $ conda activate CHAP_tomo
+   ```
+1. Run the workflow using your own `CHAP_tomo` conda environment:
+   ```bash
+   (CHAP_tomo) $ CHAP <pipelinefilename>
+   ```
 
 ## Inspecting output
 
@@ -86,7 +90,7 @@ The optional output figures can be viewed directly by any PNG image viewer. The 
 
 1. Open the NeXpy GUI by entering in your terminal:
    ```bash
-   /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
+   $ /nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &
    ```
    You may find it convenient to add an alias to your `~/.bascrc` or `~/.bash_aliases`:
    ```bash
@@ -230,11 +234,11 @@ pipeline:
 
 ## Example
 
-The CHAP tomography subpackage comes with several workflow examples, one of them for an CHESS 1A3 beamline style experiment of a truncated hollow four sided pyramid made from a single homogeneous material.
+The `CHAP` tomography subpackage comes with several workflow examples, one of them for an CHESS 1A3 beamline style experiment of a truncated hollow four sided pyramid made from a single homogeneous material.
 
-This example uses simulated raw imaging data that needs to be available in a specific location ahead of the reconstruction. If you are logged in on the CHESS Compute Farm, replace `<path_to_CHAP_clone_dir>` below with `/nfs/chess/sw/CHESS-software-releases/repos/dev/ChessAnalysisPipeline`, the path to the CHAP repository administrated by the CHAP developers. If not, replace it with the path to your local CHAP repository. In the later case, you will also need to create the raw data once, since it is not part of the cloned repository. To do so, create a clone and activate your local `CHAP_tomo` conda environment as instructed above, navigate to your local CHAP repository, and execute:
+This example uses simulated raw imaging data that needs to be available in a specific location ahead of the reconstruction. If you are logged in on the CHESS Compute Farm, replace `<path_to_CHAP_clone_dir>` below with `/nfs/chess/sw/CHESS-software-releases/repos/dev/ChessAnalysisPipeline`, the path to the `CHAP` repository administrated by the `CHAP` developers. If not, replace it with the path to your local `CHAP` repository. In the later case, you will also need to create the raw data once, since it is not part of the cloned repository. To do so, create a clone and activate your local `CHAP_tomo` conda environment as instructed above, navigate to your local `CHAP` repository, and execute:
 ```bash
-CHAP examples/tomo/pipeline_id1a3_pyramid_sim.yaml
+(CHAP_tomo) $ CHAP examples/tomo/pipeline_id1a3_pyramid_sim.yaml
 ```
 or use the latest production or development release version as described above.
 
@@ -340,7 +344,7 @@ To perform the reconstruction:
     ```
 1. Execute
     ```bash
-    CHAP pipeline_id1a3_pyramid.yaml
+    (CHAP_tomo) $ CHAP pipeline_id1a3_pyramid.yaml
     ```
    or use the latest production or development release version as described above.
 1. Follow the interactive prompts or replace `true` with `false` on line 5 in `pipeline_id1a3_pyramid.yaml` (`interactive: false`) and run the workflow non-interactively.
@@ -348,13 +352,13 @@ To perform the reconstruction:
     - In NeXpy, as instructed above, navigate to `<your_work_directory>/reduced/hollow_pyramid` and open `reconstructed.nxs`
     - By displaying the output figures in `<your_work_directory>/reduced/hollow_pyramid/figures`
 
-The "config" block defines the CHAP generic configuration parameters:
+The "config" block defines the `CHAP` generic configuration parameters:
 
 - `root`: The work directory, defaults to the current directory (where `CHAP <pipelinefilename>` is executed). Must be an absolute path or relative to the current directory.
 
-- `inputdir`: The default directory for files read by any CHAP reader (must have read access), defaults to `root`. Must be an absolute path or relative to `root`.
+- `inputdir`: The default directory for files read by any `CHAP` reader (must have read access), defaults to `root`. Must be an absolute path or relative to `root`.
 
-- `outputdir`: The default directory for files written by any CHAP writer (must have write access, will be created if not existing), defaults to `root`. Must be an absolute path or relative to `root`.
+- `outputdir`: The default directory for files written by any `CHAP` writer (must have write access, will be created if not existing), defaults to `root`. Must be an absolute path or relative to `root`.
 
 - `interactive`: Allows for user interactions, defaults to `false`.
 

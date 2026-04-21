@@ -1,7 +1,7 @@
 (saxswaxs_workflow)=
 # SAXS/WAXS module (`CHAP.saxswaxs`)
 
-The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS processing. This document describes how to use them in a pipeline configuration YAML file so that SAXS/WAXS workflows can be run from the terminal on the CLASSE Linux system.
+The `CHAP.saxswaxs` module contains processing tools unique to SAXS/WAXS processing. This document describes how to use them in a pipeline configuration YAML file so that SAXS/WAXS workflows can be run from the terminal on the CHESS Linux system.
 
 
 ## Workflow description
@@ -667,7 +667,7 @@ $$
 
 ## Running a workflow
 
-### At CLASSE
+### At CHESS
 Use environment: `source /nfs/chess/sw/miniforge3_chap/bin/activate; conda activate CHAP_saxswaxs`
 And/or add this to your ~/.bashrc: `alias CHAP_saxswaxs='/nfs/chess/sw/miniforge3_chap/envs/CHAP_saxswaxs/bin/CHAP'`
 
