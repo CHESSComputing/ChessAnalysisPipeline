@@ -150,14 +150,10 @@ class BaseEddProcessor(Processor):
             # Interactively adjust the mask and HKLs used in the
             # current processor
             #if isinstance(detector, MCADetectorStrainAnalysis):
-            if detector.processor_type == 'strainanalysis':
-                calibration_bin_ranges = detector.get_calibration_mask_ranges()
-            else:
-                calibration_bin_ranges = None
-            if detector.tth_calibrated is None:
-                tth = detector.tth_initial_guess
-            else:
-                tth = detector.tth_calibrated
+            calibration_bin_ranges = detector.get_calibration_mask_ranges() \
+                if detector.processor_type == 'strainanalysis' else None
+            tth = detector.tth_initial_guess \
+                if detector.tth_calibrated is None else detector.tth_calibrated
             mask_ranges, hkl_indices, buf = \
                 select_mask_and_hkls(
                     energies, mean_data, hkls, ds, tth,
@@ -502,8 +498,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_diffractionvolumeLengthprocessor_before(cls, data):
-        """Validate the `DiffractionVolumeLengthProcessor` class
+    def validate_diffractionvolumelengthprocessor_before(cls, data):
+        """Validate the `DiffractionVolumelengthProcessor` class
         attributes.
 
         :param data:
@@ -520,12 +516,12 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         return data
 
     @model_validator(mode='after')
-    def validate_diffractionvolumeLengthprocessor_after(self):
+    def validate_diffractionvolumelengthprocessor_after(self):
         """Validate the presence of sample thickness in the processor
         configuration.
 
         :return: Validated configuration class.
-        :rtype: DiffractionVolumeLengthProcessor
+        :rtype: DiffractionVolumelengthProcessor
         """
         if self.config.sample_thickness is None:
             raise ValueError('Missing parameter "sample_thickness"')
@@ -567,10 +563,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                         int(raw_detector_ids.index(detector.get_id()))]
                     for k, v in raw_detector.attrs.items():
                         if k not in detector.attrs:
-                            if isinstance(v, list):
-                                detector.attrs[k] = np.asarray(v)
-                            else:
-                                detector.attrs[k] = v
+                            detector.attrs[k] = np.asarray(v) \
+                                if isinstance(v, list) else v
                     detector.energy_mask_ranges = None
                     detectors.append(detector)
                 else:
@@ -788,7 +782,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     result.best_values['center']- 0.5*detector.dvl,
                     result.best_values['center'] + 0.5*detector.dvl,
                     color='gray', alpha=0.5,
-                    label=f'diffraction volume ({self.config.measurement_mode})')
+                    label=
+                        f'diffraction volume ({self.config.measurement_mode})')
                 ax.legend()
                 plt.figtext(
                     0.5, 0.95,
@@ -977,10 +972,6 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
         nxentry = self.get_default_nxentry(nxroot)
         nxdata = nxentry[nxentry.default]
 
-        # Load the validated calibration configuration
-        calibration_config = self.get_config(
-            data, schema='edd.models.MCATthCalibrationConfig', remove=False)
-
         # Load the validated calibration detector configurations
         calibration_detector_config = self.get_data(
             data, schema='edd.models.MCATthCalibrationConfig')
@@ -989,7 +980,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             for d in calibration_detector_config.get('detectors', [])]
         calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
-        # Check for available raw detector data and for the available 
+        # Check for available raw detector data and for the available
         # calibration data
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
@@ -1601,7 +1592,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             peak_indices = []
             while len(set(peak_indices)) < num_peak:
                 error_text = ''
-                change_fig_title(f'Select {num_peak} peak positions')
+                _change_fig_title(f'Select {num_peak} peak positions')
                 peak_indices = [
                     int(pt[0]) for pt in plt.ginput(num_peak, timeout=30)]
                 if len(set(peak_indices)) < num_peak:
@@ -1630,7 +1621,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     fig.subplots_adjust(bottom=0.0, top=0.85)
                     ax.plot(low + np.arange(y.size), y, color='k')
                     fig.subplots_adjust(bottom=0.2)
-                    change_error_text(error_text)
+                    _change_error_text(error_text)
                 plt.draw()
             return peak_indices
 
@@ -1669,7 +1660,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
             for index in peak_indices:
                 ax.axvline(index, **selected_peak_props)
-            change_fig_title('Initial peak positions from peak finding '
+            _change_fig_title('Initial peak positions from peak finding '
                              f'routine{detector_id}')
 
         else:
@@ -1679,7 +1670,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             # Get initial peak indices
             if not reset_flag:
                 peak_indices += find_peaks()
-                change_fig_title('Initial peak positions from peak finding '
+                _change_fig_title('Initial peak positions from peak finding '
                                  f'routine{detector_id}')
             if peak_indices:
                 for index in peak_indices:
@@ -1688,7 +1679,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                         break
             if not peak_indices:
                 peak_indices += select_peaks()
-                change_fig_title(
+                _change_fig_title(
                     'Selected initial peak positions{detector_id}')
 
             for index in peak_indices:
@@ -2394,14 +2385,10 @@ class ReducedDataProcessor(BaseStrainProcessor):
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
-            NXentry,
             NXfield,
             NXprocess,
             NXroot,
         )
-
-        # Local modules
-        from CHAP.utils.general import nxcopy
 
         # Load the detector data
         nxentry = self.get_default_nxentry(self.get_data(data))
@@ -2410,7 +2397,7 @@ class ReducedDataProcessor(BaseStrainProcessor):
         calibration_config = self.get_data(
             data, schema='edd.models.MCATthCalibrationConfig')
         calibration_detectors = [
-            MCADetectorCalibration(**d) 
+            MCADetectorCalibration(**d)
             for d in calibration_config.get('detectors', [])]
         calibration_config = MCATthCalibrationConfig(**calibration_config)
 
@@ -2739,11 +2726,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         calibration_detector_config = self.get_data(
             data, schema='edd.models.MCATthCalibrationConfig')
         calibration_detectors = [
-            MCADetectorCalibration(**d) 
+            MCADetectorCalibration(**d)
             for d in calibration_detector_config.get('detectors', [])]
         calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
-        # Check for available raw detector data and for the available 
+        # Check for available raw detector data and for the available
         # calibration data
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
@@ -2826,7 +2813,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             if points:
                 self.logger.info(f'Adding {len(points)} points')
                 self.add_points(nxroot, points, logger=self.logger)
-                self.logger.info(f'... done')
+                self.logger.info('... done')
             else:
                 self.logger.warning('Skip adding points')
             if not (self._figures or self._animation):
@@ -2959,6 +2946,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         # Third party modules
         from matplotlib import animation
         import matplotlib.pyplot as plt
+
+        # Local modules
+        from CHAP.common.map_utils import get_axes
 
         def animate(i):
             data = intensities[i]
@@ -3170,7 +3160,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         return nxroot
 
     def _linkdims(
-            self, nxgroup, nxdata_source, add_field_dims=None,
+            self, nxgroup, nxdata_source, *, add_field_dims=None,
             skip_field_dims=None, oversampling_axis=None):
         """Link the dimensions for a 'nexusformat.nexus.NXgroup`
         object.
@@ -3323,7 +3313,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 for _ in range(4):
                     for width, center in zip(widths, centers):
                         for n, loc in enumerate(peak_locations):
-                            # FIX Hardwired range now, use detector.centers_range?
+                            # FIX Hardwired range now,
+                            # use detector.centers_range?
                             if center-width*delta < loc < center+width*delta:
                                 use_peaks[n] = True
                                 # peak_heights[n] = height

@@ -607,7 +607,7 @@ class SetupNXdataReader(Reader):
         # 21: bin axis
 
         # Parse dataset from the input txt file.
-        with open(self.filename, 'r') as f:
+        with open(self.filename, 'r', encoding='utf-8') as f:
             file_lines = f.readlines()
         dataset_lines = []
         for l in file_lines:
