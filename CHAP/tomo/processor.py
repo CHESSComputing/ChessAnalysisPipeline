@@ -5,7 +5,6 @@ File       : processor.py
 Author     : Rolf Verberg <rolfverberg AT gmail dot com>
 Description: Module for Processors used only by tomography experiments
 """
-from pprint import pprint
 
 # System modules
 import os
@@ -26,6 +25,7 @@ from pydantic import (
     PrivateAttr,
     SkipValidation,
     conint,
+    confloat,
     conlist,
     constr,
     field_validator,
@@ -145,7 +145,7 @@ def create_metadata_provenance(
             btr = did.split('btr=')[1].split('/')[0]
             assert isinstance(btr, str)
         except Exception:
-            logger.warning('Unable to get a valid btr from did ({did})')
+            logger.warning(f'Unable to get a valid btr from did ({did})')
             btr = 'unknown'
     if user_metadata is None:
         user_metadata = {}
@@ -1059,7 +1059,7 @@ class TomoReduceProcessor(Processor):
         if self.save_figures:
             self._figures.append(
                 (quick_imshow(
-                    tbf, title='Bright field', show_fig=False,
+                    tbf, title='Bright field', cmap='gray', show_fig=False,
                     return_fig=True),
                 'bright_field'))
 
@@ -1113,7 +1113,8 @@ class TomoReduceProcessor(Processor):
         if self.save_figures:
             self._figures.append(
                 (quick_imshow(
-                    tdf, title='Dark field', show_fig=False, return_fig=True),
+                    tdf, title='Dark field', cmap='gray', show_fig=False,
+                    return_fig=True),
                 'dark_field'))
 
         # Add dark field to reduced data NXprocess
@@ -1553,6 +1554,9 @@ class TomoFindCenterGui(Processor):
     center_stack_index: conint(ge=0)
     center_rows: Optional[conlist(item_type=conint(ge=0))] = []
     num_center_rows: Optional[conint(gt=0)] = 2
+    num_proc: Optional[conint(gt=0)] = 1
+    gaussian_sigma: Optional[confloat(ge=0, allow_inf_nan=False)] = None
+    ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
     _content: tk.Frame = PrivateAttr(default=None)
     _center_offsets: list = PrivateAttr(default=[])
@@ -1584,9 +1588,18 @@ class TomoFindCenterGui(Processor):
         self.tk_root.rowconfigure(0, weight=6)
 
         # Build initial content frame
-        self._build_gui(
-            self._find_center_rows, self._on_confirm_find_center_rows,
-            num_row=8, num_column=5)
+        if 1 <= self.img_row_bounds[1] - self.img_row_bounds[0] <= 2:
+            self.num_center_rows = \
+                self.img_row_bounds[1] - self.img_row_bounds[0]
+            self.center_rows = list(range(self.num_center_rows))
+            self._build_gui(
+                self._find_center_offset_one_plane,
+                self._on_confirm_find_center_offset_one_plane,
+                num_row=21, num_column=7)
+        else:
+            self._build_gui(
+                self._find_center_rows, self._on_confirm_find_center_rows,
+                num_row=8, num_column=5)
 
         # Start the GUI event loop
         self.tk_root.mainloop()
@@ -1765,11 +1778,11 @@ class TomoFindCenterGui(Processor):
         extent = (
             0, data_shape[1],
             self.img_row_bounds[0] + data_shape[0], self.img_row_bounds[0])
-        axs[0].imshow(data, extent=extent)
+        axs[0].imshow(data, extent=extent, cmap='gray')
         axs[0].set_title(
             r'Tomography image at $\theta$ = 'f'{round(self.thetas[0], 2)+0}',
             fontsize='xx-large')
-        axs[1].imshow(self.tbf, extent=extent)
+        axs[1].imshow(self.tbf, extent=extent, cmap='gray')
         axs[1].set_title('Bright field', fontsize='xx-large')
         if ratio > 1:
             axs[0].set_xlabel('column_label', fontsize='x-large')
@@ -1855,7 +1868,7 @@ class TomoFindCenterGui(Processor):
             for i in range(num_plot+num_plot_extra):
                 offset_choices[i] = deepcopy(offset_choices_original[i])
                 images[i] = deepcopy(images_original[i])
-                ims[i] = axs[i].imshow(images[i])
+                ims[i] = axs[i].imshow(images[i], cmap='gray')
                 if num_plot_extra and i == num_plot:
                     axs[i].set_title(
                         f'previous row: {previous_center_row}, '
@@ -1876,18 +1889,22 @@ class TomoFindCenterGui(Processor):
                     raise ValueError
             except ValueError:
                 value = None
-            if value is not None and value not in offset_choices:
+            if value is not None and value not in offset_choices[
+                    :len(offset_choices)-num_plot_extra]:
                 offset_choice_save = offset_choices[index]
                 image_save = images[index]
                 try:
                     offset_choices[index] = value
                     images[index] = self.reconstruct_planes(
-                        sinogram, value, np.radians(self.thetas))
+                        sinogram, value, np.radians(self.thetas),
+                        num_proc=self.num_proc,
+                        gaussian_sigma=self.gaussian_sigma,
+                        ring_width=self.ring_width)
                 except ValueError as exc:
                     self._change_error_text(exc, plt)
                     offset_choices[index] = offset_choice_save
                     images[index] = image_save
-                ims[index] = axs[index].imshow(images[index])
+                ims[index] = axs[index].imshow(images[index], cmap='gray')
                 axs[index].set_title(f'offset: {offset_choices[index]}')
                 axs[index].set_xlim(*self._zoom_window[0])
                 axs[index].set_ylim(*self._zoom_window[1])
@@ -1985,9 +2002,8 @@ class TomoFindCenterGui(Processor):
         # Reconstruct the plane for Nghia Vo's center offset
         thetas = np.radians(self.thetas)
         recon_plane_vo = self.reconstruct_planes(
-            sinogram, center_offset_vo, thetas)
-#            num_proc=num_proc)
-#            gaussian_sigma=gaussian_sigma, ring_width=ring_width)
+            sinogram, center_offset_vo, thetas, num_proc=self.num_proc,
+            gaussian_sigma=self.gaussian_sigma, ring_width=self.ring_width)
         self._recon_planes.append(recon_plane_vo)
 
         # Reconstruct plane for center offset on both sides of Vo's
@@ -2001,11 +2017,15 @@ class TomoFindCenterGui(Processor):
                 images.append(recon_plane_vo)
             else:
                 images.append(self.reconstruct_planes(
-                    sinogram, offset, thetas))
+                    sinogram, offset, thetas, num_proc=self.num_proc,
+                    gaussian_sigma=self.gaussian_sigma,
+                    ring_width=self.ring_width))
         if num_plot_extra:
             offset_choices.append(previous_center_offset)
             images.append(self.reconstruct_planes(
-                previous_sinogram, previous_center_offset, thetas))
+                previous_sinogram, previous_center_offset, thetas,
+                num_proc=self.num_proc, gaussian_sigma=self.gaussian_sigma,
+                ring_width=self.ring_width))
         image_shape = images[0].shape
         self._range_x = (0, image_shape[1])
         self._range_y = (0, image_shape[0])
@@ -2019,7 +2039,7 @@ class TomoFindCenterGui(Processor):
         ims = []
         for i in range(num_plot+num_plot_extra):
             axs.append(fig.add_subplot(2, 3, i+1))
-            ims.append(axs[i].imshow(images[i]))
+            ims.append(axs[i].imshow(images[i], cmap='gray'))
             if num_plot_extra and i == num_plot:
                 axs[i].set_title(
                     f'previous row: {previous_center_row}, '
@@ -2185,8 +2205,8 @@ class TomoFindCenterProcessor(Processor):
         else:
             center_stack_index = num_tomo_stacks//2
         self.config.center_stack_index = center_stack_index
-        if img_row_bounds[1] - img_row_bounds[0] == 1:
-            center_rows = (0,)
+        if 1 <= img_row_bounds[1] - img_row_bounds[0] <= 2:
+            center_rows = list(range(img_row_bounds[1] - img_row_bounds[0]))
         else:
             center_rows = self.config.center_rows
             if center_rows is None:
@@ -2221,6 +2241,8 @@ class TomoFindCenterProcessor(Processor):
                 'img_column_bounds': img_column_bounds,
                 'center_stack_index': self.config.center_stack_index,
                 'center_rows':self.config.center_rows,
+                'gaussian_sigma':self.config.gaussian_sigma,
+                'ring_width':self.config.ring_width,
             }
             recon_planes = self._find_center_gui(config=gui_config)
         else:
@@ -2305,9 +2327,9 @@ class TomoFindCenterProcessor(Processor):
             self.config.center_offsets.append(offset_vo)
             if self.save_figures:
                 recon_planes.append(TomoFindCenterGui.reconstruct_planes(
-                    sinogram, offset_vo, thetas))
-#                    num_proc=num_proc)
-#                    gaussian_sigma=gaussian_sigma, ring_width=ring_width)
+                    sinogram, offset_vo, thetas, num_proc=self.num_proc,
+                    gaussian_sigma=self.config.gaussian_sigma,
+                    ring_width=self.config.ring_width))
         return recon_planes
 
     def _find_center_gui(self, config):
@@ -2319,12 +2341,25 @@ class TomoFindCenterProcessor(Processor):
         # System modules
         from copy import deepcopy
 
+        # Third party modules
+        from tkinter import messagebox
+
+        def on_closing():
+            if messagebox.askyesno(
+                    'Exit Confirmation',
+                    'Are you sure you want to quit? This will kill CHAP! '
+                    'Use the `Confirm` button to accept your choice and close '
+                    'the GUI.', default='no'):
+                tk_root.destroy()
+                raise SystemExit
+
         config_save = deepcopy(config)
         try:
             # Initialize the main application window
             tk_root = tk.Tk()
 
             # Create the center calibration GUI within the main window
+            tk_root.protocol("WM_DELETE_WINDOW", on_closing)
             app = TomoFindCenterGui(tk_root=tk_root, config=config_save)
 
             tk_root.mainloop()
@@ -2332,8 +2367,6 @@ class TomoFindCenterProcessor(Processor):
                 raise ValueError
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
-            self._find_center_gui(config_save)
         else:
             self.config.center_stack_index = app.center_stack_index
             self.config.center_rows = list(app.center_rows)
@@ -2444,8 +2477,11 @@ class TomoReconstructProcessor(Processor):
                 raise ValueError(
                     'Unable to find valid calibrated center axis info from '
                     'metadata {metadata}')
-        center_slope = (center_offsets[1]-center_offsets[0]) \
-            / (center_rows[1]-center_rows[0])
+        if len(center_rows) == 1:
+            center_slope = 0.0
+        else:
+            center_slope = (center_offsets[1]-center_offsets[0]) \
+                / (center_rows[1]-center_rows[0])
 
         # Get thetas (in degrees)
         thetas = nxentry.reduced_data.rotation_angle.nxdata
@@ -2467,12 +2503,16 @@ class TomoReconstructProcessor(Processor):
             # row,theta,column
             tomo_stack = np.swapaxes(tomo_stacks[i,:,:,:], 0, 1)
             assert len(thetas) == tomo_stack.shape[1]
-            assert 0 <= center_rows[0] < center_rows[1] < tomo_stack.shape[0]
-            center_offsets = [
-                center_offsets[0]-center_rows[0]*center_slope,
-                center_offsets[1] + center_slope * (
-                    tomo_stack.shape[0]-1-center_rows[1]),
-            ]
+            if len(center_rows) == 1:
+                assert 0 <= center_rows[0] < tomo_stack.shape[0]
+            else:
+                assert (0 <= center_rows[0] < center_rows[1]
+                        < tomo_stack.shape[0])
+                center_offsets = [
+                    center_offsets[0]-center_rows[0]*center_slope,
+                    center_offsets[1] + center_slope * (
+                        tomo_stack.shape[0]-1-center_rows[1]),
+                ]
             t0 = time()
             tomo_recon_stack = self._reconstruct_one_tomo_stack(
                 tomo_stack, np.radians(thetas), center_offsets=center_offsets,
@@ -2559,7 +2599,7 @@ class TomoReconstructProcessor(Processor):
                     (quick_imshow(
                         tomo_recon_stack[:,:,x_index], title=title,
                         origin='lower', extent=(y[0], y[-1], z[0], z[-1]),
-                        show_fig=False, return_fig=True),
+                        cmap='gray', show_fig=False, return_fig=True),
                     re.sub(r'\s+', '_', title)))
                 y_index = y_slice-y_range[0]
                 title = f'recon y={y[y_index]:.4f}'
@@ -2567,7 +2607,7 @@ class TomoReconstructProcessor(Processor):
                     (quick_imshow(
                         tomo_recon_stack[:,y_index,:], title=title,
                         origin='lower', extent=(x[0], x[-1], z[0], z[-1]),
-                        show_fig=False, return_fig=True),
+                        cmap='gray', show_fig=False, return_fig=True),
                     re.sub(r'\s+', '_', title)))
                 z_index = z_slice-z_range[0]
                 title = f'recon z={z[z_index]:.4f}'
@@ -2575,7 +2615,7 @@ class TomoReconstructProcessor(Processor):
                     (quick_imshow(
                         tomo_recon_stack[z_index,:,:], title=title,
                         origin='lower', extent=(x[0], x[-1], y[0], y[-1]),
-                        show_fig=False, return_fig=True),
+                        cmap='gray', show_fig=False, return_fig=True),
                     re.sub(r'\s+', '_', title)))
         else:
             # Save a few reconstructed image slices
@@ -2586,19 +2626,22 @@ class TomoReconstructProcessor(Processor):
                     self._figures.append(
                         (quick_imshow(
                             tomo_recon_stacks[i,:,:,x_slice-x_range[0]],
-                            title=title, show_fig=False, return_fig=True),
+                            title=title, show_fig=False, return_fig=True,
+                            cmap='gray'),
                         re.sub(r'\s+', '_', title)))
                     title = f'{basetitle} yslice{y_slice}'
                     self._figures.append(
                         (quick_imshow(
                             tomo_recon_stacks[i,:,y_slice-y_range[0],:],
-                            title=title, show_fig=False, return_fig=True),
+                            title=title, show_fig=False, return_fig=True,
+                            cmap='gray'),
                         re.sub(r'\s+', '_', title)))
                     title = f'{basetitle} zslice{z_slice}'
                     self._figures.append(
                         (quick_imshow(
                             tomo_recon_stacks[i,z_slice-z_range[0],:,:],
-                            title=title, show_fig=False, return_fig=True),
+                            title=title, show_fig=False, return_fig=True,
+                            cmap='gray'),
                         re.sub(r'\s+', '_', title)))
 
         # Add image reconstruction to reconstructed data NXprocess
@@ -2714,12 +2757,12 @@ class TomoReconstructProcessor(Processor):
             centers = np.linspace(
                 center_offsets[0], center_offsets[1], tomo_stack.shape[0])
         else:
-            if center_offsets.size != tomo_stack.shape[0]:
+            if len(center_offsets) != tomo_stack.shape[0]:
                 raise RuntimeError(
                     'center_offsets dimension mismatch in '
                     'reconstruct_one_tomo_stack')
             centers = center_offsets
-        centers += tomo_stack.shape[2]/2
+        centers = np.asarray(centers) + tomo_stack.shape[2]/2
 
         # Remove horizontal stripe
         # RV prep.stripe.remove_stripe_fw seems flawed for hollow brick
@@ -2812,7 +2855,7 @@ class TomoReconstructProcessor(Processor):
             num_tomo_stacks = 1
             tomo_recon_stacks = [data]
 
-        # Selecting x an y bounds (in z-plane)
+        # Selecting x and y bounds (in z-plane)
         if x_bounds is None:
             if not self.interactive:
                 self.logger.warning('x_bounds unspecified, use data for '
@@ -2868,7 +2911,8 @@ class TomoReconstructProcessor(Processor):
 
         # Selecting z bounds (in xy-plane)
         # (only valid for a single image stack or when combining a stack)
-        if num_tomo_stacks == 1 or combine_data:
+        if ((num_tomo_stacks == 1 or combine_data)
+                and tomo_recon_stacks[0].shape[0] > 1):
             if z_bounds is None:
                 if not self.interactive:
                     if combine_data:
@@ -3089,7 +3133,7 @@ class TomoCombineProcessor(Processor):
                 (quick_imshow(
                     tomo_recon_combined[:,:,x_slice], title=title,
                     origin='lower', extent=(y[0], y[-1], z[0], z[-1]),
-                    show_fig=False, return_fig=True),
+                    cmap='gray', show_fig=False, return_fig=True),
                 re.sub(r'\s+', '_', title)))
             y_slice = tomo_shape[1]//2
             title = f'recon combined y={y[y_slice]:.4f}'
@@ -3097,7 +3141,7 @@ class TomoCombineProcessor(Processor):
                 (quick_imshow(
                     tomo_recon_combined[:,y_slice,:], title=title,
                     origin='lower', extent=(x[0], x[-1], z[0], z[-1]),
-                    show_fig=False, return_fig=True),
+                    cmap='gray', show_fig=False, return_fig=True),
                 re.sub(r'\s+', '_', title)))
             z_slice = tomo_shape[0]//2
             title = f'recon combined z={z[z_slice]:.4f}'
@@ -3105,7 +3149,7 @@ class TomoCombineProcessor(Processor):
                 (quick_imshow(
                     tomo_recon_combined[z_slice,:,:], title=title,
                     origin='lower', extent=(x[0], x[-1], y[0], y[-1]),
-                    show_fig=False, return_fig=True),
+                    cmap='gray', show_fig=False, return_fig=True),
                 re.sub(r'\s+', '_', title)))
 
         # Add image reconstruction to reconstructed data NXprocess

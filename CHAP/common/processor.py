@@ -825,14 +825,35 @@ class ImageProcessor(Processor):
                 fileformat = 'gif'
                 image_data = ani
             else:
+                # Local modules
+                from CHAP.utils.general import fig_to_iobuf
+
+                if self.config.fileformat in ('png', 'tif', 'tifstack'):
+                    fileformat = self.config.fileformat
+                else:
+                    if self.config.fileformat is not None:
+                        self.logger.warning('Ignoring invalid fileformat '
+                                            f'({self.config.fileformat})')
+                    if data.shape[0] == 1:
+                        fileformat = 'tif'
+                    else:
+                        fileformat = 'tifstack'
+                if fileformat != 'tifstack':
+                    # Return the set of image slices as individual figs
+                    num_digit = len(str(data.shape[0]))
+                    images = []
+                    for i in range(data.shape[0]):
+                        fig, plt = self._create_figure(data[i])
+                        images.append((
+                            fig_to_iobuf(fig, fileformat=fileformat),
+                            f'{self.config.basename}_'
+                            f'{str(i).zfill(num_digit)}'))
+                    plt.close()
+                    return images
                 # Return the set of image slices as a tif stack
-                if (self.config.fileformat is not None
-                        and self.config.fileformat != 'tif'):
-                    self.logger.warning(
-                        'Ignoring inconsistent file extension')
-                fileformat = 'tif'
                 data = 255.0*((data - vrange[0])/
                               (vrange[1] - vrange[0]))
+                fileformat = 'tif'
                 image_data = data.astype(np.uint8)
             return {'image_data': image_data, 'fileformat': fileformat}
         return nxdata
@@ -1550,7 +1571,7 @@ class MapProcessor(Processor):
             if self.detector_config.roi is None:
                 detector_roi = [slice(None), slice(None)]
             else:
-                detector_roi = self.detector_config.roi
+                detector_roi = self.detector_config.roitoslice()
             ddata = scanparser.get_detector_data(
                 self.detector_config.detectors[0].get_id(),
                 detector_roi=detector_roi, dtype=dtype)
@@ -1624,7 +1645,8 @@ class MapProcessor(Processor):
                                 detector_roi = [
                                     slice(None), slice(None)]
                             else:
-                                detector_roi = self.detector_config.roi
+                                detector_roi = \
+                                    self.detector_config.roitoslice()
                             data[i][offset] = scanparser.get_detector_data(
                                 self.detector_config.detectors[i].get_id(),
                                 detector_roi=detector_roi, dtype=dtype)
