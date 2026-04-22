@@ -324,7 +324,7 @@ class BaseStrainProcessor(BaseEddProcessor):
         # Local modules
         if self.interactive:
             from CHAP.edd.select_material_params_gui import \
-                select_material_params
+                select_material_params_gui as select_material_params
         else:
             from CHAP.edd.utils import select_material_params
 
@@ -949,27 +949,11 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             byte stream representions of Matplotlib figures.
         :rtype: dict or dict, PipelineData
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         # Local modules
         from CHAP.utils.general import list_to_string
 
         # Load the pipeline input data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid input in the pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the detector data
         nxentry = self.get_default_nxentry(nxroot)
@@ -2680,12 +2664,6 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         :rtype: list[dict[str, object]] or
             nexusformat.nexus.NXroot, PipelineData, PipelineData
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         # Local modules
         from CHAP.utils.general import list_to_string
 
@@ -2702,19 +2680,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         self._animation = []
 
         # Load the pipeline input data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise RuntimeError
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid input in the pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the detector data
         # FIX set rel_height_cutoff

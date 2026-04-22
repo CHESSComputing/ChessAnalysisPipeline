@@ -75,19 +75,21 @@ class CfProcessor(Processor):
         :rtype: dict or (dict, PipelineData)]
         """
         # Third party modules
+        # pylint: disable=import-error
         from pandas import DataFrame
+        # pylint: enable=import-error
         from scipy.interpolate import interp1d
+
+        # Local modules
+        from CHAP.pipeline import PipelineData
+        from CHAP.utils.general import round_to_n
 
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.pipeline import PipelineData
-            from CHAP.utils.general import (
-                fig_to_iobuf,
-                round_to_n,
-            )
+            from CHAP.utils.general import fig_to_iobuf
 
         # Validate the input parameters
         if scan_step_indices is not None:
@@ -148,12 +150,12 @@ class CfProcessor(Processor):
             np.where(q_ref >= radial_range[0], 1, 0), 0).astype(bool)
         if not q_ref[mask].size:
             raise ValueError(
-                f'No reference values within specified radial range')
+                'No reference values within specified radial range')
         func = interp1d(q_meas, data_meas, kind='cubic')
         data_meas_intpol = func(q_ref[mask])
         if not data_meas_intpol.size:
             raise ValueError(
-                f'No measured values within specified radial range')
+                'No measured values within specified radial range')
 
         # Get the correction factor
         ratio = data_ref[mask]/data_meas_intpol
@@ -175,11 +177,11 @@ class CfProcessor(Processor):
         if interactive or save_figures:
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.plot(q_ref, data_ref, label='APS Reference Data')
-            ax.plot(q_meas, data_meas, label=f'Corrected FMB Data/C$_f$')
+            ax.plot(q_meas, data_meas, label=r'Corrected FMB Data/C$_f$')
             for v in radial_range:
                 plt.axvline(v, color='r', linestyle='--')
             ax.set_yscale('log')
-            ax.set_title(f'Absolute Intensity Calculation', fontsize='xx-large')
+            ax.set_title('Absolute Intensity Calculation', fontsize='xx-large')
             ax.set_xlabel(r'{q_A^-1}', fontsize='x-large')
             ax.set_ylabel('Normalized Intensity', fontsize='x-large')
             min_x = q_meas.min()
@@ -191,11 +193,11 @@ class CfProcessor(Processor):
                  10**np.floor(1+np.log10(data_meas.max()))))
             ax.legend(fontsize='x-large', edgecolor='grey')
             plt.annotate(
-                f'C$_f$ = {round_to_n(cf, 6):e} $\pm$ '
+                r'C$_f$ = 'f'{round_to_n(cf, 6):e}'r' $\pm$ '
                 f'{round_to_n(100*cf_stv/cf, 2)}%\n'
-                f'1/C$_f$ = {round_to_n(1/cf, 6):e}',
+                r'1/C$_f$ = 'f'{round_to_n(1/cf, 6):e}',
                 (.65, .9), xycoords = 'axes fraction', fontsize='x-large',
-                bbox=dict(facecolor='white', edgecolor='grey', pad=10.0))
+                bbox={'facecolor': 'white', 'edgecolor': 'grey', 'pad': 10.0})
             if save_figures:
                 fig.tight_layout(rect=(0, 0, 1, 0.95))
                 figures  = fig_to_iobuf(fig)
@@ -322,17 +324,15 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        T = self._process(
+        tt = self._process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
              'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
-        # Extend T along last dim to have same shape as intensity
-        for dim in intensity.shape[T.ndim:]:
-            T = np.repeat(
-                np.expand_dims(T, axis=-1), dim, axis=-1
-            )
+        # Extend tt along last dim to have same shape as intensity
+        for dim in intensity.shape[tt.ndim:]:
+            tt = np.repeat(np.expand_dims(tt, axis=-1), dim, axis=-1)
 
         presample_intensity = self.get_data(
             data, name='presample_intensity',
@@ -349,10 +349,10 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
                 presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
-            'T': T
+            'tt': tt
         }
         expression = (
-            '(1 / T)'
+            '(1 / tt)'
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
         )
@@ -422,17 +422,15 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        T = self._process(
+        tt = self._process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
              'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
-        # Extend T along last dim to have same shape as intensity
-        for dim in intensity.shape[T.ndim:]:
-            T = np.repeat(
-                np.expand_dims(T, axis=-1), dim, axis=-1
-            )
+        # Extend tt along last dim to have same shape as intensity
+        for dim in intensity.shape[tt.ndim:]:
+            tt = np.repeat(np.expand_dims(tt, axis=-1), dim, axis=-1)
 
         presample_intensity = self.get_data(
             data, name='presample_intensity',
@@ -455,7 +453,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         if sample_thickness_cm is not None:
             t = sample_thickness_cm
         elif sample_mu_inv_cm is not None:
-            t = -np.log(T / sample_mu_inv_cm)
+            t = -np.log(tt / sample_mu_inv_cm)
         else:
             t = 1
 
@@ -465,13 +463,13 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
                 presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
-            'T': T,
+            'tt': tt,
             'background_intensity': background_intensity
         }
         expression = (
             '(1 / t)'
             '* ('
-            '(1 / T)'
+            '(1 / tt)'
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
             ') - ('
@@ -500,12 +498,12 @@ class PyfaiIntegrationProcessor(Processor):
         init_var=True)
     config: PyfaiIntegrationConfig
 
-    def process(self, data, idx_slices=[{'start':0, 'step': 1}]):
+    def process(self, data, idx_slices=None):
         """Perform a set of integrations on 2D detector data.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param idx_slices: List of dicionaries identifying the sliced
+        :param idx_slices: List of dictionaries identifying the sliced
             index at which the output data should be written in a
             dataset, defaults to `[{'start':0, 'step': 1}]`.
         :type idx_slices: list[dict[str, int]], optional
@@ -516,6 +514,9 @@ class PyfaiIntegrationProcessor(Processor):
         """
         # System modules
         import time
+
+        if idx_slices is None:
+            idx_slices = [{'start':0, 'step': 1}]
 
         # Organize input for integrations
         input_data = {d['name']: d['data']
@@ -620,6 +621,7 @@ class SetupResultsProcessor(Processor):
         :rtype: zarr.Group
         """
         # Third party modules
+        # pylint: disable=import-error
         import zarr
         from zarr.storage import MemoryStore
 
@@ -736,9 +738,11 @@ class SetupProcessor(Processor):
         import logging
 
         # Third party modules
+        # pylint: disable=import-error
         import zarr
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import MemoryStore
+        # pylint: enable=import-error
 
         # Local modules
         from CHAP.common import (
@@ -746,7 +750,7 @@ class SetupProcessor(Processor):
             NexusToZarrProcessor,
         )
         from CHAP.pipeline import PipelineData
-        from CHAP.saxswaxs import SetupResultsProcessor
+        #from CHAP.saxswaxs.processor import SetupResultsProcessor
 
         def set_logger(pipeline_item):
             """Set the logger and logging handler for given pipeline
@@ -1075,9 +1079,6 @@ class UnstructuredToStructuredProcessor(Processor):
             values and derived metadata.
         :rtype: tuple[list[dict], list[dict]]
         """
-        # Third party modules
-        import numpy as np
-
         self.logger.info('Validating input data')
         self.logger.info('Validating axis data')
         for axis in axes:
@@ -1211,16 +1212,16 @@ class UpdateValuesProcessor(Processor):
     detectors: conlist(item_type=Detector, min_length=1)
     raw_data: Optional[bool] = True
 
-    def process(self, data, idx_slice={'start': 0, 'step': 1}):
+    def process(self, data, idx_slice=None):
         """Processes a slice of data for updating values in an existing
         container for a SAXS/WAXS experiment.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param idx_slices: List of dicionaries identifying the sliced
-            index at which the output data should be written in a
-            dataset, defaults to `[{'start':0, 'step': 1}]`.
-        :type idx_slices: list[dict[str, int]], optional
+        :param idx_slice: Dictionaries identifying the sliced index at which
+            the output data should be written in a dataset, defaults to
+            `{'start':0, 'step': 1}`.
+        :type idx_slice: dict[str, int], optional
         :return: Integrated detector data ready for writing with
             :class:`~CHAP.saxswaxs.ZarrResultsWriter` or
             :class:`~CHAP.saxswaxs.NexusResultsWriter`.
@@ -1239,7 +1240,7 @@ class UpdateValuesProcessor(Processor):
         # Local modules
         from CHAP.common import MapSliceProcessor
         from CHAP.pipeline import PipelineData
-        from CHAP.saxswaxs import PyfaiIntegrationProcessor
+        #from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor
 
         def set_logger(pipeline_item):
             """Set the logger and logging handler for given pipeline
@@ -1262,6 +1263,9 @@ class UpdateValuesProcessor(Processor):
                 pipeline_item.logger.handlers[0])
             pipeline_item.logger.addHandler(handler)
             return pipeline_item
+
+        if idx_slice is None:
+            idx_slice = {'start':0, 'step': 1}
 
         # Read in slice of raw data
         raw_values = set_logger(
@@ -1290,9 +1294,7 @@ class UpdateValuesProcessor(Processor):
             )
         # Get integrated data
         processed_values = set_logger(
-            PyfaiIntegrationProcessor(
-                config=self.pyfai_config,
-            )
+            PyfaiIntegrationProcessor(config=self.pyfai_config)
         ).process(data, idx_slices=[idx_slice])
 
         if self.raw_data:

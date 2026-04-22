@@ -8,21 +8,25 @@ from os import path
 
 # Third party modules
 import numpy as np
-try:
-    from xrayutilities import materials
-    from xrayutilities import simpack
-    HAVE_XU = True
-except ImportError:
-    HAVE_XU = False
-try:
-    from hexrd import material
-    HAVE_HEXRD = True
-except ImportError:
-    HAVE_HEXRD = False
+#try:
+#    from xrayutilities import materials
+#    from xrayutilities import simpack
+#    HAVE_XU = True
+#except ImportError:
+#    HAVE_XU = False
+HAVE_XU = False
+#try:
+#    from hexrd import material
+#    HAVE_HEXRD = True
+#except ImportError:
+#    HAVE_HEXRD = False
+from hexrd import material
+HAVE_HEXRD = True
 if HAVE_HEXRD:
     try:
         from hexrd.valunits import valWUnit
     except ImportError:
+        raise
         HAVE_HEXRD = False
 #from xrayutilities import materials
 #from xrayutilities import simpack
@@ -278,6 +282,8 @@ class Material:
                     f'{lattice_parameters_angstroms} '
                     f'{type(lattice_parameters_angstroms)}')
         if material_file is None:
+            if pos is not None:
+                raise NotImplementedError(f'pos {type(pos)}: {pos}')
             if not isinstance(sgnum, int):
                 raise ValueError(f'Illegal sgnum: {sgnum} {type(sgnum)}')
             if (sgnum is None or lattice_parameters_angstroms is None
@@ -286,23 +292,24 @@ class Material:
                     'Valid inputs for sgnum, lattice_parameters_angstroms and '
                     'pos are required if materials file is not specified'
                     f' {sgnum} {lattice_parameters_angstroms} {pos}')
-            if isinstance(pos, str):
-                pos = [pos]
-            use_xu = True
-            if (np.array(pos).ndim == 1 and isinstance(pos[0], (int, float))
-                    and np.array(pos).size == 3):
-                if HAVE_HEXRD:
-                    pos = np.array([pos])
-                    use_xu = False
-            elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0
-                    and np.array(pos).shape[1] == 3):
-                if HAVE_HEXRD:
-                    pos = np.array(pos)
-                    use_xu = False
-            elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str)
-                      and np.array(pos).size > 0 and HAVE_XU):
-                raise ValueError(
-                    f'Illegal pos (HAVE_XU = {HAVE_XU}): {pos} {type(pos)}')
+            #if isinstance(pos, str):
+            #    pos = [pos]
+            #use_xu = True
+            #if (np.array(pos).ndim == 1 and isinstance(pos[0], (int, float))
+            #        and np.array(pos).size == 3):
+            #    if HAVE_HEXRD:
+            #        pos = np.array([pos])
+            #        use_xu = False
+            #elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0
+            #        and np.array(pos).shape[1] == 3):
+            #    if HAVE_HEXRD:
+            #        pos = np.array(pos)
+            #        use_xu = False
+            #elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str)
+            #          and np.array(pos).size > 0 and HAVE_XU):
+            #    raise ValueError(
+            #        f'Illegal pos (HAVE_XU = {HAVE_XU}): {pos} {type(pos)}')
+            use_xu = False
             if use_xu:
                 if atoms is None:
                     atoms = [material_name]
@@ -313,7 +320,7 @@ class Material:
             else:
                 matl = material.Material(material_name)
                 matl.sgnum = sgnum
-                matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
+                #matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
                 matl.latticeParameters = lattice_parameters
                 matl.dmin = valWUnit(
                     'lp', 'length', dmin_angstroms, 'angstrom')

@@ -565,6 +565,7 @@ class PandasReader(Reader):
         :rtype: `pandas.DataFrame`
         """
         # Third party modules
+        # pylint: disable=import-error
         import pandas as pd
 
         reader = getattr(pd, method)
@@ -1011,6 +1012,7 @@ class ZarrReader(Reader):
         :rtype: zarr.core.Array or zarr.hierarchy.Group
         """
         # Third party modules
+        # pylint: disable=import-error
         import zarr
 
         # Open the Zarr store (directory, zip, or URL)

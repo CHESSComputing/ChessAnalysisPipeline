@@ -28,7 +28,9 @@ def convert_sparse_dense(data):
     # Third party modules
     import numpy as np
     import scipy.sparse as sp
+    # pylint: disable=import-error
     import xarray as xr
+    # pylint: enable=import-error
 
     if isinstance(data, np.ndarray):
         return sp.csr_matrix(data)  # Convert dense NumPy array to sparse
@@ -76,8 +78,13 @@ def convert_xarray_nexus(data):
         nexusformat.nexus.NXdata
     """
     # Third party modules
+    from nexusformat.nexus import (
+        NXdata,
+        NXfield,
+    )
+    # pylint: disable=import-error
     import xarray as xr
-    from nexusformat.nexus import NXdata, NXfield
+    # pylint: enable=import-error
 
     if isinstance(data, xr.DataArray):
         return NXdata(
@@ -155,7 +162,10 @@ def convert_structured_unstructured(data):
     """
     # Third party modules
     from copy import deepcopy
-    from nexusformat.nexus import NXdata, NXfield
+    from nexusformat.nexus import (
+        NXdata,
+        NXfield,
+    )
     import numpy as np
 
     if isinstance(data, NXdata):

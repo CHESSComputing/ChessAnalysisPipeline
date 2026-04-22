@@ -15,7 +15,7 @@ from typing import (
 
 # Third party modules
 from pydantic import (
-    ConfigDict,
+#    ConfigDict,
     Field,
 #    FilePath,
     PrivateAttr,
@@ -189,68 +189,6 @@ class PipelineItem(RunConfig):
         """
         return self.schema_
 
-    @staticmethod
-    def get_default_nxentry(nxobject):
-        """Given a `nexusformat.nexus.NXroot` or 
-        `nexusformat.nexus.NXentry` object, return the default or
-        first `nexusformat.nexus.NXentry` match.
-
-        :param nxobject: Input data.
-        :type nxobject: nexusformat.nexus.NXroot,
-            nexusformat.nexus.NXentry
-        :raises ValueError: If unable to retrieve a
-            `nexusformat.nexus.NXentry` object.
-        :return: Input data if a `nexusformat.nexus.NXentry`
-            object or the default or first `nexusformat.nexus.NXentry`
-            object if a `nexusformat.nexus.NXroot` object.
-        :rtype: nexusformat.nexus.NXentry
-        """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
-        if isinstance(nxobject, NXroot):
-            if 'default' in nxobject.attrs:
-                nxentry = nxobject[nxobject.default]
-            else:
-                nxentries = [
-                    v for v in nxobject.values() if isinstance(v, NXentry)]
-                if not nxentries:
-                    raise ValueError('Unable to retrieve a NXentry object')
-                if len(nxentries) != 1:
-                    print('WARNING: Found multiple NXentries, returning the '
-                          'first')
-                nxentry = nxentries[0]
-        elif isinstance(nxobject, NXentry):
-            nxentry = nxobject
-        else:
-            raise ValueError(f'Invalid parameter nxobject ({nxobject})')
-        return nxentry
-
-    @staticmethod
-    def unwrap_pipelinedata(data):
-        """Given a list of PipelineData objects, return a list of
-        their `data` values.
-
-        :param data: Input data to read, write, or process that needs
-            to be unwrapped from PipelineData before use.
-        :type data: list[PipelineData]
-        :return: `'data'` values of the items in the input data.
-        :rtype: list
-        """
-        unwrapped_data = []
-        if isinstance(data, list):
-            for d in data:
-                if isinstance(d, PipelineData):
-                    unwrapped_data.append(d['data'])
-                else:
-                    unwrapped_data.append(d)
-        else:
-            unwrapped_data = [data]
-        return unwrapped_data
-
     def get_config(
             self, data=None, config=None, schema=None, remove=True):
         """Look through `data` for the last item which value for the
@@ -330,11 +268,12 @@ class PipelineItem(RunConfig):
     @staticmethod
     def get_data(data, name=None, schema=None, remove=True):
         """Look through `data` for the last item which `'data'` value
-        is a nexusformat.nexus.NXobject object or matches a given name
-        or schema. Pick the last item for which the `'name'` key
-        matches `name` if set or the `'schema'` key matches `schema`
-        if set, pick the last match for a nexusformat.nexus.NXobject
-        object otherwise. Return the data object.
+        is a NeXus style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+        object or matches a given name or schema. Pick the last item for which
+        the `'name'` key matches `name` if set or the `'schema'` key matches
+        `schema` if set, pick the last match for a `NXobjecta` object
+        otherwise. Return the data object.
 
         :param data: Input data.
         :type data: list[PipelineData].
@@ -343,7 +282,7 @@ class PipelineItem(RunConfig):
         :type name: str, optional
         :param schema: Schema of the `PipelineItem` class to match in
             `data` & return.
-        :type schema: str or list[str], optional
+        :type schema: str | list[str], optional
         :param remove: If there is a matching entry in `data`, remove
             it from the list, defaults to `True`.
         :type remove: bool, optional
@@ -391,6 +330,73 @@ class PipelineItem(RunConfig):
         return result
 
     @staticmethod
+    def get_default_nxentry(nxobject):
+        """Given a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__ 
+        object or a NeXus style
+        `NXentry <https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0>`__
+        object, return the default or first `NXentry` match.
+
+        :param nxobject: Input data.
+        :type nxobject: nexusformat.nexus.NXroot | nexusformat.nexus.NXentry
+        :raises ValueError: If unable to retrieve a `NXentry` object.
+        :return: Input data if a `NXentry` object or the default or first
+            `NXentry` object if a `NXroot` object.
+        :rtype: nexusformat.nexus.NXentry
+        """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
+
+        if isinstance(nxobject, NXroot):
+            if 'default' in nxobject.attrs:
+                nxentry = nxobject[nxobject.default]
+            else:
+                nxentries = [
+                    v for v in nxobject.values() if isinstance(v, NXentry)]
+                if not nxentries:
+                    raise ValueError('Unable to retrieve a NXentry object')
+                if len(nxentries) != 1:
+                    print('WARNING: Found multiple NXentries, returning the '
+                          'first')
+                nxentry = nxentries[0]
+        elif isinstance(nxobject, NXentry):
+            nxentry = nxobject
+        else:
+            raise ValueError(f'Invalid parameter nxobject ({nxobject})')
+        return nxentry
+
+    @staticmethod
+    def get_nxroot(nxobject):
+        """Given a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__ 
+        object or a NeXus style
+        `NXentry <https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0>`__
+        object, return a `NXroot` object with the appropriate default path to
+        the `NXentry` object set.
+
+        :param nxobject: Input data.
+        :type nxobject: nexusformat.nexus.NXroot | nexusformat.nexus.NXentry
+        :raises ValueError: If unable to retrieve a
+            `NXroot` or `NXentry` object.
+        :return: Input data if a `NXroot` object or a `NXroot` object with the
+             input as its default `NXentry` object.
+        :return: `NXroot` object.
+        :rtype: nexusformat.nexus.NXroot
+        """
+        if isinstance(nxobject, NXroot):
+            nxroot = nxobject
+        if isinstance(nxobject, NXentry):
+            nxroot = NXroot()
+            nxroot[nxobject.nxname] = nxobject
+            nxobject.set_default()
+        else:
+            raise ValueError(f'Invalid nxobject ({type(nxobject)}')
+        return nxroot
+
+    @staticmethod
     def get_pipelinedata_item(data, index=-1, remove=False):
         """If 'data' is a list, then retrieve from `data` the list
         item matching `index` and return it's `data` value, otherwise
@@ -412,6 +418,28 @@ class PipelineItem(RunConfig):
                 return data.pop(index)['data']
             return data[index]['data']
         return data
+
+    @staticmethod
+    def unwrap_pipelinedata(data):
+        """Given a list of PipelineData objects, return a list of
+        their `data` values.
+
+        :param data: Input data to read, write, or process that needs
+            to be unwrapped from PipelineData before use.
+        :type data: list[PipelineData]
+        :return: `'data'` values of the items in the input data.
+        :rtype: list
+        """
+        unwrapped_data = []
+        if isinstance(data, list):
+            for d in data:
+                if isinstance(d, PipelineData):
+                    unwrapped_data.append(d['data'])
+                else:
+                    unwrapped_data.append(d)
+        else:
+            unwrapped_data = [data]
+        return unwrapped_data
 
     def execute(self, data):#, metadata, provenance):
         """Execute the appropriate method of the object and return the

@@ -26,7 +26,7 @@ import tkinter as tk
 from json import loads
 import numpy as np
 from pydantic import (
-    ConfigDict,
+#    ConfigDict,
     Field,
     PrivateAttr,
     SkipValidation,

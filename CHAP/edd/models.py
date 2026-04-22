@@ -219,14 +219,14 @@ class MaterialConfig(CHAPBaseModel):
         :rtype: MaterialConfig
         """
         # Local modules
-        from CHAP.edd.utils import make_material
-#        from CHAP.utils.material import Material
+#        from CHAP.edd.utils import make_material
+        from CHAP.utils.material import Material
 
-        self._material = make_material(
-            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
-#        self._material = Material.make_material(
-#            self.material_name, sgnum=self.sgnum,
-#            lattice_parameters_angstroms=self.lattice_parameters,
+#        self._material = make_material(
+#            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
+        self._material = Material.make_material(
+            self.material_name, sgnum=self.sgnum,
+            lattice_parameters_angstroms=self.lattice_parameters)
 #            pos=['4a', '8c'])
             #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
         self.lattice_parameters = list([

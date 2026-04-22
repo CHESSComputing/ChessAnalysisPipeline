@@ -71,10 +71,8 @@ class GiwaxsConversionProcessor(Processor):
         import fabio
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXfield,
             NXprocess,
-            NXroot,
             nxsetconfig,
         )
         from pyFAI.gui.utils.units import Unit
@@ -86,19 +84,7 @@ class GiwaxsConversionProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except ValueError as exc:
-            raise RuntimeError('Invalid or missing detector data in input '
-                               'pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
@@ -256,10 +242,8 @@ class PyfaiIntegrationProcessor(Processor):
         import fabio
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXfield,
             NXprocess,
-            NXroot,
             nxsetconfig,
         )
         from pyFAI.gui.utils.units import Unit
@@ -270,20 +254,7 @@ class PyfaiIntegrationProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except ValueError as exc:
-            raise RuntimeError('Invalid or missing detector data in input '
-                               'pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)

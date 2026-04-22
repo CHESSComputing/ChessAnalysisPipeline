@@ -992,6 +992,7 @@ class MapProcessor(Processor):
             logger = info.data['logger']
             try:
                 # Third party modules
+                # pylint: disable=unused-import
                 from mpi4py import MPI
 
                 if num_proc > os.cpu_count():
@@ -2075,7 +2076,9 @@ class NexusToXarrayProcessor(Processor):
         """
         # Third party modules
         from nexusformat.nexus import NXdata
+        # pylint: disable=import-error
         from xarray import DataArray
+        # pylint: enable=import-error
 
         data = self.get_pipelinedata_item(data)
 
@@ -2139,8 +2142,10 @@ class NexusToZarrProcessor(Processor):
             NXfield,
             NXgroup,
         )
+        # pylint: disable=import-error
         import zarr
         from zarr.storage import MemoryStore
+        # pylint: enable=import-error
 
         nexus_group = self.get_data(data)
         if isinstance(chunks, int):
@@ -2865,7 +2870,7 @@ class UnstructuredToStructuredProcessor(Processor):
         )
 
         # Local modules
-        from CHAP.edd.processor import get_axes
+        from CHAP.common.map_utils import get_axes
 
         # Extract axes from the NXdata attributes
         axes = get_axes(nxdata)
@@ -3306,7 +3311,9 @@ class ZarrToNexusProcessor(Processor):
         """
         # Third party modules
         import h5py
+        # pylint: disable=import-error
         import zarr
+        # pylint: enable=import-error
 
         if not os.path.isabs(zarr_filename):
             zarr_filename = os.path.join(self.inputdir, zarr_filename)

@@ -27,7 +27,6 @@ from pydantic import (
     model_validator,
 )
 from pyspec.file.spec import FileSpec
-from typing_extensions import Annotated
 
 # Local modules
 from CHAP.models import CHAPBaseModel

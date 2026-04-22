@@ -31,41 +31,43 @@ def get_peak_locations(ds, tth):
     return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
 
 
-def make_material(name, sgnum, lattice_parameters, dmin=0.35):
-    """Return a
-    `hexrd.material.Material <https://hexrd.readthedocs.io/en/0.9.9/hexrd.material.material.html>`
-    object with the given properties.
-
-    :param name: Material name.
-    :type name: str
-    :param sgnum: Space group of the material.
-    :type sgnum: int
-    :param lattice_parameters: Material's lattice parameters
-        ([a, b, c, &#945;, &#946;, &#947;], or fewer as the symmetry of
-        the space group allows --- for instance, a cubic lattice with
-        space group number 225 can just provide [a]).
-    :type lattice_parameters: list[float]
-    :param dmin: Materials's Minimum lattice spacing in angstrom,
-        defaults to `0.6`.
-    :type dmin: float, optional
-    :return: Material object with the given properties.
-    :rtype: heard.material.Material
-    """
-    # Third party modules
-    from hexrd.material import Material
-    from hexrd.valunits import valWUnit
-
-    material = Material()
-    material.name = name
-    material.sgnum = sgnum
-    if isinstance(lattice_parameters, float):
-        lattice_parameters = [lattice_parameters]
-    material.latticeParameters = lattice_parameters
-    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
-    nhkls = len(material.planeData.exclusions)
-    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
-
-    return material
+# FIX this casues a cyclic import, use Material.make_material from
+# CHAP.utils.material
+#def make_material(name, sgnum, lattice_parameters, dmin=0.35):
+#    """Return a
+#    `hexrd.material.Material <https://hexrd.readthedocs.io/en/0.9.9/hexrd.material.material.html>`
+#    object with the given properties.
+#
+#    :param name: Material name.
+#    :type name: str
+#    :param sgnum: Space group of the material.
+#    :type sgnum: int
+#    :param lattice_parameters: Material's lattice parameters
+#        ([a, b, c, &#945;, &#946;, &#947;], or fewer as the symmetry of
+#        the space group allows --- for instance, a cubic lattice with
+#        space group number 225 can just provide [a]).
+#    :type lattice_parameters: list[float]
+#    :param dmin: Materials's Minimum lattice spacing in angstrom,
+#        defaults to `0.6`.
+#    :type dmin: float, optional
+#    :return: Material object with the given properties.
+#    :rtype: heard.material.Material
+#    """
+#    # Third party modules
+#    from hexrd.material import Material
+#    from hexrd.valunits import valWUnit
+#
+#    material = Material()
+#    material.name = name
+#    material.sgnum = sgnum
+#    if isinstance(lattice_parameters, float):
+#        lattice_parameters = [lattice_parameters]
+#    material.latticeParameters = lattice_parameters
+#    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
+#    nhkls = len(material.planeData.exclusions)
+#    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+#
+#    return material
 
 
 def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
@@ -640,54 +642,6 @@ def select_material_params(
             lattice_parameters=[
                 m.latticeParameters[i].value for i in range(6)])
         for m in materials], buf
-
-def select_material_params_gui(
-        x, y, tth, preselected_materials=None, label='Reference Data',
-        interactive=False, return_buf=False):
-    """Interactively adjust the lattice parameters and space group for
-    a list of materials. It is possible to add / remove materials from
-    the list.
-
-    :param x: MCA channel energies.
-    :type x: numpy.ndarray
-    :param y: MCA intensities.
-    :type y: numpy.ndarray
-    :param tth: (calibrated) 2&theta angle.
-    :type tth: float
-    :param preselected_materials: Materials to get HKLs and
-        lattice spacings for.
-    :type preselected_materials: list[hexrd.material.Material],
-        optional
-    :param label: Legend label for the 1D plot of reference MCA data
-        from the parameters `x`, `y`, defaults to `"Reference Data"`.
-    :type label: str, optional
-    :param interactive: Show the plot and allow user interactions with
-        the Matplotlib figure, defaults to `False`.
-    :type interactive: bool, optional
-    :param return_buf: Return an in-memory object as a byte stream
-        represention of the Matplotlib figure, defaults to `False`.
-    :type return_buf: bool, optional
-    :return: Selected materials for the strain analyses and a byte
-        stream represention of the Matplotlib figure if return_buf is
-        `True` (`None` otherwise).
-    :rtype: list[MaterialConfig], io.BytesIO or None
-    """
-    # Local modules
-    from CHAP.edd.select_material_params_gui import run_material_selector
-
-    materials = None
-    figure = None
-    def on_complete(_materials, _figure):
-        nonlocal materials, figure
-        materials = _materials
-        figure = _figure
-
-    run_material_selector(
-        x, y, tth, preselected_materials, label, on_complete, interactive)
-
-    if return_buf:
-        return materials, fig_to_iobuf(figure)
-    return materials, None
 
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,

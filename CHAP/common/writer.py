@@ -814,6 +814,7 @@ class ZarrValuesWriter(Writer):
         :type data: list[PipelineData]
         """
         # Third party modules
+        # pylint: disable=import-error
         import zarr
 
         # Open file in append mode to allow modifications
@@ -880,6 +881,7 @@ class ZarrWriter(Writer):
         import asyncio
 
         # Third party modules
+        # pylint: disable=import-error
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import LocalStore
         from zarr.abc.store import Store

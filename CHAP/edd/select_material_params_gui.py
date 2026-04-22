@@ -5,11 +5,11 @@ the material properties for an EDD workflow.
 """
 
 # Third party modules
+import tkinter as tk
+from tkinter import messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
-import tkinter as tk
-from tkinter import messagebox
 
 class MaterialParamSelector:
     """A processor that creates and opens a GUI to interactively
@@ -168,8 +168,8 @@ class MaterialParamSelector:
         botton.
         """
         # Local modules
-        from CHAP.edd.utils import make_material
-#        from CHAP.utils.material import Material
+#        from CHAP.edd.utils import make_material
+        from CHAP.utils.material import Material
 
         if self.selected_material is None:
             return
@@ -186,10 +186,10 @@ class MaterialParamSelector:
             # Make a hexrd material from those values so we can
             # propagate any other updates required by the material's
             # symmetries
-            _material = make_material(name, sgnum, lattice_parameters)
-#            _material = Material.make_material(
-#                name, sgnum=sgnum,
-#                lattice_parameters_angstroms=lattice_parameters,
+#            _material = make_material(name, sgnum, lattice_parameters)
+            _material = Material.make_material(
+                name, sgnum=sgnum,
+                lattice_parameters_angstroms=lattice_parameters)
 #                pos=['4a', '8c'])
 #                #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
             material.material_name = name
@@ -293,7 +293,7 @@ def run_material_selector(
         # application
         app.on_close()
 
-def select_material_params(
+def select_material_params_gui(
         x, y, tth, preselected_materials=None, label='Reference Data',
         interactive=False, return_buf=False):
     """Interactively adjust the lattice parameters and space group for
@@ -361,7 +361,7 @@ if __name__ == '__main__':
             lattice_parameters=[2.9217, 4.66027]
         )
     ]
-    mmaterials = select_material_params(
+    mmaterials = select_material_params_gui(
         xx, yy, ttth, preselected_materials=ppreselected_materials,
         interactive=True)
     print(f'Returned materials: {mmaterials}')

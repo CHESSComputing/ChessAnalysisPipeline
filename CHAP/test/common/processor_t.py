@@ -192,14 +192,21 @@ class NexusToNumpyProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.NexusToNumpyProcessor class"""
 
     def setUp(self):
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
         self.processor = NexusToNumpyProcessor()
         self.data = [PipelineData(data=NXdata(signal=NXfield([0, 0]),
                                               axes=(NXfield([0, 1]),)))]
 
     def testProcessor(self):
         """Unit test to test processor"""
+        # Third party modules
         import numpy as np
+
         data = self.processor.process(self.data)
         self.assertIsInstance(data, np.ndarray)
 
@@ -208,14 +215,22 @@ class NexusToXarrayProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.NexusToXarrayProcessor class"""
 
     def setUp(self):
-        from nexusformat.nexus import NXdata, NXfield
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
+
         self.processor = NexusToXarrayProcessor()
         self.data = [PipelineData(data=NXdata(signal=NXfield([0, 0]),
                                               axes=(NXfield([0, 1]),)))]
 
     def testProcessor(self):
         """Unit test to test processor"""
+        # Third party modules
+        # pylint: disable=import-error
         import xarray as xr
+
         data = self.processor.process(self.data)
         self.assertIsInstance(data, xr.DataArray)
 
@@ -224,13 +239,18 @@ class XarrayToNexusProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.XarrayToNexusProcessor class"""
 
     def setUp(self):
+        # Third party modules
+        # pylint: disable=import-error
         import xarray as xr
+
         self.processor = XarrayToNexusProcessor()
         self.data = [PipelineData(data=xr.DataArray())]
 
     def testProcessor(self):
         """Unit test to test processor"""
+        # Third party modules
         from nexusformat.nexus import NXdata
+
         data = self.processor.process(self.data)
         self.assertIsInstance(data, NXdata)
 
@@ -239,13 +259,18 @@ class XarrayToNumpyProcessorTest(unittest.TestCase):
     """Unit test for CHAP.common.XarrayToNumpyProcessor class"""
 
     def setUp(self):
+        # Third party modules
+        # pylint: disable=import-error
         import xarray as xr
+
         self.processor = XarrayToNumpyProcessor()
         self.data = [PipelineData(data=xr.DataArray())]
 
     def testProcessor(self):
         """Unit test to test processor"""
+        # Third party modules
         import numpy as np
+
         data = self.processor.process(self.data)
         self.assertIsInstance(data, np.ndarray)
 
