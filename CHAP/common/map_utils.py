@@ -94,7 +94,7 @@ class MapSliceProcessor(Processor):
         :type idx_slice: dict[str, int], optional
         :return: Slice of map data, ready to be written to a map
              container.
-        :rtype: list[dict[str, object]]
+        :rtype: list[dict[str, Any]]
         """
         # System modules
         import os

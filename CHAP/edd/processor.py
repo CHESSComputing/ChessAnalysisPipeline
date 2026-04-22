@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""Module for Processors unique to the EDD workflow."""
+"""Module for Processors unique to the EDD workflow.
+
+Add discription of EDD
+"""
 
 # System modules
 from copy import deepcopy

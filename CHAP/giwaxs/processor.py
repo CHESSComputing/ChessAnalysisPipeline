@@ -226,7 +226,7 @@ class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images.
 
     :ivar config: Initialization parameters for an instance of
-        :class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+        :class:`~CHAP.giwaxs.models.PyfaiIntegrationConfig`.
     :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
     :vartype nxmemory: int, optional

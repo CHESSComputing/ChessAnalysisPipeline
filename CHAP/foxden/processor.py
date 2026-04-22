@@ -3,6 +3,8 @@
 """Module for Processors unique to the
 `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
 integration with CHAP.
+
+Add discription of FOXDEN
 """
 
 # System modules

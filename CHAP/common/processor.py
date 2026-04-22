@@ -896,11 +896,19 @@ class ImageProcessor(Processor):
         return nxdata
 
     def _create_animation(self, data):
+        """Create a Matplotlib animation from a set of images."""
         # Third party modules
         from functools import partial
         from matplotlib import animation
 
-        def animate(i, plt, title):
+        def _set_title(self, i):
+            """Set the title for a single Matplotlib image of the animation."""
+            return self._figconfig['axis_name'] +\
+                f' = {self._figconfig["axis_coords"][i]:.3f}' +\
+                self._figconfig['axis_unit']
+
+        def _animate(i, plt, title):
+            """Create a single Matplotlib image for the animation."""
             im.set_array(data[i])
             title.set_text(self._set_title(i))
             plt.draw()
@@ -908,7 +916,7 @@ class ImageProcessor(Processor):
 
         fig, im, plt, title = self._create_figure(data[0], animated=True)
         ani = animation.FuncAnimation(
-            fig, partial(animate, plt=plt, title=title), frames=data.shape[0],
+            fig, partial(_animate, plt=plt, title=title), frames=data.shape[0],
             interval=50, blit=True)
         if self.interactive:
             plt.show()
@@ -917,6 +925,7 @@ class ImageProcessor(Processor):
         return ani
 
     def _create_figure(self, image, animated=False):
+        """Create a Matplotlib figure from an image."""
         # Third party modules
         import matplotlib.pyplot as plt
 
@@ -934,11 +943,6 @@ class ImageProcessor(Processor):
         if animated:
             return fig, im, plt, title
         return fig, plt
-
-    def _set_title(self, i):
-        return self._figconfig['axis_name'] +\
-            f' = {self._figconfig["axis_coords"][i]:.3f}' +\
-            self._figconfig['axis_unit']
 
 
 class MapProcessor(Processor):
@@ -2119,10 +2123,11 @@ class NexusToZarrProcessor(Processor):
     """
 
     def process(self, data, chunks='auto'):
-        """Return a NeXus style
+        """Copy and return a
+        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+        object from a NeXus style
         `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
-        object to a `Zarr <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
-        style group object.
+        object.
 
         :param data: Input data.
         :type data: list[PipelineData]
@@ -2143,6 +2148,18 @@ class NexusToZarrProcessor(Processor):
         zarr_group = zarr.create_group(store=MemoryStore({}))
 
         def copy_group(nexus_group, zarr_group):
+            """Copy a NeXus style
+            `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+            object to a
+            `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+            object.
+
+            :param source_store: Source NeXus style `NXgroup`.
+            :type: nexusformat.nexus.NXgroup
+            :param dest_store: Destination Zarr group.
+            :type: zarr.Group
+            """
+
             self.logger.info(f'Copying {nexus_group.nxpath}')
             # Copy attributes
             for attr_key, attr_value in nexus_group.attrs.items():
@@ -2838,6 +2855,9 @@ class UnstructuredToStructuredProcessor(Processor):
         return self._convert_nxdata(nxobject)
 
     def _convert_nxdata(self, nxdata):
+        """Convert a NeXus style `NXdata` object from an "unstructured" to a
+        "structured" representation.
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
@@ -3300,6 +3320,17 @@ class ZarrToNexusProcessor(Processor):
         with h5py.File(nexus_filename, 'w') as nexus_file:
             # Recursively copy all datasets and attributes
             def copy_group(zarr_group, nexus_group):
+                """Convert a
+                `Zarr group <https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group>`__
+                object to a NeXus style
+                `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+                object.
+
+                :param zarr_group: Zarr style group.
+                :type: zarr.Group
+                :param nexus_group: Nexus style group.
+                :type: nexusformat.nexus.NXgroup
+                """
                 self.logger.info(f'Copying {zarr_group.path}')
                 # Copy attributes
                 for attr_key, attr_value in zarr_group.attrs.items():
