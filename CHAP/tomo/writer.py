@@ -1,5 +1,11 @@
 #!/usr/bin/env python
-"""Tomography command line writer."""
+"""Module for Writers unique to the tomography workflow."""
+
+# System modules
+import os
+
+# Third party modules
+from pydantic import model_validator
 
 # System modules
 import os
@@ -16,6 +22,11 @@ class TomoWriter(Writer):
 
     @model_validator(mode='after')
     def validate_tomowriter_after(self):
+        """Validate the filename extension.
+
+        :return: Validated writer configuration
+        :rtype: TomoWriter
+        """
         ext = os.path.splitext(self.filename)[1][1:]
         if ext not in ('nxs', 'yml', 'yaml'):
             raise ValueError(f'Invalid filename extension {self.filename}')
@@ -30,9 +41,6 @@ class TomoWriter(Writer):
         :return: Output data.
         :rtype: list[PipelineData]
         """
-        # System modules
-        from os import path as os_path
-
         # Local modules
         from CHAP.pipeline import PipelineData
 

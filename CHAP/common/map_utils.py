@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
 """Common map data model functions and classes."""
 
+# Third party modules
 from pydantic import (
     conint,
     conlist,
@@ -15,7 +18,18 @@ from CHAP.common.models.map import (
 )
 
 def get_axes(nxdata, skip_axes=None):
-    """Get the axes of an NXdata object."""
+    """Get the axes of a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object.
+
+    :param nxdata: Input data.
+    :type nxdata: nexusformat.nexus.NXdata
+    :param skip_axes: Axes to skip.
+    :type skip_axes: list[str], optional
+    :return: The axes of the NXdata object excluding those in the
+        optional `skip_axes` parameter.
+    :rtype: list[str]
+    """
     if skip_axes is None:
         skip_axes = []
     if 'unstructured_axes' in nxdata.attrs:
@@ -31,24 +45,26 @@ def get_axes(nxdata, skip_axes=None):
 
 class MapSliceProcessor(Processor):
     """Proccessor for getting partial map data for filling in a NeXus
-    structure created by `CHAP.common.MapProcessor` with
-    `fill_data=False`. Good for parallelizing workflows across
+    structure created by :class:`~CHAP.common.processor.MapProcessor`
+    with `fill_data=False`. Good for parallelizing workflows across
     multiple pipelines or processing data live when a scan is still
     incomplete. Returned data is suitable for writing to an existing
-    map structure with `common.NexusValuesWriter` or
-    `common.ZarrValuesWriter`.
+    map structure with :class:`~CHAP.common.writer.NexusValuesWriter`
+    or :class:`~CHAP.common.writer.ZarrValuesWriter`.
 
     :ivar map_config: Map configuration.
-    :type map_config: CHAP.common.models.map.MapConfig
-    :ivar detectors: List os detector configurations.
-    :type detectors: list[CHAP.common.models.map.Detector]
+    :vartype map_config: MapConfig
+    :ivar detectors: Detector configurations.
+    :vartype detectors:
+        list[:class:`~CHAP.common.models.map.Detector`]
     :ivar spec_file: SPEC file containing scan from which to read a
         slice of raw data.
-    :type spec_file: pydantic.FilePath
+    :vartype spec_file: str
     :ivar scan_number: Number of scan from which to read a slice of
         raw data.
-    :type scan_number: int
+    :vartype scan_number: int
     """
+
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
@@ -63,8 +79,9 @@ class MapSliceProcessor(Processor):
                 idx_slice={'start': 0, 'step': 1}):
         """Aggregate partial spec and detector data from one scan in a
         map, returning results in a format suitable for writing to the
-        full map container with `common.NexusValuesWriter` or
-        `common.ZarrValuesWriter`.
+        full map container with
+        :class:`~CHAP.common.writer.NexusValuesWriter` or
+        :class:`~CHAP.common.writer.ZarrValuesWriter`.
 
         :param data: Result of `Reader.read` where at least one item
             has the value `'common.models.map.MapConfig'` for the
@@ -77,12 +94,16 @@ class MapSliceProcessor(Processor):
         :type idx_slice: dict[str, int], optional
         :return: Slice of map data, ready to be written to a map
              container.
-        :rtype: list[dict[str, object]]
+        :rtype: list[dict[str, Any]]
         """
-        import numpy as np
+        # System modules
         import os
-        from chess_scanparsers import choose_scanparser
 
+        # Third party modules
+        import numpy as np
+
+        # Local modules
+        from chess_scanparsers import choose_scanparser
         from CHAP.common.models.map import SpecScans
 
         ScanParser = choose_scanparser(
@@ -146,51 +167,77 @@ class MapSliceProcessor(Processor):
 
 
 class SpecScanToMapConfigProcessor(Processor):
-    """Processor to get the `CHAP.common.models.map.MapConfig`
-    dictionary configuration representation of a single CHESS SPEC
-    scan."""
+    """Processor to get the
+    :class:`~CHAP.common.models.map.MapConfig` dictionary
+    configuration representation of a single CHESS SPEC scan.
+    """
+
     def process(self, data,
                 spec_file, scan_number, station, experiment,
                 dwell_time_actual_counter_name,
                 presample_intensity_counter_name,
                 postsample_intensity_counter_name=None,
                 validate_data_present=True):
-        """Return a dictionary representing a valid MapConfig object that
+        """Return a dictionary representing a valid
+        :class:`~CHAP.common.models.map.MapConfig` object that
         contains only the single given scan.
 
-        :param spec_file: Name of spec file
+        :param spec_file: Spec file name
         :type spec_file: str
-        :param scan_number: Number of scan
+        :param scan_number: Scan number
         :type scan_number: int
-        :param station: Station id ("id**" format)
+        :param station: Name of the station at which the data was
+            collected.
         :type station: Literal["id1a3", "id3a", "id3b", "id4b"]
         :param experiment: Experiment type
-        :type experiment: Literal["edd", "giwaxs", "hdrm", "powder",
-            "saxswaxs", "tomo", "xrf"]
+        :type experiment_type: Literal[
+            'EDD', 'GIWAXS', 'HDRM', 'SAXSWAXS', 'TOMO', 'XRF']
+        :param dwell_time_actual_counter_name: Name of the counter used
+            to record the actual dwell time at time of data collection.
+        :type dwell_time_actual_counter_name: str
+        :param presample_intensity_counter_name: Name of the counter
+            used to record the incident beam intensity at time of data
+            collection.
+        :type presample_intensity_counter_name: str
+        :param postsample_intensity_counter_name: Name of the counter
+            used to record the post sample beam intensity at time of
+            data collection.
+        :type postsample_intensity_counter_name: str, optional
+        :param validate_data_present: Optional `validate_data_present`
+            key-value pair to the output map configuration, defaults
+            to `True`.
+        :type validate_data_present:
         :returns: Single-scan map configuration
         :rtype: dict
         """
+        # System modules
         import os
 
+        # Local modules
         from chess_scanparsers import choose_scanparser
 
         SP = choose_scanparser(station, experiment)
         sp = SP(spec_file, scan_number)
 
         def get_independent_dimensions(_scanparser):
-            """Return a value for the `independent_dimensions` field of a
-            `MapConfig` object containing just one SPEC scan -- the one
-            represented by the given `_scanparser`.
+            """Return a value for the `independent_dimensions` field of
+            a :class:`~CHAP.common.models.map.MapConfig` object
+            containing just one SPEC scan -- the one represented by the
+            given `_scanparser`.
 
-            :param _scanparser: The instance of `ScanParser` to get
-                `independent_dimensions` for.
-            :type _scanparser: chess_scanparsers.FMBSAXSWAXSScanParser
-            :returns: Value to use for the `independent_dimensions` field in
-                the `MapConfig` associated with this scan.
+            :param _scanparser: The instance of
+                `ScanParser <https://github.com/CHESSComputing/chess-scanparsers?tab=readme-ov-file>`__
+                to get `independent_dimensions` for.
+            :type _scanparser: chess_scanparsers.ScanParser
+            :returns: Value to use for the `independent_dimensions`
+                field in the
+                :class:`~CHAP.common.models.map.MapConfig` object
+                associated with this scan.
             :rtype: list[dict[str, str]]
             """
-            from datetime import datetime
+            # System modules
             import re
+
             match = re.match(r'a(\d+)scan', _scanparser.spec_macro)
             if match:
                 # Use only the first motor as the independent dim. All
@@ -226,7 +273,7 @@ class SpecScanToMapConfigProcessor(Processor):
                       'units': 'seconds',
                       'data_type': 'scan_column',
                       'name': 'Epoch'}])
-            elif _scanparser.spec_macro == 'flyscan' and \
+            if _scanparser.spec_macro == 'flyscan' and \
                  not len(_scanparser.spec_args) == 5:
                 return (
                     [{'label': 'Time',
@@ -234,7 +281,7 @@ class SpecScanToMapConfigProcessor(Processor):
                       'data_type': 'scan_column',
                       'name': 'Time'}],
                     [])
-            elif _scanparser.is_snake():
+            if _scanparser.is_snake():
                 return (
                     [{'label': mne,
                       'units': 'unknown units',
@@ -279,7 +326,8 @@ class SpecScanToMapConfigProcessor(Processor):
             'scalar_data': scalar_data,
         }
         if postsample_intensity_counter_name:
-                mapconfig_dict['postsample_intensity'] = {
-                    'data_type': 'scan_column',
-                    'name': postsample_intensity_counter_name}
+            mapconfig_dict['postsample_intensity'] = {
+                'data_type': 'scan_column',
+                'name': postsample_intensity_counter_name,
+            }
         return mapconfig_dict

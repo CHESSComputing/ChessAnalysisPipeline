@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : reader.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: FOXDEN readers
+"""Module for Readers unique to the
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+integration with CHAP.
 """
 
 # System modules
@@ -18,18 +17,21 @@ from pydantic import (
 
 # Local modules
 from CHAP.foxden.models import FoxdenRequestConfig
-from CHAP.foxden.utils import HttpRequest
+from CHAP.foxden.utils import HTTP_request
 from CHAP.pipeline import PipelineItem
 from CHAP.processor import Processor
 
 
 class FoxdenDataDiscoveryReader(PipelineItem):
-    """Reader for the FOXDEN Data Discovery service.
+    """Reader for the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Data Discovery service.
 
     :ivar config: Initialization parameters for an instance of
-        foxden.models.FoxdenRequestConfig.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -40,12 +42,19 @@ class FoxdenDataDiscoveryReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdendatadiscoveryreader_after(self):
+        """Validate the `FoxdenDataDiscoveryReader` configuration.
+
+        :return: Validated model configuration
+        :rtype: FoxdenDataDiscoveryReader
+        """
         assert self.config.url is not None
         return self
 
     def read(self):
-        """Read records from the FOXDEN Data Discovery service based on
-        did or an arbitrary query.
+        """Read records from the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Data Discovery service based on
+        DID (Dataset Identifier) or an arbitrary query.
 
         :return: Discovered data records.
         :rtype: list
@@ -56,7 +65,7 @@ class FoxdenDataDiscoveryReader(PipelineItem):
         rurl = f'{self.config.url}/search'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='read')
+        response = HTTP_request(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -71,12 +80,15 @@ class FoxdenDataDiscoveryReader(PipelineItem):
 
 
 class FoxdenMetadataReader(PipelineItem):
-    """Reader for the FOXDEN Metadata service.
+    """Reader for the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Metadata service.
 
     :ivar config: Initialization parameters for an instance of
-        foxden.models.FoxdenRequestConfig.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -87,14 +99,21 @@ class FoxdenMetadataReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdenmetadatareader_after(self):
+        """Validate the `FoxdenMetadataReader` configuration.
+
+        :return: Validated model configuration
+        :rtype: FoxdenMetadataReader
+        """
         if self.get_schema() is None:
             self.schema_ = 'foxden.reader.FoxdenMetadataReader'
         assert self.config.url is not None
         return self
 
     def read(self):
-        """Read a record from the FOXDEN Metadata service based on did
-        or an arbitrary query.
+        """Read a record from the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Metadata service based on DID (Dataset Identifier) or an
+        arbitrary query.
 
         :return: Metadata record.
         :rtype: dict
@@ -105,7 +124,7 @@ class FoxdenMetadataReader(PipelineItem):
         rurl = f'{self.config.url}/search'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='read')
+        response = HTTP_request(rurl, payload, method='POST', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -135,12 +154,15 @@ class FoxdenMetadataReader(PipelineItem):
 
 
 class FoxdenProvenanceReader(PipelineItem):
-    """Reader for the FOXDEN Provenance service.
+    """Reader for the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Provenance service.
 
     :ivar config: Initialization parameters for an instance of
-        foxden.models.FoxdenRequestConfig.
+        :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -151,14 +173,20 @@ class FoxdenProvenanceReader(PipelineItem):
 
     @model_validator(mode='after')
     def validate_foxdenprovenancereader_after(self):
+        """Validate the `FoxdenProvenanceReader` configuration.
+
+        :return: Validated model configuration
+        :rtype: FoxdenProvenanceReader
+        """
         if self.get_schema() is None:
             self.schema_ = 'foxden.reader.FoxdenProvenanceReader'
         assert self.config.url is not None
         return self
 
     def read(self):
-        """Read records from the FOXDEN Provenance service based on did
-        or an arbitrary query.
+        """Read records from the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Provenance service based on did or an arbitrary query.
 
         :return: Provenance input and output file records.
         :rtype: list
@@ -172,7 +200,7 @@ class FoxdenProvenanceReader(PipelineItem):
         rurl = f'{self.config.url}/files?did={self.config.did}'
         payload = self.config.create_http_request_payload(self)
         self.logger.info(f'method=GET url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='GET', scope='read')
+        response = HTTP_request(rurl, payload, method='GET', scope='read')
         if self.config.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -188,21 +216,23 @@ class FoxdenProvenanceReader(PipelineItem):
 
 
 class FoxdenSpecScansReader(PipelineItem):
-    """Reader for FOXDEN SpecScans data from a specific FOXDEN
-    SpecScans service.
+    """Reader for `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    SpecScans data from a specific FOXDEN SpecScans service.
     """
+
     def read(
-            self, url, data, did='', query='', spec=None, method='POST', # 'GET',
+            self, url, data, *, did='', query='', spec=None, method='POST',
+            # 'GET',
             verbose=False):
-# TODO FIX
-        """Read and return data from a specific FOXDEN SpecScans
-        service.
+        """Read and return data from a specific
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        SpecScans service.
 
         :param url: URL of service.
         :type url: str
         :param data: Input data.
         :type data: list[PipelineData]
-        :param did: FOXDEN dataset identifier (did).
+        :param did: FOXDEN dataset identifier (DID).
         :type did: string, optional
         :param query: FOXDEN query.
         :type query: string, optional
@@ -214,8 +244,9 @@ class FoxdenSpecScansReader(PipelineItem):
         :param verbose: Verbose output flag, defaults to `False`.
         :type verbose: bool, optional
         :return: Contents of the input data.
-        :rtype: object
+        :rtype: list
         """
+        # TODO FIX
         self.logger.info(
             f'Executing "process" with url={url} data={data} did={did}')
         rurl = f'{url}/search'
@@ -229,7 +260,7 @@ class FoxdenSpecScansReader(PipelineItem):
         payload = json.dumps(request)
         if verbose:
             self.logger.info(f'method={method} url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method=method)
+        response = HTTP_request(rurl, payload, method=method)
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')

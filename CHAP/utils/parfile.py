@@ -1,4 +1,6 @@
-"""Utilities for interacting with scans using an SMB-style .par file
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Utilities for interacting with scans using an SMB-style par file
 as input.
 """
 
@@ -10,24 +12,19 @@ import os
 import json
 
 class ParFile():
-    """Representation of a .par file.
+    """Representation of a par file."""
 
-    :ivar par_file: Name of the .par file.
-    :type par_file: str
-    :ivar json_file: Name of the .json file containing the keys for
-        the column names of the .par file.
-    :type json_file: str
-    :ivar spec_file: Name of the SPEC data file associated with this
-        .par file.
-    :type spec_file: str
-    :ivar column_names: List of the names of each column in the par
-        file.
-    :type column_names: list[str]
-    :ivar data: A 2D array of the data in this .par file. 0th index:
-        row. 1st index: column
-    :type data: list[list]
-    """
     def __init__(self, par_file, scan_numbers=None, scann_col_name='SCAN_N'):
+        """Initialize ParFile.
+
+        :param par_file: Name of the par file.
+        :type par_file: str
+        :param scan_numbers: List of scan numbers to use.
+        :type scan_numbers: int or list[int] or str, optional
+        :param scann_col_name: Column name in the par file, defaults
+            to 'SCAN_N'.
+        :type scann_col_name: str, optional
+        """
         # Local modules
         from CHAP.utils.general import (
             is_int_series,
@@ -39,7 +36,7 @@ class ParFile():
         self.spec_file = os.path.join(
             os.path.dirname(self.par_file), 'spec.log')
 
-        with open(self.json_file) as json_file:
+        with open(self.json_file, encoding='utf-8') as json_file:
             columns = json.load(json_file)
         num_column = len(columns)
         self.column_names = [None] * num_column
@@ -47,7 +44,7 @@ class ParFile():
             self.column_names[int(i)] = name
 
         self.data = []
-        with open(self.par_file) as f:
+        with open(self.par_file, encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=' ')
             for i, row in enumerate(reader):
                 if len(row) == 0:
@@ -61,7 +58,7 @@ class ParFile():
                     except ValueError:
                         try:
                             value = float(value)
-                        except Exception:
+                        except ValueError:
                             pass
                     row_data.append(value)
                 if len(row_data) != num_column:
@@ -89,21 +86,21 @@ class ParFile():
         """Return a map configuration based on this par file.
 
         :param experiment_type: Experiment type name for the map
-            that this .par file represents.
+            that this par file represents.
         :type experiment_type:
-            Literal['SAXSWAXS', 'EDD', 'XRF', 'TOMO']
+            Literal['EDD', 'GIWAXS', 'SAXSWAXS', 'TOMO', 'XRF']
         :param station: Station name at which the data were collected.
         :type station: Literal['id1a3','id3a','id3b']
         :param par_dims: List of dictionaries configuring the map's
             independent dimensions.
         :type par_dims: list[dict[str, str]]
-        :param other_dims: List of other dimensions to include in
-            the returned MapConfig's independednt_dimensions. Use this
-            if each scans in thhis par ile captured more than one
-            frame of data. Defaults to `None`
+        :param other_dims: Other dimensions to include in the returned
+            :class:`~CHAP.common.models.map.MapConfig`'s
+            `independednt_dimensions`. Use this if each scans in this
+            par file captured more than one frame of data.
         :type other_dims: list[dict[str,str]], optional
-        :return: The map configuration.
-        :rtype: CHAP.common.models.map.MapConfig
+        :return: Map configuration.
+        :rtype: MapConfig
         """
         # Third party modeuls
         # pylint: disable=import-error
@@ -136,12 +133,12 @@ class ParFile():
 
     def good_scan_numbers(self, good_col_name='1/0'):
         """Return the numbers of scans marked with a "1" in the
-        indicated "good" column of the .par file.
+        indicated "good" column of the par file.
         
-        :param good_col_name: The name of the "good" column of the par
+        :param good_col_name: Name of the "good" column of the par
             file, defaults to "1/0"
         :type good_col_name: str, optional
-        :raises ValueError: If this .par file does not have a column
+        :raises ValueError: If this par file does not have a column
             with the same name as `good_col_name`.
         :return: "good" scan numbers.
         :rtype: list[int]
@@ -153,17 +150,17 @@ class ParFile():
     def get_values(self, column, scan_numbers=None):
         """Return values from a single column of the par file.
 
-        :param column: The string name OR index of the column to return
+        :param column: String name OR index of the column to return
             values for.
         :type column: str or int
-        :param scan_numbers: List of specific scan numbers to return
-            values in the given column for (instead of the default
-            behavior: return the entire column of values).
+        :param scan_numbers: Specific scan numbers to return values in
+            the given column for (instead of the default behavior:
+            return the entire column of values).
         :type scan_numbers: list[int], optional
         :raise:
             ValueError: Unavailable column name.
             TypeError: Illegal column name type.
-        :return: A list of values from a single column in the par file.
+        :return: Values from a single column in the par file.
         :rtype: list[object]
         """
         if isinstance(column, str):
@@ -177,7 +174,7 @@ class ParFile():
         elif isinstance(column, int):
             column_idx = column
         else:
-            raise TypeError(f'column must be a str or int, not {type(column)}')
+            raise TypeError(f'Column must be a str or int, not {type(column)}')
 
         if column_idx is None:
             column_data = [None]*len(self.data)
@@ -193,20 +190,20 @@ class ParFile():
         """Return a reshaped array of the 1D list `values` so that it
         matches up with the coordinates of `map_config`.
 
-        :param map_config: The map configuration according to which
-            values will be reshaped.
+        :param map_config: Map configuration according to which values
+            will be reshaped.
         :type map_config: MapConfig
-        :param values: A 1D list of values to reshape.
-        :type values: list or np.ndarray
+        :param values: 1D list of values to reshape.
+        :type values: list or numpy.ndarray
         :return: Reshaped array of values.
-        :rtype: np.ndarray
+        :rtype: numpy.ndarray
         """
         # Third party modules
         import numpy as np
 
         good_scans = self.good_scan_numbers()
         if len(values) != len(good_scans):
-            raise ValueError('number of values provided ({len(values)}) does '
+            raise ValueError('Number of values provided ({len(values)}) does '
                              'not match the number of good scans in '
                              f'{self.par_file} ({len(good_scans)})')
         n_map_points = np.prod(map_config.shape)

@@ -1,4 +1,8 @@
-"""Common Pydantic model classes."""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Common `Pydantic <https://github.com/pydantic/pydantic>`__ model
+classes.
+"""
 
 # System modules
 import os
@@ -11,6 +15,7 @@ from typing import (
 # Third party modules
 from pydantic import (
     BaseModel,
+    ConfigDict,
     DirectoryPath,
     PrivateAttr,
     field_validator,
@@ -23,16 +28,38 @@ class CHAPBaseModel(BaseModel):
     serialization tools.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     def dict(self, *args, **kwargs):
-        return self.model_dump(*args, **kwargs)
+        """Dump the class implemention to a dictionary.
 
-    def model_dump(self, *args, **kwargs):
-        """Dump the class implemention to a dictionary
-
+        :param \*\*kwargs: Arbitrary keyword arguments.
+        :type: dict
+        :keyword exclude: Class variable(s) to omit from the output
+            dictionary.
+        :type exclude: dict or set, optional
+        :keyword by_alias: Use aliases as the output dictionary keys for
+            class variables that have an alias., defaults to `True`.
+        :type by_alias: bool, optional
         :return: Class implementation.
         :rtype: dict
         """
+        return self.model_dump(*args, **kwargs)
 
+    def model_dump(self, *args, **kwargs):
+        """Dump the class implemention to a dictionary.
+
+        :param \*\*kwargs: Arbitrary keyword arguments.
+        :type: dict
+        :keyword exclude: Class variable(s) to omit from the output
+            dictionary.
+        :type exclude: dict or set, optional
+        :keyword by_alias: Use aliases as the output dictionary keys for
+            class variables that have an alias., defaults to `True`.
+        :type by_alias: bool, optional
+        :return: Class implementation.
+        :rtype: dict
+        """
         if hasattr(self, '_exclude'):
             kwargs['exclude'] = self._merge_exclude(
                 None if kwargs is None else kwargs.get('exclude'))
@@ -41,12 +68,19 @@ class CHAPBaseModel(BaseModel):
         return self._serialize(super().model_dump(*args, **kwargs))
 
     def model_dump_json(self, *args, **kwargs):
-        """Dump the class implemention to a JSON string
+        """Dump the class implemention to a JSON string.
 
+        :param \*\*kwargs: Arbitrary keyword arguments.
+        :type: dict
+        :keyword exclude: Class variable(s) to omit from the output
+            dictionary.
+        :type exclude: dict or set, optional
+        :keyword by_alias: Use aliases as the output dictionary keys for
+            class variables that have an alias., defaults to `True`.
+        :type by_alias: bool, optional
         :return: Class implementation.
         :rtype: str
         """
-
         # Third party modules
         from json import dumps
 
@@ -88,19 +122,19 @@ class RunConfig(CHAPBaseModel):
 
     :ivar root: Default work directory, defaults to the current run
         directory.
-    :type root: str, optional
+    :vartype root: str, optional
     :ivar inputdir: Input directory, used only if any input file in the
         pipeline is not an absolute path, defaults to `'root'`.
-    :type inputdir: str, optional
+    :vartype inputdir: str, optional
     :ivar outputdir: Output directory, used only if any output file in
         the pipeline is not an absolute path, defaults to `'root'`.
-    :type outputdir: str, optional
+    :vartype outputdir: str, optional
     :ivar interactive: Allows for user interactions,
         defaults to `False`.
-    :type interactive: bool, optional
+    :vartype interactive: bool, optional
     :ivar log_level: Logger level (not case sensitive),
         defaults to `'INFO'`.
-    :type log_level: Literal[
+    :vartype log_level: Literal[
         'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], optional
     """
 
@@ -135,23 +169,20 @@ class RunConfig(CHAPBaseModel):
     def validate_runconfig_before(cls, data):
         """Ensure that valid directory paths are provided.
 
-        :param data: Pydantic validator data object.
-        :type data: RunConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
-
         if isinstance(data, dict):
             # System modules
             from tempfile import NamedTemporaryFile
 
             # Make sure os.makedirs is only called from the root node
             comm = data.get('comm')
-            if comm is None:
-                rank = 0
-            else:
-                rank = comm.Get_rank()
+            rank = 0 if comm is None else comm.Get_rank()
 
             # Check if root exists (create it if not) and is readable
             root = data.get('root')
@@ -206,22 +237,33 @@ class RunConfig(CHAPBaseModel):
     @field_validator('log_level', mode='before')
     @classmethod
     def validate_log_level(cls, log_level):
-        """Capitalize log_level."""
+        """Capitalize `log_level`.
 
+        param value: Input value for `log_level`.
+        :type value: str
+        :return: Capitalized `log_level`.
+        :rtype: str
+        """
         return log_level.upper()
 
     @property
     def profile(self):
-        """Return the profiling flag."""
+        """Return the profiling flag.
 
+        :type: bool
+        """
+        #:return: Profiling flag.
+        #:rtype: bool
         if hasattr(self, '_profile'):
             return self._profile
         return False
 
     @property
     def spawn(self):
-        """Return the spawned worker flag."""
+        """Return the spawned worker flag.
 
+        :type: int
+        """
         if hasattr(self, '_spawn'):
             return self._spawn
         return 0

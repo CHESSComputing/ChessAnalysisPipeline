@@ -1,4 +1,6 @@
-"""EDD Pydantic model classes."""
+"""`Pydantic <https://github.com/pydantic/pydantic>`__ model
+configuration classes unique to the the EDD workflow.
+"""
 
 # System modules
 from copy import deepcopy
@@ -33,23 +35,26 @@ from CHAP.common.models.map import Detector
 from CHAP.utils.models import Multipeak
 #from CHAP.utils.parfile import ParFile
 
-
 # Baseline configuration class
+
 
 class BaselineConfig(CHAPBaseModel):
     """Baseline model configuration class.
 
-    :ivar lam: The &lambda (smoothness) parameter (the balance
-        between the residual of the data and the baseline and the
-        smoothness of the baseline). The suggested range is between
-        100 and 10^8, defaults to `10^6`.
-    :type lam: float, optional
-    :ivar max_iter: The maximum number of iterations,
+    :ivar attrs: Additional baseline model configuration attributes.
+    :vartype attrs: dict, optional
+    :ivar lam: &lambda (smoothness) parameter (the balance between the
+        residual of the data and the baseline and the smoothness of the
+        baseline). The suggested range is between 100 and 10^8,
+        defaults to `10^6`.
+    :vartype lam: float, optional
+    :ivar max_iter: Maximum number of iterations,
         defaults to `100`.
-    :type max_iter: int, optional
-    :ivar tol: The convergence tolerence, defaults to `1.e-6`.
-    :type tol: float, optional
+    :vartype max_iter: int, optional
+    :ivar tol: Convergence tolerence, defaults to `1.e-6`.
+    :vartype tol: float, optional
     """
+
     attrs: Optional[dict] = {}
     lam: confloat(gt=0, allow_inf_nan=False) = 1.e6
     max_iter: conint(gt=0) = 100
@@ -63,38 +68,38 @@ class FitConfig(CHAPBaseModel):
 
     :ivar background: Background model for peak fitting, defaults
         to `constant`.
-    :type background: str, list[str], optional
+    :vartype background: str, list[str], optional
     :ivar baseline: Automated baseline subtraction configuration,
         defaults to `False`.
-    :type baseline: Union(bool, BaselineConfig), optional
+    :vartype baseline: bool or BaselineConfig, optional
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in MCA channels for calibration
         or keV for strain analysis). Defaults to `20` for calibration
         and `2.0` for strain analysis.
-    :type centers_range: float, optional
-    :ivar energy_mask_ranges: List of MCA energy mask ranges in keV
-        for selecting the data to be included after applying a mask
-        (bounds are inclusive). Specify either energy_mask_ranges or
+    :vartype centers_range: float, optional
+    :ivar energy_mask_ranges: MCA energy mask ranges in keV for
+        selecting the data to be included after applying a mask (bounds
+        are inclusive). Specify either energy_mask_ranges or
         mask_ranges, not both.
-    :type energy_mask_ranges: list[[float, float]], optional
+    :vartype energy_mask_ranges: list[[float, float]], optional
     :ivar fwhm_min: Minimum FWHM for peak fitting (in MCA channels
         for calibration or keV for strain analysis). Defaults to `3`
         for calibration and `0.25` for strain analysis.
-    :type fwhm_min: float, optional
+    :vartype fwhm_min: float, optional
     :ivar fwhm_max: Maximum FWHM for peak fitting (in MCA channels
         for calibration or keV for strain analysis). Defaults to `25`
         for calibration and `2.0` for strain analysis.
-    :type fwhm_max: float, optional
-    :ivar mask_ranges: List of MCA channel bin ranges for selecting
-        the data to be included in the energy calibration after
-        applying a mask (bounds are inclusive). Specify for
-        energy calibration only.
-    :type mask_ranges: list[[int, int]], optional
+    :vartype fwhm_max: float, optional
+    :ivar mask_ranges: MCA channel bin ranges for selecting the data
+        to be included in the energy calibration after applying a mask
+        (bounds are inclusive). Specify for energy calibration only.
+    :vartype mask_ranges: list[[int, int]], optional
     :ivar backgroundpeaks: Additional background peaks (their
         associated fit parameters in units of keV).
-    :type backgroundpeaks: CHAP.utils.models.Multipeak, optional
+    :vartype backgroundpeaks: Multipeak, optional
     """
+
     background: Optional[conlist(item_type=constr(
         strict=True, strip_whitespace=True, to_lower=True))] = ['constant']
     baseline: Optional[Union[bool, BaselineConfig]] = None
@@ -120,9 +125,9 @@ class FitConfig(CHAPBaseModel):
     def validate_background(cls, background):
         """Validate the background model.
 
-        :ivar background: Background model for peak fitting.
-        :type background: str, list[str], optional
-        :return: List of validated background models.
+        :param background: Background model for peak fitting.
+        :type background: str or list[str], optional
+        :return: Validated background models.
         :rtype: list[str]
         """
         if background is None:
@@ -136,10 +141,10 @@ class FitConfig(CHAPBaseModel):
     def validate_baseline(cls, baseline):
         """Validate the baseline configuration.
 
-        :ivar baseline: Automated baseline subtraction configuration.
-        :type baseline: Union(bool, BaselineConfig), optional
+        :param baseline: Automated baseline subtraction configuration.
+        :type baseline: BaselineConfig, optional
         :return: Validated baseline subtraction configuration.
-        :rtype: bool, BaselineConfig
+        :rtype: BaselineConfig or None
         """
         if isinstance(baseline, bool) and baseline:
             return BaselineConfig()
@@ -150,8 +155,8 @@ class FitConfig(CHAPBaseModel):
     def validate_energy_mask_ranges(cls, energy_mask_ranges):
         """Validate the mask ranges for selecting the data to include.
 
-        :ivar energy_mask_ranges: List of MCA energy mask ranges in keV
-            for selecting the data to be included after applying a mask
+        :param energy_mask_ranges: MCA energy mask ranges in keV for
+            selecting the data to be included after applying a mask
             (bounds are inclusive).
         :type energy_mask_ranges: list[[float, float]], optional
         :return: Validated energy mask ranges.
@@ -166,9 +171,9 @@ class FitConfig(CHAPBaseModel):
     def validate_mask_ranges(cls, mask_ranges):
         """Validate the mask ranges for selecting the data to include.
 
-        :ivar mask_ranges: List of MCA channel bin ranges for selecting
-            the data to be included after applying a mask
-            (bounds are inclusive).
+        :param mask_ranges: MCA channel bin ranges for selecting the
+            data to be included after applying a mask (bounds are
+            inclusive).
         :type mask_ranges: list[[int, int]], optional
         :return: Validated mask ranges.
         :rtype: list[[int, int]]
@@ -184,15 +189,16 @@ class MaterialConfig(CHAPBaseModel):
     """Sample material parameters configuration class.
 
     :ivar material_name: Sample material name.
-    :type material_name: str, optional
+    :vartype material_name: str, optional
     :ivar lattice_parameters: Lattice spacing(s) in angstroms.
-    :type lattice_parameters: float, list[float], optional
+    :vartype lattice_parameters: float, list[float], optional
     :ivar sgnum: Space group of the material.
-    :type sgnum: int, optional
-    :ivar dmin: Minimum d-spacing for selecting the available hkls,
+    :vartype sgnum: int, optional
+    :ivar dmin: Minimum d-spacing for selecting the available HKLs,
         defaults to 0.35.
-    :type dmin: float, optional
+    :vartype dmin: float, optional
     """
+
     #RV FIX create a getter for lattice_parameters that always returns a list?
     material_name: Optional[constr(strip_whitespace=True, min_length=1)] = None
     lattice_parameters: Optional[Union[
@@ -209,18 +215,18 @@ class MaterialConfig(CHAPBaseModel):
     def validate_materialconfig_after(self):
         """Create and validate the private attribute _material.
 
-        :return: The validated list of class properties.
+        :return: Validated configuration class.
         :rtype: MaterialConfig
         """
         # Local modules
-        from CHAP.edd.utils import make_material
-#        from CHAP.utils.material import Material
+#        from CHAP.edd.utils import make_material
+        from CHAP.utils.material import Material
 
-        self._material = make_material(
-            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
-#        self._material = Material.make_material(
-#            self.material_name, sgnum=self.sgnum,
-#            lattice_parameters_angstroms=self.lattice_parameters,
+#        self._material = make_material(
+#            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
+        self._material = Material.make_material(
+            self.material_name, sgnum=self.sgnum,
+            lattice_parameters_angstroms=self.lattice_parameters)
 #            pos=['4a', '8c'])
             #pos=[(0,0,0), (1/4, 1/4, 1/4), (3/4, 3/4, 3/4)])
         self.lattice_parameters = list([
@@ -232,27 +238,29 @@ class MaterialConfig(CHAPBaseModel):
 # Detector configuration classes
 
 class MCADetectorCalibration(Detector, FitConfig):
-    """Class representing metadata required to configure a single MCA
-    detector element to perform detector calibration.
+    """Class representing the configuration for a single MCA detector
+    element to perform detector calibration.
 
     :ivar energy_calibration_coeffs: Detector channel index to energy
         polynomial conversion coefficients ([a, b, c] with
         E_i = a*i^2 + b*i + c).
-    :type energy_calibration_coeffs:
+    :vartype energy_calibration_coeffs:
         list[float, float, float], optional
     :ivar num_bins: Number of MCA channels.
-    :type num_bins: int, optional
+    :vartype num_bins: int, optional
     :ivar tth_max: Detector rotation about lab frame x axis.
-    :type tth_max: float, optional
+    :vartype tth_max: float, optional
     :ivar tth_tol: Minimum resolvable difference in 2&theta between
         two unique Bragg peaks,
-    :type tth_tol: float, optional
+    :vartype tth_tol: float, optional
     :ivar tth_calibrated: Calibrated value for 2&theta.
-    :type tth_calibrated: float, optional
+    :vartype tth_calibrated: float, optional
     :ivar tth_initial_guess: Initial guess for 2&theta superseding
-        the global one in MCATthCalibrationConfig.
-    :type tth_initial_guess: float, optional
+        the global one in
+        :class:`~CHAP.edd.models.MCATthCalibrationConfig`.
+    :vartype tth_initial_guess: float, optional
     """
+
     processor_type: Literal['calibration']
     energy_calibration_coeffs: Optional[conlist(
         min_length=3, max_length=3,
@@ -289,32 +297,41 @@ class MCADetectorCalibration(Detector, FitConfig):
 
     @property
     def energies(self):
-        """Return calibrated bin energies."""
+        """Return the calibrated bin energies.
+
+        :type: numpy.ndarray
+        """
         a, b, c = tuple(self.energy_calibration_coeffs)
         channel_bins = np.arange(self.num_bins)
         return (a*channel_bins + b)*channel_bins + c
 
     @property
     def hkl_indices(self):
-        """Return the hkl_indices consistent with the selected energy
+        """Return the HKL indices consistent with the selected energy
         ranges (include_energy_ranges).
+
+        :type: list
         """
         if hasattr(self, '_hkl_indices'):
             return self._hkl_indices
         return []
 
     @hkl_indices.setter
-    def hkl_indices(self, value):
-        """Set the private attribute `hkl_indices`."""
-        self._hkl_indices = value
+    def hkl_indices(self, hkl_indices):
+        """Set the HKL indices.
+
+        :param hkl_indices: HKL indices.
+        :type: list
+        """
+        self._hkl_indices = hkl_indices
 
     def convert_mask_ranges(self, mask_ranges):
         """Given a list of mask ranges in channel bins, set the
         corresponding list of channel energy mask ranges.
 
-        :param mask_ranges: A list of mask ranges to
-            convert to energy mask ranges.
-        :type mask_ranges: list[[int,int]]
+        :param mask_ranges: Mask ranges to convert to energy mask
+            ranges.
+        :type mask_ranges: list[[int, int]]
         """
         energies = self.energies
         self.energy_mask_ranges = [
@@ -322,8 +339,11 @@ class MCADetectorCalibration(Detector, FitConfig):
              for range_ in sorted([sorted(v) for v in mask_ranges])]
 
     def get_mask_ranges(self):
-        """Return the value of `mask_ranges` if set or convert the
-        `energy_mask_ranges` from channel energies to channel indices.
+        """Return the list of mask ranges if set or convert the
+        energy mask ranges from channel energies to channel indices
+        and return those.
+
+        :type: list[[float, float]]
         """
         if self.mask_ranges:
             return self.mask_ranges
@@ -361,22 +381,26 @@ class MCADetectorCalibration(Detector, FitConfig):
         return mask
 
     def set_energy_calibration_mask_ranges(self):
+        """Set the value of the private attribite
+        `_energy_calibration_mask_ranges` to value of `mask_ranges`.
+        """
         self._energy_calibration_mask_ranges = deepcopy(self.mask_ranges)
 
 
 class MCADetectorDiffractionVolumeLength(MCADetectorCalibration):
-    """Class representing metadata required to perform a diffraction
-    volume length measurement for a single MCA detector element.
+    """Class representing the configuration for a single MCA detector
+    element to perform a diffraction volume length measurement.
 
     :ivar dvl: Measured diffraction volume length.
-    :type dvl: float, optional
+    :vartype dvl: float, optional
     :ivar fit_amplitude: Amplitude of the Gaussian fit.
-    :type fit_amplitude: float, optional
+    :vartype fit_amplitude: float, optional
     :ivar fit_center: Center of the Gaussian fit.
-    :type fit_center: float, optional
+    :vartype fit_center: float, optional
     :ivar fit_sigma: Sigma of the Gaussian fit.
-    :type fit_sigma: float, optional
+    :vartype fit_sigma: float, optional
     """
+
     processor_type: Literal['diffractionvolumelength']
     dvl: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     fit_amplitude: Optional[float] = None
@@ -385,32 +409,35 @@ class MCADetectorDiffractionVolumeLength(MCADetectorCalibration):
 
 
 class MCADetectorStrainAnalysis(MCADetectorCalibration):
-    """Class representing metadata required to perform a strain
+    """Class representing the configuration to perform a strain
     analysis.
 
     :ivar centers_range: Peak centers range for peak fitting.
         The allowed range for the peak centers will be the initial
         values &pm; `centers_range` (in keV), defaults to `2.0`.
-    :type centers_range: float, optional
+    :vartype centers_range: float, optional
     :ivar fwhm_min: Minimum FWHM for peak fitting (in keV),
         defaults to `0.25`.
-    :type fwhm_min: float, optional
+    :vartype fwhm_min: float, optional
     :ivar fwhm_max: Maximum FWHM for peak fitting (in keV),
         defaults to `2.0`.
+    :vartype fwhm_max: float, optional
     :ivar peak_models: Peak model(s) for peak fitting,
         defaults to `'gaussian'`.
-    :type peak_models: Literal['gaussian', 'lorentzian', 'pvoigt']],
+    :vartype peak_models: Literal['gaussian', 'lorentzian', 'pvoigt']],
         list[Literal['gaussian', 'lorentzian', 'pvoigt']]], optional
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
         gets removed from the fit model), defaults to `None`.
-    :type rel_height_cutoff: float, optional
-    :ivar tth_file: Path to the file with the 2&theta map.
-    :type tth_file: FilePath, optional
+    :vartype rel_height_cutoff: float, optional
     :ivar tth_map: Map of the 2&theta values.
-    :type tth_map: numpy.ndarray, optional
+    :vartype tth_map: numpy.ndarray, optional
     """
+
+    #:ivar tth_file: Path to the file with the 2&theta map.
+    #:vartype tth_file: FilePath, optional
+
     centers_range: Optional[confloat(gt=0, allow_inf_nan=False)] = 2
     fwhm_min: Optional[confloat(gt=0, allow_inf_nan=False)] = 0.25
     fwhm_max: Optional[confloat(gt=0, allow_inf_nan=False)] = 2.0
@@ -423,7 +450,7 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     rel_height_cutoff: Optional[
         confloat(gt=0, lt=1.0, allow_inf_nan=False)] = None
 #    tth_file: Optional[FilePath] = None
-#    tth_map: Optional[np.ndarray] = None
+    tth_map: Optional[np.ndarray] = None
 
     _calibration_energy_mask_ranges: conlist(
         min_length=1,
@@ -437,12 +464,14 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
     def validate_peak_models(cls, peak_models):
         """Validate the specified peak_models.
 
-        :ivar peak_models: Peak model(s) for peak fitting.
-        :type peak_models: Literal['gaussian', 'lorentzian', 'pvoigt']],
-            list[Literal['gaussian', 'lorentzian', 'pvoigt']]], optional
+        :param peak_models: Peak model(s) for peak fitting.
+        :type peak_models:
+            Literal['gaussian', 'lorentzian', 'pvoigt']] or
+            list[Literal['gaussian', 'lorentzian', 'pvoigt']]],
+            optional
         :type peak_models:
         :return: Validated peak_models
-        :rtype: Literal['gaussian', 'lorentzian', 'pvoigt']],
+        :rtype: Literal['gaussian', 'lorentzian', 'pvoigt']] or
             list[Literal['gaussian', 'lorentzian', 'pvoigt']]]
         """
         if isinstance(peak_models, list):
@@ -451,12 +480,12 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
         return peak_models
 
     def add_calibration(self, calibration):
-        """Finalize values for some fields using a tth calibration
-        MCADetectorStrainAnalysis corresponding to the same detector.
+        """Transfer certain 2&theta calibration parameters for use by
+        :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`
+        or :class:`~CHAP.edd.processor.StrainAnalysisProcessor`.
 
-        :param calibration: Existing calibration configuration to use
-            by MCAElementStrainAnalysisConfig.
-        :type calibration: MCADetectorStrainAnalysis
+        :param calibration: Existing calibration configuration.
+        :type calibration: MCADetectorCalibration
         """
         for field in ['energy_calibration_coeffs', 'num_bins',
                       'tth_calibrated']:
@@ -467,8 +496,10 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
             calibration.energy_mask_ranges)
 
     def get_calibration_mask_ranges(self):
-        """Return the `_calibration_energy_mask_ranges` converted from
-        channel energies to channel indices.
+        """Return the MCA channel bin ranges for the data used during
+        the 2&theta calibration.
+
+        :type: list[[int, int]]
         """
         if not hasattr(self, '_calibration_energy_mask_ranges'):
             return None
@@ -491,7 +522,8 @@ class MCADetectorStrainAnalysis(MCADetectorCalibration):
         """Return the map of 2&theta values to use -- may vary at each
         point in the map.
 
-        :param map_shape: The shape of the suplied 2&theta map.
+        :param map_shape: Shape of the suplied 2&theta map.
+        :type map_shape: tuple
         :return: Map of 2&theta values.
         :rtype: numpy.ndarray
         """
@@ -517,9 +549,10 @@ class MCADetectorConfig(FitConfig):
     """Class representing metadata required to configure a full MCA
     detector.
 
-    :ivar detectors: List of individual MCA detector elements.
-    :type detectors: list[MCADetector], optional
+    :ivar detectors: Individual MCA detector elements.
+    :vartype detectors: list[MCADetector], optional
     """
+
     processor_type: Literal[
         'calibration', 'diffractionvolumelength', 'strainanalysis']
     detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
@@ -529,6 +562,15 @@ class MCADetectorConfig(FitConfig):
     @model_validator(mode='before')
     @classmethod
     def validate_mcadetectorconfig_before(cls, data):
+        """Validate the `MCADetectorConfig` class attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             processor_type = data.get('processor_type').lower()
             if 'detectors' in data:
@@ -545,6 +587,11 @@ class MCADetectorConfig(FitConfig):
 
     @model_validator(mode='after')
     def validate_mcadetectorconfig_after(self):
+        """Validate and update the detectors.
+
+        :return: Validated detectors.
+        :rtype: MCADetectorConfig
+        """
         if self.detectors:
             self.update_detectors()
         return self
@@ -563,27 +610,28 @@ class MCADetectorConfig(FitConfig):
 # Processor configuration classes
 
 class DiffractionVolumeLengthConfig(FitConfig):
-    """Class representing metadata required to perform a diffraction
-    volume length calculation for an EDD setup using a steel-foil
-    raster scan.
+    """Configuration for the differential volume length processor
+    :class:`~CHAP.edd.processor.DiffractionVolumeLengthProcessor`
+    for an EDD setup using a steel-foil raster scan.
 
     :ivar max_energy_kev: Maximum channel energy of the MCA in
         keV, defaults to `200.0`.
-    :type max_energy_kev: float, optional
+    :vartype max_energy_kev: float, optional
     :ivar measurement_mode: Placeholder for recording whether the
         measured DVL value was obtained through the automated
         calculation or a manual selection, defaults to `'auto'`.
-    :type measurement_mode: Literal['manual', 'auto'], optional
+    :vartype measurement_mode: Literal['manual', 'auto'], optional
     :ivar sample_thickness: Thickness of scanned foil sample. Quantity
         must be provided in the same units as the values of the
         scanning motor.
-    :type sample_thickness: float
+    :vartype sample_thickness: float
     :ivar sigma_to_dvl_factor: The DVL is obtained by fitting a reduced
         form of the MCA detector data. `sigma_to_dvl_factor` is a
         scalar value that converts the standard deviation of the
         gaussian fit to the measured DVL, defaults to `3.5`.
-    :type sigma_to_dvl_factor: Literal[2.0, 3.5, 4.0], optional
+    :vartype sigma_to_dvl_factor: Literal[2.0, 3.5, 4.0], optional
     """
+
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
     measurement_mode: Optional[Literal['manual', 'auto']] = 'auto'
     sample_thickness: Optional[confloat(gt=0, allow_inf_nan=False)] = None
@@ -596,7 +644,7 @@ class DiffractionVolumeLengthConfig(FitConfig):
         """Update the configuration with costum defaults after the
         normal native pydantic validation.
 
-        :return: Updated energy calibration configuration class.
+        :return: Updated DVL configuration class.
         :rtype: DiffractionVolumeLengthConfig
         """
         if self.measurement_mode == 'manual':
@@ -605,26 +653,28 @@ class DiffractionVolumeLengthConfig(FitConfig):
 
 
 class MCACalibrationConfig(CHAPBaseModel):
-    """Base class representing metadata required to perform an energy
-    or 2&theta calibration of an MCA detector.
+    """Base class configuration for energy and 2&theta calibration
+    processors.
 
     :ivar flux_file: File name of the csv flux file containing station
         beam energy in eV (column 0) versus flux (column 1).
-    :type flux_file: str, optional
+    :vartype flux_file: str, optional
     :ivar materials: Material configurations for the calibration,
         defaults to [`Ceria`].
-    :type materials: list[MaterialConfig], optional
+    :vartype materials: list[MaterialConfig], optional
     :ivar peak_energies: Theoretical locations of the fluorescence
         peaks in keV to use for calibrating the MCA channel energies.
-    :type peak_energies: list[float], optional for energy calibration
+    :vartype peak_energies: list[float], optional for energy calibration
     :ivar scan_step_indices: Optional scan step indices to use for the
         calibration. If not specified, the calibration will be
         performed on the average of all MCA spectra for the scan.
-    :type scan_step_indices: int, str, list[int], optional
+    :vartype scan_step_indices: int, str, list[int], optional
 
-    Note: Fluorescence data:
-        https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
+    .. note::
+       Fluorescence data:
+       https://physics.nist.gov/PhysRefData/XrayTrans/Html/search.html
     """
+
     flux_file: Optional[FilePath] = None
     materials: Optional[conlist(item_type=MaterialConfig)] = [MaterialConfig(
         material_name='CeO2', lattice_parameters=5.41153, sgnum=225)]
@@ -640,10 +690,11 @@ class MCACalibrationConfig(CHAPBaseModel):
         """Ensure that a valid configuration was provided and finalize
         flux_file filepath.
 
-        :param data: Pydantic validator data object.
-        :type data: MCACalibrationConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The currently validated list of class properties.
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
         :rtype: dict
         """
         if isinstance(data, dict):
@@ -659,12 +710,12 @@ class MCACalibrationConfig(CHAPBaseModel):
     def validate_scan_step_indices(cls, scan_step_indices):
         """Validate the specified list of scan numbers.
 
-        :ivar scan_step_indices: Optional scan step indices to use for
+        :param scan_step_indices: Optional scan step indices to use for
             the calibration. If not specified, the calibration will be
             performed on the average of all MCA spectra for the scan.
-        :type scan_step_indices: int, str, list[int], optional
+        :type scan_step_indices: int or str or list[int], optional
         :raises ValueError: Invalid experiment type.
-        :return: List of step indices.
+        :return: Validated scan step indices.
         :rtype: list[int]
         """
         if isinstance(scan_step_indices, int):
@@ -679,8 +730,7 @@ class MCACalibrationConfig(CHAPBaseModel):
     def flux_file_energy_range(self):
         """Get the energy range in the flux correction file.
 
-        :return: The energy range in the flux correction file.
-        :rtype: tuple(float, float)
+        :type: tuple(float, float)
         """
         if self.flux_file is None:
             return None
@@ -692,8 +742,7 @@ class MCACalibrationConfig(CHAPBaseModel):
         """Get an interpolation function to correct MCA data for the
         relative energy flux of the incident beam.
 
-        :return: Energy flux correction interpolation function.
-        :rtype: scipy.interpolate._polyint._Interpolator1D
+        :type: scipy.interpolate._polyint._Interpolator1D
         """
         if self.flux_file is None:
             return None
@@ -705,23 +754,33 @@ class MCACalibrationConfig(CHAPBaseModel):
 
 
 class MCAEnergyCalibrationConfig(MCACalibrationConfig):
-    """Base class representing metadata required to perform an energy
-    calibration of an MCA detector.
+    """Configuration for the energy calibration processor
+    :class:`~CHAP.edd.processor.MCAEnergyCalibrationProcessor`.
 
     :ivar max_energy_kev: Maximum channel energy of the MCA in
         keV, defaults to `200.0`.
-    :type max_energy_kev: float, optional
+    :vartype max_energy_kev: float, optional
     :ivar max_peak_index: Index of the peak in `peak_energies`
         with the highest amplitude, defaults to `1` (the second peak)
         for CeO2 calibration. Required for any other materials.
-    :type max_peak_index: int, optional
+    :vartype max_peak_index: int, optional
     """
+
     max_energy_kev: Optional[confloat(gt=0, allow_inf_nan=False)] = 200.0
     max_peak_index: Optional[conint(ge=0)] = None
 
     @model_validator(mode='before')
     @classmethod
     def validate_mcaenergycalibrationconfig_before(cls, data):
+        """Validate the `MCAEnergyCalibrationConfig` class attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detectors = data.pop('detectors', None)
             if detectors is not None:
@@ -734,7 +793,7 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         detector configuration parameters not superseded by their
         individual values.
 
-        :return: Updated energy calibration configuration class.
+        :return: Validated energy calibration configuration class.
         :rtype: MCAEnergyCalibrationConfig
         """
         if self.peak_energies is None:
@@ -747,6 +806,18 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
     @field_validator('max_peak_index', mode='before')
     @classmethod
     def validate_max_peak_index(cls, max_peak_index, info):
+        """Validate max_peak_index.
+
+        :param max_peak_index: Index of the peak in `peak_energies`
+            with the highest amplitude, defaults to `1` (the second
+            peak) for CeO2 calibration. Required for any other
+            materials.
+        :type max_peak_index: int, optional
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
+        :return: Validated max_peak_index.
+        :rtype: int
+        """
         if max_peak_index is None:
             materials = info.data.get('materials', [])
             if len(materials) != 1 or materials[0].material_name != 'CeO2':
@@ -756,22 +827,23 @@ class MCAEnergyCalibrationConfig(MCACalibrationConfig):
         return max_peak_index
 
 class MCATthCalibrationConfig(MCACalibrationConfig):
-    """Class representing metadata required to perform a 2&theta
-    calibration of an MCA detector.
+    """Configuration for the 2&theta calibration and the reduced data
+    processors, :class:`~CHAP.edd.processor.MCATthCalibrationProcessor`
+    and :class:`~CHAP.edd.processor.ReducedDataProcessor`,
+    respectively.
 
     :ivar calibration_method: Type of calibration method,
         defaults to `'direct_fit_bragg'`.
-    :type calibration_method:
+    :vartype calibration_method:
         Literal['direct_fit_bragg', 'direct_fit_tth_ecc'], optional
-    :ivar detectors: List of individual MCA detector element
-        calibration configurations.
     :ivar quadratic_energy_calibration: Adds a quadratic term to
         the detector channel index to energy conversion, defaults
         to `False` (linear only).
-    :type quadratic_energy_calibration: bool, optional
+    :vartype quadratic_energy_calibration: bool, optional
     :ivar tth_initial_guess: Initial guess for 2&theta.
-    :type tth_initial_guess: float, optional
+    :vartype tth_initial_guess: float, optional
     """
+
     calibration_method: Optional[Literal[
         'direct_fit_bragg', 'direct_fit_tth_ecc']] = 'direct_fit_bragg'
     quadratic_energy_calibration: Optional[bool] = False
@@ -781,8 +853,7 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
     def flux_file_energy_range(self):
         """Get the energy range in the flux corection file.
 
-        :return: The energy range in the flux corection file.
-        :rtype: tuple(float, float)
+        :type: tuple(float, float)
         """
         if self.flux_file is None:
             return None
@@ -792,8 +863,11 @@ class MCATthCalibrationConfig(MCACalibrationConfig):
 
 
 class StrainAnalysisConfig(MCACalibrationConfig):
-    """Class representing input parameters required to perform a
-    strain analysis.
+    """Configuration for the lattice parameter refinement and strain
+    analysis processors,
+    :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`
+    and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`,
+    respectively.
 
     :ivar find_peak_cutoff: Use scipy.signal.find_peaks to exclude
         peaks for all spectra for a given detector and user specified
@@ -801,25 +875,30 @@ class StrainAnalysisConfig(MCACalibrationConfig):
         when its mean peak height is  below `find_peak_cutoff` times
         the maximum mean intensity for that detector. Defaults to `0`
         in which case this step is ignored.
-    :type find_peak_cutoff: float, optional
-    :ivar oversampling: FIX
-    :type oversampling: FIX
+    :vartype find_peak_cutoff: float, optional
+    :ivar num_proc: Number of processors to be used by the strain
+        analysis peak fitting routine.
+    :vartype num_proc: int
     :ivar rel_height_cutoff: Used to excluded peaks based on the
         `find_peak` parameter as well as for peak fitting exclusion
         of the individual detector spectra (see the strain detector
-        configuration `CHAP.edd.models.MCADetectorStrainAnalysis).
+        configuration
+        :class:`~CHAP.edd.models.MCADetectorStrainAnalysis`).
         Defaults to `None`.
-    :type rel_height_cutoff: float, optional
+    :vartype rel_height_cutoff: float, optional
     :ivar skip_animation: Skip the animation and plotting of
         the strain analysis fits, defaults to `False`.
-    :type skip_animation: bool, optional
+    :vartype skip_animation: bool, optional
     :ivar sum_axes: Whether to sum over the fly axis or not
         for EDD scan types not 0, defaults to `True`.
-    :type sum_axes: Union[bool, list[str]], optional
+    :vartype sum_axes: bool or list[str], optional
     """
+    #:ivar oversampling: FIX
+    #:vartype oversampling: FIX
+
     find_peak_cutoff: Optional[confloat(ge=0.0, allow_inf_nan=False)] = 0.0
     num_proc: Optional[conint(gt=0)] = max(1, os.cpu_count()//4)
-    oversampling: dict = {'num': 10}
+    #oversampling: dict = {'num': 10}
     rel_height_cutoff: Optional[
         confloat(gt=0.0, lt=1.0, allow_inf_nan=False)] = None
     skip_animation: Optional[bool] = False
@@ -852,49 +931,48 @@ class StrainAnalysisConfig(MCACalibrationConfig):
 #                            f'{tth_file}') from e
 #        return detectors
 
-    @field_validator('oversampling')
-    @classmethod
-    def validate_oversampling(cls, oversampling, info):
-        """Validate the oversampling field.
-
-        :param oversampling: The value of `oversampling` to validate.
-        :type oversampling: dict
-        :param info: Pydantic validator info object.
-        :type info: StrainAnalysisConfig,
-            pydantic_core._pydantic_core.ValidationInfo
-        :return: The validated value for oversampling.
-        :rtype: bool
-        """
-        # Local modules
-        from CHAP.utils.general import is_int
-
-        raise ValueError('oversampling not updated yet')
-        map_config = info.data.get('map_config')
-        if map_config is None or map_config.attrs['scan_type'] < 3:
-            return None
-        if oversampling is None:
-            return {'num': 10}
-        if 'start' in oversampling and not is_int(oversampling['start'], ge=0):
-            raise ValueError('Invalid "start" parameter in "oversampling" '
-                             f'field ({oversampling["start"]})')
-        if 'end' in oversampling and not is_int(oversampling['end'], gt=0):
-            raise ValueError('Invalid "end" parameter in "oversampling" '
-                             f'field ({oversampling["end"]})')
-        if 'width' in oversampling and not is_int(oversampling['width'], gt=0):
-            raise ValueError('Invalid "width" parameter in "oversampling" '
-                             f'field ({oversampling["width"]})')
-        if ('stride' in oversampling
-                and not is_int(oversampling['stride'], gt=0)):
-            raise ValueError('Invalid "stride" parameter in "oversampling" '
-                             f'field ({oversampling["stride"]})')
-        if 'num' in oversampling and not is_int(oversampling['num'], gt=0):
-            raise ValueError('Invalid "num" parameter in "oversampling" '
-                             f'field ({oversampling["num"]})')
-        if 'mode' in oversampling and 'mode' not in ('valid', 'full'):
-            raise ValueError('Invalid "mode" parameter in "oversampling" '
-                             f'field ({oversampling["mode"]})')
-        if not ('width' in oversampling or 'stride' in oversampling
-                or 'num' in oversampling):
-            raise ValueError('Invalid input parameters, specify at least one '
-                             'of "width", "stride" or "num"')
-        return oversampling
+#    @field_validator('oversampling')
+#    @classmethod
+#    def validate_oversampling(cls, oversampling, info):
+#        """Validate the oversampling field.
+#
+#        :param oversampling: Value of `oversampling` to validate.
+#        :type oversampling: dict
+#        :param info: Model parameter validation information.
+#        :type info: pydantic.ValidationInfo
+#        :return: Validated oversampling value.
+#        :rtype: bool
+#        """
+#        # Local modules
+#        from CHAP.utils.general import is_int
+#
+#        raise ValueError('oversampling not updated yet')
+#        map_config = info.data.get('map_config')
+#        if map_config is None or map_config.attrs['scan_type'] < 3:
+#            return None
+#        if oversampling is None:
+#            return {'num': 10}
+#        if 'start' in oversampling and not is_int(oversampling['start'], ge=0):
+#            raise ValueError('Invalid "start" parameter in "oversampling" '
+#                             f'field ({oversampling["start"]})')
+#        if 'end' in oversampling and not is_int(oversampling['end'], gt=0):
+#            raise ValueError('Invalid "end" parameter in "oversampling" '
+#                             f'field ({oversampling["end"]})')
+#        if 'width' in oversampling and not is_int(oversampling['width'], gt=0):
+#            raise ValueError('Invalid "width" parameter in "oversampling" '
+#                             f'field ({oversampling["width"]})')
+#        if ('stride' in oversampling
+#                and not is_int(oversampling['stride'], gt=0)):
+#            raise ValueError('Invalid "stride" parameter in "oversampling" '
+#                             f'field ({oversampling["stride"]})')
+#        if 'num' in oversampling and not is_int(oversampling['num'], gt=0):
+#            raise ValueError('Invalid "num" parameter in "oversampling" '
+#                             f'field ({oversampling["num"]})')
+#        if 'mode' in oversampling and 'mode' not in ('valid', 'full'):
+#            raise ValueError('Invalid "mode" parameter in "oversampling" '
+#                             f'field ({oversampling["mode"]})')
+#        if not ('width' in oversampling or 'stride' in oversampling
+#                or 'num' in oversampling):
+#            raise ValueError('Invalid input parameters, specify at least one '
+#                             'of "width", "stride" or "num"')
+#        return oversampling
