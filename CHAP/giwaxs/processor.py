@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
+"""Module for Processors unique to the GIWAXS workflow.
+
+Add discription of GIWAXS
 """
-File       : processor.py
-Author     : Rolf Verberg
-Description: Module for Processors used only by GIWAXS experiments
-"""
+
 # System modules
 from json import loads
-import os
 from typing import Optional
 
 # Third party modules
@@ -24,9 +23,7 @@ from CHAP.giwaxs.models import (
     GiwaxsConversionConfig,
     PyfaiIntegrationConfig,
 )
-from CHAP.pipeline import PipelineData
 from CHAP.processor import Processor
-from CHAP.utils.general import fig_to_iobuf
 
 
 class GiwaxsConversionProcessor(Processor):
@@ -34,17 +31,18 @@ class GiwaxsConversionProcessor(Processor):
     rectangular coordinates (wedge correction).
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.giwaxs.models.GiwaxsConversionConfig
-    :type config: dict, optional
+        :class:`~CHAP.giwaxs.models.GiwaxsConversionConfig`.
+    :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :vartype nxmemory: int, optional
     :ivar nxpath: Path to a specific location in the NeXus file tree
         to read the intensity data from.
-    :type nxpath: str, optional
+    :vartype nxpath: str, optional
     :ivar save_figures: Save .pngs of plots for checking inputs &
         outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+    :vartype save_figures: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'giwaxs.models.GiwaxsConversionConfig'}, init_var=True)
@@ -57,12 +55,14 @@ class GiwaxsConversionProcessor(Processor):
     _figures: list = PrivateAttr(default=[])
 
     def process(self, data):
-        """Process the GIWAXS input images & configuration and returns
-        a map of the images in rectangular coordinates as a
-        `nexusformat.nexus.NXroot` object.
+        """Process the GIWAXS input images & configuration and return
+        a map of the images in rectangular coordinates as a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
-        :param data: Results of `common.MapProcessor` containing the
-            map of GIWAXS input images.
+        :param data: Results of
+            :class:`~CHAP.common.processor.MapProcessor` containing
+            a map with the GIWAXS input images.
         :type data: list[PipelineData]
         :return: Converted GIWAXS images.
         :rtype: nexusformat.nexus.NXroot
@@ -71,10 +71,8 @@ class GiwaxsConversionProcessor(Processor):
         import fabio
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXfield,
             NXprocess,
-            NXroot,
             nxsetconfig,
         )
         from pyFAI.gui.utils.units import Unit
@@ -86,19 +84,7 @@ class GiwaxsConversionProcessor(Processor):
         nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid detector data in input pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
@@ -107,8 +93,7 @@ class GiwaxsConversionProcessor(Processor):
             #str(id, 'utf-8') for id in nxentry.detector_ids.nxdata]
             str(id) for id in nxentry.detector_ids.nxdata]
         if len(detector_ids) > 1:
-            raise RuntimeError(
-                'More than one detector not yet implemented') from exc
+            raise RuntimeError('More than one detector not yet implemented')
         nxdata = nxentry[nxentry.default]
         data = {}
         independent_dims = {}
@@ -118,9 +103,8 @@ class GiwaxsConversionProcessor(Processor):
             ai_id = ai.get_id()
             if ai_id in nxdata:
                 if nxdata[ai_id].ndim != 3:
-                    raise RuntimeError(
-                        'Inconsistent raw data dimension '
-                        f'{nxdata[ai_id].ndim}') from exc
+                    raise RuntimeError('Inconsistent raw data dimension '
+                                       f'{nxdata[ai_id].ndim}')
                 ais.append(ai)
                 if self.nxpath is None:
                     data[ai_id] = nxdata[ai_id].nxdata
@@ -132,8 +116,7 @@ class GiwaxsConversionProcessor(Processor):
             self.logger.warning('Skipping detector(s) '
                                 f'{skipped_detectors} (no raw data)')
         if not ais:
-            raise RuntimeError(
-                'No matching raw detector data found') from exc
+            raise RuntimeError('No matching raw detector data found')
         ai_id = ais[0].get_id()
         axes = get_axes(nxdata)
         if not axes:
@@ -160,8 +143,8 @@ class GiwaxsConversionProcessor(Processor):
                     self.logger.debug(
                         f'mask shape for {ai.get_id()}: {mask.shape}')
                     masks[ai.get_id()] = mask
-            except Exception:
-                self.logger.debug('No mask file found for {ai.get_id()}')
+            except (IOError, OSError, ValueError):
+                self.logger.debug(f'No mask file found for {ai.get_id()}')
         if not masks:
             masks = None
 
@@ -173,7 +156,7 @@ class GiwaxsConversionProcessor(Processor):
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except Exception:
+            except ValueError:
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
@@ -229,11 +212,12 @@ class PyfaiIntegrationProcessor(Processor):
     """A processor for azimuthally integrating images.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.giwaxs.models.GiwaxsConversionConfig
-    :type config: dict, optional
+        :class:`~CHAP.giwaxs.models.PyfaiIntegrationConfig`.
+    :vartype config: dict, optional
     :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :vartype nxmemory: int, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'giwaxs.models.PyfaiIntegrationConfig'}, init_var=True)
@@ -242,11 +226,14 @@ class PyfaiIntegrationProcessor(Processor):
 
     def process(self, data):
         """Process the input images & configuration and return a map of
-        the azimuthally integrated images.
+        the azimuthally integrated images as a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
-        :param data: Results of `common.MapProcessor` or other suitable
-            preprocessor of the raw detector data containing the map of
-            input images.
+        :param data: Results of
+            :class:`~CHAP.common.processor.MapProcessor` or other
+            suitable preprocessor of the raw detector data containing
+            the map of input images.
         :type data: list[PipelineData]
         :return: Integrated images.
         :rtype: nexusformat.nexus.NXroot
@@ -255,35 +242,19 @@ class PyfaiIntegrationProcessor(Processor):
         import fabio
         from nexusformat.nexus import (
             NXdata,
-            NXentry,
             NXfield,
             NXprocess,
-            NXroot,
             nxsetconfig,
         )
         from pyFAI.gui.utils.units import Unit
 
         # Local imports
-        from CHAP.common.map_utils import get_axes
         from CHAP.utils.general import nxcopy
 
         nxsetconfig(memory=self.nxmemory)
 
         # Load the detector data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise ValueError(
-                    f'Invalid nxobject in data pipeline ({type(nxobject)}')
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid detector data in input pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Validate the azimuthal integrator configuration and check
         # against the input data (availability and shape)
@@ -340,20 +311,19 @@ class PyfaiIntegrationProcessor(Processor):
                 str(id) for id in nxentry.detector_ids.nxdata]
             if len(detector_ids) > 1:
                 raise RuntimeError(
-                    'More than one detector not yet implemented') from exc
+                    'More than one detector not yet implemented')
             if self.config.azimuthal_integrators is None:
                 raise ValueError('Missing azimuthal_integrators parameter in '
                                  f'PyfaiIntegrationProcessor.config '
-                                 f'({self.config})') from exc
+                                 f'({self.config})')
             nxdata = nxentry[nxentry.default]
             skipped_detectors = []
             ais = []
             for ai in self.config.azimuthal_integrators:
                 if ai.get_id() in nxdata:
                     if nxdata[ai.get_id()].ndim != 3:
-                        raise RuntimeError(
-                            'Inconsistent raw data dimension '
-                            f'{nxdata[ai.get_id()].ndim}') from exc
+                        raise RuntimeError('Inconsistent raw data dimension '
+                                           f'{nxdata[ai.get_id()].ndim}')
                     ais.append(ai)
                     data[ai.get_id()] = nxdata[ai.get_id()].nxdata
                 else:
@@ -362,8 +332,7 @@ class PyfaiIntegrationProcessor(Processor):
                 self.logger.warning('Skipping detector(s) '
                                     f'{skipped_detectors} (no raw data)')
             if not ais:
-                raise RuntimeError(
-                    'No matching raw detector data found') from exc
+                raise RuntimeError('No matching raw detector data found')
             if 'unstructured_axes' in nxdata.attrs:
                 axes = nxdata.attrs['unstructured_axes']
                 independent_dims[ais[0].get_id()] = [
@@ -376,10 +345,10 @@ class PyfaiIntegrationProcessor(Processor):
             data[ais[0].get_id()] = nxdata[ais[0].get_id()]
 
         # Select the images to integrate
-        if False and self.config.scan_step_indices is not None:
-            #FIX
-            independent_dims = independent_dims[self.config.scan_step_indices]
-            data = data[self.config.scan_step_indices]
+        #if False and self.config.scan_step_indices is not None:
+        #    #FIX
+        #    independent_dims = independent_dims[self.config.scan_step_indices]
+        #    data = data[self.config.scan_step_indices]
         self.logger.debug(
             f'data shape(s): {[(k, v.shape) for k, v in data.items()]}')
         if self.config.sum_axes:
@@ -399,8 +368,8 @@ class PyfaiIntegrationProcessor(Processor):
                     self.logger.debug(
                         f'mask shape for {ai.get_id()}: {mask.shape}')
                     masks[ai.get_id()] = mask
-            except Exception:
-                self.logger.debug('No mask file found for {ai.get_id()}')
+            except (IOError, OSError, ValueError):
+                self.logger.debug(f'No mask file found for {ai.get_id()}')
         if not masks:
             masks = None
 
@@ -412,7 +381,7 @@ class PyfaiIntegrationProcessor(Processor):
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except Exception:
+            except ValueError:
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess

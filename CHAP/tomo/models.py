@@ -1,4 +1,6 @@
-"""Tomography Pydantic model classes."""
+"""`Pydantic <https://github.com/pydantic/pydantic>`__ model
+configuration classes unique to the the tomography workflow.
+"""
 
 # Third party imports
 from typing import (
@@ -6,7 +8,7 @@ from typing import (
     Optional,
 )
 from pydantic import (
-    ConfigDict,
+#    ConfigDict,
     conint,
     conlist,
     confloat,
@@ -18,23 +20,26 @@ from CHAP.models import CHAPBaseModel
 
 
 class Detector(CHAPBaseModel):
-    """
-    Detector class to represent the detector used in the experiment.
-    The image origin is assumed to be in the top-left corner, with
-    rows down (-z in lab frame) and columns sideways (+x in lab frame).
+    """Properties of the tomography image detector.
+
+    Detector properties of the detector used in the tomography
+    experiment. The image origin is assumed to be in the top-left
+    corner, with rows down ($-z$ in lab frame) and columns sideways
+    ($+x$ in lab frame).
 
     :ivar prefix: Prefix of the detector in the SPEC file.
-    :type prefix: str
+    :vartype prefix: str
     :ivar rows: Number of pixel rows on the detector.
-    :type rows: int
+    :vartype rows: int
     :ivar columns: Number of pixel columns on the detector.
-    :type columns: int
-    :ivar pixel_size: Pixel size of the detector in mm.
-    :type pixel_size: int or list[int]
+    :vartype columns: int
+    :ivar pixel_size: Pixel size of the detector in $mm$.
+    :vartype pixel_size: int or list[int]
     :ivar lens_magnification: Lens magnification for the detector,
         defaults to `1.0`.
-    :type lens_magnification: float, optional
+    :vartype lens_magnification: float, optional
     """
+
     prefix: constr(strip_whitespace=True, min_length=1)
     rows: conint(gt=0)
     columns: conint(gt=0)
@@ -44,51 +49,56 @@ class Detector(CHAPBaseModel):
     lens_magnification: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
 
 
-class TomoReduceConfig(CHAPBaseModel):
-    """
-    Class representing the configuration for the tomography image
-    reduction processor.
+class TomoCombineConfig(CHAPBaseModel):
+    """Configuration for the combine tomography stacks processor
+    :class:`~CHAP.tomo.processor.TomoCombineProcessor`.
 
-    :ivar img_row_bounds: Detector image bounds in the row-direction
-        (ignored for id1a3 and id3a).
-    :type img_row_bounds: list[int], optional
-    :ivar delta_theta: Rotation angle increment in image reduction
-        in degrees.
-    :type delta_theta: float, optional
+    :ivar x_bounds: Combined image bounds in the x-direction.
+    :vartype x_bounds: list[int], optional
+    :ivar y_bounds: Combined image bounds in the y-direction.
+    :vartype y_bounds: list[int], optional
+    :ivar z_bounds: Combined image bounds in the z-direction.
+    :vartype z_bounds: list[int], optional
     """
-    img_row_bounds: Optional[
+
+    x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
-    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)] = None
-    remove_stripe: Optional[dict] = {} # FIX create validator and more elaborate type
+    y_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
+    z_bounds: Optional[
+        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
 
 
 class TomoFindCenterConfig(CHAPBaseModel):
-    """
-    Class representing the configuration for the tomography center axis
-    finding processor.
+    """Configuration for the tomography center axis finding processor
+    :class:`~CHAP.tomo.processor.TomoFindCenterProcessor`.
 
     :ivar center_stack_index: Stack index of the tomography set to find
         the center axis.
-    :type center_stack_index: int, optional
-    :ivar center_rows: Row indices for the center finding processor.
-    :type center_rows: list[int, int], optional
+    :vartype center_stack_index: int, optional
+    :ivar center_rows: Detector image row indices for the center
+        finding processor.
+    :vartype center_rows: list[int], optional
     :ivar center_offsets: Centers at the center finding row indices in
-        pixels.
-    :type center_offsets: list[float, float], optional
-    :ivar center_offset_min: Minimum value of center_offset in center
+        pixels, relative to the center of a detector row.
+    :vartype center_offsets: list[float], optional
+    :ivar center_offset_min: Minimum value of `center_offset` in center
         axis finding search in pixels.
-    :type center_offset_min: float, optional
-    :ivar center_offset_max: Maximum value of center_offset in center
+    :vartype center_offset_min: float, optional
+    :ivar center_offset_max: Maximum value of `center_offset` in center
         axis finding search in pixels.
-    :type center_offset_max: float, optional
-    :ivar gaussian_sigma: Standard deviation for the Gaussian filter
+    :vartype center_offset_max: float, optional
+    :ivar gaussian_sigma: Standard deviation for the
+        `Gaussian filter <https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.gaussian_filter>`__
         applied to image reconstruction visualizations, defaults to no
         filtering performed.
-    :type gaussian_sigma: float, optional
-    :ivar ring_width: Maximum width of rings to be filtered in the image
-        reconstruction in pixels, defaults to no filtering performed.
-    :type ring_width: float, optional
+    :vartype gaussian_sigma: float, optional
+    :ivar ring_width: Maximum ring width in pixels used to
+        `filter ring artifacts <https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.remove_ring>`__
+        during image reconstruction, defaults to no ring removal performed.
+    :vartype ring_width: float, optional
     """
+
     center_stack_index: Optional[conint(ge=0)] = None
     center_rows: Optional[conlist(
         item_type=conint(ge=0), min_length=1, max_length=2)] = None
@@ -105,31 +115,29 @@ class TomoFindCenterConfig(CHAPBaseModel):
 
 
 class TomoReconstructConfig(CHAPBaseModel):
-    """
-    Class representing the configuration for the tomography image
-    reconstruction processor.
+    """Configuration for the tomography image reconstruction processor
+    :class:`~CHAP.tomo.processor.TomoReconstructProcessor`.
 
     :ivar x_bounds: Reconstructed image bounds in the x-direction.
-    :type x_bounds: list[int], optional
+    :vartype x_bounds: list[int], optional
     :ivar y_bounds: Reconstructed image bounds in the y-direction.
-    :type y_bounds: list[int], optional
+    :vartype y_bounds: list[int], optional
     :ivar z_bounds: Reconstructed image bounds in the z-direction.
-    :type z_bounds: list[int], optional
+    :vartype z_bounds: list[int], optional
     :ivar secondary_iters: Number of secondary iterations in the tomopy
         image reconstruction algorithm, defaults to `0`.
-    :type secondary_iters: int, optional
-    :ivar gaussian_sigma: Standard deviation for the Gaussian filter
+    :vartype secondary_iters: int, optional
+    :ivar gaussian_sigma: Standard deviation for the
+        `Gaussian filter <https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.gaussian_filter>`__
         applied to image reconstruction visualizations, defaults to no
         filtering performed.
-    :type gaussian_sigma: float, optional
-    :ivar remove_stripe_sigma: Damping parameter in Fourier space in
-        tomopy's horizontal stripe removal tool, defaults to no
-        correction performed.
-    :type remove_stripe_sigma: float, optional
-    :ivar ring_width: Maximum width of rings to be filtered in the image
-        reconstruction in pixels, defaults to no filtering performed.
-    :type ring_width: float, optional
+    :vartype gaussian_sigma: float, optional
+    :ivar ring_width: Maximum ring width in pixels used to
+        `filter ring artifacts <https://tomopy.readthedocs.io/en/stable/api/tomopy.misc.corr.html#tomopy.misc.corr.remove_ring>`__
+        during image reconstruction, defaults to no ring removal performed.
+    :vartype ring_width: float, optional
     """
+
     x_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
     y_bounds: Optional[
@@ -142,60 +150,72 @@ class TomoReconstructConfig(CHAPBaseModel):
     ring_width: Optional[confloat(ge=0, allow_inf_nan=False)] = None
 
 
-class TomoCombineConfig(CHAPBaseModel):
-    """
-    Class representing the configuration for the combined tomography
-    stacks processor.
+class TomoReduceConfig(CHAPBaseModel):
+    """Configuration for the tomography image reduction processor
+    :class:`~CHAP.tomo.processor.TomoReduceProcessor`.
 
-    :ivar x_bounds: Combined image bounds in the x-direction.
-    :type x_bounds: list[int], optional
-    :ivar y_bounds: Combined image bounds in the y-direction.
-    :type y_bounds: list[int], optional
-    :ivar z_bounds: Combined image bounds in the z-direction.
-    :type z_bounds: list[int], optional
+    :ivar img_row_bounds: Detector image bounds in the row-direction
+        (ignored for id1a3 and id3a for an image stack).
+    :vartype img_row_bounds: list[int], optional
+    :ivar delta_theta: Rotation angle increment in image reduction
+        in degrees.
+    :vartype delta_theta: float, optional
+    :ivar remove_stripe: The type(s) of
+        `tomopy stripe removal types <https://tomopy.readthedocs.io/en/stable/api/tomopy.prep.stripe.html>`__
+        to apply during data reduction with a dictionary of any additional
+        function parameters.
+
+        Example usage::
+
+            remove_stripe={'remove_all_stripe': {'ncore': 16}}
+
+    :vartype remove_stripe: dict(str, dict)
     """
-    x_bounds: Optional[
+
+    img_row_bounds: Optional[
         conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
-    y_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
-    z_bounds: Optional[
-        conlist(item_type=conint(ge=-1), min_length=2, max_length=2)] = None
+    delta_theta: Optional[confloat(gt=0, allow_inf_nan=False)] = None
+    # FIX create validator and more elaborate type for remove_stripe
+    remove_stripe: Optional[dict] = {}
 
 
 class TomoSimConfig(CHAPBaseModel):
-    """
-    Class representing the configuration for the tomography simulator.
+    """Configuration for the tomography simulator processor
+    :class:`~CHAP.tomo.processor.TomoSimFieldProcessor`.
 
     :ivar station: The station name (in 'idxx' format).
-    :type station: Literal['id1a3', 'id3a', 'id3b']
-    :ivar detector: Detector used in the tomography experiment.
-    :type detector: Detector
+    :vartype station: Literal['id1a3', 'id3a', 'id3b']
+    :ivar detector: Detector configuration in the tomography
+        experiment.
+    :vartype detector: Detector
     :ivar sample_type: Sample type for the tomography simulator.
-    :type sample_type: Literal['square_rod', 'square_pipe',
+    :vartype sample_type: Literal['square_rod', 'square_pipe',
         'hollow_cube', 'hollow_brick', 'hollow_pyramid']
-    :ivar sample_size: Size of each sample dimension in mm (internally
-        converted to an integer number of pixels). Enter three values
-        for sample_type == `'hollow_pyramid'`, the height and the side
-        at the respective bottom and the top of the pyramid.
-    :type sample_size: list[float]
+    :ivar sample_size: Size of each sample dimension in $mm$
+        (internally converted to an integer number of pixels).
+        Enter three values for sample_type == `'hollow_pyramid'`,
+        the height and the side at the respective bottom and the top
+        of the pyramid.
+    :vartype sample_size: list[float]
     :ivar wall_thickness: Wall thickness for pipe, cube, and brick in
-        mm (internally converted to an integer number of pixels).
-    :type wall_thickness: float
-    :ivar mu: Linear attenuation coefficient in mm^-1, defaults to
+        $mm$ (internally converted to an integer number of pixels).
+    :vartype wall_thickness: float
+    :ivar mu: Linear attenuation coefficient in $mm^{-1}$, defaults to
         `0.05`.
-    :type mu: float, optional
+    :vartype mu: float, optional
     :ivar theta_step: Rotation angle increment in the tomography
         simulation in degrees.
-    :type theta_step: float
+    :vartype theta_step: float
     :ivar beam_intensity: Initial beam intensity in counts,
         defaults to `1.e9`.
-    :type beam_intensity: float, optional
+    :vartype beam_intensity: float, optional
     :ivar background_intensity: Background intensity in counts,
         defaults to `20`.
-    :type background_intensity: float, optional
-    :ivar slit_size: Vertical beam height in mm, defaults to `1.0`.
-    :type slit_size: float, optional
+    :vartype background_intensity: float, optional
+    :ivar slit_size: Vertical beam height in $mm$, defaults to `1.0`.
+    :vartype slit_size: float, optional
     """
+
     station: Literal['id1a3', 'id3a', 'id3b']
     detector: Detector
     sample_type: Literal[
@@ -211,4 +231,4 @@ class TomoSimConfig(CHAPBaseModel):
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     slit_size: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)

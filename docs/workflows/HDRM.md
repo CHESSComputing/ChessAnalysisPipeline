@@ -1,4 +1,4 @@
-# HDRM subpackage (CHAP.hdrm)
+# HDRM subpackage (`CHAP.hdrm`)
 
 The HDRM subpackage contains the modules that are unique to High Dynamic Range Mapping (HDRM) data processing workflows. This document describes how to run the tools to stack the raw data, integrate the data azimuthally, find Bragg peaks, and obtain the orientation matrix (calibrating the detector & beamline and getting the HKLs is not yet implemented in CHAP).
 
@@ -15,7 +15,7 @@ conda activate CHAP_hdrm
 ### From a local CHAP clone
 
 1. Create and activate a base conda environent, e.g. with [Miniforge](https://github.com/conda-forge/miniforge).
-1. Install a local version of the CHAP package according to the {ref}`installation instructions <installation>`.
+1. Install a local version of the CHAP package according to the [installation instructions](installation).
 1. Create the HDRM conda environment:
    ```bash
    mamba env create -f <path_to_CHAP_clone_dir>/CHAP/hdrm/environment.yml
@@ -49,7 +49,7 @@ Any of the optional output figures can be viewed directly by any PNG image viewe
 
 ## Creating the pipeline file
 
-Create a workflow `pipeline.yaml` file according to the {ref}`CHAP pipeline instructions <CHAP-pipeline>`. A generic pipeline input file is as follows (note that spaces and indentation are important in `.yaml` files):
+Create a workflow `pipeline.yaml` file according to the [CHAP pipeline instructions](chap_pipeline). A generic pipeline input file is as follows (note that spaces and indentation are important in `.yaml` files):
 ```
 config:
   root: .            # Change as desired

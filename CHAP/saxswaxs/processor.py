@@ -1,12 +1,18 @@
 #!/usr/bin/env python
-"""Processors used only by SAXSWAXS experiments."""
+#-*- coding: utf-8 -*-
+"""Module for Processors unique to the SAXSWAXS workflow.
 
+Add discription of SAXS/WAXS
+"""
+
+# System modules
 from typing import (
     Literal,
     Optional,
     Union,
 )
 
+# Third party modules
 from pydantic import (
     conint,
     conlist,
@@ -15,6 +21,7 @@ from pydantic import (
 )
 import numpy as np
 
+# Local modules
 from CHAP import Processor
 from CHAP.common import ExpressionProcessor
 from CHAP.common.models.map import (
@@ -26,18 +33,19 @@ from CHAP.common.models.integration import PyfaiIntegrationConfig
 
 class CfProcessor(Processor):
     """Processor to calculate the correction factor Cf that, when
-    multiplied by appropriately processed SAXSWAXS data obtained,
-    converts data to absolute cross-section / intensity in inverse cm.
+    multiplied by appropriately processed SAXS/WAXS data, converts data
+    to absolute cross-section / intensity in inverse cm.
     """
+
     def process(
             self, data, interactive=False, save_figures=True, nxpath=None,
             radial_range=None, scan_step_indices=None, eps=1.e-5):
-        """Return a dictionary with the computed correction factor Cf
-        and the configuration parameters.
+        """Compute the correction factor Cf and the configuration
+        parameters.
 
         :param data: Input data list containing the reference data
             labelled with `'reference_data'` as well as the NeXus
-            input data with the azimuthally integrated SAXSWAXS data.
+            input data with the azimuthally integrated SAXS/WAXS data.
         :type data: list[PipelineData]
         :param interactive: Allows for user interactions,
             defaults to `False`.
@@ -46,38 +54,42 @@ class CfProcessor(Processor):
             image that can be saved to file downstream in the workflow,
             defaults to `True`.
         :type save_figures: bool, optional
-        :param nxpath: The path to a specific NeXus NXdata object in
-            the input NeXus file tree to the measured data from.
+        :param nxpath: Path to a specific NeXus Style
+            `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+            object in the input NeXus file tree to the measured data
+            from.
         :type nxpath: str, optional
         :param radial_range: q-range used to compute Cf.
-        :type radial_range: Union(
-            list[float, float], tuple[float, float]), optional
-        :ivar scan_step_indices: Optional scan step indices to use for
+        :type radial_range: list[float, float] or tuple[float, float]),
+            optional
+        :param scan_step_indices: Optional scan step indices to use for
             the calculation. If not specified, the correction factor
             will be computed on the average of all data for the scan.
         :type scan_step_indices: int, str, list[int], optional
         :param eps: Minimum plotting value of the corrected azimuthally
-            integrated SAXSWAXS data, default to `1.e-5`.
-        :type eps: float
+            integrated SAXS/WAXS data, defaults to `1.e-5`.
+        :type eps: float, optional
         :returns: Computed correction factor Cf and the configuration
             parameters plus the optional correction factor image as a
-            CHAP.pipeline.PipelineData object.
-        :rtype: Union[dict, (dict, PipelineData)]
+            :class:`~CHAP.pipeline.PipelineData object`.
+        :rtype: dict or (dict, PipelineData)]
         """
         # Third party modules
+        # pylint: disable=import-error
         from pandas import DataFrame
+        # pylint: enable=import-error
         from scipy.interpolate import interp1d
+
+        # Local modules
+        from CHAP.pipeline import PipelineData
+        from CHAP.utils.general import round_to_n
 
         if interactive or save_figures:
             # Third party modules
             import matplotlib.pyplot as plt
 
             # Local modules
-            from CHAP.pipeline import PipelineData
-            from CHAP.utils.general import (
-                fig_to_iobuf,
-                round_to_n,
-            )
+            from CHAP.utils.general import fig_to_iobuf
 
         # Validate the input parameters
         if scan_step_indices is not None:
@@ -138,12 +150,12 @@ class CfProcessor(Processor):
             np.where(q_ref >= radial_range[0], 1, 0), 0).astype(bool)
         if not q_ref[mask].size:
             raise ValueError(
-                f'No reference values within specified radial range')
+                'No reference values within specified radial range')
         func = interp1d(q_meas, data_meas, kind='cubic')
         data_meas_intpol = func(q_ref[mask])
         if not data_meas_intpol.size:
             raise ValueError(
-                f'No measured values within specified radial range')
+                'No measured values within specified radial range')
 
         # Get the correction factor
         ratio = data_ref[mask]/data_meas_intpol
@@ -165,11 +177,11 @@ class CfProcessor(Processor):
         if interactive or save_figures:
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.plot(q_ref, data_ref, label='APS Reference Data')
-            ax.plot(q_meas, data_meas, label=f'Corrected FMB Data/C$_f$')
+            ax.plot(q_meas, data_meas, label=r'Corrected FMB Data/C$_f$')
             for v in radial_range:
                 plt.axvline(v, color='r', linestyle='--')
             ax.set_yscale('log')
-            ax.set_title(f'Absolute Intensity Calculation', fontsize='xx-large')
+            ax.set_title('Absolute Intensity Calculation', fontsize='xx-large')
             ax.set_xlabel(r'{q_A^-1}', fontsize='x-large')
             ax.set_ylabel('Normalized Intensity', fontsize='x-large')
             min_x = q_meas.min()
@@ -181,11 +193,11 @@ class CfProcessor(Processor):
                  10**np.floor(1+np.log10(data_meas.max()))))
             ax.legend(fontsize='x-large', edgecolor='grey')
             plt.annotate(
-                f'C$_f$ = {round_to_n(cf, 6):e} $\pm$ '
+                r'C$_f$ = 'f'{round_to_n(cf, 6):e}'r' $\pm$ '
                 f'{round_to_n(100*cf_stv/cf, 2)}%\n'
-                f'1/C$_f$ = {round_to_n(1/cf, 6):e}',
+                r'1/C$_f$ = 'f'{round_to_n(1/cf, 6):e}',
                 (.65, .9), xycoords = 'axes fraction', fontsize='x-large',
-                bbox=dict(facecolor='white', edgecolor='grey', pad=10.0))
+                bbox={'facecolor': 'white', 'edgecolor': 'grey', 'pad': 10.0})
             if save_figures:
                 fig.tight_layout(rect=(0, 0, 1, 0.95))
                 figures  = fig_to_iobuf(fig)
@@ -203,27 +215,32 @@ class CfProcessor(Processor):
 
 class FluxCorrectionProcessor(ExpressionProcessor):
     """Processor for flux correction."""
-    def process(self, data, presample_intensity_reference_rate=None,
-                nxprocess=False):
-        """Given input data for `'intensity'`,
-        `'presample_intensity'`, and `'dwell_time_actual'`, return
-        flux corrected intensity signal.
+
+    def process(
+            self, data, presample_intensity_reference_rate=None,
+            nxprocess=False):
+        """Given input data for `'intensity'`, `'presample_intensity'`,
+        and `'dwell_time_actual'`, compute the flux corrected intensity
+        signal.
 
         :param data: Input data list containing items with names
-            `'intensity'`, `'presample_intensity'`, and (if
-            `presample_intensity_reference_rate` is not specified)
-            `'dwell_time_actual'`.
+            `'intensity'`, `'presample_intensity'`, and
+            `'dwell_time_actual'` (if
+            `presample_intensity_reference_rate` is not specified).
         :type data: list[PipelineData]
         :param presample_intensity_reference_rate: Reference counting
             rate for the `'presample_intensity'` signal. If not
-            specified, it will be calculated with
-            `'np.nanmean(presample_intensity /
-            dwell_time_actual)'`. Defaults to `None`.
+            specified, it will  set to
+            `'numpy.nanmean(presample_intensity /
+            dwell_time_actual)'`.
         :type presample_intensity_reference_rate: float, optional
         :param nxprocess: Flag to indicate the flux corrected data
-            should be returned as an `NXprocess`. Defaults to `False`.
+            should be returned as a NeXus style
+            `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+            object. Defaults to `False`.
+        :type nxprocess: bool, optional
         :returns: Flux corrected version of input `'intensity'` data.
-        :rtype: object
+        :rtype: Any
         """
         if presample_intensity_reference_rate is None:
             presample_intensity_reference_rate = self._process(
@@ -269,15 +286,15 @@ class FluxCorrectionProcessor(ExpressionProcessor):
 
 class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
     """Processor for flux and absorption correction."""
-    def process(self, data,
-                presample_intensity_reference_rate=None,
-                nxprocess=False):
-        """Given input data for `'intensity'`,
-        `'presample_intensity'`, `'postsample_intensity'`,
-        `'background_presample_intensity'`,
+
+    def process(
+            self, data, presample_intensity_reference_rate=None,
+            nxprocess=False):
+        """Given input data for `'intensity'`, `'presample_intensity'`,
+        `'postsample_intensity'`, `'background_presample_intensity'`,
         `'background_postsample_intensity'`, and
-        `'dwell_time_actual'`, return flux and absorption corrected
-        intensity signal.
+        `'dwell_time_actual'`, compute the flux and absorption
+        corrected intensity signal.
 
         :param data: Input data list containing all necessary data
             labelled with their proper names.
@@ -285,14 +302,17 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         :param presample_intensity_reference_rate: Reference counting
             rate for the `'presample_intensity'` signal. If not
             specified, it will be calculated with
-            `'np.nanmean(presample_intensity /
-            dwell_time_actual)'`. Defaults to `None`.
+            `'numpy.nanmean(presample_intensity /
+            dwell_time_actual)'`.
         :type presample_intensity_reference_rate: float, optional
-        :param nxprocess: Flag to indicate the flux corrected data
-            should be returned as an `NXprocess`. Defaults to `False`.
-        :returns: Flux and absprption corrected version of input
+        :param nxprocess: Flag to indicate the flux and absorption
+            corrected data should be returned as a NeXus style
+            `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+            object. Defaults to `False`.
+        :type nxprocess: bool, optional
+        :returns: Flux and absorption corrected version of input
             `'intensity'` data.
-        :rtype: object
+        :rtype: Any
         """
         intensity = self.get_data(
             data, name='intensity',
@@ -304,17 +324,15 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        T = self._process(
+        tt = self._process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
              'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
-        # Extend T along last dim to have same shape as intensity
-        for dim in intensity.shape[T.ndim:]:
-            T = np.repeat(
-                np.expand_dims(T, axis=-1), dim, axis=-1
-            )
+        # Extend tt along last dim to have same shape as intensity
+        for dim in intensity.shape[tt.ndim:]:
+            tt = np.repeat(np.expand_dims(tt, axis=-1), dim, axis=-1)
 
         presample_intensity = self.get_data(
             data, name='presample_intensity',
@@ -331,10 +349,10 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
                 presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
-            'T': T
+            'tt': tt
         }
         expression = (
-            '(1 / T)'
+            '(1 / tt)'
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
         )
@@ -345,19 +363,17 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
 
 
 class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
-    """Processor for flux, absorption, and background correction. May
-    also perform thickness correction."""
-    def process(self, data,
-                presample_intensity_reference_rate=None,
-                sample_thickness_cm=None,
-                sample_mu_inv_cm=None,
-                nxprocess=False):
-        """Given input data for `'intensity'`,
-        `'presample_intensity'`, `'postsample_intensity'`,
-        `'background_presample_intensity'`,
+    """Processor for flux, absorption, and background correction as
+    well as optional thickness correction."""
+
+    def process(
+            self, data, presample_intensity_reference_rate=None,
+            sample_thickness_cm=None, sample_mu_inv_cm=None, nxprocess=False):
+        """Given input data for `'intensity'`, `'presample_intensity'`,
+        `'postsample_intensity'`, `'background_presample_intensity'`,
         `'background_postsample_intensity'`, `'background_intensity'`,
-        and `'dwell_time_actual'`, return flux and absorption
-        corrected intensity signal.
+        and `'dwell_time_actual'`, return flux, absorption and
+        background corrected intensity signal.
 
         :param data: Input data list containing all necessary data
             labelled with their proper names.
@@ -365,26 +381,30 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         :param presample_intensity_reference_rate: Reference counting
             rate for the `'presample_intensity'` signal. If not
             specified, it will be calculated with
-            `'np.nanmean(presample_intensity /
-            dwell_time_actual)'`. Defaults to `None`.
+            `'numpy.nanmean(presample_intensity /
+            dwell_time_actual)'`.
         :type presample_intensity_reference_rate: float, optional
         :param sample_thickness_cm: Sample thickness in
             centimeters. If specified, this processor will
             additionally perform thickness correction. Use of this
             parameter is mutualy exclusive with
-            use of `sample_mu_inv_cm`. Defaults to `None`.
+            use of `sample_mu_inv_cm`.
         :type sample_thickness_cm: float, optional
         :param sample_mu_inv_cm: Sample linear attenuation coefficient
             in inverse centimeters. If specified, this processor will
             additionally perform thickness correction. Use of this
             parameter is mutualy exclusive with use of
-            `sample_thickness_cm`. Defaults to `None`.
+            `sample_thickness_cm`.
         :type sample_mu_inv_cm: float, optional
-        :param nxprocess: Flag to indicate the flux corrected data
-            should be returned as an `NXprocess`. Defaults to `False`.
-        :returns: Flux and absprption corrected version of input
-            `'intensity'` data.
-        :rtype: object
+        :param nxprocess: Flag to indicate the flux, absorption, and
+            background corrected data should be returned as a Nexus
+            style
+            `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+            object. Defaults to `False`.
+        :type nxprocess: bool, optional
+        :returns: Flux, absorption and background corrected version of
+            input `'intensity'` data.
+        :rtype: Any
         """
         if sample_thickness_cm is not None and sample_mu_inv_cm is not None:
             raise ValueError((
@@ -402,17 +422,15 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        T = self._process(
+        tt = self._process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
              'np.divide(background_postsample_intensity, background_presample_intensity))')
         )
-        # Extend T along last dim to have same shape as intensity
-        for dim in intensity.shape[T.ndim:]:
-            T = np.repeat(
-                np.expand_dims(T, axis=-1), dim, axis=-1
-            )
+        # Extend tt along last dim to have same shape as intensity
+        for dim in intensity.shape[tt.ndim:]:
+            tt = np.repeat(np.expand_dims(tt, axis=-1), dim, axis=-1)
 
         presample_intensity = self.get_data(
             data, name='presample_intensity',
@@ -435,7 +453,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         if sample_thickness_cm is not None:
             t = sample_thickness_cm
         elif sample_mu_inv_cm is not None:
-            t = -np.log(T / sample_mu_inv_cm)
+            t = -np.log(tt / sample_mu_inv_cm)
         else:
             t = 1
 
@@ -445,13 +463,13 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
                 presample_intensity_reference_rate,
             'intensity': intensity,
             'presample_intensity': presample_intensity,
-            'T': T,
+            'tt': tt,
             'background_intensity': background_intensity
         }
         expression = (
             '(1 / t)'
             '* ('
-            '(1 / T)'
+            '(1 / tt)'
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
             ') - ('
@@ -466,11 +484,13 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
 
 
 class PyfaiIntegrationProcessor(Processor):
-    """Processor for performing pyFAI integrations.
+    """A processor for azimuthally integrating images.
 
-    :ivar config: PyfaiIntegrationConfig
-    :type config: CHAP.common.models.integration.PyfaiIntegrationConfig
+    :ivar config: Initialization parameters for an instance of
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default={
             'config': 'common.models.integration.PyfaiIntegrationConfig'
@@ -478,23 +498,25 @@ class PyfaiIntegrationProcessor(Processor):
         init_var=True)
     config: PyfaiIntegrationConfig
 
-    def process(self, data,
-                idx_slices=[{'start':0, 'step': 1}]):
+    def process(self, data, idx_slices=None):
         """Perform a set of integrations on 2D detector data.
 
-        :param data: input 2D detector data
+        :param data: Input data.
         :type data: list[PipelineData]
-        :param idx_slices: List of dicionaries identifying the sliced
+        :param idx_slices: List of dictionaries identifying the sliced
             index at which the output data should be written in a
-            dataset. Optional.
-        :type idx_slices: list[dict[str, int]], defaults to
-        `[{'start':0, 'step': 1}]`
-        :return: List of dictionaries ready for use with
-            `saxswaxs.ZarrResultsWriter` or
-            `saxswaxs.NexusResultsWriter`.
-        :rtype: list[dict[str, object]]
+            dataset, defaults to `[{'start':0, 'step': 1}]`.
+        :type idx_slices: list[dict[str, int]], optional
+        :return: Integrated detector data ready for writing with
+            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or
+            :class:`~CHAP.saxswaxs.NexusResultsWriter`.
+        :rtype: list[dict[str, Any]]
         """
+        # System modules
         import time
+
+        if idx_slices is None:
+            idx_slices = [{'start':0, 'step': 1}]
 
         # Organize input for integrations
         input_data = {d['name']: d['data']
@@ -530,25 +552,31 @@ class PyfaiIntegrationProcessor(Processor):
 
 
 class SetupResultsProcessor(Processor):
-    """Processor for creating an intital zarr structure with empty datasets
-    for filling in by `saxswaxs.PyfaiIntegrationProcessor` and
-    `common.ZarrValuesWriter`.
+    """Processor for creating an intital
+    `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+    object with empty datasets for filling in by
+    :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor` and
+    :class:`~CHAP.common.ZarrValuesWriter`.
 
-    :ivar dataset_shape: Shape of the completed dataset that will
-        be processed later on (shape of the measurement itself,
-        _not_ including the dimensions of any signals collected at
-        each point in that measurement).
-    :type dataset_shape: Union[int, list[int]]
-    :ivar dataset_chunks: Extent of chunks along each dimension
-        of the completed dataset / measurement. Choose this
-        according to how you will process your data -- for
-        example, if your `dataset_shape` is `[m, n]`, and you are
-        planning to process each of the `m` rows as chunks,
-        `dataset_chunks` should be `[1, n]`. But if you plan to
-        process each of the `n` columns as chunks,
-        `dataset_chunks` should be `[m, 1]`.
-    :type dataset_chunks: Union[list[int], Literal["auto"]]
+    :ivar config: Initialization parameters for an instance of
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype config: dict
+    :ivar dataset_shape: Shape of the completed dataset that will be
+        processed later on (shape of the measurement itself, _not_
+        including the dimensions of any signals collected at each point
+        in that measurement).
+    :vartype dataset_shape: int or list[int]
+    :ivar dataset_chunks: Extent of chunks along each dimension of the
+        completed dataset / measurement. Choose this according to how
+        you will process your data -- for example, if your
+        `dataset_shape` is `[m, n]`, and you are planning to process
+        each of the `m` rows as chunks, `dataset_chunks` should be
+        `[1, n]`. But if you plan to process each of the `n` columns as
+        chunks, `dataset_chunks` should be `[m, 1]`,
+        defaults to `"auto"`.
+    :vartype dataset_chunks: list[int] or Literal["auto"], optional
     """
+
     pipeline_fields: dict = Field(
         default={
             'config': 'common.models.integration.PyfaiIntegrationConfig'
@@ -563,36 +591,52 @@ class SetupResultsProcessor(Processor):
         ]] = 'auto'
 
     def process(self, data):
-        """Return a `zarr.group` to hold processed SAXS/WAXS data
-        processed by `saxswaxs.PyfaiIntegrationProcessor`.
+        """Create and return a
+        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+        object to hold processed SAXS/WAXS data processed
+        by :class:`~CHAP.saxswaxs.PyfaiIntegrationProcessor`.
 
-        :param data: Input data (configurations).
+        :param data: Input data.
         :type data: list[PipelineData]
-        :return: Empty structure for filling in SAXS/WAXS data
-        :rtype: zarr.group
+        :return: Empty structure for filling in SAXS/WAXS data.
+        :rtype: zarr.Group
         """
 
-        # Get zarr tree as dict from the
-        # PyfaiIntegrationConfig
+        # Get Zarr tree as dict from the PyfaiIntegrationConfig
         tree = self.config.zarr_tree(self.dataset_shape, self.dataset_chunks)
 
-        # Construct & return the root zarr.group
+        # Construct & return the root Zarr group
         return self.zarr_setup(tree)
 
     def zarr_setup(self, tree):
-        """Return a `zarr.group` based on a
-        dictionary representing a zarr tree of groups and arrays.
+        """Create a
+        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+        object based on a dictionary representing a Zarr tree of groups
+        and arrays.
 
-        :param tree: Nested dictionary representing a zarr tree of
+        :param tree: Nested dictionary representing a Zarr tree of
             groups and arrays.
-        :type tree: dict[str, object]
+        :type tree: dict[str, Any]
         :return: Zarr group corresponding to the contents of `tree`.
-        :rtype: zarr.group
+        :rtype: zarr.Group
         """
+        # Third party modules
+        # pylint: disable=import-error
         import zarr
         from zarr.storage import MemoryStore
 
         def create_group_or_dataset(node, zarr_parent, indent=0):
+            """Create and return a
+            `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+            `Zarr dataset <https://zarr.readthedocs.io/en/stable/api/zarr/array/#zarr.Array>`__.
+
+            :param node: Child Zarr tree group.
+            :type node: zarr.Group or zarr.Array
+            :param zarr_parent: Parent Zarr tree group.
+            :type zarr_parent: zarr.Group
+            :param indent: Indentation level, defaults to 0.
+            :type indent: int, optional
+            """
             # Set attributes if present
             if 'attributes' in node:
                 for key, value in node['attributes'].items():
@@ -624,31 +668,38 @@ class SetupProcessor(Processor):
     """Convenience Processor for setting up a container for SAXS/WAXS
     experiments.
 
-    :ivar detectors: List of basic detector configuration parameters.
-    :type detectors: `CHAP.common.models.map.DetectorConfig`
-    :ivar dataset_shape: Shape of the completed dataset that will
-        be processed later on (shape of the measurement itself,
-        _not_ including the dimensions of any signals collected at
-        each point in that measurement).
-    :type dataset_shape: Union[int, list[int]]
-    :ivar dataset_chunks: Extent of chunks along each dimension
-        of the completed dataset / measurement. Choose this
-        according to how you will process your data -- for
-        example, if your `dataset_shape` is `[m, n]`, and you are
-        planning to process each of the `m` rows as chunks,
-        `dataset_chunks` should be `[1, n]`. But if you plan to
-        process each of the `n` columns as chunks,
-        `dataset_chunks` should be `[m, 1]`.
-    :type dataset_chunks: Union[list[int], Literal["auto"]]
-    :ivar num_chunk: Used only if `dataset_chunks` is
-        `"auto"`. Preferred number of chunks in the dataset. Defaults
-        to `1`.
-    :type num_chunk: int, optional
+    :ivar map_config: Map configuration.
+    :vartype map_config: dict, optional
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :ivar pyfai_config: Initialization parameters for an instance of
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype pyfai_config: dict, optional
+    :ivar detectors: Detector configurations.
+    :vartype detectors: DetectorConfig
+    :ivar dataset_shape: Shape of the completed dataset that will be
+        processed later on (shape of the measurement itself, _not_
+        including the dimensions of any signals collected at each point
+        in that measurement).
+    :vartype dataset_shape: int or list[int]
+    :ivar dataset_chunks: Extent of chunks along each dimension of the
+        completed dataset / measurement. Choose this according to how
+        you will process your data -- for example, if your
+        `dataset_shape` is `[m, n]`, and you are planning to process
+        each of the `m` rows as chunks, `dataset_chunks` should be
+        `[1, n]`. But if you plan to process each of the `n` columns as
+        chunks, `dataset_chunks` should be `[m, 1]`,
+        defaults to `"auto"`.
+    :vartype dataset_chunks: list[int] or Literal["auto"], optional
+    :ivar num_chunk: Used only if `dataset_chunks` is `"auto"`.
+        Preferred number of chunks in the dataset, defaults to `1`.
+    :vartype num_chunk: int, optional
     :ivar raw_data: Flag to indicate wether or not space for raw
-        detector data should be included in the returned Zarr
-        structure; defaults to `True`.
-    :type raw_data: bool, optional
+        detector data should be included in the returned
+        `Zarr group <https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group>`__,
+        defaults to `True`.
+    :vartype raw_data: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
@@ -673,17 +724,44 @@ class SetupProcessor(Processor):
     raw_data: Optional[bool] = True
 
     def process(self, data):
+        """Set up a container for SAXS/WAXS experiments.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :return:
+            `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+            object representing a Zarr tree of the container contents.
+        :rtype: zarr.Group
+        """
+        # System modules
         import asyncio
         import logging
+
+        # Third party modules
+        # pylint: disable=import-error
         import zarr
         from zarr.core.buffer import default_buffer_prototype
         from zarr.storage import MemoryStore
+        # pylint: enable=import-error
 
+        # Local modules
+        from CHAP.common import (
+            MapProcessor,
+            NexusToZarrProcessor,
+        )
         from CHAP.pipeline import PipelineData
-        from CHAP.common import MapProcessor, NexusToZarrProcessor
-        from CHAP.saxswaxs import SetupResultsProcessor
+        #from CHAP.saxswaxs.processor import SetupResultsProcessor
 
         def set_logger(pipeline_item):
+            """Set the logger and logging handler for given pipeline
+            item.
+
+            :param pipeline_item: Pipeline item.
+            :type pipeline_item: PipelineItem
+            :return: Input Pipeline item, with updated logger and
+                logging handler.
+            :rtype: PipelineItem
+            """
             pipeline_item.logger = self.logger
             pipeline_item.logger.name = pipeline_item.__class__.__name__
             handler = logging.StreamHandler()
@@ -745,11 +823,11 @@ class SetupProcessor(Processor):
                 self.dataset_chunks += 1
             self.dataset_chunks = [self.dataset_chunks]
 
-        # Convert raw data map container to zarr format
+        # Convert raw data map container to Zarr format
         ddata_converter = set_logger(NexusToZarrProcessor())
         zarr_map = ddata_converter.process(ddata, chunks=self.dataset_chunks)
 
-        # Get zarr container for integration results
+        # Get Zarr container for integration results
         setup_results_processor = set_logger(
             SetupResultsProcessor(
                 config=self.pyfai_config,
@@ -762,6 +840,14 @@ class SetupProcessor(Processor):
         # Assemble containers for raw & processed data
         zarr_root = zarr.create_group(store=MemoryStore({}))
         async def copy_zarr_store(source_store, dest_store):
+            """Copy a Zarr <https://zarr.readthedocs.io/en/stable/>`__
+            store.
+
+            :param source_store: Source Zarr group.
+            :type: zarr.Group
+            :param dest_store: Destination Zarr group.
+            :type: zarr.Group
+            """
             async for k in source_store.list():
                 self.logger.info(f'Copying {k}')
                 buf = await source_store.get(
@@ -773,17 +859,22 @@ class SetupProcessor(Processor):
 
 
 class UnstructuredToStructuredProcessor(Processor):
-    """Processor to aggregate "unstructured" data into a single NXdata
-    with a "structured" representation.
+    """Processor to aggregate "unstructured" data into a single NeXus
+    style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object with a "structured" representation.
     """
+
     def process(self, data, fields, name='data', attrs=None):
-        """Return an `NXdata` object containing a single structured
-        dataset composed from multiple unstructured input datasets.
+        """Create and return a Nexus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object containing a single structured dataset composed from
+        multiple unstructured input datasets.
 
         This method validates the field configuration, validates and
         reshapes the input data, determines common axes across all
-        signals, and constructs a NeXus `NXdata` group containing
-        signal and axis fields.
+        signals, and constructs a `NXdata` group containing signal and
+        axis fields.
 
         :param data: Input data objects containing unstructured
             datasets.
@@ -800,21 +891,25 @@ class UnstructuredToStructuredProcessor(Processor):
               coordinate axes data for each dimension of the signal.
 
             Optional keys include:
-            - ``"attrs"``: Dictionary of NeXus attributes to attach to
+            - ``"attrs"``: Dictionary of NeXus attributes to attach to.
 
-        :type fields: list[dict[str, object]]
-        :param name: Name of the resulting `NXdata` group.
-        :type name: str
+        :type fields: list[dict[str, Any]]
+        :param name: Name of the resulting `NXdata` group,
+            defaults to `"data"`.
+        :type name: str, optional
         :param attrs: Attributes to attach to the resulting `NXdata`
-            group.  The common axes determined during processing will
-            be added to this dictionary under the ``"axes"`` key.
-        :type attrs: dict[str, object] or None
-        :returns: A structured NeXus `NXdata` object containing all
-            signals and axes defined by the configuration.
+            group. The common axes determined during processing will be
+            added to this dictionary under the ``"axes"`` key.
+        :type attrs: dict[str, Any], optional
+        :returns: A structured `NXdata` object containing all signals
+            and axes defined by the configuration.
         :rtype: nexusformat.nexus.NXdata
         """
-        from nexusformat.nexus import NXdata, NXfield
-
+        # Third party modules
+        from nexusformat.nexus import (
+            NXdata,
+            NXfield,
+        )
 
         signals, axes = self.validate_config_fields(fields)
         signals, axes = self.validate_data(data, signals, axes)
@@ -850,22 +945,24 @@ class UnstructuredToStructuredProcessor(Processor):
     def validate_config_fields(self, fields):
         """Validate and normalize the field configuration.
 
-        This method separates the input field configuration into signal and
-        axis definitions, performs basic validation, and ensures that all
-        axes referenced by signals are defined as axis fields.
+        This method separates the input field configuration into signal
+        and axis definitions, performs basic validation, and ensures
+        that all axes referenced by signals are defined as axis fields.
 
         The returned signal and axis dictionaries are normalized into a
-        consistent internal representation used by later processing stages.
+        consistent internal representation used by later processing
+        stages.
 
-        :param fields: Configuration describing how input data should be
-            structured. Each item must define a ``"name"`` and ``"type"``
-            key, where ``"type"`` is either ``"signal"`` or ``"axis"``.
-            Signal entries must additionally define an ``"axes"`` list.
-        :type fields: list[dict[str, object]]
-        :returns: Tuple of validated signal and axis definitions.
+        :param fields: Configuration describing how input data should
+            be structured. Each item must define a ``"name"`` and
+            ``"type"`` key, where ``"type"`` is either ``"signal"``
+            or ``"axis"``. Signal entries must additionally define an
+            ``"axes"`` list.
+        :type fields: list[dict[str, Any]]
+        :raises ValueError: If a signal references an axis that is not
+            defined, or if a signal is defined before any axis exist.
+        :returns: Validated signal and axis definitions.
         :rtype: tuple[list[dict], list[dict]]
-        :raises ValueError: If a signal references an axis that is not defined,
-            or if a signal is defined before any axes exist.
         """
         self.logger.info('Validating fields parameter')
 
@@ -908,24 +1005,24 @@ class UnstructuredToStructuredProcessor(Processor):
         return signals, axes
 
     def get_common_axes(self, signals):
-        """Determine the common leading axes shared by all signals.
+        """Determine the common leading axis shared by all signals.
 
         This method computes the longest common *prefix* of axis names
         across all signal definitions. Only axes that appear in the
         same order at the beginning of each signal's ``axes`` list are
         included in the result.
 
-        This is used to identify the shared coordinate dimensions
-        for a structured `NXdata` group.
+        This is used to identify the shared coordinate dimensions for a
+        structured NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__`NXdata`
+        object.
 
         :param signals: Validated signal definitions. Each signal must
-            define an ``"axes"`` key containing an ordered list of
-            axis names.
+            define an ``"axes"`` key containing an ordered list of axis
+            names.
         :type signals: list[dict]
-
-        :returns: List of axis names that form the common leading axes
-            for all signals. Returns an empty list if no common prefix
-            exists.
+        :returns: Axis names that form the common leading axis for all
+            signals. Returns an empty list if no common prefix exists.
         :rtype: list[str]
         """
         self.logger.info('Computing common dataset axes')
@@ -958,33 +1055,30 @@ class UnstructuredToStructuredProcessor(Processor):
         and allocates structured arrays for signal data.
 
         For each axis:
-          - The raw data is loaded
+          - Raw data is loaded.
           - Attributes are merged (without overwriting user-specified
-            ones)
-          - Unique axis values are computed
+            ones).
+          - Unique axis values are computed.
 
         For each signal:
-          - The raw data is loaded
+          - Raw data is loaded.
           - Attributes are merged (without overwriting user-specified
-            ones)
-          - A structured output array is allocated based on its axes
-          - The total signal size is validated against the expected
-            shape
+            ones).
+          - A structured output array is allocated based on its axes.
+          - Total signal size is validated against the expected shape.
 
-        :param data: Input unstructured data items.
+        :param data: Input data.
         :type data: list[PipelineData]
         :param signals: Validated signal field definitions.
         :type signals: list[dict]
         :param axes: Validated axis field definitions.
         :type axes: list[dict]
+        :raises ValueError: If a signal's data size does not match the
+            expected size derived from its axes.
         :returns: Updated signal and axis definitions with populated
             values and derived metadata.
         :rtype: tuple[list[dict], list[dict]]
-        :raises ValueError: If a signal's data size does not match the
-            expected size derived from its axes.
         """
-        import numpy as np
-
         self.logger.info('Validating input data')
         self.logger.info('Validating axis data')
         for axis in axes:
@@ -1036,16 +1130,17 @@ class UnstructuredToStructuredProcessor(Processor):
         return signals, axes
 
     def structure_signal_values(self, signals, axes, common_axes):
-        """Reshape and populate structured signal arrays using common axes.
+        """Reshape and populate structured signal arrays using common
+        axes.
 
         This method determines computes index mappings from raw axis
-        values to their unique sorted representations, and inserts
-        each signal's unstructured data into its preallocated
-        structured array.
+        values to their unique sorted representations, and inserts each
+        signal's unstructured data into its preallocated structured
+        array.
 
         Only the common axes are used for structuring; any trailing,
-        signal-specific axes are assumed to have already been handled when
-        allocating the structured signal arrays.
+        signal-specific axes are assumed to have already been handled
+        when allocating the structured signal arrays.
 
         :param signals: Signal definitions with raw and preallocated
             structured data arrays.
@@ -1057,9 +1152,10 @@ class UnstructuredToStructuredProcessor(Processor):
             common axes.
         :type common_axes: list[str]
         :returns:
-            - Updated signal definitions with populated structured arrays
-            - Unmodified axis definitions
-            - List of common axis names shared by all signals
+            - Updated signal definitions with populated structured
+              arrays.
+            - Unmodified axis definitions.
+            - Common axis names shared by all signals.
         :rtype: tuple[list[dict], list[dict], list[str]]
         """
         self.logger.info('Structuring dataset')
@@ -1081,22 +1177,24 @@ class UpdateValuesProcessor(Processor):
     container for a SAXS/WAXS experiment.
 
     :ivar map_config: Map Configuration.
-    :type map_config: CHAP.common.models.map.MapConfig
-    :ivar pyfai_config: PyFAI integration configuration.
-    :type pyfai_config: CHAP.common.models.integration.PyfaiIntegrationConfig
-    :ivar spec_file: SPEC file containing scan from which to read and
-        process a slice of raw data.
-    :type spec_file: str
-    :ivar scan_number: Number of scan from which to read and process a
+    :vartype map_config: dict dict, optional
+    :ivar pyfai_config: Initialization parameters for an instance of
+        :class:`~CHAP.common.models.integration.PyfaiIntegrationConfig`.
+    :vartype pyfai_config: dict, optional
+    :ivar spec_file: SPEC file containing the scan from which to read
+        and process a slice of raw data.
+    :vartype spec_file: str
+    :ivar scan_number: Scan number from which to read and process a
         slice of raw data.
-    :type scan_number: int
-    :ivar detectors: List of detector configurations.
-    :type detectors: list[Detector]
+    :vartype scan_number: int
+    :ivar detectors: Detector configurations.
+    :vartype detectors: list[CHAP.common.models.map.Detector]
     :ivar raw_data: Flag to indicate wether or not space for raw
-        detector data should be included in the values returned;
+        detector data should be included in the values returned,
         defaults to `True`.
-    :type raw_data: bool, optional
+    :vartype raw_data: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default={
             'map_config': 'common.models.map.MapConfig',
@@ -1114,18 +1212,46 @@ class UpdateValuesProcessor(Processor):
     detectors: conlist(item_type=Detector, min_length=1)
     raw_data: Optional[bool] = True
 
-    def process(self, data, idx_slice={'start': 0, 'step': 1}):
+    def process(self, data, idx_slice=None):
+        """Processes a slice of data for updating values in an existing
+        container for a SAXS/WAXS experiment.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param idx_slice: Dictionaries identifying the sliced index at which
+            the output data should be written in a dataset, defaults to
+            `{'start':0, 'step': 1}`.
+        :type idx_slice: dict[str, int], optional
+        :return: Integrated detector data ready for writing with
+            :class:`~CHAP.saxswaxs.ZarrResultsWriter` or
+            :class:`~CHAP.saxswaxs.NexusResultsWriter`.
+        :rtype: list[dict[str, Any]]
+        :return: Integrated detector data for updating values in an
+            existing container for a SAXS/WAXS experiment.
+        :rtype: list[dict[str, Any]]
+        """
         # Get updates with MapSliceProcessor
         # Pass detector data to PyfaiIntegration processor
         # Concatenate & return results
+        # System modules
         import logging
         import os
 
+        # Local modules
         from CHAP.common import MapSliceProcessor
         from CHAP.pipeline import PipelineData
-        from CHAP.saxswaxs import PyfaiIntegrationProcessor
+        #from CHAP.saxswaxs.processor import PyfaiIntegrationProcessor
 
         def set_logger(pipeline_item):
+            """Set the logger and logging handler for given pipeline
+            item.
+
+            :param pipeline_item: Pipeline item.
+            :type pipeline_item: PipelineItem
+            :return: Input Pipeline item, with updated logger and
+                logging handler.
+            :rtype: PipelineItem
+            """
             pipeline_item.logger = self.logger
             pipeline_item.logger.name = pipeline_item.__class__.__name__
             handler = logging.StreamHandler()
@@ -1138,6 +1264,9 @@ class UpdateValuesProcessor(Processor):
             pipeline_item.logger.addHandler(handler)
             return pipeline_item
 
+        if idx_slice is None:
+            idx_slice = {'start':0, 'step': 1}
+
         # Read in slice of raw data
         raw_values = set_logger(
             MapSliceProcessor(
@@ -1148,7 +1277,8 @@ class UpdateValuesProcessor(Processor):
             )
         ).process(None, idx_slice=idx_slice)
 
-        def get_detector_data(values, name):
+        def _get_detector_data(values, name):
+            "Get the detector data."""
             for v in values:
                 if os.path.basename(v['path']) == name:
                     return v['data']
@@ -1159,14 +1289,12 @@ class UpdateValuesProcessor(Processor):
             data.append(
                 PipelineData(
                     name=d.get_id(),
-                    data=get_detector_data(raw_values, d.get_id()),
+                    data=_get_detector_data(raw_values, d.get_id()),
                 )
             )
         # Get integrated data
         processed_values = set_logger(
-            PyfaiIntegrationProcessor(
-                config=self.pyfai_config,
-            )
+            PyfaiIntegrationProcessor(config=self.pyfai_config)
         ).process(data, idx_slices=[idx_slice])
 
         if self.raw_data:

@@ -1,4 +1,7 @@
-"""FOXDEN Pydantic model classes."""
+"""`Pydantic <https://github.com/pydantic/pydantic>`__ model
+configuration classes unique to the the 
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ integration.
+"""
 
 # System modules
 from typing import (
@@ -18,28 +21,30 @@ from CHAP import CHAPBaseModel
 
 
 class FoxdenRequestConfig(CHAPBaseModel):
-    """FOXDEN HTTP request base configuration class.
+    """`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    HTTP request base configuration class.
 
-    :param did: FOXDEN dataset identifier (did).
-    :type did: string, optional
-    :param idx: Index of the first record in the list of records to
+    :ivar did: FOXDEN dataset identifier (DID).
+    :vartype did: string, optional
+    :ivar idx: Index of the first record in the list of records to
         be retured, defaults to `0`.
-    :type idx: int, optional
-    :param limit: Maximum number of returned records,
+    :vartype idx: int, optional
+    :ivar limit: Maximum number of returned records,
         defaults to `10`.
-    :type limit: int, optional
-    :param query: FOXDEN query.
-    :type query: string, optional
-    :param url: URL of service.
-    :type url: str
-    :param verbose: Verbose output flag, defaults to `False`.
-    :type verbose: bool, optional
+    :vartype limit: int, optional
+    :ivar query: FOXDEN query.
+    :vartype query: string, optional
+    :ivar url: URL of service.
+    :vartype url: str
+    :ivar verbose: Verbose output flag, defaults to `False`.
+    :vartype verbose: bool, optional
     """
-#    :param method: HTTP request method (not case sensitive),
+
+#    :ivar method: HTTP request method (not case sensitive),
 #        defaults to `'POST'`.
-#    :type method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional
-#    :param scope: FOXDEN scope (not case sensitive).
-#    :type scope: Literal['read', 'write'], optional
+#    :vartype method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional
+#    :ivar scope: FOXDEN scope (not case sensitive).
+#    :vartype scope: Literal['read', 'write'], optional
     # Mimics golib.services.data.ServiceQuery
     did: Optional[constr(
         strict=True, strip_whitespace=True, to_lower=True)] = None
@@ -72,6 +77,15 @@ class FoxdenRequestConfig(CHAPBaseModel):
 #        return scope
 
     def create_http_request_payload(self, reader):
+        """Create the payload for a HTTP request.
+
+        :param reader: Any of the FOXDEN readers in
+            :mod:`~CHAP.foxden.reader`.
+        :type reader: FoxdenDataDiscoveryReader or
+            FoxdenMetadataReader or FoxdenProvenanceReader
+        :return: JSON string of the HTTP request.
+        :rtype: str
+        """
         # Third party modules
         from json import dumps
 

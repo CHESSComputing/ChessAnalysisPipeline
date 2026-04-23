@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Tomography specific reader."""
+"""Module for Readers unique to the tomography workflow."""
 
 
 if __name__ == '__main__':

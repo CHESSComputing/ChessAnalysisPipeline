@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : processor.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: Module for Processors used in multiple experiment-specific workflows.
+"""Module for generic Processors used in multiple experiment-specific
+workflows.
 """
 
 # System modules
@@ -35,8 +33,9 @@ class AsyncProcessor(Processor):
     module.
 
     :ivar mgr: The `Processor` used to process every set of input data.
-    :type mgr: Processor
+    :vartype mgr: Processor
     """
+
     def __init__(self, mgr):
         super().__init__()
         self.mgr = mgr
@@ -45,8 +44,8 @@ class AsyncProcessor(Processor):
         """Asynchronously process the input documents with the
         `self.mgr` `Processor`.
 
-        :param data: Input data documents to process.
-        :type data: iterable
+        :param data: Input data.
+        :type data: list[PipelineData]
         """
         # System modules
         import asyncio
@@ -54,11 +53,11 @@ class AsyncProcessor(Processor):
         async def task(mgr, doc):
             """Process given data using provided `Processor`.
 
-            :param mgr: The object that will process given data.
+            :param mgr: Object that will process given data.
             :type mgr: Processor
-            :param doc: The data to process.
+            :param doc: Data to process.
             :type doc: object
-            :return: The processed data.
+            :return: Processed data.
             :rtype: object
             """
             return mgr.process(doc)
@@ -67,9 +66,9 @@ class AsyncProcessor(Processor):
             """Process given set of documents using provided task
             manager.
 
-            :param mgr: The object that will process all documents.
+            :param mgr: Object that will process all documents.
             :type mgr: Processor
-            :param docs: The set of data documents to process.
+            :param docs: Set of data documents to process.
             :type doc: iterable
             """
             coroutines = [task(mgr, d) for d in docs]
@@ -81,26 +80,34 @@ class AsyncProcessor(Processor):
 class BinarizeProcessor(Processor):
     """A Processor to binarize a dataset.
 
-    :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+    :ivar nxmemory: Maximum memory usage when reading
+        `NeXus <https://www.nexusformat.org>`__ files.
+    :vartype nxmemory: int, optional
     """
+
     nxmemory: Optional[conint(gt=0)] = 100000
 
     def process(self, data, config=None):
         """Plot and return a binarized dataset from a dataset contained
         in `data`. The dataset must either be `array-like` or a NeXus
-        NXobject object with a default plottable data path or a
-        specified path to a NeXus NXdata or NXfield object. 
+        style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+        object with a default plottable data path or a
+        specified path to a NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        or
+        `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+        object. 
 
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            CHAP.common.models.BinarizeConfig
+            :class:`~CHAP.common.models.BinarizeConfig`.
         :type config: dict, optional
-        :return: The binarized dataset for an `array-like` input or
+        :return: Binarized dataset for an `array-like` input or
             a return type equal that of the input object with the
             binarized dataset added.
-        :rtype: Union[numpy.ndarray, nexusformat.nexus.NXobject]
+        :rtype: numpy.ndarray | nexusformat.nexus.NXobject
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -189,7 +196,7 @@ class BinarizeProcessor(Processor):
         # Apply the data cutoff threshold
         data = np.where(data < threshold, 0, 1).astype(np.ubyte)
 
-        # Return the output for array-like or NeXus NXfield inputs
+        # Return the output for array-like or NXfield inputs
         if isinstance(dataset, np.ndarray):
             return data
         if isinstance(dataset, NXfield):
@@ -199,7 +206,7 @@ class BinarizeProcessor(Processor):
                 value=data, name=f'{dataset.nxname}_binarized', attrs=attrs)
             return nxfield
 
-        # Otherwise create a copy of the input NeXus, add the binarized
+        # Otherwise create a copy of the input data, add the binarized
         # data to the copied original dataset, and remove the original
         # dataset if config.remove_original_data is set
         name = f'{nxsignal.nxname}_binarized'
@@ -232,32 +239,34 @@ class BinarizeProcessor(Processor):
 
 class ConstructBaseline(Processor):
     """A Processor to construct a baseline for a dataset."""
+
     def process(
             self, data, x=None, mask=None, tol=1.e-6, lam=1.e6, max_iter=20,
             save_figures=False):
         """Construct and return the baseline for a dataset.
 
         :param data: Input data.
-        :type data: Union[numpy.ndarray, list[PipelineData]]
+        :type data: numpy.ndarray | list[PipelineData]
         :param x: Independent dimension (only used when running
             interactively or when filename is set).
-        :param mask: A mask to apply to the spectrum before baseline
+        :type x: array-like, optional
+        :param mask: Mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
-        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :param tol: Convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
-        :param lam: The &lambda (smoothness) parameter (the balance
+        :param lam: &lambda (smoothness) parameter (the balance
             between the residual of the data and the baseline and the
             smoothness of the baseline). The suggested range is between
             100 and 10^8, defaults to `10^6`.
         :type lam: float, optional
-        :param max_iter: The maximum number of iterations,
+        :param max_iter: Maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
         :param save_figures: Save .pngs of plots for checking inputs &
             outputs of this Processor, defaults to `False`.
         :type save_figures: bool, optional
-        :return: The smoothed baseline and the configuration.
+        :return: Smoothed baseline and the configuration.
         :rtype: numpy.ndarray, dict
         """
         try:
@@ -280,17 +289,17 @@ class ConstructBaseline(Processor):
         :param x: Independent dimension (only used when interactive is
             `True` of when filename is set).
         :type x: array-like, optional
-        :param mask: A mask to apply to the spectrum before baseline
+        :param mask: Mask to apply to the spectrum before baseline
            construction.
         :type mask: array-like, optional
-        :param tol: The convergence tolerence, defaults to `1.e-6`.
+        :param tol: Convergence tolerence, defaults to `1.e-6`.
         :type tol: float, optional
-        :param lam: The &lambda (smoothness) parameter (the balance
+        :param lam: &lambda (smoothness) parameter (the balance
             between the residual of the data and the baseline and the
             smoothness of the baseline). The suggested range is between
             100 and 10^8, defaults to `10^6`.
         :type lam: float, optional
-        :param max_iter: The maximum number of iterations,
+        :param max_iter: Maximum number of iterations,
             defaults to `20`.
         :type max_iter: int, optional
         :param title: Title for the displayed figure.
@@ -305,10 +314,10 @@ class ConstructBaseline(Processor):
         :param return_buf: Return an in-memory object as a byte stream
             represention of the Matplotlib figure, defaults to `False`.
         :type return_buf: bool, optional
-        :return: The smoothed baseline and the configuration and a
+        :return: Smoothed baseline and the configuration and a
             byte stream represention of the Matplotlib figure if
             return_buf is `True` (`None` otherwise)
-        :rtype: numpy.ndarray, dict, Union[io.BytesIO, None]
+        :rtype: numpy.ndarray, dict, io.BytesIO | None
         """
         # Third party modules
         from matplotlib.widgets import TextBox, Button
@@ -320,7 +329,7 @@ class ConstructBaseline(Processor):
             fig_to_iobuf,
         )
 
-        def change_fig_subtitle(maxed_out=False, subtitle=None):
+        def _change_fig_subtitle(maxed_out=False, subtitle=None):
             """Change the figure's subtitle."""
             if fig_subtitles:
                 fig_subtitles[0].remove()
@@ -344,7 +353,7 @@ class ConstructBaseline(Processor):
                 if lam < 0:
                     raise ValueError
             except ValueError:
-                change_fig_subtitle(
+                _change_fig_subtitle(
                     subtitle='Invalid lambda, enter a positive number')
             else:
                 lambdas.pop()
@@ -356,9 +365,9 @@ class ConstructBaseline(Processor):
                 errors.pop()
                 errors.append(error)
                 if num_iter < max_iter:
-                    change_fig_subtitle()
+                    _change_fig_subtitle()
                 else:
-                    change_fig_subtitle(maxed_out=True)
+                    _change_fig_subtitle(maxed_out=True)
                 baseline_handle.set_ydata(baseline)
             lambda_box.set_val('')
             plt.draw()
@@ -372,9 +381,9 @@ class ConstructBaseline(Processor):
             errors.pop()
             errors.append(error)
             if n_iter < max_iter:
-                change_fig_subtitle()
+                _change_fig_subtitle()
             else:
-                change_fig_subtitle(maxed_out=True)
+                _change_fig_subtitle(maxed_out=True)
             baseline_handle.set_ydata(baseline)
             plt.draw()
             weights.pop()
@@ -385,8 +394,28 @@ class ConstructBaseline(Processor):
             plt.close()
 
         def get_baseline(
-                y, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
-            """Get a baseline."""
+                y, *, mask=None, w=None, tol=1.e-6, lam=1.6, max_iter=20):
+            """Get a baseline.
+
+            :param y: Input data.
+            :type y: numpy.ndarray
+            :param mask: Mask to apply to the spectrum before baseline
+               construction.
+            :type mask: array-like, optional
+            :param w: Weights (allows restart for additional
+                iterations).
+            :type w: numpy.array, optional
+            :param tol: Convergence tolerence, defaults to `1.e-8`.
+            :type tol: float, optional
+            :param lam: &lambda (smoothness) parameter (the balance
+                between the residual of the data and the baseline and
+                the smoothness of the baseline). The suggested range is
+                between 100 and 10^8, defaults to `10^6`.
+            :type lam: float, optional
+            :param max_iter: Maximum number of iterations,
+                defaults to `20`.
+            :type max_iter: int, optional
+            """
             return baseline_arPLS(
                 y, mask=mask, w=w, tol=tol, lam=lam, max_iter=max_iter,
                 full_output=True)
@@ -435,9 +464,9 @@ class ConstructBaseline(Processor):
         else:
             fig_title = plt.figtext(*title_pos, title, **title_props)
         if num_iter < max_iter:
-            change_fig_subtitle()
+            _change_fig_subtitle()
         else:
-            change_fig_subtitle(maxed_out=True)
+            _change_fig_subtitle(maxed_out=True)
         fig.subplots_adjust(bottom=0.0, top=0.85)
 
         lambda_box = None
@@ -492,7 +521,15 @@ class ConvertStructuredProcessor(Processor):
     """Processor for converting map data between structured /
     unstructued formats.
     """
+
     def process(self, data):
+        """Return the converted map data
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :return: Converted data.
+        :rtype: nexusformat.nexus.NXdata
+        """
         # Local modules
         from CHAP.utils.converters import convert_structured_unstructured
 
@@ -501,8 +538,8 @@ class ConvertStructuredProcessor(Processor):
 
 
 class ExpressionProcessor(Processor):
-    """Processor to perform an arbitrary expression on input
-    data."""
+    """Processor to perform an arbitrary expression on input data."""
+
     def process(self, data, expression, symtable=None, nxprocess=False,
                 nxfieldtable=None, nxdata_name='data',
                 nxfield_name='result'):
@@ -519,38 +556,36 @@ class ExpressionProcessor(Processor):
             should not be obtained from input data. Defaults to `None`.
         :type symtable: dict[str, (float, int)], optional.
         :param nxprocess: Flag to indicate the results should be
-            retunred as an `NXprocess`. Defaults to `False`.
+            returned as a NeXus style
+            `NXprocess <https://manual.nexusformat.org/classes/base_classes/NXprocess.html#index-0>`__
+            defaults to `False`.
         :type nxprocess: bool, optional
         :param nxfieldtable: Used only if `nxprocess` is
-            `True`. Dictionary of additional `NXfield`s to include in
-            the `NXprocess` result object right next to the expression
-            result's `NXfield`. Dictionary keys become `NXfield` names
-            in the returned object. Defaults to `None`.
-        :type nxfieldtable: dict[str, NXfield], optional
+            `True`. Dictionary of additional
+            `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+            objects to include in the NXprocess, the result object
+            right next to the expression result's NXfield.
+            Dictionary keys become NXfield names in the returned
+            object. Defaults to `None`.
+        :type nxfieldtable: dict[str, nexusformat.nexus.NXfield],
+            optional
         :param nxdata_name: Used only if `nxprocess` is
-            `True`. Name for the `NXdata` group in the returned
-            `NXprocess` that contains actual result data. efaults to
-            `'data'`.
+            `True`. Name for the NeXus style
+            `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+            object in the returned NXprocess object that contains
+            actual result data. efaults to `'data'`.
         :type nxdata_name: str, optional
         :param nxfield_name: Used only if `nxprocess` is
-            `True`. Name for the `NXfield` dataset that contains the
+            `True`. Name for the NXfield dataset that contains the
             evaluated expression results. Defaults to `'result'`.
         :type nxfield_name: str, optional
         :returns: Result of evaluating the expression.
         :rtype: object
         """
-        return self._process(
-            data, expression, symtable=symtable, nxprocess=nxprocess,
-            nxfieldtable=nxfieldtable, nxdata_name=nxdata_name,
-            nxfield_name=nxfield_name
-        )
-
-    def _process(self, data, expression, symtable=None, nxprocess=False,
-                 nxfieldtable=None, nxdata_name='data',
-                 nxfield_name='result'):
+        # Third party modules
         try:
             import zarr
-        except:
+        except ImportError:
             pass
         from ast import parse
         from asteval import get_ast_names, Interpreter
@@ -565,7 +600,7 @@ class ExpressionProcessor(Processor):
         for name in names:
             if name in symtable:
                 continue
-            elif name == 'round':
+            if name == 'round':
                 symtable[name] = round
             elif name in ('np', 'numpy'):
                 symtable[name] = np
@@ -576,7 +611,7 @@ class ExpressionProcessor(Processor):
             try:
                 if isinstance(v, zarr.core.array.Array):
                     symtable[k] = v[()]
-            except:
+            except Exception:
                 pass
         self.logger.debug(f'Asteval symtable: {symtable}')
         aeval = Interpreter(symtable=symtable)
@@ -600,10 +635,7 @@ class ExpressionProcessor(Processor):
                         value=new_data,
                         attrs={'expression': expression}
                     ),
-                    **{
-                        name: nxfield
-                        for name, nxfield in nxfieldtable.items()
-                    },
+                    **dict(nxfieldtable.items()),
                     attrs={'expression': expression}
                 ),
             }
@@ -612,17 +644,20 @@ class ExpressionProcessor(Processor):
 
 class ImageProcessor(Processor):
     """A Processor to perform various visualization operations on
-    images (slices) selected from a NeXus object.
+    images (slices) selected from a NeXus style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.common.models.ImageProcessorConfig
-    :type config: dict, optional
-    :ivar nxmemory: Maximum memory usage when reading NeXus files.
-    :type nxmemory: int, optional
+        :class:`~CHAP.common.models.ImageProcessorConfig`.
+    :vartype config: dict, optional
+    :ivar nxmemory: Maximum memory usage when reading
+        `NeXus <https://www.nexusformat.org>`__ files.
+    :vartype nxmemory: int, optional
     :ivar save_figures: Return the plottable image(s) to be written
         to file downstream in the pipeline, defaults to `True`.
-    :type save_figures: bool, optional
+    :vartype save_figures: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'common.models.map.ImageProcessorConfig'}, init_var=True)
@@ -633,15 +668,17 @@ class ImageProcessor(Processor):
     _figconfig: dict = PrivateAttr(default={})
 
     def process(self, data):
-        """Plot and/or return image slices from a NeXus NXobject
+        """Plot and/or return image slices from a NeXus style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__.
         object with a default plottable data path.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :return: The plottable image(s) (for save_figures = `True`)
-            or the input default NeXus NXdata object
-            (for save_figures = `False`).
-        :rtype: Union[bytes, nexusformat.nexus.NXdata, numpy.ndarray]
+        :return: Plottable image(s) (for save_figures = `True`)
+            or the input default NeXus style
+            `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+            object (for save_figures = `False`).
+        :rtype: bytes | nexusformat.nexus.NXdata | numpy.ndarray
         """
         if not self.save_figures and not self.interactive:
             return None
@@ -859,11 +896,19 @@ class ImageProcessor(Processor):
         return nxdata
 
     def _create_animation(self, data):
+        """Create a Matplotlib animation from a set of images."""
         # Third party modules
         from functools import partial
         from matplotlib import animation
 
-        def animate(i, plt, title):
+        def _set_title(self, i):
+            """Set the title for a single Matplotlib image of the animation."""
+            return self._figconfig['axis_name'] +\
+                f' = {self._figconfig["axis_coords"][i]:.3f}' +\
+                self._figconfig['axis_unit']
+
+        def _animate(i, plt, title):
+            """Create a single Matplotlib image for the animation."""
             im.set_array(data[i])
             title.set_text(self._set_title(i))
             plt.draw()
@@ -871,7 +916,7 @@ class ImageProcessor(Processor):
 
         fig, im, plt, title = self._create_figure(data[0], animated=True)
         ani = animation.FuncAnimation(
-            fig, partial(animate, plt=plt, title=title), frames=data.shape[0],
+            fig, partial(_animate, plt=plt, title=title), frames=data.shape[0],
             interval=50, blit=True)
         if self.interactive:
             plt.show()
@@ -880,6 +925,7 @@ class ImageProcessor(Processor):
         return ani
 
     def _create_figure(self, image, animated=False):
+        """Create a Matplotlib figure from an image."""
         # Third party modules
         import matplotlib.pyplot as plt
 
@@ -898,31 +944,28 @@ class ImageProcessor(Processor):
             return fig, im, plt, title
         return fig, plt
 
-    def _set_title(self, i):
-        return self._figconfig['axis_name'] +\
-            f' = {self._figconfig["axis_coords"][i]:.3f}' +\
-            self._figconfig['axis_unit']
-
 
 class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
-    NXentry object representing that map's metadata and any
-    scalar-valued raw data requested by the supplied map configuration.
+    style
+    `NXentry <https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0>`__
+    object representing that map's metadata and any scalar-valued raw
+    data requested by the supplied map configuration.
 
     :ivar config: Map configuration parameters to initialize an
-        instance of common.models.map.MapConfig. Any values in
-        `'config'` supplant their corresponding values obtained from
-        the pipeline data configuration.
-    :type config: Union[dict, common.models.map.MapConfig]
+        instance of :class:`~CHAP.common.models.map.MapConfig`.
+        Any values in `'config'` supplant their corresponding values
+        obtained from the pipeline data configuration.
+    :vartype config: dict | MapConfig
     :ivar detector_config: Detector configurations of the detectors to
-        include raw data for in the returned NeXus NXentry object
+        include raw data for in the returned NXentry object
         (overruling detector info in the pipeline data, if present).
-    :type detector_config: Union[
-        dict, common.models.map.DetectorConfig]
+    :vartype detector_config: dict | DetectorConfig
     :ivar num_proc: Number of processors used to read map,
         defaults to `1`.
-    :type num_proc: int, optional
+    :vartype num_proc: int, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'common.models.map.MapConfig',
@@ -937,16 +980,19 @@ class MapProcessor(Processor):
     def validate_num_proc(cls, num_proc, info):
         """Validate the number of processors.
 
-        :ivar num_proc: Number of processors used to read map,
+        :param num_proc: Number of processors used to read map,
             defaults to `1`.
         :type num_proc: int, optional
-        :return: Number of processors
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
+        :return: Validated number of processors
         :rtype: str
         """
         if num_proc > 1:
-            logger = info['logger']
+            logger = info.data['logger']
             try:
                 # Third party modules
+                # pylint: disable=unused-import
                 from mpi4py import MPI
 
                 if num_proc > os.cpu_count():
@@ -955,7 +1001,7 @@ class MapProcessor(Processor):
                         'exceeds the maximum number of processors '
                         f'({os.cpu_count()}): reset it to {os.cpu_count()}')
                     num_proc = os.cpu_count()
-            except Exception:
+            except ImportError:
                 logger.warning('Unable to load mpi4py, running serially')
                 num_proc = 1
             logger.debug(f'Number of processors: {num_proc}')
@@ -963,18 +1009,10 @@ class MapProcessor(Processor):
 
     def process(
             self, data, placeholder_data=False, fill_data=True, comm=None):
-
-        # Update metadata
-#        self._metadata['user_metadata'].update({
-#            'map': self.config.model_dump()})
-
-        return self._process(data, placeholder_data, fill_data, comm)
-
-#    @profile
-    def _process(
-            self, data, placeholder_data=False, fill_data=True, comm=None):
         """Process that takes a map configuration and returns a NeXus
-        NXentry object representing the map.
+        style
+        `NXentry <https://manual.nexusformat.org/classes/base_classes/NXentry.html#index-0>`__
+        object representing the map.
 
         :param data: Pipeline data list with an optional item for the
             map configuration parameters with
@@ -997,6 +1035,10 @@ class MapProcessor(Processor):
 
         # Third party modules
         import yaml
+
+        # Update metadata
+#        self._metadata['user_metadata'].update({
+#            'map': self.config.model_dump()})
 
         # Check for available metadata
         metadata = {}
@@ -1043,11 +1085,11 @@ class MapProcessor(Processor):
                     config = self.config.model_dump()
                     config['spec_scans'][0]['scan_numbers'] = \
                         scan_numbers[n_scan:n_scan+num]
-                    pipeline_config.append(
-                        [{'common.MapProcessor': {
+                    pipeline_config.append([{
+                        'common.MapProcessor': {
                             'config': config,
-                            'detector_config': self.detector_config.model_dump(),
-                         }}])
+                            'detector_config':
+                                self.detector_config.model_dump()}}])
                     offsets.append(n_scan)
                     n_scan += num
 
@@ -1059,15 +1101,15 @@ class MapProcessor(Processor):
                     # pylint: disable=c-extension-no-member
                     fp_name = fp.name
                     tmp_names.append(fp_name)
-                    with open(fp_name, 'w') as f:
+                    with open(fp_name, 'w', encoding='utf-8') as f:
                         yaml.dump({'config': {'spawn': 1}}, f, sort_keys=False)
                     for n_proc in range(1, self.num_proc):
                         f_name = f'{fp_name}_{n_proc}'
                         tmp_names.append(f_name)
-                        with open(f_name, 'w') as f:
+                        with open(f_name, 'w', encoding='utf-8') as f:
                             yaml.dump(
                                 # FIX once comm is a field of RunConfig
-                                # {'config': run_config.model_dump(exclude='comm'),
+                                #processor.py {'config': run_config.model_dump(exclude='comm'),
                                 {'config': run_config.model_dump(),
                                  'pipeline': pipeline_config[n_proc-1]},
                                 f, sort_keys=False)
@@ -1162,7 +1204,7 @@ class MapProcessor(Processor):
                 [_independent_dimensions[dim.label]
                  for dim in self.config.independent_dimensions])
 
-        # Construct and return the NeXus NXroot object
+        # Construct and return the NXroot object
         nxroot = self._get_nxroot(
             data, independent_dimensions, all_scalar_data, placeholder_data)
 
@@ -1183,7 +1225,7 @@ class MapProcessor(Processor):
         """Get experiment specific configurational data from the
         FOXDEN metadata and provenance records.
 
-        :param data: Pipeline data list.
+        :param data: Input data.
         :type data: list[PipelineData]
         :return: Experiment specific metadata and provenance.
         :rtype: dict, dict
@@ -1233,21 +1275,22 @@ class MapProcessor(Processor):
     def _get_nxroot(
             self, data, independent_dimensions, all_scalar_data,
             placeholder_data):
-        """Use a `MapConfig` to construct a NeXus NXroot object.
+        """Use a `MapConfig` to construct a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+        object.
 
-        :param data: The map's raw data.
+        :param data: Map's raw data.
         :type data: numpy.ndarray
-        :param independent_dimensions: The map's independent
+        :param independent_dimensions: Map's independent
             coordinates.
         :type independent_dimensions: numpy.ndarray
-        :param all_scalar_data: The map's scalar data.
+        :param all_scalar_data: Map's scalar data.
         :type all_scalar_data: numpy.ndarray
         :param placeholder_data: For SMB EDD maps only. Value to use
             for missing detector data frames, or `False` if missing
             data should raise an error.
         :type placeholder_data: object
-        :return: The map's data and metadata contained in a NeXus
-            structure.
+        :return: Map's data and metadata.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -1267,8 +1310,10 @@ class MapProcessor(Processor):
         from CHAP.common.models.map import PointByPointScanData
 
         def linkdims(nxgroup, nxdata_source):
-            """Link the dimensions for an NXgroup."""
-            source_axes = [k for k in nxdata_source.keys()]
+            """Link the dimensions for an
+            `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__.
+            """
+            source_axes = list(nxdata_source.keys())
             if isinstance(source_axes, str):
                 source_axes = [source_axes]
             axes = []
@@ -1286,7 +1331,7 @@ class MapProcessor(Processor):
             else:
                 nxgroup.attrs['unstructured_axes'] = axes
 
-        # Set up NeXus NXroot/NXentry and add CHESS-specific metadata
+        # Set up NXroot/NXentry and add CHESS-specific metadata
         nxroot = NXroot()
         nxentry = NXentry(name=self.config.title)
         nxroot[nxentry.nxname] = nxentry
@@ -1306,7 +1351,7 @@ class MapProcessor(Processor):
         nxentry[self.config.sample.name] = NXsample(
             **self.config.sample.model_dump())
 
-        # Set up independent dimensions NeXus NXdata group
+        # Set up independent dimensions NXdata group
         # (squeeze out constant dimensions)
         constant_dim = []
         for i, dim in enumerate(self.config.independent_dimensions):
@@ -1327,7 +1372,7 @@ class MapProcessor(Processor):
             nxentry.independent_dimensions.index = NXfield(
                 np.arange(independent_dimensions[0].size), 'index')
 
-        # Set up scalar data NeXus NXdata group
+        # Set up scalar data NXdata group
         # (add the constant independent dimensions)
         if all_scalar_data is not None:
             self.logger.debug(
@@ -1409,7 +1454,7 @@ class MapProcessor(Processor):
             data frames, or `False` if missing data should raise an
             error.
         :type placeholder_data: object
-        :return: The map's raw data, independent dimensions and scalar
+        :return: Map's raw data, independent dimensions and scalar
             data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
@@ -1417,7 +1462,7 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except Exception:
+        except ImportError:
             pass
 
         # Local modules
@@ -1532,7 +1577,7 @@ class MapProcessor(Processor):
         :type num_scan: int
         :param offset: Offset scan number of current processor.
         :type offset: int
-        :return: The map's raw data, independent dimensions and scalar
+        :return: Map's raw data, independent dimensions and scalar
             data.
         :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray
         """
@@ -1540,7 +1585,7 @@ class MapProcessor(Processor):
         try:
             from mpi4py import MPI
             from mpi4py.util import dtlib
-        except Exception:
+        except ImportError:
             pass
 
         # Local modules
@@ -1696,6 +1741,7 @@ class MPICollectProcessor(Processor):
     """A Processor that collects the distributed worker data from
     MPIMapProcessor on the root node.
     """
+
     def process(self, data, comm, root_as_worker=True):
         """Collect data on root node.
 
@@ -1706,8 +1752,8 @@ class MPICollectProcessor(Processor):
         :param root_as_worker: Use the root node as a worker,
             defaults to `True`.
         :type root_as_worker: bool, optional
-        :return: Returns a list of the distributed worker data on the
-            root node.
+        :return: Distributed worker data on the root node.
+        :rtype: list
         """
         num_proc = comm.Get_size()
         rank = comm.Get_rank()
@@ -1733,18 +1779,20 @@ class MPIMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration.
     """
+
     def process(self, data, config=None, sub_pipeline=None):
         """Run a parallel generic sub-pipeline.
 
         :param data: Input data.
         :type data: list[PipelineData]
         :param config: Initialization parameters for an instance of
-            common.models.map.MapConfig.
+            :class:`~CHAP.common.models.map.MapConfig`.
         :type config: dict, optional
-        :param sub_pipeline: The sub-pipeline.
+        :param sub_pipeline: Sub-pipeline.
         :type sub_pipeline: Pipeline, optional
-        :return: The `data` field of the first item in the returned
+        :return: `data` field of the first item in the returned
            list of sub-pipeline items.
+        :rtype: Any
         """
         # Third party modules
         from mpi4py import MPI
@@ -1813,6 +1861,7 @@ class MPISpawnMapProcessor(Processor):
     """A Processor that applies a parallel generic sub-pipeline to 
     a map configuration by spawning workers processes.
     """
+
     def process(
             self, data, num_proc=1, root_as_worker=True, collect_on_root=False,
             sub_pipeline=None):
@@ -1828,9 +1877,9 @@ class MPISpawnMapProcessor(Processor):
         :param collect_on_root: Collect the result of the spawned
             workers on the root node, defaults to `False`.
         :type collect_on_root: bool, optional
-        :param sub_pipeline: The sub-pipeline.
+        :param sub_pipeline: Sub-pipeline.
         :type sub_pipeline: Pipeline, optional
-        :return: The `data` field of the first item in the returned
+        :return: `data` field of the first item in the returned
            list of sub-pipeline items.
         """
         # Third party modules
@@ -1908,14 +1957,14 @@ class MPISpawnMapProcessor(Processor):
                 # pylint: disable=c-extension-no-member
                 fp_name = fp.name
                 tmp_names.append(fp_name)
-                with open(fp_name, 'w') as f:
+                with open(fp_name, 'w', encoding='utf-8') as f:
                     yaml.dump(
                         {'config': {'spawn': run_config.spawn}}, f,
                         sort_keys=False)
                 for n_proc in range(first_proc, num_proc):
                     f_name = f'{fp_name}_{n_proc}'
                     tmp_names.append(f_name)
-                    with open(f_name, 'w') as f:
+                    with open(f_name, 'w', encoding='utf-8') as f:
                         yaml.dump(
                             #FIX once comm is a field of RunConfig
                             #{'config': run_config.model_dump(exclude='comm'),
@@ -1962,17 +2011,21 @@ class MPISpawnMapProcessor(Processor):
 
 class NexusToNumpyProcessor(Processor):
     """A Processor to convert the default plottable data in a NeXus
+    style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__,
     object into a `numpy.ndarray`.
     """
+
     def process(self, data):
-        """Return the default plottable data signal in a NeXus object 
-        contained in `data` as an `numpy.ndarray`.
+        """Return the default plottable data signal in a NeXus style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__,
+        object contained in `data` as an `numpy.ndarray`.
 
         :param data: Input data.
-        :type data: nexusformat.nexus.NXobject
+        :type data: list[PipelineData]
         :raises ValueError: If `data` has no default plottable data
             signal.
-        :return: The default plottable data signal.
+        :return: Default plottable data signal.
         :rtype: numpy.ndarray
         """
         # Third party modules
@@ -2004,22 +2057,28 @@ class NexusToNumpyProcessor(Processor):
 
 class NexusToXarrayProcessor(Processor):
     """A Processor to convert the default plottable data in a
-    NeXus object into an `xarray.DataArray`.
+    NeXus style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__,
+    object into an `xarray.DataArray`.
     """
+
     def process(self, data):
-        """Return the default plottable data signal in a NeXus object
-        contained in `data` as an `xarray.DataArray`.
+        """Return the default plottable data signal in a NeXus style
+        `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__,
+        object contained in `data` as an `xarray.DataArray`.
 
         :param data: Input data.
-        :type data: nexusformat.nexus.NXobject
+        :type data: list[PipelineData]
         :raises ValueError: If metadata for `xarray` is absent from
             `data`
-        :return: The default plottable data signal.
+        :return: Default plottable data signal.
         :rtype: xarray.DataArray
         """
         # Third party modules
         from nexusformat.nexus import NXdata
+        # pylint: disable=import-error
         from xarray import DataArray
+        # pylint: enable=import-error
 
         data = self.get_pipelinedata_item(data)
 
@@ -2061,15 +2120,32 @@ class NexusToXarrayProcessor(Processor):
 
 
 class NexusToZarrProcessor(Processor):
-    """Converter for NeXus to Zarr format."""
+    """Converter for `NeXus <https://www.nexusformat.org>`__ to
+    `Zarr <https://zarr.readthedocs.io/en/stable/>`__
+    format.
+    """
+
     def process(self, data, chunks='auto'):
+        """Copy and return a
+        `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+        object from a NeXus style
+        `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+        object.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :return: Zarr style group object.
+        :rtype: zarr.Group
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXfield,
             NXgroup,
         )
+        # pylint: disable=import-error
         import zarr
         from zarr.storage import MemoryStore
+        # pylint: enable=import-error
 
         nexus_group = self.get_data(data)
         if isinstance(chunks, int):
@@ -2077,6 +2153,18 @@ class NexusToZarrProcessor(Processor):
         zarr_group = zarr.create_group(store=MemoryStore({}))
 
         def copy_group(nexus_group, zarr_group):
+            """Copy a NeXus style
+            `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+            object to a
+            `Zarr group <https://zarr.readthedocs.io/en/stable/api/zarr/group/#zarr.Group>`__
+            object.
+
+            :param source_store: Source NeXus style `NXgroup`.
+            :type: nexusformat.nexus.NXgroup
+            :param dest_store: Destination Zarr group.
+            :type: zarr.Group
+            """
+
             self.logger.info(f'Copying {nexus_group.nxpath}')
             # Copy attributes
             for attr_key, attr_value in nexus_group.attrs.items():
@@ -2114,8 +2202,8 @@ class NexusToZarrProcessor(Processor):
                             )
                             self.logger.info(f'Copying {item.nxpath}')
                             zarr_dset[:] = item.nxdata
-                        except Exception as e:
-                            self.logger.error(f'{item.nxpath}: {e}')
+                        except Exception as exc:
+                            self.logger.error(f'{item.nxpath}: {exc}')
                     else:
                         self.logger.warning(f'Ignoring {item.nxpath}')
                 elif isinstance(item, NXgroup):
@@ -2128,20 +2216,26 @@ class NexusToZarrProcessor(Processor):
 
 
 class NormalizeNexusProcessor(Processor):
-    """Processor for scaling one or more NXfields in the input nexus
-    structure by the values of another NXfield in the same
-    structure."""
-    def process(self, data, normalize_nxfields, normalize_by_nxfield):
-        """Return copy of the original input nexus structure with
-        additional fields containing the normalized data of each field
-        in `normalize_nxfields`.
+    """Processor for scaling one or more
+    `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+    objects in the input NeXus style
+    `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+    object by the values of another NXfield in the same object .
+    """
 
-        :param data: Input nexus structure containing all fields to be
-            normalized an the field by which to normalize them.
-        :type data: nexusformat.nexus.NXgroup
+    def process(self, data, normalize_nxfields, normalize_by_nxfield):
+        """Return copy of the original input NeXus style
+        `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+        object with additional fields containing the normalized data
+        of each field in `normalize_nxfields`.
+
+        :param data: Input data.
+            to normalize them.
+        :type data: list[PipelineData]
         :param normalize_nxfields:
         :type normalize_nxfields: list[str]
-        :param normalize_by_nxfield: Path in `data` to the `NXfield`
+        :param normalize_by_nxfield: Path in `data` to the
+            `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
             containing normalization data
         :type normalize_by_nxfield: str
         :returns: Copy of input data with additional normalized fields
@@ -2204,20 +2298,24 @@ class NormalizeNexusProcessor(Processor):
 
 
 class NormalizeMapProcessor(Processor):
-    """Processor for calling `NormalizeNexusProcessor` for (usually
-    all) detector data in an `NXroot` resulting from
-    `MapProcessor`"""
-    def process(self, data, normalize_by_nxfield, detector_ids=None):
-        """Return copy of the original input map `NXroot` with
-        additional fields containing normalized detector data.
+    """Processor for calling
+    :class:`~CHAP.common.processor.NormalizeNexusProcessor` for
+    (usually all) detector data in a NeXus style
+    `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+    object created by :class:`~CHAP.common.processor.MapProcessor`
+    """
 
-        :param data: Input nexus structure containing all fields to be
-            normalized an the field by which to normalize them.
-        :type data: nexusformat.nexus.NXroot
-        :param normalize_by_nxfield: Path in `data` to the `NXfield`
-            containing normalization data
+    def process(self, data, normalize_by_nxfield, detector_ids=None):
+        """Return copy of the original input map with additional
+        fields containing normalized detector data.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param normalize_by_nxfield: Path in `data` to the
+            `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+            containing normalization data.
         :type normalize_by_nxfield: str
-        :returns: Copy of input data with additional normalized fields
+        :returns: Copy of input data with additional normalized fields.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -2256,14 +2354,16 @@ class NormalizeMapProcessor(Processor):
 
 class PandasToXarrayProcessor(Processor):
     """Converter for `pandas.DataFrame` to `xarray.DataArray` or
-    `xarray.Dataset`"""
+    `xarray.Dataset`
+    """
+
     def process(self, data):
         """Return input dataframe converted to xarray.
 
-        :param data: Input `pandas.DataFrame`
+        :param data: Input data.
         :type data: list[PipelineData]
         :returns: Input dataframe as xarray.
-        :rtype: Union[`xarray.DataArray`, `xarray.Dataset`]
+        :rtype: xarray.DataArray | xarray.Dataset
         """
         dataframe = self.get_data(data)
         return dataframe.to_xarray()
@@ -2273,16 +2373,17 @@ class PrintProcessor(Processor):
     """A Processor to simply print the input data to stdout and return
     the original input data, unchanged in any way.
     """
+
     def process(self, data):
         """Print and return the input data.
 
         :param data: Input data.
-        :type data: object
+        :type data: list[PipelineData]
         :return: `data`
-        :rtype: object
+        :rtype: Any
         """
         if callable(getattr(data, '_str_tree', None)):
-            # If data is likely a NeXus NXobject, print its tree
+            # If data is likely a NXobject, print its tree
             # representation (since NXobjects' str representations are
             # just their nxname)
             print(data._str_tree(attrs=True, recursive=True))
@@ -2298,9 +2399,9 @@ class PrintProcessor(Processor):
 class PyfaiAzimuthalIntegrationProcessor(Processor):
     """Processor to azimuthally integrate one or more frames of 2d
     detector data using the
-    [pyFAI](https://pyfai.readthedocs.io/en/v2023.1/index.html)
-    package.
+    `pyFAI <https://pyfai.readthedocs.io/en/stable>`__  package.
     """
+
     def process(
             self, data, poni_file, npt, mask_file=None,
             integrate1d_kwargs=None):
@@ -2311,14 +2412,14 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         intensity spectrum.
 
         :param data: Detector data to integrate.
-        :type data: Union[PipelineData, list[np.ndarray]]
+        :type data: PipelineData | list[np.ndarray]
         :param poni_file: Name of the [pyFAI PONI file]
             containing the detector properties pyFAI needs to perform
             azimuthal integration.
         :type poni_file: str
         :param npt: Number of points in the output pattern.
         :type npt: int
-        :param mask_file: A file to use for masking the input data.
+        :param mask_file: File to use for masking the input data.
         :type mask_file: str, optional
         :param integrate1d_kwargs: Optional dictionary of keywords
         :type integrate1d_kwargs: Optional[dict]
@@ -2344,7 +2445,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
         try:
             det_data = self.get_pipelinedata_item(data)
-        except Exception:
+        except ValueError:
             det_data = data
 
         if integrate1d_kwargs is None:
@@ -2356,18 +2457,21 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
 
 class RawDetectorDataMapProcessor(Processor):
     """A Processor to return a map of raw detector data in a
-    NeXus NXroot object.
+    NeXus style
+    `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+    object.
     """
+
     def process(self, data, detector_name, detector_shape):
         """Process configurations for a map and return the raw
         detector data data collected over the map.
 
-        :param data: Input map configuration.
+        :param data: Input data.
         :type data: list[PipelineData]
-        :param detector_name: The detector prefix.
+        :param detector_name: Detector prefix.
         :type detector_name: str
-        :param detector_shape: The shape of detector data for a single
-            scan step.
+        :param detector_shape: Detector data shape for a single scan
+            step.
         :type detector_shape: list
         :return: Map of raw detector data.
         :rtype: nexusformat.nexus.NXroot
@@ -2387,13 +2491,10 @@ class RawDetectorDataMapProcessor(Processor):
         :type data: list[PipelineData]
         :raises Exception: If a valid map config object cannot be
             constructed from `data`.
-        :return: A valid instance of the map configuration object with
+        :return: Valid instance of the map configuration object with
             field values taken from `data`.
-        :rtype: common.models.map.MapConfig
+        :rtype: MapConfig
         """
-        # Local modules
-        from CHAP.common.models.map import MapConfig
-
         map_config = False
         if isinstance(data, list):
             for item in data:
@@ -2409,16 +2510,18 @@ class RawDetectorDataMapProcessor(Processor):
     def get_nxroot(self, map_config, detector_name, detector_shape):
         """Get a map of the detector data collected by the scans in
         `map_config`. The data will be returned along with some
-        relevant metadata in the form of a NeXus structure.
+        relevant metadata in the form of a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#index-0>`__
+        structure.
 
-        :param map_config: The map configuration.
-        :type map_config: common.models.map.MapConfig
-        :param detector_name: The detector prefix.
+        :param map_config: Map configuration.
+        :type map_config: MapConfig
+        :param detector_name: Detector prefix.
         :type detector_name: str
-        :param detector_shape: The shape of detector data for a single
-            scan step.
+        :param detector_shape: Detector data shape for a single scan
+            step.
         :type detector_shape: list
-        :return: A map of the raw detector data.
+        :return: Map of the raw detector data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -2478,34 +2581,41 @@ class RawDetectorDataMapProcessor(Processor):
 
 
 class SetupNXdataProcessor(Processor):
-    """Processor to set up and return an "empty" NeXus representation
-    of a structured dataset. This representation will be an instance
-    of a NeXus NXdata object that has:
-    A NeXus NXfield entry for every coordinate/signal specified.
-    `nxaxes` that are the NeXus NXfield entries for the coordinates and contain the values provided for each coordinate.
-    NeXus NXfield entries of appropriate shape, but containing all zeros, for every signal.
-    Attributes that define the axes, plus any additional attributes specified by the user.
+    """Processor to set up and return an "empty" representation of a structured
+    dataset. This representation will be an instance of a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object that has: A NeXus style
+    `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+    entry for every coordinate/signal specified. `nxaxes` that are the
+    `NXfield` entries for the coordinates and contain the values provided for
+    each coordinate. NXfield entries of appropriate shape, but containing all
+    zeros, for every signal. Attributes that define the axes, plus any
+    additional attributes specified by the user.
 
-    This `Processor` is most useful as a "setup" step for constucting
-    a representation of / container for a complete dataset that will
-    be filled out in pieces later by `UpdateNXdataProcessor`.
+    This `Processor` is most useful as a "setup" step for constucting a
+    representation of / container for a complete dataset that will be filled
+    out in pieces later by
+    :class:`~CHAP.common.processor.UpdateNXdataProcessor`.
     """
+
     def process(
             self, data, nxname='data', coords=None, signals=None, attrs=None,
             data_points=None, extra_nxfields=None, duplicates='overwrite'):
-        """Return a NeXus NXdata object that has the requisite axes
-        and NeXus NXfield entries to represent a structured dataset
-        with the properties provided. Properties may be provided either
-        through the `data` argument (from an appropriate `PipelineItem`
-        that immediately preceeds this one in a `Pipeline`), or through
-        the `coords`, `signals`, `attrs`, and/or `data_points`
-        arguments. If any of the latter are used, their values will
-        completely override any values for these parameters found from
-        `data`.
+        """Return a NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object that has the requisite axes and 
+        `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+        entries to represent a structured dataset with the
+        properties provided. Properties may be provided either through
+        the `data` argument (from an appropriate `PipelineItem` that
+        immediately preceeds this one in a `Pipeline`), or through the
+        `coords`, `signals`, `attrs`, and/or `data_points` arguments.
+        If any of the latter are used, their values will completely
+        override any values for these parameters found from `data`.
 
-        :param data: Data from the previous item in a `Pipeline`.
+        :param data: Input data.
         :type data: list[PipelineData]
-        :param nxname: Name for the returned NeXus NXdata object,
+        :param nxname: Name for the returned NXdata object,
             defaults to `'data'`.
         :type nxname: str, optional
         :param coords: List of dictionaries defining the coordinates
@@ -2516,7 +2626,7 @@ class SetupNXdataProcessor(Processor):
             numbers), respectively. A third item in the dictionary is
             optional, but highly recommended: `'attrs'` may provide a
             dictionary of attributes to attach to the coordinate axis
-            that assist in in interpreting the returned NeXus NXdata
+            that assist in in interpreting the returned NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the values along an axis in the
             `attrs` dictionary.
@@ -2529,19 +2639,19 @@ class SetupNXdataProcessor(Processor):
             integers), respectively. A third item in the dictionary is
             optional, but highly recommended: `'attrs'` may provide a
             dictionary of attributes to attach to the signal fieldthat
-            assist in in interpreting the returned NeXus NXdata
+            assist in in interpreting the returned NXdata
             representation of the dataset. It is strongly recommended
             to provide the units of the signal's values `attrs`
             dictionary.
         :type signals: list[dict[str, object]], optional
         :param attrs: An arbitrary dictionary of attributes to assign
-            to the returned NeXus NXdata object.
+            to the returned NXdata object.
         :type attrs: dict[str, object], optional
-        :param data_points: A list of data points to partially (or
-            even entirely) fil out the "empty" signal NeXus NXfield's
-            before returning the NeXus NXdata object.
+        :param data_points: Data points to partially (or even entirely)
+            fill out the "empty" signal NXfield's before
+            returning the NXdata object.
         :type data_points: list[dict[str, object]], optional
-        :param extra_nxfields: List "extra" NeXus NXfields to include
+        :param extra_nxfields: List "extra" NXfields to include
             that can be described neither as a signal of the dataset,
             not a dedicated coordinate. This paramteter is good for
             including "alternate" values for one of the coordinate
@@ -2555,8 +2665,7 @@ class SetupNXdataProcessor(Processor):
             existing data point. Allowed values for `duplicates` are:
             `'overwrite'` and `'block'`. Defaults to `'overwrite'`.
         :type duplicates: Literal['overwrite', 'block']
-        :returns: A NeXus NXdata object that represents the structured
-            dataset as specified.
+        :returns: Structured dataset as specified.
         :rtype: nexusformat.nexus.NXdata
         """
         self.nxname = nxname
@@ -2603,13 +2712,12 @@ class SetupNXdataProcessor(Processor):
         """Add a data point to this dataset.
         1. Validate `data_point`.
         2. Append `data_point` to `self.data_points`.
-        3. Update signal `NXfield`s in `self.nxdata`.
+        3. Update signal NXfields in `self.nxdata`.
 
         :param data_point: Data point defining a point in the
             dataset's coordinate space and the new signal values at
             that point.
         :type data_point: dict[str, object]
-        :returns: None
         """
         self.logger.info(
             f'Adding data point no. {data_point["dataset_point_index"]+1} of '
@@ -2623,13 +2731,12 @@ class SetupNXdataProcessor(Processor):
 
     def validate_data_point(self, data_point):
         """Return `True` if `data_point` occurs at a valid point in
-        this structured dataset's coordinate space, `False`
-        otherwise. Also validate shapes of signal values and add NaN
-        values for any missing signals.
+        this structured dataset's coordinate space, `False` otherwise.
+        Also validate shapes of signal values and add NaN values for
+        any missing signals.
 
-        :param data_point: Data point defining a point in the
-            dataset's coordinate space and the new signal values at
-            that point.
+        :param data_point: Data point defining a point in the dataset's
+            coordinate space and the new signal values at that point.
         :type data_point: dict[str, object]
         :returns: Validity of `data_point`, message
         :rtype: bool, str
@@ -2655,13 +2762,12 @@ class SetupNXdataProcessor(Processor):
         return valid, msg
 
     def init_nxdata(self):
-        """Initialize an empty NeXus NXdata representing this dataset
-        to `self.nxdata`; values for axes' `NXfield`s are filled out,
-        values for signals' `NXfield`s are empty an can be filled out
-        later. Save the empty NeXus NXdata object to the NeXus file.
-        Initialise `self.nxfile` and `self.nxdata_path` with the
-        `NXFile` object and actual nxpath used to save and make updates
-        to the Nexus NXdata object.
+        """Initialize an empty NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+        representing this dataset to `self.nxdata`; values for axes
+        `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+        objects are filled out, values for signals' NXfields are empty an
+        can be filled out later.
         """
         # Third party modules
         from nexusformat.nexus import (
@@ -2686,13 +2792,14 @@ class SetupNXdataProcessor(Processor):
             name=self.nxname, axes=axes, entries=entries, attrs=self.attrs)
 
     def update_nxdata(self, data_point):
-        """Update `self.nxdata`'s NXfield values.
+        """Update `self.nxdata`'s
+        `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+        values.
 
         :param data_point: Data point defining a point in the
             dataset's coordinate space and the new signal values at
             that point.
         :type data_point: dict[str, object]
-        :returns: None
         """
         index = self.get_index(data_point)
         for s in self.signals:
@@ -2715,10 +2822,24 @@ class SetupNXdataProcessor(Processor):
                      for c in self.coords)
 
 class UnstructuredToStructuredProcessor(Processor):
-    """Processor to reshape data in an NXdata from an "unstructured"
-    to a "structured" representation.
+    """Processor to reshape data in a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object from an "unstructured" to a "structured" representation.
     """
+
     def process(self, data, nxpath=None):
+        """Reshape the input data from an "unstructured" to a
+        "structured" representation.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param nxname: Name for the returned
+            `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+            object, defaults to `'data'`.
+        :type nxname: str, optional
+        :return: Converted data.
+        :rtype: nexusformat.nexus.NXdata
+        """
         # Third party modules
         from nexusformat.nexus import NXdata
 
@@ -2727,10 +2848,8 @@ class UnstructuredToStructuredProcessor(Processor):
         except Exception:
             nxobject = self.get_pipelinedata_item(data)
         if isinstance(nxobject, NXdata):
-            return self.convert_nxdata(nxobject)
+            return self._convert_nxdata(nxobject)
         if nxpath is not None:
-            # Local modules
-#            from CHAP.utils.general import nxcopy
             try:
                 nxobject = nxobject[nxpath]
             except Exception as exc:
@@ -2738,9 +2857,12 @@ class UnstructuredToStructuredProcessor(Processor):
                     f'Invalid parameter nxpath ({nxpath})') from exc
         else:
             raise ValueError(f'Invalid input data ({data})')
-        return self.convert_nxdata(nxobject)
+        return self._convert_nxdata(nxobject)
 
-    def convert_nxdata(self, nxdata):
+    def _convert_nxdata(self, nxdata):
+        """Convert a NeXus style `NXdata` object from an "unstructured" to a
+        "structured" representation.
+        """
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
@@ -2748,7 +2870,7 @@ class UnstructuredToStructuredProcessor(Processor):
         )
 
         # Local modules
-        from CHAP.edd.processor import get_axes
+        from CHAP.common.map_utils import get_axes
 
         # Extract axes from the NXdata attributes
         axes = get_axes(nxdata)
@@ -2771,7 +2893,7 @@ class UnstructuredToStructuredProcessor(Processor):
                     if nxdata[a].size == unstructured_dim:
                         unstructured_axes.append(a)
                     elif 'unstructured_axes' in nxdata.attrs:
-                        raise ValueError(f'Inconsistent axes dimensions')
+                        raise ValueError('Inconsistent axes dimensions')
             elif 'unstructured_axes' in nxdata.attrs:
                 raise ValueError(
                     f'Invalid unstructered axis shape ({nxdata[a].shape})')
@@ -2785,7 +2907,7 @@ class UnstructuredToStructuredProcessor(Processor):
                         and v.shape[0] == unstructured_dim):
                     unstructured_axes.append(k)
         if unstructured_dim is None:
-            raise ValueError(f'Unable to determine the unstructered axes')
+            raise ValueError('Unable to determine the unstructered axes')
         axes = unstructured_axes
 
         # Identify unique coordinate points for each axis
@@ -2874,27 +2996,32 @@ class UnstructuredToStructuredProcessor(Processor):
 
 
 class UpdateNXvalueProcessor(Processor):
-    """Processor to fill in part(s) of a NeXus object representing a
-    structured dataset that's already been written to a NeXus file.
+    """Processor to fill in part(s) of an object representing a
+    structured dataset that's already been written to a
+    `NeXus <https://www.nexusformat.org>`__ file.
 
-    This Processor is most useful as an "update" step for a NeXus
-    NXdata object created by `common.SetupNXdataProcessor`, and is
-    most easy to use in a `Pipeline` immediately after another
-    `PipelineItem` designed specifically to return a value that can
-    be used as input to this `Processor`.
+    This Processor is most useful as an "update" step for a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object created by
+    :class:`~CHAP.common.processor.SetupNXdataProcessor`, and is
+    most easy to use in a `Pipeline` immediately after another `PipelineItem`
+    designed specifically to return a value that can be used as input to this
+    `Processor`.
     """
+
     def process(self, data, nxfilename, data_points=None):
-        """Write new data values to an existing NeXus object
-        representing an unstructured dataset in a NeXus file.
-        Return the list of data points used to update the dataset.
+        """Write new data values to an existing object representing an
+        unstructured dataset in a
+        `NeXus <https://www.nexusformat.org>`__ file. Return the list
+        of data points used to update the dataset.
 
         :param data: Data from the previous item in a `Pipeline`. May
             contain a list of data points that will extend the list of
             data points optionally provided with the `data_points`
             argument.
         :type data: list[PipelineData]
-        :param nxfilename: Name of the NeXus file containing the
-            NeXus object to update.
+        :param nxfilename: Name of the NeXus file containing the object
+            to update.
         :type nxfilename: str
         :param data_points: List of data points, each one a dictionary
             whose keys are the names of the nxpath, the index of the
@@ -2940,22 +3067,27 @@ class UpdateNXvalueProcessor(Processor):
 
 
 class UpdateNXdataProcessor(Processor):
-    """Processor to fill in part(s) of a NeXus NXdata representing a
-    structured dataset that's already been written to a NeXus file.
+    """Processor to fill in part(s) of a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    representing a structured dataset that's already been written to a
+    `NeXus <https://www.nexusformat.org>`__ file.
 
-    This Processor is most useful as an "update" step for a NeXus
-    NXdata object created by `common.SetupNXdataProcessor`, and is
-    most easy to use in a `Pipeline` immediately after another
-    `PipelineItem` designed specifically to return a value that can
-    be used as input to this `Processor`.
+    This Processor is most useful as an "update" step for a 
+    `NXdata` object created by
+    :class:`~CHAP.common.processor.SetupNXdataProcessor`, and is most
+    easy to use in a `Pipeline` immediately after another
+    `PipelineItem` designed specifically to return a value that can be
+    used as input to this `Processor`.
     """
+
     def process(
             self, data, nxfilename, nxdata_path, data_points=None,
             allow_approximate_coordinates=False):
         """Write new data points to the signal fields of an existing
-        NeXus NXdata object representing a structued dataset in a NeXus
-        file. Return the list of data points used to update the
-        dataset.
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object representing a structued dataset in a
+        `NeXus <https://www.nexusformat.org>`__ file.
+        Return the list of data points used to update the dataset.
 
         :param data: Data from the previous item in a `Pipeline`. May
             contain a list of data points that will extend the list of
@@ -2963,10 +3095,10 @@ class UpdateNXdataProcessor(Processor):
             argument.
         :type data: list[PipelineData]
         :param nxfilename: Name of the NeXus file containing the
-            NeXus NXdata object to update.
+            NXdata object to update.
         :type nxfilename: str
-        :param nxdata_path: The path to the NeXus NXdata object to
-            update in the file.
+        :param nxdata_path: Path to the NXdata object to update in
+            the file.
         :type nxdata_path: str
         :param data_points: List of data points, each one a dictionary
             whose keys are the names of the coordinates and axes, and
@@ -2979,7 +3111,8 @@ class UpdateNXdataProcessor(Processor):
             (sometimes this is due simply to differences in rounding
             convetions). Defaults to False.
         :type allow_approximate_coordinates: bool, optional
-        :returns: Complete list of data points used to update the dataset.
+        :returns: Complete list of data points used to update the
+            dataset.
         :rtype: list[dict[str, object]]
         """
         # Third party modules
@@ -3039,7 +3172,7 @@ class UpdateNXdataProcessor(Processor):
                     continue
             self.logger.debug(f'Index of data point {i}: {index}')
             # Update the signals contained in this data point at the
-            # proper index in the dataset's singal `NXfield`s
+            # proper index in the dataset's singal NXfields
             for k, v in d.items():
                 if k in axes_names:
                     continue
@@ -3062,7 +3195,9 @@ class UpdateNXdataProcessor(Processor):
 
 
 class NXdataToDataPointsProcessor(Processor):
-    """Transform a NeXus NXdata object into a list of dictionaries.
+    """Transform a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object into a list of dictionaries.
     Each dictionary represents a single data point in the coordinate
     space of the dataset. The keys are the names of the signals and
     axes in the dataset, and the values are a single scalar value (in
@@ -3071,12 +3206,12 @@ class NXdataToDataPointsProcessor(Processor):
     means that values for signals may be any shape, depending on the
     shape of the signal itself).
     """
+
     def process(self, data):
         """Return a list of dictionaries representing the coordinate
         and signal values at every point in the dataset provided.
 
-        :param data: Input pipeline data containing a NeXus NXdata
-            object.
+        :param data: Input data.
         :type data: list[PipelineData]
         :returns: List of all data points in the dataset.
         :rtype: list[dict[str,object]]
@@ -3108,14 +3243,19 @@ class NXdataToDataPointsProcessor(Processor):
 
 class XarrayToNexusProcessor(Processor):
     """A Processor to convert the data in an `xarray` structure to a
-    NeXus NXdata object.
+    NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object.
     """
-    def process(self, data):
-        """Return `data` represented as a NeXus NXdata object.
 
-        :param data: The input `xarray` structure.
-        :type data: Union[xarray.DataArray, xarray.Dataset]
-        :return: The data and metadata in `data`.
+    def process(self, data):
+        """Return the input data represented as a NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+        object.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :return: Data and metadata in `data`.
         :rtype: nexusformat.nexus.NXdata
         """
         # Third party modules
@@ -3139,27 +3279,46 @@ class XarrayToNumpyProcessor(Processor):
     """A Processor to convert the data in an `xarray.DataArray`
     structure to an `numpy.ndarray`.
     """
+
     def process(self, data):
         """Return just the signal values contained in `data`.
 
-        :param data: The input `xarray.DataArray`.
-        :type data: xarray.DataArray
-        :return: The data in `data`.
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :return: Data in `data`.
         :rtype: numpy.ndarray
         """
         return self.get_pipelinedata_item(data).data
 
 
 class ZarrToNexusProcessor(Processor):
-    """Processor for converting .zarr data to .nxs format."""
-    def process(self, data, zarr_filename, nexus_filename, inputdir='.'):
-        import zarr
+    """Processor for converting
+    `Zarr <https://zarr.readthedocs.io/en/stable/>`__
+    data to
+    `NeXus <https://www.nexusformat.org>`__ file.
+    format.
+    """
+
+    def process(self, data, zarr_filename, nexus_filename):
+        """Convert the signal values contained in the input data.
+
+        :param data: Input data.
+        :type data: list[PipelineData]
+        :param zarr_filename: Zarr input file name.
+        :type zarr_filename: str
+        :param nexus_filename: NeXus output file name.
+        :type nexus_filename: str
+        """
+        # Third party modules
         import h5py
+        # pylint: disable=import-error
+        import zarr
+        # pylint: enable=import-error
 
         if not os.path.isabs(zarr_filename):
-            zarr_filename = os.path.join(inputdir, zarr_filename)
+            zarr_filename = os.path.join(self.inputdir, zarr_filename)
         if not os.path.isabs(nexus_filename):
-            nexus_filename = os.path.join(inputdir, nexus_filename)
+            nexus_filename = os.path.join(self.inputdir, nexus_filename)
 
         # Open the Zarr file
         zarr_file = zarr.open(zarr_filename, mode='r')
@@ -3168,6 +3327,17 @@ class ZarrToNexusProcessor(Processor):
         with h5py.File(nexus_filename, 'w') as nexus_file:
             # Recursively copy all datasets and attributes
             def copy_group(zarr_group, nexus_group):
+                """Convert a
+                `Zarr group <https://zarr.readthedocs.io/en/latest/api/zarr/group/#zarr.Group>`__
+                object to a NeXus style
+                `NXgroup <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXgroup>`__
+                object.
+
+                :param zarr_group: Zarr style group.
+                :type: zarr.Group
+                :param nexus_group: Nexus style group.
+                :type: nexusformat.nexus.NXgroup
+                """
                 self.logger.info(f'Copying {zarr_group.path}')
                 # Copy attributes
                 for attr_key, attr_value in zarr_group.attrs.items():
@@ -3195,7 +3365,6 @@ class ZarrToNexusProcessor(Processor):
 
             # Start copying from the root group
             copy_group(zarr_file, nexus_file)
-        return None
 
 
 if __name__ == '__main__':

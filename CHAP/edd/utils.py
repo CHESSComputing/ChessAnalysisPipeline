@@ -1,4 +1,6 @@
-"""Utility functions for EDD workflows."""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Generic utility functions for EDD workflows."""
 
 # System modules
 from copy import deepcopy
@@ -13,11 +15,11 @@ def get_peak_locations(ds, tth):
     """Return the peak locations for a given set of lattice spacings
     and 2&theta value.
 
-    :param ds: A set of lattice spacings in angstroms.
+    :param ds: Lattice spacings in angstrom.
     :type ds: list[float]
     :param tth: Diffraction angle 2&theta in degrees.
     :type tth: float
-    :return: The peak locations in keV.
+    :return: Peak locations in keV.
     :rtype: numpy.ndarray
     """
     # Third party modules
@@ -29,39 +31,43 @@ def get_peak_locations(ds, tth):
     return hc / (2. * ds * np.sin(0.5 * np.radians(tth)))
 
 
-def make_material(name, sgnum, lattice_parameters, dmin=0.35):
-    """Return a hexrd.material.Material with the given properties.
-
-    :param name: Material name.
-    :type name: str
-    :param sgnum: Space group of the material.
-    :type sgnum: int
-    :param lattice_parameters: The material's lattice parameters
-        ([a, b, c, &#945;, &#946;, &#947;], or fewer as the symmetry of
-        the space group allows --- for instance, a cubic lattice with
-        space group number 225 can just provide [a, ]).
-    :type lattice_parameters: list[float]
-    :param dmin: Materials's dmin value in angstroms (&#8491;),
-        defaults to `0.6`.
-    :type dmin: float, optional
-    :return: A hexrd material.
-    :rtype: heard.material.Material
-    """
-    # Third party modules
-    from hexrd.material import Material
-    from hexrd.valunits import valWUnit
-
-    material = Material()
-    material.name = name
-    material.sgnum = sgnum
-    if isinstance(lattice_parameters, float):
-        lattice_parameters = [lattice_parameters]
-    material.latticeParameters = lattice_parameters
-    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
-    nhkls = len(material.planeData.exclusions)
-    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
-
-    return material
+# FIX this casues a cyclic import, use Material.make_material from
+# CHAP.utils.material
+#def make_material(name, sgnum, lattice_parameters, dmin=0.35):
+#    """Return a
+#    `hexrd.material.Material <https://hexrd.readthedocs.io/en/0.9.9/hexrd.material.material.html>`
+#    object with the given properties.
+#
+#    :param name: Material name.
+#    :type name: str
+#    :param sgnum: Space group of the material.
+#    :type sgnum: int
+#    :param lattice_parameters: Material's lattice parameters
+#        ([a, b, c, &#945;, &#946;, &#947;], or fewer as the symmetry of
+#        the space group allows --- for instance, a cubic lattice with
+#        space group number 225 can just provide [a]).
+#    :type lattice_parameters: list[float]
+#    :param dmin: Materials's Minimum lattice spacing in angstrom,
+#        defaults to `0.6`.
+#    :type dmin: float, optional
+#    :return: Material object with the given properties.
+#    :rtype: heard.material.Material
+#    """
+#    # Third party modules
+#    from hexrd.material import Material
+#    from hexrd.valunits import valWUnit
+#
+#    material = Material()
+#    material.name = name
+#    material.sgnum = sgnum
+#    if isinstance(lattice_parameters, float):
+#        lattice_parameters = [lattice_parameters]
+#    material.latticeParameters = lattice_parameters
+#    material.dmin = valWUnit('lp', 'length',  dmin, 'angstrom')
+#    nhkls = len(material.planeData.exclusions)
+#    material.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+#
+#    return material
 
 
 def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
@@ -69,17 +75,17 @@ def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
     of materials.
 
     :param materials: Materials to get HKLs and lattice spacings for.
-    :type materials: list[hexrd.material.Material]
+    :type materials: list[MaterialConfig]
     :param tth_max: Detector rotation about hutch x axis.
     :type tth_max: float, optional
     :param tth_tol: Minimum resolvable difference in 2&theta between
         two unique HKL peaks.
     :type tth_tol: float, optional
-    :param round_sig: The number of significant figures in the unique
+    :param round_sig: Number of significant figures in the unique
         lattice spacings, defaults to `8`.
     :type round_sig: int, optional
-    :return: Unique HKLs, unique lattice spacings.
-    :rtype: tuple[np.ndarray, np.ndarray]
+    :return: Unique HKLs and lattice spacings.
+    :rtype: numpy.ndarray, numpy.ndarray
     """
     # Local modules
     from CHAP.edd.models import MaterialConfig
@@ -115,36 +121,36 @@ def get_unique_hkls_ds(materials, tth_max=None, tth_tol=None, round_sig=8):
 
 def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         detector_id=None, interactive=False, return_buf=False):
-    """Show a matplotlib figure of a reference MCA spectrum on top of
+    """Show a Matplotlib figure of a reference MCA spectrum on top of
     HKL locations. The figure includes an input field to adjust the
     initial 2&theta guess and responds by updating the HKL locations
     based on the adjusted value of the initial 2&theta guess.
 
     :param x: MCA channel energies.
-    :type x: np.ndarray
+    :type x: numpy.ndarray
     :param y: MCA intensities.
-    :type y: np.ndarray
-    :param hkls: List of unique HKL indices to fit peaks for in the
-        calibration routine.
-    :type hkls: Union(numpy.ndarray, list[list[int, int,int]])
-    :param ds: Lattice spacings in angstroms associated with the
-        unique HKL indices.
-    :type ds: Union(numpy.ndarray, list[float])
+    :type y: numpy.ndarray
+    :param hkls: Unique HKL indices to fit peaks for in the calibration
+        routine.
+    :type hkls: numpy.ndarray or list[list[int, int,int]]
+    :param ds: Lattice spacings in angstrom associated with the unique
+        HKL indices.
+    :type ds: numpy.ndarray or list[float]
     :param tth_initial_guess: Initial guess for 2&theta,
         defaults to `5.0`.
     :type tth_initial_guess: float, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `True`.
+        the Matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
     :param detector_id: Detector ID.
     :type detector_id: str, optional
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The selected initial guess for 2&theta and a byte stream
+    :return: Selected initial guess for 2&theta and a byte stream
         represention of the Matplotlib figure if return_buf is `True`
         (`None` otherwise).
-    :rtype: float, Union[io.BytesIO, None]
+    :rtype: float, io.BytesIO or None
     """
     if not interactive and not return_buf:
         return tth_initial_guess
@@ -156,7 +162,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         TextBox,
     )
 
-    def change_fig_title(title):
+    def _change_fig_title(title):
         """Change the figure title."""
         if detector_id is not None:
             title = f'Detector {detector_id}: {title}'
@@ -165,7 +171,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_error_text(error):
+    def _change_error_text(error):
         """Change the error text."""
         if error_texts:
             error_texts[0].remove()
@@ -177,7 +183,7 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
         try:
             tth_new_guess = float(tth)
         except Exception:
-            change_error_text(
+            _change_error_text(
                 r'Invalid 2$\theta$ 'f'cannot convert {tth} to float, '
                 r'enter a valid 2$\theta$')
             return
@@ -243,11 +249,11 @@ def select_tth_initial_guess(x, y, hkls, ds, tth_initial_guess=5.0,
 
     if not interactive:
 
-        change_fig_title(r'Initial guess for 2$\theta$='f'{tth_initial_guess}')
+        _change_fig_title(r'Initial guess for 2$\theta$='f'{tth_initial_guess}')
 
     else:
 
-        change_fig_title(r'Adjust initial guess for 2$\theta$')
+        _change_fig_title(r'Adjust initial guess for 2$\theta$')
         fig.subplots_adjust(bottom=0.2)
 
         # Setup tth input
@@ -300,7 +306,7 @@ def select_material_params(
         x, y, tth, preselected_materials=None, label='Reference Data',
         interactive=False, return_buf=False):
     """Interactively select the lattice parameters and space group for
-    a list of materials. A matplotlib figure will be shown with a plot
+    a list of materials. A Matplotlib figure will be shown with a plot
     of the reference data (`x` and `y`). The figure will contain
     widgets to modify, add, or remove materials. The HKLs for the
     materials defined by the widgets' values will be shown over the
@@ -308,29 +314,28 @@ def select_material_params(
     updated.
 
     :param x: MCA channel energies.
-    :type x: np.ndarray
+    :type x: numpy.ndarray
     :param y: MCA intensities.
-    :type y: np.ndarray
-    :param tth: The (calibrated) 2&theta angle.
+    :type y: numpy.ndarray
+    :param tth: (calibrated) 2&theta angle.
     :type tth: float
-    :param preselected_materials: Materials to get HKLs and
-        lattice spacings for.
-    :type preselected_materials: list[hexrd.material.Material],
+    :param preselected_materials: Materials to get HKLs and lattice
+        spacings for.
+    :type preselected_materials: list[MaterialConfig],
         optional
     :param label: Legend label for the 1D plot of reference MCA data
         from the parameters `x`, `y`, defaults to `"Reference Data"`.
     :type label: str, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `False`.
+        the Matplotlib figure, defaults to `False`.
     :type interactive: bool, optional
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The selected materials for the strain analyses and a byte
+    :return: Selected materials for the strain analyses and a byte
         stream represention of the Matplotlib figure if return_buf is
         `True` (`None` otherwise).
-    :rtype: list[CHAP.edd.models.MaterialConfig],
-        Union[io.BytesIO, None]
+    :rtype: list[MaterialConfig], io.BytesIO or None
     """
     if not interactive and not return_buf:
         if preselected_materials is None:
@@ -638,75 +643,26 @@ def select_material_params(
                 m.latticeParameters[i].value for i in range(6)])
         for m in materials], buf
 
-def select_material_params_gui(
-        x, y, tth, preselected_materials=None, label='Reference Data',
-        interactive=False, return_buf=False):
-    """Interactively adjust the lattice parameters and space group for
-    a list of materials. It is possible to add / remove materials from
-    the list.
-
-    :param x: MCA channel energies.
-    :type x: np.ndarray
-    :param y: MCA intensities.
-    :type y: np.ndarray
-    :param tth: The (calibrated) 2&theta angle.
-    :type tth: float
-    :param preselected_materials: Materials to get HKLs and
-        lattice spacings for.
-    :type preselected_materials: list[hexrd.material.Material],
-        optional
-    :param label: Legend label for the 1D plot of reference MCA data
-        from the parameters `x`, `y`, defaults to `"Reference Data"`.
-    :type label: str, optional
-    :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `False`.
-    :type interactive: bool, optional
-    :param return_buf: Return an in-memory object as a byte stream
-        represention of the Matplotlib figure, defaults to `False`.
-    :type return_buf: bool, optional
-    :return: The selected materials for the strain analyses and a byte
-        stream represention of the Matplotlib figure if return_buf is
-        `True` (`None` otherwise).
-    :rtype: list[CHAP.edd.models.MaterialConfig],
-        Union[io.BytesIO, None]
-    """
-    # Local modules
-    from CHAP.edd.select_material_params_gui import run_material_selector
-
-    materials = None
-    figure = None
-    def on_complete(_materials, _figure):
-        nonlocal materials, figure
-        materials = _materials
-        figure = _figure
-
-    run_material_selector(
-        x, y, tth, preselected_materials, label, on_complete, interactive)
-
-    if return_buf:
-        return materials, fig_to_iobuf(figure)
-    return materials, None
-
 
 def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         preselected_hkl_indices=None, num_hkl_min=1, detector_id=None,
         ref_map=None, flux_energy_range=None, calibration_bin_ranges=None,
         label='Reference Data', interactive=False, return_buf=False):
-    """Return a matplotlib figure to indicate data ranges and HKLs to
+    """Return a Matplotlib figure to indicate data ranges and HKLs to
     include for fitting in EDD energy/tth calibration and/or strain
     analysis.
 
     :param x: MCA channel energies.
-    :type x: np.ndarray
+    :type x: numpy.ndarray
     :param y: MCA intensities.
-    :type y: np.ndarray
+    :type y: numpy.ndarray
     :param hkls: Avaliable Unique HKL values to fit peaks for in the
         calibration routine.
     :type hkls: list[list[int]]
     :param ds: Lattice spacings associated with the unique HKL indices
-        in angstroms.
+        in angstrom.
     :type ds: list[float]
-    :param tth: The (calibrated) 2&theta angle.
+    :param tth: (calibrated) 2&theta angle.
     :type tth: float
     :param preselected_bin_ranges: Preselected MCA channel index ranges
         whose data should be included after applying a mask.
@@ -721,10 +677,10 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     :type detector_id: str, optional
     :param ref_map: Reference map of MCA intensities to show underneath
         the interactive plot.
-    :type ref_map: np.ndarray, optional
+    :type ref_map: numpy.ndarray, optional
     :param flux_energy_range: Energy range in eV in the flux file
         containing station beam energy in eV versus flux
-    :type flux_energy_range: tuple(float, float), optional
+    :type flux_energy_range: float, float, optional
     :param calibration_bin_ranges: MCA channel index ranges included
         in the detector calibration.
     :type calibration_bin_ranges: list[[int, int]], optional
@@ -732,16 +688,15 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         from the parameters `x`, `y`, defaults to `"Reference Data"`
     :type label: str, optional
     :param interactive: Show the plot and allow user interactions with
-        the matplotlib figure, defaults to `True`.
+        the Matplotlib figure, defaults to `True`.
     :type interactive: bool, optional
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The list of selected data index ranges to include, the
-        list of HKL indices to include and a byte stream represention
-        of the Matplotlib figure if return_buf is `True` (`None`
-        otherwise).
-    :rtype: list[list[int]], list[int], Union[io.BytesIO, None]
+    :return: Selected data index ranges to include, the list of HKL
+        indices to include and a byte stream represention of the
+        Matplotlib figure if return_buf is `True` (`None` otherwise).
+    :rtype: list[list[int]], list[int], io.BytesIO or None
     """
     # Third party modules
     import matplotlib.lines as mlines
@@ -759,14 +714,14 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         index_nearest_up,
     )
 
-    def change_fig_title(title):
+    def _change_fig_title(title):
         """Change the figure title."""
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_error_text(error):
+    def _change_error_text(error):
         """Change the error text."""
         if error_texts:
             error_texts[0].remove()
@@ -776,6 +731,8 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     def get_mask():
         """Return a boolean array that acts as the mask corresponding
         to the currently-selected index ranges.
+
+        :type: numpy.ndarray
         """
         mask = np.full(x.shape[0], False)
         for span in spans:
@@ -786,7 +743,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
 
     def hkl_locations_in_any_span(hkl_index):
         """Return the index of the span where the location of a specific
-        HKL resides. Return(-1 if outside any span.
+        HKL resides. Return -1 if outside any span.
+
+        :type: int
         """
         if hkl_index < 0 or hkl_index >= len(hkl_locations):
             return -1
@@ -846,21 +805,21 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         if interactive or return_buf:
             if combined_spans:
                 if added_hkls or removed_hkls:
-                    change_error_text(
+                    _change_error_text(
                         'Combined overlapping spans and selected only HKL(s) '
                         'inside the selected energy mask')
                 else:
-                    change_error_text('Combined overlapping spans in the '
+                    _change_error_text('Combined overlapping spans in the '
                                       'selected energy mask')
             elif added_hkls and removed_hkls:
-                change_error_text(
+                _change_error_text(
                     'Adjusted the selected HKL(s) to match the selected '
                     'energy mask')
             elif added_hkls:
-                change_error_text(
+                _change_error_text(
                     'Added HKL(s) to match the selected energy mask')
             elif removed_hkls:
-                change_error_text(
+                _change_error_text(
                     'Removed HKL(s) outside the selected energy mask')
             # If using ref_map, update the colorbar range to min / max of
             # the selected data only
@@ -1020,9 +979,9 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
 
         if return_buf:
             if detector_id is None:
-                change_fig_title('Selected data and HKLs used in fitting')
+                _change_fig_title('Selected data and HKLs used in fitting')
             else:
-                change_fig_title('Selected data and HKLs used in fitting '
+                _change_fig_title('Selected data and HKLs used in fitting '
                                  f'detector {detector_id}')
             if error_texts:
                 error_texts[0].remove()
@@ -1031,7 +990,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
     else:
 
         def pick_hkl(event):
-            """The "onpick" callback function."""
+            """callback function."""
             try:
                 hkl_index = hkl_vlines.index(event.artist)
             except Exception:
@@ -1069,7 +1028,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
                             0.5*(hkl_locations[hkl_index-1]
                                  + hkl_locations[hkl_index]))
                         add_span(None, xrange_init=xrange_init)
-                    change_error_text(
+                    _change_error_text(
                         'Adjusted the selected energy mask to reflect the '
                         'removed HKL')
                 else:
@@ -1114,7 +1073,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
                         else:
                             max_ = 0.5*(hkl_locations[hkl_index] + max_x)
                         add_span(None, xrange_init=(min_, max_))
-                    change_error_text(
+                    _change_error_text(
                         'Adjusted the selected energy mask to reflect the '
                         'added HKL')
                 plt.draw()
@@ -1132,7 +1091,7 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
         def confirm(event):
             """Callback function for the "Confirm" button."""
             if not spans or len(selected_hkl_indices) < num_hkl_min:
-                change_error_text(
+                _change_error_text(
                     f'Select at least one span and {num_hkl_min} HKLs')
                 plt.draw()
             else:
@@ -1140,16 +1099,16 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
                     error_texts[0].remove()
                     error_texts.pop()
                 if detector_id is None:
-                    change_fig_title('Selected data and HKLs used in fitting')
+                    _change_fig_title('Selected data and HKLs used in fitting')
                 else:
-                    change_fig_title('Selected data and HKLs used in fitting '
+                    _change_fig_title('Selected data and HKLs used in fitting '
                                      f'detector {detector_id}')
                 plt.close()
 
         if detector_id is None:
-            change_fig_title('Select data and HKLs to use in fitting')
+            _change_fig_title('Select data and HKLs to use in fitting')
         else:
-            change_fig_title('Select data and HKLs to use in fitting '
+            _change_fig_title('Select data and HKLs to use in fitting '
                              f'detector {detector_id}')
         fig.subplots_adjust(bottom=0.2)
         if not return_buf and ref_map is not None:
@@ -1219,7 +1178,30 @@ def select_mask_and_hkls(x, y, hkls, ds, tth, preselected_bin_ranges=None,
 def get_rolling_sum_spectra(
         y, bin_axis, start=0, end=None, width=None, stride=None, num=None,
         mode='valid'):
-    """Return the rolling sum of the spectra over a specified axis."""
+    """Return the rolling sum of the spectra over a specified axis.
+
+    :param y: Input data.
+    :type y: array-like
+    :param x: Independent dimension.
+    :type x: array-like, optional
+    :param start: First array index, defaults to `0`.
+    :type start: int, optional
+    :param end: Last array index.
+    :type end: int, optional
+    :param width: Number of elements in rolling sum or average.
+    :type width: int, optional
+    :param stride: Stride in rolling sum or average.
+    :type stride: int, optional
+    :param num: Number of outputs of rolling sum or average.
+    :type num: int, optional
+    :param mode: Only return results for full sized windows if
+        `"valid"`, include partial windows if `"full"`, defaults to
+        `"valid"`.
+    :type mode: Literal['valid', 'full'], optional
+
+    .. note::
+        Specify only one or two of `width`, `stride`, and `num`.
+    """
     y = np.asarray(y)
     if not 0 <= bin_axis < y.ndim-1:
         raise ValueError(f'Invalid "bin_axis" parameter ({bin_axis})')
@@ -1297,25 +1279,25 @@ def get_spectra_fits(
     unconstrained residuals, unconstrained reduced chi, and
     unconstrained success codes.
 
-    :param spectra: Array of intensity spectra to fit.
+    :param spectra: Intensity spectra to fit.
     :type spectra: numpy.ndarray
     :param energies: Bin energies for the spectra provided.
     :type energies: numpy.ndarray
     :param peak_locations: Initial guesses for peak centers to use
         for the uniform fit.
     :type peak_locations: list[float]
-    :param detector: A single MCA detector element configuration.
-    :type detector: CHAP.edd.models.MCAElementStrainAnalysisConfig
+    :param detector: MCA detector element configuration.
+    :type detector: MCAElementStrainAnalysisConfig
     :returns: Uniform and unconstrained centers, amplitudes, sigmas
         (and errors for all three and vary for amplitudes),
         best fits, residuals between the best fits and the input
         spectra, reduced chi, and fit success statuses.
-    :rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray,
+    :rtype: numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
         numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray,
-        numpy.ndarray, numpy.ndarray, numpy.ndarray]
+        numpy.ndarray, numpy.ndarray, numpy.ndarray
     """
     # System modules
     from os import getpid
@@ -1523,8 +1505,8 @@ def get_spectra_fits(
             'amplitudes': uniform_fit_amplitudes,
             'amplitudes_errors': uniform_fit_amplitudes_errors,
             'amplitudes_vary': uniform_fit_amplitudes_vary,
-            'sigmas': uniform_fit_fractions,
-            'sigmas_errors': uniform_fit_fractions_errors,
+            'sigmas': uniform_fit_sigmas,
+            'sigmas_errors': uniform_fit_sigmas_errors,
             'best_fits': uniform_fit.best_fit,
             'residuals': uniform_fit.residual,
             'redchis': uniform_fit.redchi,

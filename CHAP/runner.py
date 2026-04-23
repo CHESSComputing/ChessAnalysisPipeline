@@ -1,12 +1,18 @@
-"""
-File       : runner.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description:
-"""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Main functions to execute a ChessAnalysisPipeline (CHAP)."""
+
 
 def parser():
-    """Return an argument parser for the `CHAP` CLI. This parser has
-    one argument: the input CHAP configuration file.
+    """Return an argument parser for the CHAP comment line interface
+    (CLI). This parser accepts one required argument: the input CHAP
+    configuration file name and several optional arguments. Execute:
+
+    .. code-block:: bash
+
+        $ CHAP --help
+
+    from the command line for a description on how to use CHAP.
     """
     # System modules
     from argparse import ArgumentParser
@@ -20,14 +26,15 @@ def parser():
         '--regex', nargs='?', default=False, const='match',
         choices=['match', 'search', 'fullmatch'],
         dest='regex_function', required=False,
-        help='''Name of Python regex function to use for matching
-        configured pipeline names against the string provided with the
-        -p / --pipeline option.'''
+        help='''Name of Python
+        RegEx function (https://docs.python.org/3/howto/regex.html)
+        to use for matching configured pipeline names against the
+        string provided with the -p / --pipeline option.'''
     )
     pparser.add_argument(
         '--batch', action='store_true',
-        help='''Enables "batch mode" where every sub-pipeline is run
-        in a separate process, all at once. Log files for each
+        help='''Enables "batch mode" operation where every sub-pipeline
+        is run in separate parallel processes. Log files for each
         pipeline process will be created in the directory specified
         with the `--batch-logdir` option.'''
     )
@@ -62,7 +69,7 @@ def main():
 
     # Read the input config file
     configfile = args.config
-    with open(configfile) as file:
+    with open(configfile, encoding='utf-8') as file:
         config = safe_load(file)
     #RV Add to input_files in provenance data writer
 
@@ -74,12 +81,16 @@ def main():
         common_comm = sub_comm.Merge(True)
         # Read worker specific input config file
         if run_config.spawn > 0:
-            with open(f'{configfile}_{common_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{common_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(
                     **config.pop('config'), comm=common_comm)
         else:
-            with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{sub_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(**config.pop('config'), comm=comm)
     else:
@@ -179,12 +190,12 @@ def runner(run_config, pipeline_config, comm=None):
     """Main runner funtion.
 
     :param run_config: CHAP run configuration.
-    :type run_config: CHAP.runner.RunConfig
+    :type run_config: RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
     :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
-    :return: The pipeline's returned data field.
+    :return: Pipeline's returned data field.
     """
     # System modules
     from time import time
@@ -201,11 +212,11 @@ def runner(run_config, pipeline_config, comm=None):
     return data
 
 def set_logger(log_level='INFO'):
-    """Helper function to set CHAP logger.
+    """Helper function to set the CHAP logger.
 
     :param log_level: Logger level, defaults to `"INFO"`.
     :type log_level: str
-    :return: The CHAP logger and logging handler.
+    :return: Logger and logging handler.
     :rtype: logging.Logger, logging.StreamHandler
     """
     # System modules
@@ -226,16 +237,16 @@ def run(
     """Run a given pipeline_config.
 
     :param run_config: CHAP run configuration.
-    :type run_config: CHAP.runner.RunConfig
+    :type run_config: RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
-    :param logger: CHAP logger.
+    :param logger: Logger.
     :type logger: logging.Logger, optional
     :param log_handler: Logging handler.
     :type log_handler: logging.StreamHandler, optional
     :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
-    :return: The `data` field of the first item in the returned
+    :return: `data` field of the first item in the returned
         list of pipeline items.
     """
     # System modules
@@ -353,22 +364,23 @@ def run(
 
 
 def batch_runner(run_config, pipeline_config, log_file):
-    """Function for runinng a pipeline in batch mode with logging to
-    file. Essentially a wrapper for the `CHAP.runner.runner` function.
+    """Function for running a pipeline in batch mode with logging to
+    file. Essentially a wrapper for the :meth:`~CHAP.runner.runner`
+    function.
 
     :param run_config: CHAP run configuration.
-    :type run_config: CHAP.runner.RunConfig
+    :type run_config: RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
     :param log file: Name of file for logging.
     :type log_file: str
-    :rtype: None
     """
+    # System modules
     import sys
     import traceback
 
     print(f'Logging to {log_file}')
-    with open(log_file, "w") as f:
+    with open(log_file, 'w', encoding='utf-8') as f:
         sys.stdout = f
         sys.stderr = f
         try:

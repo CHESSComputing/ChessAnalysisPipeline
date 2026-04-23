@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : processor.py
-Author     : Keara Soloway, Rolf Verberg
-Description: Module for Processors used only by EDD experiments
+"""Module for Processors unique to the EDD workflow.
+
+Add discription of EDD
 """
 
 # System modules
@@ -45,28 +44,14 @@ FLOAT_MIN = float_info.min
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
 
-def get_axes(nxdata, skip_axes=None):
-    """Get the axes of an NXdata object used in EDD."""
-    if skip_axes is None:
-        skip_axes = []
-    if 'unstructured_axes' in nxdata.attrs:
-        axes = nxdata.attrs['unstructured_axes']
-    elif 'axes' in nxdata.attrs:
-        axes = nxdata.attrs['axes']
-    else:
-        return []
-    if isinstance(axes, str):
-        axes = [axes]
-    return [str(a) for a in axes if a not in skip_axes]
-
-
 class BaseEddProcessor(Processor):
     """Base processor for the EDD processors.
 
-    :ivar save_figures: Save .pngs of plots for checking inputs &
+    :ivar save_figures: Save .pngs of plots for checking inputs and
         outputs of this Processor, defaults to `False`.
-    :type save_figures: bool, optional
+    :vartype save_figures: bool, optional
     """
+
     save_figures: Optional[bool] = False
 
     _energies: list = PrivateAttr(default=[])
@@ -168,14 +153,10 @@ class BaseEddProcessor(Processor):
             # Interactively adjust the mask and HKLs used in the
             # current processor
             #if isinstance(detector, MCADetectorStrainAnalysis):
-            if detector.processor_type == 'strainanalysis':
-                calibration_bin_ranges = detector.get_calibration_mask_ranges()
-            else:
-                calibration_bin_ranges = None
-            if detector.tth_calibrated is None:
-                tth = detector.tth_initial_guess
-            else:
-                tth = detector.tth_calibrated
+            calibration_bin_ranges = detector.get_calibration_mask_ranges() \
+                if detector.processor_type == 'strainanalysis' else None
+            tth = detector.tth_initial_guess \
+                if detector.tth_calibrated is None else detector.tth_calibrated
             mask_ranges, hkl_indices, buf = \
                 select_mask_and_hkls(
                     energies, mean_data, hkls, ds, tth,
@@ -333,15 +314,17 @@ class BaseEddProcessor(Processor):
 
 
 class BaseStrainProcessor(BaseEddProcessor):
-    """Base processor for LatticeParameterRefinementProcessor and
-    StrainAnalysisProcessor.
+    """Base processor for
+    :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`
+    and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`.
     """
+
     def _adjust_material_props(self, materials, index=0):
         """Adjust the material properties."""
         # Local modules
         if self.interactive:
             from CHAP.edd.select_material_params_gui import \
-                select_material_params
+                select_material_params_gui as select_material_params
         else:
             from CHAP.edd.utils import select_material_params
 
@@ -361,6 +344,9 @@ class BaseStrainProcessor(BaseEddProcessor):
             NXdata,
             NXfield,
         )
+
+        # Local modules
+        from CHAP.common.map_utils import get_axes
 
         data = nxdata[detector_id].nxdata
         if not isinstance(sum_axes, list):
@@ -414,6 +400,9 @@ class BaseStrainProcessor(BaseEddProcessor):
             NXdata,
             NXfield,
         )
+
+        # Local modules
+        from CHAP.common.map_utils import get_axes
 
         strain_analysis_config = kwargs['strain_analysis_config']
         update = kwargs.get('update', True)
@@ -488,13 +477,14 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
     diffraction volume length for an EDD setup.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.DiffractionVolumeLengthConfig.
-    :type config: dict, optional
+        :class:`~CHAP.edd.models.DiffractionVolumeLengthConfig`.
+    :vartype config: dict, optional
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the raw detector data.
-    :type detector_config: dict, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the raw detector data.
+    :vartype detector_config: dict, optional
     """
+
     pipeline_fields: dict = Field(
             default = {
             'config': 'edd.models.DiffractionVolumeLengthConfig',
@@ -511,7 +501,17 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
 
     @model_validator(mode='before')
     @classmethod
-    def validate_diffractionvolumeLengthprocessor_before(cls, data):
+    def validate_diffractionvolumelengthprocessor_before(cls, data):
+        """Validate the `DiffractionVolumelengthProcessor` class
+        attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'diffractionvolumelength'
@@ -519,15 +519,22 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         return data
 
     @model_validator(mode='after')
-    def validate_diffractionvolumeLengthprocessor_after(self):
+    def validate_diffractionvolumelengthprocessor_after(self):
+        """Validate the presence of sample thickness in the processor
+        configuration.
+
+        :return: Validated configuration class.
+        :rtype: DiffractionVolumelengthProcessor
+        """
         if self.config.sample_thickness is None:
             raise ValueError('Missing parameter "sample_thickness"')
         return self
 
     def process(self, data):
-        """Return the calculated value of the DVL.
+        """Return the calculated value of the differential volume
+        length (DVL).
 
-        :param data: DVL calculation input configuration.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises RuntimeError: Unable to get a valid DVL configuration.
         :return: DVL configuration.
@@ -559,10 +566,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                         int(raw_detector_ids.index(detector.get_id()))]
                     for k, v in raw_detector.attrs.items():
                         if k not in detector.attrs:
-                            if isinstance(v, list):
-                                detector.attrs[k] = np.asarray(v)
-                            else:
-                                detector.attrs[k] = v
+                            detector.attrs[k] = np.asarray(v) \
+                                if isinstance(v, list) else v
                     detector.energy_mask_ranges = None
                     detectors.append(detector)
                 else:
@@ -682,10 +687,10 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
         computed diffraction volume length is approximately equal to
         the standard deviation of the fitted peak.
 
-        :param scanned_vals: The scanned motor position values.
+        :param scanned_vals: Scanned motor position values.
         :type scanned_vals: numpy.ndarray
-        :return: Updated energy DVL measurement configuration and a list of
-            byte stream representions of Matplotlib figures.
+        :return: Updated energy DVL measurement configuration and a
+            list of byte stream representions of Matplotlib figures.
         :rtype: dict, PipelineData
         """
         # Third party modules
@@ -780,7 +785,8 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
                     result.best_values['center']- 0.5*detector.dvl,
                     result.best_values['center'] + 0.5*detector.dvl,
                     color='gray', alpha=0.5,
-                    label=f'diffraction volume ({self.config.measurement_mode})')
+                    label=
+                        f'diffraction volume ({self.config.measurement_mode})')
                 ax.legend()
                 plt.figtext(
                     0.5, 0.95,
@@ -806,14 +812,15 @@ class HKLProcessor(BaseStrainProcessor):
     calibrated energy channels.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.MCACalibrationConfig. Only the materials field
-        is actually used, the others are ignored.
-    :type config: dict
+        :class:`~CHAP.edd.models.MCACalibrationConfig`. Only the
+        materials field is actually used, the others are ignored.
+    :vartype config: dict
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the energy/2&theta calibration step.
-    :type detector_config: dict, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the energy/2&theta calibration step.
+    :vartype detector_config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'edd.models.MCACalibrationConfig',
@@ -832,6 +839,15 @@ class HKLProcessor(BaseStrainProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_hklprocessor_before(cls, data):
+        """Validate the `HKLProcessor` class attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
@@ -842,8 +858,7 @@ class HKLProcessor(BaseStrainProcessor):
         """Plot the HKLs for a given material against the calibrated
         energy channels.
 
-        :param data: Input data containing a completed energy/tth
-            calibration configuration.
+        :param data: Input data.
         :type data: list[PipelineData]
         :return: List of byte stream representions of Matplotlib
             figures.
@@ -882,14 +897,15 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     parameters.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.StrainAnalysisConfig.
-    :type config: dict, optional
+        :class:`~CHAP.edd.models.StrainAnalysisConfig`.
+    :vartype config: dict, optional
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the raw detector data merged with that of the
-        energy/2&theta calibration step.
-    :type detector_config: dict, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the raw detector data merged with
+        that of the energy/2&theta calibration step.
+    :vartype detector_config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'edd.models.StrainAnalysisConfig',
@@ -904,6 +920,16 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_latticeparameterrefinementprocessor_before(cls, data):
+        """Validate the `LatticeParameterRefinementProcessor` class
+        attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'strainanalysis'
@@ -912,47 +938,26 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 
     def process(self, data):
         """Given a strain analysis configuration, return a copy
-        contining refined values for the materials' lattice
+        containing refined values for the materials' lattice
         parameters.
 
-        :param data: Input data for the lattice parameter refinement
-            procedure.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises RuntimeError: Unable to refine the lattice parameters.
-        :return: The strain analysis configuration with the refined
+        :return: Strain analysis configuration with the refined
             lattice parameter configuration and, optionally, a list of
             byte stream representions of Matplotlib figures.
-        :rtype: dict, PipelineData
+        :rtype: dict or dict, PipelineData
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         # Local modules
         from CHAP.utils.general import list_to_string
 
         # Load the pipeline input data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid input in the pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the detector data
         nxentry = self.get_default_nxentry(nxroot)
         nxdata = nxentry[nxentry.default]
-
-        # Load the validated calibration configuration
-        calibration_config = self.get_config(
-            data, schema='edd.models.MCATthCalibrationConfig', remove=False)
 
         # Load the validated calibration detector configurations
         calibration_detector_config = self.get_data(
@@ -962,7 +967,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
             for d in calibration_detector_config.get('detectors', [])]
         calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
-        # Check for available raw detector data and for the available 
+        # Check for available raw detector data and for the available
         # calibration data
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
@@ -1160,13 +1165,14 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
     2&theta.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.MCAEnergyCalibrationConfig.
-    :type config: dict, optional
+        :class:`~CHAP.edd.models.MCAEnergyCalibrationConfig`.
+    :vartype config: dict, optional
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the raw detector data.
-    :type detector_config: dict, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the raw detector data.
+    :vartype detector_config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'edd.models.MCAEnergyCalibrationConfig',
@@ -1182,6 +1188,16 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_mcaenergycalibrationprocessor_before(cls, data):
+        """Validate the `MCAEnergyCalibrationProcessor` class
+        attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
@@ -1189,19 +1205,19 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         return data
 
     def process(self, data):
-        """For each detector in the `MCAEnergyCalibrationConfig`
-        provided with `data`, fit the specified peaks in the MCA
-        spectrum specified. Using the difference between the provided
-        peak locations and the fit centers of those peaks, compute
-        the correction coefficients to convert uncalibrated MCA
-        channel energies to calibrated channel energies. For each
-        detector, set `energy_calibration_coeffs` in the calibration
-        config provided to these values and return the updated
-        configuration.
+        """For each detector in the
+        :class:`~CHAP.edd.models.MCAEnergyCalibrationConfig` provided
+        with `data` or through the processors `config` attribute, fit
+        the specified peaks in the MCA spectrum. Using the difference
+        between the provided peak locations and the fit centers of
+        those peaks, compute the correction coefficients to convert
+        uncalibrated MCA channel energies to calibrated channel
+        energies. For each detector, set `energy_calibration_coeffs` in
+        the calibration config and return the updated configuration.
 
-        :param data: Energy calibration configuration.
+        :param data: Input data.
         :type data: list[PipelineData]
-        :returns: Dictionary representing the energy-calibrated
+        :return: Dictionary representing the energy-calibrated
             version of the calibrated configuration and a list of
             byte stream representions of Matplotlib figures.
         :rtype: dict, PipelineData
@@ -1331,7 +1347,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         for quadratically converting the current detector's MCA
         channels to bin energies.
 
-        :returns: Updated energy calibration configuration.
+        :return: Updated energy calibration configuration.
         :rtype: dict
         """
         # Third party modules
@@ -1432,7 +1448,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                 fig, axs = plt.subplots(1, 2, figsize=(11, 4.25))
                 fig.suptitle(
                     f'Detector {detector.get_id()} energy calibration')
-                # Left plot: raw MCA data & best fit of peaks
+                # Left plot: raw MCA data and best fit of peaks
                 axs[0].set_title('MCA spectrum peak fit')
                 axs[0].set_xlabel('Detector Channel (-)')
                 axs[0].set_ylabel('Intensity (counts)')
@@ -1485,14 +1501,14 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         import matplotlib.pyplot as plt
         from matplotlib.widgets import Button
 
-        def change_fig_title(title):
+        def _change_fig_title(title):
             """Change the figure title."""
             if fig_title:
                 fig_title[0].remove()
                 fig_title.pop()
             fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-        def change_error_text(error=''):
+        def _change_error_text(error=''):
             """Change the error text."""
             if error_texts:
                 error_texts[0].remove()
@@ -1523,7 +1539,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             :param tolerance: Tolerance in peak index in channels for
                 finding matching peaks, defaults to `10`.
             :type tolerance: int, optional
-            :return: The peak indices.
+            :return: Peak indices.
             :rtype: list[int]
             """
             # Third party modules
@@ -1563,7 +1579,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             peak_indices = []
             while len(set(peak_indices)) < num_peak:
                 error_text = ''
-                change_fig_title(f'Select {num_peak} peak positions')
+                _change_fig_title(f'Select {num_peak} peak positions')
                 peak_indices = [
                     int(pt[0]) for pt in plt.ginput(num_peak, timeout=30)]
                 if len(set(peak_indices)) < num_peak:
@@ -1592,7 +1608,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                     fig.subplots_adjust(bottom=0.0, top=0.85)
                     ax.plot(low + np.arange(y.size), y, color='k')
                     fig.subplots_adjust(bottom=0.2)
-                    change_error_text(error_text)
+                    _change_error_text(error_text)
                 plt.draw()
             return peak_indices
 
@@ -1631,7 +1647,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
 
             for index in peak_indices:
                 ax.axvline(index, **selected_peak_props)
-            change_fig_title('Initial peak positions from peak finding '
+            _change_fig_title('Initial peak positions from peak finding '
                              f'routine{detector_id}')
 
         else:
@@ -1641,7 +1657,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
             # Get initial peak indices
             if not reset_flag:
                 peak_indices += find_peaks()
-                change_fig_title('Initial peak positions from peak finding '
+                _change_fig_title('Initial peak positions from peak finding '
                                  f'routine{detector_id}')
             if peak_indices:
                 for index in peak_indices:
@@ -1650,7 +1666,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
                         break
             if not peak_indices:
                 peak_indices += select_peaks()
-                change_fig_title(
+                _change_fig_title(
                     'Selected initial peak positions{detector_id}')
 
             for index in peak_indices:
@@ -1701,14 +1717,15 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
     energy calibration coefficients for an EDD experimental setup.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.MCATthCalibrationConfig.
-    :type config: dict, optional
+        :class:`~CHAP.edd.models.MCATthCalibrationConfig`.
+    :vartype config: dict, optional
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the raw detector data merged with that of the
-        energy calibration step..
-    :type detector_config: dict, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the raw detector data merged with
+        that of the energy calibration step..
+    :vartype detector_config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': ['edd.models.MCAEnergyCalibrationConfig',
@@ -1726,6 +1743,16 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_mcatthcalibrationprocessor_before(cls, data):
+        """Validate the `MCATthCalibrationProcessor` class
+        attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'calibration'
@@ -1737,7 +1764,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
         energy calibration coefficients to convert MCA channel
         indices to MCA channel energies.
 
-        :param data: 2&theta calibration configuration.
+        :param data: Input data.
         :type data: list[PipelineData]
         :raises RuntimeError: Invalid or missing input configuration.
         :return: Original configuration with the tuned values for
@@ -1853,12 +1880,11 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
             schema='common.write.ImageWriter')
 
     def _calibrate(self):
-        """Calibrate 2&theta and linear and fine tune the energy
-        calibration coefficients to convert MCA channel indices to MCA
-        channel energies.
+        """Calibrate 2&theta to fine tune the energy calibration
+        coefficients to convert MCA channel indices to MCA channel
+        energies.
 
-            CHAP.edd.models.MCATthCalibrationConfig
-        :returns: 2&theta calibration configuration.
+        :return: 2&theta calibration configuration.
         :rtype: dict
         """
         # Local modules
@@ -2329,6 +2355,7 @@ class ReducedDataProcessor(BaseStrainProcessor):
     """Processor that takes a map of MCA data and returns a map of
     reduced data.
     """
+
     lower_cutoff: Optional[confloat(ge=0, allow_inf_nan=False)] = 25
     upper_cutoff: Optional[confloat(gt=0, allow_inf_nan=False)] = 200
 
@@ -2338,21 +2365,17 @@ class ReducedDataProcessor(BaseStrainProcessor):
         :param data: Input data containing configurations for a map and
             a completed energy/tth calibration.
         :type data: list[PipelineData]
-        :return: The reduced data.
+        :return: Reduced data.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
         from nexusformat.nexus import (
             NXdata,
             NXdetector,
-            NXentry,
             NXfield,
             NXprocess,
             NXroot,
         )
-
-        # Local modules
-        from CHAP.utils.general import nxcopy
 
         # Load the detector data
         nxentry = self.get_default_nxentry(self.get_data(data))
@@ -2361,7 +2384,7 @@ class ReducedDataProcessor(BaseStrainProcessor):
         calibration_config = self.get_data(
             data, schema='edd.models.MCATthCalibrationConfig')
         calibration_detectors = [
-            MCADetectorCalibration(**d) 
+            MCADetectorCalibration(**d)
             for d in calibration_config.get('detectors', [])]
         calibration_config = MCATthCalibrationConfig(**calibration_config)
 
@@ -2500,21 +2523,23 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     sample strains.
 
     :ivar config: Initialization parameters for an instance of
-        CHAP.edd.models.StrainAnalysisConfig.
-    :type config: dict, optional
+        :class:`~CHAP.edd.models.StrainAnalysisConfig`.
+    :vartype config: dict, optional
     :ivar detector_config: Initialization parameters for an instance of
-        CHAP.edd.models.MCADetectorConfig. Defaults to the detector
-        configuration of the raw detector data merged with that of the
-        energy/2&theta calibration step..
-    :type detector_config: dict, optional
-    :ivar setup: Setup the strain analysis
-        `nexusformat.nexus.NXroot` object, defaults to `True`.
-    :type setup: bool, optional
+        :class:`~CHAP.edd.models.MCADetectorConfig`. Defaults to the
+        detector configuration of the raw detector data merged with
+        that of the energy/2&theta calibration step..
+    :vartype detector_config: dict, optional
+    :ivar setup: Setup the strain analysis NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object object, defaults to `True`.
+    :vartype setup: bool, optional
     :ivar update: Perform the strain analysis and return the
         results as a list of updated points or update the result
         from the `setup` stage, defaults to `True`.
-    :type update: bool, optional
+    :vartype update: bool, optional
     """
+
     pipeline_fields: dict = Field(
         default = {
             'config': 'edd.models.StrainAnalysisConfig',
@@ -2531,6 +2556,15 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     @model_validator(mode='before')
     @classmethod
     def validate_strainanalysisprocessor_before(cls, data):
+        """Validate the `StrainAnalysisProcessor` class attributes.
+
+        :param data:
+            `Pydantic <https://github.com/pydantic/pydantic>`__
+            validator data object.
+        :type data: dict
+        :return: Currently validated class attributes.
+        :rtype: dict
+        """
         if isinstance(data, dict):
             detector_config = data.pop('detector_config', {})
             detector_config['processor_type'] = 'strainanalysis'
@@ -2540,12 +2574,14 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     @staticmethod
     def add_points(nxroot, points, logger=None):
         """Add or update the strain analysis for a set of map points 
-        in a `nexusformat.nexus.NXroot` object.
+        in a
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
-        :param nxroot: The strain analysis object to add/update the
+        :param nxroot: Strain analysis object to add/update the
             points to.
         :type nxroot: nexusformat.nexus.NXroot
-        :param points: The strain analysis results for a set of points.
+        :param points: Strain analysis results for a set of points.
         :type points: list[dict[str, object]
         """
         # Third party modules
@@ -2555,6 +2591,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             NXprocess,
         )
         # pylint: enable=no-name-in-module
+
+        # Local modules
+        from CHAP.common.map_utils import get_axes
 
         nxprocess = None
         for nxobject in nxroot.values():
@@ -2609,8 +2648,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
 
     def process(self, data):
         """Setup the strain analysis and/or return the strain analysis
-        results as a list of updated points or a
-        `nexusformat.nexus.NXroot` object.
+        results as a list of updated points or a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object.
 
         :param data: Input data containing configurations for a map,
             completed energy/tth calibration, and (optionally)
@@ -2618,18 +2658,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         :type data: list[PipelineData]
         :raises RuntimeError: Unable to get a valid strain analysis
             configuration.
-        :return: The strain analysis setup or results, a list of
+        :return: Strain analysis setup or results, a list of
             byte stream representions of Matplotlib figures and an
             animation of the fit results.
-        :rtype: Union[list[dict[str, object]],
-            nexusformat.nexus.NXroot], PipelineData, PipelineData
+        :rtype: list[dict[str, object]] or
+            nexusformat.nexus.NXroot, PipelineData, PipelineData
         """
-        # Third party modules
-        from nexusformat.nexus import (
-            NXentry,
-            NXroot,
-        )
-
         # Local modules
         from CHAP.utils.general import list_to_string
 
@@ -2646,19 +2680,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         self._animation = []
 
         # Load the pipeline input data
-        try:
-            nxobject = self.get_data(data)
-            if isinstance(nxobject, NXroot):
-                nxroot = nxobject
-            elif isinstance(nxobject, NXentry):
-                nxroot = NXroot()
-                nxroot[nxobject.nxname] = nxobject
-                nxobject.set_default()
-            else:
-                raise RuntimeError
-        except Exception as exc:
-            raise RuntimeError(
-                'No valid input in the pipeline data') from exc
+        nxroot = self.get_nxroot(self.get_data(data))
 
         # Load the detector data
         # FIX set rel_height_cutoff
@@ -2673,11 +2695,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         calibration_detector_config = self.get_data(
             data, schema='edd.models.MCATthCalibrationConfig')
         calibration_detectors = [
-            MCADetectorCalibration(**d) 
+            MCADetectorCalibration(**d)
             for d in calibration_detector_config.get('detectors', [])]
         calibration_detector_ids = [d.get_id() for d in calibration_detectors]
 
-        # Check for available raw detector data and for the available 
+        # Check for available raw detector data and for the available
         # calibration data
         if not self.detector_config.detectors:
             self.detector_config.detectors = [
@@ -2760,7 +2782,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             if points:
                 self.logger.info(f'Adding {len(points)} points')
                 self.add_points(nxroot, points, logger=self.logger)
-                self.logger.info(f'... done')
+                self.logger.info('... done')
             else:
                 self.logger.warning('Skip adding points')
             if not (self._figures or self._animation):
@@ -2894,6 +2916,9 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         from matplotlib import animation
         import matplotlib.pyplot as plt
 
+        # Local modules
+        from CHAP.common.map_utils import get_axes
+
         def animate(i):
             data = intensities[i]
             max_ = intensity_norms[i]
@@ -2972,16 +2997,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         plt.close()
 
     def _get_nxroot(self, nxentry, calibration_config):
-        """Return a `nexusformat.nexus.NXroot` object initialized for
-        the stress analysis.
+        """Return a NeXus style
+        `NXroot <https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot>`__
+        object initialized for the stress analysis.
 
         :param nxentry: Strain analysis map, including the raw
             MCA data.
         :type nxentry: nexusformat.nexus.NXentry
         :param calibration_config: 2&theta calibration configuration.
-        :type calibration_config:
-            CHAP.edd.models.MCATthCalibrationConfig
-        :return: Strain analysis results & associated metadata..
+        :type calibration_config: MCATthCalibrationConfig
+        :return: Strain analysis results and associated metadata.
         :rtype: nexusformat.nexus.NXroot
         """
         # Third party modules
@@ -3104,7 +3129,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         return nxroot
 
     def _linkdims(
-            self, nxgroup, nxdata_source, add_field_dims=None,
+            self, nxgroup, nxdata_source, *, add_field_dims=None,
             skip_field_dims=None, oversampling_axis=None):
         """Link the dimensions for a 'nexusformat.nexus.NXgroup`
         object.
@@ -3257,7 +3282,8 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 for _ in range(4):
                     for width, center in zip(widths, centers):
                         for n, loc in enumerate(peak_locations):
-                            # FIX Hardwired range now, use detector.centers_range?
+                            # FIX Hardwired range now,
+                            # use detector.centers_range?
                             if center-width*delta < loc < center+width*delta:
                                 use_peaks[n] = True
                                 # peak_heights[n] = height

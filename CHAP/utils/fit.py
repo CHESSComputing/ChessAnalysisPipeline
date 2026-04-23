@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : fit.py
-Author     : Rolf Verberg <rolfverberg AT gmail dot com>
-Description: General curve fitting module
-"""
+"""Generic curve fitting module."""
 
 # System modules
 from collections import Counter
@@ -65,21 +61,26 @@ height_factor = {
 
 class FitProcessor(Processor):
     """A processor to perform a fit on a data set or data map. """
+
     def process(self, data, config=None):
-        """Fit the data and return a CHAP.utils.fit.Fit or
-        CHAP.utils.fit.FitMap object depending on the dimensionality
-        of the input data. The input data should contain a NeXus NXdata 
-        object, with properly defined signal and axis.
+        """Fit the data and return a :class:`~CHAP.utils.fit.Fit` or
+        :class:`~CHAP.utils.fit.FitMap` object depending on the
+        dimensionality of the input data. The input data should be or
+        contain a NeXus style
+        `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__ 
+        object, with properly defined signal and axis, or a
+        :class:`~CHAP.utils.fit.Fit` or :class:`~CHAP.utils.fit.FitMap`
+        object from a previous fit.
 
         :param data: Input data containing the
             nexusformat.nexus.NXdata object to fit.
-        :type data: Union[list[PipelineData], CHAP.utils.fit.Fit,
-            CHAP.utils.fit.FitMap, nexusformat.nexus.NXdata]
+        :type data: list[PipelineData] or Fit or FitMap or
+            nexusformat.nexus.NXdata
         :param config: Fit configuration.
         :type config: dict, optional
         :raises ValueError: Invalid input or configuration parameter.
         :return: The fitted data object.
-        :rtype: Union[CHAP.utils.fit.Fit, CHAP.utils.fit.FitMap]
+        :rtype: Fit or FitMap
         """
         # Local modules
         from CHAP.utils.models import (
@@ -120,7 +121,7 @@ class FitProcessor(Processor):
             try:
                 nxdata = data.get_default()
                 assert nxdata is not None
-            except Exception as exc:
+            except (AssertionError, ValueError) as exc:
                 if nxdata is None or nxdata.nxclass != 'NXdata':
                     raise ValueError(
                         'Invalid default pathway to an NXdata '
@@ -162,7 +163,14 @@ class FitProcessor(Processor):
 
     @staticmethod
     def create_multipeak_model(model_config):
-        """Create a multipeak model."""
+        """Create a multipeak model.
+
+        :param model_config: A Multipeak fit model class.
+        :type model_config: :class:`~CHAP.utils.models.Multipeak`
+        :return: The fit parameters and fit model classes.
+        :rtype: list[:attr:`~CHAP.utils.models.FitParameter`],
+            list[:attr:`~CHAP.utils.models.FitConfig.models`]
+        """
         # Local modules
         from CHAP.utils.models import (
             FitParameter,
@@ -183,6 +191,7 @@ class FitProcessor(Processor):
                 or model_config.fwhm_max is not None):
             # Third party modules
             from asteval import Interpreter
+
             ast = Interpreter()
 
             if model_config.fwhm_min is not None:
@@ -241,7 +250,15 @@ class FitProcessor(Processor):
 
 class Component():
     """A model fit component."""
+
     def __init__(self, model, prefix=''):
+        """Initialize Component.
+
+        :param model: A fit model class.
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        """
         # Local modules
         from CHAP.utils.models import models
 
@@ -253,7 +270,9 @@ class Component():
 
 class Components(dict):
     """The dictionary of model fit components."""
+
     def __init__(self):
+        """Initialize Components."""
         super().__init__(self)
 
     def __setitem__(self, key, value):
@@ -266,11 +285,20 @@ class Components(dict):
 
     @property
     def components(self):
-        """Return the model fit component dictionary."""
+        """Return the model fit components.
+
+        :type: list[:attr:`~CHAP.utils.models.FitConfig.models`]
+        """
         return self.values()
 
     def add(self, model, prefix=''):
-        """Add a model to the model fit component dictionary."""
+        """Add a model to the model fit components dictionary.
+
+        :param model: A fit model class.
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
+        :param prefix: Model prefix.
+        :type prefix: str, optional
+        """
         # Local modules
         from CHAP.utils.models import model_classes
 
@@ -284,9 +312,12 @@ class Components(dict):
 
 class Parameters(dict):
     """A dictionary of FitParameter objects, mimicking the
-    functionality of a similarly named class in the lmfit library.
+    functionality of a similarly named
+    `class in the lmfit library <https://lmfit.github.io/lmfit-py/parameters.html#lmfit.parameter.Parameters>`__.
     """
+
     def __init__(self):
+        """Initialize Parameters."""
         super().__init__(self)
 
     def __setitem__(self, key, value):
@@ -306,9 +337,9 @@ class Parameters(dict):
         """Add a fit parameter.
 
         :param parameter: The fit parameter to add to the dictionary.
-        :type parameter: Union[str, FitParameter]
-        :param prefix: The prefix for the model to which this
-             parameter belongs, defaults to `''`.
+        :type parameter: str or FitParameter
+        :param prefix: Prefix of the model to which this parameter
+            belongs, defaults to `''`.
         :type prefix: str, optional
         """
         # Local modules
@@ -328,12 +359,39 @@ class Parameters(dict):
 
 class ModelResult():
     """The result of a model fit, mimicking the functionality of a
-    similarly named class in the lmfit library.
+    similarly named
+    `class in the lmfit library <https://lmfit.github.io/lmfit-py/model.html#lmfit.model.ModelResult>`__.
     """
+
     def __init__(
             self, model, parameters, x=None, y=None, method=None, ast=None,
             res_par_exprs=None, res_par_indices=None, res_par_names=None,
             result=None):
+        """Initialize SetNumexprThreads.
+
+        :param model: Fit model.
+        :type model: Components or lmfit.model.Model
+        :param parameters: Fit parameters.
+        :type parameters: Parameters or lmfit.parameter.Parameter
+        :param x: x-coordinates.
+        :type x: array-like, optional
+        :param y: y-coordinates.
+        :type y: array-like, optional
+        :param method: Minimization method name.
+        :type method: str, optional
+        :param ast:
+            `Asteval <https://lmfit.github.io/asteval/>`
+            `Interpreter <https://lmfit.github.io/asteval/api.html#the-interpreter-class>`__.
+        :type ast: asteval.Interpreter, optional
+        :param res_par_exprs: The expression parameter expressions.
+        :type res_par_exprs: list[dict], optional
+        :param res_par_indices: The parameter indices of all free fit
+            parameters in the list of fit parameters.
+        :type res_par_indices: list[int], optional
+        :param res_par_names: The parameter names of all free fit
+            parameters in the list of fit parameters.
+        :type res_par_names: list[str], optional
+        """
         self.components = model.components
         self.params = deepcopy(parameters)
         if x is None:
@@ -393,6 +451,7 @@ class ModelResult():
         if res_par_exprs:
             # Third party modules
             from sympy import diff
+
             for value, name in zip(best_pars, res_par_names):
                 self._ast.symtable[name] = value
             for par_expr in res_par_exprs:
@@ -423,11 +482,12 @@ class ModelResult():
 
         :param x: Independent variable, defaults to `None`, in which 
             case the class variable x is used.
-        :type x: Union[list, np.ndarray], optional
+        :type x: array-like, optional
         :param parameters: Composite model parameters, defaults to
-            None, in which case the class variable params is used.
-        :type parameters: Parameters, optional
-        :return: A dictionary with component name and evealuated
+            `None`, in which case the class variable params is used.
+        :type parameters: Parameters or lmfit.parameter.Parameter,
+            optional
+        :return: A dictionary with component name and evaluated
             function values key, value pairs.
         :rtype: dict
         """
@@ -515,11 +575,18 @@ class ModelResult():
 
 
 class Fit:
-    """
-    Wrapper class for scipy/lmfit.
-    """
+    """Wrapper class for scipy/lmfit."""
+
     def __init__(self, nxdata, config, logger):
-        """Initialize Fit."""
+        """Initialize Fit.
+
+        :param nxdata: The input data.
+        :type nxdata: nexusformat.nexus.NXdata
+        :param config: Fit configuration.
+        :type config: CHAP.utils.models.FitConfig, optional
+        :param logger: A python Logger object.
+        :type logger: logging.Logger
+        """
         self._code = config.code
         for model in config.models:
             if model.model == 'expression' and self._code != 'lmfit':
@@ -604,7 +671,10 @@ class Fit:
 
     @property
     def best_errors(self):
-        """Return errors in the best fit parameters."""
+        """Return errors in the best fit parameters.
+
+        :type: dict
+        """
         if self._result is None:
             return None
         return {name:self._result.params[name].stderr
@@ -613,14 +683,20 @@ class Fit:
 
     @property
     def best_fit(self):
-        """Return the best fit."""
+        """Return the best fit.
+
+        :type: numpy.ndarray
+        """
         if self._result is None:
             return None
         return self._result.best_fit
 
     @property
     def best_parameters(self):
-        """Return the best fit parameters."""
+        """Return the best fit parameters.
+
+        :type: dict
+        """
         if self._result is None:
             return None
         parameters = {}
@@ -639,7 +715,10 @@ class Fit:
 
     @property
     def best_values(self):
-        """Return values of the best fit parameters."""
+        """Return values for the best fit parameters.
+
+        :type: dict
+        """
         if self._result is None:
             return None
         return {name:self._result.params[name].value
@@ -648,7 +727,10 @@ class Fit:
 
     @property
     def best_vary(self):
-        """Return vary parameter for the best fit parameters."""
+        """Return vary parameters for the best fit parameters.
+
+        :type: dict
+        """
         if self._result is None:
             return None
         return {name:self._result.params[name].vary
@@ -657,14 +739,20 @@ class Fit:
 
     @property
     def chisqr(self):
-        """Return the chisqr value of the best fit."""
+        """Return chisqr values for the best fit parameters.
+
+        :type: numpy.ndarray
+        """
         if self._result is None:
             return None
         return self._result.chisqr
 
     @property
     def components(self):
-        """Return the fit model components info."""
+        """Return fit model components info.
+
+        :type: dict
+        """
         # Third party modules
         from lmfit.models import ExpressionModel
 
@@ -712,14 +800,20 @@ class Fit:
 
     @property
     def covar(self):
-        """Return the covarience matrix of the best fit parameters."""
+        """Return the covarience matrix for the best fit parameters.
+
+        :type: numpy.ndarray
+        """
         if self._result is None:
             return None
         return self._result.covar
 
     @property
     def init_parameters(self):
-        """Return the initial parameters for the fit model."""
+        """Return the initial parameters for the fit model.
+
+        :type: dict
+        """
         if self._result is None or self._result.init_params is None:
             return None
         parameters = {}
@@ -737,7 +831,10 @@ class Fit:
 
     @property
     def init_values(self):
-        """Return the initial values for the fit parameters."""
+        """Return the initial values for the fit parameters.
+
+        :type: dict
+        """
         if self._result is None or self._result.init_params is None:
             return None
         return {name:self._result.init_params[name].value
@@ -746,7 +843,10 @@ class Fit:
 
     @property
     def normalization_offset(self):
-        """Return the normalization_offset for the fit model."""
+        """Return the `normalization_offset` value for the fit model.
+
+        :type: float
+        """
         if self._result is None:
             return None
         if self._norm is None:
@@ -762,6 +862,8 @@ class Fit:
     @property
     def num_func_eval(self):
         """Return the number of function evaluations for the best fit.
+
+        :type: int
         """
         if self._result is None:
             return None
@@ -769,21 +871,30 @@ class Fit:
 
     @property
     def parameters(self):
-        """Return the fit parameter info."""
+        """Return the fit parameters info.
+
+        :type: dict
+        """
         return {name:{'min': par.min, 'max': par.max, 'vary': par.vary,
                 'expr': par.expr} for name, par in self._parameters.items()
                 if name != 'tmp_normalization_offset_c'}
 
     @property
     def redchi(self):
-        """Return the redchi value of the best fit."""
+        """Return redchi for the best fit.
+
+        :type: dict
+        """
         if self._result is None:
             return None
         return self._result.redchi
 
     @property
     def residual(self):
-        """Return the residual in the best fit."""
+        """Return the residual in the best fit.
+
+        :type: numpy.ndarray
+        """
         if self._result is None:
             return None
         # lmfit return the negative of the residual in its common
@@ -792,7 +903,10 @@ class Fit:
 
     @property
     def success(self):
-        """Return the success value for the fit."""
+        """Return the success value for the fit.
+
+        :type: bool
+        """
         if self._result is None:
             return None
         if not self._result.success:
@@ -807,6 +921,8 @@ class Fit:
     def var_names(self):
         """Return the variable names for the covarience matrix
         property.
+
+        :type: list[str]
         """
         if self._result is None:
             return None
@@ -814,23 +930,41 @@ class Fit:
 
     @property
     def x(self):
-        """Return the input x-array."""
+        """Return the input x-coordinates.
+
+        :type: numpy.ndarray
+        """
         return self._x
 
     @property
     def y(self):
-        """Return the input y-array."""
+        """Return the input y-coordinates.
+
+        :type: numpy.ndarray
+        """
         return self._y
 
     def print_fit_report(self, result=None, show_correl=False):
-        """Print a fit report."""
+        """Print a fit report.
+
+        :param result: Model result, defaults to the `self._result`
+            class attribute.
+        :type result: ModelResult or lmfit.model.ModelResult, optional
+        :param show_correl: Whether to show list of correlations,
+            defaults to `False`.
+        :type show_correl: bool, optional
+        """
         if result is None:
             result = self._result
         if result is not None:
             print(result.fit_report(show_correl=show_correl))
 
     def add_parameter(self, parameter):
-        """Add a fit parameter to the fit model."""
+        """Add a fit parameter to the fit model.
+
+        :param parameter: A new parameter to be added to the fit model.
+        :type parameter: FitParameter
+        """
         # Local modules
         from CHAP.utils.models import FitParameter
 
@@ -853,7 +987,13 @@ class Fit:
         self._free_parameters.append(name)
 
     def add_model(self, model, prefix):
-        """Add a model component to the fit model."""
+        """Add a model component to the fit model.
+
+        :param model: A fit model class.
+        :type model: :attr:`~CHAP.utils.models.FitConfig.models`
+        :param prefix: Model prefix.
+        :type prefix: str
+        """
         # pylint: disable=possibly-used-before-assignment
         if self._code == 'lmfit':
             from lmfit.models import (
@@ -994,6 +1134,7 @@ class Fit:
                 Interpreter,
                 get_ast_names,
             )
+
             for par in parameters:
                 if par.expr is not None:
                     raise KeyError(
@@ -1037,6 +1178,7 @@ class Fit:
         if self._code == 'lmfit' and isinstance(newmodel, ExpressionModel):
             # Third party modules
             from sympy import diff
+
             for name in newmodel.param_names:
                 if not diff(newmodel.expr, name, name):
                     if name not in self._linear_parameters:
@@ -1097,7 +1239,14 @@ class Fit:
                     value=None, min=-np.inf, max=np.inf, expr=parameter.expr)
 
     def eval(self, x, result=None):
-        """Evaluate the best fit."""
+        """Evaluate the best fit.
+
+        :param x: x-coordinates.
+        :type x: array-like, optional
+        :param result: Model result, defaults to the `self._result`
+            class attribute.
+        :type result: ModelResult or lmfit.model.ModelResult, optional
+        """
         if result is None:
             result = self._result
         if result is None:
@@ -1105,8 +1254,14 @@ class Fit:
         return result.eval(x=np.asarray(x))-self.normalization_offset
 
     def fit(self, config=None, **kwargs):
-        """Fit the model to the input data."""
+        """Fit the model to the input data.
 
+        :param config: Fit configuration.
+        :type config: CHAP.utils.models.FitConfig, optional
+        :param kwargs: Additional key, value pairs to pass on directly
+            to the core fit routine.
+        :type kwargs: dict
+        """
         # Check input parameters
         if self._model is None:
             self._logger.error('Undefined fit model')
@@ -1177,10 +1332,37 @@ class Fit:
         return None
 
     def plot(
-            self, y=None, y_title=None, title=None, result=None,
+            self, y=None, *, y_title=None, title=None, result=None,
             skip_init=False, plot_comp=True, plot_comp_legends=False,
             plot_residual=False, plot_masked_data=True, **kwargs):
-        """Plot the best fit."""
+        """Plot the best fit.
+
+        :param y: y-coordinates.
+        :type y: array-like, optional
+        :param y_title: y-axis label.
+        :type y_title: str, optional
+        :param title: Graph title.
+        :type title: str, optional
+        :param result: Model result, defaults to the `self._result`
+            class attribute.
+        :type result: ModelResult or lmfit.model.ModelResult, optional
+        :param skip_init: Skip plotting the initial guess, defaults
+            to `False`.
+        :type skip_init: bool, optional
+        :param plot_comp: Plot the individual model components,
+            defaults to `True`.
+        :type plot_comp: bool, optional
+        :param plot_comp_legends: Add a legend for the individual
+            model components, defaults to `False`.
+        :type plot_comp_legends: bool, optional
+        :param plot_residual: Plot the residual, defaults to `False`.
+        :type plot_residual: bool, optional
+        :param plot_masked_data:
+        :type plot_masked_data: bool, optional
+        :param kwargs: Additional key, value pairs to pass on directly
+            to the Matplotlib plot function.
+        :type kwargs: dict
+        """
         if result is None:
             result = self._result
         if result is None:
@@ -1473,7 +1655,9 @@ class Fit:
 
         # Add constant offset for a normalized model
         if self._result is None and self._norm is not None and self._norm[0]:
+            # Local modules
             from CHAP.utils.models import Constant
+
             model = Constant(
                 model='constant',
                 parameters=[{
@@ -1989,35 +2173,35 @@ class Fit:
             self._result.best_fit*self._norm[1] + self._norm[0])
         for name, par in self._result.params.items():
             if name in self._linear_parameters:
-                    # FIX not quite safe if fraction occurs in non pvoigt
-                    if 'fraction' in name:
-                        if self._code == 'scipy':
-                            if par.stderr is not None:
-                                setattr(par, '_stderr', par.stderr)
-                            if par.expr is None and par.init_value is not None:
-                                setattr(par, '_init_value',par.init_value)
-                    else:
+                # FIX not quite safe if fraction occurs in non pvoigt
+                if 'fraction' in name:
+                    if self._code == 'scipy':
                         if par.stderr is not None:
+                            setattr(par, '_stderr', par.stderr)
+                        if par.expr is None and par.init_value is not None:
+                            setattr(par, '_init_value',par.init_value)
+                else:
+                    if par.stderr is not None:
+                        if self._code == 'scipy':
+                            setattr(
+                                par, '_stderr', par.stderr*self._norm[1])
+                        else:
+                            par.stderr *= self._norm[1]
+                    if par.expr is None:
+                        value = par.value*self._norm[1]
+                        if par.init_value is not None:
                             if self._code == 'scipy':
-                                setattr(
-                                    par, '_stderr', par.stderr*self._norm[1])
+                                setattr(par, '_init_value',
+                                        par.init_value*self._norm[1])
                             else:
-                                par.stderr *= self._norm[1]
-                        if par.expr is None:
-                            value = par.value*self._norm[1]
-                            if par.init_value is not None:
-                                if self._code == 'scipy':
-                                    setattr(par, '_init_value',
-                                            par.init_value*self._norm[1])
-                                else:
-                                    par.init_value *= self._norm[1]
-                            _min = par.min
-                            _max = par.max
-                            if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
-                                _min *= self._norm[1]
-                            if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
-                                _max *= self._norm[1]
-                            par.set(value=value, min=_min, max=_max)
+                                par.init_value *= self._norm[1]
+                        _min = par.min
+                        _max = par.max
+                        if not np.isinf(_min) and abs(_min) != FLOAT_MIN:
+                            _min *= self._norm[1]
+                        if not np.isinf(_max) and abs(_max) != FLOAT_MIN:
+                            _max *= self._norm[1]
+                        par.set(value=value, min=_min, max=_max)
         if hasattr(self._result, 'init_fit'):
             self._result.init_fit = (
                 self._result.init_fit*self._norm[1] + self._norm[0])
@@ -2128,8 +2312,17 @@ class Fit:
 
 class FitMap(Fit):
     """Wrapper to the Fit class to fit data on a N-dimensional map."""
+
     def __init__(self, nxdata, config, logger):
-        """Initialize FitMap."""
+        """Initialize FitMap.
+
+        :param nxdata: The input data.
+        :type nxdata: nexusformat.nexus.NXdata
+        :param config: Fit configuration.
+        :type config: CHAP.utils.models.FitConfig, optional
+        :param logger: A python Logger object.
+        :type logger: logging.Logger
+        """
         super().__init__(None, config, logger)
         self._best_errors = None
         self._best_fit = None
@@ -2203,32 +2396,50 @@ class FitMap(Fit):
 
     @property
     def best_errors(self):
-        """Return errors in the best fit parameters."""
+        """Return errors in the best fit parameters.
+
+        :type: numpy.ndarray
+        """
         return self._best_errors
 
     @property
     def best_fit(self):
-        """Return the best fits."""
+        """Return the best fits.
+
+        :type: numpy.ndarray
+        """
         return self._best_fit
 
     @property
     def best_values(self):
-        """Return values of the best fit parameters."""
+        """Return values for the best fit parameters.
+
+        :type: numpy.ndarray
+        """
         return self._best_values
 
     @property
     def best_vary(self):
-        """Return values of the best fit parameters."""
+        """Return vary parameters for the best fit parameters.
+
+        :type: numpy.ndarray
+        """
         return self._best_vary
 
     @property
     def chisqr(self):
-        """Return the chisqr value of each best fit."""
+        """Return the chisqr value for each best fit.
+
+        :type: numpy.ndarray
+        """
         self._logger.warning('Undefined property chisqr')
 
     @property
     def components(self):
-        """Return the fit model components info."""
+        """Return the fit model components info.
+
+        :type: dict
+        """
         # Third party modules
         from lmfit.models import ExpressionModel
 
@@ -2276,7 +2487,9 @@ class FitMap(Fit):
 
     @property
     def covar(self):
-        """Return the covarience matrices of the best fit parameters.
+        """Return the covarience matrices for the best fit parameters.
+
+        :type: numpy.ndarray
         """
         self._logger.warning('Undefined property covar')
 
@@ -2284,28 +2497,41 @@ class FitMap(Fit):
     def max_nfev(self):
         """Return if the maximum number of function evaluations is
         reached for each fit.
+
+        :type: numpy.ndarray
         """
         return self._max_nfev
 
     @property
     def num_func_eval(self):
         """Return the number of function evaluations for each best fit.
+
+        :type: numpy.ndarray
         """
         return self._num_func_eval
 
     @property
     def out_of_bounds(self):
-        """Return the out_of_bounds value of each best fit."""
+        """Return the out_of_bounds flag values for each best fit.
+
+        :type: numpy.ndarray
+        """
         return self._out_of_bounds
 
     @property
     def redchi(self):
-        """Return the redchi value of each best fit."""
+        """Return the redchi value for each best fit.
+
+        :type: numpy.ndarray
+        """
         return self._redchi
 
     @property
     def residual(self):
-        """Return the residual in each best fit."""
+        """Return the residual in each best fit.
+
+        :type: numpy.ndarray
+        """
         if self.best_fit is None:
             return None
         if self._mask is None:
@@ -2322,28 +2548,47 @@ class FitMap(Fit):
 
     @property
     def success(self):
-        """Return the success value for each fit."""
+        """Return the success value for each fit.
+
+        :type: bool
+        """
         return self._success
 
     @property
     def var_names(self):
         """Return the variable names for the covarience matrix
         property.
+
+        :type: list[str]
         """
         self._logger.warning('Undefined property var_names')
 
     @property
     def y(self):
-        """Return the input y-array."""
+        """Return the input y-coordinates.
+
+        :type: numpy.ndarray
+        """
         self._logger.warning('Undefined property y')
 
     @property
     def ymap(self):
-        """Return the input y-array map."""
+        """Return the input y-coordinates map.
+
+        :type: numpy.ndarray
+        """
         return self._ymap
 
     def best_parameters(self, dims=None):
-        """Return the best fit parameters."""
+        """Return the best fit parameters.
+
+        :param dims: Map indices of the best fit parameters to return,
+            defaults to `None` which will return the list of the best
+            parameter names in the correct order for the results.
+        :type dims: list or tuple, optional
+        :return: Best fit parameters.
+        :rtype: list[str] or dict
+        """
         if dims is None:
             return self._best_parameters
         if (not isinstance(dims, (list, tuple))
@@ -2384,9 +2629,26 @@ class FitMap(Fit):
             self._logger.warning('Could not clean-up automatically.')
 
     def plot(
-            self, dims=None, y_title=None, plot_residual=False,
-            plot_comp_legends=False, plot_masked_data=True, **kwargs):
-        """Plot the best fits."""
+            self, dims=None, *, y_title=None, plot_comp_legends=False,
+            plot_residual=False, plot_masked_data=True, **kwargs):
+        """Plot the best fits.
+
+        :param dims: Map indices of the data point to plot,
+            defaults to `None` which will plot the first data point.
+        :type dims: list or tuple, optional
+        :param y_title: y-axis label.
+        :type y_title: str, optional
+        :param plot_comp_legends: Add a legend for the individual
+            model components, defaults to `False`.
+        :type plot_comp_legends: bool, optional
+        :param plot_residual: Plot the residual, defaults to `False`.
+        :type plot_residual: bool, optional
+        :param plot_masked_data:
+        :type plot_masked_data: bool, optional
+        :param kwargs: Additional key, value pairs to pass on directly
+            to the Matplotlib plot function.
+        :type kwargs: dict
+        """
         # Third party modules
         from lmfit.models import ExpressionModel
 
@@ -2454,7 +2716,14 @@ class FitMap(Fit):
             tuple(plots), legend=legend, title=str(dims), block=True, **kwargs)
 
     def fit(self, config=None, **kwargs):
-        """Fit the model to the input data."""
+        """Fit the model to the input data.
+
+        :param config: Fit configuration.
+        :type config: CHAP.utils.models.FitConfig, optional
+        :param kwargs: Additional key, value pairs to pass on directly
+            to the core fit routine.
+        :type kwargs: dict
+        """
         # Check input parameters
         if self._model is None:
             self._logger.error('Undefined fit model')
@@ -2808,10 +3077,12 @@ class FitMap(Fit):
                     and y_max < self._rel_height_cutoff)):
             self._logger.debug(f'Skipping fit {n} (rel norm = {y_max:.5f})')
             if self._code == 'scipy':
+                # Local modules
                 from CHAP.utils.fit import ModelResult
 
                 result = ModelResult(self._model, deepcopy(self._parameters))
             else:
+                # Third party modules
                 from lmfit.model import ModelResult
 
                 result = ModelResult(self._model, deepcopy(self._parameters))
@@ -2824,12 +3095,6 @@ class FitMap(Fit):
         result = self._fit_with_bounds_check(n, current_best_values, **kwargs)
 
         if self._rel_height_cutoff is not None:
-            # Third party modules
-            from lmfit.models import (
-                GaussianModel,
-                LorentzianModel,
-            )
-
             # Check for low heights peaks and refit without them
             heights = []
             names = []
