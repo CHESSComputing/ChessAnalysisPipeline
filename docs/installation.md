@@ -27,16 +27,6 @@ $ conda install -c conda-forge chessanalysispipeline
    ```bash
    $ cd ChessAnalysisPipeline
    ```
-1. Set a valid version number. In `setup.py`, replace:
-   ```{literalinclude} /../setup.py
-   :language: python
-   :start-after: '[set version]'
-   :end-before: '[version set]'
-   ```
-   with (pick the appropriate version string):
-   ```python
-   version = 'v1.1'
-   ```
 1. Make sure that your Python version is at least 3.10. To check your Python version, execute:
    ```bash
    $ python --version
