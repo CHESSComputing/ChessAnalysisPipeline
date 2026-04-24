@@ -8,30 +8,27 @@ from os import path
 
 # Third party modules
 import numpy as np
+from hexrd import material
+from hexrd.valunits import valWUnit
+HAVE_XU = False
+HAVE_HEXRD = True
 #try:
 #    from xrayutilities import materials
 #    from xrayutilities import simpack
 #    HAVE_XU = True
 #except ImportError:
 #    HAVE_XU = False
-HAVE_XU = False
 #try:
 #    from hexrd import material
 #    HAVE_HEXRD = True
 #except ImportError:
 #    HAVE_HEXRD = False
-from hexrd import material
-HAVE_HEXRD = True
-if HAVE_HEXRD:
-    try:
-        from hexrd.valunits import valWUnit
-    except ImportError:
-        raise
-        HAVE_HEXRD = False
-#from xrayutilities import materials
-#from xrayutilities import simpack
-#HAVE_XU = True
-#HAVE_HEXRD = False
+#if HAVE_HEXRD:
+#    try:
+#        from hexrd.valunits import valWUnit
+#    except ImportError:
+#        raise
+#        HAVE_HEXRD = False
 
 POWDER_INTENSITY_CUTOFF = 1.e-8
 
@@ -131,7 +128,7 @@ class Material:
     def add_material(
             self, material_name, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
-            dmin_angstroms=0.6):
+            dmin_angstroms=0.35):
         """Add a material to the internal list of materials.
 
         :param material_name: Material name.
@@ -148,7 +145,7 @@ class Material:
         :param pos: Wyckoff atom positions in the unit cell.
         :type pos: list, optional
         :param dmin_angstroms: Minimum lattice spacing in angstrom,
-            defaults to `0.6`.
+            defaults to `0.35`.
         :type dmin_angstroms: float, optional
         """
         # At this point only for a single material
@@ -234,7 +231,7 @@ class Material:
     def make_material(
             material_name, material_file=None, sgnum=None,
             lattice_parameters_angstroms=None, atoms=None, pos=None,
-            dmin_angstroms=0.6):
+            dmin_angstroms=0.35):
         """Use `HeXRD <https://github.com/HEXRD/hexrd>`__ to get
         material properties when a materials file is provided. Use
         `xrayutilities <https://github.com/dkriegner/xrayutilities>`__
@@ -254,7 +251,7 @@ class Material:
         :param pos: Wyckoff atom positions in the unit cell.
         :type pos: list, optional
         :param dmin_angstroms: Minimum lattice spacing in angstrom,
-            defaults to `0.6`.
+            defaults to `0.35`.
         :type dmin_angstroms: float, optional
         :return: Material properties.
         :rtype: hexrd.material.Material or
@@ -271,6 +268,7 @@ class Material:
                 logger.warning(
                     'Overwrite lattice_parameters of material_file with input '
                     f'values ({lattice_parameters_angstroms})')
+                raise NotImplementedError('material_file needs testing')
             if isinstance(lattice_parameters_angstroms, (int, float)):
                 lattice_parameters = [lattice_parameters_angstroms]
             elif isinstance(
@@ -281,6 +279,21 @@ class Material:
                     'Illegal lattice_parameters_angstroms: '
                     f'{lattice_parameters_angstroms} '
                     f'{type(lattice_parameters_angstroms)}')
+
+        # FIX use "old" method for now (moved from CHAP/edd/utils.py)
+        # Do not instantial with material name, it is ignored when you
+        # do not also provide a material file
+        matl = material.Material()
+        matl.name = material_name
+        matl.sgnum = sgnum
+        if isinstance(lattice_parameters, float):
+            lattice_parameters = [lattice_parameters]
+        matl.latticeParameters = lattice_parameters
+        matl.dmin = valWUnit('lp', 'length',  dmin_angstroms, 'angstrom')
+        nhkls = len(matl.planeData.exclusions)
+        matl.planeData.set_exclusions(np.zeros(nhkls, dtype=bool))
+        return matl
+
         if material_file is None:
             if pos is not None:
                 raise NotImplementedError(f'pos {type(pos)}: {pos}')
@@ -292,24 +305,23 @@ class Material:
                     'Valid inputs for sgnum, lattice_parameters_angstroms and '
                     'pos are required if materials file is not specified'
                     f' {sgnum} {lattice_parameters_angstroms} {pos}')
-            #if isinstance(pos, str):
-            #    pos = [pos]
-            #use_xu = True
-            #if (np.array(pos).ndim == 1 and isinstance(pos[0], (int, float))
-            #        and np.array(pos).size == 3):
-            #    if HAVE_HEXRD:
-            #        pos = np.array([pos])
-            #        use_xu = False
-            #elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0
-            #        and np.array(pos).shape[1] == 3):
-            #    if HAVE_HEXRD:
-            #        pos = np.array(pos)
-            #        use_xu = False
-            #elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str)
-            #          and np.array(pos).size > 0 and HAVE_XU):
-            #    raise ValueError(
-            #        f'Illegal pos (HAVE_XU = {HAVE_XU}): {pos} {type(pos)}')
-            use_xu = False
+            if isinstance(pos, str):
+                pos = [pos]
+            use_xu = True
+            if (np.array(pos).ndim == 1 and isinstance(pos[0], (int, float))
+                    and np.array(pos).size == 3):
+                if HAVE_HEXRD:
+                    pos = np.array([pos])
+                    use_xu = False
+            elif (np.array(pos).ndim == 2 and np.array(pos).shape[0] > 0
+                    and np.array(pos).shape[1] == 3):
+                if HAVE_HEXRD:
+                    pos = np.array(pos)
+                    use_xu = False
+            elif not (np.array(pos).ndim == 1 and isinstance(pos[0], str)
+                      and np.array(pos).size > 0 and HAVE_XU):
+                raise ValueError(
+                    f'Illegal pos (HAVE_XU = {HAVE_XU}): {pos} {type(pos)}')
             if use_xu:
                 if atoms is None:
                     atoms = [material_name]
@@ -318,7 +330,10 @@ class Material:
                     materials.SGLattice(sgnum, *lattice_parameters,
                                         atoms=atoms, pos=list(np.array(pos))))
             else:
-                matl = material.Material(material_name)
+                # Do not instantial with material name, it is ignored
+                # when you do not also provide a material file
+                matl = material.Material()
+                matl.name = material_name
                 matl.sgnum = sgnum
                 #matl.atominfo = np.vstack((pos.T, np.ones(pos.shape[0]))).T
                 matl.latticeParameters = lattice_parameters

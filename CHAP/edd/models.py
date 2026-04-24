@@ -13,8 +13,8 @@ from typing import (
 
 # Third party modules
 import numpy as np
-from hexrd.material import Material
-#from CHAP.utils.material import Material
+#from hexrd.material import Material
+from CHAP.utils.material import Material
 from pydantic import (
     Field,
     FilePath,
@@ -218,10 +218,6 @@ class MaterialConfig(CHAPBaseModel):
         :return: Validated configuration class.
         :rtype: MaterialConfig
         """
-        # Local modules
-#        from CHAP.edd.utils import make_material
-        from CHAP.utils.material import Material
-
 #        self._material = make_material(
 #            self.material_name, self.sgnum, self.lattice_parameters, self.dmin)
         self._material = Material.make_material(
