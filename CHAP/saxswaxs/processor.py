@@ -23,7 +23,7 @@ import numpy as np
 
 # Local modules
 from CHAP import Processor
-from CHAP.common import ExpressionProcessor
+from CHAP.common.processor import ExpressionProcessor
 from CHAP.common.models.map import (
     Detector,
     MapConfig,
@@ -243,7 +243,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
         :rtype: Any
         """
         if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = self._process(
+            presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
@@ -278,7 +278,7 @@ class FluxCorrectionProcessor(ExpressionProcessor):
             'intensity *'
             '(presample_intensity_reference_rate / presample_intensity)'
         )
-        return self._process(
+        return super().process(
             data, expression, symtable=symtable, nxprocess=nxprocess,
             nxfieldtable={}
         )
@@ -319,12 +319,12 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
         )
 
         if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = self._process(
+            presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        tt = self._process(
+        tt = super().process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
@@ -356,7 +356,7 @@ class FluxAbsorptionCorrectionProcessor(ExpressionProcessor):
             '* intensity'
             '* (presample_intensity_reference_rate / presample_intensity)'
         )
-        return self._process(
+        return super().process(
             data, expression, symtable=symtable, nxprocess=nxprocess,
             nxfieldtable={}
         )
@@ -417,12 +417,12 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
         )
 
         if presample_intensity_reference_rate is None:
-            presample_intensity_reference_rate = self._process(
+            presample_intensity_reference_rate = super().process(
                 data,
                 'np.nanmean(presample_intensity / dwell_time_actual)'
             )
 
-        tt = self._process(
+        tt = super().process(
             data,
             ('np.divide(postsample_intensity, presample_intensity) '
              '/ np.average('
@@ -477,7 +477,7 @@ class FluxAbsorptionBackgroundCorrectionProcessor(ExpressionProcessor):
             '* (presample_intensity_reference_rate / np.average(background_presample_intensity))'
             ')'
         )
-        return self._process(
+        return super().process(
             data, expression, symtable=symtable, nxprocess=nxprocess,
             nxfieldtable={}
         )

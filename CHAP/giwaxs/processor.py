@@ -75,6 +75,7 @@ class GiwaxsConversionProcessor(Processor):
             NXprocess,
             nxsetconfig,
         )
+        from nexusformat.nexus.tree import NeXusError
         from pyFAI.gui.utils.units import Unit
 
         # Local modules
@@ -143,7 +144,7 @@ class GiwaxsConversionProcessor(Processor):
                     self.logger.debug(
                         f'mask shape for {ai.get_id()}: {mask.shape}')
                     masks[ai.get_id()] = mask
-            except (IOError, OSError, ValueError):
+            except (IOError, OSError, TypeError, ValueError):
                 self.logger.debug(f'No mask file found for {ai.get_id()}')
         if not masks:
             masks = None
@@ -156,7 +157,7 @@ class GiwaxsConversionProcessor(Processor):
             nxprocess = NXprocess()
             try:
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
-            except ValueError:
+            except (NeXusError, ValueError):
                 # Copy nxroot if nxroot is read as read-only
                 nxroot = nxcopy(nxroot)
                 nxroot[f'{nxroot.default}_{integration.name}'] = nxprocess
