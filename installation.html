@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=f9d40b2e"></script>
+      <script src="_static/documentation_options.js?v=2a8426e0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -58,6 +58,7 @@
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
 </ul>
@@ -93,33 +94,124 @@
 <span id="id1"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
 <section id="using-pip">
 <h2>Using <code class="docutils literal notranslate"><span class="pre">pip</span></code><a class="headerlink" href="#using-pip" title="Link to this heading"></a></h2>
-<p>CHAP is available over PyPI and can be installed with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>ChessAnalysisPipeline
+<p><code class="docutils literal notranslate"><span class="pre">CHAP</span></code> is available over PyPI and can be installed with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>ChessAnalysisPipeline
 </pre></div>
 </div>
 </section>
 <section id="using-conda">
 <h2>Using <code class="docutils literal notranslate"><span class="pre">conda</span></code><a class="headerlink" href="#using-conda" title="Link to this heading"></a></h2>
-<p>CHAP is also available over conda-forge, allowing installation with, e.g.:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>chessanalysispipeline
+<p><code class="docutils literal notranslate"><span class="pre">CHAP</span></code> is also available over conda-forge, allowing installation with, e.g.:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>chessanalysispipeline
 </pre></div>
 </div>
 </section>
-<section id="from-source">
-<h2>From source<a class="headerlink" href="#from-source" title="Link to this heading"></a></h2>
+<section id="installing-chap-from-source-on-a-linux-system">
+<h2>Installing CHAP from source on a Linux system<a class="headerlink" href="#installing-chap-from-source-on-a-linux-system" title="Link to this heading"></a></h2>
+<section id="using-a-python-virtual-environment">
+<span id="virtual-env-installation"></span><h3>Using a Python virtual environment<a class="headerlink" href="#using-a-python-virtual-environment" title="Link to this heading"></a></h3>
 <ol class="arabic">
-<li><p>Clone the CHAP repository:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/CHESSComputing/ChessAnalysisPipeline.git
+<li><p>Clone the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/CHESSComputing/ChessAnalysisPipeline.git
 </pre></div>
 </div>
 </li>
-<li><p>Change to the CHAP repository directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>ChessAnalysisPipeline
+<li><p>Change to the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>ChessAnalysisPipeline
+</pre></div>
+</div>
+</li>
+<li><p>Make sure that your Python version is at least 3.10. To check your Python version, execute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python<span class="w"> </span>--version
+</pre></div>
+</div>
+</li>
+<li><p>Create the <a class="reference external" href="https://docs.python.org/3/library/venv.html">Python virtual environment</a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+</pre></div>
+</div>
+<p>or use, for example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3.10<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+</pre></div>
+</div>
+<p>if you have multiple Python versions on your system including python3.10 and your default version is below v3.10.</p>
+</li>
+<li><p>Activate the virtual environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>venv/bin/activate
+</pre></div>
+</div>
+</li>
+<li><p>Use the setup script to install the package:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> </span>install
+</pre></div>
+</div>
+<p>You may have to install <code class="docutils literal notranslate"><span class="pre">setuptools</span></code> if this returns</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="ne">ModuleNotFoundError</span><span class="p">:</span> <span class="n">No</span> <span class="n">module</span> <span class="n">named</span> <span class="s1">&#39;setuptools&#39;</span>
+</pre></div>
+</div>
+<p>In this case, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>setuptools
+</pre></div>
+</div>
+</li>
+<li><p>Install the required Python packages:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+</li>
+<li><p>Try running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>CHAP<span class="w"> </span>--help
+</pre></div>
+</div>
+<p>to confirm the package was installed correctly.</p>
+</li>
+<li><p>Note that you have to reinstall the package again when you want code changes to have an effect. To avoid this you can create an editable <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> installation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="using-a-conda-environment">
+<span id="conda-installation"></span><h3>Using a Conda environment<a class="headerlink" href="#using-a-conda-environment" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>Create a base Conda environent, e.g. with <a class="reference external" href="https://github.com/conda-forge/miniforge">Miniforge</a>. Download the installer appropriate for your computer’s architecture using curl or wget or your favorite program, for example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>wget<span class="w"> </span><span class="s2">&quot;https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-</span><span class="k">$(</span>uname<span class="k">)</span><span class="s2">-</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">.sh&quot;</span>
+</pre></div>
+</div>
+<p>Run the script with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>bash<span class="w"> </span>Miniforge3-<span class="k">$(</span>uname<span class="k">)</span>-<span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span>.sh
+</pre></div>
+</div>
+<p>Then accept the license terms, pick the default or choose a suitable Miniforge3 installation directory, and select “no” or press enter when prompted to proceed with the initialization (unless you want the script to make changes to you shell profile to automatically initialize conda, which is not recommended).</p>
+</li>
+<li><p>Navigate to a suitable directory and clone the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/CHESSComputing/ChessAnalysisPipeline.git
+</pre></div>
+</div>
+</li>
+<li><p>Change to the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>ChessAnalysisPipeline
+</pre></div>
+</div>
+</li>
+<li><p>Activate the miniforge3 base environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>&lt;path_to_miniforge3_dir&gt;/bin/activate
+</pre></div>
+</div>
+</li>
+<li><p>Create the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>bash<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>environment.yml
+</pre></div>
+</div>
+</li>
+<li><p>Activate the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>bash<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP
 </pre></div>
 </div>
 </li>
 <li><p>Set a valid version number. In <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>, replace:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">version</span> <span class="o">=</span> <span class="s1">&#39;v2026.02.25a&#39;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">version</span> <span class="o">=</span> <span class="s1">&#39;v2026.04.24&#39;</span>
 </pre></div>
 </div>
 <p>with (pick the appropriate version string):</p>
@@ -127,72 +219,23 @@
 </pre></div>
 </div>
 </li>
-<li><p>Create the virtual environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+<li><p>Create an editable <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> installation:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>CHAP<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
-</li>
-<li><p>Activate the virtual environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>venv/bin/activate
-</pre></div>
-</div>
-</li>
-<li><p>Use the setup script to install the package:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>setup.py<span class="w"> </span>install
+<p>or use the setup script to install the package:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>CHAP<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> </span>install
 </pre></div>
 </div>
 </li>
 <li><p>Try running:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install/bin/CHAP<span class="w"> </span>--help
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>CHAP<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>CHAP<span class="w"> </span>--help
 </pre></div>
 </div>
 <p>to confirm the package was installed correctly.</p>
 </li>
 </ol>
-<p>If you need to install it in your local installation area via pip, run
-steps 1 to 3 from above and then run the following steps:</p>
-<ol class="arabic">
-<li><p>Install the wheel package:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>wheel
-</pre></div>
-</div>
-</li>
-<li><p>Build your local package:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>setup.py<span class="w"> </span>clean<span class="w"> </span>sdist<span class="w"> </span>bdist_wheel
-</pre></div>
-</div>
-</li>
-<li><p>Look-up your local package in dist area:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>-1<span class="w"> </span>dist
-</pre></div>
-</div>
-<p>which should return:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ChessAnalysisPipeline-0.0.16-py3-none-any.whl
-ChessAnalysisPipeline-0.0.16.tar.gz
-</pre></div>
-</div>
-</li>
-<li><p>Install your package from the local dist area:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>--no-index<span class="w"> </span>--find-links<span class="o">=</span>dist/<span class="w"> </span>ChessAnalysisPipeline
-</pre></div>
-</div>
-</li>
-<li><p>Verify that you package is installed:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>list<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>Chess
-</pre></div>
-</div>
-<p>which should return:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ChessAnalysisPipeline<span class="w"> </span><span class="m">0</span>.0.16
-</pre></div>
-</div>
-</li>
-<li><p>Try running:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install/bin/CHAP<span class="w"> </span>--help
-</pre></div>
-</div>
-<p>to confirm the package was installed correctly.</p>
-</li>
-</ol>
+</section>
 </section>
 </section>
 

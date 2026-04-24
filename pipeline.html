@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=f9d40b2e"></script>
+      <script src="_static/documentation_options.js?v=2a8426e0"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -58,6 +58,7 @@
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="workflows/EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows/GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="workflows/SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="workflows/Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
 </ul>
@@ -91,7 +92,258 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="chap-pipeline">
 <span id="id1"></span><h1>CHAP Pipeline<a class="headerlink" href="#chap-pipeline" title="Link to this heading"></a></h1>
-<p>To do</p>
+<p>To run a CHESS Analysis Pipeline (<code class="docutils literal notranslate"><span class="pre">CHAP</span></code>), you will need:</p>
+<ol class="arabic simple">
+<li><p>A <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> configuration file in YAML format</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> command line executable (CLI) executable</p></li>
+</ol>
+<p>Run a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline by executing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>CHAP<span class="w"> </span>pipeline.yaml
+</pre></div>
+</div>
+<p>How to run <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on the CHESS Linux system with centrally maintained workflow executables is discussed <a class="reference internal" href="#chap-executables-chess"><span class="std std-ref">below</span></a>.</p>
+<section id="constructing-a-chap-configuration-file">
+<h2>Constructing a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> configuration file<a class="headerlink" href="#constructing-a-chap-configuration-file" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">CHAP</span></code> configuration files must be in <a class="reference external" href="https://en.wikipedia.org/wiki/YAML">YAML format</a>. At the top level, the file contains a single document, the document contains a single structure, the structure contains at least two keys, one of the keys must be <code class="docutils literal notranslate"><span class="pre">config</span></code>, and all other keys are pipeline names.</p>
+<p>Example of a complete <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline configuration file:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="nt">pipeline</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.yaml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.PrintProcessor</span>
+</pre></div>
+</div>
+<section id="the-config-section">
+<h3>The <code class="docutils literal notranslate"><span class="pre">config</span></code> section<a class="headerlink" href="#the-config-section" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">config</span></code> section contains the values of the instance variables for an instance of <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.html#CHAP.models.RunConfig"><code class="docutils literal notranslate"><span class="pre">CHAP.models.RunConfig</span></code></a>. It is techinically optional, but it should be included in every pipeline file for reproducibility / provenance. It can also be helpful for applying the same pipeline on many datasets, depending on how your dataset files are organized. The keys you can use in this section are:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Default value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">root</span></code></p></td>
+<td><p>Path to the working directory</p></td>
+<td><p>Directory from which<br><code class="docutils literal notranslate"><span class="pre">CHAP</span></code> was run</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">inputdir</span></code></p></td>
+<td><p>Path to a directory where all <code class="docutils literal notranslate"><span class="pre">Reader</span></code>s will look for files</p></td>
+<td><p>Same value as <code class="docutils literal notranslate"><span class="pre">root</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">outputdir</span></code></p></td>
+<td><p>Path to a directory where all <code class="docutils literal notranslate"><span class="pre">Writer</span></code>s will write files</p></td>
+<td><p>Same value as <code class="docutils literal notranslate"><span class="pre">root</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">interactive</span></code></p></td>
+<td><p>Flag to allow certain optional data / parameter checks that<br>require user interaction to proceed. Not applicable to all pipelines,<br>only to those which contain these optionally-interactive tools.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">log_level</span></code></p></td>
+<td><p>Name of a python logging level (not case sensitive)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">info</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Example <code class="docutils literal notranslate"><span class="pre">config</span></code> section containing all default values:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="w">  </span><span class="nt">inputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="w">  </span><span class="nt">outputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="w">  </span><span class="nt">interactive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">info</span>
+</pre></div>
+</div>
+</section>
+<section id="pipeline-sections">
+<h3>Pipeline sections<a class="headerlink" href="#pipeline-sections" title="Link to this heading"></a></h3>
+<p>Sections with names that are not <code class="docutils literal notranslate"><span class="pre">config</span></code> are actual pipelines. A single CHAP configuration file may contain more than one pipeline. Each pipeline must be an list of <code class="docutils literal notranslate"><span class="pre">Reader</span></code>s, <code class="docutils literal notranslate"><span class="pre">Processor</span></code>s, and <code class="docutils literal notranslate"><span class="pre">Writer</span></code>s (<code class="docutils literal notranslate"><span class="pre">Pipelinetem</span></code>s) to execute consecutively, and configure the instance variables and other parameters for each one. To assemble your own pipeline configuration:</p>
+<ol class="arabic simple">
+<li><p>Decide which <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code>s to use and in what order.</p></li>
+<li><p>For each <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code>, refer to the <a class="reference internal" href="api_documentation.html"><span class="std std-doc">Reference Guide (API documentation)</span></a> to find out what <em>instance variables</em> it has. The Reference Guide also contain a description of every variable, its expected type, and its default value (for optional variables). Remember to include the instance variables for any object from which the relevant <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code> inherrits. For example, <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.common.html#CHAP.common.reader.YAMLReader"><code class="docutils literal notranslate"><span class="pre">YAMLReader</span></code></a> lists no instance variables, but it does inherit from <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.html#CHAP.reader.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a>, which has <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.html#CHAP.reader.Reader.filename"><code class="docutils literal notranslate"><span class="pre">filename</span></code></a>, so <code class="docutils literal notranslate"><span class="pre">YAMLReader</span></code> also has the <code class="docutils literal notranslate"><span class="pre">filename</span></code> instance variable.</p></li>
+</ol>
+<section id="example-mapprocessor">
+<h4>Example: <code class="docutils literal notranslate"><span class="pre">MapProcessor</span></code><a class="headerlink" href="#example-mapprocessor" title="Link to this heading"></a></h4>
+<p>Suppose you want to configure a pipeline that collects all raw data from a CHESS dataset in a <a class="reference external" href="https://www.nexusformat.org">NeXus</a> file, and that you already have a valid <a class="reference external" href="https://chesscomputing.github.io/ChessAnalysisPipeline/CHAP.common.models.html#CHAP.common.models.map.MapConfig"><code class="docutils literal notranslate"><span class="pre">CHAP.common.models.map.MapConfig</span></code></a> object for the dataset saved to a file named <code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code>. To create a suitable pipeline file:</p>
+<ol class="arabic">
+<li><p>Decide on the required <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code>s. The pipeline will need a <code class="docutils literal notranslate"><span class="pre">Reader</span></code> that supports YAML files, a <code class="docutils literal notranslate"><span class="pre">Processor</span></code> that collects <code class="docutils literal notranslate"><span class="pre">MapConfig</span></code> data in a NeXus structure, and a <code class="docutils literal notranslate"><span class="pre">Writer</span></code> that supports NeXus files. So, the pipeline configuration looks like this to start:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pipeline</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">TBD</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.MapProcessor</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">TBD</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusWriter</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">TBD</span>
+</pre></div>
+</div>
+</li>
+<li><p>Now, fill in all the TBD’s by referring to the Reference Guide for each <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code> to specify the instance variables.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">pipeline</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_config.yaml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.MapProcessor</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">detectors</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">detector_id</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">attrs</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">foo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bar</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusWriter</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_data.nxs</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+</section>
+<section id="chap-cli-usage">
+<h2><code class="docutils literal notranslate"><span class="pre">CHAP</span></code> CLI usage<a class="headerlink" href="#chap-cli-usage" title="Link to this heading"></a></h2>
+<p>To diplay a description on how to use <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> from the command line, execute:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ CHAP --help
+</pre></div>
+</div>
+<p>to get:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>usage: PROG [-h] [-p [PIPELINE ...]] [--regex [{match,search,fullmatch}]]
+            [--batch] [--batch-logdir LOGDIR]
+            config
+
+positional arguments:
+  config                Input configuration file
+
+options:
+  -h, --help            show this help message and exit
+  -p [PIPELINE ...], --pipeline [PIPELINE ...]
+                        Pipeline name(s)
+  --regex [{match,search,fullmatch}]
+                        Name of Python RegEx function
+                        (https://docs.python.org/3/howto/regex.html) to use
+                        for matching configured pipeline names against the
+                        string provided with the -p / --pipeline option.
+  --batch               Enables &quot;batch mode&quot; operation where every sub-
+                        pipeline is run in separate parallel processes. Log
+                        files for each pipeline process will be created in the
+                        directory specified with the `--batch-logdir` option.
+  --batch-logdir LOGDIR
+                        Destination directory for individual pipeline log
+                        files when running multiple pipelines in batch mode.
+</pre></div>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--pipeline</span></code> or <code class="docutils literal notranslate"><span class="pre">-p</span></code></p></td>
+<td><p>When more than one named pipeline configuration is present in a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> config file,<br><code class="docutils literal notranslate"><span class="pre">--pipeline</span></code> or <code class="docutils literal notranslate"><span class="pre">-p</span></code> can be used to specify a limited selection of the pipeline(s) from<br>the file to be executed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--regex</span></code></p></td>
+<td><p>This option augments the behavior of <code class="docutils literal notranslate"><span class="pre">--pipeline</span></code> – the difference is that when<br><code class="docutils literal notranslate"><span class="pre">--regex</span></code> is used, the value of <code class="docutils literal notranslate"><span class="pre">--pipeline</span></code> specfies a <a class="reference external" href="https://docs.python.org/3/howto/regex.html">regular expression</a> pattern for<br>selecting the names of pipeline(s) to run.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--batch</span></code></p></td>
+<td><p>This option augments the behavior of <code class="docutils literal notranslate"><span class="pre">--pipeline</span></code> – the difference is that when <code class="docutils literal notranslate"><span class="pre">--batch</span></code> is used, the specified pipelines are executed individually and in parallel instead of<br>being concatenated and executed as a single pipeline.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="example-commands">
+<h3>Example commands<a class="headerlink" href="#example-commands" title="Link to this heading"></a></h3>
+<p>Suppose <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> contains:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
+<span class="nt">pipeline_1</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data_1.yaml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.PrintProcessor</span>
+<span class="nt">pipeline_2</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data_2.yaml</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.PrintProcessor</span>
+</pre></div>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Command</p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">pipeline.yaml</span></code> or<br><code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">pipeline.yaml</span> <span class="pre">--regex</span> <span class="pre">-p</span> <span class="pre">pipeline</span> <span class="pre">--regex</span></code></p></td>
+<td><p>Concatenate <code class="docutils literal notranslate"><span class="pre">pipeline_1</span></code> and <code class="docutils literal notranslate"><span class="pre">pipeline_2</span></code> and execute all items as a single pipeline.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">pipeline.yaml</span> <span class="pre">-p</span> <span class="pre">pipeline_1</span></code></p></td>
+<td><p>Execute <code class="docutils literal notranslate"><span class="pre">pipeline_1</span></code> only.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">pipeline.yaml</span> <span class="pre">--batch</span></code> or<br><code class="docutils literal notranslate"><span class="pre">CHAP</span> <span class="pre">pipeline.yaml</span> <span class="pre">-p</span> <span class="pre">pipeline</span> <span class="pre">--regex</span> <span class="pre">--batch</span></code></p></td>
+<td><p>Execute <code class="docutils literal notranslate"><span class="pre">pipeline_1</span></code> and <code class="docutils literal notranslate"><span class="pre">pipeline_2</span></code> in separate parallel processes, creating a log file for each one: <code class="docutils literal notranslate"><span class="pre">./CHAP_logs/pipeline_1.log</span></code> and <code class="docutils literal notranslate"><span class="pre">./CHAP_logs/pipeline_2.log</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="python-executables-for-chap-on-the-chess-linux-system">
+<span id="chap-executables-chess"></span><h2>Python executables for <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on the CHESS Linux system<a class="headerlink" href="#python-executables-for-chap-on-the-chess-linux-system" title="Link to this heading"></a></h2>
+<p>Running <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on the CHESS Linux system does not require users to create their own Conda environment or <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> executables. Instead CHESS maintains regularly updated <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> executables to run any of the maintained workflows located in the shared software releases directory for CHESS: <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/CHESS-software-releases</span></code>. Specifically, production and development versions of the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> executables can be found in <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/CHESS-software-releases/prod</span></code> and <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/CHESS-software-releases/dev</span></code>, respectively.</p>
+<p>Production version executables are updated each time a new tagged release is created for the main branch of the <a class="reference external" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">CHAP Github repository</a>. Links to executables for the latest production version can be found in <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/CHESS-software-releases/prod</span></code>, links to older releases can be found in subdirectories identified by its release version number. Release notes can be found <a class="reference external" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/releases">here</a>. The <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> <a class="reference internal" href="api_documentation.html"><span class="std std-doc">Reference Guide (API documentation)</span></a> is also updated automatically with each new tagged release.</p>
+<p>Development version executables are updated each time a new commit is pushed to the <a class="reference external" href="https://github.com/CHESSComputing/ChessAnalysisPipeline/tree/dev"><code class="docutils literal notranslate"><span class="pre">dev</span></code> branch</a> of the <a class="reference external" href="https://github.com/CHESSComputing/ChessAnalysisPipeline">CHAP Github repository</a>. Links to executables for the latest development version can be found in <code class="docutils literal notranslate"><span class="pre">/nfs/chess/sw/CHESS-software-releases/dev</span></code>.</p>
+<p>For example, to run the <a class="reference internal" href="workflows/Tomo.html#tomo-workflow"><span class="std std-ref">Tomo workflow</span></a> using the latest production release version, execute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>/nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo<span class="w"> </span>pipeline.yaml
+</pre></div>
+</div>
+<p>or to run the <a class="reference internal" href="workflows/EDD.html#edd-workflow"><span class="std std-ref">EDD workflow</span></a> using the latest development release version, execute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>/nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd<span class="w"> </span>pipeline.yaml
+</pre></div>
+</div>
+<p>You may find it convenient to add an alias to your <code class="docutils literal notranslate"><span class="pre">~/.bascrc</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.bash_aliases</span></code>, for example for the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> Tomography workflow production release:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">CHAP_tomo_prod</span><span class="o">=</span><span class="s1">&#39;/nfs/chess/sw/CHESS-software-releases/prod/CHAP_tomo&#39;</span>
+</pre></div>
+</div>
+<p>after which you can run the <a class="reference internal" href="workflows/Tomo.html#tomo-workflow"><span class="std std-ref">Tomo workflow</span></a> using the latest production release version by simply executing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>CHAP_tomo_prod<span class="w"> </span>pipeline.yaml
+</pre></div>
+</div>
+</section>
+<section id="python-environments-for-chap-on-any-linux-system">
+<span id="build-chap-environment"></span><h2>Python environments for <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on any Linux system<a class="headerlink" href="#python-environments-for-chap-on-any-linux-system" title="Link to this heading"></a></h2>
+<p>Developing a user <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code> for <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> or running <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on a Linux system other than the CHESS farm does require users to create their own Conda environment by taking the following steps:</p>
+<ol class="arabic simple">
+<li><p>Create a base Conda environent and clone the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository according to steps 1 and 2 of the <a class="reference internal" href="installation.html#conda-installation"><span class="std std-ref">Conda installation instructions</span></a>.</p></li>
+<li><p>Create a Conda environment suitable to your own <code class="docutils literal notranslate"><span class="pre">PipelineItem</span></code> or create a Conda environment for each workflow that you want to run.</p></li>
+</ol>
+<p>For example, to create the SAXSWAXS Conda environment and run a SAXSWAXS workflow:</p>
+<ol class="arabic">
+<li><p>Activate your base Conda environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/bin/activate
+</pre></div>
+</div>
+</li>
+<li><p>Create a Conda environment inside your base environment with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>base<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/CHAP/saxswaxs/environment.yml
+</pre></div>
+</div>
+</li>
+<li><p>Activate the <code class="docutils literal notranslate"><span class="pre">CHAP_saxswaxs</span></code> environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>base<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_saxswaxs
+</pre></div>
+</div>
+</li>
+<li><p>Try running:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>CHAP_saxswaxs<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>CHAP<span class="w"> </span>--help
+</pre></div>
+</div>
+<p>to confirm that the package and the environment were installed correctly.</p>
+</li>
+<li><p>Navigate to your work directory.</p></li>
+<li><p>Create the required <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline file for the workflow (see above) and any additional workflow specific input files.</p></li>
+<li><p>Run the workflow using your own <code class="docutils literal notranslate"><span class="pre">CHAP_saxswaxs</span></code> executable:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="w">   </span><span class="o">(</span>CHAP_saxswaxs<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>CHAP<span class="w"> </span>pipeline.yaml
+</pre></div>
+</div>
+</section>
 </section>
 
 

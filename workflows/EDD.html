@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f9d40b2e"></script>
+      <script src="../_static/documentation_options.js?v=2a8426e0"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -22,7 +22,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="SAXS/WAXS module (CHAP.saxswaxs)" href="SAXSWAXS.html" />
+    <link rel="next" title="GIWAXS subpackage (CHAP.giwaxs)" href="GIWAXS.html" />
     <link rel="prev" title="CHAP Pipeline" href="../pipeline.html" /> 
 </head>
 
@@ -60,6 +60,7 @@
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="SAXSWAXS.html">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
 </ul>
@@ -103,42 +104,52 @@
 <li><p>Performing the strain analysis with an EDD experiment on a sample using the calibrated detector channel energies.</p></li>
 </ul>
 </section>
-<section id="activating-the-edd-conda-environment-requires-a-local-chap-clone">
-<h2>Activating the EDD conda environment (requires a local CHAP clone)<a class="headerlink" href="#activating-the-edd-conda-environment-requires-a-local-chap-clone" title="Link to this heading"></a></h2>
+<section id="running-an-edd-workflow-on-the-chess-linux-system">
+<h2>Running an EDD workflow on the CHESS Linux system<a class="headerlink" href="#running-an-edd-workflow-on-the-chess-linux-system" title="Link to this heading"></a></h2>
 <ol class="arabic">
-<li><p>Create and activate a base conda environent, e.g. with <a class="reference external" href="https://github.com/conda-forge/miniforge">Miniforge</a>.</p></li>
-<li><p>Install a local version of the CHAP package according to the <a class="reference internal" href="../installation.html#installation"><span class="std std-ref">installation instructions</span></a>.</p></li>
+<li><p>Navigate to your work directory.</p></li>
+<li><p>Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files.</p></li>
+<li><p>Run the workflow using the latest production release version:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd<span class="w"> </span>&lt;pipelinefilename&gt;
+</pre></div>
+</div>
+<p>or the latest development release version:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>/nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd<span class="w"> </span>&lt;pipelinefilename&gt;
+</pre></div>
+</div>
+<p>You may find it convenient to add an alias to your <code class="docutils literal notranslate"><span class="pre">~/.bascrc</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.bash_aliases</span></code>, for example for the CHAP EDD production release:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">CHAP_edd_prod</span><span class="o">=</span><span class="s1">&#39;/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd&#39;</span>
+</pre></div>
+</div>
+<p>(see: <a class="reference internal" href="../pipeline.html#chap-executables-chess"><span class="std std-ref">instructions</span></a> on running <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> on the CHESS Linux system)</p>
+</li>
+<li><p>Respond to any prompts that pop up if running interactively.</p></li>
+</ol>
+</section>
+<section id="running-an-edd-workflow-on-any-linux-system-requires-a-local-conda-environment-and-chap-clone">
+<h2>Running an EDD workflow on any Linux system (requires a local Conda environment and CHAP clone)<a class="headerlink" href="#running-an-edd-workflow-on-any-linux-system-requires-a-local-conda-environment-and-chap-clone" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Create a base Conda environent and clone the <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> repository according to steps 1 and 2 of the <a class="reference internal" href="../installation.html#conda-installation"><span class="std std-ref">Conda installation instructions</span></a>.</p></li>
+<li><p>Activate the base Conda environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nb">source</span><span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/bin/activate
+</pre></div>
+</div>
+</li>
 <li><p>Create the EDD conda environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/CHAP/edd/environment.yml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>base<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>mamba<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-f<span class="w"> </span>&lt;path_to_CHAP_clone_dir&gt;/CHAP/edd/environment.yml
 </pre></div>
 </div>
 </li>
 <li><p>Activate the <code class="docutils literal notranslate"><span class="pre">CHAP_edd</span></code> environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_edd
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>base<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>conda<span class="w"> </span>activate<span class="w"> </span>CHAP_edd
 </pre></div>
 </div>
 </li>
-</ol>
-</section>
-<section id="running-an-edd-workflow">
-<h2>Running an EDD workflow<a class="headerlink" href="#running-an-edd-workflow" title="Link to this heading"></a></h2>
-<ol class="arabic">
-<li><p>Navigate to your work directory.</p></li>
-<li><p>Create the required CHAP pipeline file for the workflow (see below) and any additional workflow specific input files.</p></li>
 <li><p>Run the workflow using your own <code class="docutils literal notranslate"><span class="pre">CHAP_edd</span></code> conda environment:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CHAP<span class="w"> </span>&lt;pipelinefilename&gt;
-</pre></div>
-</div>
-<p>or run the workflow using the latest production release version:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/nfs/chess/sw/CHESS-software-releases/prod/CHAP_edd<span class="w"> </span>&lt;pipelinefilename&gt;
-</pre></div>
-</div>
-<p>or the latest development release version:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/nfs/chess/sw/CHESS-software-releases/dev/CHAP_edd<span class="w"> </span>&lt;pipelinefilename&gt;
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="o">(</span>CHAP_edd<span class="o">)</span><span class="w"> </span>$<span class="w"> </span>CHAP<span class="w"> </span>&lt;pipelinefilename&gt;
 </pre></div>
 </div>
 </li>
-<li><p>Respond to any prompts that pop up if running interactively.</p></li>
 </ol>
 </section>
 <section id="inspecting-output">
@@ -147,7 +158,11 @@
 <p>The optional output figures can be viewed directly by any PNG image viewer. The data in the NeXus output file can be viewed in <a class="reference external" href="https://nexpy.github.io/nexpy/">NeXpy</a>, a high-level python interface to HDF5 files, particularly those stored as <a class="reference external" href="http://www.nexusformat.org">NeXus data</a>:</p>
 <ol class="arabic">
 <li><p>Open the NeXpy GUI by entering in your terminal:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy<span class="w"> </span><span class="p">&amp;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy<span class="w"> </span><span class="p">&amp;</span>
+</pre></div>
+</div>
+<p>You may find it convenient to add an alias to your <code class="docutils literal notranslate"><span class="pre">~/.bascrc</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.bash_aliases</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">alias</span><span class="w"> </span><span class="nv">nexus</span><span class="o">=</span><span class="s1">&#39;/nfs/chess/sw/nexpy/anaconda/envs/nexpy/bin/nexpy &amp;&#39;</span>
 </pre></div>
 </div>
 </li>
@@ -172,7 +187,7 @@
 <span class="w">  </span><span class="c1"># Energy calibration</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.SpecReader</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">config</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id3a</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id1a3</span><span class="w">      </span><span class="c1"># Change as needed</span>
 <span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
 <span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
 <span class="w">                            </span><span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
@@ -180,7 +195,7 @@
 <span class="w">            </span><span class="nt">scan_numbers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">edd.MCAEnergyCalibrationProcessor</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">config</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">max_peak_index</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">        </span><span class="nt">max_peak_index</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">   </span><span class="c1"># Index in `peak_energies` with the highest peak amplitude</span>
 <span class="w">        </span><span class="nt">peak_energies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">34.276</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">34.717</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">39.255</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">40.231</span><span class="p p-Indicator">]</span>
 <span class="w">        </span><span class="nt">materials</span><span class="p">:</span><span class="w">          </span><span class="c1"># Optional, using default CeO2 properties when omitted</span>
 <span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">material_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CeO2</span>
@@ -197,8 +212,8 @@
 <span class="w">      </span><span class="nt">save_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">edd.models.MCAEnergyCalibrationConfig</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLWriter</span><span class="p">:</span>
-<span class="w">                            </span><span class="c1"># Energy calibration output filename, change as desired</span>
 <span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">energy_calibration_result.yaml</span>
+<span class="w">                            </span><span class="l l-Scalar l-Scalar-Plain"># Energy calibration output filename, change as desired</span>
 <span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.ImageWriter</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">outputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">figures</span><span class="w">    </span><span class="c1"># Change as desired, unless an absolute path</span>
@@ -211,12 +226,12 @@
 
 <span class="w">  </span><span class="c1"># Twotheta calibration</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
-<span class="w">                            </span><span class="c1"># Energy calibration info, same file as written to above</span>
 <span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">energy_calibration_result.yaml</span>
+<span class="w">                            </span><span class="l l-Scalar l-Scalar-Plain"># Energy calibration filename, same as written to above</span>
 <span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">edd.models.MCAEnergyCalibrationConfig</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.SpecReader</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">config</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id3a</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id1a3</span><span class="w">      </span><span class="c1"># Change as needed</span>
 <span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
 <span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
 <span class="w">                            </span><span class="c1"># Path can be relative to inputdir (line 3) or absolute</span>
@@ -233,8 +248,8 @@
 <span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
 <span class="w">      </span><span class="nt">save_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLWriter</span><span class="p">:</span>
-<span class="w">                            </span><span class="c1"># Twotheta calibration output filename, change as desired</span>
 <span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tth_calibration_result.yaml</span>
+<span class="w">                            </span><span class="l l-Scalar l-Scalar-Plain"># Twotheta calibration output filename, change as desired</span>
 <span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.ImageWriter</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">outputdir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">figures</span><span class="w">    </span><span class="c1"># Change as desired</span>
@@ -263,8 +278,8 @@
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map.nxs</span><span class="w">     </span><span class="c1"># NeXus map, same file as written to above</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
-<span class="w">                            </span><span class="c1"># Twotheta calibration info, same file as written to above</span>
 <span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tth_calibration_result.yaml</span>
+<span class="w">                            </span><span class="l l-Scalar l-Scalar-Plain"># Twotheta calibration filename, same as written to above</span>
 <span class="w">      </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">edd.models.MCATthCalibrationConfig</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">edd.StrainAnalysisProcessor</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">config</span><span class="p">:</span>
@@ -369,7 +384,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../pipeline.html" class="btn btn-neutral float-left" title="CHAP Pipeline" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="SAXSWAXS.html" class="btn btn-neutral float-right" title="SAXS/WAXS module (CHAP.saxswaxs)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="GIWAXS.html" class="btn btn-neutral float-right" title="GIWAXS subpackage (CHAP.giwaxs)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

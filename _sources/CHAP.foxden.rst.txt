@@ -1,6 +1,11 @@
 CHAP.foxden package
 ===================
 
+.. automodule:: CHAP.foxden
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -40,14 +45,6 @@ CHAP.foxden.writer module
 -------------------------
 
 .. automodule:: CHAP.foxden.writer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.foxden
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,6 +1,11 @@
 CHAP.utils package
 ==================
 
+.. automodule:: CHAP.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -48,14 +53,6 @@ CHAP.utils.parfile module
 -------------------------
 
 .. automodule:: CHAP.utils.parfile
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.utils
    :members:
    :undoc-members:
    :show-inheritance:

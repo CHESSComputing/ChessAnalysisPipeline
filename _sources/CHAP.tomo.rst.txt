@@ -1,6 +1,11 @@
 CHAP.tomo package
 =================
 
+.. automodule:: CHAP.tomo
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -32,14 +37,6 @@ CHAP.tomo.writer module
 -----------------------
 
 .. automodule:: CHAP.tomo.writer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.tomo
    :members:
    :undoc-members:
    :show-inheritance:

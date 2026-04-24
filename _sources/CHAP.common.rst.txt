@@ -1,6 +1,11 @@
 CHAP.common package
 ===================
 
+.. automodule:: CHAP.common
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
@@ -56,14 +61,6 @@ CHAP.common.writer module
 -------------------------
 
 .. automodule:: CHAP.common.writer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.common
    :members:
    :undoc-members:
    :show-inheritance:

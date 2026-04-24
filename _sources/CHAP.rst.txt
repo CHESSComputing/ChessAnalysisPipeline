@@ -1,6 +1,11 @@
 CHAP package
 ============
 
+.. automodule:: CHAP
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
@@ -17,14 +22,6 @@ Subpackages
 
 Submodules
 ----------
-
-CHAP.TaskManager module
------------------------
-
-.. automodule:: CHAP.TaskManager
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 CHAP.models module
 ------------------
@@ -74,18 +71,18 @@ CHAP.server module
    :undoc-members:
    :show-inheritance:
 
-CHAP.writer module
-------------------
+CHAP.taskmanager module
+-----------------------
 
-.. automodule:: CHAP.writer
+.. automodule:: CHAP.taskmanager
    :members:
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
+CHAP.writer module
+------------------
 
-.. automodule:: CHAP
+.. automodule:: CHAP.writer
    :members:
    :undoc-members:
    :show-inheritance:

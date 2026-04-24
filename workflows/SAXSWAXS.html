@@ -14,7 +14,7 @@
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f9d40b2e"></script>
+      <script src="../_static/documentation_options.js?v=2a8426e0"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script>window.MathJax = {"tex2jax": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}, "options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
@@ -23,7 +23,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Tomography subpackage (CHAP.tomo)" href="Tomo.html" />
-    <link rel="prev" title="EDD subpackage (CHAP.edd)" href="EDD.html" /> 
+    <link rel="prev" title="GIWAXS subpackage (CHAP.giwaxs)" href="GIWAXS.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -60,6 +60,7 @@
 <p class="caption" role="heading"><span class="caption-text">Workflows</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="EDD.html">EDD subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.edd</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="GIWAXS.html">GIWAXS subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.giwaxs</span></code>)</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Tomo.html">Tomography subpackage (<code class="docutils literal notranslate"><span class="pre">CHAP.tomo</span></code>)</a></li>
 </ul>
@@ -93,36 +94,36 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="saxs-waxs-module-chap-saxswaxs">
 <span id="saxswaxs-workflow"></span><h1>SAXS/WAXS module (<code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code>)<a class="headerlink" href="#saxs-waxs-module-chap-saxswaxs" title="Link to this heading"></a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code> module contains processing tools unique to SAXS/WAXS processing. This document describes how to use them in a pipeline configuration YAML file so that SAXS/WAXS workflows can be run from the terminal on the CLASSE Linux system.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">CHAP.saxswaxs</span></code> module contains processing tools unique to SAXS/WAXS processing. This document describes how to use them in a pipeline configuration YAML file so that SAXS/WAXS workflows can be run from the terminal on the CHESS Linux system.</p>
 <section id="workflow-description">
 <h2>Workflow description<a class="headerlink" href="#workflow-description" title="Link to this heading"></a></h2>
 <section id="general-overview">
 <h3>General overview<a class="headerlink" href="#general-overview" title="Link to this heading"></a></h3>
 <ol class="arabic">
-<li><p>Setup</p>
-<p>Setup a container for the complete raw and processed dataset
-First, we set up a container to hold the raw and processed datasets before any processing begins. This step needs the following information to allocate an appropriate amount of space:
-#. Dataset size
-#. Detector size(s)
-#. Integrated data size(s)
-In practice, you should prepare <a class="reference internal" href="#related_configuration_objects"><span class="xref myst">two supplementary configuration files</span></a> in addition to the parameters for the tools involved in this step: one for a <code class="docutils literal notranslate"><span class="pre">MapConfig</span></code>, object, another for a <code class="docutils literal notranslate"><span class="pre">PyFaiIntegrationProcessorConfig</span></code> object.
+<li><p>Setup a <a class="reference external" href="https://zarr.dev">Zarr</a> container for the complete raw and processed dataset.</p>
+<p>First, we set up a container to hold the raw and processed datasets before any processing begins. This step needs the following information to allocate an appropriate amount of space:</p>
+<ol class="arabic simple">
+<li><p>Dataset size</p></li>
+<li><p>Detector size(s)</p></li>
+<li><p>Integrated data size(s)</p></li>
+</ol>
+<p>In practice, you should prepare <a class="reference internal" href="#related_configuration_objects"><span class="xref myst">two supplementary configuration files</span></a> in addition to the parameters for the tools involved in this step: one for a <code class="docutils literal notranslate"><span class="pre">MapConfig</span></code>, object, another for a <code class="docutils literal notranslate"><span class="pre">PyFaiIntegrationProcessorConfig</span></code> object.
 This step also sets the number of chunks for each data array in the container. <a class="reference internal" href="#optimizing_performance"><span class="xref myst">Selecting the right number of chunks is important for optimizing performance</span></a> during the next step.</p>
-<p>Example pipeline configuration:</p>
+ <details>
+ <summary> Example pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">setup</span><span class="p">:</span>
-<span class="c1"># Tool 1: read in configuration files</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pipeline.MultiplePipelineItem</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">items</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="c1"># Step 1: read in configuration files</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_config.yaml</span>
 <span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.models.map.MapConfig</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pyfai_integration_processor_config.yaml</span>
 <span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.models.integration.PyfaiIntegrationConfig</span>
-<span class="c1"># Tool 2: set up Zarr container for processed data based on</span>
-<span class="c1">#         configurations provided from Tool 1</span>
+<span class="c1"># Step 2: set up Zarr container for processed data based on</span>
+<span class="c1">#         configurations provided from Step 1</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">saxswaxs.SetupProcessor</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">dataset_shape</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
@@ -137,54 +138,57 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">  </span><span class="nt">shape</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">407</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">487</span>
-<span class="c1"># Tool 3: Write the Zarr container to file</span>
+<span class="c1"># Step 3: Write the Zarr container to file</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.ZarrWriter</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.zarr</span>
 <span class="w">    </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span>
 </pre></div>
 </div>
+ </details>
 </li>
 <li><p>Fill container with processed data</p>
-<p>Next, we read in the raw data and perform the configured integration(s). To get the best performance for large datasets, this step should be performed across multiple pipeline processes runnning in parallel. Each process will handle reading, processing, and writing just one part of the whole dataset – exactly <em>one chunk</em> of each array in the container set up previously, to be precise. To fill the container from the previous step with processed data, each parallel process will need to know the following information:
-#. The spec file for the scan whose data will be processed
-#. The scan number for the scan whose data will be processed
-#. Parameters indicating a specific slice of the scan to process</p>
-<p>Example pipeline:</p>
+<p>Next, we read in the raw data and perform the configured integration(s). To get the best performance for large datasets, this step should be performed across multiple pipeline processes runnning in parallel. Each process will handle reading, processing, and writing just one part of the whole dataset – exactly <em>one chunk</em> of each array in the container set up previously, to be precise. To fill the container from the previous step with processed data, each parallel process will need to know the following information:</p>
+<ol class="arabic simple">
+<li><p>The spec file for the scan whose data will be processed</p></li>
+<li><p>The scan number for the scan whose data will be processed</p></li>
+<li><p>Parameters indicating a specific slice of the scan to process</p></li>
+</ol>
+ <details>
+ <summary> Example pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">update</span><span class="p">:</span>
-<span class="c1"># Tool 1: read in configuration files</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pipeline.MultiplePipelineItem</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">items</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="c1"># Step 1: read in configuration files</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_config.yaml</span>
 <span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.models.map.MapConfig</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.YAMLReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pyfai_integration_processor_config.yaml</span>
 <span class="w">    </span><span class="nt">schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">common.models.integration.PyfaiIntegrationConfig</span>
-<span class="c1"># Tool 2: read and process the data</span>
+<span class="c1"># Step 2: read and process the data</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">saxswaxs.UpdateValuesProcessor</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">spec_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file</span>
 <span class="w">    </span><span class="nt">scan_number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 <span class="w">    </span><span class="nt">detectors</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
-<span class="w">  </span><span class="nt">shape</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">407</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">487</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- id</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
-<span class="w">  </span><span class="nt">shape</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">407</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">487</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">idx_slice</span><span class="p p-Indicator">:</span>
-<span class="w">  </span><span class="nt">start</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
-<span class="w">  </span><span class="nt">stop</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<span class="w">  </span><span class="nt">step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<span class="c1"># Tool 3: write processed data to the container set up earlier</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">407</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">487</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
+<span class="w">      </span><span class="nt">shape</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">407</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">487</span>
+<span class="w">    </span><span class="nt">idx_slice</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">start</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">      </span><span class="nt">stop</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">      </span><span class="nt">step</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="c1"># Step 3: write processed data to the container set up earlier</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.ZarrValuesWriter</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.zarr</span>
 </pre></div>
 </div>
+  </details>
 </li>
 <li><p>Perform final user adjustments</p>
 <p>These “final adjustments” are all optional, but they can include the following:</p>
@@ -194,7 +198,8 @@ This step also sets the number of chunks for each data array in the container. <
 <li><p>inserting links to coordinate axes next to processed data arrays</p></li>
 <li><p>reshaping the dataset from an “unstructured” to a “structured” representation</p></li>
 </ul>
-<p>Examples:</p>
+ <details>
+ <summary> Example format conversion pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
@@ -206,24 +211,25 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">    </span><span class="nt">nexus_filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 </pre></div>
 </div>
+ </details>
+ <details>
+ <summary> Example flux correction pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">flux_correct</span><span class="p">:</span>
-<span class="c1"># Tool 1: Read in uncorrected data and flux data to perform flux correction</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pipeline.MultiplePipelineItem</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">items</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="c1"># Step 1: Read in uncorrected data and flux data to perform flux correction</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal/data/I</span>
 <span class="w">    </span><span class="nt">nxmemory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100000</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">intensity</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012/scalar_data/presample_intensity</span>
 <span class="w">    </span><span class="nt">nxmemory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100000</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">presample_intensity</span>
-<span class="c1"># Tool 2: Perform flux correction calculations</span>
+<span class="c1"># Step 2: Perform flux correction calculations</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">saxswaxs.FluxCorrectionProcessor</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">nxprocess</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <span class="w">    </span><span class="nt">presample_intensity_reference_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50000</span>
@@ -235,15 +241,18 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="w">    </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
+ </details>
+ <details>
+ <summary> Example coordinate linking pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">linkdims</span><span class="p">:</span>
-<span class="c1"># Tool 1: Read in the Nexus file in which we&#39;re adding linked data fields</span>
+<span class="c1"># Step 1: Read in the Nexus file in which we&#39;re adding linked data fields</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rw</span>
-<span class="c1"># Tool 2: Create new linked data arrays from all the groups listed</span>
+<span class="c1"># Step 2: Create new linked data arrays from all the groups listed</span>
 <span class="c1"># in `link_from` to all the existing data arrays listed in</span>
 <span class="c1"># `link_to`</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusMakeLinkProcessor</span><span class="p">:</span>
@@ -268,173 +277,76 @@ This step also sets the number of chunks for each data array in the container. <
 <span class="c1"># rw`.</span>
 </pre></div>
 </div>
+ </details>
+ <details>
+ <summary> Example unstructured-to-structured pipeline configuration</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">config</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span>
 <span class="w">  </span><span class="nt">log_level</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">debug</span>
 <span class="nt">struct</span><span class="p">:</span>
-<span class="c1"># Tool 1: Read in the data arrays to structure, and all their</span>
+<span class="c1"># Step 1: Read in the data arrays to structure, and all their</span>
 <span class="c1"># coordinate axes arrays too</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">pipeline.MultiplePipelineItem</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">items</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012/independent_dimensions/samx</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">samx</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012/independent_dimensions/samz</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">samz</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal/data/q_A^-1</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_q</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial/data/chi_deg</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_chi</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal/data/I</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_I</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusReader</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial/data/I</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_I</span>
-<span class="c1"># Tool 2: restructure signal arrays in a single shared NXdata object</span>
+<span class="c1"># Step 2: restructure signal arrays in a single shared NXdata object</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">saxswaxs.UnstructuredToStructuredProcessor</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">structured_data</span>
 <span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">samx</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">samz</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_q</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_chi</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_I</span>
-<span class="w">  </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">samx</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">samz</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">waxs_azimuthal_q</span><span class="p p-Indicator">]</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">signal</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">- name</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_I</span>
-<span class="w">  </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">samx</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">samz</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">waxs_radial_chi</span><span class="p p-Indicator">]</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">signal</span>
-<span class="c1"># Tool 3: Write the structured data to a new group in the original NeXus file</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">samz</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_q</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_chi</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">axis</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal_I</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">samx</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">samz</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">waxs_azimuthal_q</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">signal</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial_I</span>
+<span class="w">      </span><span class="nt">axes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">samx</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">samz</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">waxs_radial_chi</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">signal</span>
+<span class="c1"># Step 3: Write the structured data to a new group in the original NeXus file</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusWriter</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.nxs</span>
 <span class="w">    </span><span class="nt">nxpath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/structured</span>
 <span class="w">    </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
+ </details>
 </li>
 </ol>
-</section>
-<section id="optimizing-performance">
-<h3>Optimizing performance<a class="headerlink" href="#optimizing-performance" title="Link to this heading"></a></h3>
-<p>Guide on selecting appropriate values for dataset_chunks and running multiple update jobs in parallel</p>
-</section>
-<section id="data-in-output-formats">
-<h3>Data in / output formats<a class="headerlink" href="#data-in-output-formats" title="Link to this heading"></a></h3>
-<p>CHESS data in, .zarr data out</p>
-</section>
 </section>
 <section id="related-configuration-objects">
-<h2>Related Configuration Objects<a class="headerlink" href="#related-configuration-objects" title="Link to this heading"></a></h2>
-<section id="mapconfig">
-<h3>MapConfig<a class="headerlink" href="#mapconfig" title="Link to this heading"></a></h3>
-<section id="description">
-<h4>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h4>
-</section>
-<section id="example">
-<h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
-</section>
-</section>
-<section id="pyfaiintegrationprocessorconfig">
-<h3>PyFaiIntegrationProcessorConfig<a class="headerlink" href="#pyfaiintegrationprocessorconfig" title="Link to this heading"></a></h3>
-<section id="id1">
-<h4>Description<a class="headerlink" href="#id1" title="Link to this heading"></a></h4>
-</section>
-<section id="id2">
-<h4>Example<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-</section>
-</section>
-</section>
-<section id="notes-on-corrections-calculations">
-<h2>Notes on corrections calculations<a class="headerlink" href="#notes-on-corrections-calculations" title="Link to this heading"></a></h2>
-<p>There are currently three convenience tools available for performing corrections: <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxCorrectionProcessor</span></code>, <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionCorrectionProcessor</span></code>, and <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackrgroundCorrectionProcessor</span></code>. The exact calculations that each ones performs are detailed below.</p>
-<section id="definitions">
-<h3>Definitions<a class="headerlink" href="#definitions" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(I_{uncorrected}\)</span> is the uncorrected, integrated dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(I_{incident}\)</span> is the presample intensity dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">presample_intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(I_{transmitted}\)</span> is the postsample intensity dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">postsample_intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(t_{dwell}\)</span> is the scan’s dwell time at each point in the map configuration to which the correction tool is applied.  When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">dwell_time_actual</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(I_{background}\)</span> is the background integrated detector data. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(I_{incident, background}\)</span> is the background presample intensity. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_presample_intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(I_{transmitted, background}\)</span> is the background postsample intensity. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_postsample_intensity</span></code>.</p></li>
-<li><p><span class="math notranslate nohighlight">\(\phi_{reference}\)</span> is <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> in the correction tool’s own parameters. However, if <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> was not given in the tool’s configuration, a value for this quantity will be calculated with:</p></li>
-</ul>
-<div class="math notranslate nohighlight">
-\[
-\phi_{reference} = \frac{\overline{I_{incident}}}{\overline{t_{dwell}}}
-\]</div>
-<ul class="simple">
-<li><p><span class="math notranslate nohighlight">\(T = \frac{I_{transmitted}}{I_{incident}} / \frac{I_{transmitted, background}}{I_{incident, background}}\)</span></p></li>
-<li><p><span class="math notranslate nohighlight">\(t\)</span> is the sample thickness in <span class="math notranslate nohighlight">\(cm\)</span>. This quantity only appears in <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>. The value of this parameter can be set in one of two ways:</p>
-<ol class="arabic simple">
-<li><p>Use the <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> parameter of <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>, OR</p></li>
-<li><p>Use the <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> (”<span class="math notranslate nohighlight">\(\mu\)</span>”) parameter of <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>. <span class="math notranslate nohighlight">\(\mu\)</span> is known as the the linear attenuation coefficient of the sample, and is related to the <em>mass</em> attenuation coefficient, <span class="math notranslate nohighlight">\((\mu/\rho)\)</span> [cm<span class="math notranslate nohighlight">\(^2\)</span>/g], by the sample density. Tabulated values of the <span class="math notranslate nohighlight">\((\mu/\rho)(E)\)</span> for each element are available here: https://physics.nist.gov/PhysRefData/XrayMassCoef/tab3.html. For our purposes:</p></li>
-</ol>
-</li>
-</ul>
-<div class="math notranslate nohighlight">
-\[
-t = \frac{-\ln{T}}{\mu}
-\]</div>
-<ul class="simple">
-<li><p>NB: When using <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>, do not use both the <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> <em>and</em> <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> parameters at the same time. Specifying both parameters makes the definition of the sample thickness ambiguous. The Processor will raise an error if both parameters are supplied.</p></li>
-<li><p><span class="math notranslate nohighlight">\(C_f\)</span> is the scalar factor for putting flux, absorption, background, and thickness corrected data into absolute intensity units. Taken directly from the <code class="docutils literal notranslate"><span class="pre">absolute_intensity_scalar</span></code> parameter from the correction tool config file.</p></li>
-</ul>
-</section>
-<section id="saxswaxs-fluxcorrectionprocessor">
-<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxcorrectionprocessor" title="Link to this heading"></a></h3>
-<div class="math notranslate nohighlight">
-\[
-I_{corrected} = I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
-\]</div>
-</section>
-<section id="saxswaxs-fluxabsorptioncorrectionprocessor">
-<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsorptioncorrectionprocessor" title="Link to this heading"></a></h3>
-<div class="math notranslate nohighlight">
-\[
-I_{corrected} = \frac{1}{T} * I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
-\]</div>
-</section>
-<section id="saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor">
-<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsoprtionBackgroundCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor" title="Link to this heading"></a></h3>
-<p>This tool functions differently depending on what parameters are provided:</p>
-<ul class="simple">
-<li><p>If neither <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
-</ul>
-<div class="math notranslate nohighlight">
-\[
-I_{corrected} = (I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})
-\]</div>
-<ul class="simple">
-<li><p>If either <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
-</ul>
-<div class="math notranslate nohighlight">
-\[
-I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})]
-\]</div>
-</section>
-</section>
-<section id="configuring-a-pipeline">
-<h2>Configuring a pipeline<a class="headerlink" href="#configuring-a-pipeline" title="Link to this heading"></a></h2>
-<p>Before constructing a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. <em>Both</em> these configurations will need to be read in to the pipeline for <a class="reference internal" href="../CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.setup" title="CHAP.edd.processor.StrainAnalysisProcessor.setup"><span class="xref myst py py-attr">the setup step</span></a> and every <a class="reference internal" href="../CHAP.edd.html#CHAP.edd.processor.StrainAnalysisProcessor.update" title="CHAP.edd.processor.StrainAnalysisProcessor.update"><span class="xref myst py py-attr">update step</span></a>.</p>
+<h3>Related Configuration Objects<a class="headerlink" href="#related-configuration-objects" title="Link to this heading"></a></h3>
+<p>Before constructing a <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> pipeline configuration to run a complete SAXS/WAXS data processing workflow, users should first assemble two supplementary configuration files. <em>Both</em> these configurations will need to be read in to the pipeline for <a class="reference internal" href="#setup"><span class="xref myst">the setup step</span></a> and every <a class="reference internal" href="#update"><span class="xref myst">update step</span></a>.</p>
 <ol class="arabic">
-<li><p><code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code> (configuraing a <code class="docutils literal notranslate"><span class="pre">CHAP.common.models.map.MapConfig</span></code>)</p>
-<p>This configuration contains everything <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> needs to know about the location, format, and size of the raw input dataset.
-Example <code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code>:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code> (configuring a <code class="docutils literal notranslate"><span class="pre">CHAP.common.models.map.MapConfig</span></code>)</p>
+<p>This configuration contains everything <code class="docutils literal notranslate"><span class="pre">CHAP</span></code> needs to know about the location, format, and size of the raw input dataset.</p>
+<details>
+<summary>Example `map_config`.yaml</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">validate_data_present</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spec_file_012</span>
 <span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id3b</span>
@@ -466,7 +378,9 @@ Example <code class="docutils literal notranslate"><span class="pre">map_config.
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">diode</span>
 </pre></div>
 </div>
-<p>Annotated <code class="docutils literal notranslate"><span class="pre">map_config.yaml</span></code> template:</p>
+</details>
+<details>
+<summary>Annotated `map_config.yaml` template</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># General  metadata ####################################################</span>
 
 <span class="c1"># A title for this map. Recommended: use snake_case.</span>
@@ -643,71 +557,76 @@ Example <code class="docutils literal notranslate"><span class="pre">map_config.
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span>
 </pre></div>
 </div>
+ </details>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">pyfai_integration_procesor_config.yaml</span></code> (configuring a <code class="docutils literal notranslate"><span class="pre">CHAP.common.models.integration.PyFaiIntegrationProcessorConfig</span></code>)</p>
 <p>This configuration contains the instructions for performing one or more kinds of integrations on the raw input dataset.
-Example <code class="docutils literal notranslate"><span class="pre">pyfai_integration_processor_config.yaml</span></code>:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">azimuthal_integrators</span><span class="p">:</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
-<span class="w">  </span><span class="nt">poni_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LaB6_PIL9_10.30.2024.poni</span>
-<span class="w">  </span><span class="nt">mask_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9_mask.tif</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
-<span class="w">  </span><span class="nt">poni_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LaB6_PIL11_10.30.2024.poni</span>
-<span class="w">  </span><span class="nt">mask_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11_mask.tif</span>
-<span class="nt">integrations</span><span class="p">:</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_azimuthal</span>
-<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate1d</span>
-<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">npt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
-<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
-<span class="w">  </span><span class="nt">multi_geometry</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
-<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
-<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_cake</span>
-<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate2d</span>
-<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">npt_rad</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180</span>
-<span class="w">    </span><span class="nt">npt_azim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">360</span>
-<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
-<span class="w">  </span><span class="nt">multi_geometry</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
-<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
-<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">waxs_radial</span>
-<span class="w">  </span><span class="nt">integration_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integrate_radial</span>
-<span class="w">  </span><span class="nt">integration_params</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">ais</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL9</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PIL11</span>
-<span class="w">    </span><span class="nt">npt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">360</span>
-<span class="w">    </span><span class="nt">npt_rad</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<span class="w">    </span><span class="nt">radial_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.6</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.1</span>
-<span class="w">    </span><span class="nt">azimuth_range</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-180.0</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">180.0</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chi_deg</span>
-<span class="w">    </span><span class="nt">radial_unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">q_A^-1</span>
-<span class="w">    </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bbox_csr_cython</span>
-</pre></div>
-</div>
-<p>Annotated <code class="docutils literal notranslate"><span class="pre">pyfai_integration_processor_config.yaml</span></code>:</p>
+Example <code class="docutils literal notranslate"><span class="pre">pyfai_integration_processor_config.yaml</span></code></p>
+<details>
+<summary>Example `pyfai_integration_processor_config.yaml`</summary>
+```yaml
+azimuthal_integrators:
+- id: PIL9
+  poni_file: LaB6_PIL9_10.30.2024.poni
+  mask_file: PIL9_mask.tif
+- id: PIL11
+  poni_file: LaB6_PIL11_10.30.2024.poni
+  mask_file: PIL11_mask.tif
+integrations:
+- name: waxs_azimuthal
+  integration_method: integrate1d
+  integration_params:
+    npt: 200
+    method: bbox_csr_cython
+  multi_geometry:
+    ais:
+    - PIL9
+    - PIL11
+    unit: q_A^-1
+    radial_range:
+    - 0.6
+    - 4.1
+    azimuth_range:
+    - -180.0
+    - 180.0
+- name: waxs_cake
+  integration_method: integrate2d
+  integration_params:
+    npt_rad: 180
+    npt_azim: 360
+    method: bbox_csr_cython
+  multi_geometry:
+    ais:
+    - PIL9
+    - PIL11
+    unit: q_A^-1
+    radial_range:
+    - 0.6
+    - 4.1
+    azimuth_range:
+    - -180.0
+    - 180.0
+- name: waxs_radial
+  integration_method: integrate_radial
+  integration_params:
+    ais:
+    - PIL9
+    - PIL11
+    npt: 360
+    npt_rad: 300
+    radial_range:
+    - 0.6
+    - 4.1
+    azimuth_range:
+    - -180.0
+    - 180.0
+    unit: chi_deg
+    radial_unit: q_A^-1
+    method: bbox_csr_cython
+```
+</details>
+<details>
+<summary>Annotated `pyfai_integration_processor_config.yaml`</summary>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># List of detectors whose data will be processed</span>
 <span class="nt">azimuthal_integrators</span><span class="p">:</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="c1"># The detector &quot;indentifier&quot; for filenames, usually the EPICS PV prefix</span>
@@ -754,13 +673,93 @@ Example <code class="docutils literal notranslate"><span class="pre">pyfai_integ
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="c1"># Another integration may be configured here...</span>
 </pre></div>
 </div>
+</details>
 </li>
 </ol>
 </section>
+<section id="optimizing-performance">
+<h3>Optimizing performance<a class="headerlink" href="#optimizing-performance" title="Link to this heading"></a></h3>
+<p>Guide on selecting appropriate values for dataset_chunks and running multiple update jobs in parallel</p>
+</section>
+<section id="data-in-output-formats">
+<h3>Data in / output formats<a class="headerlink" href="#data-in-output-formats" title="Link to this heading"></a></h3>
+<p>CHESS data in, .zarr data out</p>
+</section>
+</section>
+<section id="notes-on-corrections-calculations">
+<h2>Notes on corrections calculations<a class="headerlink" href="#notes-on-corrections-calculations" title="Link to this heading"></a></h2>
+<p>There are currently three convenience tools available for performing corrections: <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxCorrectionProcessor</span></code>, <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionCorrectionProcessor</span></code>, and <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackrgroundCorrectionProcessor</span></code>. The exact calculations that each ones performs are detailed below.</p>
+<section id="definitions">
+<h3>Definitions<a class="headerlink" href="#definitions" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(I_{uncorrected}\)</span> is the uncorrected, integrated dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(I_{incident}\)</span> is the presample intensity dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">presample_intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(I_{transmitted}\)</span> is the postsample intensity dataset. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">postsample_intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(t_{dwell}\)</span> is the scan’s dwell time at each point in the map configuration to which the correction tool is applied.  When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">dwell_time_actual</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(I_{background}\)</span> is the background integrated detector data. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(I_{incident, background}\)</span> is the background presample intensity. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_presample_intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(I_{transmitted, background}\)</span> is the background postsample intensity. When reading this data as input for a <code class="docutils literal notranslate"><span class="pre">saxswaxs.*CorrectionProcessor</span></code>, use <code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">background_postsample_intensity</span></code>.</p></li>
+<li><p><span class="math notranslate nohighlight">\(\phi_{reference}\)</span> is <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> in the correction tool’s own parameters. However, if <code class="docutils literal notranslate"><span class="pre">presample_intensity_reference_rate</span></code> was not given in the tool’s configuration, a value for this quantity will be calculated with:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[
+\phi_{reference} = \frac{\overline{I_{incident}}}{\overline{t_{dwell}}}
+\]</div>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(T = \frac{I_{transmitted}}{I_{incident}} / \frac{I_{transmitted, background}}{I_{incident, background}}\)</span></p></li>
+<li><p><span class="math notranslate nohighlight">\(t\)</span> is the sample thickness in <span class="math notranslate nohighlight">\(cm\)</span>. This quantity only appears in <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>. The value of this parameter can be set in one of two ways:</p>
+<ol class="arabic simple">
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> parameter of <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>, OR</p></li>
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> (”<span class="math notranslate nohighlight">\(\mu\)</span>”) parameter of <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>. <span class="math notranslate nohighlight">\(\mu\)</span> is known as the the linear attenuation coefficient of the sample, and is related to the <em>mass</em> attenuation coefficient, <span class="math notranslate nohighlight">\((\mu/\rho)\)</span> [cm<span class="math notranslate nohighlight">\(^2\)</span>/g], by the sample density. Tabulated values of the <span class="math notranslate nohighlight">\((\mu/\rho)(E)\)</span> for each element are available here: https://physics.nist.gov/PhysRefData/XrayMassCoef/tab3.html. For our purposes:</p></li>
+</ol>
+</li>
+</ul>
+<div class="math notranslate nohighlight">
+\[
+t = \frac{-\ln{T}}{\mu}
+\]</div>
+<ul class="simple">
+<li><p>NB: When using <code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionBackgroundCorrectionProcessor</span></code>, do not use both the <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> <em>and</em> <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> parameters at the same time. Specifying both parameters makes the definition of the sample thickness ambiguous. The Processor will raise an error if both parameters are supplied.</p></li>
+<li><p><span class="math notranslate nohighlight">\(C_f\)</span> is the scalar factor for putting flux, absorption, background, and thickness corrected data into absolute intensity units. Taken directly from the <code class="docutils literal notranslate"><span class="pre">absolute_intensity_scalar</span></code> parameter from the correction tool config file.</p></li>
+</ul>
+</section>
+<section id="saxswaxs-fluxcorrectionprocessor">
+<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxcorrectionprocessor" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+\]</div>
+</section>
+<section id="saxswaxs-fluxabsorptioncorrectionprocessor">
+<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsorptionCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsorptioncorrectionprocessor" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = \frac{1}{T} * I_{uncorrected} * \frac{\phi_{reference}}{I_{incident}}
+\]</div>
+</section>
+<section id="saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor">
+<h3><code class="docutils literal notranslate"><span class="pre">saxswaxs.FluxAbsoprtionBackgroundCorrectionProcessor</span></code><a class="headerlink" href="#saxswaxs-fluxabsoprtionbackgroundcorrectionprocessor" title="Link to this heading"></a></h3>
+<p>This tool functions differently depending on what parameters are provided:</p>
+<ul class="simple">
+<li><p>If neither <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = (I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})
+\]</div>
+<ul class="simple">
+<li><p>If either <code class="docutils literal notranslate"><span class="pre">sample_thickness_cm</span></code> or <code class="docutils literal notranslate"><span class="pre">sample_mu_inv_cm</span></code> are provided:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[
+I_{corrected} = \frac{1}{t} * [(I_{uncorrected} * \frac{1}{T} * \frac{\phi_{reference}}{I_{incident}}) - (I_{background} * \frac{\phi_{reference}}{I_{incident, background}})]
+\]</div>
+</section>
+</section>
 <section id="running-a-workflow">
 <h2>Running a workflow<a class="headerlink" href="#running-a-workflow" title="Link to this heading"></a></h2>
-<section id="at-classe">
-<h3>At CLASSE<a class="headerlink" href="#at-classe" title="Link to this heading"></a></h3>
+<section id="at-chess">
+<h3>At CHESS<a class="headerlink" href="#at-chess" title="Link to this heading"></a></h3>
 <p>Use environment: <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">/nfs/chess/sw/miniforge3_chap/bin/activate;</span> <span class="pre">conda</span> <span class="pre">activate</span> <span class="pre">CHAP_saxswaxs</span></code>
 And/or add this to your ~/.bashrc: <code class="docutils literal notranslate"><span class="pre">alias</span> <span class="pre">CHAP_saxswaxs='/nfs/chess/sw/miniforge3_chap/envs/CHAP_saxswaxs/bin/CHAP'</span></code></p>
 </section>
@@ -777,7 +776,7 @@ Script for constructuing and / or sending off multiple update jobs in parallel</
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="EDD.html" class="btn btn-neutral float-left" title="EDD subpackage (CHAP.edd)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="GIWAXS.html" class="btn btn-neutral float-left" title="GIWAXS subpackage (CHAP.giwaxs)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="Tomo.html" class="btn btn-neutral float-right" title="Tomography subpackage (CHAP.tomo)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

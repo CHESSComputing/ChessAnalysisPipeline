@@ -1,6 +1,11 @@
 CHAP.edd package
 ================
 
+.. automodule:: CHAP.edd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -48,14 +53,6 @@ CHAP.edd.writer module
 ----------------------
 
 .. automodule:: CHAP.edd.writer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.edd
    :members:
    :undoc-members:
    :show-inheritance:

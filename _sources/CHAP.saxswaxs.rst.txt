@@ -1,6 +1,11 @@
 CHAP.saxswaxs package
 =====================
 
+.. automodule:: CHAP.saxswaxs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -24,14 +29,6 @@ CHAP.saxswaxs.writer module
 ---------------------------
 
 .. automodule:: CHAP.saxswaxs.writer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: CHAP.saxswaxs
    :members:
    :undoc-members:
    :show-inheritance:
