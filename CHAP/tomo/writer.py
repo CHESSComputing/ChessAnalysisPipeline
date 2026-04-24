@@ -7,6 +7,12 @@ import os
 # Third party modules
 from pydantic import model_validator
 
+# System modules
+import os
+
+# Third party modules
+from pydantic import model_validator
+
 # Local modules
 from CHAP import Writer
 

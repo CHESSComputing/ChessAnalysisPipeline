@@ -386,9 +386,15 @@ class PipelineItem(RunConfig):
         :return: `NXroot` object.
         :rtype: nexusformat.nexus.NXroot
         """
+        # Third party modules
+        from nexusformat.nexus import (
+            NXentry,
+            NXroot,
+        )
+
         if isinstance(nxobject, NXroot):
             nxroot = nxobject
-        if isinstance(nxobject, NXentry):
+        elif isinstance(nxobject, NXentry):
             nxroot = NXroot()
             nxroot[nxobject.nxname] = nxobject
             nxobject.set_default()

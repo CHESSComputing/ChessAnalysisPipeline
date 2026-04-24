@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-
 # -*- coding: utf-8 -*-
 
 import sys
+#sys.path.append(
+#    '/home/rv43/Documents/Programs/repos/CHESSComputing/ChessAnalysisPipeline')
 sys.path.append(
-    '/home/rv43/Documents/Programs/repos/CHESSComputing/ChessAnalysisPipeline')
-
-# System modules
-from pprint import pprint
+    '/nfs/chess/sw/CHESS-software-releases/repos/prod/ChessAnalysisPipeline')
 
 # Third party modules
 import matplotlib.pyplot as plt

@@ -211,7 +211,6 @@ def pvoigt(x, amplitude=1.0, center=0.0, sigma=1.0, fraction=0.5):
     :math:`\sigma_g = {\sigma}/{\sqrt{2\ln{2}}}` so that the full
     width at half maximum is :math:`2\sigma` and the peak height is
     approximately :math:`A/(2.536\sigma)`.
-
     """
     return ((1-fraction) * gaussian(x, amplitude, center, sigma/s2ln2) +
         fraction * lorentzian(x, amplitude, center, sigma))

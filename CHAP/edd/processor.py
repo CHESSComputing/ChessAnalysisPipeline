@@ -3194,6 +3194,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         from nexusformat.nexus import NXfield
 
         # Local modules
+        from CHAP.common.map_utils import get_axes
         from CHAP.edd.utils import (
             get_peak_locations,
             get_spectra_fits,

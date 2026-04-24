@@ -21,6 +21,7 @@ class FoxdenDoiWriter(PipelineItem):
     """Writer for saving info to the
     `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
     DOI service."""
+
     def write(
             self, url, data, *, provider='Datacite', description='',
             draft=True, publishMetadata=True, verbose=False):
@@ -85,6 +86,7 @@ class FoxdenMetadataWriter(PipelineItem):
     :ivar verbose: Verbose output flag, defaults to `False`.
     :vartype verbose: bool, optional
     """
+
     url: constr(strict=True, strip_whitespace=True)
     verbose: Optional[bool] = None
 
@@ -137,6 +139,7 @@ class FoxdenProvenanceWriter(PipelineItem):
     :ivar verbose: Verbose output flag, defaults to `False`.
     :vartype verbose: bool, optional
     """
+
     url: constr(strict=True, strip_whitespace=True)
     verbose: Optional[bool] = None
 

@@ -139,6 +139,7 @@ class ProvenanceFileProcessor(Processor):
         ignore for any other file type.
     :vartype nxmemory: int, optional
     """
+
     file_type: Optional[Literal['input', 'output']] = 'output'
     nxmemory: Optional[conint(gt=0)] = None
 

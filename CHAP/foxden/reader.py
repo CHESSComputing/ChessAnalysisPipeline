@@ -31,6 +31,7 @@ class FoxdenDataDiscoveryReader(PipelineItem):
         :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -87,6 +88,7 @@ class FoxdenMetadataReader(PipelineItem):
         :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -160,6 +162,7 @@ class FoxdenProvenanceReader(PipelineItem):
         :class:`~CHAP.foxden.models.FoxdenRequestConfig`.
     :vartype config: dict, optional
     """
+
     pipeline_fields: dict = Field(
         default = {'config': 'foxden.models.FoxdenRequestConfig'},
         init_var=True)
@@ -216,6 +219,7 @@ class FoxdenSpecScansReader(PipelineItem):
     """Reader for `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
     SpecScans data from a specific FOXDEN SpecScans service.
     """
+
     def read(
             self, url, data, *, did='', query='', spec=None, method='POST',
             # 'GET',

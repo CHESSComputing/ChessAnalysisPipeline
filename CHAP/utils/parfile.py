@@ -12,7 +12,29 @@ import os
 import json
 
 class ParFile():
-    """Representation of a par file."""
+    """Representation of a par file.
+
+    :ivar column_names: List of the names of each column in the par
+        file.
+    :vartype column_names: list[str]
+    :ivar data: A 2D array of the data in this par file: 0th index:
+        row, 1st index: column
+    :vartype data: list[list]
+    :ivar json_file: Name of the json file containing the keys for
+        the column names of the par file.
+    :vartype json_file: str
+    :ivar par_file: Name of the par file.
+    :vartype par_file: str
+    :ivar scann_i: Column index for the scan number column in the par
+        file.
+    :vartype scann_i: int
+    :ivar scan_numbers: Scan numbers for which data is available in the
+        par file.
+    :vartype scan_numbers: list[int]
+    :ivar spec_file: Name of the SPEC data file associated with this
+        par file.
+    :vartype spec_file: str
+    """
 
     def __init__(self, par_file, scan_numbers=None, scann_col_name='SCAN_N'):
         """Initialize ParFile.
@@ -21,8 +43,8 @@ class ParFile():
         :type par_file: str
         :param scan_numbers: List of scan numbers to use.
         :type scan_numbers: int or list[int] or str, optional
-        :param scann_col_name: Column name in the par file, defaults
-            to 'SCAN_N'.
+        :param scann_col_name: Column name for scan number in the par
+            file, defaults to 'SCAN_N'.
         :type scann_col_name: str, optional
         """
         # Local modules

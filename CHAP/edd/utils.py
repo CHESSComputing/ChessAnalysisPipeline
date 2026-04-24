@@ -345,8 +345,8 @@ def select_material_params(
         return preselected_materials, None
 
     # Third party modules
-    from hexrd.material import Material
-#    from CHAP.utils.material import Material
+#    from hexrd.material import Material
+    from CHAP.utils.material import Material
     import matplotlib.pyplot as plt
     from matplotlib.widgets import (
         Button,

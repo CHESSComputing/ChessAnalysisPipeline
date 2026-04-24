@@ -39,6 +39,7 @@ class FoxdenRequestConfig(CHAPBaseModel):
     :ivar verbose: Verbose output flag, defaults to `False`.
     :vartype verbose: bool, optional
     """
+
 #    :ivar method: HTTP request method (not case sensitive),
 #        defaults to `'POST'`.
 #    :vartype method: Literal['DELETE', 'GET', 'POST', 'PUT'], optional

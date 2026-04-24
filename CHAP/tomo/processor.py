@@ -37,6 +37,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+import tkinter as tk
 
 # Local modules
 from CHAP.common.models.map import (
@@ -205,6 +206,105 @@ def create_metadata_provenance(
     user_metadata = {} \
         if user_metadata is None \
         else metadata.pop('user_metadata', {}) | user_metadata
+    if not update:
+        metadata = {}
+    metadata.update({
+        'btr': btr,
+        'did': did,
+        'parent_did': parent_did,
+        'schema': 'user',
+        'user_metadata': user_metadata})
+    provenance.update({
+        'did': did,
+        'parent_did': parent_did,
+        'input_files': [{'name': 'todo.fix: pipeline.yaml'}]})
+    return metadata, provenance
+
+
+def read_metadata_provenance(data, logger=None, remove=True):
+    # Local modules
+    from CHAP.pipeline import PipelineItem
+
+    try:
+        metadata = PipelineItem.get_data(
+            data, schema='foxden.reader.FoxdenMetadataReader', remove=remove)
+    except Exception:
+        try:
+            metadata = PipelineItem.get_data(
+                data, schema='foxden.reader.FoxdenDataDiscoveryReader',
+                remove=remove)
+            if len(metadata) > 1:
+                logger.warning(f'Unable to get unique metadata from pipeline')
+            metadata = metadata[0]
+        except Exception:
+            if logger is None:
+                print(f'WARNING: Unable to get metadata from pipeline')
+            else:
+                logger.warning(f'Unable to get metadata from pipeline')
+            metadata = {}
+    # FIX right now the provenance service returns input and output
+    # info, not the actual record, so always remove it from the
+    # pipeline and create a new record using the metadata
+    # This means that you also need to read a metadata record to get
+    # the did
+    try:
+        provenance = PipelineItem.get_data(
+            data, schema='foxden.reader.FoxdenProvenanceReader')
+            #data, schema='foxden.reader.FoxdenProvenanceReader', remove=remove)
+    except Exception:
+        if logger is None:
+            print(f'WARNING: Unable to get provedance from pipeline')
+        else:
+            logger.warning(f'Unable to get provedance from pipeline')
+        provenance = {}
+    return metadata, provenance
+
+
+def create_metadata_provenance(
+        did_suffix, data=None, metadata=None, provenance=None,
+        user_metadata=None, logger=None, update=False, read=True):
+    if read:
+        if None in (metadata, provenance):
+            if logger is None:
+                print('WARNING: Ignoring inputs for metadata and provenance '
+                      'when reading them from pipeline data in '
+                      'create_metadata_provenance')
+            else:
+                logger.warning('Ignoring inputs for metadata and provenance '
+                      'when reading them from pipeline data')
+        metadata, provenance = read_metadata_provenance(data, logger)
+    else:
+        if metadata is None:
+            metadata = {}
+        if provenance is None:
+            provenance = {}
+
+    did = metadata.get('did')
+    if provenance:
+        # FIX: right now no multiple parent_did's inplemented
+        parent_did = provenance.get('parent_did')
+        if did is None:
+            did = provenance.get('did')
+        elif 'did' in provenance:
+            assert did == provenance.get('did')
+    else:
+        parent_did = did
+    if parent_did is None:
+        did = f'/workflow={did_suffix}'
+    else:
+        did = f'{parent_did}/workflow={did_suffix}'
+    btr = metadata.pop('btr', None)
+    if btr is None:
+        try:
+            btr = did.split('btr=')[1].split('/')[0]
+            assert isinstance(btr, str)
+        except Exception:
+            logger.warning(f'Unable to get a valid btr from did ({did})')
+            btr = 'unknown'
+    if user_metadata is None:
+        user_metadata = {}
+    else:
+        user_metadata = metadata.pop('user_metadata', {}) | user_metadata
     if not update:
         metadata = {}
     metadata.update({
