@@ -1,10 +1,6 @@
 #!/usr/bin/env python
-"""
-File       : reader.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: generic Reader module
-
-Define a generic `Reader` object.
+#-*- coding: utf-8 -*-
+"""Module defining the base `Reader` class to derive all others from.
 """
 
 # System modules
@@ -25,12 +21,17 @@ from CHAP.pipeline import PipelineItem
 
 
 def validate_reader_model(reader):
+    """Validate the reader configuration.
+
+    :return: Validated model.
+    :rtype: Any
+    """
     reader._mapping_filename = reader.filename
     filename = os.path.normpath(os.path.realpath(
         os.path.join(reader.inputdir, reader.filename)))
     if (not os.path.isfile(filename)
             and not os.path.dirname(reader.filename)):
-        reader.logger.warning(
+        reader.logger.info(
             f'Unable to find {reader.filename} in {reader.inputdir}, looking '
             f'in {reader.outputdir}')
         filename = os.path.normpath(os.path.realpath(
@@ -47,17 +48,15 @@ def validate_reader_model(reader):
 
 
 class Reader(PipelineItem):
-    """Generic file reader.
+    """Base reader.
 
-    The job of any `Reader` in a `Pipeline` is to provide data stored
-    in a file to the next `PipelineItem`. Note that a `Reader` used on
-    its own disrupts the flow of data in a `Pipeline` -- it does not
-    receive or pass along any data returned by the previous
-    `PipelineItem`.
+    The job of any `Reader` in a pipeline is to provide data stored
+    in a file to the list of `PipelineItem`\\s.
 
     :ivar filename: Name of file to read from.
-    :type filename: str
+    :vartype filename: str
     """
+
     filename: constr(strip_whitespace=True, min_length=1)
 
     _mapping_filename: PrivateAttr(default=None)
@@ -67,7 +66,7 @@ class Reader(PipelineItem):
     def read(self):
         """Read and return the contents of `filename` as text.
 
-        :return: The file content.
+        :return: File content.
         :rtype: str
         """
         if not self.filename:
@@ -75,7 +74,7 @@ class Reader(PipelineItem):
                 'No file name is given, skipping read operation')
             return None
         try:
-            with open(self.filename) as f:
+            with open(self.filename, encoding='utf-8') as f:
                 data = f.read()
         except Exception:
             return None
@@ -84,6 +83,7 @@ class Reader(PipelineItem):
 
 class OptionParser():
     """User based option parser."""
+
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog='PROG')
         self.parser.add_argument(
@@ -98,7 +98,11 @@ class OptionParser():
 
 
 def main(opt_parser=OptionParser):
-    """Main function."""
+    """Main function.
+
+    :param opt_parser: User based option parser.
+    :type opt_parser: OptionParser
+    """
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()
     cls_name = opts.reader

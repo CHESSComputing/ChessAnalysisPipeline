@@ -1,12 +1,12 @@
 config:
   root: examples/tomo
   inputdir: config
-  outputdir: hollow_cube
+  outputdir: reduced/hollow_cube
   interactive: true
   log_level: info
   profile: false
 
-pipeline:
+map:
 
   # Convert the CHESS style map
   - common.YAMLReader:
@@ -23,14 +23,14 @@ pipeline:
         station: id3b
         experiment_type: TOMO
         spec_scans:
-        - spec_file: ../data/hollow_cube/hollow_cube
+        - spec_file: ../raw/hollow_cube/hollow_cube
           scan_numbers: 1
       detector_config:
         detectors:
           - id: sim
       schema: darkfield
   - common.SpecReader:
-      inputdir: ../data/hollow_cube
+      inputdir: ../raw/hollow_cube
       config:
         station: id3b
         experiment_type: TOMO
@@ -45,20 +45,38 @@ pipeline:
       filename: detector.yaml
       schema: tomo.models.Detector
   - tomo.TomoCHESSMapConverter
+  - common.NexusWriter:
+      filename: chess_map_hollow_cube.nxs
+      force_overwrite: true
  
+full_recon:
+
   # Full tomography reconstruction
+  - common.NexusReader:
+      filename: chess_map_hollow_cube.nxs
   - common.YAMLReader:
       filename: reduce_data_id3b.yaml
       schema: tomo.models.TomoReduceConfig
+  - tomo.TomoReduceProcessor:
+      save_figures: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
   - common.YAMLReader:
       filename: find_center_id3b.yaml
       schema: tomo.models.TomoFindCenterConfig
+  - tomo.TomoFindCenterProcessor:
+      save_figures: true
+  - common.ImageWriter:
+      outputdir: saved_figures
+      force_overwrite: true
+
   - common.YAMLReader:
       filename: reconstruct_data.yaml
       schema: tomo.models.TomoReconstructConfig
-  - tomo.TomoDataProcessor:
-      outputdir: saved_figs
-      save_figs: 'only'
+  - tomo.TomoReconstructProcessor:
+      save_figures: true
   - common.NexusWriter:
       filename: reconstructed_data.nxs
       force_overwrite: true

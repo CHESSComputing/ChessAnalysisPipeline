@@ -1,32 +1,40 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-"""
-File       : writer.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description: FOXDEN writers
+"""Module for Readers unique to the
+`FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+integration with CHAP.
 """
 
 # System modules
+from copy import deepcopy
 import json
+from typing import Optional
+
+# Third party modules
+from pydantic import constr
 
 # Local modules
-from CHAP.foxden.utils import HttpRequest
-from CHAP.writer import Writer
+from CHAP.pipeline import PipelineItem
+from CHAP.foxden.utils import HTTP_request
 
+class FoxdenDoiWriter(PipelineItem):
+    """Writer for saving info to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    DOI service."""
 
-class FoxdenDoiWriter(Writer):
-    """Writer for saving info to the FOXDEN DOI service."""
     def write(
-            self, url, data, provider='Datacite', description='', draft=True,
-            publishMetadata=True, verbose=False):
-        """Write data to the FOXDEN DOI service.
+            self, url, data, *, provider='Datacite', description='',
+            draft=True, publishMetadata=True, verbose=False):
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__ DOI service.
 
         :param data: Input data.
         :type data: list[PipelineData]
         :param url: URL of service.
         :type url: str
-        :param provider: DOI provider name, e.g. Zenodo, Datacite,
-            Materialcommons, defaults to `'Datacite'`.
+        :param provider: DOI provider name, e.g. `'Zenodo'`,
+            `'Datacite'`, or `'Materialcommons'`, defaults to
+            `'Datacite'`.
         :type provider: str, optional
         :param description: Dataset description.
         :type description: str, optional
@@ -60,7 +68,7 @@ class FoxdenDoiWriter(Writer):
         }
         if verbose:
             self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
+        response = HTTP_request(rurl, payload, method='POST', scope='write')
         if verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
@@ -68,97 +76,132 @@ class FoxdenDoiWriter(Writer):
         return result
 
 
-class FoxdenMetadataWriter(Writer):
-    """Writer for saving data to the FOXDEN Metadata service."""
-    def write(self, data, url):#config=None):
-        """Write data to the FOXDEN Metadata service.
+class FoxdenMetadataWriter(PipelineItem):
+    """Writer for saving data to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Metadata service.
+
+    :ivar url: URL of service.
+    :vartype url: str
+    :ivar verbose: Verbose output flag, defaults to `False`.
+    :vartype verbose: bool, optional
+    """
+
+    url: constr(strict=True, strip_whitespace=True)
+    verbose: Optional[bool] = None
+
+    def write(self, data):
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Metadata service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
         :return: HTTP response from FOXDEN Metadata service.
-        :rtype: list[dict]
+        :rtype: dict
         """
-        # System modules
-        from getpass import getuser
-
-        record = self.get_data(data, schema='metadata')
+        record = deepcopy(self.get_data(
+            data, schema='foxden.reader.FoxdenMetadataReader', remove=False))
         if not isinstance(record, dict):
-            raise ValueError('Invalid metadata record {(record)}')
+            self.logger.warning(
+                f'Invalid or unavailable metadata record {(record)}')
+            return None
 
         # FIX it would be useful to perform validation of record
 
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
-#            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
-
-        # For now cut out anything but the did and application fields
-        # from the CHAP workflow metadata record
-        record = {'did': record['did'],
-                  'application': record.get('application', 'CHAP'),
-                  'btr': record.get('btr'),
-                  'user': getuser()}
-
         # Submit HTTP request and return response
-        rurl = f'{config.url}'
-        mrec = {'Schema': 'Analysis', 'Record': record}
-        payload = json.dumps(mrec)
-        self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
-        if config.verbose:
+        schema = record.pop('schema', 'Analysis')
+        #if schema not in ('user', 'Composite'):
+        #    record.pop('parent_did', None)
+        payload = json.dumps({'Schema': schema, 'Record': record})
+        self.logger.info(f'method=POST url={self.url} payload={payload}')
+        response = HTTP_request(
+            self.url, payload, method='POST', scope='write')
+        if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            result = [{'code': response.status_code, 'data': response.text}]
+            self.logger.info('Successfully submitted metadata record')
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
-            self.logger.warning(f'HTTP response:\n{response.__dict__}')
-            result = []
-        return result
+            self.logger.warning(
+                f'HTTP response:\n{response.__dict__}\npayload:\n{payload}')
+        return {'status': response.status_code, 'response': response.text}
 
 
-class FoxdenProvenanceWriter(Writer):
-    """Writer for saving data to the FOXDEN Provenance service."""
-    def write(self, data, url):#config=None):
-        """Write data to the FOXDEN Provenance service.
+class FoxdenProvenanceWriter(PipelineItem):
+    """Writer for saving data to the
+    `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+    Provenance service.
+
+    :ivar url: URL of service.
+    :vartype url: str
+    :ivar verbose: Verbose output flag, defaults to `False`.
+    :vartype verbose: bool, optional
+    """
+
+    url: constr(strict=True, strip_whitespace=True)
+    verbose: Optional[bool] = None
+
+    def write(self, data):
+        """Write data to the
+        `FOXDEN <https://github.com/CHESSComputing/FOXDEN>`__
+        Provenance service.
 
         :param data: Input data.
         :type data: list[PipelineData]
-        :param config: FOXDEN HTTP request configuration.
-        :type config: CHAP.foxden.models.FoxdenRequestConfig
-        :return: HTTP response from FOXDEN Provenance service.
-        :rtype: list[dict]
+        :return: HTTP response from FOXDEN Provenance serviceand the
+            updated provenance record.
+        :rtype: PipelineData, PipelineData
         """
-        record = self.get_data(data, name='FoxdenProvenanceProcessor')
-        if not isinstance(record, dict):
-            raise ValueError('Invalid provenance record {(record)}')
+        # Local modules
+        from CHAP.common.utils import (
+            osinfo,
+            environments,
+        )
+        from CHAP.pipeline import PipelineData
+
+        provenance = self.get_data(
+            data, schema='foxden.reader.FoxdenProvenanceReader')
+        if not isinstance(provenance, dict):
+            self.logger.warning(
+                f'Invalid or unavailable provenance provenance {(provenance)}')
+            return None
 
         # FIX it would be useful to perform validation of data
 
-        # Load and validate the FoxdenRequestConfig configuration
-        config = self.get_config(
-            config={'url': url}, schema='foxden.models.FoxdenRequestConfig')
-#            config=config, schema='foxden.models.FoxdenRequestConfig')
-        self.logger.debug(f'config: {config}')
+        # Add system info to provenance data
+        record = deepcopy(provenance)
+        record.update({
+            'environments': environments(),
+            'osinfo': osinfo(),
+            'processing': 'CHAP pipeline',
+            'scripts': [
+                {'name': 'CHAP', 'parent_script': None, 'order_idx': 1}],
+            'site': 'Cornell',
+        })
 
         # Submit HTTP request and return response
-        rurl = f'{url}/dataset'
+        url = f'{self.url}/dataset'
         payload = json.dumps(record)
-        self.logger.info(f'method=POST url={rurl} payload={payload}')
-        response = HttpRequest(rurl, payload, method='POST', scope='write')
-        if config.verbose:
+        self.logger.info(f'method=POST url=url, payload={payload}')
+        response = HTTP_request(url, payload, method='POST', scope='write')
+        if self.verbose:
             self.logger.info(
                 f'code={response.status_code} data={response.text}')
         if response.status_code == 200:
-            result = [{'code': response.status_code, 'data': response.text}]
+            self.logger.info('Successfully submitted provenance record')
+            provenance['parent_did'] = provenance.pop('did')
+            provenance.pop('input_files', None)
+            provenance.pop('output_files', None)
         else:
             self.logger.warning(f'HTTP error code {response.status_code}')
             self.logger.warning(f'HTTP response:\n{response.__dict__}')
-            result = []
-        return result
+        result = {'status': response.status_code, 'response': response.text}
+        return (PipelineData(name=self.name, data=result),
+                PipelineData(
+                    name=self.name, data=provenance,
+                    schema='foxden.reader.FoxdenProvenanceReader'))
 
 
 if __name__ == '__main__':

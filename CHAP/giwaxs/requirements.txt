@@ -1,5 +1,0 @@
-certif-pyspec
-nexusformat
-numpy
-pydantic
-pyfai

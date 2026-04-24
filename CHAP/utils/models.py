@@ -1,4 +1,6 @@
-"""Utils Pydantic model classes."""
+"""Utils `Pydantic <https://github.com/pydantic/pydantic>`__ model
+classes.
+"""
 
 # System modules
 from typing import (
@@ -29,49 +31,119 @@ from CHAP.utils.general import not_zero, tiny
 tiny = np.finfo(np.float64).resolution
 # pylint: enable=no-member
 s2pi = np.sqrt(2*np.pi)
+s2ln2 = np.sqrt(2*np.log(2))
 
 #def constant(x, c=0.5):
 def constant(x, c=0.0):
-    """Return a linear function.
+    r"""Return a linear function.
 
-    constant(x, c) = c
+    :param c: Constant, defaults to `0`.
+    :type c: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; c) = c
+
     """
     return c*np.ones((x.size))
 
 
 #def linear(x, slope=0.9, intercept=0.1):
 def linear(x, slope=1.0, intercept=0.0):
-    """Return a linear function.
+    r"""Return a linear function.
 
-    linear(x, slope, intercept) = slope * x + intercept
+    :param slope: Slope, defaults to `0`.
+    :type slope: float, optional
+    :param intercept: Intercept, defaults to `0`.
+    :type intercept: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; m, b) = m x + b
+
+    with `slope` for :math:`m` and `intercept` for :math:`b`.
+
     """
     return slope * x + intercept
 
 
 #def quadratic(x, a=0.5, b=0.4, c=0.1):
 def quadratic(x, a=0.0, b=0.0, c=0.0):
-    """Return a parabolic function.
+    r"""Return a parabolic function.
 
-    parabolic(x, a, b, c) = a * x**2 + b * x + c
+    :param a: Quadratic polynomial coefficient, defaults to an
+        initial value of `0`.
+    :type a: float, optional
+    :param b: Linear polynomial coefficient, defaults to an
+        initial value of `0`.
+    :type b: float, optional
+    :param c: Constant polynomial coefficient, defaults to an
+        initial value of `0`.
+    :type c: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; a, b, c) = a x^2 + b x + c
+
     """
     return (a*x + b) * x + c
 
 
 #def exponential(x, amplitude=1.0, decay=0.3):
 def exponential(x, amplitude=1.0, decay=1.0):
-    """Return an exponential function.
+    r"""Return an
+    `exponential function <https://en.wikipedia.org/wiki/Exponential_decay>`__.
 
-    exponential(x, amplitude, decay) = amplitude * exp(-x/decay)
+    :param amplitude: Amplitude, defaults to `1`.
+    :type amplitude: float, optional
+    :param decay: Exponential decay, defaults to `1`.
+    :type decay: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; A, \tau) = A exp(-x/\tau)
+
+    with `amplitude` for :math:`A` and `decay` for :math:`\tau`.
+
     """
     return amplitude * np.exp(-x/not_zero(decay))
 
 
 #def gaussian(x, amplitude=0.25, center=0.5, sigma=0.1):
 def gaussian(x, amplitude=1.0, center=0.0, sigma=1.0):
-    """Return a 1-dimensional Gaussian function.
+    r"""Return a 1-dimensional
+    `Gaussian function <https://en.wikipedia.org/wiki/Normal_distribution>`__.
 
-    gaussian(x, amplitude, center, sigma) =
-        (amplitude/(s2pi*sigma)) * exp(-(x-center)**2 / (2*sigma**2))
+    :param amplitude: amplitude, defaults to `1`.
+    :type amplitude: float, optional
+    :param center: Center, defaults to `0`.
+    :type center: float, optional
+    :param sigma: Standard deviation, defaults to `1`.
+    :type sigma: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; A, \mu, \sigma) = frac{A}{\sigma\sqrt{2\pi}}
+            e^{[{-{(x-\mu)^2}/{{2\sigma}^2}}]}
+
+    where the parameter `amplitude` corresponds to :math:`A`, `center`
+    to :math:`\mu`, and `sigma` to :math:`\sigma`. The full width at
+    half maximum is :math:`2\sigma\sqrt{2\ln{2}}`, approximately
+    :math:`2.3548\sigma`.where the parameter `amplitude` corresponds to
+    :math:`A`, `center` to :math:`\mu`, and `sigma` to :math:`\sigma`.
+    The full width at half maximum is :math:`2\sigma\sqrt{2\ln{2}}`,
+    and the peak height is :math:`A/(\sigma\sqrt{2\pi})`
+
     """
     return ((amplitude/(max(tiny, s2pi*sigma)))
             * np.exp(-(x-center)**2 / max(tiny, (2*sigma**2))))
@@ -79,13 +151,69 @@ def gaussian(x, amplitude=1.0, center=0.0, sigma=1.0):
 
 #def lorentzian(x, amplitude=0.3, center=0.5, sigma=0.1):
 def lorentzian(x, amplitude=1.0, center=0.0, sigma=1.0):
-    """Return a 1-dimensional Lorentzian function.
+    r"""Return a 1-dimensional
+    `Lorentzian function <https://en.wikipedia.org/wiki/Cauchy_distribution>`__.
 
-    lorentzian(x, amplitude, center, sigma) =
-        (amplitude/(1 + ((1.0*x-center)/sigma)**2)) / (pi*sigma)
+    :param amplitude: amplitude, defaults to `1`.
+    :type amplitude: float, optional
+    :param center: Center, defaults to `0`.
+    :type center: float, optional
+    :param sigma: Standard deviation, defaults to `1`.
+    :type sigma: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; A, \mu, \sigma) = \frac{A}{\pi} \big[
+            \frac{\sigma}{(x - \mu)^2 + \sigma^2} \big]
+
+    where the parameter `amplitude` corresponds to :math:`A`, `center`
+    to :math:`\mu`, and `sigma` to :math:`\sigma`. The full width at
+    half maximum is :math:`2\sigma`, and the peak height is
+    :math:`A/(\sigma\pi)`.
+
     """
     return ((amplitude/(1 + ((x-center)/max(tiny, sigma))**2))
             / max(tiny, (np.pi*sigma)))
+
+
+def pvoigt(x, amplitude=1.0, center=0.0, sigma=1.0, fraction=0.5):
+    r"""Return a 1-dimensional
+    `pseudo-Voigt distribution <https://en.wikipedia.org/wiki/Voigt_profile#Pseudo-Voigt_Approximation>`__.
+
+    This is an approximation of the Voigt function, a weighted sum
+    of a Gaussian and Lorentzian distribution, with the parameter
+    `fraction` setting the relative weight of the Gaussian and
+    Lorentzian components.
+
+    :param amplitude: amplitude, defaults to `1`.
+    :type amplitude: float, optional
+    :param center: Center, defaults to `0`.
+    :type center: float, optional
+    :param sigma: Standard deviation, defaults to `1`.
+    :type sigma: float, optional
+    :param fraction: Relative weight of the Gaussian and Lorentzian
+        components, defaults to `0.5`.
+    :type fraction: float, optional
+    :returns: The function evaluations.
+    :rtype: numpy.ndarray
+
+    .. math::
+
+        f(x; A, \mu, \sigma) = frac{(1-\alpha)A}{\sigma_g\sqrt{2\pi}}
+            e^{[{-{(x-\mu)^2}/{{2\sigma_g}^2}}]} +
+            \frac{\alpha A}{\pi} \big[
+            \frac{\sigma}{(x - \mu)^2 + \sigma^2} \big]
+
+    where the parameter `amplitude` corresponds to :math:`A`, `center`
+    to :math:`\mu`, and `sigma` to :math:`\sigma`. Here
+    :math:`\sigma_g = {\sigma}/{\sqrt{2\ln{2}}}` so that the full
+    width at half maximum is :math:`2\sigma` and the peak height is
+    approximately :math:`A/(2.536\sigma)`.
+    """
+    return ((1-fraction) * gaussian(x, amplitude, center, sigma/s2ln2) +
+        fraction * lorentzian(x, amplitude, center, sigma))
 
 
 def rectangle(
@@ -166,8 +294,8 @@ def validate_parameters(parameters, info):
 
     :param parameters: Fit model parameters.
     :type parameters: list[FitParameter]
-    :param info: Pydantic validator info object.
-    :type info: pydantic_core._pydantic_core.ValidationInfo
+    :param info: Model parameter validation information.
+    :type info: pydantic.ValidationInfo
     :return: List of fit model parameters.
     :rtype: list[FitParameter]
     """
@@ -180,7 +308,7 @@ def validate_parameters(parameters, info):
         model = None
     if model is None or model == 'expression':
         return parameters
-    sig = dict(inspect.signature(models[model]).parameters.items())
+    sig = dict(inspect.signature(models[model]['name']).parameters.items())
     sig.pop('x')
 
     # Check input model parameter validity
@@ -200,6 +328,9 @@ def validate_parameters(parameters, info):
             par = FitParameter(name=sig_name)
         if sig_par.default != sig_par.empty:
             par._default = sig_par.default
+        if model == 'pvoigt' and sig_name == 'fraction':
+            par.min = 0.0
+            par.max = 1.0
         output_parameters.append(par)
 
     return output_parameters
@@ -208,13 +339,31 @@ def validate_parameters(parameters, info):
 class FitParameter(CHAPBaseModel):
     """Class representing a specific fit parameter for the fit
     processor.
+
+    :ivar name: Parameter name.
+    :vartype name: str
+    :ivar value: Parameter value.
+    :vartype value: float, optional
+    :ivar min: Lower Parameter value bound, defaults to `-numpy.inf`.
+    :vartype min: bool, optional
+    :ivar max: Upper Parameter value bound. defaults to `numpy.inf`.
+    :vartype max: bool, optional
+    :ivar vary: Whether the Parameter is varied during a fit, defaults
+        to `True`.
+    :vartype vary: bool, optional
+    :ivar expr: Mathematical expression used to constrain the
+        value during the fit. To remove a constraint you must
+        supply an empty string.
+    :vartype expr: str, optional
     """
+
     name: constr(strip_whitespace=True, min_length=1)
     value: Optional[confloat(allow_inf_nan=False)] = None
     min: Optional[confloat()] = -np.inf
     max: Optional[confloat()] = np.inf
     vary: StrictBool = True
     expr: Optional[constr(strip_whitespace=True, min_length=1)] = None
+
     _default: float = PrivateAttr()
     _init_value: float = PrivateAttr()
     _prefix: str = PrivateAttr()
@@ -226,7 +375,7 @@ class FitParameter(CHAPBaseModel):
         """Validate the specified min.
 
         :param value: Field value to validate (`min`).
-        :type value: Union[float, None]
+        :type value: float or None
         :return: Lower bound of fit parameter.
         :rtype: float
         """
@@ -240,7 +389,7 @@ class FitParameter(CHAPBaseModel):
         """Validate the specified max.
 
         :param value: Field value to validate (`max`).
-        :type value: Union[float, None]
+        :type value: float or None
         :return: Upper bound of fit parameter.
         :rtype: float
         """
@@ -250,28 +399,40 @@ class FitParameter(CHAPBaseModel):
 
     @property
     def default(self):
-        """Return the _default attribute."""
+        """Return the default parameter value.
+
+        :type: float or None
+        """
         if hasattr(self, '_default'):
             return self._default
         return None
 
     @property
     def init_value(self):
-        """Return the _init_value attribute."""
+        """Return the initial parameter value.
+
+        :type: float or None
+        """
         if hasattr(self, '_init_value'):
             return self._init_value
         return None
 
     @property
     def prefix(self):
-        """Return the _prefix attribute."""
+        """Return the parametr prefix.
+
+        :type: str or None
+        """
         if hasattr(self, '_prefix'):
             return self._prefix
         return None
 
     @property
     def stderr(self):
-        """Return the _stderr attribute."""
+        """Return the parameter's uncertainty value.
+
+        :type: float or None
+        """
         if hasattr(self, '_stderr'):
             return self._stderr
         return None
@@ -333,14 +494,15 @@ class Constant(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['constant']
+    :vartype model: Literal['constant']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['constant']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -356,14 +518,15 @@ class Linear(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['linear']
+    :vartype model: Literal['linear']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['linear']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -379,14 +542,15 @@ class Quadratic(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['quadratic']
+    :vartype model: Literal['quadratic']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['quadratic']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -402,14 +566,15 @@ class Exponential(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['exponential']
+    :vartype model: Literal['exponential']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['exponential']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -425,14 +590,15 @@ class Gaussian(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['gaussian']
+    :vartype model: Literal['gaussian']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['gaussian']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -448,15 +614,40 @@ class Lorentzian(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['lorentzian']
+    :vartype model: Literal['lorentzian']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['lorentzian']
+    parameters: Annotated[
+        conlist(item_type=FitParameter),
+        Field(validate_default=True)] = []
+    prefix: Optional[str] = ''
+
+    _validate_parameters_parameters = field_validator(
+        'parameters')(validate_parameters)
+
+
+class PseudoVoigt(CHAPBaseModel):
+    """Class representing a PseudoVoigt model component.
+
+    :ivar model: The model component base name (a prefix will be added
+        if multiple identical model components are added).
+    :vartype model: Literal['pvoigt']
+    :ivar parameters: Function parameters, defaults to those auto
+        generated from the function signature (excluding the
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
+    :ivar prefix: The model prefix, defaults to `''`.
+    :vartype prefix: str, optional
+    """
+
+    model: Literal['pvoigt']
     parameters: Annotated[
         conlist(item_type=FitParameter),
         Field(validate_default=True)] = []
@@ -471,14 +662,15 @@ class Rectangle(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['rectangle']
+    :vartype model: Literal['rectangle']
     :ivar parameters: Function parameters, defaults to those auto
         generated from the function signature (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['rectangle']
     parameters: Annotated[
         conlist(item_type=FitParameter),
@@ -494,17 +686,18 @@ class Expression(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['expression']
+    :vartype model: Literal['expression']
     :ivar expr: Mathematical expression to represent the model
         component.
-    :type expr: str
+    :vartype expr: str
     :ivar parameters: Function parameters, defaults to those auto
         generated from the model expression (excluding the
-        independent variable), defaults to `[]`.
-    :type parameters: list[FitParameter], optional
+        independent variable).
+    :vartype parameters: list[FitParameter], optional
     :ivar prefix: The model prefix, defaults to `''`.
-    :type prefix: str, optional
+    :vartype prefix: str, optional
     """
+
     model: Literal['expression']
     expr: constr(strip_whitespace=True, min_length=1)
     parameters: Annotated[
@@ -521,37 +714,40 @@ class Multipeak(CHAPBaseModel):
 
     :ivar model: The model component base name (a prefix will be added
         if multiple identical model components are added).
-    :type model: Literal['expression']
+    :vartype model: Literal['expression']
     :ivar centers: Peak centers.
-    :type center: list[float]
+    :vartype center: list[float]
     :ivar centers_range: Range of peak centers around their centers.
-    :type centers_range: float, optional
+    :vartype centers_range: float, optional
     :ivar fit_type: Type of fit, defaults to `'unconstrained'`.
-    :type fit_type: Literal['uniform', 'unconstrained'], optional.
+    :vartype fit_type: Literal['uniform', 'unconstrained'], optional.
     :ivar fwhm_min: Lower limit of the fwhm of the peaks.
-    :type fwhm_min: float, optional
+    :vartype fwhm_min: float, optional
     :ivar fwhm_max: Upper limit of the fwhm of the peaks.
-    :type fwhm_max: float, optional
+    :vartype fwhm_max: float, optional
     :ivar peak_models: Type of peaks, defaults to `'gaussian'`.
-    :type peak_models: Literal['gaussian', 'lorentzian'], optional.
+    :vartype peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'],
+        optional.
     """
+
     model: Literal['multipeak']
     centers: conlist(item_type=confloat(allow_inf_nan=False), min_length=1)
     centers_range: Optional[confloat(allow_inf_nan=False)] = None
     fit_type: Optional[Literal['uniform', 'unconstrained']] = 'unconstrained'
     fwhm_min: Optional[confloat(allow_inf_nan=False)] = None
     fwhm_max: Optional[confloat(allow_inf_nan=False)] = None
-    peak_models: Literal['gaussian', 'lorentzian'] = 'gaussian'
+    peak_models: Literal['gaussian', 'lorentzian', 'pvoigt'] = 'gaussian'
 
 
 models = {
-    'constant': constant,
-    'linear': linear,
-    'quadratic': quadratic,
-    'exponential': exponential,
-    'gaussian': gaussian,
-    'lorentzian': lorentzian,
-    'rectangle': rectangle,
+    'constant': {'name': constant, 'class': Constant},
+    'linear': {'name': linear, 'class': Linear},
+    'quadratic': {'name': quadratic, 'class': Quadratic},
+    'exponential': {'name': exponential, 'class': Exponential},
+    'gaussian': {'name': gaussian, 'class': Gaussian},
+    'lorentzian': {'name': lorentzian, 'class': Lorentzian},
+    'pvoigt': {'name': pvoigt, 'class': PseudoVoigt},
+    'rectangle': {'name': rectangle, 'class': Rectangle},
 }
 
 model_classes = (
@@ -561,6 +757,7 @@ model_classes = (
     Exponential,
     Gaussian,
     Lorentzian,
+    PseudoVoigt,
     Rectangle,
 )
 
@@ -570,34 +767,39 @@ class FitConfig(CHAPBaseModel):
 
     :ivar code: Specifies is lmfit is used to perform the fit or if
         the scipy fit method is called directly, default to `'lmfit'`.
-    :type code: Literal['lmfit', 'scipy'], optional
+    :vartype code: Literal['lmfit', 'scipy'], optional
     :ivar parameters: Fit model parameters in addition to those
         implicitly defined through the build-in model functions,
         defaults to `[]`'
-    :type parameters: list[FitParameter], optional
+    :vartype parameters:
+        list[:class:`~CHAP.utils.models.FitParameter`], optional
     :ivar models: The component(s) of the (composite) fit model.
-    :type models: Union[Constant, Linear, Quadratic, Exponential,
-        Gaussian, Lorentzian, Rectangle, Expression, Multipeak]
+    :vartype models:
+        list[:attr:`~CHAP.utils.models.FitConfig.models`]
     :ivar rel_height_cutoff: Relative peak height cutoff for
         peak fitting (any peak with a height smaller than
         `rel_height_cutoff` times the maximum height of all peaks 
         gets removed from the fit model).
-    :type rel_height_cutoff: float, optional
+    :vartype rel_height_cutoff: float, optional
     :ivar num_proc: The number of processors used in fitting a map
         of data, defaults to `1`.
-    :type num_proc: int, optional
-    :ivar plot: Weather a plot of the fit result is generated,
+    :vartype num_proc: int, optional
+    :ivar plot: Whether a plot of the fit result is generated,
         defaults to `False`.
-    :type plot: bool, optional.
-    :ivar print_report:  Weather to generate a fit result printout,
+    :vartype plot: bool, optional.
+    :ivar print_report:  Whether to generate a fit result printout,
         defaults to `False`.
-    :type print_report: bool, optional.
+    :vartype print_report: bool, optional.
+    :ivar memfolder: Folder name for the temporary memory map if
+        multiple processors are used, defaults to `'joblib_memmap'`.
+    :vartype memfolder: str, optional
     """
+
     code: Literal['lmfit', 'scipy'] = 'scipy'
     parameters: conlist(item_type=FitParameter) = []
     models: conlist(item_type=Union[
         Constant, Linear, Quadratic, Exponential, Gaussian, Lorentzian,
-        Rectangle, Expression, Multipeak], min_length=1)
+        PseudoVoigt, Rectangle, Expression, Multipeak], min_length=1)
     method: Literal[
         'leastsq', 'trf', 'dogbox', 'lm', 'least_squares'] = 'leastsq'
     rel_height_cutoff: Optional[
@@ -614,8 +816,8 @@ class FitConfig(CHAPBaseModel):
 
         :param method: The value of `method` to validate.
         :type method: str
-        :param info: Pydantic validator info object.
-        :type info: pydantic_core._pydantic_core.ValidationInfo
+        :param info: Model parameter validation information.
+        :type info: pydantic.ValidationInfo
         :return: Fit method.
         :rtype: str
         """

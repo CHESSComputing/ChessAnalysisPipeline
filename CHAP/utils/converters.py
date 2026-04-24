@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
 """Functions for converting between some commonly used data
-formats."""
+formats.
+"""
 
 
 def convert_sparse_dense(data):
@@ -7,21 +10,27 @@ def convert_sparse_dense(data):
     arrays, xarray DataArrays, and xarray Datasets.
 
     - If input is a NumPy array, converts to a SciPy sparse CSR matrix.
-    - If input is a SciPy sparse matrix, converts to a dense NumPy array.
-    - If input is an xarray DataArray or Dataset containing sparse
-      arrays, converts to dense.
-    - If input is an xarray DataArray or Dataset containing dense
-      arrays, converts to sparse.
+    - If input is a `SciPy <https://github.com/scipy/scipy>`__  sparse
+      matrix, converts to a dense NumPy array.
+    - If input is an `xarray <https://github.com/pydata/xarray>`__
+      DataArray or Dataset containing sparse arrays, converts to dense.
+    - If input is an `xarray <https://github.com/pydata/xarray>`__
+      DataArray or Dataset containing dense arrays, converts to sparse.
 
-    :param data: The imput data.
-    :type data: Union[numpy.ndarray, scipy.sparse.spmatrix,
-        xarray.DataArray, xarray.Dataset]
+    :param data: Imput data.
+    :type data: numpy.ndarray or scipy.sparse.spmatrix or
+        xarray.DataArray, xarray.Dataset
     :return: Converted object -- sparse if input is dense, dense if
         input is sparse.
+    :rtype: numpy.ndarray or scipy.sparse.spmatrix or
+        xarray.DataArray, xarray.Dataset
     """
+    # Third party modules
     import numpy as np
     import scipy.sparse as sp
+    # pylint: disable=import-error
     import xarray as xr
+    # pylint: enable=import-error
 
     if isinstance(data, np.ndarray):
         return sp.csr_matrix(data)  # Convert dense NumPy array to sparse
@@ -56,18 +65,26 @@ def convert_sparse_dense(data):
 
 
 def convert_xarray_nexus(data):
-    """Convert an `xarray.DataArray` or `xarray.Dataset` into an
-    `nexusformat.nexus.NXdata` or vice versa.
+    """Convert a `xarray <https://github.com/pydata/xarray>`__
+    DataArray or Dataset into a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    data object or vice versa.
 
     :param data: Input data.
-    :type data: Union[xarray.DataArray, xarray.Dataset,
-        nexusformat.nexus.NXdata]
+    :type data: xarray.DataArray or xarray.Dataset or
+        nexusformat.nexus.NXdata
     :return: Conveted data.
-    :rtype:  Union[xarray.DataArray, xarray.Dataset,
-        nexusformat.nexus.NXdata]
+    :rtype: xarray.DataArray or xarray.Dataset or
+        nexusformat.nexus.NXdata
     """
+    # Third party modules
+    from nexusformat.nexus import (
+        NXdata,
+        NXfield,
+    )
+    # pylint: disable=import-error
     import xarray as xr
-    from nexusformat.nexus import NXdata, NXfield
+    # pylint: enable=import-error
 
     if isinstance(data, xr.DataArray):
         return NXdata(
@@ -134,8 +151,21 @@ def convert_xarray_nexus(data):
 
 
 def convert_structured_unstructured(data):
+    """Convert a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    object from unstructured to structured data.
+
+    :param data: Input data.
+    :type data: nexusformat.nexus.NXdata
+    :return: Converted data.
+    :rtype: nexusformat.nexus.NXdata
+    """
+    # Third party modules
     from copy import deepcopy
-    from nexusformat.nexus import NXdata, NXfield
+    from nexusformat.nexus import (
+        NXdata,
+        NXfield,
+    )
     import numpy as np
 
     if isinstance(data, NXdata):
@@ -153,7 +183,6 @@ def convert_structured_unstructured(data):
                 (*dataset_shape, *data[s].shape[1:]),
                 dtype=data[s].nxdata.dtype,
             ) for s in signals}
-            npts = len(data[signals[0]].nxdata.tolist())
             indices = {
                 a: np.searchsorted(structured_axes[a], data[a].nxdata)
                 for a in nxaxes

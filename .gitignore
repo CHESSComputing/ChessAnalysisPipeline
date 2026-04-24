@@ -52,6 +52,7 @@ coverage.xml
 .pytest_cache/
 examples/tomo/data/
 examples/tomo/hollow_*
+examples/tomo/pipeline_id3a_pyramid_inparts.yaml
 
 # Translations
 *.mo

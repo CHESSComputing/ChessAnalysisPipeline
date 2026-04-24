@@ -1,4 +1,6 @@
-"""Common Pydantic model classes."""
+"""Common `Pydantic <https://github.com/pydantic/pydantic>`__ model
+configuration classes.
+"""
 
 # System modules
 from typing import (
@@ -17,28 +19,34 @@ from pydantic import (
 )
 #from typing_extensions import Annotated
 
-# Local modulesImageProcessorConfig
+# Local modules
 from CHAP.models import CHAPBaseModel
 
 
 class BinarizeConfig(CHAPBaseModel):
     """Configuration class to binarize a dataset in a 2D or 3D
-    array-like object or a NeXus NXdata or NXfield object.
+    array-like object or a NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    or
+    `NXfield <https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield>`__
+    object.
 
-    :param method: Binarization method, defaults to `'CHAP'`
+    :ivar method: Binarization method, defaults to `'CHAP'`
         (CHAP's internal implementation of Otzu's method).
-    :type method: Literal['CHAP', 'isodata', 'minimum', 'otsu', 'yen']
-    :param num_bin: The number of bins used to calculate the
+    :vartype method: Literal[
+        'CHAP', 'isodata', 'minimum', 'otsu', 'yen']
+    :ivar num_bin: The number of bins used to calculate the
         histogram in the binarization algorithms, defaults to `256`.
-    :type num_bin: int, optional
-    :param nxpath: The path to a specific NeXus NXdata or NXfield
+    :vartype num_bin: int, optional
+    :ivar nxpath: The path to a specific NeXus style NXdata or NXfield
         object in the NeXus file tree to read the input data from
         (ignored for non-NeXus input objects).
-    :type nxpath: str, optional
-    :param remove_original_data: Removes the original data field
+    :vartype nxpath: str, optional
+    :ivar remove_original_data: Removes the original data field
         (ignored for non-NeXus input objects), defaults to `False`.
-    :type remove_original_data: bool, optional
+    :vartype remove_original_data: bool, optional
     """
+
     method: Optional[Literal[
         'CHAP', 'isodata', 'minimum', 'otsu', 'yen']] = 'CHAP'
     num_bin: Optional[conint(ge=0)] = 256
@@ -50,37 +58,45 @@ class ImageProcessorConfig(CHAPBaseModel):
     """Class representing the configuration of various image selection
     and visualization types of processors.
 
-    :param animation: Create an animation for an image stack
+    :ivar animation: Create an animation for an image stack
         (ignored for a single image), defaults to `False`.
-    :type animation: bool, optional
-    :param axis: Axis direction or name for the image slice(s),
+    :vartype animation: bool, optional
+    :ivar axis: Axis direction or name for the image slice(s),
         defaults to `0`.
-    :type axis: Union[int, str], optional
-    :param coord_range: Coordinate value range of the selected image
+    :vartype axis: int or str, optional
+    :ivar basename: Basename of each file when saving a set of 'tif'
+        images (only used when 'fileformat' = 'fit'), defaults to
+        'image'.
+    :vartype basename: str, optional
+    :ivar coord_range: Coordinate value range of the selected image
         slice(s), up to three floating point numbers (start, end,
         step), defaults to `None`, which enables index_range to select
         the image slice(s). Include only `coord_range` or
         `index_range`, not both.
-    :type coord_range: Union[float, list[float]], optional
-    :param index_range: Array index range of the selected image
+    :vartype coord_range: float or list[float], optional
+    :ivar index_range: Array index range of the selected image
         slice(s), up to three integers (start, end, step).
         Set index_range to -1 to select the center image slice
         of an image stack in the `axis` direction. Only used when
         coord_range = `None`. Defaults to `None`, which will include
         all slices.
-    :type index_range: Union[int, list[int]], optional
+    :vartype index_range: int or list[int], optional
     :ivar fileformat: Image (stack) return file type, defaults to
-        'png' for a single image, 'tif' for an image stack, or
-        'gif' for an animation.
-    :type fileformat: Literal['gif', 'jpeg', 'png', 'tif'], optional
-    :param vrange: Data value range in image slice(s), defaults to
+        'png' for a single image, 'tif' for a (set of) 'tif' image(s),
+        or 'gif' for an animation. Set to 'tifstack' for a single 'tif'
+        image stack.
+    :vartype fileformat: Literal[
+        'gif', 'jpeg', 'png', 'tif' 'tifstack'], optional
+    :ivar vrange: Data value range in image slice(s), defaults to
         `None`, which uses the full data value range in the slice(s).
         Specify as [None, float] or [float, None] to set only the upper
         or lower limit of the value range.
-    :type vrange: list[float, float]
+    :vartype vrange: list[float, float]
     """
+
     animation: Optional[bool] = False
     axis: Optional[Union[conint(ge=0), constr(min_length=1)]] = 0
+    basename: Optional[constr(min_length=1)] = 'image'
     # FIX convert to using CHAPSlice
     coord_range: Optional[Union[
         confloat(allow_inf_nan=False),
@@ -90,7 +106,8 @@ class ImageProcessorConfig(CHAPBaseModel):
         int,
         conlist(
             min_length=2, max_length=3, item_type=Union[None, int])]] = None
-    fileformat: Optional[Literal['gif', 'jpeg', 'png', 'tif']] = None
+    fileformat: Optional[
+        Literal['gif', 'jpeg', 'png', 'tif', 'tifstack']] = None
     vrange: Optional[
         conlist(min_length=2, max_length=2,
                 item_type=Union[None, confloat(allow_inf_nan=False)])] = None
@@ -101,8 +118,8 @@ class ImageProcessorConfig(CHAPBaseModel):
         """Validate the index_range.
 
         :ivar index_range: Array index range of the selected image
-            slice(s), defaults to `None`..
-        :type index_range: Union[int, list[int]], optional
+            slice(s), defaults to `None`.
+        :type index_range: int or list[int], optional
         :return: Validated index_range.
         :rtype: list[int]
         """
@@ -113,11 +130,11 @@ class ImageProcessorConfig(CHAPBaseModel):
 
     @field_validator('vrange', mode='before')
     @classmethod
-    def validate_vrange(cls, vrange):
+    def validate_vrange(cls, vrange, info):
         """Validate the vrange.
 
         :ivar vrange: Data value range in image slice(s),
-            defaults to `None`..
+            defaults to `None`.
         :type vrange: list[float, float], optional
         :return: Validated vrange.
         :rtype: list[float, float]
@@ -126,28 +143,30 @@ class ImageProcessorConfig(CHAPBaseModel):
             if None not in vrange:
                 return [min(vrange), max(vrange)]
         return [None if isinstance(i, str) and i.lower() == 'none' else i
-                for i in index_range]
+                for i in info.data['index_range']]
 
 
 class UnstructuredToStructuredConfig(CHAPBaseModel):
-    """Configuration class to reshape data in an NXdata from an
-    "unstructured" to a "structured" representation.
+    """Configuration class to reshape data in an
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html>`__
+    from an "unstructured" to a "structured" representation.
 
-    :param nxpath: Path to a specific NeXus NXdata object in the
+    :ivar nxpath: Path to a specific NeXus style NXdata object in the
         NeXus file tree to read the input data from.
-    :type nxpath: str, optional
-    :param signals: Paths to the dataset's signal-like fields to
+    :vartype nxpath: str, optional
+    :ivar signals: Paths to the dataset's signal-like fields to
         reshape (in addition to possible ones in the optional `nxpath`
         object).
-    :type signals: Union[str, list[str]], optional
-    :param unstructured_axes: Names of the dataset's unstructured axes
+    :vartype signals: str or list[str], optional
+    :ivar unstructured_axes: Names of the dataset's unstructured axes
         fields. Defaults to the `'unstructured axis'` attribute of the
-        default NeXus NXdata object or that specified in `nxpath` if
-        present. If `nxpath` is unspecified and there is no default
-        NeXus NXdata object, the `unstructured_axes` is required and
-        has to contain full paths to the unstructured axes fields.
-    :type unstructured_axes: Union[str, list[str]], optional
+        default NeXus style NXdata object or that specified in `nxpath`
+        if present. If `nxpath` is unspecified and there is no default
+        NeXus style NXdata object, the `unstructured_axes` is required
+        and has to contain full paths to the unstructured axes fields.
+    :vartype unstructured_axes: str or list[str], optional
     """
+
     nxpath: Optional[str] = None
     signals: Optional[
         Union[str, conlist(min_length=1, item_type=str)]] = None
@@ -159,10 +178,10 @@ class UnstructuredToStructuredConfig(CHAPBaseModel):
     def validate_nxpath(cls, nxpath):
         """Validate nxpath.
 
-        :param nxpath: Path to a specific NeXus NXdata object in the
-            NeXus file tree to read the input data from.
+        :param nxpath: Path to a specific NeXus style NXdata object in
+            the NeXus file tree to read the input data from.
         :type nxpath: str
-        :return: nxpath.
+        :return: Validated nxpath.
         :rtype: str
         """
         if nxpath[0] == '/':
@@ -175,8 +194,8 @@ class UnstructuredToStructuredConfig(CHAPBaseModel):
         """Validate signals.
 
         :param signals: The (additional) dataset's signal-like fields.
-        :type signals: Union[str, list[str]]
-        :return: signals.
+        :type signals: str or list[str]
+        :return: Validated signals.
         :rtype: list[str]
         """
         if isinstance(signals, str):
@@ -191,9 +210,9 @@ class UnstructuredToStructuredConfig(CHAPBaseModel):
     def validate_unstructured_axes(cls, unstructured_axes):
         """Validate unstructured_axes.
 
-        :param unstructured_axes: The dataset's unstructured axes
-        :type unstructured_axes: Union[str, list[str]]
-        :return: unstructured_axes.
+        :param unstructured_axes: The dataset's unstructured axes.
+        :type unstructured_axes: str or list[str]
+        :return: Validated unstructured axes.
         :rtype: list[str]
         """
         if isinstance(unstructured_axes, str):

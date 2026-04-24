@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-File       : general.py
-Author     : Rolf Verberg <rolfverberg AT gmail dot com>
-Description: A collection of general modules
-"""
-# RV write function that returns a list of peak indices for a given plot
-# RV use raise_error concept on more functions
+"""A collection of generic functions for use in any CHAP
+Processor, Reader or Writer."""
+
+# FIX write function that returns a list of peak indices for a given plot
+# FIX use raise_error concept on more functions
 
 # System modules
 from ast import literal_eval
@@ -35,23 +33,29 @@ Int = Union[int, np.integer]
 Float = Union[float, np.floating]
 Num = Union[int, np.integer, float, np.floating]
 
-def gformat(val, length=11):
-    """
-    Format a number with '%g'-like format, while:
+def gformat(value, length=11):
+    """Format a number with '%g'-like format, while:
       - the length of the output string will be of the requested length
       - positive numbers will have a leading blank
       - the precision will be as high as possible
       - trailing zeros will not be trimmed
+
+    :param value: Input value.
+    :type value: float
+    :param length: Length of the number field, defaults to `11`.
+    :type length: int, optional
+    :return: Formatted number.
+    :rtype: str
     """
     # Code taken from lmfit library
-    if val is None or isinstance(val, bool):
-        return f'{repr(val):>{length}s}'
+    if value is None or isinstance(value, bool):
+        return f'{repr(value):>{length}s}'
     try:
-        expon = int(np.log10(abs(val)))
+        expon = int(np.log10(abs(value)))
     except (OverflowError, ValueError):
         expon = 0
     except TypeError:
-        return f'{repr(val):>{length}s}'
+        return f'{repr(value):>{length}s}'
 
     length = max(length, 7)
     form = 'e'
@@ -63,37 +67,65 @@ def gformat(val, length=11):
         prec += 4
         if expon > 0:
             prec -= expon
-    return f'{val:{length}.{prec}{form}}'
+    return f'{value:{length}.{prec}{form}}'
 
 
 def getfloat_attr(obj, attr, length=11):
-    """Format an attribute of an object for printing."""
+    """Format an attribute of an object for printing.
+
+    :param obj: Object that the attr belongs to.
+    :type obj: str
+    :param attr: Attribute.
+    :type attr: str
+    :param length: Length of the number field, defaults to `11`.
+    :type length: int, optional
+    :return: Representation of the attribute.
+    :rtype: str
+    """
     # Code taken from lmfit library
-    val = getattr(obj, attr, None)
-    if val is None:
+    value = getattr(obj, attr, None)
+    if value is None:
         return 'unknown'
-    if isinstance(val, Int):
-        return f'{val}'
-    if isinstance(val, Float):
-        return gformat(val, length=length).strip()
-    return repr(val)
+    if isinstance(value, Int):
+        return f'{value}'
+    if isinstance(value, Float):
+        return gformat(value, length=length).strip()
+    return repr(value)
 
 
-def depth_list(_list):
-    """Return the depth of a list."""
-    return isinstance(_list, list) and 1+max(map(depth_list, _list))
+def depth_list(l):
+    """Return the depth of a list.
+
+    :param l: Input list.
+    :type l: list
+    :return: Depth of a list.
+    :rtype: int
+    """
+    return isinstance(l, list) and 1+max(map(depth_list, l))
 
 
-def depth_tuple(_tuple):
-    """Return the depth of a tuple."""
-    return isinstance(_tuple, tuple) and 1+max(map(depth_tuple, _tuple))
+def depth_tuple(t):
+    """Return the depth of a tuple.
+
+    :param t: Input tuple.
+    :type t: tuple
+    :return: Depth of a tuple.
+    :rtype: int
+    """
+    return isinstance(t, tuple) and 1+max(map(depth_tuple, t))
 
 
-def unwrap_tuple(_tuple):
-    """Unwrap a tuple."""
-    if depth_tuple(_tuple) > 1 and len(_tuple) == 1:
-        _tuple = unwrap_tuple(*_tuple)
-    return _tuple
+def unwrap_tuple(t):
+    """Unwrap a tuple.
+
+    :param t: Input tuple.
+    :type t: tuple
+    :return: Unwrapped tupple.
+    :rtype: tuple
+    """
+    if depth_tuple(t) > 1 and len(t) == 1:
+        t = unwrap_tuple(*t)
+    return t
 
 
 def all_any(l, key):
@@ -102,11 +134,11 @@ def all_any(l, key):
 
     :param l: Input list.
     :type l: list[dict]
-    :param key: The common dictionary key.
+    :param key: Common dictionary key.
     :type key: Any
     :return: `1` if `all(l, key)`, `0` if `not any(l, key)`, or `-1`
         otherwise. Return `None` for a zero length input list.
-    :rtype: Union[None, int]
+    :rtype: `None` or int
     """
     ret = None
     for d in l:
@@ -114,18 +146,30 @@ def all_any(l, key):
             if ret == 0:
                 ret = -1
                 break
-            elif ret is None:
+            if ret is None:
                 ret = 1
         else:
             if ret == 1:
                 ret = -1
                 break
-            elif ret is None:
+            if ret is None:
                 ret = 0
     return ret
 
 def illegal_value(value, name, location=None, raise_error=False, log=True):
-    """Print illegal value message and/or raise error."""
+    """Print illegal value message and/or raise error.
+
+    :param value: Input value.
+    :param name: Value name.
+    :type name: str
+    :param location: Input location.
+    :type location: str, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :raise: ValueError when `raise_error` is set to `True`.
+    """
     if not isinstance(location, str):
         location = ''
     else:
@@ -144,7 +188,22 @@ def illegal_value(value, name, location=None, raise_error=False, log=True):
 def illegal_combination(
         value1, name1, value2, name2, location=None, raise_error=False,
         log=True):
-    """Print illegal combination message and/or raise error."""
+    """Print illegal combination message and/or raise error.
+
+    :param value1: Input value.
+    :param name1: Value name.
+    :type name1: str
+    :param value2: Input value.
+    :param name2: Value name.
+    :type name2: str
+    :param location: Input location.
+    :type location: str, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :raise: ValueError when `raise_error` is set to `True`.
+    """
     if not isinstance(location, str):
         location = ''
     else:
@@ -162,8 +221,12 @@ def illegal_combination(
 
 
 def not_zero(value):
-    """Return value with a minimal absolute size of tiny,
-    preserving the sign.
+    """Return value with a minimal absolute size of `tiny`,
+    (numpy.finfo(numpy.float64).resolution) preserving the sign.
+
+    :param value: Input value.
+    :type value: float
+    :return: Minimum of input value and `tiny`, preserving sign.
     """
     return float(np.copysign(max(tiny, abs(value)), value))
 
@@ -173,9 +236,23 @@ def test_ge_gt_le_lt(
     """Check individual and mutual validity of ge, gt, le, lt
     qualifiers.
 
+    :param ge: Greater or equal to.
+    :type ge: int or float
+    :param gt: Greater than.
+    :type gt: int or float
+    :param le: Smaller or equal to.
+    :type le: int or float
+    :param lt: Smaller than.
+    :type lt: int or float
     :param func: Test for integers or numbers.
     :type func: callable: is_int, is_num
-    :return: True upon success or False when mutually exlusive.
+    :param location: Input location.
+    :type location: str, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` upon success or `False` when mutually exlusive.
     :rtype: bool
     """
     if ge is None and gt is None and le is None and lt is None:
@@ -221,6 +298,17 @@ def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
     """Return a range string representation matching the ge, gt, le, lt
     qualifiers. Does not validate the inputs, do that as needed before
     calling.
+
+    :param ge: Greater or equal to.
+    :type ge: int or float, optional
+    :param gt: Greater than.
+    :type gt: int or float, optional
+    :param le: Smaller or equal to.
+    :type le: int or float, optional
+    :param lt: Smaller than.
+    :type lt: int or float, optional
+    :return: Range string representation.
+    :rtype: str
     """
     range_string = ''
     if ge is not None:
@@ -246,39 +334,71 @@ def range_string_ge_gt_le_lt(ge=None, gt=None, le=None, lt=None):
     return range_string
 
 
-def is_int(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """Value is an integer in range ge <= v <= le or gt < v < lt or
-    some combination.
+def is_int(
+        value, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    """Value is an integer in range ge <= value <= le or
+    gt < value < lt or some combination.
 
-    :return: True if yes or False is no.
+    :param value: Input value.
+    :type value: int
+    :param ge: Greater or equal to.
+    :type ge: int, optional
+    :param gt: Greater than.
+    :type gt: int, optional
+    :param le: Smaller or equal to.
+    :type le: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is in valid range or `False` if not.
     :rtype: bool
     """
-    return _is_int_or_num(v, 'int', ge, gt, le, lt, raise_error, log)
+    return _is_int_or_num(value, 'int', ge, gt, le, lt, raise_error, log)
 
 
-def is_num(v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """Value is a number in range ge <= v <= le or gt < v < lt or some
-    combination.
+def is_num(
+        value, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    """Value is a number in range ge <= value <= le or gt < value < lt
+    or some combination.
 
-    :return: True if yes or False is no.
+    :param value: Input value.
+    :type value: int or float
+    :param ge: Greater or equal to.
+    :type ge: int or float, optional
+    :param gt: Greater than.
+    :type gt: int or float, optional
+    :param le: Smaller or equal to.
+    :type le: int or float, optional
+    :param lt: Smaller than.
+    :type lt: int or float, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is in valid range or `False` if not.
     :rtype: bool
     """
-    return _is_int_or_num(v, 'num', ge, gt, le, lt, raise_error, log)
+    return _is_int_or_num(value, 'num', ge, gt, le, lt, raise_error, log)
 
 
 def _is_int_or_num(
-        v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        value, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
         log=True):
     if type_str == 'int':
-        if not isinstance(v, Int):
-            illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
+        if not isinstance(value, Int):
+            illegal_value(value, 'value', '_is_int_or_num', raise_error, log)
             return False
         if not test_ge_gt_le_lt(
                 ge, gt, le, lt, is_int, '_is_int_or_num', raise_error, log):
             return False
     elif type_str == 'num':
-        if not isinstance(v, Num):
-            illegal_value(v, 'v', '_is_int_or_num', raise_error, log)
+        if not isinstance(value, Num):
+            illegal_value(value, 'value', '_is_int_or_num', raise_error, log)
             return False
         if not test_ge_gt_le_lt(
                 ge, gt, le, lt, is_num, '_is_int_or_num', raise_error, log):
@@ -290,18 +410,18 @@ def _is_int_or_num(
         return True
     error = False
     error_msg = ''
-    if ge is not None and v < ge:
+    if ge is not None and value < ge:
         error = True
-        error_msg = f'Value {v} out of range: {v} !>= {ge}'
-    if not error and gt is not None and v <= gt:
+        error_msg = f'Value {value} out of range: {value} !>= {ge}'
+    if not error and gt is not None and value <= gt:
         error = True
-        error_msg = f'Value {v} out of range: {v} !> {gt}'
-    if not error and le is not None and v > le:
+        error_msg = f'Value {value} out of range: {value} !> {gt}'
+    if not error and le is not None and value > le:
         error = True
-        error_msg = f'Value {v} out of range: {v} !<= {le}'
-    if not error and lt is not None and v >= lt:
+        error_msg = f'Value {value} out of range: {value} !<= {le}'
+    if not error and lt is not None and value >= lt:
         error = True
-        error_msg = f'Value {v} out of range: {v} !< {lt}'
+        error_msg = f'Value {value} out of range: {value} !< {lt}'
     if error:
         if log:
             logger.error(error_msg)
@@ -312,42 +432,76 @@ def _is_int_or_num(
 
 
 def is_int_pair(
-        v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """Value is an integer pair, each in range ge <= v[i] <= le or
-    gt < v[i] < lt or ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i]
-    or some combination.
+        values, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    """Value is an integer pair, each in range ge <= values[i] <= le or
+    gt < values[i] < lt or ge[i] <= values[i] <= le[i]
+    or gt[i] < values[i] < lt[i] or some combination.
 
-    :return: True if yes or False is no.
+    :param values: Input values.
+    :type values: list[int, int]
+    :param ge: Greater or equal to.
+    :type ge: int, optional
+    :param gt: Greater than.
+    :type gt: int, optional
+    :param le: Smaller or equal to.
+    :type le: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid pair in the valid range
+        or `False` if not.
     :rtype: bool
     """
-    return _is_int_or_num_pair(v, 'int', ge, gt, le, lt, raise_error, log)
+    return _is_int_or_num_pair(values, 'int', ge, gt, le, lt, raise_error, log)
 
 
 def is_num_pair(
-        v, ge=None, gt=None, le=None, lt=None, raise_error=False, log=True):
-    """Value is a number pair, each in range ge <= v[i] <= le or
-    gt < v[i] < lt or ge[i] <= v[i] <= le[i] or gt[i] < v[i] < lt[i]
-    or some combination.
+        values, ge=None, gt=None, le=None, lt=None, raise_error=False,
+        log=True):
+    """Value is a number pair, each in range ge <= values[i] <= le or
+    gt < values[i] < lt or ge[i] <= values[i] <= le[i]
+    or gt[i] < values[i] < lt[i] or some combination.
 
-    :return: True if yes or False is no.
+    :param values: Input values.
+    :type values: list[int, int] or list[float, float]
+    :param ge: Greater or equal to.
+    :type ge: int or float, optional
+    :param gt: Greater than.
+    :type gt: int or float, optional
+    :param le: Smaller or equal to.
+    :type le: int or float, optional
+    :param lt: Smaller than.
+    :type lt: int or float, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid pair in the valid range
+        or `False` if not.
     :rtype: bool
     """
-    return _is_int_or_num_pair(v, 'num', ge, gt, le, lt, raise_error, log)
+    return _is_int_or_num_pair(values, 'num', ge, gt, le, lt, raise_error, log)
 
 
 def _is_int_or_num_pair(
-        v, type_str, ge=None, gt=None, le=None, lt=None, raise_error=False,
-        log=True):
+        values, type_str, ge=None, gt=None, le=None, lt=None,
+        raise_error=False, log=True):
     if type_str == 'int':
-        if not (isinstance(v, (tuple, list)) and len(v) == 2
-                and isinstance(v[0], Int) and isinstance(v[1], Int)):
-            illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
+        if not (isinstance(values, (tuple, list)) and len(values) == 2
+                and isinstance(values[0], Int) and isinstance(values[1], Int)):
+            illegal_value(
+                values, 'values', '_is_int_or_num_pair', raise_error, log)
             return False
         func = is_int
     elif type_str == 'num':
-        if not (isinstance(v, (tuple, list)) and len(v) == 2
-                and isinstance(v[0], Num) and isinstance(v[1], Num)):
-            illegal_value(v, 'v', '_is_int_or_num_pair', raise_error, log)
+        if not (isinstance(values, (tuple, list)) and len(values) == 2
+                and isinstance(values[0], Num) and isinstance(values[1], Num)):
+            illegal_value(
+                values, 'values', '_is_int_or_num_pair', raise_error, log)
             return False
         func = is_num
     else:
@@ -376,8 +530,9 @@ def _is_int_or_num_pair(
     elif not _is_int_or_num_pair(
             lt, type_str, raise_error=raise_error, log=log):
         return False
-    if (not func(v[0], ge[0], gt[0], le[0], lt[0], raise_error, log)
-            or not func(v[1], ge[1], gt[1], le[1], lt[1], raise_error, log)):
+    if (not func(values[0], ge[0], gt[0], le[0], lt[0], raise_error, log)
+            or not func(
+                values[1], ge[1], gt[1], le[1], lt[1], raise_error, log)):
         return False
     return True
 
@@ -387,6 +542,23 @@ def is_int_series(
         log=True):
     """Value is a tuple or list of integers, each in range
     ge <= l[i] <= le or gt < l[i] < lt or some combination.
+
+    :param t_or_l: Input values.
+    :type t_or_l: list[int]
+    :param ge: Greater or equal to.
+    :type ge: int, optional
+    :param gt: Greater than.
+    :type gt: int, optional
+    :param le: Smaller or equal to.
+    :type le: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid list or `False` if not.
+    :rtype: bool
     """
     if not test_ge_gt_le_lt(
             ge, gt, le, lt, is_int, 'is_int_series', raise_error, log):
@@ -404,6 +576,23 @@ def is_num_series(
         log=True):
     """Value is a tuple or list of numbers, each in range
     ge <= l[i] <= le or gt < l[i] < lt or some combination.
+
+    :param t_or_l: Input values.
+    :type t_or_l: list[int] or list[float]
+    :param ge: Greater or equal to.
+    :type ge: int or float, optional
+    :param gt: Greater than.
+    :type gt: int or float, optional
+    :param le: Smaller or equal to.
+    :type le: int or float, optional
+    :param lt: Smaller than.
+    :type lt: int or float, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid list or `False` if not.
+    :rtype: bool
     """
     if not test_ge_gt_le_lt(
             ge, gt, le, lt, is_int, 'is_int_series', raise_error, log):
@@ -417,7 +606,17 @@ def is_num_series(
 
 
 def is_str_series(t_or_l, raise_error=False, log=True):
-    """Value is a tuple or list of strings."""
+    """Value is a tuple or list of strings.
+
+    :param t_or_l: Input values.
+    :type t_or_l: tuple[str] or list[str]
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid `False` if not.
+    :rtype: bool
+    """
     if (not isinstance(t_or_l, (tuple, list))
             or any(not isinstance(s, str) for s in t_or_l)):
         illegal_value(t_or_l, 't_or_l', 'is_str_series', raise_error, log)
@@ -425,7 +624,17 @@ def is_str_series(t_or_l, raise_error=False, log=True):
     return True
 
 def is_str_or_str_series(t_or_l, raise_error=False, log=True):
-    """Value is a string ot a tuple or list of strings."""
+    """Value is a string ot a tuple or list of strings.
+
+    :param t_or_l: Input values.
+    :type t_or_l: str or tuple[str] or list[str]
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is valid or `False` if not.
+    :rtype: bool
+    """
     if isinstance(t_or_l, str):
         return True
     if (not isinstance(t_or_l, (tuple, list))
@@ -437,7 +646,17 @@ def is_str_or_str_series(t_or_l, raise_error=False, log=True):
 
 
 def is_dict_series(t_or_l, raise_error=False, log=True):
-    """Value is a tuple or list of dictionaries."""
+    """Value is a tuple or list of dictionaries.
+
+    :param t_or_l: Input values.
+    :type t_or_l: tuple[dict] or list[dict]
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is valid or `False` if not.
+    :rtype: bool
+    """
     if (not isinstance(t_or_l, (tuple, list))
             or any(not isinstance(d, dict) for d in t_or_l)):
         illegal_value(t_or_l, 't_or_l', 'is_dict_series', raise_error, log)
@@ -446,7 +665,17 @@ def is_dict_series(t_or_l, raise_error=False, log=True):
 
 
 def is_dict_nums(d, raise_error=False, log=True):
-    """Value is a dictionary with single number values."""
+    """Value is a dictionary with single number values.
+
+    :param t_or_l: Input values.
+    :type t_or_l: dict[str, int]
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is valid or `False` if not.
+    :rtype: bool
+    """
     if (not isinstance(d, dict)
             or any(not is_num(v, log=False) for v in d.values())):
         illegal_value(d, 'd', 'is_dict_nums', raise_error, log)
@@ -455,7 +684,17 @@ def is_dict_nums(d, raise_error=False, log=True):
 
 
 def is_dict_strings(d, raise_error=False, log=True):
-    """Value is a dictionary with single string values."""
+    """Value is a dictionary with single string values.
+
+    :param t_or_l: Input values.
+    :type t_or_l: dict[str, str]
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is valid or `False` if not.
+    :rtype: bool
+    """
     if (not isinstance(d, dict)
             or any(not isinstance(v, str) for v in d.values())):
         illegal_value(d, 'd', 'is_dict_strings', raise_error, log)
@@ -463,35 +702,71 @@ def is_dict_strings(d, raise_error=False, log=True):
     return True
 
 
-def is_index(v, ge=0, lt=None, raise_error=False, log=True):
-    """Value is an array index in range ge <= v < lt. NOTE lt IS NOT
-    included!
+def is_index(value, ge=0, lt=None, raise_error=False, log=True):
+    """Value is an array index in range ge <= value < lt.
+
+    .. note::
+        The value for `lt` IS NOT included!
+
+    :param value: Input value.
+    :type value: int
+    :param ge: Greater or equal to, defaults to `0`.
+    :type ge: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid array index or `False`
+        if not.
+    :rtype: bool
     """
     if isinstance(lt, Int):
         if lt <= ge:
             illegal_combination(
                 ge, 'ge', lt, 'lt', 'is_index', raise_error, log)
             return False
-    return is_int(v, ge=ge, lt=lt, raise_error=raise_error, log=log)
+    return is_int(value, ge=ge, lt=lt, raise_error=raise_error, log=log)
 
 
-def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
-    """Value is an array index range in range ge <= v[0] <= v[1] <= le
-    or ge <= v[0] <= v[1] < lt. NOTE le IS included!
+def is_index_range(value, ge=0, le=None, lt=None, raise_error=False, log=True):
+    """Value is an array index range in range
+    ge <= value[0] <= value[1] <= le or
+    ge <= value[0] <= value[1] < lt.
+
+    .. note::
+        The value for `le` IS included!
+
+    :param value: Input value.
+    :type value: list[int, int]
+    :param ge: Greater or equal to, defaults to `0`.
+    :type ge: int, optional
+    :param le: Smaller or equal to.
+    :type le: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: `True` if input value is a valid array index range or
+        `False` if not.
+    :rtype: bool
     """
-    if not is_int_pair(v, raise_error=raise_error, log=log):
+    if not is_int_pair(value, raise_error=raise_error, log=log):
         return False
     if not test_ge_gt_le_lt(
             ge, None, le, lt, is_int, 'is_index_range', raise_error, log):
         return False
-    if (not ge <= v[0] <= v[1] or (le is not None and v[1] > le)
-            or (lt is not None and v[1] >= lt)):
+    if (not ge <= value[0] <= value[1] or (le is not None and value[1] > le)
+            or (lt is not None and value[1] >= lt)):
         if le is not None:
-            error_msg = \
-                f'Value {v} out of range: !({ge} <= {v[0]} <= {v[1]} <= {le})'
+            error_msg = f'Value {value} out of range: ' \
+                        f'!({ge} <= {value[0]} <= {value[1]} <= {le})'
         else:
-            error_msg = \
-                f'Value {v} out of range: !({ge} <= {v[0]} <= {v[1]} < {lt})'
+            error_msg = f'Value {value} out of range: ' \
+                        f'!({ge} <= {value[0]} <= {value[1]} < {lt})'
         if log:
             logger.error(error_msg)
         if raise_error:
@@ -501,7 +776,15 @@ def is_index_range(v, ge=0, le=None, lt=None, raise_error=False, log=True):
 
 
 def index_nearest(a, value):
-    """Return index of nearest array value."""
+    """Return index of nearest array value.
+
+    :param a: Input array.
+    :type a: array-like
+    :param value: Input value.
+    :type value: int or float
+    :return: Index or array value nearest to input value.
+    :rtype: int
+    """
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -512,7 +795,15 @@ def index_nearest(a, value):
 
 
 def index_nearest_down(a, value):
-    """Return index of nearest array value, rounded down."""
+    """Return index of nearest array value, rounded down.
+
+    :param a: Input array.
+    :type a: array-like
+    :param value: Input value.
+    :type value: int or float
+    :return: Index or array value nearest to input value, rounded down.
+    :rtype: int
+    """
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -524,7 +815,15 @@ def index_nearest_down(a, value):
 
 
 def index_nearest_up(a, value):
-    """Return index of nearest array value, rounded up."""
+    """Return index of nearest array value, rounded up.
+
+    :param a: Input array.
+    :type a: array-like
+    :param value: Input value.
+    :type value: int or float
+    :return: Index or array value nearest to input value, rounded up.
+    :rtype: int
+    """
     a = np.asarray(a)
     if a.ndim > 1:
         raise ValueError(
@@ -538,6 +837,11 @@ def index_nearest_up(a, value):
 def get_consecutive_int_range(a):
     """Return a list of pairs of integers marking consecutive ranges
     of integers.
+
+    :param a: Input array.
+    :type a: array-like
+    :return: Pairs of integers marking consecutive ranges of integers.
+    :rtype: list
     """
     a.sort()
     i = 0
@@ -553,37 +857,74 @@ def get_consecutive_int_range(a):
     return int_ranges
 
 
-def round_to_n(x, n=1):
-    """Round to a specific number of sig figs."""
-    if x == 0.0:
-        return 0
-    return type(x)(round(x, n-1-int(np.floor(np.log10(abs(x))))))
+def round_to_n(value, n=1):
+    """Round to a specific number of sig figs.
 
-
-def round_up_to_n(x, n=1):
-    """Round up to a specific number of sig figs."""
-    x_round = round_to_n(x, n)
-    if abs(x/x_round) > 1.0:
-        x_round += np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
-    return type(x)(x_round)
-
-
-def trunc_to_n(x, n=1):
-    """Truncate to a specific number of sig figs."""
-    x_round = round_to_n(x, n)
-    if abs(x_round/x) > 1.0:
-        x_round -= np.sign(x) * 10**(np.floor(np.log10(abs(x)))+1-n)
-    return type(x)(x_round)
-
-
-def almost_equal(a, b, sig_figs):
-    """Check if equal to within a certain number of significant digits.
+    :param value: Input value.
+    :type value: float
+    :param n: Number of sig figs, defaults to `1`.
+    :type n: int, optional
+    :return: Input value rounded to `n` sig figs.
+    :rtype: float
     """
-    if is_num(a) and is_num(b):
-        return abs(round_to_n(a-b, sig_figs)) < pow(10, 1-sig_figs)
+    if value == 0.0:
+        return 0
+    return type(value)(round(value, n-1-int(np.floor(np.log10(abs(value))))))
+
+
+def round_up_to_n(value, n=1):
+    """Round up to a specific number of sig figs.
+
+    :param value: Input value.
+    :type value: float
+    :param n: Number of sig figs, defaults to `1`.
+    :type n: int, optional
+    :return: Input value rounded up to `n` sig figs.
+    :rtype: float
+    """
+    value_round = round_to_n(value, n)
+    if abs(value/value_round) > 1.0:
+        value_round += \
+            np.sign(value) * 10**(np.floor(np.log10(abs(value)))+1-n)
+    return type(value)(value_round)
+
+
+def trunc_to_n(value, n=1):
+    """Truncate to a specific number of sig figs.
+
+    :param value: Input value.
+    :type value: float
+    :param n: Number of sig figs, defaults to `1`.
+    :type n: int, optional
+    :return: Input value trunctated to `n` sig figs.
+    :rtype: float
+    """
+    value_round = round_to_n(value, n)
+    if abs(value_round/value) > 1.0:
+        value_round -= \
+            np.sign(value) * 10**(np.floor(np.log10(abs(value)))+1-n)
+    return type(value)(value_round)
+
+
+def almost_equal(value1, value2, sig_figs):
+    """Check if equal to within a certain number of significant digits.
+
+    :param value1: Input value.
+    :type value1: float
+    :param value2: Input value.
+    :type value2: float
+    :param sig_figs: Number of sig figs.
+    :type sig_figs: int
+    :return: `True` is inputs are equal within `sig_figs` sig figs,
+        `False` if not.
+    :rtype: bool
+    """
+    if is_num(value1) and is_num(value2):
+        return abs(round_to_n(value1-value2, sig_figs)) < pow(10, 1-sig_figs)
     raise ValueError(
-        f'Invalid value for a or b in almost_equal (a: {a}, {type(a)}, '
-        f'b: {b}, {type(b)})')
+        f'Invalid value for value1 or value2 in almost_equal '
+        f'(value1: {value1}, {type(value1)}, '
+        f'value2: {value2}, {type(value2)})')
 
 
 def string_to_list(
@@ -607,7 +948,7 @@ def string_to_list(
     :param raise_error: Raise an exception upon any error,
         defaults to `False`.
     :type raise_error: bool, optional
-    :return: Input list or none upon an illegal input.
+    :return: Input list or `None` upon an illegal input.
     :rtype: list
     """
     if not isinstance(s, str):
@@ -650,8 +991,14 @@ def string_to_list(
 
 
 def list_to_string(a):
-    """Return a list of pairs of integers marking consecutive ranges
-    of integers in string notation."""
+    """Return an array index list of integers in string notation.
+    e.g: [1, 3, 5, 6, 7, 8, 12] -> '1, 3, 5-8, 12'
+
+    :param a: Input array.
+    :type a: array-like
+    :return: Index list in string notation.
+    :rtype: str
+    """
     int_ranges = get_consecutive_int_range(a)
     if not int_ranges:
         return ''
@@ -667,10 +1014,16 @@ def list_to_string(a):
     return s
 
 
-def get_trailing_int(string):
-    """Get the trailing integer in a string."""
+def get_trailing_int(s):
+    """Get the trailing integer in a string.
+
+    :param s: Input value
+    :type s: str
+    :return: Trailing integer in a string.
+    :rtype: int
+    """
     index_regex = re.compile(r'\d+$')
-    match = index_regex.search(string)
+    match = index_regex.search(s)
     if match is None:
         return None
     return int(match.group())
@@ -679,7 +1032,30 @@ def get_trailing_int(string):
 def input_int(
         s=None, ge=None, gt=None, le=None, lt=None, default=None, inset=None,
         raise_error=False, log=True):
-    """Interactively prompt the user to enter an integer."""
+    """Interactively prompt the user to enter an integer.
+
+    :param s: Interactive user prompt, defaults to "Enter an integer"
+        with an optional range. 
+    :type s: str, optional
+    :param ge: Greater or equal to.
+    :type ge: int, optional
+    :param gt: Greater than.
+    :type gt: int, optional
+    :param le: Smaller or equal to.
+    :type le: int, optional
+    :param lt: Smaller than.
+    :type lt: int, optional
+    :param default: Default value to return.
+    :type default: int, optional
+    :param inset: Valid values to choose from.
+    :type inset: list[int], optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: Entered value.
+    :rtype: int
+    """
     return _input_int_or_num(
         'int', s, ge, gt, le, lt, default, inset, raise_error, log)
 
@@ -687,7 +1063,28 @@ def input_int(
 def input_num(
         s=None, ge=None, gt=None, le=None, lt=None, default=None,
         raise_error=False, log=True):
-    """Interactively prompt the user to enter a number."""
+    """Interactively prompt the user to enter a number.
+
+    :param s: Interactive user prompt, defaults to "Enter a value"
+        with an optional range. 
+    :type s: str, optional
+    :param ge: Greater or equal to.
+    :type ge: int or float, optional
+    :param gt: Greater than.
+    :type gt: int or float, optional
+    :param le: Smaller or equal to.
+    :type le: int or float, optional
+    :param lt: Smaller than.
+    :type lt: int or float, optional
+    :param default: Default value to return.
+    :type default: int or float, optional
+    :param raise_error: Raise an error, defaults to `False`.
+    :type raise_error: bool, optional
+    :param log: Write error message to the logger, defaults to `True`.
+    :type log: bool, optional
+    :return: Entered value.
+    :rtype: int or float
+    """
     return _input_int_or_num(
         'num', s, ge, gt, le, lt, default, None, raise_error,log)
 
@@ -695,7 +1092,9 @@ def input_num(
 def _input_int_or_num(
         type_str, s=None, ge=None, gt=None, le=None, lt=None, default=None,
         inset=None, raise_error=False, log=True):
-    """Interactively prompt the user to enter an integer or number."""
+    """Interactively prompt the user to enter an integer or number.
+
+    """
     if type_str == 'int':
         if not test_ge_gt_le_lt(
                 ge, gt, le, lt, is_int, '_input_int_or_num', raise_error, log):
@@ -776,7 +1175,7 @@ def input_int_list(
     dashes (when split_on_dash is True).
     e.g: '1 3,5-8 , 12 ' -> [1, 3, 5, 6, 7, 8, 12]
 
-    :param s: Interactive user prompt, defaults to `None`.
+    :param s: Interactive user prompt.
     :type s: str, optional
     :param num_max: Maximum number of inputs in list.
     :type num_max: int, optional
@@ -798,7 +1197,7 @@ def input_int_list(
     :param log: Print an error message upon any error,
         defaults to `True`.
     :type log: bool, optional
-    :return: Input list or none upon an illegal input.
+    :return: Input list or `None` upon an illegal input.
     :rtype: list
     """
     return _input_int_or_num_list(
@@ -832,7 +1231,7 @@ def input_num_list(
     :param log: Print an error message upon any error,
         defaults to `True`.
     :type log: bool, optional
-    :return: Input list or none upon an illegal input.
+    :return: Input list or `None` upon an illegal input.
     :rtype: list
     """
     return _input_int_or_num_list(
@@ -843,7 +1242,7 @@ def input_num_list(
 def _input_int_or_num_list(
         type_str, s=None, num_max=None, ge=None, le=None, split_on_dash=True,
         remove_duplicates=True, sort=True, raise_error=False, log=True):
-    # RV do we want a limit on max dimension?
+    # FIX do we want a limit on max dimension?
     if type_str == 'int':
         if not test_ge_gt_le_lt(
                 ge, None, le, None, is_int, 'input_int_or_num_list',
@@ -868,15 +1267,15 @@ def _input_int_or_num_list(
     else:
         print(f'{s}{v_range}: ')
     try:
-        _list = string_to_list(input(), split_on_dash, remove_duplicates, sort)
+        l = string_to_list(input(), split_on_dash, remove_duplicates, sort)
     except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        _list = None
+        l = None
     except Exception as exc:
-        raise Exception('Unexpected error') from exc
-    if (not isinstance(_list, list)
-            or (num_max is not None and len(_list) > num_max)
+        raise ValueError('Unexpected error') from exc
+    if (not isinstance(l, list)
+            or (num_max is not None and len(l) > num_max)
             or any(
-                not _is_int_or_num(v, type_str, ge=ge, le=le) for v in _list)):
+                not _is_int_or_num(v, type_str, ge=ge, le=le) for v in l)):
         num = '' if num_max is None else f'up to {num_max} '
         if split_on_dash:
             print(f'Invalid input: enter a valid set of {num}dash/comma/'
@@ -884,14 +1283,22 @@ def _input_int_or_num_list(
         else:
             print(f'Invalid input: enter a valid set of {num}comma/whitespace '
                   'separated numbers e.g. 1 3,5 8 , 12')
-        _list = _input_int_or_num_list(
+        l = _input_int_or_num_list(
             type_str, s, ge, le, split_on_dash, remove_duplicates, sort,
             raise_error, log)
-    return _list
+    return l
 
 
 def input_yesno(s=None, default=None):
-    """Interactively prompt the user to enter a y/n question."""
+    """Interactively prompt the user to enter a y/n question.
+
+    :param s: Interactive user prompt, defaults to "Enter yes or no".
+    :type s: str, optional
+    :param default: Default value to return.
+    :type default: int or float, optional
+    :return: `True` if "yes", `False` if "no".
+    :rtype: bool
+    """
     if default is not None:
         if not isinstance(default, str):
             illegal_value(default, 'default', 'input_yesno')
@@ -925,7 +1332,15 @@ def input_yesno(s=None, default=None):
 
 
 def input_menu(items, default=None, header=None):
-    """Interactively prompt the user to select from a menu."""
+    """Interactively prompt the user to select from a menu.
+
+    :param items: Menu items.
+    :type s: list[str]
+    :param default: Default value to return.
+    :type default: str
+    :return: Choosen entry.
+    :rtype: str
+    """
     if (not isinstance(items, (tuple, list))
             or any(not isinstance(i, str) for i in items)):
         illegal_value(items, 'items', 'input_menu')
@@ -966,88 +1381,118 @@ def input_menu(items, default=None, header=None):
     return choice
 
 
-def assert_no_duplicates_in_list_of_dicts(_list, raise_error=False):
+def assert_no_duplicates_in_list_of_dicts(l, raise_error=False):
     """Assert that there are no duplicates in a list of dictionaries.
+
+    :param l: Input list.
+    :type l: list[dict]
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
     """
-    if not isinstance(_list, list):
+    if not isinstance(l, list):
         illegal_value(
-            _list, '_list', 'assert_no_duplicates_in_list_of_dicts',
+            l, 'l', 'assert_no_duplicates_in_list_of_dicts',
             raise_error)
         return None
-    if any(not isinstance(d, dict) for d in _list):
+    if any(not isinstance(d, dict) for d in l):
         illegal_value(
-            _list, '_list', 'assert_no_duplicates_in_list_of_dicts',
+            l, 'l', 'assert_no_duplicates_in_list_of_dicts',
             raise_error)
         return None
-    if (len(_list) != len([dict(_tuple) for _tuple in
-                          {tuple(sorted(d.items())) for d in _list}])):
+    if (len(l) != len([dict(t) for t in
+                          {tuple(sorted(d.items())) for d in l}])):
         if raise_error:
-            raise ValueError(f'Duplicate items found in {_list}')
-        logger.error(f'Duplicate items found in {_list}')
+            raise ValueError(f'Duplicate items found in {l}')
+        logger.error(f'Duplicate items found in {l}')
         return None
-    return _list
+    return l
 
 
-def assert_no_duplicate_key_in_list_of_dicts(_list, key, raise_error=False):
+def assert_no_duplicate_key_in_list_of_dicts(l, key, raise_error=False):
     """Assert that there are no duplicate keys in a list of
     dictionaries.
+
+    :param l: Input list.
+    :type l: list[dict]
+    :param key: Dictionary key.
+    :type key: str
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
     """
     if not isinstance(key, str):
         illegal_value(
             key, 'key', 'assert_no_duplicate_key_in_list_of_dicts',
             raise_error)
         return None
-    if not isinstance(_list, list):
+    if not isinstance(l, list):
         illegal_value(
-            _list, '_list', 'assert_no_duplicate_key_in_list_of_dicts',
+            l, 'l', 'assert_no_duplicate_key_in_list_of_dicts',
             raise_error)
         return None
-    if any(isinstance(d, dict) for d in _list):
+    if any(isinstance(d, dict) for d in l):
         illegal_value(
-            _list, '_list', 'assert_no_duplicates_in_list_of_dicts',
+            l, 'l', 'assert_no_duplicates_in_list_of_dicts',
             raise_error)
         return None
-    keys = [d.get(key, None) for d in _list]
-    if None in keys or len(set(keys)) != len(_list):
+    keys = [d.get(key, None) for d in l]
+    if None in keys or len(set(keys)) != len(l):
         if raise_error:
             raise ValueError(
-                f'Duplicate or missing key ({key}) found in {_list}')
-        logger.error(f'Duplicate or missing key ({key}) found in {_list}')
+                f'Duplicate or missing key ({key}) found in {l}')
+        logger.error(f'Duplicate or missing key ({key}) found in {l}')
         return None
-    return _list
+    return l
 
 
-def assert_no_duplicate_attr_in_list_of_objs(_list, attr, raise_error=False):
+def assert_no_duplicate_attr_in_list_of_objs(l, attr, raise_error=False):
     """Assert that there are no duplicate attributes in a list of
     objects.
+
+    :param l: Input list.
+    :type l: list
+    :param key: Attribute.
+    :type key: str
+    :param raise_error: Raise an exception upon any error,
+        defaults to `False`.
+    :type raise_error: bool, optional
     """
     if not isinstance(attr, str):
         illegal_value(
             attr, 'attr', 'assert_no_duplicate_attr_in_list_of_objs',
             raise_error)
         return None
-    if not isinstance(_list, list):
+    if not isinstance(l, list):
         illegal_value(
-            _list, '_list', 'assert_no_duplicate_key_in_list_of_objs',
+            l, 'l', 'assert_no_duplicate_key_in_list_of_objs',
             raise_error)
         return None
-    attrs = [getattr(obj, attr, None) for obj in _list]
-    if None in attrs or len(set(attrs)) != len(_list):
+    attrs = [getattr(obj, attr, None) for obj in l]
+    if None in attrs or len(set(attrs)) != len(l):
         if raise_error:
             raise ValueError(
-                f'Duplicate or missing attr ({attr}) found in {_list}')
-        logger.error(f'Duplicate or missing attr ({attr}) found in {_list}')
+                f'Duplicate or missing attr ({attr}) found in {l}')
+        logger.error(f'Duplicate or missing attr ({attr}) found in {l}')
         return None
-    return _list
+    return l
 
 
-def file_exists_and_readable(f):
-    """Check if a file exists and is readable."""
-    if not os.path.isfile(f):
-        raise ValueError(f'{f} is not a valid file')
-    if not os.access(f, os.R_OK):
-        raise ValueError(f'{f} is not accessible for reading')
-    return f
+def file_exists_and_readable(filename):
+    """Check if a file exists and is readable.
+
+
+    :param f: File name.
+    :type f: str
+    :raise ValueError: Invalid file or inaccessible for reading.
+    :return: File name.
+    :rtype: str
+    """
+    if not os.path.isfile(filename):
+        raise ValueError(f'{filename} is not a valid file')
+    if not os.access(filename, os.R_OK):
+        raise ValueError(f'{filename} is not accessible for reading')
+    return filename
 
 
 def rolling_average(
@@ -1056,6 +1501,40 @@ def rolling_average(
         use_convolve=None):
     """Returns the rolling sum or average of an array over the last
     dimension.
+
+    :param y: Input data.
+    :type y: array-like
+    :param x: Independent dimension.
+    :type x: array-like, optional
+    :param dtype: Input data type, defaults to the type of `y` if
+        average is `True` or numpy.float if not.
+    :type dtype: numpy.dtype
+    :param start: First array index, defaults to `0`.
+    :type start: int, optional
+    :param end: Last array index.
+    :type end: int, optional
+    :param width: Number of elements in rolling sum or average.
+    :type width: int, optional
+    :param stride: Stride in rolling sum or average.
+    :type stride: int, optional
+    :param num: Number of outputs of rolling sum or average.
+    :type num: int, optional
+    :param average: Compute the rolling average if `True` or the
+        rolling sum otherwise.
+    :type average: bool
+    :param mode: Only return results for full sized windows if
+        `"valid"`, include partial windows if `"full"`, defaults to
+        `"valid"`.
+    :type mode: Literal['valid', 'full'], optional
+    :param use_convolve: Use numpy.convolve if `True`.
+    :type use_convolve: bool, optional
+    :raise ValueError: Invalid input parameters.
+    :return: Rolling sum or average of the input array, optionally
+        with their independent coordinates.
+    :rtype: numpy.ndarray or (numpy.ndarray, numpy.ndarray)
+
+    .. note::
+        Specify only one or two of `width`, `stride`, and `num`.
     """
     y = np.asarray(y)
     y_shape = y.shape
@@ -1198,28 +1677,28 @@ def baseline_arPLS(
     "Baseline correction using asymmetrically reweighted penalized
     least squares smoothing", Analyst, 2015,140, 250-257
 
-    :param y: The spectrum.
+    :param y: Spectrum.
     :type y: array-like
-    :param mask: A mask to apply to the spectrum before baseline
+    :param mask: Mask to apply to the spectrum before baseline
        construction.
     :type mask: array-like, optional
-    :param w: The weights (allows restart for additional ieterations).
+    :param w: Weights (allows restart for additional iterations).
     :type w: numpy.array, optional
-    :param tol: The convergence tolerence, defaults to `1.e-8`.
+    :param tol: Convergence tolerence, defaults to `1.e-8`.
     :type tol: float, optional
-    :param lam: The &lambda (smoothness) parameter (the balance
+    :param lam: &lambda (smoothness) parameter (the balance
         between the residual of the data and the baseline and the
         smoothness of the baseline). The suggested range is between
         100 and 10^8, defaults to `10^6`.
     :type lam: float, optional
-    :param max_iter: The maximum number of iterations,
+    :param max_iter: Maximum number of iterations,
         defaults to `20`.
     :type max_iter: int, optional
     :param full_output: Whether or not to also output the baseline
         corrected spectrum, the number of iterations and error in the
         returned result, defaults to `False`.
     :type full_output: bool, optional
-    :return: The smoothed baseline, with optionally the baseline
+    :return: Smoothed baseline, with optionally the baseline
         corrected spectrum, the weights, the number of iterations and
         the error in the returned result.
     :rtype: numpy.array [, numpy.array, int, float]
@@ -1357,26 +1836,26 @@ def select_mask_1d(
 
     :param y: One-dimensional data array for which a mask will be
         constructed.
-    :type y: numpy.ndarray
+    :type y: array-like
     :param x: x-coordinates of the reference data.
-    :type x: numpy.ndarray, optional
+    :type x: array-like, optional
     :param preselected_index_ranges: List of preselected index ranges
         to mask (bounds are inclusive).
-    :type preselected_index_ranges: Union(list[tuple(int, int)],
-        list[list[int]], list[tuple(float, float)], list[list[float]]),
-        optional
+    :type preselected_index_ranges: list[tuple(int, int)] or
+        list[list[int]] or list[tuple(float, float)] or
+        list[list[float]]), optional
     :param preselected_mask: Preselected boolean mask array.
-    :type preselected_mask: numpy.ndarray, optional
+    :type preselected_mask: array-like, optional
     :param title: Title for the displayed figure.
     :type title: str, optional
     :param xlabel: Label for the x-axis of the displayed figure.
     :type xlabel: str, optional
     :param ylabel: Label for the y-axis of the displayed figure.
     :type ylabel: str, optional
-    :param min_num_index_ranges: The minimum number of selected index
+    :param min_num_index_ranges: Minimum number of selected index
         ranges.
     :type min_num_index_ranges: int, optional
-    :param max_num_index_ranges: The maximum number of selected index
+    :param max_num_index_ranges: Maximum number of selected index
         ranges.
     :type max_num_index_ranges: int, optional
     :param interactive: Show the plot and allow user interactions with
@@ -1388,10 +1867,11 @@ def select_mask_1d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), a boolean mask array,
         and the list of selected index ranges.
-    :rtype: Union[io.BytesIO, None], numpy.ndarray, list[list[int, int]]
+    :rtype: tuple[_io.BytesIO, str] or `None`, numpy.ndarray,
+        list[list[int, int]]
     """
     # Third party modules
     # pylint: disable=possibly-used-before-assignment
@@ -1399,19 +1879,19 @@ def select_mask_1d(
         from matplotlib.patches import Patch
         from matplotlib.widgets import Button, SpanSelector
 
-    def change_fig_title(title):
+    def _change_fig_title(title):
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_error_text(error):
+    def _change_error_text(error):
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
-    def get_selected_index_ranges(change_fnc=None, title=''):
+    def _get_selected_index_ranges(change_fnc=None, title=''):
         selected_index_ranges = sorted(
             [[index_nearest(x, span.extents[0]),
               index_nearest(x, span.extents[1])+1]
@@ -1431,7 +1911,7 @@ def select_mask_1d(
         """Callback function for the "Add span" button."""
         if (max_num_index_ranges is not None
                 and len(spans) >= max_num_index_ranges):
-            change_error_text(
+            _change_error_text(
                 'Exceeding max number of ranges, adjust an existing '
                 'range or click "Reset"/"Confirm"')
         else:
@@ -1459,7 +1939,7 @@ def select_mask_1d(
                 for span2 in spans[i+1:]:
                     if (span1.extents[1] >= span2.extents[0]
                             and span1.extents[0] <= span2.extents[1]):
-                        change_error_text(
+                        _change_error_text(
                             'Combined overlapping spans in currently '
                             'selected mask')
                         span2.extents = (
@@ -1471,7 +1951,7 @@ def select_mask_1d(
                         break
                 if combined_spans:
                     break
-        get_selected_index_ranges(change_error_text)
+        _get_selected_index_ranges(_change_error_text)
         plt.draw()
 
     def reset(event):
@@ -1482,21 +1962,21 @@ def select_mask_1d(
         for span in reversed(spans):
             span.set_visible(False)
             spans.remove(span)
-        get_selected_index_ranges(change_error_text)
+        _get_selected_index_ranges(_change_error_text)
         plt.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
         if (min_num_index_ranges is not None
                 and len(spans) < min_num_index_ranges):
-            change_error_text(
+            _change_error_text(
                 f'Select at least {min_num_index_ranges} unique index ranges')
             plt.draw()
         else:
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
-            get_selected_index_ranges(change_fig_title, title)
+            _get_selected_index_ranges(_change_fig_title, title)
             plt.close()
 
     def update_mask(mask, selected_index_ranges):
@@ -1607,15 +2087,15 @@ def select_mask_1d(
 
     if not interactive:
 
-        get_selected_index_ranges(change_fig_title, title)
+        _get_selected_index_ranges(_change_fig_title, title)
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
 
     else:
 
-        change_fig_title(f'{title}Click and drag to select ranges')
-        get_selected_index_ranges(change_error_text)
+        _change_fig_title(f'{title}Click and drag to select ranges')
+        _get_selected_index_ranges(_change_error_text)
         fig.subplots_adjust(bottom=0.2)
 
         # Setup "Add span" button
@@ -1645,7 +2125,7 @@ def select_mask_1d(
         confirm_btn.ax.remove()
         plt.subplots_adjust(bottom=0.0)
 
-    selected_index_ranges = get_selected_index_ranges()
+    selected_index_ranges = _get_selected_index_ranges()
 
     # Update the mask with the currently selected index ranges
     selected_mask = update_mask(len(x)*[False], selected_index_ranges)
@@ -1676,9 +2156,9 @@ def select_roi_1d(
 
     :param y: One-dimensional data array for which a for which a region
         of interest will be selected.
-    :type y: numpy.ndarray
+    :type y: array-like
     :param x: x-coordinates of the data
-    :type x: numpy.ndarray, optional
+    :type x: array-like, optional
     :param preselected_roi: Preselected region of interest.
     :type preselected_roi: tuple(int, int), optional
     :param title: Title for the displayed figure.
@@ -1696,10 +2176,10 @@ def select_roi_1d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), and the selected
         region of interest.
-    :rtype: Union[io.BytesIO, None], tuple(int, int)
+    :rtype: io.BytesIO or `None`, tuple(int, int)
     """
     # Check inputs
     y = np.asarray(y)
@@ -1724,11 +2204,11 @@ def select_roi_2d(
         row_label='row index', column_label='column index', interactive=True,
         filename=None, return_buf=False):
     """Display a 2D image and have the user select a single rectangular
-       region of interest.
+    region of interest.
 
     :param a: Two-dimensional image data array for which a region of
         interest will be selected.
-    :type a: numpy.ndarray
+    :type a: array-like
     :param preselected_roi: Preselected region of interest.
     :type preselected_roi: tuple(int, int, int, int), optional
     :param title: Title for the displayed figure.
@@ -1750,29 +2230,30 @@ def select_roi_2d(
     :param return_buf: Return an in-memory object as a byte stream
         represention of the Matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: A byte stream represention of the Matplotlib figure if
+    :return: Byte stream represention of the Matplotlib figure if
         return_buf is `True` (`None` otherwise), and the selected
         region of interest.
-    :rtype: Union[io.BytesIO, None], tuple(int, int, int, int)
+    :rtype: tuple[_io.BytesIO, str] or `None`,
+        tuple(int, int, int, int)
     """
     # Third party modules
     # pylint: disable=possibly-used-before-assignment
     if interactive or filename is not None or return_buf:
         from matplotlib.widgets import Button, RectangleSelector
 
-    def change_fig_title(title):
+    def _change_fig_title(title):
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_subfig_title(error):
+    def _change_subfig_title(error):
         if subfig_title:
             subfig_title[0].remove()
             subfig_title.pop()
         subfig_title.append(plt.figtext(*error_pos, error, **error_props))
 
-    def clear_selection():
+    def _clear_selection():
         rects[0].set_visible(False)
         rects.pop()
         rects.append(
@@ -1785,11 +2266,11 @@ def select_roi_2d(
         """Callback function for the RectangleSelector widget."""
         if (not int(rects[0].extents[1]) - int(rects[0].extents[0])
                 or not int(rects[0].extents[3]) - int(rects[0].extents[2])):
-            clear_selection()
-            change_subfig_title(
+            _clear_selection()
+            _change_subfig_title(
                 'Selected ROI too small, try again')
         else:
-            change_subfig_title(
+            _change_subfig_title(
                 f'Selected ROI: {tuple(int(v) for v in rects[0].extents)}')
         plt.draw()
 
@@ -1798,7 +2279,7 @@ def select_roi_2d(
         if subfig_title:
             subfig_title[0].remove()
             subfig_title.pop()
-        clear_selection()
+        _clear_selection()
         plt.draw()
 
     def confirm(event):
@@ -1809,7 +2290,7 @@ def select_roi_2d(
         roi = tuple(int(v) for v in rects[0].extents)
         if roi[1]-roi[0] < 1 or roi[3]-roi[2] < 1:
             roi = None
-        change_fig_title(f'Selected ROI: {roi}')
+        _change_fig_title(f'Selected ROI: {roi}')
         plt.close()
 
     # Check inputs
@@ -1859,14 +2340,14 @@ def select_roi_2d(
     if not interactive:
 
         if preselected_roi is not None:
-            change_fig_title(
+            _change_fig_title(
                 f'Selected ROI: {tuple(int(v) for v in preselected_roi)}')
 
     else:
 
-        change_fig_title(title)
+        _change_fig_title(title)
         if preselected_roi is not None:
-            change_subfig_title(
+            _change_subfig_title(
                 f'Preselected ROI: {tuple(int(v) for v in preselected_roi)}')
         fig.subplots_adjust(bottom=0.2)
 
@@ -1921,27 +2402,27 @@ def select_image_indices(
         title_a=None, title_b=None, row_label='row index',
         column_label='column index', interactive=True, return_buf=False):
     """Display a 2D image and have the user select a set of image
-       indices in either row or column direction. 
+    indices in either row or column direction. 
 
     :param a: Two-dimensional image data array for which a region of
         interest will be selected.
-    :type a: numpy.ndarray
-    :param axis: The selection direction (0: row, 1: column)
+    :type a: array-like
+    :param axis: Selection direction (0: row, 1: column)
     :type axis: int
-    :param b: A secondary two-dimensional image data array for which
+    :param b: Secondary two-dimensional image data array for which
         a shared region of interest will be selected.
-    :type b: numpy.ndarray, optional
+    :type b: array-like, optional
     :param preselected_indices: Preselected image indices.
     :type preselected_indices: tuple(int), list(int), optional
     :param axis_index_offset: Offset in axis index range and
         preselected indices, defaults to `0`.
     :type axis_index_offset: int, optional
-    :param min_range: The minimal range spanned by the selected 
+    :param min_range: Minimal range spanned by the selected 
         indices.
     :type min_range: int, optional
-    :param min_num_indices: The minimum number of selected indices.
+    :param min_num_indices: Minimum number of selected indices.
     :type min_num_indices: int, optional
-    :param max_num_indices: The maximum number of selected indices.
+    :param max_num_indices: Maximum number of selected indices.
     :type max_num_indices: int, optional
     :param title: Title for the displayed figure.
     :type title: str, optional
@@ -1962,29 +2443,30 @@ def select_image_indices(
         represention of the Matplotlib figure instead of the
         matplotlib figure, defaults to `False`.
     :type return_buf: bool, optional
-    :return: The selected region of interest as array indices and a
+    :return: Selected region of interest as array indices and a
         matplotlib figure.
-    :rtype: Union[matplotlib.figure.Figure, io.BytesIO],
-        tuple(int, int, int, int)
+    :rtype: tuple[_io.BytesIO, str] or `None`,
+        tuple(int, int, int, int) or `None`.
     """
     # Third party modules
     from matplotlib.widgets import TextBox, Button
 
     index_input = None
 
-    def change_fig_title(title):
+    def _change_fig_title(title):
         if fig_title:
             fig_title[0].remove()
             fig_title.pop()
         fig_title.append(plt.figtext(*title_pos, title, **title_props))
 
-    def change_error_text(error):
+    def _change_error_text(error):
         if error_texts:
             error_texts[0].remove()
             error_texts.pop()
         error_texts.append(plt.figtext(*error_pos, error, **error_props))
 
     def get_selected_indices(change_fnc=None):
+        """Get the selected indices."""
         selected_indices = tuple(sorted(indices))
         if change_fnc is not None:
             num_indices = len(indices)
@@ -2005,6 +2487,7 @@ def select_image_indices(
         return selected_indices
 
     def add_index(index):
+        """Add an index."""
         if index in indices:
             raise ValueError(f'Ignoring duplicate of selected {row_column}s')
         if max_num_indices is not None and len(indices) >= max_num_indices:
@@ -2039,16 +2522,16 @@ def select_image_indices(
                     or index > axis_index_offset+a.shape[axis]):
                 raise ValueError
         except ValueError:
-            change_error_text(
+            _change_error_text(
                 f'Invalid {row_column} index ({expression}), enter an integer '
                 f'between {axis_index_offset} and '
                 f'{axis_index_offset+a.shape[axis]-1}')
         else:
             try:
                 add_index(index)
-                get_selected_indices(change_error_text)
+                get_selected_indices(_change_error_text)
             except ValueError as exc:
-                change_error_text(exc)
+                _change_error_text(exc)
         index_input.set_val('')
         for ax in axs:
             ax.get_figure().canvas.draw()
@@ -2062,14 +2545,14 @@ def select_image_indices(
             line.remove()
         indices.clear()
         lines.clear()
-        get_selected_indices(change_error_text)
+        get_selected_indices(_change_error_text)
         for ax in axs:
             ax.get_figure().canvas.draw()
 
     def confirm(event):
         """Callback function for the "Confirm" button."""
         if len(indices) < min_num_indices:
-            change_error_text(
+            _change_error_text(
                 f'Select at least {min_num_indices} unique {row_column}s')
             for ax in axs:
                 ax.get_figure().canvas.draw()
@@ -2078,7 +2561,7 @@ def select_image_indices(
             if error_texts:
                 error_texts[0].remove()
                 error_texts.pop()
-            get_selected_indices(change_fig_title)
+            get_selected_indices(_change_fig_title)
             plt.close()
 
     # Check inputs
@@ -2164,12 +2647,12 @@ def select_image_indices(
 
     if not interactive:
 
-        get_selected_indices(change_fig_title)
+        get_selected_indices(_change_fig_title)
 
     else:
 
-        change_fig_title(title)
-        get_selected_indices(change_error_text)
+        _change_fig_title(title)
+        get_selected_indices(_change_error_text)
         fig.subplots_adjust(bottom=0.2)
 
         # Setup TextBox
@@ -2214,9 +2697,51 @@ def quick_imshow(
         a, title=None, row_label='row index', column_label='column index',
         path=None, name=None, show_fig=True, save_fig=False,
         return_fig=False, block=None, extent=None, show_grid=False,
-        grid_color='w', grid_linewidth=1, **kwargs):
-    """Display and or save a 2D image and or return an in-memory object
-    as a byte stream represention.
+        grid_color='w', grid_linewidth=1, colorbar=False, **kwargs):
+    """Display and or save a 2D
+    `Matplotlib <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html>`__
+    image and or return an in-memory object as a byte stream represention.
+
+    :param a: Input array.
+    :type a: array-like
+    :param title: Graph title.
+    :type title: str, optional
+    :param row_label: Row label title.
+    :type row_label: str, optional
+    :param column_label: Column label title.
+    :type column_label: str, optional
+    :param path: File path to save image to (ignored if `save_fig`
+        is `False`).
+    :type path: str, optional
+    :param name: File name of image (ignored if `save_fig` is `False`).
+    :type name: str, optional
+    :param show_fig: Display image, defaults to `True`.
+    :type show_fig: bool, optional
+    :param save_fig: Save image to file, defaults to `False`.
+    :type save_fig: bool, optional
+    :param return_fig: Return an in-memory object as a byte stream
+        represention of the Matplotlib image, defaults to `False`.
+    :type return_fig: bool, optional
+    :param block: Wait for the image to be closed before returning.
+    :type block: bool, optional
+    :param extent: Bounding box in data coordinates that the image
+        will fill.
+    :type extent: floats (left, right, bottom, top), optional
+    :param show_grid: Show grid lines, defaults to `False`.
+    :type show_grid: bool, optional
+    :param grid_color: Grid color, defaults to `"w"` or white.
+    :type grid_color: str, optional
+    :param grid_linewidth: Grid line width, defaults to `1`.
+    :type grid_linewidth: int, optional
+    :param colorbar: Include a colorbar, defaults to `False`.
+    :type colorbar: bool, optional
+    :param kwargs: Any additional keyword parameters to pass on to
+        `matplotlib.pyplot.imshow <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html>`__.
+    :type kwargs: dict, optional
+    :raise: ValueError for invalid input data or parameters. 
+    :return: In-memory object as a byte stream represention if
+        `return_fig` is set.
+    :rtype: tuple[_io.BytesIO, str] or `None`
     """
     if title is not None and not isinstance(title, str):
         raise ValueError(f'Invalid parameter title ({title})')
@@ -2251,10 +2776,12 @@ def quick_imshow(
         extent = (0, a.shape[1], a.shape[0], 0)
     plt.ioff()
     fig, ax = plt.subplots(figsize=(11, 8.5))
-    ax.imshow(a, extent=extent, **kwargs)
+    im = ax.imshow(a, extent=extent, **kwargs)
     ax.set_title(title, fontsize='xx-large')
     ax.set_xlabel(column_label, fontsize='x-large')
     ax.set_ylabel(row_label, fontsize='x-large')
+    if colorbar:
+        fig.colorbar(im, ax=ax)
     if show_grid:
         ax.grid(color=grid_color, linewidth=grid_linewidth)
     if show_fig:
@@ -2280,7 +2807,7 @@ def quick_imshow(
     else:
         buf = None
     plt.close()
-    return buf 
+    return buf
 
 
 def quick_plot(
@@ -2288,8 +2815,50 @@ def quick_plot(
         ylim=None, xlabel=None, ylabel=None, legend=None, path=None, name=None,
         show_grid=False, save_fig=False, save_only=False, block=False,
         **kwargs):
-    """Display a 2D line plot."""
-    #RV FIX: Update with return_buf
+    """Display a 2D
+    `Matplotlib <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`__
+    line plot.
+
+    :param args: Tuple or tuple of tuples of input x-coordinates
+        (optional), y-coordinates, and optional line formatting
+        parameters.
+    :type args: [x], y, [fmt] [, [x2], y2, [fmt2], ...]
+    :param xerr: Errors in x-coordinates.
+    :type: array-like or float, optional
+    :param yerr: Errors in y-coordinates.
+    :type: array-like or float, optional
+    :param vlines: List of vertical lines to add to plot.
+    :type vlines: list[float], optional
+    :param title: Graph title.
+    :type title: str, optional
+    :param xlim: x-axis view limits.
+    :type xlim: list[float, float], optional
+    :param ylim: y-axis view limits.
+    :type ylim: list[float, float], optional
+    :param xlabel: x-axis label.
+    :type xlabel: str, optional
+    :param ylabel: y-axis label.
+    :type ylabel: str, optional
+    :param path: File path to save image to (ignored if `save_fig`
+        is `False`).
+    :type path: str, optional
+    :param name: File name of image (ignored if `save_fig` is `False`).
+    :type name: str, optional
+    :param show_grid: Show grid lines, defaults to `False`.
+    :type show_grid: bool, optional
+    :param save_fig: Save image to file, defaults to `False`.
+    :type save_fig: bool, optional
+    :param save_only: Don not display the figure, only save it to file,
+        defaults to `False`.
+    :type save_only: bool, optional
+    :param block: Wait for the image to be closed before returning.
+    :type block: bool, optional
+    :param kwargs: Any additional keyword parameters to pass on to
+        `matplotlib.pyplot.plot <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`__
+    :type kwargs: dict, optional
+    :raise: ValueError for invalid input data or parameters. 
+    """
+    #FIX: Update with return_buf
     if title is not None and not isinstance(title, str):
         illegal_value(title, 'title', 'quick_plot')
         title = None
@@ -2387,23 +2956,24 @@ def nxcopy(
         nxobject, exclude_nxpaths=None, nxpath_prefix=None,
         nxpathabs_prefix=None, nxpath_copy_abspath=None,
         nxgroup_to_nxdata=False):
-    """Function that returns a copy of a nexus object, optionally
-    exluding certain child items.
+    """Function that returns a copy of a NeXus style
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+    optionally exluding certain child items.
 
-    :param nxobject: The input nexus object to "copy".
+    :param nxobject: Input nexus object to "copy".
     :type nxobject: nexusformat.nexus.NXobject
-    :param exlude_nxpaths: A list of relative paths to child nexus
+    :param exlude_nxpaths: List of relative paths to child nexus
         objects that should be excluded from the returned "copy".
-    :type exclude_nxpaths: str, list[str], optional
+    :type exclude_nxpaths: str or list[str], optional
     :param nxpath_prefix: For use in recursive calls from inside this
         function only.
-    :type nxpath_prefix: str
+    :type nxpath_prefix: str, optional
     :param nxpathabs_prefix: For use in recursive calls from inside
         this function only.
-    :type nxpathabs_prefix: str
+    :type nxpathabs_prefix: str, optional
     :param nxpath_copy_abspath: For use in recursive calls from inside
         this function only.
-    :type nxpath_copy_abspath: str
+    :type nxpath_copy_abspath: str, optional
     :return: Copy of the input `nxobject` with some children optionally
         exluded.
     :rtype: nexusformat.nexus.NXobject
@@ -2421,12 +2991,12 @@ def nxcopy(
 
 
     if isinstance(nxobject, NXlinkgroup):
-        # The top level nxobject is a linked group
+        # Top level nxobject is a linked group
         # Create a group with the same name as the top level's target
         nxobject_copy = nxobject[nxobject.nxtarget].__class__(
             name=nxobject.nxname)
     elif isinstance(nxobject, (NXlink, NXfield)):
-        # The top level nxobject is a (linked) field: return a copy
+        # Top level nxobject is a (linked) field: return a copy
         attrs = nxobject.attrs
         attrs.pop('target', None)
         nxobject_copy = NXfield(
@@ -2510,8 +3080,11 @@ def nxcopy(
 
 
 def get_default_path(nxobject):
-    """Return the relative path to the default plottable NXdata
-    object within the parent NXobject provided.
+    """Return the relative path to the default plottable NeXus style
+    `NXdata <https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0>`__
+    object within the parent
+    `NXobject <https://manual.nexusformat.org/classes/base_classes/NXobject.html#index-0>`__
+    provided.
     
     :param nxobject: Parent NXobject containing plottable NXdata.
     :type nxobject: nexusformat.nexus.NXobject
@@ -2535,10 +3108,11 @@ def get_default_path(nxobject):
 
 
 def dictionary_update(target, source, merge_key_paths=None, sort=False):
-    """Recursively updates a target dictionary with values from a source
-    dictionary. Source values superseed target values for identical keys
-    unless both values are lists of dictionaries in which case they are
-    merged according to the merge_key_paths parameter.
+    """Recursively updates a target dictionary with values from a
+    source dictionary. Source values superseed target values for
+    identical keys unless both values are lists of dictionaries in
+    which case they are merged according to the merge_key_paths
+    parameter.
 
     :param target: Target dictionary.
     :type target: collections.abc.Mapping
@@ -2547,10 +3121,10 @@ def dictionary_update(target, source, merge_key_paths=None, sort=False):
     :param merge_key_paths: List key paths to merge dictionary lists,
         only used if items in the target and source dictionary trees
         are lists of dictionaries.
-    :type merge_key_paths: Union[str, list[str]]
+    :type merge_key_paths: str or list[str]
     :param sort: Sort dictionary lists on the key.
     :type sort: bool, optional
-    :return: The updated target directory.
+    :return: Updated target directory.
     :rtype: collections.abc.Mapping
     """
     if not isinstance(target, dict):
@@ -2590,7 +3164,7 @@ def dictionary_update(target, source, merge_key_paths=None, sort=False):
             elif merge_key_path is not None:
                 raise NotImplementedError(
                     'Invalid/unimplemeted  parameter type "merge_key_path" '
-                    f'({type(merge_key_pathsource)}) for source and target '
+                    f'({type(merge_key_path)}) for source and target '
                     'lists of dictionaries')
             merge_key = l[1] if len(
                 l:=merge_key_path.split('/')) == 2 else None
@@ -2635,7 +3209,7 @@ def list_dictionary_update(
     :type key_type: type, optional
     :param sort: Sort the returned list on the key.
     :type sort: bool, optional
-    :return: The updated list.
+    :return: Updated list.
     :rtype: list
     """
     if not isinstance(target, list):

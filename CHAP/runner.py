@@ -1,12 +1,18 @@
-"""
-File       : runner.py
-Author     : Valentin Kuznetsov <vkuznet AT gmail dot com>
-Description:
-"""
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+"""Main functions to execute a ChessAnalysisPipeline (CHAP)."""
+
 
 def parser():
-    """Return an argument parser for the `CHAP` CLI. This parser has
-    one argument: the input CHAP configuration file.
+    """Return an argument parser for the CHAP comment line interface
+    (CLI). This parser accepts one required argument: the input CHAP
+    configuration file name and several optional arguments. Execute:
+
+    .. code-block:: bash
+
+        $ CHAP --help
+
+    from the command line for a description on how to use CHAP.
     """
     # System modules
     from argparse import ArgumentParser
@@ -16,11 +22,33 @@ def parser():
         'config', action='store', default='', help='Input configuration file')
     pparser.add_argument(
         '-p', '--pipeline', nargs='*', help='Pipeline name(s)')
+    pparser.add_argument(
+        '--regex', nargs='?', default=False, const='match',
+        choices=['match', 'search', 'fullmatch'],
+        dest='regex_function', required=False,
+        help='''Name of Python
+        RegEx function (https://docs.python.org/3/howto/regex.html)
+        to use for matching configured pipeline names against the
+        string provided with the -p / --pipeline option.'''
+    )
+    pparser.add_argument(
+        '--batch', action='store_true',
+        help='''Enables "batch mode" operation where every sub-pipeline
+        is run in separate parallel processes. Log files for each
+        pipeline process will be created in the directory specified
+        with the `--batch-logdir` option.'''
+    )
+    pparser.add_argument(
+        '--batch-logdir', default='./CHAP_logs', dest='logdir',
+        help='''Destination directory for individual pipeline log
+        files when running multiple pipelines in batch mode.'''
+    )
     return pparser
 
 def main():
     """Main function."""
     # System modules
+    import re
     from yaml import safe_load
 
     # Local modules
@@ -41,7 +69,7 @@ def main():
 
     # Read the input config file
     configfile = args.config
-    with open(configfile) as file:
+    with open(configfile, encoding='utf-8') as file:
         config = safe_load(file)
     #RV Add to input_files in provenance data writer
 
@@ -53,12 +81,16 @@ def main():
         common_comm = sub_comm.Merge(True)
         # Read worker specific input config file
         if run_config.spawn > 0:
-            with open(f'{configfile}_{common_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{common_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(
                     **config.pop('config'), comm=common_comm)
         else:
-            with open(f'{configfile}_{sub_comm.Get_rank()}') as file:
+            with open(
+                    f'{configfile}_{sub_comm.Get_rank()}',
+                    encoding='utf-8') as file:
                 config = safe_load(file)
                 run_config = RunConfig(**config.pop('config'), comm=comm)
     else:
@@ -67,20 +99,49 @@ def main():
     # Get the pipeline configurations
     sub_pipelines = args.pipeline
     pipeline_config = []
+    batch_pipelines = []
     if sub_pipelines is None:
-        for sub_pipeline in config.values():
+        for name, sub_pipeline in config.items():
             pipeline_config += sub_pipeline
+            batch_pipelines.append((name, sub_pipeline))
     else:
         for sub_pipeline in sub_pipelines:
             if sub_pipeline in config:
                 pipeline_config += config.get(sub_pipeline)
+                batch_pipelines.append(
+                    (sub_pipeline, config.get(sub_pipeline))
+                )
+            elif args.regex_function:
+                match_func = getattr(re, args.regex_function)
+                pipeline_matches = [
+                    p for p in config if match_func(sub_pipeline, p)
+                ]
+                if pipeline_matches:
+                    pipeline_config += [
+                        item
+                        for p in pipeline_matches
+                        for item in config.get(p)
+                    ]
+                    batch_pipelines += [
+                        (p, config.get(p)) for p in pipeline_matches
+                    ]
+                else:
+                    raise ValueError(
+                        f'No pipelines matching "{sub_pipeline}" found in the '
+                        f'pipeline configuration ({list(config.keys())})'
+                    )
             else:
                 raise ValueError(
                     f'Invalid pipeline option: \'{sub_pipeline}\' missing in '
-                    f'the pipeline configuration ({list(config.keys())})')
+                    f'the pipeline configuration ({list(config.keys())})'
+                )
 
     # Run the pipeline with or without profiling
     if run_config.profile:
+        if args.batch:
+            raise NotImplementedError(
+                'Cannot use --batch mode when profile is True.'
+            )
         # System modules
         from cProfile import runctx  # python profiler
         from pstats import Stats     # profiler statistics
@@ -91,7 +152,34 @@ def main():
         info.sort_stats('cumulative')
         info.print_stats()
     else:
-        runner(run_config, pipeline_config, common_comm)
+        if args.batch:
+            import multiprocessing as mp
+            import os
+            from time import time
+
+            t0 = time()
+
+            print(f'Running {len(batch_pipelines)} pipelines in batch mode...')
+
+            os.makedirs(args.logdir, exist_ok=True)
+
+            procs = []
+            for name, _pipeline in batch_pipelines:
+                log_file = os.path.abspath(
+                    os.path.join(args.logdir, f'{name}.log')
+                )
+                p = mp.Process(
+                    target=batch_runner,
+                    args=(run_config, _pipeline, log_file)
+                )
+                p.start()
+                procs.append(p)
+
+            for p in procs:
+                p.join()
+            print(f'Done in {time()-t0:.3f} seconds.')
+        else:
+            runner(run_config, pipeline_config, common_comm)
 
     # Disconnect the spawned worker
     if have_mpi and run_config.spawn:
@@ -102,12 +190,12 @@ def runner(run_config, pipeline_config, comm=None):
     """Main runner funtion.
 
     :param run_config: CHAP run configuration.
-    :type run_config: CHAP.runner.RunConfig
+    :type run_config: RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
     :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
-    :return: The pipeline's returned data field.
+    :return: Pipeline's returned data field.
     """
     # System modules
     from time import time
@@ -124,11 +212,11 @@ def runner(run_config, pipeline_config, comm=None):
     return data
 
 def set_logger(log_level='INFO'):
-    """Helper function to set CHAP logger.
+    """Helper function to set the CHAP logger.
 
     :param log_level: Logger level, defaults to `"INFO"`.
     :type log_level: str
-    :return: The CHAP logger and logging handler.
+    :return: Logger and logging handler.
     :rtype: logging.Logger, logging.StreamHandler
     """
     # System modules
@@ -149,16 +237,16 @@ def run(
     """Run a given pipeline_config.
 
     :param run_config: CHAP run configuration.
-    :type run_config: CHAP.runner.RunConfig
+    :type run_config: RunConfig
     :param pipeline_config: CHAP Pipeline configuration.
     :type pipeline_config: dict
-    :param logger: CHAP logger.
+    :param logger: Logger.
     :type logger: logging.Logger, optional
     :param log_handler: Logging handler.
     :type log_handler: logging.StreamHandler, optional
     :param comm: MPI communicator.
     :type comm: mpi4py.MPI.Comm, optional
-    :return: The `data` field of the first item in the returned
+    :return: `data` field of the first item in the returned
         list of pipeline items.
     """
     # System modules
@@ -273,6 +361,32 @@ def run(
     if result:
         return result[0]['data']
     return result
+
+
+def batch_runner(run_config, pipeline_config, log_file):
+    """Function for running a pipeline in batch mode with logging to
+    file. Essentially a wrapper for the :meth:`~CHAP.runner.runner`
+    function.
+
+    :param run_config: CHAP run configuration.
+    :type run_config: RunConfig
+    :param pipeline_config: CHAP Pipeline configuration.
+    :type pipeline_config: dict
+    :param log file: Name of file for logging.
+    :type log_file: str
+    """
+    # System modules
+    import sys
+    import traceback
+
+    print(f'Logging to {log_file}')
+    with open(log_file, 'w', encoding='utf-8') as f:
+        sys.stdout = f
+        sys.stderr = f
+        try:
+            runner(run_config, pipeline_config, None)
+        except Exception:
+            traceback.print_exc()
 
 
 if __name__ == '__main__':
