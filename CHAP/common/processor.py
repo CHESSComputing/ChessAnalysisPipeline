@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     conint,
+    conlist,
     field_validator,
 )
 
@@ -3192,6 +3193,113 @@ class UpdateNXdataProcessor(Processor):
         nxfile.close()
 
         return data_points_used
+
+
+class NumpyStackProcessor(Processor):
+    """Processor for joining a sequence of arrays along a new axis.
+
+    Uses (`numpy.stack`)[https://numpy.org/doc/stable/reference/generated/numpy.stack.html].
+
+    :ivar stack_order: List of names of input data arrays to determine
+        order of stacking. If not specified, data arrays are stacked
+        in the exact order input to the Processor. Defaults to `None`.
+    :type stack_order: list[str], optional
+    :ivar kwargs: Dictionary of keyword arguments to
+        (`numpy.stack`)[https://numpy.org/doc/stable/reference/generated/numpy.stack.html]; defaults to `{}`
+    :type kwargs: dict, optional.
+    """
+    stack_order: Optional[conlist(item_type=str, min_length=1)] = None
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+
+        arrays = ()
+        if self.stack_order is None:
+            for d in data:
+                try:
+                    arrays = (*arrays, np.asarray(d['data']))
+                except:
+                    self.logger.warning(
+                        f'Omitting input data {d["name"]} '
+                        + f'(type: {type(d["data"])}).'
+                    )
+        else:
+            for name in self.stack_order:
+                arrays = (*arrays, self.get_data(name=name))
+
+        return np.stack(arrays, **self.kwargs)
+
+
+class NumpySumProcessor(Processor):
+    """Processor for summing an array of elements over a given axis.
+
+    Uses (`numpy.sum`)[https://numpy.org/doc/stable/reference/generated/numpy.sum.html].
+
+    :ivar kwargs: Dictionary of keyword arguments to
+        (`numpy.sum`)[https://numpy.org/doc/stable/reference/generated/numpy.sum.html]; defaults to `{}`.
+    :type kwargs: dict, optional
+    """
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+
+        _data = None
+        for d in data[::-1]:
+            try:
+                _data = np.asarray(d['data'])
+                break
+            except:
+                continue
+        if _data is None:
+            err = 'No array-like input data found.'
+            self.logger.error(err)
+            raise TypeError(err)
+
+        _data = np.asarray(_data)
+        self.logger.debug(f'_data.shape = {_data.shape}')
+
+        return np.sum(_data, **self.kwargs)
+
+
+class NumpyToNXfieldProcessor(Processor):
+    """Processor for converting a numpy array into an `NXfield`.
+
+    :ivar value: Name of input data array to use as the field's
+        values. If unspecified, use the last array-like data object in
+        the input data list. Defaults to `None`.
+    :type value: str, optional
+    :ivar kwargs: Dictionary of keyword arguments to
+        [`nexusformat.nexus.tree.NXfield`](https://nexpy.github.io/nexpy/treeapi.html#nexusformat.nexus.tree.NXfield); defaults to `{}`
+    :type kwargs: dict, optional
+    """
+    value: Optional[str] = None
+    kwargs: Optional[dict] = {}
+
+    def process(self, data):
+        import numpy as np
+        from nexusformat.nexus import NXfield
+
+        _data = None
+        if self.value is None:
+            for d in data[::-1]:
+                try:
+                    _data = np.asarray(d['data'])
+                    self.logger.debug(f'Using {d["name"]}')
+                    break
+                except:
+                    continue
+            if _data is None:
+                err = 'No array-like input data found.'
+                self.logger.error(err)
+                raise TypeError(err)
+        else:
+            _data = self.get_data(data, name=self.value)
+
+        self.logger.debug(f'_data.shape = {_data.shape}')
+
+        return NXfield(value=_data, **self.kwargs)
 
 
 class NXdataToDataPointsProcessor(Processor):
