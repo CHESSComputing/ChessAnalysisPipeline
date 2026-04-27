@@ -179,9 +179,9 @@ defaults to <cite>10</cite>.</p></li>
 <dd><p>Create the payload for a HTTP request.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>reader</strong> (<em>FoxdenDataDiscoveryReader</em><em> or
-</em><em>FoxdenMetadataReader</em><em> or </em><em>FoxdenProvenanceReader</em>) – Any of the FOXDEN readers in
-<code class="xref py py-mod docutils literal notranslate"><span class="pre">reader</span></code>.</p>
+<dd class="field-odd"><p><strong>reader</strong> (<a class="reference internal" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader" title="CHAP.foxden.reader.FoxdenDataDiscoveryReader"><em>FoxdenDataDiscoveryReader</em></a><em> or
+</em><a class="reference internal" href="#CHAP.foxden.reader.FoxdenMetadataReader" title="CHAP.foxden.reader.FoxdenMetadataReader"><em>FoxdenMetadataReader</em></a><em> or </em><a class="reference internal" href="#CHAP.foxden.reader.FoxdenProvenanceReader" title="CHAP.foxden.reader.FoxdenProvenanceReader"><em>FoxdenProvenanceReader</em></a>) – Any of the FOXDEN readers in
+<a class="reference internal" href="#module-CHAP.foxden.reader" title="CHAP.foxden.reader"><code class="xref py py-mod docutils literal notranslate"><span class="pre">reader</span></code></a>.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>JSON string of the HTTP request.</p>
@@ -301,8 +301,286 @@ provenance record.</p>
 </dd></dl>
 
 </section>
-<section id="chap-foxden-reader-module">
-<h2>CHAP.foxden.reader module<a class="headerlink" href="#chap-foxden-reader-module" title="Link to this heading"></a></h2>
+<section id="module-CHAP.foxden.reader">
+<span id="chap-foxden-reader-module"></span><h2>CHAP.foxden.reader module<a class="headerlink" href="#module-CHAP.foxden.reader" title="Link to this heading"></a></h2>
+<p>Module for Readers unique to the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+integration with CHAP.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FoxdenDataDiscoveryReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem" title="CHAP.pipeline.PipelineItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipelineItem</span></code></a></p>
+<p>Reader for the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Data Discovery service.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance of
+<a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">FoxdenRequestConfig</span></code></a>.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><span class="pre">FoxdenRequestConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.pipeline_fields">
+<span class="sig-name descname"><span class="pre">pipeline_fields</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.pipeline_fields" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.read" title="Link to this definition"></a></dt>
+<dd><p>Read records from the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Data Discovery service based on
+DID (Dataset Identifier) or an arbitrary query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Discovered data records.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenDataDiscoveryReader.validate_foxdendatadiscoveryreader_after">
+<span class="sig-name descname"><span class="pre">validate_foxdendatadiscoveryreader_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader.validate_foxdendatadiscoveryreader_after" title="Link to this definition"></a></dt>
+<dd><p>Validate the <cite>FoxdenDataDiscoveryReader</cite> configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated model configuration</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.foxden.reader.FoxdenDataDiscoveryReader" title="CHAP.foxden.reader.FoxdenDataDiscoveryReader">FoxdenDataDiscoveryReader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FoxdenMetadataReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem" title="CHAP.pipeline.PipelineItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipelineItem</span></code></a></p>
+<p>Reader for the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Metadata service.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance of
+<a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">FoxdenRequestConfig</span></code></a>.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><span class="pre">FoxdenRequestConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.pipeline_fields">
+<span class="sig-name descname"><span class="pre">pipeline_fields</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.pipeline_fields" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.read" title="Link to this definition"></a></dt>
+<dd><p>Read a record from the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Metadata service based on DID (Dataset Identifier) or an
+arbitrary query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Metadata record.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenMetadataReader.validate_foxdenmetadatareader_after">
+<span class="sig-name descname"><span class="pre">validate_foxdenmetadatareader_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenMetadataReader.validate_foxdenmetadatareader_after" title="Link to this definition"></a></dt>
+<dd><p>Validate the <cite>FoxdenMetadataReader</cite> configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated model configuration</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.foxden.reader.FoxdenMetadataReader" title="CHAP.foxden.reader.FoxdenMetadataReader">FoxdenMetadataReader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FoxdenProvenanceReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem" title="CHAP.pipeline.PipelineItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipelineItem</span></code></a></p>
+<p>Reader for the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Provenance service.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance of
+<a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">FoxdenRequestConfig</span></code></a>.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.foxden.models.FoxdenRequestConfig" title="CHAP.foxden.models.FoxdenRequestConfig"><span class="pre">FoxdenRequestConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.pipeline_fields">
+<span class="sig-name descname"><span class="pre">pipeline_fields</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.pipeline_fields" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.read" title="Link to this definition"></a></dt>
+<dd><p>Read records from the
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+Provenance service based on did or an arbitrary query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Provenance input and output file records.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenProvenanceReader.validate_foxdenprovenancereader_after">
+<span class="sig-name descname"><span class="pre">validate_foxdenprovenancereader_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenProvenanceReader.validate_foxdenprovenancereader_after" title="Link to this definition"></a></dt>
+<dd><p>Validate the <cite>FoxdenProvenanceReader</cite> configuration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated model configuration</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.foxden.reader.FoxdenProvenanceReader" title="CHAP.foxden.reader.FoxdenProvenanceReader">FoxdenProvenanceReader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenSpecScansReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FoxdenSpecScansReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenSpecScansReader" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineItem" title="CHAP.pipeline.PipelineItem"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipelineItem</span></code></a></p>
+<p>Reader for <a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+SpecScans data from a specific FOXDEN SpecScans service.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenSpecScansReader.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.foxden.reader.FoxdenSpecScansReader.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenSpecScansReader.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenSpecScansReader.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.foxden.reader.FoxdenSpecScansReader.read">
+<span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">did</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'POST'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.foxden.reader.FoxdenSpecScansReader.read" title="Link to this definition"></a></dt>
+<dd><p>Read and return data from a specific
+<a class="reference external" href="https://github.com/CHESSComputing/FOXDEN">FOXDEN</a>
+SpecScans service.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>url</strong> (<em>str</em>) – URL of service.</p></li>
+<li><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Input data.</p></li>
+<li><p><strong>did</strong> (<em>string</em><em>, </em><em>optional</em>) – FOXDEN dataset identifier (DID).</p></li>
+<li><p><strong>query</strong> (<em>string</em><em>, </em><em>optional</em>) – FOXDEN query.</p></li>
+<li><p><strong>spec</strong> (<em>dictionary</em><em>, </em><em>optional</em>) – FOXDEN spec.</p></li>
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>optional</em>) – HTTP method to use, <cite>‘POST’</cite> for creation or
+<cite>‘PUT’</cite> for update, defaults to <cite>‘POST’</cite>.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – Verbose output flag, defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Contents of the input data.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="module-CHAP.foxden.utils">
 <span id="chap-foxden-utils-module"></span><h2>CHAP.foxden.utils module<a class="headerlink" href="#module-CHAP.foxden.utils" title="Link to this heading"></a></h2>
