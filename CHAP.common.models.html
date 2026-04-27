@@ -531,7 +531,7 @@ validator data object.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CHAP.common.models.integration.Integrate1dConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Integrate1dConfig</span></span><a class="headerlink" href="#CHAP.common.models.integration.Integrate1dConfig" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#CHAP.common.models.integration.IntegrateConfig" title="CHAP.common.models.integration.IntegrateConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegrateConfig</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_IntegrateConfig</span></code></p>
 <p>Class with the input parameters to perform 1D azimuthal
 integration with
 <a class="reference external" href="https://pyfai.readthedocs.io/en/stable/">pyFAI</a>.</p>
@@ -568,7 +568,7 @@ method, defaults to <cite>splitpixel</cite>.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="CHAP.common.models.integration.Integrate2dConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Integrate2dConfig</span></span><a class="headerlink" href="#CHAP.common.models.integration.Integrate2dConfig" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#CHAP.common.models.integration.IntegrateConfig" title="CHAP.common.models.integration.IntegrateConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegrateConfig</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_IntegrateConfig</span></code></p>
 <p>Class with the input parameters to perform 2D azimuthal (cake)
 integration with
 <a class="reference external" href="https://pyfai.readthedocs.io/en/stable/">pyFAI</a>.</p>
@@ -609,40 +609,9 @@ radial direction, defaults to 1800.</p></li>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="CHAP.common.models.integration.IntegrateConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IntegrateConfig</span></span><a class="headerlink" href="#CHAP.common.models.integration.IntegrateConfig" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
-<p>Class with the input parameters to perform various integrations
-with <a class="reference external" href="https://pyfai.readthedocs.io/en/stable/">pyFAI</a>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Variables<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>error_model</strong> (<em>str</em><em>, </em><em>optional</em>) – When the variance is unknown, an error model
-can be given (ignored for radial integration):
-<cite>poisson</cite> (variance = I) or <cite>azimuthal</cite> (variance = (I-&lt;I&gt;)^2).</p>
-</dd>
-</dl>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="CHAP.common.models.integration.IntegrateConfig.attrs">
-<span class="sig-name descname"><span class="pre">attrs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.common.models.integration.IntegrateConfig.attrs" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="CHAP.common.models.integration.IntegrateConfig.error_model">
-<span class="sig-name descname"><span class="pre">error_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.common.models.integration.IntegrateConfig.error_model" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="CHAP.common.models.integration.IntegrateConfig.model_config">
-<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.common.models.integration.IntegrateConfig.model_config" title="Link to this definition"></a></dt>
-<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="CHAP.common.models.integration.IntegrateRadialConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IntegrateRadialConfig</span></span><a class="headerlink" href="#CHAP.common.models.integration.IntegrateRadialConfig" title="Link to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="#CHAP.common.models.integration.IntegrateConfig" title="CHAP.common.models.integration.IntegrateConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegrateConfig</span></code></a>, <a class="reference internal" href="#CHAP.common.models.integration.MultiGeometryConfig" title="CHAP.common.models.integration.MultiGeometryConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultiGeometryConfig</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_IntegrateConfig</span></code>, <a class="reference internal" href="#CHAP.common.models.integration.MultiGeometryConfig" title="CHAP.common.models.integration.MultiGeometryConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultiGeometryConfig</span></code></a></p>
 <p>Class with the input parameters to perform radial integration
 with <a class="reference external" href="https://pyfai.readthedocs.io/en/stable/">pyFAI</a>.</p>
 <dl class="field-list simple">
