@@ -232,11 +232,12 @@ class MaterialConfig(CHAPBaseModel):
         return self
 
 
-#_FitConfig.model_rebuild(_types_namespace=vars(typing))
-MaterialConfig.model_rebuild(_types_namespace=vars(typing))
-
-
 # Detector configuration classes
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using in an _exclude pydantic instance
+# variable
+_FitConfig.model_rebuild(_types_namespace=vars(typing))
 
 class MCADetectorCalibration(Detector, _FitConfig):
     """Class representing the configuration for a single MCA detector
@@ -652,6 +653,11 @@ class DiffractionVolumeLengthConfig(_FitConfig):
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
 
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using MaterialConfig within a default
+# value of a pydantic instance variable
+MaterialConfig.model_rebuild(_types_namespace=vars(typing))
 
 class MCACalibrationConfig(CHAPBaseModel):
     """Base class configuration for energy and 2&theta calibration

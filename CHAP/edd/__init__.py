@@ -39,6 +39,9 @@ from CHAP.edd.models import (
     StrainAnalysisConfig,
 )
 
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using any of these within a default
+# value of a pydantic instance variable
 DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
 MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
 StrainAnalysisConfig.model_rebuild(_types_namespace=vars(typing))

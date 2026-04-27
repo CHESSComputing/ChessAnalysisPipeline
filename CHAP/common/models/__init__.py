@@ -17,9 +17,8 @@ import typing
 
 # Local modules
 from CHAP.common.models.map import DetectorConfig
-from CHAP.common.models.common import (
-    ImageProcessorConfig,
-    UnstructuredToStructuredConfig,
-)
 
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using DetectorConfig within a default
+# value of a pydantic instance variable
 DetectorConfig.model_rebuild(_types_namespace=vars(typing))

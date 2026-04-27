@@ -35,6 +35,9 @@ from CHAP.tomo.models import (
     TomoReduceConfig,
 )
 
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using any of these within a default
+# value of a pydantic instance variable
 TomoCombineConfig.model_rebuild(_types_namespace=vars(typing))
 TomoFindCenterConfig.model_rebuild(_types_namespace=vars(typing))
 TomoReconstructConfig.model_rebuild(_types_namespace=vars(typing))
