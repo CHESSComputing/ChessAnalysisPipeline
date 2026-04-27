@@ -29,6 +29,8 @@ writer
     Writers unique to the EDD workflow.
 """
 
+import typing
+DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
 #from CHAP.edd.processor import (
 #    DiffractionVolumeLengthProcessor,
 #    LatticeParameterRefinementProcessor,
