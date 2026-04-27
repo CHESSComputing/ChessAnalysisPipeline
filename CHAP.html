@@ -104,8 +104,26 @@
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.reader.validate_reader_model"><code class="docutils literal notranslate"><span class="pre">validate_reader_model()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#chap-runner-module">CHAP.runner module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#chap-server-module">CHAP.server module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-CHAP.runner">CHAP.runner module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.batch_runner"><code class="docutils literal notranslate"><span class="pre">batch_runner()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.parser"><code class="docutils literal notranslate"><span class="pre">parser()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.run"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.runner"><code class="docutils literal notranslate"><span class="pre">runner()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.set_logger"><code class="docutils literal notranslate"><span class="pre">set_logger()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-CHAP.server">CHAP.server module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#client-side">Client side</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#curl-call-to-the-server-with-chap-pipeline">Curl call to the server with CHAP pipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#server-side">Server side</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.daemon"><code class="docutils literal notranslate"><span class="pre">daemon()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.index_route"><code class="docutils literal notranslate"><span class="pre">index_route()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.pipeline_route"><code class="docutils literal notranslate"><span class="pre">pipeline_route()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.run_route"><code class="docutils literal notranslate"><span class="pre">run_route()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.task"><code class="docutils literal notranslate"><span class="pre">task()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#module-CHAP.taskmanager">CHAP.taskmanager module</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.taskmanager.StoppableThread"><code class="docutils literal notranslate"><span class="pre">StoppableThread</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.taskmanager.TaskManager"><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
@@ -2315,11 +2333,178 @@ context: The context.</p>
 </dd></dl>
 
 </section>
-<section id="chap-runner-module">
-<h2>CHAP.runner module<a class="headerlink" href="#chap-runner-module" title="Link to this heading"></a></h2>
+<section id="module-CHAP.runner">
+<span id="chap-runner-module"></span><h2>CHAP.runner module<a class="headerlink" href="#module-CHAP.runner" title="Link to this heading"></a></h2>
+<p>Main functions to execute a ChessAnalysisPipeline (CHAP).</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.batch_runner">
+<span class="sig-name descname"><span class="pre">batch_runner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.batch_runner" title="Link to this definition"></a></dt>
+<dd><p>Function for running a pipeline in batch mode with logging to
+file. Essentially a wrapper for the <a class="reference internal" href="#CHAP.runner.runner" title="CHAP.runner.runner"><code class="xref py py-meth docutils literal notranslate"><span class="pre">runner()</span></code></a>
+function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
+<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
+<li><p><strong>file</strong> (<em>log</em>) – Name of file for logging.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.main">
+<span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.main" title="Link to this definition"></a></dt>
+<dd><p>Main function.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.parser">
+<span class="sig-name descname"><span class="pre">parser</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.parser" title="Link to this definition"></a></dt>
+<dd><p>Return an argument parser for the CHAP comment line interface
+(CLI). This parser accepts one required argument: the input CHAP
+configuration file name and several optional arguments. Execute:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>CHAP<span class="w"> </span>--help
+</pre></div>
+</div>
+<p>from the command line for a description on how to use CHAP.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.run" title="Link to this definition"></a></dt>
+<dd><p>Run a given pipeline_config.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
+<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
+<li><p><strong>logger</strong> (<em>logging.Logger</em><em>, </em><em>optional</em>) – Logger.</p></li>
+<li><p><strong>log_handler</strong> (<em>logging.StreamHandler</em><em>, </em><em>optional</em>) – Logging handler.</p></li>
+<li><p><strong>comm</strong> (<em>mpi4py.MPI.Comm</em><em>, </em><em>optional</em>) – MPI communicator.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>data</cite> field of the first item in the returned
+list of pipeline items.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.runner">
+<span class="sig-name descname"><span class="pre">runner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.runner" title="Link to this definition"></a></dt>
+<dd><p>Main runner funtion.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
+<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
+<li><p><strong>comm</strong> (<em>mpi4py.MPI.Comm</em><em>, </em><em>optional</em>) – MPI communicator.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Pipeline’s returned data field.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.runner.set_logger">
+<span class="sig-name descname"><span class="pre">set_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.set_logger" title="Link to this definition"></a></dt>
+<dd><p>Helper function to set the CHAP logger.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>log_level</strong> (<em>str</em>) – Logger level, defaults to <cite>“INFO”</cite>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Logger and logging handler.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>logging.Logger, logging.StreamHandler</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
-<section id="chap-server-module">
-<h2>CHAP.server module<a class="headerlink" href="#chap-server-module" title="Link to this heading"></a></h2>
+<section id="module-CHAP.server">
+<span id="chap-server-module"></span><h2>CHAP.server module<a class="headerlink" href="#module-CHAP.server" title="Link to this heading"></a></h2>
+<p>Python server with thread pool and CHAP pipeline.</p>
+<section id="client-side">
+<h3>Client side<a class="headerlink" href="#client-side" title="Link to this heading"></a></h3>
+<p>cat /tmp/chap.json
+{“pipeline”: [{“common.PrintProcessor”: {}}], “input”: 1}</p>
+</section>
+<section id="curl-call-to-the-server-with-chap-pipeline">
+<h3>Curl call to the server with CHAP pipeline<a class="headerlink" href="#curl-call-to-the-server-with-chap-pipeline" title="Link to this heading"></a></h3>
+<p>curl -X POST -H “Content-type: application/json” <a class="reference external" href="mailto:-d&#37;&#52;&#48;/tmp/chap&#46;json">-d<span>&#64;</span>/tmp/chap<span>&#46;</span>json</a> <a class="reference external" href="http://localhost:5000/pipeline">http://localhost:5000/pipeline</a>
+{“pipeline”: [{“common.PrintProcessor”:{}}], “status”:”ok”}</p>
+</section>
+<section id="server-side">
+<h3>Server side<a class="headerlink" href="#server-side" title="Link to this heading"></a></h3>
+<p>flask –app server run</p>
+<ul class="simple">
+<li><p>Serving Flask app ‘server’</p></li>
+<li><p>Debug mode: off</p></li>
+</ul>
+<p>WARNING: This is a development server. Do not use it in a production
+deployment. Use a production WSGI server instead.</p>
+<ul class="simple">
+<li><p>Running on <a class="reference external" href="http://127.0.0.1:5000">http://127.0.0.1:5000</a></p></li>
+</ul>
+<p>Press CTRL+C to quit</p>
+<p>CHAP output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>CHAP.server         : Call pipeline args=()
+    kwds={&#39;pipeline&#39;: [{&#39;common.PrintProcessor&#39;: {}}]}
+CHAP.server         : pipeline [{&#39;common.PrintProcessor&#39;: {}}]
+CHAP.server         : Loaded
+    &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
+CHAP.server         : Loaded
+    &lt;CHAP.pipeline.Pipeline object at 0x10e0f1f10&gt; with 1 items
+CHAP.server         : Calling &quot;execute&quot; on &lt;CHAP.pipeline.Pipeline
+    object at 0x10e0f1f10&gt;
+Pipeline            : Executing &quot;execute&quot;
+Pipeline            : Calling &quot;process&quot; on
+    &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
+PrintProcessor      : Executing &quot;process&quot; with
+    type(data)=&lt;class &#39;NoneType&#39;&gt;
+PrintProcessor data : None
+PrintProcessor      : Finished &quot;process&quot; in 0.000 seconds
+Pipeline            : Executed &quot;execute&quot; in 0.000 seconds
+</pre></div>
+</div>
+</section>
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.server.daemon">
+<span class="sig-name descname"><span class="pre">daemon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.daemon" title="Link to this definition"></a></dt>
+<dd><p>Daemon example based on Queue.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.server.index_route">
+<span class="sig-name descname"><span class="pre">index_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.index_route" title="Link to this definition"></a></dt>
+<dd><p>Server main end-point.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.server.pipeline_route">
+<span class="sig-name descname"><span class="pre">pipeline_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.pipeline_route" title="Link to this definition"></a></dt>
+<dd><p>Server /pipeline end-point.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.server.run_route">
+<span class="sig-name descname"><span class="pre">run_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.run_route" title="Link to this definition"></a></dt>
+<dd><p>Server main end-point.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="CHAP.server.task">
+<span class="sig-name descname"><span class="pre">task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwds</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.task" title="Link to this definition"></a></dt>
+<dd><p>Helper function to execute CHAP pipeline.</p>
+</dd></dl>
+
 </section>
 <section id="module-CHAP.taskmanager">
 <span id="chap-taskmanager-module"></span><h2>CHAP.taskmanager module<a class="headerlink" href="#module-CHAP.taskmanager" title="Link to this heading"></a></h2>
