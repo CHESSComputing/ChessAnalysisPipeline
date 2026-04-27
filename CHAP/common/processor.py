@@ -3475,6 +3475,9 @@ class ZarrToNexusProcessor(Processor):
             copy_group(zarr_file, nexus_file)
 
 
+DetectorConfig.model_rebuild()
+
+
 if __name__ == '__main__':
     # Local modules
     from CHAP.processor import main
