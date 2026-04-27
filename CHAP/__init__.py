@@ -41,8 +41,6 @@ writer
     Module defining the base `Writer` class to derive all others from.
 """
 
-from CHAP.common.models.map import DetectorConfig as _DetectorConfig
-
 #from CHAP.models import CHAPBaseModel
 #from CHAP.reader import Reader
 #from CHAP.processor import Processor

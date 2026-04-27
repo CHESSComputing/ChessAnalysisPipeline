@@ -946,6 +946,8 @@ class ImageProcessor(Processor):
         return fig, plt
 
 
+DetectorConfig.model_rebuild()
+
 class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
     style
