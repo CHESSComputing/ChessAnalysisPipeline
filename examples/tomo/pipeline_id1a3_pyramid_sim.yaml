@@ -3,26 +3,26 @@ config:
   inputdir: config
   outputdir: raw/hollow_pyramid
   interactive: true
-  log_level: info
+  log_level: error
   profile: false
 
 pipeline:
 
   # Create a simulated stack of tomography images
-  - common.YAMLReader:
+  - common.reader.YAMLReader:
       filename: tomo_sim_id1a3_pyramid.yaml
       schema: tomo.models.TomoSimConfig
-  - tomo.TomoSimFieldProcessor:
+  - tomo.processor.TomoSimFieldProcessor:
       schema: tomo.models.TomoSimField
   # Create the dark field for the simulation
-  - tomo.TomoDarkFieldProcessor:
+  - tomo.processor.TomoDarkFieldProcessor:
       schema: tomo.models.TomoDarkField
   # Create the bright field for the simulation
-  - tomo.TomoBrightFieldProcessor:
+  - tomo.processor.TomoBrightFieldProcessor:
       num_image: 10
       schema: tomo.models.TomoBrightField
   # Create the SPEC file for the simulation
-  - tomo.TomoSpecProcessor:
+  - tomo.processor.TomoSpecProcessor:
 #      scan_numbers: [1, 2, 3, 4, 5]
-  - common.FileTreeWriter:
+  - common.writer.FileTreeWriter:
       force_overwrite: true

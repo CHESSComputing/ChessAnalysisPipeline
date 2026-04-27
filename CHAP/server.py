@@ -59,9 +59,14 @@ from queue import Queue
 from flask import Flask, request
 
 # Local modules
-from CHAP.taskmanager import TaskManager, start_new_thread
-from CHAP.runner import run, set_logger
-
+from CHAP.taskmanager import (
+    TaskManager,
+    start_new_thread,
+)
+from CHAP.runner import (
+    run,
+    set_logger,
+)
 
 # Task manager to execute our tasks
 taskManager = TaskManager()

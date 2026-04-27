@@ -265,6 +265,8 @@ def run(
 
     pipeline_args = []
     pipeline_mmcs = []
+    #from time import time
+    #t0 = time()
     for item in pipeline_config:
 
         # Load individual object with given name from its module
@@ -325,7 +327,8 @@ def run(
             mod_name = '.'.join(name.split('.')[:-1])
             module = __import__(mod_name, fromlist=[cls_name])
         else:
-            mod_name, cls_name = name.split('.')
+            cls_name = name.split('.')[-1]
+            mod_name = '.'.join(name.split('.')[:-1])
             module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
 
         pipeline_mmcs.append(getattr(module, cls_name))
@@ -343,7 +346,12 @@ def run(
             logger.info(
                 f'Initialized input fields for an instance of {cls_name}')
         pipeline_args.append(item_args)
+    #t1 = time()
     pipeline = Pipeline(mmcs=pipeline_mmcs, args=pipeline_args)
+    #t2 = time()
+    #print(f'\nInitialize pipeline done in {t1-t0:.3f} seconds.')
+    #print(f'Instantiate Pipeline done in {t2-t1:.3f} seconds.')
+    #exit('Done')
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)

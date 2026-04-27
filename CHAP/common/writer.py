@@ -17,9 +17,11 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import Writer
 from CHAP.pipeline import PipelineItem
-from CHAP.writer import validate_writer_model
+from CHAP.writer import (
+    Writer,
+    validate_writer_model,
+)
 
 
 def validate_model(model):
