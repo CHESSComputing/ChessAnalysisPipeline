@@ -232,13 +232,11 @@ class MaterialConfig(CHAPBaseModel):
         return self
 
 
+#_FitConfig.model_rebuild(_types_namespace=vars(typing))
 MaterialConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 # Detector configuration classes
-
-#_FitConfig.model_rebuild(_types_namespace=vars(typing))
-
 
 class MCADetectorCalibration(Detector, _FitConfig):
     """Class representing the configuration for a single MCA detector
@@ -560,7 +558,7 @@ class MCADetectorConfig(_FitConfig):
         'calibration', 'diffractionvolumelength', 'strainanalysis']
     detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
 
-#    _exclude = set(vars(_FitConfig()).keys())
+    _exclude = set(vars(_FitConfig()).keys())
 
     @model_validator(mode='before')
     @classmethod
@@ -640,7 +638,7 @@ class DiffractionVolumeLengthConfig(_FitConfig):
     sample_thickness: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     sigma_to_dvl_factor: Optional[Literal[2.0, 3.5, 4.0]] = 3.5
 
-#    _exclude = set(vars(_FitConfig()).keys())
+    _exclude = set(vars(_FitConfig()).keys())
 
     @model_validator(mode='after')
     def validate_diffractionvolumelengthconfig_after(self):
