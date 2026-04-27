@@ -44,8 +44,6 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
-from CHAP.pipeline import PipelineData
-from CHAP.processor import Processor
 from CHAP.tomo.models import (
     TomoReduceConfig,
     TomoFindCenterConfig,
@@ -53,6 +51,8 @@ from CHAP.tomo.models import (
     TomoCombineConfig,
     TomoSimConfig,
 )
+from CHAP.pipeline import PipelineData
+from CHAP.processor import Processor
 from CHAP.utils.general import (
     #input_num,
     #input_yesno,
