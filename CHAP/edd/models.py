@@ -652,6 +652,9 @@ class DiffractionVolumeLengthConfig(_FitConfig):
         return self
 
 
+MaterialConfig.model_rebuild(_types_namespace=vars(typing))
+
+
 class MCACalibrationConfig(CHAPBaseModel):
     """Base class configuration for energy and 2&theta calibration
     processors.
@@ -976,7 +979,3 @@ class StrainAnalysisConfig(MCACalibrationConfig):
 #            raise ValueError('Invalid input parameters, specify at least one '
 #                             'of "width", "stride" or "num"')
 #        return oversampling
-
-#MCADetectorCalibration.model_rebuild(_types_namespace=vars(typing))
-#MCADetectorConfig.model_rebuild(_types_namespace=vars(typing))
-#DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))

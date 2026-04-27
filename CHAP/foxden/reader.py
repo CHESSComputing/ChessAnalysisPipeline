@@ -7,6 +7,7 @@ integration with CHAP.
 
 # System modules
 import json
+import typing
 from typing import Optional
 
 # Third party modules
@@ -20,6 +21,9 @@ from CHAP.foxden.models import FoxdenRequestConfig
 from CHAP.foxden.utils import HTTP_request
 from CHAP.pipeline import PipelineItem
 from CHAP.processor import Processor
+
+
+FoxdenRequestConfige.model_rebuild(_types_namespace=vars(typing))
 
 
 class FoxdenDataDiscoveryReader(PipelineItem):

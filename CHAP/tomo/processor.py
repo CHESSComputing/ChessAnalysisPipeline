@@ -16,6 +16,7 @@ import os
 import re
 import sys
 from time import time
+import typing
 from typing import (
     Annotated,
     Optional,
@@ -941,6 +942,9 @@ class SetNumexprThreads:
         from numexpr import set_num_threads
 
         set_num_threads(self._num_proc_org)
+
+
+TomoReduceConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class TomoReduceProcessor(Processor):
