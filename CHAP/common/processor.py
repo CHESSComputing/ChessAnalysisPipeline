@@ -7,10 +7,7 @@ workflows.
 # System modules
 from copy import deepcopy
 import os
-from typing import (
-    Dict,
-    Optional,
-)
+from typing import Optional
 
 # Third party modules
 import numpy as np
