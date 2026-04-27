@@ -104,26 +104,8 @@
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.reader.validate_reader_model"><code class="docutils literal notranslate"><span class="pre">validate_reader_model()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#module-CHAP.runner">CHAP.runner module</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.batch_runner"><code class="docutils literal notranslate"><span class="pre">batch_runner()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.parser"><code class="docutils literal notranslate"><span class="pre">parser()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.run"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.runner"><code class="docutils literal notranslate"><span class="pre">runner()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.runner.set_logger"><code class="docutils literal notranslate"><span class="pre">set_logger()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#module-CHAP.server">CHAP.server module</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#client-side">Client side</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#curl-call-to-the-server-with-chap-pipeline">Curl call to the server with CHAP pipeline</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#server-side">Server side</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.daemon"><code class="docutils literal notranslate"><span class="pre">daemon()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.index_route"><code class="docutils literal notranslate"><span class="pre">index_route()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.pipeline_route"><code class="docutils literal notranslate"><span class="pre">pipeline_route()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.run_route"><code class="docutils literal notranslate"><span class="pre">run_route()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#CHAP.server.task"><code class="docutils literal notranslate"><span class="pre">task()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="#chap-runner-module">CHAP.runner module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#chap-server-module">CHAP.server module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#module-CHAP.taskmanager">CHAP.taskmanager module</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.taskmanager.StoppableThread"><code class="docutils literal notranslate"><span class="pre">StoppableThread</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#CHAP.taskmanager.TaskManager"><code class="docutils literal notranslate"><span class="pre">TaskManager</span></code></a></li>
@@ -682,225 +664,13 @@ from.</p>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="CHAP.edd.html">CHAP.edd package</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#submodules-summary">Submodules summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#module-CHAP.edd.models">CHAP.edd.models module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig"><code class="docutils literal notranslate"><span class="pre">BaselineConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig.attrs"><code class="docutils literal notranslate"><span class="pre">BaselineConfig.attrs</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig.lam"><code class="docutils literal notranslate"><span class="pre">BaselineConfig.lam</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig.max_iter"><code class="docutils literal notranslate"><span class="pre">BaselineConfig.max_iter</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig.model_config"><code class="docutils literal notranslate"><span class="pre">BaselineConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.BaselineConfig.tol"><code class="docutils literal notranslate"><span class="pre">BaselineConfig.tol</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.max_energy_kev"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.max_energy_kev</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.measurement_mode"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.measurement_mode</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.model_config"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.model_post_init"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.sample_thickness"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.sample_thickness</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.sigma_to_dvl_factor"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.sigma_to_dvl_factor</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.DiffractionVolumeLengthConfig.validate_diffractionvolumelengthconfig_after"><code class="docutils literal notranslate"><span class="pre">DiffractionVolumeLengthConfig.validate_diffractionvolumelengthconfig_after()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_correction_interpolation_function"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_correction_interpolation_function()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_file</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.flux_file_energy_range"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.flux_file_energy_range()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.materials"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.materials</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.peak_energies"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.peak_energies</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.scan_step_indices"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.scan_step_indices</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_mcacalibrationconfig_before"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.validate_mcacalibrationconfig_before()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCACalibrationConfig.validate_scan_step_indices"><code class="docutils literal notranslate"><span class="pre">MCACalibrationConfig.validate_scan_step_indices()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.convert_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.convert_mask_ranges()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energies"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.energies</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.energy_calibration_coeffs"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.energy_calibration_coeffs</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.get_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.get_mask_ranges()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.hkl_indices"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.hkl_indices</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.mca_mask"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.mca_mask()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.num_bins"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.num_bins</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.processor_type</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.set_energy_calibration_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.set_energy_calibration_mask_ranges()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_calibrated"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_calibrated</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_initial_guess"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_initial_guess</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_max"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_max</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorCalibration.tth_tol"><code class="docutils literal notranslate"><span class="pre">MCADetectorCalibration.tth_tol</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.detectors"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.detectors</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.processor_type</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.update_detectors"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.update_detectors()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_after"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.validate_mcadetectorconfig_after()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorConfig.validate_mcadetectorconfig_before"><code class="docutils literal notranslate"><span class="pre">MCADetectorConfig.validate_mcadetectorconfig_before()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.dvl"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.dvl</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.fit_amplitude"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.fit_amplitude</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.fit_center"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.fit_center</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.fit_sigma"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.fit_sigma</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorDiffractionVolumeLength.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorDiffractionVolumeLength.processor_type</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.add_calibration"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.add_calibration()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.centers_range"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.centers_range</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.fwhm_max"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.fwhm_max</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.fwhm_min"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.fwhm_min</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_calibration_mask_ranges"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.get_calibration_mask_ranges()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.get_tth_map"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.get_tth_map()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.model_config"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.model_post_init"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.peak_models"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.peak_models</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.processor_type"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.processor_type</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.rel_height_cutoff"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.rel_height_cutoff</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.tth_map"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.tth_map</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCADetectorStrainAnalysis.validate_peak_models"><code class="docutils literal notranslate"><span class="pre">MCADetectorStrainAnalysis.validate_peak_models()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.max_energy_kev"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.max_energy_kev</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.max_peak_index"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.max_peak_index</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_max_peak_index"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.validate_max_peak_index()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_after()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before"><code class="docutils literal notranslate"><span class="pre">MCAEnergyCalibrationConfig.validate_mcaenergycalibrationconfig_before()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.calibration_method"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.calibration_method</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.flux_file_energy_range"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.flux_file_energy_range()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.quadratic_energy_calibration"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.quadratic_energy_calibration</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MCATthCalibrationConfig.tth_initial_guess"><code class="docutils literal notranslate"><span class="pre">MCATthCalibrationConfig.tth_initial_guess</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig"><code class="docutils literal notranslate"><span class="pre">MaterialConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.dmin"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.dmin</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.lattice_parameters"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.lattice_parameters</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.material_name"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.material_name</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.model_config"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.model_post_init"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.sgnum"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.sgnum</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.MaterialConfig.validate_materialconfig_after"><code class="docutils literal notranslate"><span class="pre">MaterialConfig.validate_materialconfig_after()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.find_peak_cutoff"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.find_peak_cutoff</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.model_config"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.num_proc"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.num_proc</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.rel_height_cutoff"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.rel_height_cutoff</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.skip_animation"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.skip_animation</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.models.StrainAnalysisConfig.sum_axes"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisConfig.sum_axes</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-models-module">CHAP.edd.models module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-processor-module">CHAP.edd.processor module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#module-CHAP.edd.reader">CHAP.edd.reader module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.dataset_id"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.dataset_id</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.detector_ids"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.detector_ids</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.model_config"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.read"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.validate_detector_ids"><code class="docutils literal notranslate"><span class="pre">EddMPIMapReader.validate_detector_ids()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader"><code class="docutils literal notranslate"><span class="pre">EddMapReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.dataset_id"><code class="docutils literal notranslate"><span class="pre">EddMapReader.dataset_id</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.model_config"><code class="docutils literal notranslate"><span class="pre">EddMapReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">EddMapReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.read"><code class="docutils literal notranslate"><span class="pre">EddMapReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.scan_numbers"><code class="docutils literal notranslate"><span class="pre">EddMapReader.scan_numbers</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.validate_scan_numbers"><code class="docutils literal notranslate"><span class="pre">EddMapReader.validate_scan_numbers()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.model_config"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.nxpath"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.nxpath</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.read"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.scan_number"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.scan_number</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.spec_file"><code class="docutils literal notranslate"><span class="pre">NXdataSliceReader.spec_file</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader"><code class="docutils literal notranslate"><span class="pre">ScanToMapReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.model_config"><code class="docutils literal notranslate"><span class="pre">ScanToMapReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">ScanToMapReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.read"><code class="docutils literal notranslate"><span class="pre">ScanToMapReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.scan_number"><code class="docutils literal notranslate"><span class="pre">ScanToMapReader.scan_number</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.dataset_id"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.dataset_id</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.detectors"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.detectors</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.model_config"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.read"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.validate_detectors"><code class="docutils literal notranslate"><span class="pre">SetupNXdataReader.validate_detectors()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader"><code class="docutils literal notranslate"><span class="pre">SliceNXdataReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.model_config"><code class="docutils literal notranslate"><span class="pre">SliceNXdataReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">SliceNXdataReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.read"><code class="docutils literal notranslate"><span class="pre">SliceNXdataReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.scan_number"><code class="docutils literal notranslate"><span class="pre">SliceNXdataReader.scan_number</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.detector_ids"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader.detector_ids</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.model_config"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.model_post_init"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.read"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader.read()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.scan_number"><code class="docutils literal notranslate"><span class="pre">UpdateNXdataReader.scan_number</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#module-CHAP.edd.select_material_params_gui">CHAP.edd.select_material_params_gui module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.add_material"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector.add_material()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.on_close"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector.on_close()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.on_material_select"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector.on_material_select()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.remove_material"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector.remove_material()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.update_material"><code class="docutils literal notranslate"><span class="pre">MaterialParamSelector.update_material()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.run_material_selector"><code class="docutils literal notranslate"><span class="pre">run_material_selector()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.select_material_params_gui.select_material_params_gui"><code class="docutils literal notranslate"><span class="pre">select_material_params_gui()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#module-CHAP.edd.utils">CHAP.edd.utils module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.get_peak_locations"><code class="docutils literal notranslate"><span class="pre">get_peak_locations()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.get_rolling_sum_spectra"><code class="docutils literal notranslate"><span class="pre">get_rolling_sum_spectra()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.get_spectra_fits"><code class="docutils literal notranslate"><span class="pre">get_spectra_fits()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.get_unique_hkls_ds"><code class="docutils literal notranslate"><span class="pre">get_unique_hkls_ds()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.select_mask_and_hkls"><code class="docutils literal notranslate"><span class="pre">select_mask_and_hkls()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.select_material_params"><code class="docutils literal notranslate"><span class="pre">select_material_params()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.utils.select_tth_initial_guess"><code class="docutils literal notranslate"><span class="pre">select_tth_initial_guess()</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#module-CHAP.edd.writer">CHAP.edd.writer module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisUpdateWriter</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter.model_config"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisUpdateWriter.model_config</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter.model_post_init"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisUpdateWriter.model_post_init()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter.write"><code class="docutils literal notranslate"><span class="pre">StrainAnalysisUpdateWriter.write()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-reader-module">CHAP.edd.reader module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-select-material-params-gui-module">CHAP.edd.select_material_params_gui module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-utils-module">CHAP.edd.utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.edd.html#chap-edd-writer-module">CHAP.edd.writer module</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="CHAP.foxden.html">CHAP.foxden package</a><ul>
@@ -1283,7 +1053,124 @@ from.</p>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#chap-tomo-processor-module">CHAP.tomo.processor module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#module-CHAP.tomo.processor">CHAP.tomo.processor module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.NUM_CORE_TOMOPY_LIMIT"><code class="docutils literal notranslate"><span class="pre">NUM_CORE_TOMOPY_LIMIT</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.SetNumexprThreads"><code class="docutils literal notranslate"><span class="pre">SetNumexprThreads</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoBrightFieldProcessor"><code class="docutils literal notranslate"><span class="pre">TomoBrightFieldProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoBrightFieldProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoBrightFieldProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoBrightFieldProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoBrightFieldProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoBrightFieldProcessor.num_image"><code class="docutils literal notranslate"><span class="pre">TomoBrightFieldProcessor.num_image</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoBrightFieldProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoBrightFieldProcessor.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCHESSMapConverter"><code class="docutils literal notranslate"><span class="pre">TomoCHESSMapConverter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCHESSMapConverter.model_config"><code class="docutils literal notranslate"><span class="pre">TomoCHESSMapConverter.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCHESSMapConverter.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoCHESSMapConverter.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCHESSMapConverter.nxmemory"><code class="docutils literal notranslate"><span class="pre">TomoCHESSMapConverter.nxmemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCHESSMapConverter.process"><code class="docutils literal notranslate"><span class="pre">TomoCHESSMapConverter.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.num_proc"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.num_proc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.nxmemory"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.nxmemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoCombineProcessor.save_figures"><code class="docutils literal notranslate"><span class="pre">TomoCombineProcessor.save_figures</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoDarkFieldProcessor"><code class="docutils literal notranslate"><span class="pre">TomoDarkFieldProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoDarkFieldProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoDarkFieldProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoDarkFieldProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoDarkFieldProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoDarkFieldProcessor.num_image"><code class="docutils literal notranslate"><span class="pre">TomoDarkFieldProcessor.num_image</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoDarkFieldProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoDarkFieldProcessor.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.center_offsets"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.center_offsets</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.center_rows"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.center_rows</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.center_stack_index"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.center_stack_index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.gaussian_sigma"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.gaussian_sigma</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.img_column_bounds"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.img_column_bounds</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.img_row_bounds"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.img_row_bounds</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.model_config"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.num_center_rows"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.num_center_rows</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.num_proc"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.num_proc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.recon_planes"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.recon_planes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.reconstruct_planes"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.reconstruct_planes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.ring_width"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.ring_width</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.tbf"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.tbf</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.thetas"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.thetas</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.tk_root"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.tk_root</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterGui.tomo_stacks"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterGui.tomo_stacks</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.num_proc"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.num_proc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.nxmemory"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.nxmemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoFindCenterProcessor.save_figures"><code class="docutils literal notranslate"><span class="pre">TomoFindCenterProcessor.save_figures</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoMetadataProcessor"><code class="docutils literal notranslate"><span class="pre">TomoMetadataProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoMetadataProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoMetadataProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoMetadataProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoMetadataProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoMetadataProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoMetadataProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoMetadataProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoMetadataProcessor.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.center_config"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.center_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.num_proc"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.num_proc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.nxmemory"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.nxmemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReconstructProcessor.save_figures"><code class="docutils literal notranslate"><span class="pre">TomoReconstructProcessor.save_figures</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.num_proc"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.num_proc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.nxmemory"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.nxmemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoReduceProcessor.save_figures"><code class="docutils literal notranslate"><span class="pre">TomoReduceProcessor.save_figures</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.config"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.pipeline_fields"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.pipeline_fields</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSimFieldProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoSimFieldProcessor.process()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.filename"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.model_config"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.model_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.model_post_init"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.model_post_init()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.process"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.process()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.scan_numbers"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.scan_numbers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.validate_scan_numbers"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.validate_scan_numbers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.TomoSpecProcessor.validate_tomospecprocessor_after"><code class="docutils literal notranslate"><span class="pre">TomoSpecProcessor.validate_tomospecprocessor_after()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.create_metadata_provenance"><code class="docutils literal notranslate"><span class="pre">create_metadata_provenance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.processor.read_metadata_provenance"><code class="docutils literal notranslate"><span class="pre">read_metadata_provenance()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#module-CHAP.tomo.reader">CHAP.tomo.reader module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="CHAP.tomo.html#module-CHAP.tomo.writer">CHAP.tomo.writer module</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="CHAP.tomo.html#CHAP.tomo.writer.TomoWriter"><code class="docutils literal notranslate"><span class="pre">TomoWriter</span></code></a><ul>
@@ -2428,178 +2315,11 @@ context: The context.</p>
 </dd></dl>
 
 </section>
-<section id="module-CHAP.runner">
-<span id="chap-runner-module"></span><h2>CHAP.runner module<a class="headerlink" href="#module-CHAP.runner" title="Link to this heading"></a></h2>
-<p>Main functions to execute a ChessAnalysisPipeline (CHAP).</p>
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.batch_runner">
-<span class="sig-name descname"><span class="pre">batch_runner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.batch_runner" title="Link to this definition"></a></dt>
-<dd><p>Function for running a pipeline in batch mode with logging to
-file. Essentially a wrapper for the <a class="reference internal" href="#CHAP.runner.runner" title="CHAP.runner.runner"><code class="xref py py-meth docutils literal notranslate"><span class="pre">runner()</span></code></a>
-function.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
-<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
-<li><p><strong>file</strong> (<em>log</em>) – Name of file for logging.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.main">
-<span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.main" title="Link to this definition"></a></dt>
-<dd><p>Main function.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.parser">
-<span class="sig-name descname"><span class="pre">parser</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.parser" title="Link to this definition"></a></dt>
-<dd><p>Return an argument parser for the CHAP comment line interface
-(CLI). This parser accepts one required argument: the input CHAP
-configuration file name and several optional arguments. Execute:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>CHAP<span class="w"> </span>--help
-</pre></div>
-</div>
-<p>from the command line for a description on how to use CHAP.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.run">
-<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.run" title="Link to this definition"></a></dt>
-<dd><p>Run a given pipeline_config.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
-<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
-<li><p><strong>logger</strong> (<em>logging.Logger</em><em>, </em><em>optional</em>) – Logger.</p></li>
-<li><p><strong>log_handler</strong> (<em>logging.StreamHandler</em><em>, </em><em>optional</em>) – Logging handler.</p></li>
-<li><p><strong>comm</strong> (<em>mpi4py.MPI.Comm</em><em>, </em><em>optional</em>) – MPI communicator.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><cite>data</cite> field of the first item in the returned
-list of pipeline items.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.runner">
-<span class="sig-name descname"><span class="pre">runner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline_config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.runner" title="Link to this definition"></a></dt>
-<dd><p>Main runner funtion.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>run_config</strong> (<a class="reference internal" href="#CHAP.models.RunConfig" title="CHAP.models.RunConfig"><em>RunConfig</em></a>) – CHAP run configuration.</p></li>
-<li><p><strong>pipeline_config</strong> (<em>dict</em>) – CHAP Pipeline configuration.</p></li>
-<li><p><strong>comm</strong> (<em>mpi4py.MPI.Comm</em><em>, </em><em>optional</em>) – MPI communicator.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Pipeline’s returned data field.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.runner.set_logger">
-<span class="sig-name descname"><span class="pre">set_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.runner.set_logger" title="Link to this definition"></a></dt>
-<dd><p>Helper function to set the CHAP logger.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>log_level</strong> (<em>str</em>) – Logger level, defaults to <cite>“INFO”</cite>.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Logger and logging handler.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>logging.Logger, logging.StreamHandler</p>
-</dd>
-</dl>
-</dd></dl>
-
+<section id="chap-runner-module">
+<h2>CHAP.runner module<a class="headerlink" href="#chap-runner-module" title="Link to this heading"></a></h2>
 </section>
-<section id="module-CHAP.server">
-<span id="chap-server-module"></span><h2>CHAP.server module<a class="headerlink" href="#module-CHAP.server" title="Link to this heading"></a></h2>
-<p>Python server with thread pool and CHAP pipeline.</p>
-<section id="client-side">
-<h3>Client side<a class="headerlink" href="#client-side" title="Link to this heading"></a></h3>
-<p>cat /tmp/chap.json
-{“pipeline”: [{“common.PrintProcessor”: {}}], “input”: 1}</p>
-</section>
-<section id="curl-call-to-the-server-with-chap-pipeline">
-<h3>Curl call to the server with CHAP pipeline<a class="headerlink" href="#curl-call-to-the-server-with-chap-pipeline" title="Link to this heading"></a></h3>
-<p>curl -X POST -H “Content-type: application/json” <a class="reference external" href="mailto:-d&#37;&#52;&#48;/tmp/chap&#46;json">-d<span>&#64;</span>/tmp/chap<span>&#46;</span>json</a> <a class="reference external" href="http://localhost:5000/pipeline">http://localhost:5000/pipeline</a>
-{“pipeline”: [{“common.PrintProcessor”:{}}], “status”:”ok”}</p>
-</section>
-<section id="server-side">
-<h3>Server side<a class="headerlink" href="#server-side" title="Link to this heading"></a></h3>
-<p>flask –app server run</p>
-<ul class="simple">
-<li><p>Serving Flask app ‘server’</p></li>
-<li><p>Debug mode: off</p></li>
-</ul>
-<p>WARNING: This is a development server. Do not use it in a production
-deployment. Use a production WSGI server instead.</p>
-<ul class="simple">
-<li><p>Running on <a class="reference external" href="http://127.0.0.1:5000">http://127.0.0.1:5000</a></p></li>
-</ul>
-<p>Press CTRL+C to quit</p>
-<p>CHAP output:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>CHAP.server         : Call pipeline args=()
-    kwds={&#39;pipeline&#39;: [{&#39;common.PrintProcessor&#39;: {}}]}
-CHAP.server         : pipeline [{&#39;common.PrintProcessor&#39;: {}}]
-CHAP.server         : Loaded
-    &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
-CHAP.server         : Loaded
-    &lt;CHAP.pipeline.Pipeline object at 0x10e0f1f10&gt; with 1 items
-CHAP.server         : Calling &quot;execute&quot; on &lt;CHAP.pipeline.Pipeline
-    object at 0x10e0f1f10&gt;
-Pipeline            : Executing &quot;execute&quot;
-Pipeline            : Calling &quot;process&quot; on
-    &lt;CHAP.common.processor.PrintProcessor object at 0x10e0f1ed0&gt;
-PrintProcessor      : Executing &quot;process&quot; with
-    type(data)=&lt;class &#39;NoneType&#39;&gt;
-PrintProcessor data : None
-PrintProcessor      : Finished &quot;process&quot; in 0.000 seconds
-Pipeline            : Executed &quot;execute&quot; in 0.000 seconds
-</pre></div>
-</div>
-</section>
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.server.daemon">
-<span class="sig-name descname"><span class="pre">daemon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">queue</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.daemon" title="Link to this definition"></a></dt>
-<dd><p>Daemon example based on Queue.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.server.index_route">
-<span class="sig-name descname"><span class="pre">index_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.index_route" title="Link to this definition"></a></dt>
-<dd><p>Server main end-point.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.server.pipeline_route">
-<span class="sig-name descname"><span class="pre">pipeline_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.pipeline_route" title="Link to this definition"></a></dt>
-<dd><p>Server /pipeline end-point.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.server.run_route">
-<span class="sig-name descname"><span class="pre">run_route</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.run_route" title="Link to this definition"></a></dt>
-<dd><p>Server main end-point.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="CHAP.server.task">
-<span class="sig-name descname"><span class="pre">task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwds</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.server.task" title="Link to this definition"></a></dt>
-<dd><p>Helper function to execute CHAP pipeline.</p>
-</dd></dl>
-
+<section id="chap-server-module">
+<h2>CHAP.server module<a class="headerlink" href="#chap-server-module" title="Link to this heading"></a></h2>
 </section>
 <section id="module-CHAP.taskmanager">
 <span id="chap-taskmanager-module"></span><h2>CHAP.taskmanager module<a class="headerlink" href="#module-CHAP.taskmanager" title="Link to this heading"></a></h2>
