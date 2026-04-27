@@ -26,8 +26,8 @@ from pydantic import (
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
 # Local modules
-from CHAP import CHAPBaseModel
 from CHAP.common.models.map import Detector
+from CHAP.models import CHAPBaseModel
 
 
 class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):

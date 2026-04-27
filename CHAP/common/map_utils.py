@@ -11,7 +11,7 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import Processor
+from CHAP.processor import Processor
 from CHAP.common.models.map import (
     Detector,
     MapConfig,

@@ -20,13 +20,13 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import Processor
 from CHAP.common.models.common import ImageProcessorConfig
 from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
 from CHAP.pipeline import PipelineData
+from CHAP.processor import Processor
 
 
 class AsyncProcessor(Processor):

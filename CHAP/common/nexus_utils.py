@@ -5,7 +5,7 @@
 """
 
 # Local modules
-from CHAP import Processor
+from CHAP.processor import Processor
 
 
 class NexusMakeLinkProcessor(Processor):

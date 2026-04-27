@@ -10,7 +10,7 @@ Description: Processor module
 from time import time
 
 # Local modules
-from CHAP import Processor
+from CHAP.processor import Processor
 
 
 class TFaaSImageProcessor(Processor):
