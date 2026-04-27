@@ -101,6 +101,7 @@
  | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
  | <a href="#J"><strong>J</strong></a>
+ | <a href="#K"><strong>K</strong></a>
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
@@ -129,6 +130,8 @@
         <li><a href="CHAP.html#CHAP.taskmanager.UidSet.add">(UidSet method)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.add_data_point">add_data_point() (SetupNXdataProcessor method)</a>
+</li>
       <li><a href="CHAP.utils.html#CHAP.utils.material.Material.add_material">add_material() (Material method)</a>
 
       <ul>
@@ -170,6 +173,8 @@
       <li><a href="CHAP.utils.html#CHAP.utils.general.assert_no_duplicate_key_in_list_of_dicts">assert_no_duplicate_key_in_list_of_dicts() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.assert_no_duplicates_in_list_of_dicts">assert_no_duplicates_in_list_of_dicts() (in module CHAP.utils.general)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.AsyncProcessor">AsyncProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.attrs">attrs (Detector attribute)</a>
 
@@ -249,6 +254,8 @@
       </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.BinarizeConfig">BinarizeConfig (class in CHAP.common.models.common)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor">BinarizeProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.html#CHAP.common.reader.BinaryFileReader">BinaryFileReader (class in CHAP.common.reader)</a>
 </li>
   </ul></td>
@@ -272,6 +279,8 @@
       <li><a href="CHAP.utils.html#CHAP.utils.models.Multipeak.centers">centers (Multipeak attribute)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.Multipeak.centers_range">centers_range (Multipeak attribute)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor">CfProcessor (class in CHAP.saxswaxs.processor)</a>
 </li>
       <li>
     CHAP
@@ -327,6 +336,13 @@
 
       <ul>
         <li><a href="CHAP.common.html#module-CHAP.common.nexus_utils">module</a>
+</li>
+      </ul></li>
+      <li>
+    CHAP.common.processor
+
+      <ul>
+        <li><a href="CHAP.common.html#module-CHAP.common.processor">module</a>
 </li>
       </ul></li>
       <li>
@@ -483,8 +499,6 @@
         <li><a href="CHAP.html#module-CHAP.reader">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     CHAP.runner
 
@@ -492,11 +506,20 @@
         <li><a href="CHAP.html#module-CHAP.runner">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     CHAP.saxswaxs
 
       <ul>
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs">module</a>
+</li>
+      </ul></li>
+      <li>
+    CHAP.saxswaxs.processor
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.processor">module</a>
 </li>
       </ul></li>
       <li>
@@ -648,7 +671,13 @@
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.config">config (GiwaxsConversionProcessor attribute)</a>
 
       <ul>
-        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.config">(PyfaiIntegrationProcessor attribute)</a>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.config">(ImageProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.config">(MapProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.config">(PyfaiIntegrationProcessor attribute)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.config">[1]</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.config">(SetupResultsProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.SpecReader.config">(SpecReader attribute)</a>
 </li>
@@ -659,11 +688,17 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.constant">constant() (in module CHAP.utils.models)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline.construct_baseline">construct_baseline() (ConstructBaseline static method)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline">ConstructBaseline (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.utils.html#CHAP.utils.converters.convert_sparse_dense">convert_sparse_dense() (in module CHAP.utils.converters)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.converters.convert_structured_unstructured">convert_structured_unstructured() (in module CHAP.utils.converters)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.converters.convert_xarray_nexus">convert_xarray_nexus() (in module CHAP.utils.converters)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ConvertStructuredProcessor">ConvertStructuredProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig.coord_range">coord_range (ImageProcessorConfig attribute)</a>
 </li>
@@ -695,12 +730,24 @@
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.PointByPointScanData.data_type">(PointByPointScanData attribute)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.dataset_chunks">dataset_chunks (SetupProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.dataset_chunks">(SetupResultsProcessor attribute)</a>
+</li>
+      </ul></li>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.dataset_id">dataset_id (EddMapReader attribute)</a>
 
       <ul>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.dataset_id">(EddMPIMapReader attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.dataset_id">(SetupNXdataReader attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.dataset_shape">dataset_shape (SetupProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.dataset_shape">(SetupResultsProcessor attribute)</a>
 </li>
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter.default">default (FitParameter property)</a>
@@ -721,8 +768,12 @@
       </ul></li>
       <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.detector">detector (TomoSimConfig attribute)</a>
 </li>
-      <li><a href="CHAP.common.html#CHAP.common.reader.SpecReader.detector_config">detector_config (SpecReader attribute)</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.detector_config">detector_config (MapProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.reader.SpecReader.detector_config">(SpecReader attribute)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.detector_ids">detector_ids (EddMPIMapReader attribute)</a>
@@ -741,6 +792,10 @@
         <li><a href="CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.detectors">(MapSliceProcessor attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.detectors">(SetupNXdataReader attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.detectors">(SetupProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.detectors">(UpdateValuesProcessor attribute)</a>
 </li>
       </ul></li>
       <li><a href="CHAP.html#CHAP.models.CHAPBaseModel.dict">dict() (CHAPBaseModel method)</a>
@@ -793,10 +848,10 @@
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.eval">eval() (Fit method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.ModelResult.eval_components">eval_components() (ModelResult method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.html#CHAP.pipeline.Pipeline.execute">execute() (Pipeline method)</a>
 
       <ul>
@@ -820,6 +875,8 @@
 </li>
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.Expression">Expression (class in CHAP.utils.models)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ExpressionProcessor">ExpressionProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.writer.ExtractArchiveWriter">ExtractArchiveWriter (class in CHAP.common.writer)</a>
 </li>
@@ -865,15 +922,21 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.Multipeak.fit_type">fit_type (Multipeak attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig">FitConfig (class in CHAP.utils.models)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.FitMap">FitMap (class in CHAP.utils.fit)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter">FitParameter (class in CHAP.utils.models)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor">FitProcessor (class in CHAP.utils.fit)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor">FluxAbsorptionBackgroundCorrectionProcessor (class in CHAP.saxswaxs.processor)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor">FluxAbsorptionCorrectionProcessor (class in CHAP.saxswaxs.processor)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor">FluxCorrectionProcessor (class in CHAP.saxswaxs.processor)</a>
 </li>
       <li><a href="CHAP.html#CHAP.taskmanager.Worker.force_exit">force_exit() (Worker method)</a>
 </li>
@@ -931,8 +994,14 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.get_axes_indices">get_axes_indices() (PyfaiIntegratorConfig method)</a>
 </li>
-      <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_config">get_config() (PipelineItem method)</a>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.get_common_axes">get_common_axes() (UnstructuredToStructuredProcessor method)</a>
 </li>
+      <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_config">get_config() (PipelineItem method)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.get_config">(RawDetectorDataMapProcessor method)</a>
+</li>
+      </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.get_consecutive_int_range">get_consecutive_int_range() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.get_coords">get_coords() (MapConfig method)</a>
@@ -959,14 +1028,22 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.get_id">get_id() (Detector method)</a>
 </li>
-      <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.get_index">get_index() (SpecScans method)</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.get_index">get_index() (SetupNXdataProcessor method)</a>
+
+      <ul>
+        <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.get_index">(SpecScans method)</a>
 </li>
-      <li><a href="CHAP.utils.html#CHAP.utils.parfile.ParFile.get_map">get_map() (ParFile method)</a>
-</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_nxroot">get_nxroot() (PipelineItem static method)</a>
+      <li><a href="CHAP.utils.html#CHAP.utils.parfile.ParFile.get_map">get_map() (ParFile method)</a>
 </li>
+      <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_nxroot">get_nxroot() (PipelineItem static method)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.get_nxroot">(RawDetectorDataMapProcessor method)</a>
+</li>
+      </ul></li>
       <li><a href="CHAP.edd.html#CHAP.edd.utils.get_peak_locations">get_peak_locations() (in module CHAP.edd.utils)</a>
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.get_pipelinedata_item">get_pipelinedata_item() (PipelineItem static method)</a>
@@ -1061,6 +1138,8 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.illegal_value">illegal_value() (in module CHAP.utils.general)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor">ImageProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig">ImageProcessorConfig (class in CHAP.common.models.common)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.writer.ImageWriter">ImageWriter (class in CHAP.common.writer)</a>
@@ -1083,6 +1162,8 @@
 </li>
       <li><a href="CHAP.html#CHAP.server.index_route">index_route() (in module CHAP.server)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.init_nxdata">init_nxdata() (SetupNXdataProcessor method)</a>
+</li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.init_parameters">init_parameters (Fit property)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.init_placeholder_results">init_placeholder_results() (PyfaiIntegratorConfig method)</a>
@@ -1103,10 +1184,10 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.input_yesno">input_yesno() (in module CHAP.utils.general)</a>
 </li>
-      <li><a href="CHAP.html#CHAP.models.RunConfig.inputdir">inputdir (RunConfig attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.html#CHAP.models.RunConfig.inputdir">inputdir (RunConfig attribute)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.integrate">integrate() (PyfaiIntegratorConfig method)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegratorConfig.integrate">[1]</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.Integrate1dConfig">Integrate1dConfig (class in CHAP.common.models.integration)</a>
@@ -1180,6 +1261,20 @@
   </ul></td>
 </tr></table>
 
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor.kwargs">kwargs (NumpyStackProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpySumProcessor.kwargs">(NumpySumProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor.kwargs">(NumpyToNXfieldProcessor attribute)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -1244,10 +1339,18 @@
       <li><a href="CHAP.utils.html#CHAP.utils.material.Material.make_material">make_material() (Material static method)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.map_config">map_config (MapSliceProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.map_config">(SetupProcessor attribute)</a>
 </li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.map_config">(UpdateValuesProcessor attribute)</a>
+</li>
+      </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.parfile.ParFile.map_values">map_values() (ParFile method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig">MapConfig (class in CHAP.common.models.map)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor">MapProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.MapReader">MapReader (class in CHAP.common.reader)</a>
 </li>
@@ -1321,12 +1424,18 @@
         <li><a href="CHAP.utils.html#CHAP.utils.models.Rectangle.model">(Rectangle attribute)</a>
 </li>
       </ul></li>
-      <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.model_config">model_config (AzimuthalIntegratorConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_config">[1]</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.AsyncProcessor.model_config">model_config (AsyncProcessor attribute)</a>
 
       <ul>
+        <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.model_config">(AzimuthalIntegratorConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_config">[1]</a>
+</li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.common.BinarizeConfig.model_config">(BinarizeConfig attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor.model_config">(BinarizeProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.BinaryFileReader.model_config">(BinaryFileReader attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor.model_config">(CfProcessor attribute)</a>
 </li>
         <li><a href="CHAP.html#CHAP.models.CHAPBaseModel.model_config">(CHAPBaseModel attribute)</a>
 </li>
@@ -1335,6 +1444,10 @@
         <li><a href="CHAP.common.html#CHAP.common.reader.ConfigReader.model_config">(ConfigReader attribute)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.Constant.model_config">(Constant attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline.model_config">(ConstructBaseline attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConvertStructuredProcessor.model_config">(ConvertStructuredProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.CorrectionsData.model_config">(CorrectionsData attribute)</a>
 </li>
@@ -1354,6 +1467,8 @@
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.Expression.model_config">(Expression attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ExpressionProcessor.model_config">(ExpressionProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.writer.ExtractArchiveWriter.model_config">(ExtractArchiveWriter attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.FabioImageReader.model_config">(FabioImageReader attribute)</a>
@@ -1367,6 +1482,12 @@
         <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter.model_config">(FitParameter attribute)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor.model_config">(FitProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor.model_config">(FluxAbsorptionBackgroundCorrectionProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor.model_config">(FluxAbsorptionCorrectionProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor.model_config">(FluxCorrectionProcessor attribute)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.writer.FoxdenDoiWriter.model_config">(FoxdenDoiWriter attribute)</a>
 </li>
@@ -1385,6 +1506,8 @@
         <li><a href="CHAP.common.html#CHAP.common.reader.H5Reader.model_config">(H5Reader attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.H5Writer.model_config">(H5Writer attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.model_config">(ImageProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.common.ImageProcessorConfig.model_config">(ImageProcessorConfig attribute)</a>
 </li>
@@ -1412,6 +1535,8 @@
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.model_config">(MapConfig attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.model_config">(MapProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.MapReader.model_config">(MapReader attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.model_config">(MapSliceProcessor attribute)</a>
@@ -1419,6 +1544,12 @@
         <li><a href="CHAP.common.html#CHAP.common.writer.MatplotlibAnimationWriter.model_config">(MatplotlibAnimationWriter attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.MatplotlibFigureWriter.model_config">(MatplotlibFigureWriter attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPICollectProcessor.model_config">(MPICollectProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPIMapProcessor.model_config">(MPIMapProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPISpawnMapProcessor.model_config">(MPISpawnMapProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.MultiGeometryConfig.model_config">(MultiGeometryConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.MultiGeometryConfig.model_config">[1]</a>
 </li>
@@ -1428,17 +1559,37 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NexusReader.model_config">(NexusReader attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToNumpyProcessor.model_config">(NexusToNumpyProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToXarrayProcessor.model_config">(NexusToXarrayProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToZarrProcessor.model_config">(NexusToZarrProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.writer.NexusValuesWriter.model_config">(NexusValuesWriter attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.NexusWriter.model_config">(NexusWriter attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeMapProcessor.model_config">(NormalizeMapProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeNexusProcessor.model_config">(NormalizeNexusProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor.model_config">(NumpyStackProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpySumProcessor.model_config">(NumpySumProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor.model_config">(NumpyToNXfieldProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXdataReader.model_config">(NXdataReader attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.model_config">(NXdataSliceReader attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor.model_config">(NXdataToDataPointsProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader.model_config">(NXfieldReader attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader.model_config">(PandasReader attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.model_config">(PandasToXarrayProcessor attribute)</a>
 </li>
         <li><a href="CHAP.html#CHAP.pipeline.Pipeline.model_config">(Pipeline attribute)</a>
 </li>
@@ -1450,21 +1601,27 @@
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.PresampleIntensity.model_config">(PresampleIntensity attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PrintProcessor.model_config">(PrintProcessor attribute)</a>
+</li>
         <li><a href="CHAP.html#CHAP.processor.Processor.model_config">(Processor attribute)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.processor.ProvenanceFileProcessor.model_config">(ProvenanceFileProcessor attribute)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.PseudoVoigt.model_config">(PseudoVoigt attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PyfaiAzimuthalIntegrationProcessor.model_config">(PyfaiAzimuthalIntegrationProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegrationConfig.model_config">(PyfaiIntegrationConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegrationConfig.model_config">[1]</a>
 </li>
-        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_config">(PyfaiIntegrationProcessor attribute)</a>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_config">(PyfaiIntegrationProcessor attribute)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.model_config">[1]</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.model_config">(PyfaiIntegratorConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegratorConfig.model_config">[1]</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.PyfaiResultsWriter.model_config">(PyfaiResultsWriter attribute)</a>
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.models.Quadratic.model_config">(Quadratic attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.model_config">(RawDetectorDataMapProcessor attribute)</a>
 </li>
         <li><a href="CHAP.html#CHAP.reader.Reader.model_config">(Reader attribute)</a>
 </li>
@@ -1476,7 +1633,13 @@
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.model_config">(ScanToMapReader attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.model_config">(SetupNXdataProcessor attribute)</a>
+</li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.model_config">(SetupNXdataReader attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.model_config">(SetupProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.model_config">(SetupResultsProcessor attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.model_config">(SliceNXdataReader attribute)</a>
 </li>
@@ -1506,17 +1669,31 @@
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.model_config">(UnstructuredToStructuredConfig attribute)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.model_config">(UnstructuredToStructuredProcessor attribute)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.model_config">[1]</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor.model_config">(UpdateNXdataProcessor attribute)</a>
+</li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.model_config">(UpdateNXdataReader attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXvalueProcessor.model_config">(UpdateNXvalueProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.model_config">(UpdateValuesProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.URLReader.model_config">(URLReader attribute)</a>
 </li>
         <li><a href="CHAP.html#CHAP.writer.Writer.model_config">(Writer attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNexusProcessor.model_config">(XarrayToNexusProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNumpyProcessor.model_config">(XarrayToNumpyProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.YAMLReader.model_config">(YAMLReader attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.YAMLWriter.model_config">(YAMLWriter attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.ZarrReader.model_config">(ZarrReader attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ZarrToNexusProcessor.model_config">(ZarrToNexusProcessor attribute)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.ZarrValuesWriter.model_config">(ZarrValuesWriter attribute)</a>
 </li>
@@ -1529,18 +1706,30 @@
 </li>
       <li><a href="CHAP.html#CHAP.models.CHAPBaseModel.model_dump_json">model_dump_json() (CHAPBaseModel method)</a>
 </li>
-      <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.model_post_init">model_post_init() (AzimuthalIntegratorConfig method)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_post_init">[1]</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.AsyncProcessor.model_post_init">model_post_init() (AsyncProcessor method)</a>
 
       <ul>
+        <li><a href="CHAP.common.models.html#CHAP.common.models.integration.AzimuthalIntegratorConfig.model_post_init">(AzimuthalIntegratorConfig method)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_post_init">[1]</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor.model_post_init">(BinarizeProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.BinaryFileReader.model_post_init">(BinaryFileReader method)</a>
 </li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor.model_post_init">(CfProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.ConfigReader.model_post_init">(ConfigReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline.model_post_init">(ConstructBaseline method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConvertStructuredProcessor.model_post_init">(ConvertStructuredProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.DetectorDataReader.model_post_init">(DetectorDataReader method)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.model_post_init">(EddMapReader method)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMPIMapReader.model_post_init">(EddMPIMapReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ExpressionProcessor.model_post_init">(ExpressionProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.ExtractArchiveWriter.model_post_init">(ExtractArchiveWriter method)</a>
 </li>
@@ -1554,6 +1743,12 @@
 </li>
         <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor.model_post_init">(FitProcessor method)</a>
 </li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor.model_post_init">(FluxAbsorptionBackgroundCorrectionProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor.model_post_init">(FluxAbsorptionCorrectionProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor.model_post_init">(FluxCorrectionProcessor method)</a>
+</li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.writer.FoxdenDoiWriter.model_post_init">(FoxdenDoiWriter method)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.writer.FoxdenMetadataWriter.model_post_init">(FoxdenMetadataWriter method)</a>
@@ -1566,11 +1761,15 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.H5Writer.model_post_init">(H5Writer method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.model_post_init">(ImageProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.writer.ImageWriter.model_post_init">(ImageWriter method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.LinkamReader.model_post_init">(LinkamReader method)</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.model_post_init">(MapConfig method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.model_post_init">(MapProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.MapReader.model_post_init">(MapReader method)</a>
 </li>
@@ -1580,35 +1779,67 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.MatplotlibFigureWriter.model_post_init">(MatplotlibFigureWriter method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPICollectProcessor.model_post_init">(MPICollectProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPIMapProcessor.model_post_init">(MPIMapProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPISpawnMapProcessor.model_post_init">(MPISpawnMapProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.nexus_utils.NexusMakeLinkProcessor.model_post_init">(NexusMakeLinkProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NexusReader.model_post_init">(NexusReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToNumpyProcessor.model_post_init">(NexusToNumpyProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToXarrayProcessor.model_post_init">(NexusToXarrayProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToZarrProcessor.model_post_init">(NexusToZarrProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.NexusValuesWriter.model_post_init">(NexusValuesWriter method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.NexusWriter.model_post_init">(NexusWriter method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeMapProcessor.model_post_init">(NormalizeMapProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeNexusProcessor.model_post_init">(NormalizeNexusProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor.model_post_init">(NumpyStackProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpySumProcessor.model_post_init">(NumpySumProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor.model_post_init">(NumpyToNXfieldProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXdataReader.model_post_init">(NXdataReader method)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader.model_post_init">(NXdataSliceReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor.model_post_init">(NXdataToDataPointsProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader.model_post_init">(NXfieldReader method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader.model_post_init">(PandasReader method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.model_post_init">(PandasToXarrayProcessor method)</a>
+</li>
         <li><a href="CHAP.html#CHAP.pipeline.Pipeline.model_post_init">(Pipeline method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.model_post_init">(PipelineItem method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PrintProcessor.model_post_init">(PrintProcessor method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.processor.Processor.model_post_init">(Processor method)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.processor.ProvenanceFileProcessor.model_post_init">(ProvenanceFileProcessor method)</a>
 </li>
-        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_post_init">(PyfaiIntegrationProcessor method)</a>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PyfaiAzimuthalIntegrationProcessor.model_post_init">(PyfaiAzimuthalIntegrationProcessor method)</a>
+</li>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_post_init">(PyfaiIntegrationProcessor method)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.model_post_init">[1]</a>
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.model_post_init">(PyfaiIntegratorConfig method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.PyfaiResultsWriter.model_post_init">(PyfaiResultsWriter method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.model_post_init">(RawDetectorDataMapProcessor method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.reader.Reader.model_post_init">(Reader method)</a>
 </li>
@@ -1616,7 +1847,13 @@
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.ScanToMapReader.model_post_init">(ScanToMapReader method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.model_post_init">(SetupNXdataProcessor method)</a>
+</li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader.model_post_init">(SetupNXdataReader method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.model_post_init">(SetupProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.model_post_init">(SetupResultsProcessor method)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.model_post_init">(SliceNXdataReader method)</a>
 </li>
@@ -1630,17 +1867,31 @@
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.TXTWriter.model_post_init">(TXTWriter method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.model_post_init">(UnstructuredToStructuredProcessor method)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.model_post_init">[1]</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor.model_post_init">(UpdateNXdataProcessor method)</a>
+</li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.model_post_init">(UpdateNXdataReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXvalueProcessor.model_post_init">(UpdateNXvalueProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.model_post_init">(UpdateValuesProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.URLReader.model_post_init">(URLReader method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.writer.Writer.model_post_init">(Writer method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNexusProcessor.model_post_init">(XarrayToNexusProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNumpyProcessor.model_post_init">(XarrayToNumpyProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.YAMLReader.model_post_init">(YAMLReader method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.YAMLWriter.model_post_init">(YAMLWriter method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.reader.ZarrReader.model_post_init">(ZarrReader method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ZarrToNexusProcessor.model_post_init">(ZarrToNexusProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.writer.ZarrValuesWriter.model_post_init">(ZarrValuesWriter method)</a>
 </li>
@@ -1670,6 +1921,8 @@
         <li><a href="CHAP.common.models.html#module-CHAP.common.models.map">CHAP.common.models.map</a>
 </li>
         <li><a href="CHAP.common.html#module-CHAP.common.nexus_utils">CHAP.common.nexus_utils</a>
+</li>
+        <li><a href="CHAP.common.html#module-CHAP.common.processor">CHAP.common.processor</a>
 </li>
         <li><a href="CHAP.common.html#module-CHAP.common.reader">CHAP.common.reader</a>
 </li>
@@ -1719,6 +1972,8 @@
 </li>
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs">CHAP.saxswaxs</a>
 </li>
+        <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.processor">CHAP.saxswaxs.processor</a>
+</li>
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.reader">CHAP.saxswaxs.reader</a>
 </li>
         <li><a href="CHAP.saxswaxs.html#module-CHAP.saxswaxs.writer">CHAP.saxswaxs.writer</a>
@@ -1752,6 +2007,12 @@
         <li><a href="CHAP.html#module-CHAP.writer">CHAP.writer</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MPICollectProcessor">MPICollectProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MPIMapProcessor">MPIMapProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MPISpawnMapProcessor">MPISpawnMapProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.mu">mu (TomoSimConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.multi_geometry">multi_geometry (PyfaiIntegratorConfig attribute)</a>, <a href="CHAP.giwaxs.html#CHAP.giwaxs.models.PyfaiIntegratorConfig.multi_geometry">[1]</a>
@@ -1788,11 +2049,21 @@
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.NexusReader">NexusReader (class in CHAP.common.reader)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NexusToNumpyProcessor">NexusToNumpyProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NexusToXarrayProcessor">NexusToXarrayProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NexusToZarrProcessor">NexusToZarrProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.html#CHAP.common.writer.NexusValuesWriter">NexusValuesWriter (class in CHAP.common.writer)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.writer.NexusWriter">NexusWriter (class in CHAP.common.writer)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.normalization_offset">normalization_offset (Fit property)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeMapProcessor">NormalizeMapProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeNexusProcessor">NormalizeNexusProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.not_zero">not_zero() (in module CHAP.utils.general)</a>
 </li>
@@ -1812,6 +2083,8 @@
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.BinarizeConfig.num_bin">num_bin (BinarizeConfig attribute)</a>
 </li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.num_chunk">num_chunk (SetupProcessor attribute)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.num_func_eval">num_func_eval (Fit property)</a>
@@ -1821,6 +2094,16 @@
 </li>
       </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.num_proc">num_proc (FitConfig attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.num_proc">(MapProcessor attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor">NumpyStackProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NumpySumProcessor">NumpySumProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor">NumpyToNXfieldProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.html#CHAP.taskmanager.TaskManager.nworkers">nworkers() (TaskManager method)</a>
 </li>
@@ -1830,11 +2113,17 @@
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.NXdataSliceReader">NXdataSliceReader (class in CHAP.edd.reader)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor">NXdataToDataPointsProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.html#CHAP.common.reader.NXfieldReader">NXfieldReader (class in CHAP.common.reader)</a>
 </li>
-      <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxmemory">nxmemory (GiwaxsConversionProcessor attribute)</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor.nxmemory">nxmemory (BinarizeProcessor attribute)</a>
 
       <ul>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxmemory">(GiwaxsConversionProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.nxmemory">(ImageProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.reader.NexusReader.nxmemory">(NexusReader attribute)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.processor.ProvenanceFileProcessor.nxmemory">(ProvenanceFileProcessor attribute)</a>
@@ -1892,6 +2181,8 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.common.html#CHAP.common.reader.PandasReader">PandasReader (class in CHAP.common.reader)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor">PandasToXarrayProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.par_file">par_file (SpecScans attribute)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Parameters">Parameters (class in CHAP.utils.fit)</a>
@@ -1941,9 +2232,19 @@
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.pipeline_fields">pipeline_fields (GiwaxsConversionProcessor attribute)</a>
 
       <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.pipeline_fields">(ImageProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.pipeline_fields">(MapProcessor attribute)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.pipeline_fields">(MapSliceProcessor attribute)</a>
 </li>
-        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.pipeline_fields">(PyfaiIntegrationProcessor attribute)</a>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.pipeline_fields">(PyfaiIntegrationProcessor attribute)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.pipeline_fields">[1]</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.pipeline_fields">(SetupProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.pipeline_fields">(SetupResultsProcessor attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.pipeline_fields">(UpdateValuesProcessor attribute)</a>
 </li>
       </ul></li>
       <li><a href="CHAP.html#CHAP.server.pipeline_route">pipeline_route() (in module CHAP.server)</a>
@@ -1970,8 +2271,6 @@
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.models.IntegratorConfig.poni_file">(IntegratorConfig attribute)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.postsample_intensity">postsample_intensity (MapConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.PostsampleIntensity">PostsampleIntensity (class in CHAP.common.models.map)</a>
@@ -2008,22 +2307,100 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.print_report">print_report (FitConfig attribute)</a>
 </li>
-      <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor.process">process() (FitProcessor method)</a>
+      <li><a href="CHAP.common.html#CHAP.common.processor.PrintProcessor">PrintProcessor (class in CHAP.common.processor)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.common.html#CHAP.common.processor.AsyncProcessor.process">process() (AsyncProcessor method)</a>
 
       <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.BinarizeProcessor.process">(BinarizeProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.CfProcessor.process">(CfProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConstructBaseline.process">(ConstructBaseline method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ConvertStructuredProcessor.process">(ConvertStructuredProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ExpressionProcessor.process">(ExpressionProcessor method)</a>
+</li>
+        <li><a href="CHAP.utils.html#CHAP.utils.fit.FitProcessor.process">(FitProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionBackgroundCorrectionProcessor.process">(FluxAbsorptionBackgroundCorrectionProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxAbsorptionCorrectionProcessor.process">(FluxAbsorptionCorrectionProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.FluxCorrectionProcessor.process">(FluxCorrectionProcessor method)</a>
+</li>
         <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.process">(GiwaxsConversionProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.process">(ImageProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.process">(MapProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.map_utils.MapSliceProcessor.process">(MapSliceProcessor method)</a>
 </li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPICollectProcessor.process">(MPICollectProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPIMapProcessor.process">(MPIMapProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.MPISpawnMapProcessor.process">(MPISpawnMapProcessor method)</a>
+</li>
         <li><a href="CHAP.common.html#CHAP.common.nexus_utils.NexusMakeLinkProcessor.process">(NexusMakeLinkProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToNumpyProcessor.process">(NexusToNumpyProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToXarrayProcessor.process">(NexusToXarrayProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NexusToZarrProcessor.process">(NexusToZarrProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeMapProcessor.process">(NormalizeMapProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NormalizeNexusProcessor.process">(NormalizeNexusProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor.process">(NumpyStackProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpySumProcessor.process">(NumpySumProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor.process">(NumpyToNXfieldProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NXdataToDataPointsProcessor.process">(NXdataToDataPointsProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PandasToXarrayProcessor.process">(PandasToXarrayProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PrintProcessor.process">(PrintProcessor method)</a>
 </li>
         <li><a href="CHAP.html#CHAP.processor.Processor.process">(Processor method)</a>
 </li>
         <li><a href="CHAP.foxden.html#CHAP.foxden.processor.ProvenanceFileProcessor.process">(ProvenanceFileProcessor method)</a>
 </li>
-        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process">(PyfaiIntegrationProcessor method)</a>
+        <li><a href="CHAP.common.html#CHAP.common.processor.PyfaiAzimuthalIntegrationProcessor.process">(PyfaiAzimuthalIntegrationProcessor method)</a>
+</li>
+        <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process">(PyfaiIntegrationProcessor method)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor.process">[1]</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor.process">(RawDetectorDataMapProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.process">(SetupNXdataProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.process">(SetupProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.process">(SetupResultsProcessor method)</a>
 </li>
         <li><a href="CHAP.common.html#CHAP.common.map_utils.SpecScanToMapConfigProcessor.process">(SpecScanToMapConfigProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor.process">(UnstructuredToStructuredProcessor method)</a>, <a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.process">[1]</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor.process">(UpdateNXdataProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXvalueProcessor.process">(UpdateNXvalueProcessor method)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.process">(UpdateValuesProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNexusProcessor.process">(XarrayToNexusProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNumpyProcessor.process">(XarrayToNumpyProcessor method)</a>
+</li>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ZarrToNexusProcessor.process">(ZarrToNexusProcessor method)</a>
 </li>
       </ul></li>
       <li><a href="CHAP.html#CHAP.processor.Processor">Processor (class in CHAP.processor)</a>
@@ -2036,6 +2413,14 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.pvoigt">pvoigt() (in module CHAP.utils.models)</a>
 </li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.pyfai_config">pyfai_config (SetupProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.pyfai_config">(UpdateValuesProcessor attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.PyfaiAzimuthalIntegrationProcessor">PyfaiAzimuthalIntegrationProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegrationConfig">PyfaiIntegrationConfig (class in CHAP.common.models.integration)</a>
 
       <ul>
@@ -2043,7 +2428,11 @@
 </li>
       </ul></li>
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.PyfaiIntegrationProcessor">PyfaiIntegrationProcessor (class in CHAP.giwaxs.processor)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.PyfaiIntegrationProcessor">(class in CHAP.saxswaxs.processor)</a>
 </li>
+      </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig">PyfaiIntegratorConfig (class in CHAP.common.models.integration)</a>
 
       <ul>
@@ -2083,6 +2472,14 @@
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.IntegrateRadialConfig.radial_unit">radial_unit (IntegrateRadialConfig attribute)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.range_string_ge_gt_le_lt">range_string_ge_gt_le_lt() (in module CHAP.utils.general)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor.raw_data">raw_data (SetupProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.raw_data">(UpdateValuesProcessor attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.RawDetectorDataMapProcessor">RawDetectorDataMapProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.BinaryFileReader.read">read() (BinaryFileReader method)</a>
 
@@ -2140,14 +2537,14 @@
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.rectangle">rectangle() (in module CHAP.utils.models)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.redchi">redchi (Fit property)</a>
 
       <ul>
         <li><a href="CHAP.utils.html#CHAP.utils.fit.FitMap.redchi">(FitMap property)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitConfig.rel_height_cutoff">rel_height_cutoff (FitConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.writer.FileTreeWriter.remove">remove (FileTreeWriter attribute)</a>
@@ -2237,7 +2634,11 @@
       <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoSimConfig.sample_type">sample_type (TomoSimConfig attribute)</a>
 </li>
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.processor.GiwaxsConversionProcessor.save_figures">save_figures (GiwaxsConversionProcessor attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.ImageProcessor.save_figures">(ImageProcessor attribute)</a>
 </li>
+      </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.save_iobuf_fig">save_iobuf_fig() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.giwaxs.html#CHAP.giwaxs.models.GiwaxsConversionConfig.save_raw_data">save_raw_data (GiwaxsConversionConfig attribute)</a>
@@ -2256,6 +2657,8 @@
         <li><a href="CHAP.edd.html#CHAP.edd.reader.SliceNXdataReader.scan_number">(SliceNXdataReader attribute)</a>
 </li>
         <li><a href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader.scan_number">(UpdateNXdataReader attribute)</a>
+</li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.scan_number">(UpdateValuesProcessor attribute)</a>
 </li>
       </ul></li>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.EddMapReader.scan_numbers">scan_numbers (EddMapReader attribute)</a>
@@ -2302,10 +2705,16 @@
 </li>
       <li><a href="CHAP.html#CHAP.taskmanager.set_thread_name">set_thread_name() (in module CHAP.taskmanager)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor">SetupNXdataProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.SetupNXdataReader">SetupNXdataReader (class in CHAP.edd.reader)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupProcessor">SetupProcessor (class in CHAP.saxswaxs.processor)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor">SetupResultsProcessor (class in CHAP.saxswaxs.processor)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.Detector.shape">shape (Detector attribute)</a>
 
       <ul>
@@ -2331,6 +2740,8 @@
 </li>
         <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.spec_file">(SpecScans attribute)</a>
 </li>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor.spec_file">(UpdateValuesProcessor attribute)</a>
+</li>
       </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.spec_scans">spec_scans (MapConfig attribute)</a>
 
@@ -2345,6 +2756,8 @@
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans">SpecScans (class in CHAP.common.models.map)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.map_utils.SpecScanToMapConfigProcessor">SpecScanToMapConfigProcessor (class in CHAP.common.map_utils)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.NumpyStackProcessor.stack_order">stack_order (NumpyStackProcessor attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.CHAPSlice.start">start (CHAPSlice attribute)</a>
 
@@ -2383,6 +2796,8 @@
       <li><a href="CHAP.edd.html#CHAP.edd.writer.StrainAnalysisUpdateWriter">StrainAnalysisUpdateWriter (class in CHAP.edd.writer)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.string_to_list">string_to_list() (in module CHAP.utils.general)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.structure_signal_values">structure_signal_values() (UnstructuredToStructuredProcessor method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.success">success (Fit property)</a>
 
@@ -2460,17 +2875,31 @@
       </ul></li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.unstructured_axes">unstructured_axes (UnstructuredToStructuredConfig attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig">UnstructuredToStructuredConfig (class in CHAP.common.models.common)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UnstructuredToStructuredProcessor">UnstructuredToStructuredProcessor (class in CHAP.common.processor)</a>
+
+      <ul>
+        <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor">(class in CHAP.saxswaxs.processor)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.html#CHAP.pipeline.PipelineItem.unwrap_pipelinedata">unwrap_pipelinedata() (PipelineItem static method)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.general.unwrap_tuple">unwrap_tuple() (in module CHAP.utils.general)</a>
 </li>
       <li><a href="CHAP.edd.html#CHAP.edd.select_material_params_gui.MaterialParamSelector.update_material">update_material() (MaterialParamSelector method)</a>
 </li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.update_nxdata">update_nxdata() (SetupNXdataProcessor method)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor">UpdateNXdataProcessor (class in CHAP.common.processor)</a>
+</li>
       <li><a href="CHAP.edd.html#CHAP.edd.reader.UpdateNXdataReader">UpdateNXdataReader (class in CHAP.edd.reader)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.UpdateNXvalueProcessor">UpdateNXvalueProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UpdateValuesProcessor">UpdateValuesProcessor (class in CHAP.saxswaxs.processor)</a>
 </li>
       <li><a href="CHAP.foxden.html#CHAP.foxden.writer.FoxdenMetadataWriter.url">url (FoxdenMetadataWriter attribute)</a>
 
@@ -2508,6 +2937,12 @@
         <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegratorConfig.validate_config">(PyfaiIntegratorConfig class method)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.validate_config_fields">validate_config_fields() (UnstructuredToStructuredProcessor method)</a>
+</li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.UnstructuredToStructuredProcessor.validate_data">validate_data() (UnstructuredToStructuredProcessor method)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.validate_data_point">validate_data_point() (SetupNXdataProcessor method)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.MapConfig.validate_data_present">validate_data_present (MapConfig attribute)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.validate_data_source_for_map_config">validate_data_source_for_map_config() (in module CHAP.common.models.map)</a>
@@ -2556,12 +2991,14 @@
         <li><a href="CHAP.common.html#CHAP.common.writer.validate_model">(in module CHAP.common.writer)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.MapProcessor.validate_num_proc">validate_num_proc() (MapProcessor class method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.common.models.html#CHAP.common.models.common.UnstructuredToStructuredConfig.validate_nxpath">validate_nxpath() (UnstructuredToStructuredConfig class method)</a>
 </li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.map.SpecScans.validate_par_file">validate_par_file() (SpecScans class method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.models.validate_parameters">validate_parameters() (in module CHAP.utils.models)</a>
 </li>
       <li><a href="CHAP.html#CHAP.pipeline.Pipeline.validate_pipeline_after">validate_pipeline_after() (Pipeline method)</a>
@@ -2613,7 +3050,11 @@
       <li><a href="CHAP.html#CHAP.writer.validate_writer_model">validate_writer_model() (in module CHAP.writer)</a>
 </li>
       <li><a href="CHAP.utils.html#CHAP.utils.models.FitParameter.value">value (FitParameter attribute)</a>
+
+      <ul>
+        <li><a href="CHAP.common.html#CHAP.common.processor.NumpyToNXfieldProcessor.value">(NumpyToNXfieldProcessor attribute)</a>
 </li>
+      </ul></li>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.var_names">var_names (Fit property)</a>
 
       <ul>
@@ -2712,14 +3153,18 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.utils.html#CHAP.utils.fit.Fit.x">x (Fit property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoCombineConfig.x_bounds">x_bounds (TomoCombineConfig attribute)</a>
 
       <ul>
         <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoReconstructConfig.x_bounds">(TomoReconstructConfig attribute)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNexusProcessor">XarrayToNexusProcessor (class in CHAP.common.processor)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.XarrayToNumpyProcessor">XarrayToNumpyProcessor (class in CHAP.common.processor)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -2758,6 +3203,8 @@
         <li><a href="CHAP.tomo.html#CHAP.tomo.models.TomoReconstructConfig.z_bounds">(TomoReconstructConfig attribute)</a>
 </li>
       </ul></li>
+      <li><a href="CHAP.saxswaxs.html#CHAP.saxswaxs.processor.SetupResultsProcessor.zarr_setup">zarr_setup() (SetupResultsProcessor method)</a>
+</li>
       <li><a href="CHAP.common.models.html#CHAP.common.models.integration.PyfaiIntegrationConfig.zarr_tree">zarr_tree() (PyfaiIntegrationConfig method)</a>
 
       <ul>
@@ -2769,6 +3216,8 @@
       <li><a href="CHAP.common.html#CHAP.common.writer.ZarrValuesWriter.zarr_writer">zarr_writer() (ZarrValuesWriter method)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.reader.ZarrReader">ZarrReader (class in CHAP.common.reader)</a>
+</li>
+      <li><a href="CHAP.common.html#CHAP.common.processor.ZarrToNexusProcessor">ZarrToNexusProcessor (class in CHAP.common.processor)</a>
 </li>
       <li><a href="CHAP.common.html#CHAP.common.writer.ZarrValuesWriter">ZarrValuesWriter (class in CHAP.common.writer)</a>
 </li>

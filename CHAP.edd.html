@@ -460,7 +460,7 @@ an EDD dataset.</p>
 <dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.reader.Reader" title="CHAP.reader.Reader"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reader</span></code></a></p>
 <p>Reader for converting the SPEC input txt file for EDD dataset
 collection to an approporiate input argument for
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SetupNXdataProcessor</span></code>.</p>
+<a class="reference internal" href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor" title="CHAP.common.processor.SetupNXdataProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">SetupNXdataProcessor</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Variables<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -504,7 +504,7 @@ context: The context.</p>
 <span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.edd.reader.SetupNXdataReader.read" title="Link to this definition"></a></dt>
 <dd><p>Return a dictionary containing the <cite>coords</cite>, <cite>signals</cite>, and
 <cite>attrs</cite> arguments appropriate for use with
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">process()</span></code> to
+<a class="reference internal" href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor.process" title="CHAP.common.processor.SetupNXdataProcessor.process"><code class="xref py py-meth docutils literal notranslate"><span class="pre">process()</span></code></a> to
 set up an initial NeXus style
 <a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXdata.html#index-0">NXdata</a>
 object representing a complete and organized structured EDD
@@ -647,11 +647,11 @@ context: The context.</p>
 <span class="sig-name descname"><span class="pre">read</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.edd.reader.UpdateNXdataReader.read" title="Link to this definition"></a></dt>
 <dd><p>Return a list of data points containing raw data values for
 a single EDD spec scan. The returned values can be passed
-along to <code class="xref py py-class docutils literal notranslate"><span class="pre">UpdateNXdataProcessor</span></code>
+along to <a class="reference internal" href="CHAP.common.html#CHAP.common.processor.UpdateNXdataProcessor" title="CHAP.common.processor.UpdateNXdataProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">UpdateNXdataProcessor</span></code></a>
 to fill in an existing NeXus Style
 <a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXdata.html">NXdata</a>
 object up with
-<code class="xref py py-class docutils literal notranslate"><span class="pre">SetupNXdataProcessor</span></code>.</p>
+<a class="reference internal" href="CHAP.common.html#CHAP.common.processor.SetupNXdataProcessor" title="CHAP.common.processor.SetupNXdataProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">SetupNXdataProcessor</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returs<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Data points appropriate for input to
