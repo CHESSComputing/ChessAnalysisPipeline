@@ -36,10 +36,11 @@ import typing
 from CHAP.edd.models import (
     DiffractionVolumeLengthConfig,
     MCACalibrationConfig,
-    MCADetectorConfig,
-    MCAEnergyCalibrationConfig,
-    MCATthCalibrationConfig,
+#    MCADetectorConfig,
+#    MCAEnergyCalibrationConfig,
+#    MCATthCalibrationConfig,
     StrainAnalysisConfig,
+)
 
 DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
 MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
