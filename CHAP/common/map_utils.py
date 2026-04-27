@@ -11,11 +11,11 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP.processor import Processor
 from CHAP.common.models.map import (
     Detector,
     MapConfig,
 )
+from CHAP.processor import Processor
 
 def get_axes(nxdata, skip_axes=None):
     """Get the axes of a NeXus style

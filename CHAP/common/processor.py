@@ -7,7 +7,10 @@ workflows.
 # System modules
 from copy import deepcopy
 import os
-from typing import Optional
+from typing import (
+    Dict,
+    Optional,
+)
 
 # Third party modules
 import numpy as np
@@ -946,7 +949,8 @@ class ImageProcessor(Processor):
         return fig, plt
 
 
-DetectorConfig.model_rebuild()
+DetectorConfig.model_rebuild(_types_namespace={'Dict': Dict})
+
 
 class MapProcessor(Processor):
     """A Processor that takes a map configuration and returns a NeXus
