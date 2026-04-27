@@ -22,13 +22,13 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP.reader import (
-    Reader,
-    validate_reader_model,
-)
 from CHAP.common.models.map import (
     DetectorConfig,
     SpecConfig,
+)
+from CHAP.reader import (
+    Reader,
+    validate_reader_model,
 )
 
 def validate_model(model):

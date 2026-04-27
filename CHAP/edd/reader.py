@@ -19,8 +19,8 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP.reader import Reader
 from CHAP.common.models.map import DetectorConfig
+from CHAP.reader import Reader
 
 
 class EddMapReader(Reader):

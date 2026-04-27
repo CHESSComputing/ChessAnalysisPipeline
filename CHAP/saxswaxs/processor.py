@@ -22,12 +22,12 @@ from pydantic import (
 import numpy as np
 
 # Local modules
-from CHAP.common.processor import ExpressionProcessor
 from CHAP.common.models.map import (
     Detector,
     MapConfig,
 )
 from CHAP.common.models.integration import PyfaiIntegrationConfig
+from CHAP.common.processor import ExpressionProcessor
 from CHAP.processor import Processor
 
 
