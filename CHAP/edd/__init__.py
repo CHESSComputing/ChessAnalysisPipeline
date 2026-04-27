@@ -29,9 +29,24 @@ writer
     Writers unique to the EDD workflow.
 """
 
+# System modules
 import typing
-from CHAP.edd.models import DiffractionVolumeLengthConfig
+
+# Local modules
+from CHAP.edd.models import (
+    DiffractionVolumeLengthConfig,
+    MCACalibrationConfig,
+    MCADetectorConfig,
+    MCAEnergyCalibrationConfig,
+    MCATthCalibrationConfig,
+    StrainAnalysisConfig,
+
 DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
+MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
+MCADetectorConfig.model_rebuild(_types_namespace=vars(typing))
+MCAEnergyCalibrationConfig.model_rebuild(_types_namespace=vars(typing))
+MCATthCalibrationConfig.model_rebuild(_types_namespace=vars(typing))
+StrainAnalysisConfig.model_rebuild(_types_namespace=vars(typing))
 #from CHAP.edd.processor import (
 #    DiffractionVolumeLengthProcessor,
 #    LatticeParameterRefinementProcessor,

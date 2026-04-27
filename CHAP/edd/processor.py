@@ -24,12 +24,12 @@ from pydantic import (
 # Local modules
 from CHAP.common.models.map import DetectorConfig
 from CHAP.edd.models import (
-    MCADetectorCalibration,
-    MCADetectorDiffractionVolumeLength,
-    MCADetectorStrainAnalysis,
-    MCADetectorConfig,
     DiffractionVolumeLengthConfig,
     MCACalibrationConfig,
+    MCADetectorCalibration,
+    MCADetectorConfig,
+    MCADetectorDiffractionVolumeLength,
+    MCADetectorStrainAnalysis,
     MCAEnergyCalibrationConfig,
     MCATthCalibrationConfig,
     StrainAnalysisConfig,

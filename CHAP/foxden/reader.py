@@ -23,7 +23,7 @@ from CHAP.pipeline import PipelineItem
 from CHAP.processor import Processor
 
 
-FoxdenRequestConfige.model_rebuild(_types_namespace=vars(typing))
+FoxdenRequestConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class FoxdenDataDiscoveryReader(PipelineItem):
