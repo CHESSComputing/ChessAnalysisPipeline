@@ -147,11 +147,880 @@ configuration classes unique to the GIWAXS workflow.</p>
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
 </section>
-<section id="chap-giwaxs-models-module">
-<h2>CHAP.giwaxs.models module<a class="headerlink" href="#chap-giwaxs-models-module" title="Link to this heading"></a></h2>
+<section id="module-CHAP.giwaxs.models">
+<span id="chap-giwaxs-models-module"></span><h2>CHAP.giwaxs.models module<a class="headerlink" href="#module-CHAP.giwaxs.models" title="Link to this heading"></a></h2>
+<p><a class="reference external" href="https://github.com/pydantic/pydantic">Pydantic</a> model
+configuration classes unique to the the tomography workflow.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.AzimuthalIntegratorConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AzimuthalIntegratorConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#CHAP.giwaxs.models.IntegratorConfig" title="CHAP.giwaxs.models.IntegratorConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegratorConfig</span></code></a></p>
+<p>Azimuthal integrator configuration class to represent a single
+detector used in the experiment.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.AzimuthalIntegratorConfig.validate_azimuthalintegratorconfig_after">
+<span class="sig-name descname"><span class="pre">validate_azimuthalintegratorconfig_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig.validate_azimuthalintegratorconfig_after" title="Link to this definition"></a></dt>
+<dd><p>Set the default azimuthal integrator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated configuration class.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig" title="CHAP.giwaxs.models.AzimuthalIntegratorConfig">AzimuthalIntegratorConfig</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.FiberIntegratorConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FiberIntegratorConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.FiberIntegratorConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#CHAP.giwaxs.models.IntegratorConfig" title="CHAP.giwaxs.models.IntegratorConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntegratorConfig</span></code></a></p>
+<p>Fiber or grazing incidence integrator configuration class to
+represent a single detector used in the experiment.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.FiberIntegratorConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.FiberIntegratorConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.FiberIntegratorConfig.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.giwaxs.models.FiberIntegratorConfig.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.FiberIntegratorConfig.validate_azimuthalintegratorconfig_after">
+<span class="sig-name descname"><span class="pre">validate_azimuthalintegratorconfig_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.FiberIntegratorConfig.validate_azimuthalintegratorconfig_after" title="Link to this definition"></a></dt>
+<dd><p>Set the default azimuthal integrator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated configuration class.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig" title="CHAP.giwaxs.models.AzimuthalIntegratorConfig">AzimuthalIntegratorConfig</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.FiberIntegratorConfig.validate_fiberintegratorconfig_after">
+<span class="sig-name descname"><span class="pre">validate_fiberintegratorconfig_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.FiberIntegratorConfig.validate_fiberintegratorconfig_after" title="Link to this definition"></a></dt>
+<dd><p>Set the default fiber/grazing incidence integrator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Validated configuration class.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#CHAP.giwaxs.models.FiberIntegratorConfig" title="CHAP.giwaxs.models.FiberIntegratorConfig">FiberIntegratorConfig</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GiwaxsConversionConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Configuration for the wedge correction processor
+<a class="reference internal" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor" title="CHAP.giwaxs.processor.GiwaxsConversionProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">GiwaxsConversionProcessor</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>azimuthal_integrators</strong> (<em>list</em><em>[</em><a class="reference internal" href="#CHAP.giwaxs.models.FiberIntegratorConfig" title="CHAP.giwaxs.models.FiberIntegratorConfig"><em>FiberIntegratorConfig</em></a><em>]</em>) – List of azimuthal integrator
+configurations.</p></li>
+<li><p><strong>integrations</strong> (<em>list</em><em>[</em><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="CHAP.giwaxs.models.PyfaiIntegratorConfig"><em>PyfaiIntegratorConfig</em></a><em>]</em>) – Azimuthal integrator configurations.</p></li>
+<li><p><strong>scan_step_indices</strong> (<em>int</em><em> or </em><em>list</em><em>[</em><em>int</em><em>] or </em><em>str</em><em>, </em><em>optional</em>) – Optional scan step indices to convert.
+If not specified, all images will be converted.</p></li>
+<li><p><strong>save_raw_data</strong> (<em>bool</em><em>, </em><em>optional</em>) – Save the raw data in the NeXus output,
+defaults to <cite>False</cite>.</p></li>
+<li><p><strong>skip_animation</strong> (<em>bool</em><em>, </em><em>optional</em>) – Skip the animation (subject to <cite>save_figures</cite>
+being <cite>True</cite>), defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.azimuthal_integrators">
+<span class="sig-name descname"><span class="pre">azimuthal_integrators</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#CHAP.giwaxs.models.FiberIntegratorConfig" title="CHAP.giwaxs.models.FiberIntegratorConfig"><span class="pre">FiberIntegratorConfig</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.azimuthal_integrators" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.integrations">
+<span class="sig-name descname"><span class="pre">integrations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="CHAP.giwaxs.models.PyfaiIntegratorConfig"><span class="pre">PyfaiIntegratorConfig</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.integrations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.save_raw_data">
+<span class="sig-name descname"><span class="pre">save_raw_data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.save_raw_data" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.scan_step_indices">
+<span class="sig-name descname"><span class="pre">scan_step_indices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.scan_step_indices" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.skip_animation">
+<span class="sig-name descname"><span class="pre">skip_animation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.skip_animation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.GiwaxsConversionConfig.validate_scan_step_indices">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_scan_step_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scan_step_indices</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.GiwaxsConversionConfig.validate_scan_step_indices" title="Link to this definition"></a></dt>
+<dd><p>Validate the scan step indices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>scan_step_indices</strong> (<em>int</em><em> or </em><em>list</em><em>[</em><em>int</em><em>] or </em><em>str</em><em>, </em><em>optional</em>) – Input scan step indices.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Validated scan step indices.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Integrate1dConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Class with the input parameters to performs 1D azimuthal
+integration with
+<a class="reference external" href="https://pyfai.readthedocs.io/en/stable">pyFAI</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>error_model</strong> (<em>str</em><em>, </em><em>optional</em>) – When the variance is unknown, an error model
+can be given:
+<cite>poisson</cite> (variance = I) or <cite>azimuthal</cite> (variance = (I-&lt;I&gt;)^2).</p></li>
+<li><p><strong>method</strong> (<em>list</em><em>[</em><em>str</em><em>, </em><em>str</em><em>, </em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Integration method: 3-tuple with (splitting,
+algorithm, implementation), defaults to [<cite>‘bbox’</cite>, <cite>‘csr’</cite>,
+<cite>‘cython’</cite>]</p></li>
+<li><p><strong>npt</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of integration points, defaults to 1800.</p></li>
+<li><p><strong>attrs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional 1D azimuthal integration configuration attributes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig.attrs">
+<span class="sig-name descname"><span class="pre">attrs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig.attrs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig.error_model">
+<span class="sig-name descname"><span class="pre">error_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig.error_model" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig.method">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig.method" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate1dConfig.npt">
+<span class="sig-name descname"><span class="pre">npt</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate1dConfig.npt" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Integrate2dConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Class with the input parameters to performs 2D azimuthal
+integration with
+<a class="reference external" href="https://pyfai.readthedocs.io/en/stable">pyFAI</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>error_model</strong> (<em>str</em><em>, </em><em>optional</em>) – When the variance is unknown, an error model
+can be given:
+<cite>poisson</cite> (variance = I) or <cite>azimuthal</cite> (variance = (I-&lt;I&gt;)^2).</p></li>
+<li><p><strong>method</strong> (<em>list</em><em>[</em><em>str</em><em>, </em><em>str</em><em>, </em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Integration method: 3-tuple with (splitting,
+algorithm, implementation), defaults to [<cite>‘bbox’</cite>, <cite>‘csr’</cite>,
+<cite>‘cython’</cite>]</p></li>
+<li><p><strong>npt_azim</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of points for the integration in the
+azimuthal direction, defaults to 3600.</p></li>
+<li><p><strong>npt_rad</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of points for the integration in the
+radial direction, defaults to 1800.</p></li>
+<li><p><strong>attrs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional 2D azimuthal integration configuration attributes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.attrs">
+<span class="sig-name descname"><span class="pre">attrs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.attrs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.error_model">
+<span class="sig-name descname"><span class="pre">error_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.error_model" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.method">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.method" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.npt_azim">
+<span class="sig-name descname"><span class="pre">npt_azim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.npt_azim" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dConfig.npt_rad">
+<span class="sig-name descname"><span class="pre">npt_rad</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dConfig.npt_rad" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Integrate2dGIConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Class with the input parameters to performs 2D grazing incidence
+integration with
+<a class="reference external" href="https://pyfai.readthedocs.io/en/stable">pyFAI</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ais</strong> (<em>str</em>) – Detector prefix.</p></li>
+<li><p><strong>method</strong> (<em>list</em><em>[</em><em>str</em><em>, </em><em>str</em><em>, </em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Integration method: 3-tuple with (splitting,
+algorithm, implementation), defaults to [<cite>‘no’</cite>, <cite>‘histogram’</cite>,
+<cite>‘cython’</cite>]</p></li>
+<li><p><strong>npt_ip</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of points along the in-plane axis direction,
+defaults to 1000.</p></li>
+<li><p><strong>npt_oop</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of points along the out-of-plane axis
+direction, defaults to 1000.</p></li>
+<li><p><strong>sample_orientation</strong> (<em>int</em><em>, </em><em>optional</em>) – orientation of according to
+<a class="reference external" href="https://pyfai.readthedocs.io/en/stable/usage/tutorial/Orientation.html">EXIF orientation values</a>,
+defaults to <cite>2</cite>, or <cite>4</cite> for <cite>ais</cite> equal to <cite>EIG1</cite> or <cite>PIL5</cite>,
+and <cite>1</cite> otherwise.</p></li>
+<li><p><strong>unit_ip</strong> (<em>str</em><em>, </em><em>optional</em>) – In-plane unit, defaults to <cite>qip_A^-1</cite>.</p></li>
+<li><p><strong>unit_oop</strong> (<em>str</em><em>, </em><em>optional</em>) – Out-of-plane unit, defaults to <cite>qoop_A^-1</cite>.</p></li>
+<li><p><strong>attrs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional 2D grazing incidence integration configuration
+attributes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.ais">
+<span class="sig-name descname"><span class="pre">ais</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.ais" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.attrs">
+<span class="sig-name descname"><span class="pre">attrs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.attrs" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.method">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.method" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.npt_ip">
+<span class="sig-name descname"><span class="pre">npt_ip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.npt_ip" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.npt_oop">
+<span class="sig-name descname"><span class="pre">npt_oop</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.npt_oop" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.sample_orientation">
+<span class="sig-name descname"><span class="pre">sample_orientation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">8</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.sample_orientation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.unit_ip">
+<span class="sig-name descname"><span class="pre">unit_ip</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.unit_ip" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.unit_oop">
+<span class="sig-name descname"><span class="pre">unit_oop</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.unit_oop" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.validate_sample_orientation">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_sample_orientation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample_orientation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.validate_sample_orientation" title="Link to this definition"></a></dt>
+<dd><p>Validate the sample orientation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sample_orientation</strong> (<em>int</em>) – Sample orientation.</p></li>
+<li><p><strong>info</strong> (<em>pydantic.ValidationInfo</em>) – Model parameter validation information.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Validated sample orientation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.validate_unit_ip">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_unit_ip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_ip</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.validate_unit_ip" title="Link to this definition"></a></dt>
+<dd><p>Validate the sample orientation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>unit_ip</strong> (<em>str</em><em>, </em><em>optional</em>) – In-plane unit, defaults to <cite>qip_A^-1</cite>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Validated unit.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.Integrate2dGIConfig.validate_unit_oop">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_unit_oop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_oop</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.Integrate2dGIConfig.validate_unit_oop" title="Link to this definition"></a></dt>
+<dd><p>Validate the sample orientation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>unit_oop</strong> (<em>str</em><em>, </em><em>optional</em>) – Out-of-plane unit,
+defaults to <cite>qoop_A^-1</cite>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Validated unit.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IntegratorConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.common.models.html#CHAP.common.models.map.Detector" title="CHAP.common.models.map.Detector"><code class="xref py py-class docutils literal notranslate"><span class="pre">Detector</span></code></a>, <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Integrator configuration class to represent a single detector
+used in the experiment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mask_file</strong> (<em>FilePath</em><em>, </em><em>optional</em>) – Path to the mask file.</p></li>
+<li><p><strong>poni_file</strong> (<em>FilePath</em><em>, </em><em>optional</em>) – Path to the PONI file, specify either <cite>poni_file</cite>
+or <cite>params</cite>, not both.</p></li>
+<li><p><strong>params</strong> (<em>dict</em><em>, </em><em>optional</em>) – Azimuthal integrator configuration parameters,
+specify either <cite>poni_file</cite> or <cite>params</cite>, not both.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.ai">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ai</span></span><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.ai" title="Link to this definition"></a></dt>
+<dd><p>Return the model’s integrator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pyFAI.integrator.azimuthal.AzimuthalIntegrator</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.mask_file">
+<span class="sig-name descname"><span class="pre">mask_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">file</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.mask_file" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.params">
+<span class="sig-name descname"><span class="pre">params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.params" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.poni_file">
+<span class="sig-name descname"><span class="pre">poni_file</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">file</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.poni_file" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.IntegratorConfig.validate_integratorconfig_before">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_integratorconfig_before</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.IntegratorConfig.validate_integratorconfig_before" title="Link to this definition"></a></dt>
+<dd><p>Validate the <cite>IntegratorConfig</cite> class attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>dict</em>) – <a class="reference external" href="https://github.com/pydantic/pydantic">Pydantic</a>
+validator data object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Currently validated class attributes.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MultiGeometryConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Class representing the configuration for treating simultaneously
+multiple detector configuration within a single integration</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ais</strong> (<em>str</em><em> or </em><em>list</em><em>[</em><em>str</em><em>]</em>) – List of detector IDs of azimuthal integrators</p></li>
+<li><p><strong>azimuth_range</strong> (<em>list</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em><em>, </em><em>optional</em>) – Common azimuthal range for integration,
+defaults to <cite>[-180.0, 180.0]</cite>.</p></li>
+<li><p><strong>radial_range</strong> (<em>list</em><em>[</em><em>float</em><em>, </em><em>float</em><em>]</em><em>, </em><em>optional</em>) – Common range for integration, defaults to
+<cite>[0.0, 180.0]</cite>.</p></li>
+<li><p><strong>unit</strong> (<em>str</em><em>, </em><em>optional</em>) – Output unit, defaults to <cite>q_A^-1</cite>.</p></li>
+<li><p><strong>chi_disc</strong> (<em>int</em><em>, </em><em>optional</em>) – chi discontinuity value, defaults to <cite>180</cite>.</p></li>
+<li><p><strong>empty</strong> (<em>float</em><em>, </em><em>optional</em>) – Value for empty pixels, defaults to <cite>0</cite>.</p></li>
+<li><p><strong>wavelength</strong> (<em>float</em><em>, </em><em>optional</em>) – Wave length used in meters.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.ais">
+<span class="sig-name descname"><span class="pre">ais</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.ais" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.azimuth_range">
+<span class="sig-name descname"><span class="pre">azimuth_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="p"><span class="pre">-</span></span><span class="m"><span class="pre">180</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">360</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">AllowInfNan</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">allow_inf_nan</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.azimuth_range" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.chi_disc">
+<span class="sig-name descname"><span class="pre">chi_disc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.chi_disc" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.empty">
+<span class="sig-name descname"><span class="pre">empty</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">AllowInfNan</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">allow_inf_nan</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.empty" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.radial_range">
+<span class="sig-name descname"><span class="pre">radial_range</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">180</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">AllowInfNan</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">allow_inf_nan</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.radial_range" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.unit">
+<span class="sig-name descname"><span class="pre">unit</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.unit" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.validate_ais">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_ais</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ais</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.validate_ais" title="Link to this definition"></a></dt>
+<dd><p>Validate the detector IDs of the azimuthal integrators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ais</strong> (<em>str</em><em> or </em><em>list</em><em>[</em><em>str</em><em>]</em>) – Detector IDs.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Detector ais.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.MultiGeometryConfig.wavelength">
+<span class="sig-name descname"><span class="pre">wavelength</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">AllowInfNan</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">allow_inf_nan</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.MultiGeometryConfig.wavelength" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegrationConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PyfaiIntegrationConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Configuration for the azimuthal integrator processor
+<a class="reference internal" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor" title="CHAP.giwaxs.processor.PyfaiIntegrationProcessor"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyfaiIntegrationProcessor</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>azimuthal_integrators</strong> (<em>list</em><em>[</em><a class="reference internal" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig" title="CHAP.giwaxs.models.AzimuthalIntegratorConfig"><em>AzimuthalIntegratorConfig</em></a><em>]</em>) – List of azimuthal integrator
+configurations.</p></li>
+<li><p><strong>integrations</strong> (<em>list</em><em>[</em><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="CHAP.giwaxs.models.PyfaiIntegratorConfig"><em>PyfaiIntegratorConfig</em></a><em>]</em>) – Azimuthal integrator configurations.</p></li>
+<li><p><strong>sum_axes</strong> (<em>bool</em><em>, </em><em>optional</em>) – Sum the detector data over the independent
+coordinates before integration, defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegrationConfig.azimuthal_integrators">
+<span class="sig-name descname"><span class="pre">azimuthal_integrators</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#CHAP.giwaxs.models.AzimuthalIntegratorConfig" title="CHAP.giwaxs.models.AzimuthalIntegratorConfig"><span class="pre">AzimuthalIntegratorConfig</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig.azimuthal_integrators" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegrationConfig.integrations">
+<span class="sig-name descname"><span class="pre">integrations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="CHAP.giwaxs.models.PyfaiIntegratorConfig"><span class="pre">PyfaiIntegratorConfig</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Len</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig.integrations" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegrationConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegrationConfig.sum_axes">
+<span class="sig-name descname"><span class="pre">sum_axes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig.sum_axes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PyfaiIntegratorConfig</span></span><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.models.CHAPBaseModel" title="CHAP.models.CHAPBaseModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">CHAPBaseModel</span></code></a></p>
+<p>Class representing the configuration for detector data
+integrator for <a class="reference external" href="https://pyfai.readthedocs.io/en/stable">pyFAI</a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Integration type name, e.g. <cite>cake</cite>, or <cite>wedge</cite>.</p></li>
+<li><p><strong>integration_method</strong> (<em>Literal</em><em>[
+</em><em>'integrate1d'</em><em>, </em><em>'integrate2d'</em><em>, </em><em>'integrate_radial'</em><em>,
+</em><em>'integrate2d_grazing_incidence'</em><em>]</em>) – Integration method.</p></li>
+<li><p><strong>multi_geometry</strong> (<a class="reference internal" href="#CHAP.giwaxs.models.MultiGeometryConfig" title="CHAP.giwaxs.models.MultiGeometryConfig"><em>MultiGeometryConfig</em></a>) – Multiple detector configuration.</p></li>
+<li><p><strong>integration_params</strong> (<a class="reference internal" href="#CHAP.giwaxs.models.Integrate1dConfig" title="CHAP.giwaxs.models.Integrate1dConfig"><em>Integrate1dConfig</em></a><em> or
+</em><a class="reference internal" href="#CHAP.giwaxs.models.Integrate2dConfig" title="CHAP.giwaxs.models.Integrate2dConfig"><em>Integrate2dConfig</em></a><em> or </em><a class="reference internal" href="#CHAP.giwaxs.models.Integrate2dGIConfig" title="CHAP.giwaxs.models.Integrate2dGIConfig"><em>Integrate2dGIConfig</em></a>) – Integration parameter configuration.</p></li>
+<li><p><strong>right_handed</strong> (<em>bool</em><em>, </em><em>optional</em>) – For radial and cake integration, reverse the
+direction of the azimuthal coordinate from pyFAI’s convention,
+defaults to <cite>True</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.integrate">
+<span class="sig-name descname"><span class="pre">integrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ais</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">masks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thetas</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.integrate" title="Link to this definition"></a></dt>
+<dd><p>Perform the azimuthal integration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ais</strong> (<em>dict</em>) – Azimuthal integrators.</p></li>
+<li><p><strong>data</strong> (<em>dict</em>) – Detector image(s).</p></li>
+<li><p><strong>masks</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Detector mask(s).</p></li>
+<li><p><strong>thetas</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Tilt of the sample stage towards the beam (only
+relevant to wedge or grazing-incidence integration)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Integration results.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.integration_method">
+<span class="sig-name descname"><span class="pre">integration_method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'integrate1d'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'integrate2d'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'integrate_radial'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'integrate2d_grazing_incidence'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.integration_method" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.integration_params">
+<span class="sig-name descname"><span class="pre">integration_params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.Integrate1dConfig" title="CHAP.giwaxs.models.Integrate1dConfig"><span class="pre">Integrate1dConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.Integrate2dConfig" title="CHAP.giwaxs.models.Integrate2dConfig"><span class="pre">Integrate2dConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.Integrate2dGIConfig" title="CHAP.giwaxs.models.Integrate2dGIConfig"><span class="pre">Integrate2dGIConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.integration_params" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.multi_geometry">
+<span class="sig-name descname"><span class="pre">multi_geometry</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.MultiGeometryConfig" title="CHAP.giwaxs.models.MultiGeometryConfig"><span class="pre">MultiGeometryConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.multi_geometry" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.right_handed">
+<span class="sig-name descname"><span class="pre">right_handed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.right_handed" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.validate_pyfaiintegratorconfig_after">
+<span class="sig-name descname"><span class="pre">validate_pyfaiintegratorconfig_after</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.validate_pyfaiintegratorconfig_after" title="Link to this definition"></a></dt>
+<dd><p>Choose the integration_params type depending on the
+<cite>integration_method</cite> value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – Invalid <cite>integration_method</cite>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Validated integrator configuration.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig" title="CHAP.giwaxs.models.PyfaiIntegratorConfig">PyfaiIntegratorConfig</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.models.PyfaiIntegratorConfig.validate_pyfaiintegratorconfig_before">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_pyfaiintegratorconfig_before</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.models.PyfaiIntegratorConfig.validate_pyfaiintegratorconfig_before" title="Link to this definition"></a></dt>
+<dd><p>Validate the <cite>PyfaiIntegratorConfig</cite> class attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>dict</em>) – <a class="reference external" href="https://github.com/pydantic/pydantic">Pydantic</a>
+validator data object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Currently validated class attributes.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
-<section id="chap-giwaxs-processor-module">
-<h2>CHAP.giwaxs.processor module<a class="headerlink" href="#chap-giwaxs-processor-module" title="Link to this heading"></a></h2>
+<section id="module-CHAP.giwaxs.processor">
+<span id="chap-giwaxs-processor-module"></span><h2>CHAP.giwaxs.processor module<a class="headerlink" href="#module-CHAP.giwaxs.processor" title="Link to this heading"></a></h2>
+<p>Module for Processors unique to the GIWAXS workflow.</p>
+<p>Add discription of GIWAXS</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GiwaxsConversionProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.processor.Processor" title="CHAP.processor.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
+<p>A processor for converting GIWAXS images from curved to
+rectangular coordinates (wedge correction).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance of
+<a class="reference internal" href="#CHAP.giwaxs.models.GiwaxsConversionConfig" title="CHAP.giwaxs.models.GiwaxsConversionConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">GiwaxsConversionConfig</span></code></a>.</p></li>
+<li><p><strong>nxmemory</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum memory usage when reading NeXus files.</p></li>
+<li><p><strong>nxpath</strong> (<em>str</em><em>, </em><em>optional</em>) – Path to a specific location in the NeXus file tree
+to read the intensity data from.</p></li>
+<li><p><strong>save_figures</strong> (<em>bool</em><em>, </em><em>optional</em>) – Save .pngs of plots for checking inputs &amp;
+outputs of this Processor, defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.GiwaxsConversionConfig" title="CHAP.giwaxs.models.GiwaxsConversionConfig"><span class="pre">GiwaxsConversionConfig</span></a></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxmemory">
+<span class="sig-name descname"><span class="pre">nxmemory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxmemory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxpath">
+<span class="sig-name descname"><span class="pre">nxpath</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">StringConstraints</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">strip_whitespace</span></span><span class="o"><span class="pre">=</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_upper</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">to_lower</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">max_length</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ascii_only</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.nxpath" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.pipeline_fields">
+<span class="sig-name descname"><span class="pre">pipeline_fields</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.pipeline_fields" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.process">
+<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.process" title="Link to this definition"></a></dt>
+<dd><p>Process the GIWAXS input images &amp; configuration and return
+a map of the images in rectangular coordinates as a NeXus style
+<a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot">NXroot</a>
+object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Results of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MapProcessor</span></code> containing
+a map with the GIWAXS input images.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Converted GIWAXS images.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nexusformat.nexus.NXroot</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.GiwaxsConversionProcessor.save_figures">
+<span class="sig-name descname"><span class="pre">save_figures</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.GiwaxsConversionProcessor.save_figures" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PyfaiIntegrationProcessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'/home/runner/work/ChessAnalysisPipeline/ChessAnalysisPipeline/docs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">Path</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">PathType</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">path_type</span></span><span class="o"><span class="pre">=</span></span><span class="pre">dir</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interactive</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'DEBUG'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'INFO'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'WARNING'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'ERROR'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'CRITICAL'</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'INFO'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="CHAP.html#CHAP.processor.Processor" title="CHAP.processor.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
+<p>A processor for azimuthally integrating images.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config</strong> (<em>dict</em><em>, </em><em>optional</em>) – Initialization parameters for an instance of
+<a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig" title="CHAP.giwaxs.models.PyfaiIntegrationConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyfaiIntegrationConfig</span></code></a>.</p></li>
+<li><p><strong>nxmemory</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum memory usage when reading NeXus files.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.config">
+<span class="sig-name descname"><span class="pre">config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#CHAP.giwaxs.models.PyfaiIntegrationConfig" title="CHAP.giwaxs.models.PyfaiIntegrationConfig"><span class="pre">PyfaiIntegrationConfig</span></a></em><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.config" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'arbitrary_types_allowed':</span> <span class="pre">True}</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_config" title="Link to this definition"></a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_post_init">
+<span class="sig-name descname"><span class="pre">model_post_init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.model_post_init" title="Link to this definition"></a></dt>
+<dd><p>This function is meant to behave like a BaseModel method to initialize private attributes.</p>
+<p>It takes context as an argument since that’s what pydantic-core passes when calling it.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>self: The BaseModel instance.
+context: The context.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.nxmemory">
+<span class="sig-name descname"><span class="pre">nxmemory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Annotated</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Interval</span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">gt</span></span><span class="o"><span class="pre">=</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">ge</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">lt</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">le</span></span><span class="o"><span class="pre">=</span></span><span class="pre">None</span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.nxmemory" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.pipeline_fields">
+<span class="sig-name descname"><span class="pre">pipeline_fields</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.pipeline_fields" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process">
+<span class="sig-name descname"><span class="pre">process</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#CHAP.giwaxs.processor.PyfaiIntegrationProcessor.process" title="Link to this definition"></a></dt>
+<dd><p>Process the input images &amp; configuration and return a map of
+the azimuthally integrated images as a NeXus style
+<a class="reference external" href="https://manual.nexusformat.org/classes/base_classes/NXroot.html#nxroot">NXroot</a>
+object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>list</em><em>[</em><a class="reference internal" href="CHAP.html#CHAP.pipeline.PipelineData" title="CHAP.pipeline.PipelineData"><em>PipelineData</em></a><em>]</em>) – Results of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">MapProcessor</span></code> or other
+suitable preprocessor of the raw detector data containing
+the map of input images.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Integrated images.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nexusformat.nexus.NXroot</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="module-CHAP.giwaxs.reader">
 <span id="chap-giwaxs-reader-module"></span><h2>CHAP.giwaxs.reader module<a class="headerlink" href="#module-CHAP.giwaxs.reader" title="Link to this heading"></a></h2>
