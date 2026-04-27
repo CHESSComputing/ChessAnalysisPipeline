@@ -234,6 +234,9 @@ class MaterialConfig(CHAPBaseModel):
 
 # Detector configuration classes
 
+_FitConfig.model_rebuild(_types_namespace=vars(typing))
+
+
 class MCADetectorCalibration(Detector, _FitConfig):
     """Class representing the configuration for a single MCA detector
     element to perform detector calibration.
@@ -974,6 +977,6 @@ class StrainAnalysisConfig(MCACalibrationConfig):
 #                             'of "width", "stride" or "num"')
 #        return oversampling
 
-MCADetectorCalibration.model_rebuild(_types_namespace=vars(typing))
-MCADetectorConfig.model_rebuild(_types_namespace=vars(typing))
-DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
+#MCADetectorCalibration.model_rebuild(_types_namespace=vars(typing))
+#MCADetectorConfig.model_rebuild(_types_namespace=vars(typing))
+#DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
