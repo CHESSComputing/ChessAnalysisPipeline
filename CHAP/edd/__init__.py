@@ -30,6 +30,7 @@ writer
 """
 
 import typing
+from CHAP.edd.models import DiffractionVolumeLengthConfig
 DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
 #from CHAP.edd.processor import (
 #    DiffractionVolumeLengthProcessor,
