@@ -7,6 +7,7 @@ workflows.
 # System modules
 from copy import deepcopy
 import os
+import typing
 from typing import (
     Dict,
     Optional,
@@ -949,7 +950,7 @@ class ImageProcessor(Processor):
         return fig, plt
 
 
-DetectorConfig.model_rebuild(_types_namespace={'Dict': Dict})
+DetectorConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class MapProcessor(Processor):
