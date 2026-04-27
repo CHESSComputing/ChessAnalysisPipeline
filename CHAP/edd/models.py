@@ -232,6 +232,9 @@ class MaterialConfig(CHAPBaseModel):
         return self
 
 
+MaterialConfig.model_rebuild(_types_namespace=vars(typing))
+
+
 # Detector configuration classes
 
 #_FitConfig.model_rebuild(_types_namespace=vars(typing))
@@ -650,9 +653,6 @@ class DiffractionVolumeLengthConfig(_FitConfig):
         if self.measurement_mode == 'manual':
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
-
-
-#MaterialConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class MCACalibrationConfig(CHAPBaseModel):
