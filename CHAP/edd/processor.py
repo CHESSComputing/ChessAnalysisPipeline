@@ -44,7 +44,7 @@ FLOAT_MIN = float_info.min
 #    0, 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21, 22
 
 
-class BaseEddProcessor(Processor):
+class _BaseEddProcessor(Processor):
     """Base processor for the EDD processors.
 
     :ivar save_figures: Save .pngs of plots for checking inputs and
@@ -313,7 +313,7 @@ class BaseEddProcessor(Processor):
                 mean_data -= baseline
 
 
-class BaseStrainProcessor(BaseEddProcessor):
+class _BaseStrainProcessor(_BaseEddProcessor):
     """Base processor for
     :class:`~CHAP.edd.processor.LatticeParameterRefinementProcessor`
     and :class:`~CHAP.edd.processor.StrainAnalysisProcessor`.
@@ -472,7 +472,7 @@ class BaseStrainProcessor(BaseEddProcessor):
             f'mean_data shape: {np.asarray(self._mean_data).shape}')
 
 
-class DiffractionVolumeLengthProcessor(BaseEddProcessor):
+class DiffractionVolumeLengthProcessor(_BaseEddProcessor):
     """A Processor using a steel foil raster scan to calculate the
     diffraction volume length for an EDD setup.
 
@@ -807,7 +807,7 @@ class DiffractionVolumeLengthProcessor(BaseEddProcessor):
             schema='common.write.ImageWriter')
 
 
-class HKLProcessor(BaseStrainProcessor):
+class HKLProcessor(_BaseStrainProcessor):
     """Processor that plots the HKLs for a given material against the
     calibrated energy channels.
 
@@ -892,7 +892,7 @@ class HKLProcessor(BaseStrainProcessor):
 
 
 
-class LatticeParameterRefinementProcessor(BaseStrainProcessor):
+class LatticeParameterRefinementProcessor(_BaseStrainProcessor):
     """Processor to get a refined estimate for a sample's lattice
     parameters.
 
@@ -1154,7 +1154,7 @@ class LatticeParameterRefinementProcessor(BaseStrainProcessor):
 #            a_uniform, a_uniform, a_uniform, 90., 90., 90.]
 
 
-class MCAEnergyCalibrationProcessor(BaseEddProcessor):
+class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
     """Processor to return parameters for linearly transforming MCA
     channel indices to energies (in keV). Procedure: provide a
     spectrum from the MCA element to be calibrated and the theoretical
@@ -1712,7 +1712,7 @@ class MCAEnergyCalibrationProcessor(BaseEddProcessor):
         return buf, peak_indices
 
 
-class MCATthCalibrationProcessor(BaseEddProcessor):
+class MCATthCalibrationProcessor(_BaseEddProcessor):
     """Processor to calibrate the 2&theta angle and fine tune the
     energy calibration coefficients for an EDD experimental setup.
 
@@ -2351,7 +2351,7 @@ class MCATthCalibrationProcessor(BaseEddProcessor):
                 f'{detector.tth_initial_guess}')
 
 
-class ReducedDataProcessor(BaseStrainProcessor):
+class ReducedDataProcessor(_BaseStrainProcessor):
     """Processor that takes a map of MCA data and returns a map of
     reduced data.
     """
@@ -2518,7 +2518,7 @@ class ReducedDataProcessor(BaseStrainProcessor):
             nxgroup.attrs['unstructured_axes'] = unstructured_axes
 
 
-class StrainAnalysisProcessor(BaseStrainProcessor):
+class StrainAnalysisProcessor(_BaseStrainProcessor):
     """Processor that takes a map of MCA data and returns a map of
     sample strains.
 
