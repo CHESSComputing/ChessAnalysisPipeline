@@ -25,19 +25,10 @@ writer
     Writers unique to the FOXDEN pipeline items.
 """
 
-#from CHAP.foxden.processor import (
-##    FoxdenMetadataProcessor,
-##    FoxdenProvenanceProcessor,
-#    ProvenanceFileProcessor,
-#)
-#from CHAP.foxden.reader import (
-#    FoxdenDataDiscoveryReader,
-#    FoxdenMetadataReader,
-#    FoxdenProvenanceReader,
-#    FoxdenSpecScansReader,
-#)
-#from CHAP.foxden.writer import (
-#    FoxdenDoiWriter,
-#    FoxdenMetadataWriter,
-#    FoxdenProvenanceWriter,
-#)
+# System modules
+import typing
+
+# Local modules
+from CHAP.foxden.models import FoxdenRequestConfig
+
+FoxdenRequestConfig.model_rebuild(_types_namespace=vars(typing))

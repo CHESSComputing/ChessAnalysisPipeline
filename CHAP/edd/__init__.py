@@ -35,31 +35,12 @@ import typing
 # Local modules
 from CHAP.edd.models import (
     DiffractionVolumeLengthConfig,
+    MaterialConfig,
     MCACalibrationConfig,
     StrainAnalysisConfig,
 )
 
-#DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
-#MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
-#StrainAnalysisConfig.model_rebuild(_types_namespace=vars(typing))
-#from CHAP.edd.processor import (
-#    DiffractionVolumeLengthProcessor,
-#    LatticeParameterRefinementProcessor,
-#    HKLProcessor,
-#    MCAEnergyCalibrationProcessor,
-#    MCATthCalibrationProcessor,
-#    ReducedDataProcessor,
-#    StrainAnalysisProcessor,
-#)
-#from CHAP.edd.reader import (
-#    EddMapReader,
-#    EddMPIMapReader,
-#    ScanToMapReader,
-#    SetupNXdataReader,
-#    UpdateNXdataReader,
-#    NXdataSliceReader,
-#    SliceNXdataReader,
-#)
-#from CHAP.edd.writer import (
-#    StrainAnalysisUpdateWriter,
-#)
+DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
+MaterialConfig.model_rebuild(_types_namespace=vars(typing))
+MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
+StrainAnalysisConfig.model_rebuild(_types_namespace=vars(typing))

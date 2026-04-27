@@ -12,8 +12,14 @@ map
     Map related Pydantic model configuration classes.
 """
 
+# System modules
+import typing
+
+# Local modules
+from CHAP.common.models.map import DetectorConfig
 from CHAP.common.models.common import (
-    BinarizeConfig,
     ImageProcessorConfig,
     UnstructuredToStructuredConfig,
 )
+
+DetectorConfig.model_rebuild(_types_namespace=vars(typing))

@@ -15,7 +15,6 @@ from typing import (
 
 # Third party modules
 from pydantic import (
-#    ConfigDict,
     Field,
 #    FilePath,
     PrivateAttr,
@@ -67,8 +66,6 @@ class PipelineItem(RunConfig):
 #    _provenance: dict = PrivateAttr(default=None)
     _status: Literal[
         'read', 'write_pending', 'written'] = PrivateAttr(default=None)
-
-    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def validate_pipelineitem_after(self):
@@ -495,8 +492,6 @@ class Pipeline(CHAPBaseModel):
 #    _metadata: dict = PrivateAttr(
 #        default={'application': 'CHAP', 'user_metadata': {}})
 #    _provenance: dict = PrivateAttr(default={})
-
-    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode='after')
     def validate_pipeline_after(self):

@@ -333,7 +333,8 @@ def run(
         try:
             module = getattr(module_name, cls_name)
         except:
-            if (cls_name.endswith('Processor')
+            if ((cls_name.endswith('Processor')
+                        || cls_name == TomoCHESSMapConverter)
                     and split_name[-2] != 'processor'):
                 mod_name += '.processor'
             if cls_name.endswith('Reader') and split_name[-2] != 'reader':

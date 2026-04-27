@@ -16,7 +16,6 @@ import os
 import re
 import sys
 from time import time
-import typing
 from typing import (
     Annotated,
     Optional,
@@ -27,7 +26,6 @@ import tkinter as tk
 from json import loads
 import numpy as np
 from pydantic import (
-#    ConfigDict,
     Field,
     PrivateAttr,
     SkipValidation,
@@ -944,9 +942,6 @@ class SetNumexprThreads:
         set_num_threads(self._num_proc_org)
 
 
-TomoReduceConfig.model_rebuild(_types_namespace=vars(typing))
-
-
 class TomoReduceProcessor(Processor):
     """A processor to reduce a set of raw tomographic images returning
     a NeXus style
@@ -1800,8 +1795,6 @@ class TomoFindCenterGui(Processor):
     _error_text: list = PrivateAttr(default=[])
 
     _exclude = {'tk_root'}
-
-    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def center_offsets(self):

@@ -24,17 +24,18 @@ writer
     Writers unique to the tomography workflow.
 """
 
-#from CHAP.tomo.processor import (
-#    TomoMetadataProcessor,
-#    TomoCHESSMapConverter,
-#    TomoReduceProcessor,
-#    TomoFindCenterProcessor,
-#    TomoReconstructProcessor,
-#    TomoCombineProcessor,
-#    TomoSimFieldProcessor,
-#    TomoDarkFieldProcessor,
-#    TomoBrightFieldProcessor,
-#    TomoSpecProcessor,
-#)
-## from CHAP.tomo.reader import
-#from CHAP.tomo.writer import TomoWriter
+# System modules
+import typing
+
+# Local modules
+from CHAP.tomo.models import (
+    TomoCombineConfig,
+    TomoFindCenterConfig,
+    TomoReconstructConfig,
+    TomoReduceConfig,
+)
+
+TomoCombineConfig.model_rebuild(_types_namespace=vars(typing))
+TomoFindCenterConfig.model_rebuild(_types_namespace=vars(typing))
+TomoReconstructConfig.model_rebuild(_types_namespace=vars(typing))
+TomoReduceConfig.model_rebuild(_types_namespace=vars(typing))

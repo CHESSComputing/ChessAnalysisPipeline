@@ -8,7 +8,6 @@ from typing import (
     Optional,
 )
 from pydantic import (
-#    ConfigDict,
     conint,
     conlist,
     confloat,
@@ -230,5 +229,3 @@ class TomoSimConfig(CHAPBaseModel):
     beam_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.e9
     background_intensity: Optional[confloat(gt=0, allow_inf_nan=False)] = 20
     slit_size: Optional[confloat(gt=0, allow_inf_nan=False)] = 1.0
-
-    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)

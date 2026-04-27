@@ -7,7 +7,6 @@ workflows.
 # System modules
 from copy import deepcopy
 import os
-import typing
 from typing import (
     Dict,
     Optional,
@@ -948,9 +947,6 @@ class ImageProcessor(Processor):
         if animated:
             return fig, im, plt, title
         return fig, plt
-
-
-DetectorConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class MapProcessor(Processor):

@@ -5,7 +5,7 @@ configuration classes unique to the the EDD workflow.
 # System modules
 from copy import deepcopy
 import os
-import typing
+#import typing
 from typing import (
     Literal,
     Optional,
@@ -234,7 +234,7 @@ class MaterialConfig(CHAPBaseModel):
 
 # Detector configuration classes
 
-_FitConfig.model_rebuild(_types_namespace=vars(typing))
+#_FitConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class MCADetectorCalibration(Detector, _FitConfig):
@@ -652,7 +652,7 @@ class DiffractionVolumeLengthConfig(_FitConfig):
         return self
 
 
-MaterialConfig.model_rebuild(_types_namespace=vars(typing))
+#MaterialConfig.model_rebuild(_types_namespace=vars(typing))
 
 
 class MCACalibrationConfig(CHAPBaseModel):
