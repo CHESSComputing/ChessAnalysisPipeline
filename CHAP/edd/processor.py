@@ -2523,6 +2523,11 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         `update` are `True` the standalone `NXprocess` and the
         values list are returned together as a tuple.
     :type standalone: bool, optional
+    :ivar json_results: If updating, return an additional minimal
+        dictionary of results that can be written to .json file for
+        easier access by autonomous feedback experiment
+        drivers. Defaults to `False`.
+    :vartype json_results: bool, optional
     """
     pipeline_fields: dict = Field(
         default = {
@@ -2537,6 +2542,7 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
     setup: Optional[bool] = True
     update: Optional[bool] = True
     standalone: Optional[bool] = False
+    json_results: Optional[bool] = False
 
     @model_validator(mode='before')
     @classmethod
@@ -2792,9 +2798,12 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         else:
             result = self._get_values(results) if self.standalone \
                      else self._get_points(results)
-            if not (self._figures or self._animation):
-                return result
             ret = [result]
+            if self.json_results:
+                json_results = {k: v.tolist() for k, v in results.items()}
+                ret.append(json_results)
+            if not (self._figures or self._animation):
+                return tuple(ret)
         if self._figures:
             ret.append(
                 PipelineData(
