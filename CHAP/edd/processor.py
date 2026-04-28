@@ -1185,6 +1185,8 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
     config: MCAEnergyCalibrationConfig
     detector_config: MCADetectorConfig
 
+    _peak_fit_results: dict = PrivateAttr(default={})
+
     @model_validator(mode='before')
     @classmethod
     def validate_mcaenergycalibrationprocessor_before(cls, data):
@@ -1309,6 +1311,10 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
             **self.config.model_dump(),
             'detectors': [d.model_dump(exclude_defaults=True)
                           for d in self.detector_config.detectors]}
+        # Add the fit results to the detector fields
+        for i, d in enumerate(self.detector_config.detectors):
+            configs['detectors'][i].update(
+                {'peak_fit_results': self._peak_fit_results[d.get_id()]})
         return configs, PipelineData(
             name=self.__name__, data=self._figures,
             schema='common.write.ImageWriter')
@@ -1369,7 +1375,9 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                 self._energies, self._masks, self._mean_data,
                 self._mask_index_ranges, self.detector_config.detectors):
 
-            self.logger.info(f'Calibrating detector {detector.get_id()}')
+            id_ = detector.get_id()
+
+            self.logger.info(f'Calibrating detector {id_}')
 
             bins = low + np.arange(energies.size, dtype=np.int16)
 
@@ -1378,13 +1386,11 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
                              for energy in peak_energies]
             buf, initial_peak_indices = self._get_initial_peak_positions(
                 mean_data*np.asarray(mask).astype(np.int32), low,
-                detector.mask_ranges, input_indices, max_peak_index,
-                detector.get_id(), return_buf=self.save_figures)
+                detector.mask_ranges, input_indices, max_peak_index, id_,
+                return_buf=self.save_figures)
             if self.save_figures:
                 self._figures.append(
-                    (buf,
-                     f'{detector.get_id()}'
-                         '_energy_calibration_initial_peak_positions'))
+                    (buf, f'{id_}_energy_calibration_initial_peak_positions'))
 
             # Construct the fit model and perform the fit
             models = []
@@ -1409,17 +1415,24 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
 
             # Extract the fit results for the peaks
             fit_peak_amplitudes = sorted([
-                mean_data_fit.best_values[f'peak{i+1}_amplitude']
+                mean_data_fit.best_values[f'peak{i+1}_amplitude'].tolist()
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
             fit_peak_indices = sorted([
-                mean_data_fit.best_values[f'peak{i+1}_center']
+                mean_data_fit.best_values[f'peak{i+1}_center'].tolist()
                 for i in range(len(initial_peak_indices))])
             self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
-            fit_peak_fwhms = sorted([
-                2.35482*mean_data_fit.best_values[f'peak{i+1}_sigma']
+            fit_peak_sigmas = sorted([
+                mean_data_fit.best_values[f'peak{i+1}_sigma'].tolist()
                 for i in range(len(initial_peak_indices))])
-            self.logger.debug(f'Fit peak fwhms: {fit_peak_fwhms}')
+            self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
+            self._peak_fit_results[id_] = {
+                'amplitudes': fit_peak_amplitudes,
+                'centers': fit_peak_indices,
+                'sigmas': fit_peak_sigmas,
+                'independent_dimension': {
+                    'name': 'Detector Channel', 'unit': '-'}
+            }
 
             # FIX for now stick with a linear energy correction
             fit = FitProcessor(**self.run_config)
@@ -1446,8 +1459,7 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
 
                 bins_masked = bins[mask]
                 fig, axs = plt.subplots(1, 2, figsize=(11, 4.25))
-                fig.suptitle(
-                    f'Detector {detector.get_id()} energy calibration')
+                fig.suptitle(f'Detector {id_} energy calibration')
                 # Left plot: raw MCA data and best fit of peaks
                 axs[0].set_title('MCA spectrum peak fit')
                 axs[0].set_xlabel('Detector Channel (-)')
@@ -1488,8 +1500,7 @@ class MCAEnergyCalibrationProcessor(_BaseEddProcessor):
 
                 if self.save_figures:
                     self._figures.append(
-                        (fig_to_iobuf(fig),
-                         f'{detector.get_id()}_energy_calibration_fit'))
+                        (fig_to_iobuf(fig), f'{id_}_energy_calibration_fit'))
                 if self.interactive:
                     plt.show()
                 plt.close()
@@ -1740,6 +1751,8 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
     config: MCATthCalibrationConfig
     detector_config: MCADetectorConfig
 
+    _peak_fit_results: dict = PrivateAttr(default={})
+
     @model_validator(mode='before')
     @classmethod
     def validate_mcatthcalibrationprocessor_before(cls, data):
@@ -1875,6 +1888,10 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             **self.config.model_dump(),
             'detectors': [d.model_dump(exclude_defaults=True)
                           for d in self.detector_config.detectors]}
+        # Add the fit results to the detector fields
+        for i, d in enumerate(self.detector_config.detectors):
+            configs['detectors'][i].update(
+                {'peak_fit_results': self._peak_fit_results[d.get_id()]})
         return configs, PipelineData(
             name=self.__name__, data=self._figures,
             schema='common.write.ImageWriter')
@@ -2128,7 +2145,26 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
         residual = result.residual
 
         # Extract the Bragg peak indices from the fit
-        i_bragg_fit = np.asarray(
+        fit_peak_amplitudes = [
+            result.best_values[f'peak{i+1}_amplitude'].tolist()
+            for i in range(len(e_bragg))]
+        self.logger.debug(f'Fit peak amplitudes: {fit_peak_amplitudes}')
+        fit_peak_indices = [
+            result.best_values[f'peak{i+1}_center'].tolist()
+            for i in range(len(e_bragg))]
+        self.logger.debug(f'Fit peak center indices: {fit_peak_indices}')
+        fit_peak_sigmas = [
+            result.best_values[f'peak{i+1}_sigma'].tolist()
+            for i in range(len(e_bragg))]
+        self.logger.debug(f'Fit peak sigmas: {fit_peak_sigmas}')
+        self._peak_fit_results[detector.get_id()] = {
+            'amplitudes': fit_peak_amplitudes,
+            'centers': fit_peak_indices,
+            'sigmas': fit_peak_sigmas,
+            'independent_dimension': {
+                'name': 'Detector Channel', 'unit': '-'}
+        }
+        fit_peak_indices = np.asarray(
             [result.best_values[f'peak{i+1}_center']
              for i in range(len(e_bragg))])
 
@@ -2140,7 +2176,7 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             model = 'linear'
         fit = FitProcessor(**self.run_config)
         result = fit.process(
-            NXdata(NXfield(e_bragg, 'y'), NXfield(i_bragg_fit, 'x')),
+            NXdata(NXfield(e_bragg, 'y'), NXfield(fit_peak_indices, 'x')),
             {'models': [{'model': model}]})
         if quadratic_energy_calibration:
             a_fit = result.best_values['a']
@@ -2151,7 +2187,7 @@ class MCATthCalibrationProcessor(_BaseEddProcessor):
             b_fit = result.best_values['slope']
             c_fit = result.best_values['intercept']
         e_bragg_unconstrained = (
-            (a_fit*i_bragg_fit + b_fit) * i_bragg_fit + c_fit)
+            (a_fit*fit_peak_indices + b_fit) * fit_peak_indices + c_fit)
 
         return {
             'best_fit_unconstrained': best_fit,
