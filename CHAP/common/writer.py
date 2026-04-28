@@ -772,7 +772,7 @@ class YAMLWriter(Writer):
         from CHAP.models import CHAPBaseModel
 
         def get_dict(data):
-            if isinstance(data, dict):
+            if isinstance(data, dict) or isinstance(data, list):
                 return data
             if isinstance(data, (BaseModel, CHAPBaseModel)):
                 try:
