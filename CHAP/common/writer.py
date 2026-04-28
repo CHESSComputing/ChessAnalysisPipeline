@@ -418,6 +418,22 @@ class ImageWriter(PipelineItem):
             raise ValueError(f'Invalid image input type {type(image_data)}')
 
 
+class JSONWriter(Writer):
+    """Writer for JSON data.
+
+    :ivar index: Index of ``PipelineData`` item in input ``data`` list
+        that should be written to the JSON file. Defaults to ``-1``.
+    :vartpe index: int, Optional.
+    """
+    index: int = -1
+    def write(self, data):
+        """Write the last """
+        import json
+        _data = self.get_pipelinedata_item(data, remove=self.remove)
+        with open(self.filename, 'w') as outf:
+            json.dump(_data, outf)
+
+
 class MatplotlibAnimationWriter(Writer):
     """Writer for saving matplotlib animations.
 
