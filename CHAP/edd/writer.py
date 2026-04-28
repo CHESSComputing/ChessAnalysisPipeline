@@ -3,7 +3,7 @@
 """Module for Writers unique to the EDD workflow."""
 
 # Local modules
-from CHAP import Writer
+from CHAP.writer import Writer
 
 class StrainAnalysisUpdateWriter(Writer):
     """Writer to add or update the strain analysis for a set of map

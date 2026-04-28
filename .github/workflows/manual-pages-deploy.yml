@@ -18,10 +18,10 @@ jobs:
 
     - name: Update docs configuration with version (tag) name
       run: |
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" setup.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" CHAP/__init__.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/conf.py
-        sed -i "s/PACKAGE_VERSION/${{ github.ref_name }}/" docs/installation.md
+        sed -i "s/PACKAGE_VERSION/0.0.1/" setup.py
+        sed -i "s/PACKAGE_VERSION/0.0.1/" CHAP/__init__.py
+        sed -i "s/PACKAGE_VERSION/0.0.1/" docs/conf.py
+        sed -i "s/PACKAGE_VERSION/0.0.1/" docs/installation.md
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3

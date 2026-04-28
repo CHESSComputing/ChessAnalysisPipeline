@@ -26,8 +26,8 @@ from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 from pyFAI.integrator.fiber import FiberIntegrator
 
 # Local modules
-from CHAP import CHAPBaseModel
 from CHAP.common.models.map import Detector
+from CHAP.models import CHAPBaseModel
 
 
 @model_validator(mode='before')

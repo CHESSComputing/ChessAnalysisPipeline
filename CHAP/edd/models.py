@@ -5,6 +5,7 @@ configuration classes unique to the the EDD workflow.
 # System modules
 from copy import deepcopy
 import os
+import typing
 from typing import (
     Literal,
     Optional,
@@ -63,7 +64,7 @@ class BaselineConfig(CHAPBaseModel):
 
 # Fit configuration class
 
-class FitConfig(CHAPBaseModel):
+class _FitConfig(CHAPBaseModel):
     """Fit parameters configuration class for peak fitting.
 
     :ivar background: Background model for peak fitting, defaults
@@ -233,7 +234,12 @@ class MaterialConfig(CHAPBaseModel):
 
 # Detector configuration classes
 
-class MCADetectorCalibration(Detector, FitConfig):
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using in an _exclude pydantic instance
+# variable
+_FitConfig.model_rebuild(_types_namespace=vars(typing))
+
+class MCADetectorCalibration(Detector, _FitConfig):
     """Class representing the configuration for a single MCA detector
     element to perform detector calibration.
 
@@ -541,7 +547,7 @@ MCADetector = Annotated[
 ]
 
 
-class MCADetectorConfig(FitConfig):
+class MCADetectorConfig(_FitConfig):
     """Class representing metadata required to configure a full MCA
     detector.
 
@@ -553,7 +559,7 @@ class MCADetectorConfig(FitConfig):
         'calibration', 'diffractionvolumelength', 'strainanalysis']
     detectors: Optional[conlist(min_length=1, item_type=MCADetector)] = []
 
-    _exclude = set(vars(FitConfig()).keys())
+    _exclude = set(vars(_FitConfig()).keys())
 
     @model_validator(mode='before')
     @classmethod
@@ -605,7 +611,7 @@ class MCADetectorConfig(FitConfig):
 
 # Processor configuration classes
 
-class DiffractionVolumeLengthConfig(FitConfig):
+class DiffractionVolumeLengthConfig(_FitConfig):
     """Configuration for the differential volume length processor
     :class:`~CHAP.edd.processor.DiffractionVolumeLengthProcessor`
     for an EDD setup using a steel-foil raster scan.
@@ -633,7 +639,7 @@ class DiffractionVolumeLengthConfig(FitConfig):
     sample_thickness: Optional[confloat(gt=0, allow_inf_nan=False)] = None
     sigma_to_dvl_factor: Optional[Literal[2.0, 3.5, 4.0]] = 3.5
 
-    _exclude = set(vars(FitConfig()).keys())
+    _exclude = set(vars(_FitConfig()).keys())
 
     @model_validator(mode='after')
     def validate_diffractionvolumelengthconfig_after(self):
@@ -647,6 +653,11 @@ class DiffractionVolumeLengthConfig(FitConfig):
             self._exclude |= {'sigma_to_dvl_factor'}
         return self
 
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using MaterialConfig within a default
+# value of a pydantic instance variable
+MaterialConfig.model_rebuild(_types_namespace=vars(typing))
 
 class MCACalibrationConfig(CHAPBaseModel):
     """Base class configuration for energy and 2&theta calibration

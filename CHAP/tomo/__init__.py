@@ -24,17 +24,21 @@ writer
     Writers unique to the tomography workflow.
 """
 
-#from CHAP.tomo.processor import (
-#    TomoMetadataProcessor,
-#    TomoCHESSMapConverter,
-#    TomoReduceProcessor,
-#    TomoFindCenterProcessor,
-#    TomoReconstructProcessor,
-#    TomoCombineProcessor,
-#    TomoSimFieldProcessor,
-#    TomoDarkFieldProcessor,
-#    TomoBrightFieldProcessor,
-#    TomoSpecProcessor,
-#)
-## from CHAP.tomo.reader import
-#from CHAP.tomo.writer import TomoWriter
+# System modules
+import typing
+
+# Local modules
+from CHAP.tomo.models import (
+    TomoCombineConfig,
+    TomoFindCenterConfig,
+    TomoReconstructConfig,
+    TomoReduceConfig,
+)
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using any of these within a default
+# value of a pydantic instance variable
+TomoCombineConfig.model_rebuild(_types_namespace=vars(typing))
+TomoFindCenterConfig.model_rebuild(_types_namespace=vars(typing))
+TomoReconstructConfig.model_rebuild(_types_namespace=vars(typing))
+TomoReduceConfig.model_rebuild(_types_namespace=vars(typing))

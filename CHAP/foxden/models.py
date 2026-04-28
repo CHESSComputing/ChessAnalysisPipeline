@@ -17,7 +17,7 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import CHAPBaseModel
+from CHAP.models import CHAPBaseModel
 
 
 class FoxdenRequestConfig(CHAPBaseModel):
