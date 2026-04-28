@@ -26,8 +26,8 @@ from pydantic import (
 from pyFAI.integrator.azimuthal import AzimuthalIntegrator
 
 # Local modules
-from CHAP import CHAPBaseModel
 from CHAP.common.models.map import Detector
+from CHAP.models import CHAPBaseModel
 
 
 class AzimuthalIntegratorConfig(Detector, CHAPBaseModel):
@@ -196,7 +196,7 @@ class MultiGeometryConfig(CHAPBaseModel):
         return ais
 
 
-class IntegrateConfig(CHAPBaseModel):
+class _IntegrateConfig(CHAPBaseModel):
     """Class with the input parameters to perform various integrations
     with `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 
@@ -219,7 +219,7 @@ class IntegrateConfig(CHAPBaseModel):
     attrs: Optional[dict] = {}
 
 
-class Integrate1dConfig(IntegrateConfig):
+class Integrate1dConfig(_IntegrateConfig):
     """Class with the input parameters to perform 1D azimuthal
     integration with
     `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
@@ -242,7 +242,7 @@ class Integrate1dConfig(IntegrateConfig):
     npt: Optional[conint(gt=0)] = 1800
 
 
-class Integrate2dConfig(IntegrateConfig):
+class Integrate2dConfig(_IntegrateConfig):
     """Class with the input parameters to perform 2D azimuthal (cake)
     integration with
     `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
@@ -264,7 +264,7 @@ class Integrate2dConfig(IntegrateConfig):
     npt_rad: Optional[conint(gt=0)] = 1800
 
 
-class IntegrateRadialConfig(IntegrateConfig, MultiGeometryConfig):
+class IntegrateRadialConfig(_IntegrateConfig, MultiGeometryConfig):
     """Class with the input parameters to perform radial integration
     with `pyFAI <https://pyfai.readthedocs.io/en/stable/>`__.
 

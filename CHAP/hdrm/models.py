@@ -10,9 +10,9 @@ from pydantic import (
 )
 
 # Local modules
-from CHAP import CHAPBaseModel
 from CHAP.edd.models import MaterialConfig
 from CHAP.giwaxs.models import AzimuthalIntegratorConfig
+from CHAP.models import CHAPBaseModel
 
 
 class HdrmOrmfinderConfig(CHAPBaseModel):

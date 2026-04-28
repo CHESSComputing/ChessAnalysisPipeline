@@ -29,24 +29,19 @@ writer
     Writers unique to the EDD workflow.
 """
 
-from CHAP.edd.processor import (
-    DiffractionVolumeLengthProcessor,
-    LatticeParameterRefinementProcessor,
-    HKLProcessor,
-    MCAEnergyCalibrationProcessor,
-    MCATthCalibrationProcessor,
-    ReducedDataProcessor,
-    StrainAnalysisProcessor,
+# System modules
+import typing
+
+# Local modules
+from CHAP.edd.models import (
+    DiffractionVolumeLengthConfig,
+    MCACalibrationConfig,
+    StrainAnalysisConfig,
 )
-from CHAP.edd.reader import (
-    EddMapReader,
-    EddMPIMapReader,
-    ScanToMapReader,
-    SetupNXdataReader,
-    UpdateNXdataReader,
-    NXdataSliceReader,
-    SliceNXdataReader,
-)
-from CHAP.edd.writer import (
-    StrainAnalysisUpdateWriter,
-)
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using any of these within a default
+# value of a pydantic instance variable
+DiffractionVolumeLengthConfig.model_rebuild(_types_namespace=vars(typing))
+MCACalibrationConfig.model_rebuild(_types_namespace=vars(typing))
+StrainAnalysisConfig.model_rebuild(_types_namespace=vars(typing))

@@ -24,10 +24,3 @@ writer
     Writers unique to the GIWAXS workflow.
 """
 
-#from CHAP.giwaxs.models import PyfaiIntegrationConfig
-from CHAP.giwaxs.processor import (
-    GiwaxsConversionProcessor,
-    PyfaiIntegrationProcessor,
-)
-# from CHAP.giwaxs.reader import
-# from CHAP.giwaxs.writer import

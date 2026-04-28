@@ -14,7 +14,7 @@ import os
 from pydantic import model_validator
 
 # Local modules
-from CHAP import Writer
+from CHAP.writer import Writer
 
 
 class TomoWriter(Writer):

@@ -81,7 +81,7 @@ class Reader(PipelineItem):
         return data
 
 
-class OptionParser():
+class _OptionParser():
     """User based option parser."""
 
     def __init__(self):
@@ -97,11 +97,11 @@ class OptionParser():
             dest='log_level', default='INFO', help='logging level')
 
 
-def main(opt_parser=OptionParser):
+def main(opt_parser=_OptionParser):
     """Main function.
 
     :param opt_parser: User based option parser.
-    :type opt_parser: OptionParser
+    :type opt_parser: CHAP.reader._OptionParser
     """
     optmgr = opt_parser()
     opts = optmgr.parser.parse_args()

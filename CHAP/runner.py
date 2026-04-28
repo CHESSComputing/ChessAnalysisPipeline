@@ -265,6 +265,8 @@ def run(
 
     pipeline_args = []
     pipeline_mmcs = []
+    #from time import time
+    #t0 = time()
     for item in pipeline_config:
 
         # Load individual object with given name from its module
@@ -306,6 +308,9 @@ def run(
                 config['outputdir'] = outputdir
         else:
             name = item
+        split_name = name.split('.')
+        cls_name = split_name[-1]
+        mod_name = '.'.join(split_name[:-1])
 
         # Initialize the object's identifiers
         if 'users' in name:
@@ -321,14 +326,28 @@ def run(
                 if logger is not None:
                     logger.error(f'Unable to load {name}')
                 continue
-            cls_name = name.split('.')[-1]
-            mod_name = '.'.join(name.split('.')[:-1])
-            module = __import__(mod_name, fromlist=[cls_name])
+            module_name = __import__(mod_name, fromlist=[cls_name])
         else:
-            mod_name, cls_name = name.split('.')
-            module = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
+            module_name = __import__(f'CHAP.{mod_name}', fromlist=[cls_name])
 
-        pipeline_mmcs.append(getattr(module, cls_name))
+        try:
+            module = getattr(module_name, cls_name)
+        except:
+            if ((cls_name.endswith('Processor')
+                        or cls_name == 'TomoCHESSMapConverter')
+                    and split_name[-2] != 'processor'):
+                mod_name += '.processor'
+            if cls_name.endswith('Reader') and split_name[-2] != 'reader':
+                mod_name += '.reader'
+            if cls_name.endswith('Writer') and split_name[-2] != 'writer':
+                mod_name += '.writer'
+            if 'users' in name:
+                module_name = __import__(mod_name, fromlist=[cls_name])
+            else:
+                module_name = __import__(
+                    f'CHAP.{mod_name}', fromlist=[cls_name])
+            module = getattr(module_name, cls_name)
+        pipeline_mmcs.append(module)
 
         # Initialize the object's runtime arguments
         item_args['comm'] = comm  #FIX make comm a field in RunConfig?
@@ -343,7 +362,12 @@ def run(
             logger.info(
                 f'Initialized input fields for an instance of {cls_name}')
         pipeline_args.append(item_args)
+    #t1 = time()
     pipeline = Pipeline(mmcs=pipeline_mmcs, args=pipeline_args)
+    #t2 = time()
+    #print(f'\nInitialize pipeline done in {t1-t0:.3f} seconds.')
+    #print(f'Instantiate Pipeline done in {t2-t1:.3f} seconds.')
+    #exit('Done')
     pipeline.logger.setLevel(run_config.log_level)
     if log_handler is not None:
         pipeline.logger.addHandler(log_handler)

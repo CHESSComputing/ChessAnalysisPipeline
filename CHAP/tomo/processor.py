@@ -26,7 +26,6 @@ import tkinter as tk
 from json import loads
 import numpy as np
 from pydantic import (
-#    ConfigDict,
     Field,
     PrivateAttr,
     SkipValidation,
@@ -44,8 +43,6 @@ from CHAP.common.models.map import (
     DetectorConfig,
     MapConfig,
 )
-from CHAP.pipeline import PipelineData
-from CHAP.processor import Processor
 from CHAP.tomo.models import (
     TomoReduceConfig,
     TomoFindCenterConfig,
@@ -53,6 +50,8 @@ from CHAP.tomo.models import (
     TomoCombineConfig,
     TomoSimConfig,
 )
+from CHAP.pipeline import PipelineData
+from CHAP.processor import Processor
 from CHAP.utils.general import (
     #input_num,
     #input_yesno,
@@ -1796,8 +1795,6 @@ class TomoFindCenterGui(Processor):
     _error_text: list = PrivateAttr(default=[])
 
     _exclude = {'tk_root'}
-
-    #FIX model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @property
     def center_offsets(self):

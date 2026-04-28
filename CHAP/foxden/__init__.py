@@ -25,20 +25,13 @@ writer
     Writers unique to the FOXDEN pipeline items.
 """
 
+# System modules
+import typing
 
-from CHAP.foxden.processor import (
-#    FoxdenMetadataProcessor,
-#    FoxdenProvenanceProcessor,
-    ProvenanceFileProcessor,
-)
-from CHAP.foxden.reader import (
-    FoxdenDataDiscoveryReader,
-    FoxdenMetadataReader,
-    FoxdenProvenanceReader,
-    FoxdenSpecScansReader,
-)
-from CHAP.foxden.writer import (
-    FoxdenDoiWriter,
-    FoxdenMetadataWriter,
-    FoxdenProvenanceWriter,
-)
+# Local modules
+from CHAP.foxden.models import FoxdenRequestConfig
+
+# Avoid Pydantic "Class not fully defined" in sphinx autodoc as a
+# result of lazy importing by using FoxdenRequestConfig within a
+# default value of a pydantic instance variable
+FoxdenRequestConfig.model_rebuild(_types_namespace=vars(typing))

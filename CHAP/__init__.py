@@ -41,9 +41,4 @@ writer
     Module defining the base `Writer` class to derive all others from.
 """
 
-from CHAP.models import CHAPBaseModel
-from CHAP.reader import Reader
-from CHAP.processor import Processor
-from CHAP.writer import Writer
-
 version = 'PACKAGE_VERSION'

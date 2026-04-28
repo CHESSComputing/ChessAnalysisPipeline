@@ -27,4 +27,3 @@ parfile
     as input.
 """
 
-from CHAP.utils.fit import FitProcessor
