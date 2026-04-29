@@ -370,8 +370,8 @@ class PointByPointScanData(CHAPBaseModel):
     units: constr(strip_whitespace=True, min_length=1)
     data_type: Literal[
         'spec_motor', 'spec_motor_absolute', 'spec_motor_static',
-        'scan_column', 'scan_start_time', 'smb_par', 'expression',
-        'detector_log_timestamps', 'scan_step_index'
+        'scan_column', 'scan_number', 'scan_start_time', 'smb_par',
+        'expression', 'detector_log_timestamps', 'scan_step_index'
     ]
     name: constr(strip_whitespace=True, min_length=1)
     ndigits: Optional[conint(ge=0)] = None
@@ -557,6 +557,8 @@ class PointByPointScanData(CHAPBaseModel):
                 return scan_step_index
             scanparser = get_scanparser(spec_scans.spec_file, scan_number)
             return [i for i in range(scanparser.spec_scan_npts)]
+        if self.data_type == 'scan_number':
+            return scan_number
         return None
 
 @cache
