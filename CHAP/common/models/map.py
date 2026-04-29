@@ -766,7 +766,9 @@ def validate_data_source_for_map_config(data_source, info):
         if data_source is not None:
             values = info.data
             if data_source.data_type == 'expression':
-                data_source.validate_for_scalar_data(values['scalar_data'])
+                if 'scalar_data' in values:
+                    data_source.validate_for_scalar_data(
+                        values['scalar_data'])
             else:
                 import_scanparser(
                     values['station'], values['experiment_type'])
@@ -1125,6 +1127,18 @@ class MapConfig(CHAPBaseModel):
         if data.get('attrs') is None:
             data['attrs'] = {}
         return data
+
+    @model_validator(mode='after')
+    def validate_scalar_data_expressions(self):
+        """Validate any expression-type items in scalar_data against
+        the complete scalar_data list. This deferred check is necessary
+        because field validation of scalar_data runs before the list is
+        fully constructed.
+        """
+        for data_source in self.scalar_data:
+            if data_source.data_type == 'expression':
+                data_source.validate_for_scalar_data(self.scalar_data)
+        return self
 
     #RV maybe better to use model_validator, see v2 docs?
     @field_validator('attrs')
