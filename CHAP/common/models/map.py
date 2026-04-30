@@ -159,7 +159,7 @@ class SpecScans(CHAPBaseModel):
     """
     spec_file: FilePath
     scan_numbers: Union[
-        constr(min_length=1), conlist(item_type=conint(gt=0), min_length=1)]
+        constr(min_length=1), conlist(item_type=conint(gt=0))]
     par_file: Optional[FilePath] = None
 
     @field_validator('spec_file')
@@ -1157,13 +1157,17 @@ class MapConfig(CHAPBaseModel):
         """
         # Get the map's scan_type for EDD experiments
         values = info.data
+        if not values['validate_data_present']:
+            return attrs
         station = values['station']
         experiment_type = values['experiment_type']
         if station in ['id1a3', 'id3a'] and experiment_type == 'EDD':
             scan_type = cls.get_smb_par_attr(values, 'scan_type')
             if scan_type is not None:
                 attrs['scan_type'] = scan_type
-            attrs['config_id'] = cls.get_smb_par_attr(values, 'config_id')
+            config_id = cls.get_smb_par_attr(values, 'config_id')
+            if config_id is not None:
+                attrs['config_id'] = config_id
             dataset_id = cls.get_smb_par_attr(
                 values, 'dataset_id', unique=False)
             if dataset_id is not None:
@@ -1215,6 +1219,8 @@ class MapConfig(CHAPBaseModel):
 #                        f'{scans.spec_file}.')
                     values.append(None)
         values = list(set(values))
+        if not values:
+            return None
         if len(values) == 1:
             return values[0]
         if unique:

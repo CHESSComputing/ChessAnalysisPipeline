@@ -1001,7 +1001,7 @@ class MapProcessor(Processor):
             spec_scans = self.config.spec_scans[0]
             scan_numbers = spec_scans.scan_numbers
             num_scan = len(scan_numbers)
-            if num_scan < self.num_proc:
+            if 0 < num_scan < self.num_proc:
                 self.logger.warning(
                     f'Requested number of processors ({self.num_proc}) exceeds '
                     f'the number of scans ({num_scan}): reset it to {num_scan}')
@@ -1085,7 +1085,16 @@ class MapProcessor(Processor):
                 offset = common_comm.scatter(offsets, root=0)
 
             # Read the raw data
-            if self.config.experiment_type == 'EDD':
+            if num_scan == 0:
+                num_id = len(self.config.independent_dimensions)
+                num_sd = len(self.config.all_scalar_data)
+                num_det = len(self.detector_config.detectors)
+                if placeholder_data is not False:
+                    num_sd += 1
+                data = np.empty((num_det, 0))
+                independent_dimensions = np.empty((num_id, 0))
+                all_scalar_data = np.empty((num_sd, 0))
+            elif self.config.experiment_type == 'EDD':
                 data, independent_dimensions, all_scalar_data = \
                     self._read_raw_data_edd(
                         common_comm, num_scan, offset, placeholder_data)
@@ -1093,7 +1102,8 @@ class MapProcessor(Processor):
                 data, independent_dimensions, all_scalar_data = \
                     self._read_raw_data(common_comm, num_scan, offset)
             if not rank:
-                self.logger.debug(f'Data shape: {data.shape}')
+                self.logger.debug(
+                    f'Data shape: {data.shape if data is not None else None}')
                 if independent_dimensions is not None:
                     self.logger.debug('Independent dimensions shape: '
                                       f'{independent_dimensions.shape}')
@@ -1142,6 +1152,11 @@ class MapProcessor(Processor):
             all_scalar_data = np.empty(
                 (len(self.config.all_scalar_data), map_len))
             if len(self.detector_config.detectors) > 0:
+                if det_shapes is False:
+                    det_shapes = {}
+                    for det in self.detector_config.detectors:
+                        if det.shape is not None:
+                            det_shapes[det.get_id()] = det.shape
                 data = np.empty(
                     (len(self.detector_config.detectors),
                      map_len,
@@ -1253,7 +1268,14 @@ class MapProcessor(Processor):
             nxentry.attrs[k] = v
         nxentry.spec_scans = NXcollection()
         for scans in self.config.spec_scans:
-            nxentry.spec_scans[scans.scanparsers[0].scan_name] = \
+            if len(scans.scanparsers) > 0:
+                key = scans.scanparsers[0].scan_name
+            else:
+                if str(scans.spec_file).endswith('spec.log'):
+                    key = str(scans.spec_file).split('/')[-2]
+                else:
+                    key = str(scans.spec_file).split('/')[-1]
+            nxentry.spec_scans[key] = \
                 NXfield(value=scans.scan_numbers,
                         dtype='int8',
                         attrs={'spec_file': str(scans.spec_file)})
@@ -1369,8 +1391,12 @@ class MapProcessor(Processor):
         for k, v in self.config.attrs.items():
             nxdata.attrs[k] = v
         if data is not None:
-            min_ = np.min(data, axis=tuple(range(1, data.ndim)))
-            max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+            if data.size > 0:
+                min_ = np.min(data, axis=tuple(range(1, data.ndim)))
+                max_ = np.max(data, axis=tuple(range(1, data.ndim)))
+            else:
+                min_ = np.full(len(self.detector_config.detectors), np.nan)
+                max_ = np.full(len(self.detector_config.detectors), np.nan)
         for i, detector in enumerate(self.detector_config.detectors):
             nxdata[detector.get_id()] = NXfield(
                 value=data[i],
