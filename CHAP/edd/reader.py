@@ -15,6 +15,7 @@ from pydantic import (
     conlist,
     constr,
     field_validator,
+    model_validator,
 )
 
 # Local modules
@@ -749,10 +750,12 @@ class SliceNXdataReader(Reader):
     from an NXdata group and slices all fields according to the
     provided slicing parameters.
  
-    :param scan_number: Number of the SPEC scan.
-    :vartype scan_number: int
+    :ivar scan_numbers: Numbers of scans from which to read slices of
+        raw data.
+    :type scan_numbers: list[int]
     """
-    scan_number: conint(ge=0)
+    scan_number: Optional[conint(gt=0)] = None
+    scan_numbers: Optional[conlist(item_type=conint(gt=0))] = None
 
     def read(self):
         """Reads an NXdata group from a NeXus file and slices the
@@ -811,7 +814,7 @@ class SliceNXdataReader(Reader):
 
         # Get indicies of SCAN_N that match self.scan_number
         scan_field = nxdata['SCAN_N'].nxdata
-        indices = np.flatnonzero(scan_field == self.scan_number)
+        indices = np.flatnonzero(np.isin(scan_field, self.scan_numbers))
 
         if indices.size == 0:
             self.logger.warning(
@@ -827,6 +830,30 @@ class SliceNXdataReader(Reader):
 
         return nxroot
 
+    @model_validator(mode='before')
+    @classmethod
+    def fill_scan_numbers(cls, data):
+        if not isinstance(data, dict):
+            return data
+        if 'scan_numbers' not in data or data['scan_numbers'] is None:
+            if data.get('scan_number') is not None:
+                data['scan_numbers'] = [data['scan_number']]
+        elif isinstance(data['scan_numbers'], int):
+            data['scan_numbers'] = [data['scan_numbers']]
+        elif isinstance(data['scan_numbers'], str):
+            from CHAP.utils.general import string_to_list
+            data['scan_numbers'] = string_to_list(data['scan_numbers'])
+        return data
+
+    @model_validator(mode='after')
+    def validate_scan_numbers(self):
+        if self.scan_numbers is None:
+            raise ValueError(
+                'scan_numbers is required; alternatively, provide scan_number')
+        if self.scan_number is not None \
+           and self.scan_number not in self.scan_numbers:
+            self.scan_numbers.append(self.scan_number)
+        return self
 
 class UpdateNXdataReader(Reader):
     """Companion to `edd.SetupNXdataReader` and
