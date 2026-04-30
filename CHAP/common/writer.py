@@ -424,14 +424,54 @@ class JSONWriter(Writer):
     :ivar index: Index of ``PipelineData`` item in input ``data`` list
         that should be written to the JSON file. Defaults to ``-1``.
     :vartpe index: int, Optional.
+    :ivar update: Update an existing file with new values, overwriting
+        the existing file's values. Defaults to ``False``.
+    :vartype update: bool, optional
+    :ivar extend: Extend the values in an existing file, adding to the
+        existing file's value lists. Defaults to ``False``.
+    :vartype extend: bool, optional
     """
     index: int = -1
+    update: Optional[bool] = False
+    extend: Optional[bool] = False
+
     def write(self, data):
         """Write the last """
         import json
-        _data = self.get_pipelinedata_item(data, remove=self.remove)
+
+        _data = self.get_pipelinedata_item(
+            data,
+            index=self.index,
+            remove=self.remove,
+        )
+
+        write_data = _data
+        if self.update:
+            try:
+                with open(self.filename, 'r') as inf:
+                    write_data = json.load(inf)
+            except:
+                self.logger.warning(f'Could not load JSON from {self.filename}')
+                write_data = {}
+            if self.extend:
+                for k, v in _data.items():
+                    if k in write_data:
+                        if not isinstance(write_data[k], list):
+                            write_data[k] = [write_data[k]]
+                        write_data[k].extend(v)
+                    else:
+                        write_data[k] = v
+            else:
+                write_data.update(_data)
+
         with open(self.filename, 'w') as outf:
-            json.dump(_data, outf)
+            json.dump(write_data, outf)
+
+    @model_validator(mode='after')
+    def validate_modes(self):
+        if self.extend and not self.update:
+            self.update = True
+        return self
 
 
 class MatplotlibAnimationWriter(Writer):
