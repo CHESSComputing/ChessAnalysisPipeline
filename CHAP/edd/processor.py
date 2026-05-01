@@ -2818,7 +2818,13 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                      else self._get_points(results)
             ret = [result]
             if self.json_results:
-                json_results = {k: v.tolist() for k, v in results.items()}
+                json_results = {
+                    k: v.tolist()
+                    for k, v in results.items()
+                    if not k.endswith('intensity') # exclude raw detector data
+                       and not k.endswith('best_fit') # exlude best_fit spectra
+                       and not k.endswith('residual')
+                }
                 ret.append(json_results)
             if not (self._figures or self._animation):
                 return tuple(ret)
