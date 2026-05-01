@@ -1,24 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""A python script version of the CHAP pipeline version of the id3b
+example.
 
-"""Choose the path to your CHESS repo."""
-import sys
-#sys.path.append(
-#    '/home/rv43/Documents/Programs/repos/CHESSComputing/ChessAnalysisPipeline')
-sys.path.append(
-    '/home/rv43/Documents/Programs/repos/CHESSComputing/ChessAnalysisPipeline_main')
-#sys.path.append(
-#    '/nfs/chess/sw/CHESS-software-releases/repos/prod/ChessAnalysisPipeline')
+Modify any user choices in the "Start user input" and "Optional user
+input" blocks below.
+
+In particular:
+
+* Choose the path to your CHAP repo by setting sys.path.
+
+* Select the run_type below from:
+      ===========  ==============================================
+      run_type     Description
+      ===========  ==============================================
+      'normal'     Full regular reconstruction
+                   (like running the default hollow_cube in CHAP)
+      'one_plane'  Reconstruction of two planes only
+      'two_planes' Reconstruction of one plane only
+      'roi'        Reconstruction for a subset or rows
+                   (find center at first and last row)
+      ===========  ==============================================
+"""
 
 # System modules
 import os
 from pprint import pprint
+import sys
 from tempfile import NamedTemporaryFile
 
 # Third party modules
-import matplotlib.pyplot as plt
 from nexusformat.nexus import nxload
-from PIL import Image
 import yaml
 
 # Local modules
@@ -37,14 +49,13 @@ from CHAP.utils.general import quick_imshow
 # Start user input
 #------------------------------------------------------------------------------#
 
-"""Select run_type from
-'normal':     Full regular reconstruction
-              (like running the default hollow_cube in CHAP)
-'one_plane':  Reconstruction of two planes only
-'two_planes': Reconstruction of one plane only
-'roi':        Reconstruction for a subset or rows
-              (find center at first and last row)
-"""
+# Choose the path to your CHAP repo
+#sys.path.append(
+#    '/home/rv43/Documents/Programs/repos/CHESSComputing/ChessAnalysisPipeline_main')
+sys.path.append(
+    '/nfs/chess/sw/CHESS-software-releases/repos/prod/ChessAnalysisPipeline')
+
+# Select run_type
 #run_type = 'normal'
 #run_type = 'one_plane'
 #run_type = 'two_planes'
@@ -206,44 +217,40 @@ if reconstruct_data:
 print(f'\ndetector_config:')
 pprint(detector_config)
 
-# Construct the CHESS style tomo map
+# Construct the CHAP style tomo map
 if not construct_chess_map:
     nxroot = nxload(chess_map_name)
 else:
     # Create the map for the tomo stack
-    tomo_map = MapProcessor(config=map_config, detector_config=detector_config)
-
-    # Read the map for the tomo stack
-    tomofields = tomo_map.process(data=None)
+    tomofields = MapProcessor.run(
+        config=map_config, detector_config=detector_config)
     tomofields.save(map_name, mode='w')
 
     # Read the dark field
-    tdf_spec_reader = SpecReader(
+    darkfield = SpecReader.run(
         config={
-            'station': tomo_map.config.station,
-            'experiment_type': tomo_map.config.experiment_type,
-            'sample': tomo_map.config.sample,
+            'station': map_config['station'],
+            'experiment_type': map_config['experiment_type'],
+            'sample': map_config['sample'],
             'spec_scans': [
-                {'spec_file': tomo_map.config.spec_scans[0].spec_file,
+                {'spec_file': map_config['spec_scans'][0].spec_file,
                  'scan_numbers': tdf_scan_numbers}],
         },
         detector_config=detector_config)
-    darkfield = tdf_spec_reader.read()
 
     # Read the bright field
-    tbf_spec_reader = SpecReader(
+    brightfield = SpecReader.run(
         config={
-            'station': tomo_map.config.station,
-            'experiment_type': tomo_map.config.experiment_type,
-            'sample': tomo_map.config.sample,
+            'station': map_config['station'],
+            'experiment_type': map_config['experiment_type'],
+            'sample': map_config['sample'],
             'spec_scans': [
-                {'spec_file': tomo_map.config.spec_scans[0].spec_file,
+                {'spec_file': map_config['spec_scans'][0].spec_file,
                  'scan_numbers': tbf_scan_numbers}],
         },
         detector_config=detector_config)
-    brightfield = tbf_spec_reader.read()
 
-    # Convert to CHESS style tomography map
+    # Convert to CHAP style tomography map
     data = [
         PipelineData(
             name='MapProcessor', data=tomofields, schema='tomofields'),
@@ -254,8 +261,7 @@ else:
             name='YAMLReader', data=detector_setup,
             schema='tomo.models.Detector')
     ]
-    chess_map = TomoCHESSMapConverter()
-    _, _, nxroot = chess_map.process(data=data)
+    _, _, nxroot = TomoCHESSMapConverter.run(data=data)
     nxroot = nxroot['data']
     nxroot.save(chess_map_name, mode='w')
 
@@ -267,26 +273,17 @@ else:
     # Reduce the data with remove_all_stripe
     data = [
         PipelineData(name='TomoCHESSMapConverter', data=nxroot, schema=None)]
-    tomo = TomoReduceProcessor(
-        config=reduce_config, interactive=interactive)
-    (metadata, provenance, images, reduced_data) = tomo.process(data)
+    _, _, _, reduced_data = TomoReduceProcessor.run(
+        data=data, config=reduce_config, interactive=interactive)
     reduced_data = reduced_data['data']
     reduced_data.save(reduced_data_name, mode='w')
 
-#    for (buf, ext), name in images.get('data', []):
-#        buf.seek(0)
-#        plt.imshow(Image.open(buf))
-#        plt.axis('off')
-#        plt.tight_layout()
-#        plt.show(block=True)
-#        buf.close()
-#        plt.close()
     nxentry = reduced_data[reduced_data.default]
     nxdata = nxentry[nxentry.default]
     image_slice = nxdata.nxsignal[0,:,0,:]
     vmin = image_slice.min()
     vmax = image_slice.max()
-    if len(recon_layer_indices):
+    if recon_layer_indices:
         quick_imshow(
             image_slice,
             title=f'Slice {detector_config["roi"][0]["start"]}',
@@ -310,10 +307,10 @@ else:
 
         data = [PipelineData(
             name='TomoCHESSMapConverter', data=nxroot, schema=None)]
-        tomo = TomoReduceProcessor(
+        _, _, _, reduced_data = TomoReduceProcessor.run(
+            data=data,
             config=reduce_config.update({'remove_stripe': {method: {}}}),
             interactive=interactive)
-        (metadata, provenance, images, reduced_data) = tomo.process(data)
         reduced_data = reduced_data['data']
         reduced_data.save(f'reduced_data_{method}.nxs', mode='w')
 
@@ -338,11 +335,10 @@ else:
 
     data = [PipelineData(
         name='TomoCHESSMapConverter', data=reduced_data, schema=None)]
-    tomo = TomoFindCenterProcessor(
-        interactive=interactive, config=find_center_config)
-    (metadata, provenance, images, center_config) = tomo.process(data)
+    _, _, _, center_config = TomoFindCenterProcessor.run(
+        data=data, config=find_center_config, interactive=interactive)
     center_config = center_config['data']
-    with open(find_center_name, 'w') as f:
+    with open(find_center_name, 'w', encoding='utf-8') as f:
         yaml.dump(center_config, f, sort_keys=False)
 
 # Reconstruct
@@ -351,7 +347,7 @@ if not reconstruct_data:
     pass
 else:
     reduced_data = nxload(reduced_data_name)
-    with open(find_center_name) as f:
+    with open(find_center_name, encoding='utf-8') as f:
         center_config = yaml.safe_load(f)
 
     data = [
@@ -364,12 +360,8 @@ else:
 #            name='TomoFindCenterProcessor', data=center_config,
 #            schema='tomo.models.TomoFindCenterConfig')
     ]
-    from pprint import pprint
-    pprint(reconstruct_config)
-    tomo = TomoReconstructProcessor(
-        config=reconstruct_config,
-        center_config=center_config,
+    _, _, _, reconstructed_data = TomoReconstructProcessor.run(
+        data=data, config=reconstruct_config, center_config=center_config,
         interactive=interactive)
-    (metadata, provenance, images, reconstructed_data) = tomo.process(data)
     reconstructed_data = reconstructed_data['data']
     reconstructed_data.save(reconstructed_data_name, mode='w')

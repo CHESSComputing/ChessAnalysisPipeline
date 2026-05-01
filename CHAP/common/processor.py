@@ -2422,7 +2422,7 @@ class PyfaiAzimuthalIntegrationProcessor(Processor):
         :type npt: int
         :param mask_file: File to use for masking the input data.
         :type mask_file: str, optional
-        :param integrate1d_kwargs: Optional dictionary of keywords
+        :param integrate1d_kwargs: Optional dictionary of keywords.
         :type integrate1d_kwargs: Optional[dict]
         :returns: Azimuthal integration results as a dictionary of
             numpy arrays.

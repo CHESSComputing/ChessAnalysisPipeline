@@ -300,7 +300,7 @@ def validate_parameters(parameters, info):
     :rtype: list[FitParameter]
     """
     # System imports
-    import inspect
+    from inspect import signature
 
     if 'model' in info.data:
         model = info.data['model']
@@ -308,7 +308,7 @@ def validate_parameters(parameters, info):
         model = None
     if model is None or model == 'expression':
         return parameters
-    sig = dict(inspect.signature(models[model]['name']).parameters.items())
+    sig = dict(signature(models[model]['name']).parameters.items())
     sig.pop('x')
 
     # Check input model parameter validity

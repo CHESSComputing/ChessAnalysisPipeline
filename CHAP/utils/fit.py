@@ -1258,9 +1258,9 @@ class Fit:
 
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the core fit routine.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the core fit routine.
+        :type: dict, optional
         """
         # Check input parameters
         if self._model is None:
@@ -1359,9 +1359,9 @@ class Fit:
         :type plot_residual: bool, optional
         :param plot_masked_data:
         :type plot_masked_data: bool, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the Matplotlib plot function.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the Matplotlib plot function.
+        :type: dict, optional
         """
         if result is None:
             result = self._result
@@ -2645,9 +2645,9 @@ class FitMap(Fit):
         :type plot_residual: bool, optional
         :param plot_masked_data:
         :type plot_masked_data: bool, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the Matplotlib plot function.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the Matplotlib plot function.
+        :type: dict, optional
         """
         # Third party modules
         from lmfit.models import ExpressionModel
@@ -2720,9 +2720,9 @@ class FitMap(Fit):
 
         :param config: Fit configuration.
         :type config: CHAP.utils.models.FitConfig, optional
-        :param kwargs: Additional key, value pairs to pass on directly
-            to the core fit routine.
-        :type kwargs: dict
+        :param \*\*kwargs: Additional key, value pairs to pass on
+            directly to the core fit routine.
+        :type: dict, optional
         """
         # Check input parameters
         if self._model is None:

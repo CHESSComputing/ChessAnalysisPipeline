@@ -2735,9 +2735,9 @@ def quick_imshow(
     :type grid_linewidth: int, optional
     :param colorbar: Include a colorbar, defaults to `False`.
     :type colorbar: bool, optional
-    :param kwargs: Any additional keyword parameters to pass on to
+    :param \*\*kwargs: Any additional keyword parameters to pass on to
         `matplotlib.pyplot.imshow <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html>`__.
-    :type kwargs: dict, optional
+    :type: dict, optional
     :raise: ValueError for invalid input data or parameters. 
     :return: In-memory object as a byte stream represention if
         `return_fig` is set.
@@ -2853,9 +2853,9 @@ def quick_plot(
     :type save_only: bool, optional
     :param block: Wait for the image to be closed before returning.
     :type block: bool, optional
-    :param kwargs: Any additional keyword parameters to pass on to
+    :param \*\*kwargs: Any additional keyword parameters to pass on to
         `matplotlib.pyplot.plot <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`__
-    :type kwargs: dict, optional
+    :type: dict, optional
     :raise: ValueError for invalid input data or parameters. 
     """
     #FIX: Update with return_buf
