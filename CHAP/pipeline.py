@@ -483,8 +483,7 @@ class PipelineItem(RunConfig):
         pipeline file config dictionary (see:
         :class:`~CHAP.models.RunConfig)`.
 
-        :param \*\*kwargs: Arbitrary keyword arguments, including:
-        :type: dict, optional
+        :param \*\*kwargs: Optional keyword arguments, including:
         :keyword config: Initialization parameters for an instance
             of the pipeline item this method is called from (often
             used by Readers and Processors).

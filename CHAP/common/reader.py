@@ -563,7 +563,6 @@ class PandasReader(Reader):
         :type comment: str, optional
         :param \*\*kwargs: Additional keyword arguments to supply to the
             `pandas` reader.
-        :type: dict, optional.
         :rtype: `pandas.DataFrame`
         """
         # Third party modules
