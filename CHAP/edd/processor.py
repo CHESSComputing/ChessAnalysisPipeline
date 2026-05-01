@@ -3644,6 +3644,29 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                             np.nan),
                 })
 
+            if self.json_results:
+                # Include placeholder values for unused peaks in results
+                placeholder = np.full(num_points, np.nan)
+                for j, hkl in enumerate(hkls_fit[~use_peaks]):
+                    hkl_name = '_'.join(str(hkl)[1:-1].split(' '))
+                    for fitmode in ('unconstrained', 'uniform'):
+                        fitparams = ('amplitudes', 'centers', 'sigmas')
+                        if detector.peak_models == 'pvoigt':
+                            fitparams = (*fitparams, 'fractions')
+                        if fitmode == 'unconstrained':
+                            fitparams = (*fitparams, 'strains')
+                        for fitparam in fitparams:
+                            fitquants = ('values', 'errors')
+                            if fitmode == 'unconstrained' \
+                               and fitparam == 'strains':
+                                fitquants = (*fitquants, 'residuals')
+                            for fitquant in fitquants:
+                                key = str(
+                                    f'{det_id}/{fitmode}_fit/{hkl_name}/'
+                                    f'{fitparam}/{fitquant}'
+                                )
+                                results.update({key: placeholder})
+
             # Create an animation of the fit points
             if (not self.config.skip_animation
                     and (self.interactive or self.save_figures)):
