@@ -2719,6 +2719,17 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                     self.logger.warning(
                         f'Skipping detector {detector_id} (Illegal data shape '
                         f'{raw_detector_data.shape})')
+                elif raw_detector_data.size == 0 and self.setup:
+                    # 0-scan map: no spectra yet, include for setup
+                    for k, v in nxdata[detector_id].attrs.items():
+                        detector.attrs[k] = v.nxdata
+                    if self.config.rel_height_cutoff is not None:
+                        detector.rel_height_cutoff = \
+                            self.config.rel_height_cutoff
+                    detector.add_calibration(
+                        calibration_detectors[
+                            int(calibration_detector_ids.index(detector_id))])
+                    detectors.append(detector)
                 elif raw_detector_data.sum():
                     for k, v in nxdata[detector_id].attrs.items():
                         detector.attrs[k] = v.nxdata
@@ -2770,9 +2781,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
         # Apply the combined energy ranges mask
         self._apply_combined_mask()
 
+        # Populate _peak_fit_info when there are no spectra (0-scan setup)
+        no_raw_data = (
+            bool(self._nxdata_detectors)
+            and self._nxdata_detectors[0].nxsignal.shape[0] == 0)
+        if no_raw_data:
+            self._populate_peak_fit_info()
+
         # Setup and/or run the strain analysis
         results = {}
-        if self.update:
+        if self.update and not no_raw_data:
             results = self._strain_analysis()
         if self.setup:
             if self.standalone:
@@ -2959,6 +2977,30 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
                 )
                 nxcollection[hkl_name].strains.attrs['signal'] = 'values'
 
+    def _populate_peak_fit_info(self):
+        """Populate _peak_fit_info with all configured HKLs for each
+        detector, with all peaks marked as used.
+
+        Called when no raw detector spectra are present (e.g. a 0-scan
+        setup run), so that the resulting NXprocess contains entries for
+        every HKL that could be encountered in a subsequent update run.
+        """
+        # Local modules
+        from CHAP.edd.utils import get_peak_locations, get_unique_hkls_ds
+
+        for detector in self.detector_config.detectors:
+            hkls, ds = get_unique_hkls_ds(
+                self.config.materials, tth_max=detector.tth_max,
+                tth_tol=detector.tth_tol)
+            hkls_fit = np.asarray([hkls[i] for i in detector.hkl_indices])
+            ds_fit = np.asarray([ds[i] for i in detector.hkl_indices])
+            peak_locations = get_peak_locations(ds_fit, detector.tth_calibrated)
+            self._peak_fit_info.append({
+                'hkls': [''.join(map(str, hkl)) for hkl in hkls_fit],
+                'nominal_peak_centers': peak_locations.tolist(),
+                'peak_models': detector.peak_models,
+                'use_peaks': np.ones(len(hkls_fit), dtype=bool).tolist(),
+            })
 
     def _create_animation(
             self, nxdata, energies, intensities, intensity_norms, best_fits,
@@ -3188,17 +3230,16 @@ class StrainAnalysisProcessor(BaseStrainProcessor):
             )
 
             # Add the detector data
-            _intensity=np.asarray(
-                [
-                    data[i].astype(np.float64)[mask]
-                    for i in range(num_points)
-                ]
-            )
+            num_energy_bins = mask.sum()
+            _intensity = np.empty(
+                (num_points, num_energy_bins), dtype=np.float64)
+            for i in range(num_points):
+                _intensity[i] = data[i].astype(np.float64)[mask]
             det_nxdata.intensity = NXfield(
                 value=_intensity,
                 attrs={'units': 'counts'},
-                maxshape=(None,*_intensity.shape[1:]),
-                chunks=(1,*_intensity.shape[1:])
+                maxshape=(None, num_energy_bins),
+                chunks=(1, num_energy_bins)
             )
             det_nxdata.attrs['signal'] = 'intensity'
 
