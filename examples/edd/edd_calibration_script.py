@@ -120,8 +120,7 @@ if tth_calib:
 # Perform the energy calibration
 if energy_calib:
     # Read the calibration data
-    spec_reader = SpecReader(config=spec_config)
-    nxroot = spec_reader.read()
+    nxroot = SpecReader.run(config=spec_config)
 
     # Perform the energy calibration
     data = [PipelineData(name='SpecReader', data=nxroot)]
@@ -140,8 +139,7 @@ if tth_calib:
         energy_calib_config = yaml.safe_load(f)
 
     # Read the calibration data
-    spec_reader = SpecReader(config=spec_config)
-    nxroot = spec_reader.read()
+    nxroot = SpecReader.run(config=spec_config)
 
     # Perform the tth calibration
     data = [
