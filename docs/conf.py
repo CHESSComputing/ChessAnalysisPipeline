@@ -22,6 +22,7 @@ version = release = 'PACKAGE_VERSION'
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     'sphinx.ext.doctest',
     'sphinx.ext.githubpages',
     'sphinx.ext.intersphinx',
@@ -91,6 +92,15 @@ html_sidebars = {
         'windows-sidebar.html',
         'searchbox.html'
     ],
+}
+
+# Add Github repo link for `sphinx_rtd_theme` theme
+html_context = {
+    'display_github': True,        # Integrate GitHub
+#    'github_user': 'MyUserName',   # Your username
+#    'github_repo': 'MyRepoName',   # Your repo name
+    'github_version': 'main',      # The branch name
+    'conf_py_path': '/docs/',      # Path in the checkout to the docs root
 }
 
 # If true, links to the reST sources are added to the pages.
