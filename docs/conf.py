@@ -95,12 +95,10 @@ html_sidebars = {
 }
 
 # Add Github repo link for `sphinx_rtd_theme` theme
+# See also _templates/breadcrumbs.html and _templates/layout.html
+templates_path = ['_templates']
 html_context = {
-    'display_github': True,        # Integrate GitHub
-#    'github_user': 'MyUserName',   # Your username
-#    'github_repo': 'MyRepoName',   # Your repo name
-    'github_version': 'main',      # The branch name
-    'conf_py_path': '/docs/',      # Path in the checkout to the docs root
+    'display_github': True,
 }
 
 # If true, links to the reST sources are added to the pages.
