@@ -254,6 +254,69 @@ The remainder of the file contains the actual workflow pipeline, in this example
 
 Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first two blocks in the pipeline and read the detector channel energy/$2\theta$ calibration info in what is now the third block in the pipeline, labelled `map`.
 
+### Creating the CHESS stype strain analysis map without a par-file
+
+The above strain analysis workflow example can also be executed without availablity of a CHESS style experiment par-file, by reading the raw data information directly from the SPEC log file. In this case the map construction part description of the workflow in the `pipeline.yaml` file must be replaced by the following:
+```yaml
+map:
+
+  # Create a CHESS style map
+  - common.MapProcessor:
+      config:
+        title: <experiment title> # Enter an appropriate name (like the BTR)
+        station: id1a3
+        experiment_type: EDD
+        sample:
+          name: <sample name>     # Enter the sample name
+          description: ''
+        spec_scans:         # Edit both SPEC log file path and EDD scan numbers
+                            # Path can be relative to inputdir or absolute
+          - spec_file: <your_raw_data_directory>/spec.log
+            scan_numbers: 1-4
+        scalar_data:        # Add or modify as appropriate
+        - label: SCAN_N
+          units: n/a
+          data_type: smb_par
+          name: SCAN_N      # Change as needed
+        independent_dimensions:
+                            # Add or modify as appropriate
+        - label: labx
+          units: mm
+          data_type: smb_par
+          name: labx        # Change as needed
+        - label: laby
+          units: mm
+          data_type: smb_par
+          name: laby        # Change as needed
+        - label: labz
+          units: mm
+          data_type: smb_par
+          name: labz        # Change as needed
+        presample_intensity:
+          label: presample_intensity
+          units: counts
+          data_type: scan_column
+          name: a3ic1       # Change as needed
+        dwell_time_actual:
+          label: dwell_time_actual
+          units: s
+          data_type: scan_column
+          name: sec         # Change as needed
+        postsample_intensity:
+          label: postsample_intensity
+          units: counts
+          data_type: scan_column
+          name: diode       # Change as needed
+      detector_config:
+        detectors:          # Use available detector elements when omitted
+          - id: 0
+          - id: 11
+          - id: 22
+  - common.NexusWriter:
+      filename: map.nxs     # NeXus map output filename
+      force_overwrite: true
+```
+
 ## Additional notes on energy calibration
 
 As mentioned above a standard EDD experiment needs calibration of the detector channel energies. Experiments have shown that the channel energies $E_j$ vary linearly with the channel index $j$ within the energy range of typical EDD experiments: $E_j = mj+b$, where the slope $m$ and intercept $b$ can be determined in one or a combination of two experiments:
