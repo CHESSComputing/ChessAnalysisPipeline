@@ -360,6 +360,69 @@
 </li>
 </ul>
 <p>Note that the energy calibration can also be obtained ahead of time and used for multiple strain analyses. In this case remove the first two blocks in the pipeline and read the detector channel energy/<span class="math notranslate nohighlight">\(2\theta\)</span> calibration info in what is now the third block in the pipeline, labelled <code class="docutils literal notranslate"><span class="pre">map</span></code>.</p>
+<section id="creating-the-chess-stype-strain-analysis-map-without-a-par-file">
+<h3>Creating the CHESS stype strain analysis map without a par-file<a class="headerlink" href="#creating-the-chess-stype-strain-analysis-map-without-a-par-file" title="Link to this heading"></a></h3>
+<p>The above strain analysis workflow example can also be executed without availablity of a CHESS style experiment par-file, by reading the raw data information directly from the SPEC log file. In this case the map construction part description of the workflow in the <code class="docutils literal notranslate"><span class="pre">pipeline.yaml</span></code> file must be replaced by the following:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">map</span><span class="p">:</span>
+
+<span class="w">  </span><span class="c1"># Create a CHESS style map</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.MapProcessor</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;experiment title&gt;</span><span class="w"> </span><span class="c1"># Enter an appropriate name (like the BTR)</span>
+<span class="w">        </span><span class="nt">station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">id1a3</span>
+<span class="w">        </span><span class="nt">experiment_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EDD</span>
+<span class="w">        </span><span class="nt">sample</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;sample name&gt;</span><span class="w">     </span><span class="c1"># Enter the sample name</span>
+<span class="w">          </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span>
+<span class="w">        </span><span class="nt">spec_scans</span><span class="p">:</span><span class="w">         </span><span class="c1"># Edit both SPEC log file path and EDD scan numbers</span>
+<span class="w">                            </span><span class="c1"># Path can be relative to inputdir or absolute</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">spec_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_raw_data_directory&gt;/spec.log</span>
+<span class="w">            </span><span class="nt">scan_numbers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1-4</span>
+<span class="w">        </span><span class="nt">scalar_data</span><span class="p">:</span><span class="w">        </span><span class="c1"># Add or modify as appropriate</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCAN_N</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SCAN_N</span><span class="w">      </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">independent_dimensions</span><span class="p">:</span>
+<span class="w">                            </span><span class="c1"># Add or modify as appropriate</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labx</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labx</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">laby</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">laby</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labz</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mm</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">smb_par</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labz</span><span class="w">        </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">presample_intensity</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">presample_intensity</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">counts</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">a3ic1</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">dwell_time_actual</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dwell_time_actual</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">s</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sec</span><span class="w">         </span><span class="c1"># Change as needed</span>
+<span class="w">        </span><span class="nt">postsample_intensity</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postsample_intensity</span>
+<span class="w">          </span><span class="nt">units</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">counts</span>
+<span class="w">          </span><span class="nt">data_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scan_column</span>
+<span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">diode</span><span class="w">       </span><span class="c1"># Change as needed</span>
+<span class="w">      </span><span class="nt">detector_config</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">detectors</span><span class="p">:</span><span class="w">          </span><span class="c1"># Use available detector elements when omitted</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">11</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">common.NexusWriter</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map.nxs</span><span class="w">     </span><span class="c1"># NeXus map output filename</span>
+<span class="w">      </span><span class="nt">force_overwrite</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="additional-notes-on-energy-calibration">
 <h2>Additional notes on energy calibration<a class="headerlink" href="#additional-notes-on-energy-calibration" title="Link to this heading"></a></h2>
